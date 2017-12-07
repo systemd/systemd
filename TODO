@@ -33,8 +33,7 @@ Features:
   systemd-journald writes to /var/log/journal, which could be useful when we
   doing disk usage calculations and so on.
 
-* taint systemd if the overflowuid/overflowgid is not 65534, and if there are
-  fewer than 65536 users assigned to the system.
+* taint systemd if there are fewer than 65536 users assigned to the system.
 
 * deprecate PermissionsStartOnly= and RootDirectoryStartOnly= in favour of the ExecStart= prefix chars
 
@@ -48,8 +47,6 @@ Features:
 
 * support projid-based quota in machinectl for containers, and then drop
   implicit btrfs loopback magic in machined
-
-* let's log the "tainted" string at boot
 
 * Add NetworkNamespacePath= to specify a path to a network namespace
 
@@ -116,9 +113,6 @@ Features:
 
 * expose IO accounting data on the bus, show it in systemd-run --wait and log
   about it in the resource log message
-
-* rework unbase64 code to drop whitespace automatically, so that we don't have
-  to drop it first.
 
 * add "systemctl purge" for flushing out configuration, state, logs, ... of a
   unit when it is stopped
@@ -195,8 +189,6 @@ Features:
 * gpt-auto logic: related to the above, maybe support a "secondary" root
   partition, that is mounted to / and is writable, and where the actual root's
   /usr is mounted into.
-
-* .mount and .swap units: add Format=yes|no option that formats the partition before mounting/enabling it, implicitly
 
 * gpt-auto logic: support encrypted swap, add kernel cmdline option to force it, and honour a gpt bit about it, plus maybe a configuration file
 
@@ -412,8 +404,6 @@ Features:
 * a way for container managers to turn off getty starting via $container_headless= or so...
 
 * figure out a nice way how we can let the admin know what child/sibling unit causes cgroup membership for a specific unit
-
-* mount_cgroup_controllers(): symlinks need to get the label applied
 
 * For timer units: add some mechanisms so that timer units that trigger immediately on boot do not have the services
   they run added to the initial transaction and thus confuse Type=idle.
@@ -728,7 +718,6 @@ Features:
     https://github.com/systemd/systemd/pull/272#issuecomment-113153176
   - should optionally support receiving WATCHDOG=1 messages from its payload
     PID 1...
-  - should send out sd_notify("WATCHDOG=1") messages
   - optionally automatically add FORWARD rules to iptables whenever nspawn is
     running, remove them when shut down.
   - maybe make copying of /etc/resolv.conf optional, and skip it if --read-only

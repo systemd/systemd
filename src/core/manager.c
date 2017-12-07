@@ -48,6 +48,7 @@
 #include "bus-kernel.h"
 #include "bus-util.h"
 #include "clean-ipc.h"
+#include "clock-util.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
@@ -3864,6 +3865,60 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
 
         unit_notify_user_lookup(u, buffer.uid, buffer.gid);
         return 0;
+}
+
+char *manager_taint_string(Manager *m) {
+        _cleanup_free_ char *destination = NULL, *overflowuid = NULL, *overflowgid = NULL;
+        char *buf, *e;
+        int r;
+
+        assert(m);
+
+        buf = new(char, sizeof("split-usr:"
+                               "cgroups-missing:"
+                               "local-hwclock:"
+                               "var-run-bad:"
+                               "weird-nobody-user:"
+                               "weird-nobody-group:"
+                               "overflowuid-not-65534:"
+                               "overflowgid-not-65534:"));
+        if (!buf)
+                return NULL;
+
+        e = buf;
+
+        if (m->taint_usr)
+                e = stpcpy(e, "split-usr:");
+
+        if (access("/proc/cgroups", F_OK) < 0)
+                e = stpcpy(e, "cgroups-missing:");
+
+        if (clock_is_localtime(NULL) > 0)
+                e = stpcpy(e, "local-hwclock:");
+
+        r = readlink_malloc("/var/run", &destination);
+        if (r < 0 || !PATH_IN_SET(destination, "../run", "/run"))
+                e = stpcpy(e, "var-run-bad:");
+
+        if (!streq(NOBODY_USER_NAME, "nobody"))
+                e = stpcpy(e, "weird-nobody-user:");
+
+        if (!streq(NOBODY_GROUP_NAME, "nobody"))
+                e = stpcpy(e, "weird-nobody-group:");
+
+        r = read_one_line_file("/proc/sys/kernel/overflowuid", &overflowuid);
+        if (r >= 0 && !streq(overflowuid, "65534"))
+                e = stpcpy(e, "overflowuid-not-65534:");
+
+        r = read_one_line_file("/proc/sys/kernel/overflowgid", &overflowgid);
+        if (r >= 0 && !streq(overflowgid, "65534"))
+                e = stpcpy(e, "overflowgid-not-65534:");
+
+        /* remove the last ':' */
+        if (e != buf)
+                e[-1] = 0;
+
+        return buf;
 }
 
 static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
