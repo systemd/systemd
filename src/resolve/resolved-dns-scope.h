@@ -119,3 +119,7 @@ bool dns_scope_network_good(DnsScope *s);
 int dns_scope_ifindex(DnsScope *s);
 
 int dns_scope_announce(DnsScope *scope, bool goodbye);
+
+int dns_scope_add_dnssd_services(DnsScope *scope);
+
+int dns_scope_remove_dnssd_services(DnsScope *scope);

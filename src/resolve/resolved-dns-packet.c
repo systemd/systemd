@@ -1698,16 +1698,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
         case DNS_TYPE_SPF: /* exactly the same as TXT */
         case DNS_TYPE_TXT:
                 if (rdlength <= 0) {
-                        DnsTxtItem *i;
-                        /* RFC 6763, section 6.1 suggests to treat
-                         * empty TXT RRs as equivalent to a TXT record
-                         * with a single empty string. */
-
-                        i = malloc0(offsetof(DnsTxtItem, data) + 1); /* for safety reasons we add an extra NUL byte */
-                        if (!i)
-                                return -ENOMEM;
-
-                        rr->txt.items = i;
+                        r = dns_txt_item_new_empty(&rr->txt.items);
+                        if (r < 0)
+                                return r;
                 } else {
                         DnsTxtItem *last = NULL;
 

@@ -67,7 +67,9 @@ struct DnsZoneItem {
 void dns_zone_flush(DnsZone *z);
 
 int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe);
+DnsZoneItem* dns_zone_get(DnsZone *z, DnsResourceRecord *rr);
 void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr);
+int dns_zone_remove_rrs_by_key(DnsZone *z, DnsResourceKey *key);
 
 int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **answer, DnsAnswer **soa, bool *tentative);
 
@@ -83,3 +85,4 @@ void dns_zone_item_probe_stop(DnsZoneItem *i);
 
 void dns_zone_dump(DnsZone *zone, FILE *f);
 bool dns_zone_is_empty(DnsZone *zone);
+bool dns_zone_contains_name(DnsZone *z, const char *name);

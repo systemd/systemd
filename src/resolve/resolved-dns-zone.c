@@ -23,6 +23,7 @@
 #include "list.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-zone.h"
+#include "resolved-dnssd.h"
 #include "string-util.h"
 
 /* Never allow more than 1K entries */
@@ -95,7 +96,7 @@ void dns_zone_flush(DnsZone *z) {
         z->by_name = hashmap_free(z->by_name);
 }
 
-static DnsZoneItem* dns_zone_get(DnsZone *z, DnsResourceRecord *rr) {
+DnsZoneItem* dns_zone_get(DnsZone *z, DnsResourceRecord *rr) {
         DnsZoneItem *i;
 
         assert(z);
@@ -117,6 +118,22 @@ void dns_zone_remove_rr(DnsZone *z, DnsResourceRecord *rr) {
         i = dns_zone_get(z, rr);
         if (i)
                 dns_zone_item_remove_and_free(z, i);
+}
+
+int dns_zone_remove_rrs_by_key(DnsZone *z, DnsResourceKey *key) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
+        DnsResourceRecord *rr;
+        bool tentative;
+        int r;
+
+        r = dns_zone_lookup(z, key, 0, &answer, &soa, &tentative);
+        if (r < 0)
+                return r;
+
+        DNS_ANSWER_FOREACH(rr, answer)
+                dns_zone_remove_rr(z, rr);
+
+        return 0;
 }
 
 static int dns_zone_init(DnsZone *z) {
@@ -289,6 +306,24 @@ int dns_zone_put(DnsZone *z, DnsScope *s, DnsResourceRecord *rr, bool probe) {
         return 0;
 }
 
+static int dns_zone_add_authenticated_answer(DnsAnswer *a, DnsZoneItem *i, int ifindex) {
+        DnsAnswerFlags flags;
+
+        /* From RFC 6762, Section 10.2
+         * "They (the rules about when to set the cache-flush bit) apply to
+         * startup announcements as described in Section 8.3, "Announcing",
+         * and to responses generated as a result of receiving query messages."
+         * So, set the cache-flush bit for mDNS answers except for DNS-SD
+         * service enumeration PTRs described in RFC 6763, Section 4.1. */
+        if (i->scope->protocol == DNS_PROTOCOL_MDNS &&
+            !dns_resource_key_is_dnssd_ptr(i->rr->key))
+                flags = DNS_ANSWER_AUTHENTICATED|DNS_ANSWER_CACHE_FLUSH;
+        else
+                flags = DNS_ANSWER_AUTHENTICATED;
+
+        return dns_answer_add(a, i->rr, ifindex, flags);
+}
+
 int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **ret_answer, DnsAnswer **ret_soa, bool *ret_tentative) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL, *soa = NULL;
         unsigned n_answer = 0;
@@ -394,7 +429,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
                         if (k < 0)
                                 return k;
                         if (k > 0) {
-                                r = dns_answer_add(answer, j->rr, ifindex, DNS_ANSWER_AUTHENTICATED);
+                                r = dns_zone_add_authenticated_answer(answer, j, ifindex);
                                 if (r < 0)
                                         return r;
 
@@ -420,7 +455,7 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
                         if (j->state != DNS_ZONE_ITEM_PROBING)
                                 tentative = false;
 
-                        r = dns_answer_add(answer, j->rr, ifindex, DNS_ANSWER_AUTHENTICATED);
+                        r = dns_zone_add_authenticated_answer(answer, j, ifindex);
                         if (r < 0)
                                 return r;
                 }
@@ -491,6 +526,8 @@ void dns_zone_item_conflict(DnsZoneItem *i) {
         /* Withdraw the conflict item */
         i->state = DNS_ZONE_ITEM_WITHDRAWN;
 
+        dnssd_signal_conflict(i->scope->manager, dns_resource_key_name(i->rr->key));
+
         /* Maybe change the hostname */
         if (manager_is_own_hostname(i->scope->manager, dns_resource_key_name(i->rr->key)) > 0)
                 manager_next_hostname(i->scope->manager);
@@ -510,7 +547,9 @@ void dns_zone_item_notify(DnsZoneItem *i) {
                 bool we_lost = false;
 
                 /* The probe got a successful reply. If we so far
-                 * weren't established we just give up. If we already
+                 * weren't established we just give up.
+                 *
+                 * In LLMNR case if we already
                  * were established, and the peer has the
                  * lexicographically larger IP address we continue
                  * and defend it. */
@@ -518,7 +557,7 @@ void dns_zone_item_notify(DnsZoneItem *i) {
                 if (!IN_SET(i->state, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING)) {
                         log_debug("Got a successful probe for not yet established RR, we lost.");
                         we_lost = true;
-                } else {
+                } else if (i->probe_transaction->scope->protocol == DNS_PROTOCOL_LLMNR) {
                         assert(i->probe_transaction->received);
                         we_lost = memcmp(&i->probe_transaction->received->sender, &i->probe_transaction->received->destination, FAMILY_ADDRESS_SIZE(i->probe_transaction->received->family)) < 0;
                         if (we_lost)
@@ -578,6 +617,10 @@ int dns_zone_check_conflicts(DnsZone *zone, DnsResourceRecord *rr) {
 
         /* No conflict if we have the exact same RR */
         if (dns_zone_get(zone, rr))
+                return 0;
+
+        /* No conflict if it is DNS-SD RR used for service enumeration. */
+        if (dns_resource_key_is_dnssd_ptr(rr->key))
                 return 0;
 
         /* OK, somebody else has RRs for the same name. Yuck! Let's
@@ -663,4 +706,21 @@ bool dns_zone_is_empty(DnsZone *zone) {
                 return true;
 
         return hashmap_isempty(zone->by_key);
+}
+
+bool dns_zone_contains_name(DnsZone *z, const char *name) {
+        DnsZoneItem *i, *first;
+
+        first = hashmap_get(z->by_name, name);
+        if (!first)
+                return false;
+
+        LIST_FOREACH(by_name, i, first) {
+                if (!IN_SET(i->state, DNS_ZONE_ITEM_PROBING, DNS_ZONE_ITEM_ESTABLISHED, DNS_ZONE_ITEM_VERIFYING))
+                        continue;
+
+                return true;
+        }
+
+        return false;
 }

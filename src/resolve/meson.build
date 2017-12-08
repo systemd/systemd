@@ -35,6 +35,10 @@ systemd_resolved_only_sources = files('''
         resolved.c
         resolved-manager.c
         resolved-manager.h
+        resolved-dnssd.c
+        resolved-dnssd.h
+        resolved-dnssd-bus.c
+        resolved-dnssd-bus.h
         resolved-conf.c
         resolved-conf.h
         resolved-resolv-conf.c
@@ -131,8 +135,14 @@ resolved_gperf_c = custom_target(
         output : 'resolved-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
+resolved_dnssd_gperf_c = custom_target(
+        'resolved_dnssd_gperf.c',
+        input : 'resolved-dnssd-gperf.gperf',
+        output : 'resolved-dnssd-gperf.c',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
 systemd_resolved_sources = (basic_dns_sources +
-                            [resolved_gperf_c] +
+                            [resolved_gperf_c, resolved_dnssd_gperf_c] +
                             systemd_resolved_only_sources +
                             dns_type_headers)
 
@@ -155,6 +165,15 @@ if conf.get('ENABLE_RESOLVE') == 1
 
         install_data('resolv.conf',
                      install_dir : rootlibexecdir)
+
+        i18n.merge_file(
+                'org.freedesktop.resolve1.policy',
+                input : 'org.freedesktop.resolve1.policy.in',
+                output : 'org.freedesktop.resolve1.policy',
+                po_dir : po_dir,
+                data_dirs : po_dir,
+                install : install_polkit,
+                install_dir : polkitpolicydir)
 endif
 
 tests += [

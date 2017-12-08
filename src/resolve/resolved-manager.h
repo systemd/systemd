@@ -102,6 +102,9 @@ struct Manager {
         int mdns_ipv4_fd;
         int mdns_ipv6_fd;
 
+        /* DNS-SD */
+        Hashmap *dnssd_services;
+
         sd_event_source *mdns_ipv4_event_source;
         sd_event_source *mdns_ipv6_event_source;
 
@@ -143,6 +146,8 @@ struct Manager {
 
         sd_event_source *dns_stub_udp_event_source;
         sd_event_source *dns_stub_tcp_event_source;
+
+        Hashmap *polkit_registry;
 };
 
 /* Manager */
@@ -189,3 +194,5 @@ void manager_flush_caches(Manager *m);
 void manager_reset_server_features(Manager *m);
 
 void manager_cleanup_saved_user(Manager *m);
+
+bool manager_next_dnssd_names(Manager *m);

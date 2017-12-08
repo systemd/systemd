@@ -1,0 +1,24 @@
+%{
+#include <stddef.h>
+#include "conf-parser.h"
+#include "resolved-conf.h"
+#include "resolved-dnssd.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name resolved_dnssd_gperf_hash
+%define lookup-function-name resolved_dnssd_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Service.Name,     config_parse_dnssd_service_name, 0,                 0
+Service.Type,     config_parse_dnssd_service_type, 0,                 0
+Service.Port,     config_parse_ip_port,            0,                 offsetof(DnssdService, port)
+Service.Priority, config_parse_uint16,             0,                 offsetof(DnssdService, priority)
+Service.Weight,   config_parse_uint16,             0,                 offsetof(DnssdService, weight)
+Service.TxtText,  config_parse_dnssd_txt,          DNS_TXT_ITEM_TEXT, 0
+Service.TxtData,  config_parse_dnssd_txt,          DNS_TXT_ITEM_DATA, 0

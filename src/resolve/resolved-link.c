@@ -191,9 +191,41 @@ void link_allocate_scopes(Link *l) {
 
 void link_add_rrs(Link *l, bool force_remove) {
         LinkAddress *a;
+        int r;
 
         LIST_FOREACH(addresses, a, l->addresses)
                 link_address_add_rrs(a, force_remove);
+
+        if (!force_remove &&
+            l->mdns_support == RESOLVE_SUPPORT_YES &&
+            l->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+
+                if (l->mdns_ipv4_scope) {
+                        r = dns_scope_add_dnssd_services(l->mdns_ipv4_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add IPv4 DNS-SD services: %m");
+                }
+
+                if (l->mdns_ipv6_scope) {
+                        r = dns_scope_add_dnssd_services(l->mdns_ipv6_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add IPv6 DNS-SD services: %m");
+                }
+
+        } else {
+
+                if (l->mdns_ipv4_scope) {
+                        r = dns_scope_remove_dnssd_services(l->mdns_ipv4_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to remove IPv4 DNS-SD services: %m");
+                }
+
+                if (l->mdns_ipv6_scope) {
+                        r = dns_scope_remove_dnssd_services(l->mdns_ipv6_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to remove IPv6 DNS-SD services: %m");
+                }
+        }
 }
 
 int link_process_rtnl(Link *l, sd_netlink_message *m) {
