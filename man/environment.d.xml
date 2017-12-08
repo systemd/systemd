@@ -92,7 +92,7 @@
     <literal>${<replaceable>FOO</replaceable>}</literal> would have expanded to a non-empty value.
     No other elements of shell syntax are supported.</para>
 
-    <para>Each<replaceable>KEY</replaceable> must be a valid variable name. Empty lines
+    <para>Each <replaceable>KEY</replaceable> must be a valid variable name. Empty lines
     and lines beginning with the comment character <literal>#</literal> are ignored.</para>
 
     <refsect2>
