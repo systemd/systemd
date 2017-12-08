@@ -40,7 +40,7 @@ int whitelisted_char_for_devnode(char c, const char *white) {
 int encode_devnode_name(const char *str, char *str_enc, size_t len) {
         size_t i, j;
 
-        if (str == NULL || str_enc == NULL)
+        if (!str || !str_enc)
                 return -EINVAL;
 
         for (i = 0, j = 0; str[i] != '\0'; i++) {

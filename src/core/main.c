@@ -1479,7 +1479,7 @@ static int become_shutdown(
         int r;
 
         assert(shutdown_verb);
-        assert(command_line[pos] == NULL);
+        assert(!command_line[pos]);
         env_block = strv_copy(environ);
 
         xsprintf(log_level, "%d", log_get_max_level());

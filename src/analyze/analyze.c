@@ -416,7 +416,7 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                         continue;
 
                 t->name = strdup(u.id);
-                if (t->name == NULL) {
+                if (!t->name) {
                         r = log_oom();
                         goto fail;
                 }
@@ -820,7 +820,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
         assert(deps);
 
         path = unit_dbus_path_from_name(name);
-        if (path == NULL)
+        if (!path)
                 return -ENOMEM;
 
         return bus_get_unit_property_strv(bus, path, "After", deps);
@@ -878,7 +878,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
                 }
         }
 
-        if (service_longest == 0 )
+        if (service_longest == 0)
                 return r;
 
         STRV_FOREACH(c, deps) {
@@ -937,7 +937,7 @@ static int list_dependencies(sd_bus *bus, const char *name) {
         assert(bus);
 
         path = unit_dbus_path_from_name(name);
-        if (path == NULL)
+        if (!path)
                 return -ENOMEM;
 
         r = sd_bus_get_property(

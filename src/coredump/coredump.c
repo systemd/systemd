@@ -559,7 +559,7 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
                         continue;
 
                 fdinfo = fdopen(fd, "re");
-                if (fdinfo == NULL) {
+                if (!fdinfo) {
                         close(fd);
                         continue;
                 }

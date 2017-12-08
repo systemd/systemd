@@ -893,7 +893,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
         if (last_space != NULL && timezone_is_valid(last_space + 1))
                 tz = last_space + 1;
 
-        if (tz == NULL || endswith_no_case(t, " UTC"))
+        if (!tz || endswith_no_case(t, " UTC"))
                 return parse_timestamp_impl(t, usec, false);
 
         shared = mmap(NULL, sizeof *shared, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);

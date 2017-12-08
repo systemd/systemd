@@ -3854,7 +3854,7 @@ int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
                                 p = strv_env_clean_with_callback(p, invalid_env, &info);
                         }
 
-                        if (r == NULL)
+                        if (!r)
                                 r = p;
                         else {
                                 char **m;
