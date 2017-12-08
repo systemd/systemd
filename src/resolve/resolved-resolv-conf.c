@@ -32,9 +32,29 @@
 #include "string-util.h"
 #include "strv.h"
 
+static bool file_is_our_own(const struct stat *st) {
+        struct stat own1, own2;
+
+        assert(st);
+
+        /* Is it symlinked to our own file? */
+        if (stat(PRIVATE_UPLINK_RESOLV_CONF, &own1) >= 0 &&
+            st->st_dev == own1.st_dev &&
+            st->st_ino == own1.st_ino)
+                return true;
+
+        /* Is it symlinked to our own stub file? */
+        if (stat(PRIVATE_STUB_RESOLV_CONF, &own2) >= 0 &&
+            st->st_dev == own2.st_dev &&
+            st->st_ino == own2.st_ino)
+                return true;
+
+        return false;
+}
+
 int manager_read_resolv_conf(Manager *m) {
         _cleanup_fclose_ FILE *f = NULL;
-        struct stat st, own;
+        struct stat st;
         char line[LINE_MAX];
         usec_t t;
         int r;
@@ -61,16 +81,7 @@ int manager_read_resolv_conf(Manager *m) {
         if (t == m->resolv_conf_mtime)
                 return 0;
 
-        /* Is it symlinked to our own file? */
-        if (stat(PRIVATE_UPLINK_RESOLV_CONF, &own) >= 0 &&
-            st.st_dev == own.st_dev &&
-            st.st_ino == own.st_ino)
-                return 0;
-
-        /* Is it symlinked to our own stub file? */
-        if (stat(PRIVATE_STUB_RESOLV_CONF, &own) >= 0 &&
-            st.st_dev == own.st_dev &&
-            st.st_ino == own.st_ino)
+        if (file_is_our_own(&st))
                 return 0;
 
         f = fopen("/etc/resolv.conf", "re");
@@ -86,6 +97,9 @@ int manager_read_resolv_conf(Manager *m) {
                 r = log_error_errno(errno, "Failed to stat open file: %m");
                 goto clear;
         }
+
+        if (file_is_our_own(&st))
+                return 0;
 
         dns_server_mark_all(m->dns_servers);
         dns_search_domain_mark_all(m->search_domains);
