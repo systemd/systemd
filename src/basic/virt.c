@@ -227,11 +227,31 @@ static int detect_vm_xen(void) {
         return VIRTUALIZATION_XEN;
 }
 
+#define XENFEAT_dom0 11 /* xen/include/public/features.h */
+#define PATH_FEATURES "/sys/hypervisor/properties/features"
 /* Returns -errno, or 0 for domU, or 1 for dom0 */
 static int detect_vm_xen_dom0(void) {
         _cleanup_free_ char *domcap = NULL;
         char *cap, *i;
         int r;
+
+        r = read_one_line_file(PATH_FEATURES, &domcap);
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r == 0) {
+                unsigned long features;
+
+                r = safe_atolu(domcap, &features);
+                if (r == 0) {
+                        r = !!(features & (1U << XENFEAT_dom0));
+                        log_debug("Virtualization XEN, found %s with value %08lx, "
+                                  "XENFEAT_dom0 (indicating the 'hardware domain') is%s set.",
+                                  PATH_FEATURES, features, r ? "" : " not");
+                        return r;
+                }
+                log_debug("Virtualization XEN, found %s, unhandled content '%s'",
+                          PATH_FEATURES, domcap);
+        }
 
         r = read_one_line_file("/proc/xen/capabilities", &domcap);
         if (r == -ENOENT) {
