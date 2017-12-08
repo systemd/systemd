@@ -92,6 +92,11 @@ static int radv_set_dns(Link *link, Link *uplink) {
                 goto set_dns;
 
         if (uplink) {
+                if (uplink->network == NULL) {
+                        log_link_debug(uplink, "Cannot fetch DNS servers as uplink interface is not managed by us");
+                        return 0;
+                }
+
                 r = radv_get_ip6dns(uplink->network, &dns, &n_dns);
                 if (r > 0)
                         goto set_dns;
@@ -125,6 +130,11 @@ static int radv_set_domains(Link *link, Link *uplink) {
                 goto set_domains;
 
         if (uplink) {
+                if (uplink->network == NULL) {
+                        log_link_debug(uplink, "Cannot fetch DNS search domains as uplink interface is not managed by us");
+                        return 0;
+                }
+
                 search_domains = uplink->network->search_domains;
                 if (search_domains)
                         goto set_domains;
