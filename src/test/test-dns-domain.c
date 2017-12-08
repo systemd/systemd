@@ -230,7 +230,7 @@ static void test_dns_name_between_one(const char *a, const char *b, const char *
 
         r = dns_name_between(c, b, a);
         if (ret >= 0)
-                assert_se(r == 0);
+                assert_se(r == 0 || dns_name_equal(a, c) > 0);
         else
                 assert_se(r == ret);
 }
@@ -249,7 +249,8 @@ static void test_dns_name_between(void) {
         test_dns_name_between_one("*.z.example", "\\200.z.example", "example", true);
         test_dns_name_between_one("\\200.z.example", "example", "a.example", true);
 
-        test_dns_name_between_one("example", "a.example", "example", -EINVAL);
+        test_dns_name_between_one("example", "a.example", "example", true);
+        test_dns_name_between_one("example", "example", "example", false);
         test_dns_name_between_one("example", "example", "yljkjljk.a.example", false);
         test_dns_name_between_one("example", "yljkjljk.a.example", "yljkjljk.a.example", false);
 }
