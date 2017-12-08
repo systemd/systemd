@@ -56,7 +56,6 @@ int manager_read_resolv_conf(Manager *m) {
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
         char line[LINE_MAX];
-        usec_t t;
         int r;
 
         assert(m);
@@ -77,8 +76,7 @@ int manager_read_resolv_conf(Manager *m) {
         }
 
         /* Have we already seen the file? */
-        t = timespec_load(&st.st_mtim);
-        if (t == m->resolv_conf_mtime)
+        if (timespec_load(&st.st_mtim) == m->resolv_conf_mtime)
                 return 0;
 
         if (file_is_our_own(&st))
@@ -131,7 +129,7 @@ int manager_read_resolv_conf(Manager *m) {
                 }
         }
 
-        m->resolv_conf_mtime = t;
+        m->resolv_conf_mtime = timespec_load(&st.st_mtim);
 
         /* Flush out all servers and search domains that are still
          * marked. Those are then ones that didn't appear in the new
