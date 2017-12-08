@@ -32,6 +32,9 @@
 #include "string-util.h"
 #include "strv.h"
 
+#define PRIVATE_UPLINK_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
+#define PRIVATE_STUB_RESOLV_CONF "/run/systemd/resolve/stub-resolv.conf"
+
 static bool file_is_our_own(const struct stat *st) {
         struct stat own1, own2;
 
