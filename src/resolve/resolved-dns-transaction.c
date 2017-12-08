@@ -1362,7 +1362,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 /* Before trying the cache, let's make sure we figured out a
                  * server to use. Should this cause a change of server this
                  * might flush the cache. */
-                dns_scope_get_dns_server(t->scope);
+                (void) dns_scope_get_dns_server(t->scope);
 
                 /* Let's then prune all outdated entries */
                 dns_cache_prune(&t->scope->cache);
