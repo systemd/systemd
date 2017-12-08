@@ -109,6 +109,8 @@ struct DnsTransaction {
         sd_event_source *timeout_event_source;
         unsigned n_attempts;
 
+        unsigned n_picked_servers;
+
         /* UDP connection logic, if we need it */
         int dns_udp_fd;
         sd_event_source *dns_udp_event_source;

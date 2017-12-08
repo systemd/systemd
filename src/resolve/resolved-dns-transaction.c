@@ -408,6 +408,8 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
         dns_server_unref(t->server);
         t->server = dns_server_ref(server);
 
+        t->n_picked_servers ++;
+
         log_debug("Using DNS server %s for transaction %u.", dns_server_string(t->server), t->id);
 
         return 1;
@@ -913,12 +915,21 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         /* Request failed, immediately try again with reduced features */
 
                         if (t->current_feature_level <= DNS_SERVER_FEATURE_LEVEL_UDP) {
+
                                 /* This was already at UDP feature level? If so, it doesn't make sense to downgrade
-                                 * this transaction anymore, hence let's process the response, and accept the
+                                 * this transaction anymore, but let's see if it might make sense to send the request
+                                 * to a different DNS server instead. If not let's process the response, and accept the
                                  * rcode. Note that we don't retry on TCP, since that's a suitable way to mitigate
                                  * packet loss, but is not going to give us better rcodes should we actually have
                                  * managed to get them already at UDP level. */
 
+                                if (t->n_picked_servers < dns_scope_get_n_dns_servers(t->scope)) {
+                                        /* We tried fewer servers on this transaction than we know, let's try another one then */
+                                        dns_transaction_retry(t, true);
+                                        return;
+                                }
+
+                                /* Give up, accept the rcode */
                                 log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
                                 break;
                         }
