@@ -32,25 +32,33 @@
 #include "string-util.h"
 #include "strv.h"
 
+/* A resolv.conf file containing the DNS server and domain data we learnt from uplink, i.e. the full uplink data */
 #define PRIVATE_UPLINK_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
+
+/* A resolv.conf file containing the domain data we learnt from uplink, but our own DNS server address. */
 #define PRIVATE_STUB_RESOLV_CONF "/run/systemd/resolve/stub-resolv.conf"
 
+/* A static resolv.conf file containing no domains, but only our own DNS sever address */
+#define PRIVATE_STATIC_RESOLV_CONF ROOTLIBEXECDIR "/resolv.conf"
+
 static bool file_is_our_own(const struct stat *st) {
-        struct stat own1, own2;
+        const char *path;
 
         assert(st);
 
-        /* Is it symlinked to our own file? */
-        if (stat(PRIVATE_UPLINK_RESOLV_CONF, &own1) >= 0 &&
-            st->st_dev == own1.st_dev &&
-            st->st_ino == own1.st_ino)
-                return true;
+        FOREACH_STRING(path,
+                       PRIVATE_UPLINK_RESOLV_CONF,
+                       PRIVATE_STUB_RESOLV_CONF,
+                       PRIVATE_STATIC_RESOLV_CONF) {
 
-        /* Is it symlinked to our own stub file? */
-        if (stat(PRIVATE_STUB_RESOLV_CONF, &own2) >= 0 &&
-            st->st_dev == own2.st_dev &&
-            st->st_ino == own2.st_ino)
-                return true;
+                struct stat own;
+
+                /* Is it symlinked to our own uplink file? */
+                if (stat(path, &own) >= 0 &&
+                    st->st_dev == own.st_dev &&
+                    st->st_ino == own.st_ino)
+                        return true;
+        }
 
         return false;
 }
