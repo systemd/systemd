@@ -403,7 +403,6 @@ int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *add
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {
         DnsSearchDomain *d;
-        DnsServer *dns_server;
 
         assert(s);
         assert(domain);
@@ -436,24 +435,27 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
         if (dns_name_endswith(domain, "invalid") > 0)
                 return DNS_SCOPE_NO;
 
-        /* Always honour search domains for routing queries. Note that
-         * we return DNS_SCOPE_YES here, rather than just
-         * DNS_SCOPE_MAYBE, which means wildcard scopes won't be
-         * considered anymore. */
-        LIST_FOREACH(domains, d, dns_scope_get_search_domains(s))
-                if (dns_name_endswith(domain, d->name) > 0)
-                        return DNS_SCOPE_YES;
-
-        /* If the DNS server has route-only domains, don't send other requests
-         * to it. This would be a privacy violation, will most probably fail
-         * anyway, and adds unnecessary load. */
-        dns_server = dns_scope_get_dns_server(s);
-        if (dns_server && dns_server_limited_domains(dns_server))
-                return DNS_SCOPE_NO;
-
         switch (s->protocol) {
 
-        case DNS_PROTOCOL_DNS:
+        case DNS_PROTOCOL_DNS: {
+                DnsServer *dns_server;
+
+                /* Never route things to scopes that lack DNS servers */
+                dns_server = dns_scope_get_dns_server(s);
+                if (!dns_server)
+                        return DNS_SCOPE_NO;
+
+                /* Always honour search domains for routing queries, except if this scope lacks DNS servers. Note that
+                 * we return DNS_SCOPE_YES here, rather than just DNS_SCOPE_MAYBE, which means other wildcard scopes
+                 * won't be considered anymore. */
+                LIST_FOREACH(domains, d, dns_scope_get_search_domains(s))
+                        if (dns_name_endswith(domain, d->name) > 0)
+                                return DNS_SCOPE_YES;
+
+                /* If the DNS server has route-only domains, don't send other requests to it. This would be a privacy
+                 * violation, will most probably fail anyway, and adds unnecessary load. */
+                if (dns_server_limited_domains(dns_server))
+                        return DNS_SCOPE_NO;
 
                 /* Exclude link-local IP ranges */
                 if (dns_name_endswith(domain, "254.169.in-addr.arpa") == 0 &&
@@ -468,6 +470,7 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
                         return DNS_SCOPE_MAYBE;
 
                 return DNS_SCOPE_NO;
+        }
 
         case DNS_PROTOCOL_MDNS:
                 if ((s->family == AF_INET && dns_name_endswith(domain, "in-addr.arpa") > 0) ||
