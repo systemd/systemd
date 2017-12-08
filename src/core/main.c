@@ -120,6 +120,7 @@ static usec_t arg_default_start_limit_interval = DEFAULT_START_LIMIT_INTERVAL;
 static unsigned arg_default_start_limit_burst = DEFAULT_START_LIMIT_BURST;
 static usec_t arg_runtime_watchdog = 0;
 static usec_t arg_shutdown_watchdog = 10 * USEC_PER_MINUTE;
+static char *arg_watchdog_device = NULL;
 static char **arg_default_environment = NULL;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX] = {};
 static uint64_t arg_capability_bounding_set = CAP_ALL;
@@ -461,6 +462,13 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (arg_default_timeout_start_usec <= 0)
                         arg_default_timeout_start_usec = USEC_INFINITY;
 
+        } else if (proc_cmdline_key_streq(key, "systemd.watchdog_device")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                parse_path_argument_and_warn(value, false, &arg_watchdog_device);
+
         } else if (streq(key, "quiet") && !value) {
 
                 if (arg_show_status == _SHOW_STATUS_UNSET)
@@ -751,6 +759,7 @@ static int parse_config_file(void) {
                 { "Manager", "JoinControllers",           config_parse_join_controllers, 0, &arg_join_controllers                  },
                 { "Manager", "RuntimeWatchdogSec",        config_parse_sec,              0, &arg_runtime_watchdog                  },
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
+                { "Manager", "WatchdogDevice",            config_parse_path,             0, &arg_watchdog_device                   },
                 { "Manager", "CapabilityBoundingSet",     config_parse_capability_set,   0, &arg_capability_bounding_set           },
 #if HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",   config_parse_syscall_archs,    0, &arg_syscall_archs                     },
@@ -1521,7 +1530,11 @@ static int become_shutdown(
 
                 /* Tell the binary how often to ping, ignore failure */
                 if (asprintf(&e, "WATCHDOG_USEC="USEC_FMT, arg_shutdown_watchdog) > 0)
-                        (void) strv_push(&env_block, e);
+                        (void) strv_consume(&env_block, e);
+
+                if (arg_watchdog_device &&
+                    asprintf(&e, "WATCHDOG_DEVICE=%s", arg_watchdog_device) > 0)
+                        (void) strv_consume(&env_block, e);
         } else
                 watchdog_close(true);
 
@@ -1912,6 +1925,13 @@ static int initialize_runtime(
                 bump_unix_max_dgram_qlen();
                 test_usr();
                 write_container_id();
+        }
+
+        if (arg_system && arg_watchdog_device) {
+                r = watchdog_set_device(arg_watchdog_device);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m",
+                                          arg_watchdog_device);
         }
 
         if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
@@ -2450,8 +2470,13 @@ finish:
          * here explicitly. valgrind will only generate nice output on
          * exit(), not on exec(), hence let's do the former not the
          * latter here. */
-        if (getpid_cached() == 1 && RUNNING_ON_VALGRIND)
+        if (getpid_cached() == 1 && RUNNING_ON_VALGRIND) {
+                /* Cleanup watchdog_device strings for valgrind. We need them
+                 * in become_shutdown() so normally we cannot free them yet. */
+                watchdog_free_device();
+                arg_watchdog_device = mfree(arg_watchdog_device);
                 return 0;
+        }
 #endif
 
         if (shutdown_verb) {
@@ -2460,6 +2485,9 @@ finish:
                 log_error_errno(r, "Failed to execute shutdown binary, %s: %m", getpid_cached() == 1 ? "freezing" : "quitting");
                 error_message = "Failed to execute shutdown binary";
         }
+
+        watchdog_free_device();
+        arg_watchdog_device = mfree(arg_watchdog_device);
 
         if (getpid_cached() == 1) {
                 if (error_message)

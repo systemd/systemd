@@ -167,6 +167,7 @@ int main(int argc, char *argv[]) {
         unsigned retries;
         int cmd, r;
         static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
+        char *watchdog_device;
 
         log_parse_environment();
         r = parse_argv(argc, argv);
@@ -207,6 +208,13 @@ int main(int argc, char *argv[]) {
         in_container = detect_container() > 0;
 
         use_watchdog = !!getenv("WATCHDOG_USEC");
+        watchdog_device = getenv("WATCHDOG_DEVICE");
+        if (watchdog_device) {
+                r = watchdog_set_device(watchdog_device);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m",
+                                          watchdog_device);
+        }
 
         /* Lock us into memory */
         mlockall(MCL_CURRENT|MCL_FUTURE);
@@ -319,6 +327,9 @@ int main(int argc, char *argv[]) {
         log_error("Too many iterations, giving up.");
 
  initrd_jump:
+
+        /* We're done with the watchdog. */
+        watchdog_free_device();
 
         arguments[0] = NULL;
         arguments[1] = arg_verb;

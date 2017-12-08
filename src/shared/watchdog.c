@@ -27,10 +27,12 @@
 
 #include "fd-util.h"
 #include "log.h"
+#include "string-util.h"
 #include "time-util.h"
 #include "watchdog.h"
 
 static int watchdog_fd = -1;
+static char *watchdog_device = NULL;
 static usec_t watchdog_timeout = USEC_INFINITY;
 
 static int update_timeout(void) {
@@ -84,7 +86,8 @@ static int open_watchdog(void) {
         if (watchdog_fd >= 0)
                 return 0;
 
-        watchdog_fd = open("/dev/watchdog", O_WRONLY|O_CLOEXEC);
+        watchdog_fd = open(watchdog_device ?: "/dev/watchdog",
+                           O_WRONLY|O_CLOEXEC);
         if (watchdog_fd < 0)
                 return -errno;
 
@@ -94,6 +97,10 @@ static int open_watchdog(void) {
                          ident.firmware_version);
 
         return update_timeout();
+}
+
+int watchdog_set_device(char *path) {
+        return free_and_strdup(&watchdog_device, path);
 }
 
 int watchdog_set_timeout(usec_t *usec) {
