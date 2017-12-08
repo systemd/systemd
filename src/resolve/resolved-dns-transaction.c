@@ -739,8 +739,17 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
 
         if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER &&
             t->scope->dnssec_mode == DNSSEC_YES) {
-                /*  We are not in automatic downgrade mode, and the
-                 *  server is bad, refuse operation. */
+
+                /*  We are not in automatic downgrade mode, and the server is bad. Let's try a different server, maybe
+                 *  that works. */
+
+                if (t->n_picked_servers < dns_scope_get_n_dns_servers(t->scope)) {
+                        /* We tried fewer servers on this transaction than we know, let's try another one then */
+                        dns_transaction_retry(t, true);
+                        return;
+                }
+
+                /* OK, let's give up, apparently all servers we tried didn't work. */
                 dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                 return;
         }
