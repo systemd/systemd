@@ -58,6 +58,11 @@ loginctl_sources = files('''
         sysfs-show.c
 '''.split())
 
+user_runtime_dir_sources = files('''
+        user-runtime-dir.c
+        logind.h
+'''.split())
+
 if conf.get('ENABLE_LOGIND') == 1
         logind_conf = configure_file(
                 input : 'logind.conf.in',

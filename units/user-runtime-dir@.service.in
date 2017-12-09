@@ -8,18 +8,10 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=User Manager for UID %i
-After=systemd-user-sessions.service
-After=user-runtime-dir@%i.service
-Requires=user-runtime-dir@%i.service
+Description=/run/user/%i mount wrapper
+StopWhenUnneeded=yes
 
 [Service]
-User=%i
-PAMName=systemd-user
-Type=notify
-ExecStart=-@rootlibexecdir@/systemd --user
-Slice=user-%i.slice
-KillMode=mixed
-Delegate=pids memory
-TasksMax=infinity
-TimeoutStopSec=120s
+ExecStart=@rootlibexecdir@/systemd-user-runtime-dir start %i
+ExecStop=@rootlibexecdir@/systemd-user-runtime-dir stop %i
+RemainAfterExit=true
