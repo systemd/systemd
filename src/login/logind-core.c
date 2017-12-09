@@ -15,6 +15,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
+#include "conf-parser.h"
 #include "fd-util.h"
 #include "logind.h"
 #include "parse-util.h"
@@ -23,6 +24,48 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "user-util.h"
+
+void manager_reset_config(Manager *m) {
+        m->n_autovts = 6;
+        m->reserve_vt = 6;
+        m->remove_ipc = true;
+        m->inhibit_delay_max = 5 * USEC_PER_SEC;
+        m->handle_power_key = HANDLE_POWEROFF;
+        m->handle_suspend_key = HANDLE_SUSPEND;
+        m->handle_hibernate_key = HANDLE_HIBERNATE;
+        m->handle_lid_switch = HANDLE_SUSPEND;
+        m->handle_lid_switch_ep = _HANDLE_ACTION_INVALID;
+        m->handle_lid_switch_docked = HANDLE_IGNORE;
+        m->power_key_ignore_inhibited = false;
+        m->suspend_key_ignore_inhibited = false;
+        m->hibernate_key_ignore_inhibited = false;
+        m->lid_switch_ignore_inhibited = true;
+
+        m->holdoff_timeout_usec = 30 * USEC_PER_SEC;
+
+        m->idle_action_usec = 30 * USEC_PER_MINUTE;
+        m->idle_action = HANDLE_IGNORE;
+
+        m->runtime_dir_size = physical_memory_scale(10U, 100U); /* 10% */
+        m->user_tasks_max = system_tasks_max_scale(DEFAULT_USER_TASKS_MAX_PERCENTAGE, 100U); /* 33% */
+        m->sessions_max = 8192;
+        m->inhibitors_max = 8192;
+
+        m->kill_user_processes = KILL_USER_PROCESSES;
+
+        m->kill_only_users = strv_free(m->kill_only_users);
+        m->kill_exclude_users = strv_free(m->kill_exclude_users);
+}
+
+int manager_parse_config_file(Manager *m) {
+        assert(m);
+
+        return config_parse_many_nulstr(PKGSYSCONFDIR "/logind.conf",
+                                        CONF_PATHS_NULSTR("systemd/logind.conf.d"),
+                                        "Login\0",
+                                        config_item_perf_lookup, logind_gperf_lookup,
+                                        CONFIG_PARSE_WARN, m);
+}
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
         Device *d;

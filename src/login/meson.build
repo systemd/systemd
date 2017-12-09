@@ -13,9 +13,6 @@ logind_gperf_c = custom_target(
         output : 'logind-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_logind_sources += [logind_gperf_c]
-
-
 liblogind_core_sources = files('''
         logind-core.c
         logind-device.c
@@ -41,6 +38,8 @@ liblogind_core_sources = files('''
         logind-utmp.c
         logind-acl.h
 '''.split())
+
+liblogind_core_sources += [logind_gperf_c]
 
 logind_acl_c = files('logind-acl.c')
 if conf.get('HAVE_ACL') == 1
