@@ -160,6 +160,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--owner=<replaceable>USER</replaceable></option></term>
+
+        <listitem><para>Let the specified user <replaceable>USER</replaceable> own the mounted file system.
+        This is done by appending <option>uid=</option> and <option>gid=</option> options to the list
+        of mount options. Only certain file systems support this option.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--fsck=</option></term>
 
         <listitem><para>Takes a boolean argument, defaults to on. Controls whether to run a file system check
