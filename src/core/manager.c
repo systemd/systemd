@@ -3886,6 +3886,7 @@ char *manager_taint_string(Manager *m) {
                 return NULL;
 
         e = buf;
+        buf[0] = 0;
 
         if (m->taint_usr)
                 e = stpcpy(e, "split-usr:");
