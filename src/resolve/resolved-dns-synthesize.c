@@ -423,11 +423,11 @@ int dns_synthesize_answer(
 
                         v = synthesize_system_hostname_ptr(m, af, &address, ifindex, &answer);
                         if (v < 0)
-                                return log_error_errno(r, "Failed to synthesize system hostname PTR RR: %m");
+                                return log_error_errno(v, "Failed to synthesize system hostname PTR RR: %m");
 
                         w = synthesize_gateway_ptr(m, af, &address, ifindex, &answer);
                         if (w < 0)
-                                return log_error_errno(r, "Failed to synthesize gateway hostname PTR RR: %m");
+                                return log_error_errno(w, "Failed to synthesize gateway hostname PTR RR: %m");
 
                         if (v == 0 && w == 0) /* This IP address is neither a local one nor a gateway */
                                 continue;
