@@ -20,6 +20,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "sd-bus.h"
 
+#include "unit.h"
 
 extern const sd_bus_vtable bus_path_vtable[];
+
+int bus_path_set_property(Unit *u, const char *name, sd_bus_message *i, UnitWriteFlags flags, sd_bus_error *error);
