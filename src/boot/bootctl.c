@@ -1087,10 +1087,6 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         bool install;
         int r;
 
-        r = must_be_root();
-        if (r < 0)
-                return r;
-
         r = acquire_esp(false, &part, &pstart, &psize, &uuid);
         if (r < 0)
                 return r;
@@ -1122,10 +1118,6 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         int r;
 
-        r = must_be_root();
-        if (r < 0)
-                return r;
-
         r = acquire_esp(false, NULL, NULL, NULL, &uuid);
         if (r < 0)
                 return r;
@@ -1146,12 +1138,12 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 static int bootctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "help",            VERB_ANY, VERB_ANY, 0,            help         },
-                { "status",          VERB_ANY, 1,        VERB_DEFAULT, verb_status  },
-                { "list",            VERB_ANY, 1,        0,            verb_list    },
-                { "install",         VERB_ANY, 1,        0,            verb_install },
-                { "update",          VERB_ANY, 1,        0,            verb_install },
-                { "remove",          VERB_ANY, 1,        0,            verb_remove  },
+                { "help",            VERB_ANY, VERB_ANY, 0,               help         },
+                { "status",          VERB_ANY, 1,        VERB_DEFAULT,    verb_status  },
+                { "list",            VERB_ANY, 1,        0,               verb_list    },
+                { "install",         VERB_ANY, 1,        VERB_MUSTBEROOT, verb_install },
+                { "update",          VERB_ANY, 1,        VERB_MUSTBEROOT, verb_install },
+                { "remove",          VERB_ANY, 1,        VERB_MUSTBEROOT, verb_remove  },
                 {}
         };
 

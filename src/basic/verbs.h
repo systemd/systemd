@@ -21,13 +21,17 @@
 ***/
 
 #define VERB_ANY ((unsigned) -1)
-#define VERB_DEFAULT 1U
-#define VERB_NOCHROOT 2U
+
+typedef enum VerbFlags {
+        VERB_DEFAULT    = 1 << 0,
+        VERB_NOCHROOT   = 1 << 1,
+        VERB_MUSTBEROOT = 1 << 2,
+} VerbFlags;
 
 typedef struct {
         const char *verb;
         unsigned min_args, max_args;
-        unsigned flags;
+        VerbFlags flags;
         int (* const dispatch)(int argc, char *argv[], void *userdata);
 } Verb;
 

@@ -2074,10 +2074,6 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        r = must_be_root();
-        if (r < 0)
-                return r;
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
@@ -8408,7 +8404,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "list-sockets",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_sockets         },
                 { "list-timers",           VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_timers          },
                 { "list-jobs",             VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_jobs            },
-                { "list-machines",         VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_machines        },
+                { "list-machines",         VERB_ANY, VERB_ANY, VERB_NOCHROOT|VERB_MUSTBEROOT, list_machines },
                 { "clear-jobs",            VERB_ANY, 1,        VERB_NOCHROOT, trivial_method       },
                 { "cancel",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, cancel_job           },
                 { "start",                 2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
