@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -98,6 +99,7 @@ static int write_string_file_atomic(
         if (r < 0)
                 return r;
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod_umask(fileno(f), 0644);
 
         r = write_string_stream_ts(f, line, flags, ts);
@@ -167,6 +169,8 @@ int write_string_file_ts(
                 }
         }
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
         if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)
                 setvbuf(f, NULL, _IONBF, 0);
 
@@ -203,6 +207,8 @@ int read_one_line_file(const char *fn, char **line) {
         if (!f)
                 return -errno;
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
         r = read_line(f, LONG_LINE_MAX, line);
         return r < 0 ? r : 0;
 }
@@ -227,6 +233,8 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         f = fopen(fn, "re");
         if (!f)
                 return -errno;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         /* We try to read one byte more than we need, so that we know whether we hit eof */
         errno = 0;
@@ -322,6 +330,8 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
         f = fopen(fn, "re");
         if (!f)
                 return -errno;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         return read_full_stream(f, contents, size);
 }
@@ -879,7 +889,8 @@ int write_env_file(const char *fname, char **l) {
         if (r < 0)
                 return r;
 
-        fchmod_umask(fileno(f), 0644);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) fchmod_umask(fileno(f), 0644);
 
         STRV_FOREACH(i, l)
                 write_env_var(f, *i);

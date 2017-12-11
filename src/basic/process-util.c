@@ -26,6 +26,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -129,6 +130,8 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                         return -ESRCH;
                 return -errno;
         }
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         if (max_length == 1) {
 
@@ -406,6 +409,8 @@ int is_kernel_thread(pid_t pid) {
                 return -errno;
         }
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
         count = fread(&c, 1, 1, f);
         eof = feof(f);
         fclose(f);
@@ -487,6 +492,8 @@ static int get_process_id(pid_t pid, const char *field, uid_t *uid) {
                 return -errno;
         }
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
         FOREACH_LINE(line, f, return -errno) {
                 char *l;
 
@@ -564,6 +571,8 @@ int get_process_environ(pid_t pid, char **env) {
                         return -ESRCH;
                 return -errno;
         }
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         while ((c = fgetc(f)) != EOF) {
                 if (!GREEDY_REALLOC(outcome, allocated, sz + 5))
@@ -748,6 +757,8 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
                         return -ESRCH;
                 return -errno;
         }
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         l = strlen(field);
         r = 0;
