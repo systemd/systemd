@@ -324,7 +324,7 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
         assert(link);
         assert(link->ifname);
 
-        link->link_messages--;
+        link->routing_policy_rule_remove_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -438,9 +438,9 @@ int link_routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, vo
         assert(m);
         assert(link);
         assert(link->ifname);
-        assert(link->link_messages > 0);
+        assert(link->routing_policy_rule_messages > 0);
 
-        link->link_messages--;
+        link->routing_policy_rule_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -449,8 +449,11 @@ int link_routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, vo
         if (r < 0 && r != -EEXIST)
                 log_link_warning_errno(link, r, "Could not add routing policy rule: %m");
 
-        if (link->link_messages == 0)
+        if (link->routing_policy_rule_messages == 0) {
                 log_link_debug(link, "Routing policy rule configured");
+                link->routing_policy_rules_configured = true;
+                link_check_ready(link);
+        }
 
         return 1;
 }
@@ -1057,7 +1060,7 @@ void routing_policy_rule_purge(Manager *m, Link *link) {
                                 continue;
                         }
 
-                        link->link_messages++;
+                        link->routing_policy_rule_remove_messages++;
                 }
         }
 }
