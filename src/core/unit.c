@@ -118,6 +118,10 @@ Unit *unit_new(Manager *m, size_t size) {
         u->ipv6_allow_map_fd = -1;
         u->ipv4_deny_map_fd = -1;
         u->ipv6_deny_map_fd = -1;
+        u->port_allow_map_ingress_fd = -1;
+        u->port_allow_map_egress_fd = -1;
+        u->port_deny_map_ingress_fd = -1;
+        u->port_deny_map_egress_fd = -1;
 
         u->last_section_private = -1;
 
@@ -670,6 +674,10 @@ void unit_free(Unit *u) {
         safe_close(u->ipv6_allow_map_fd);
         safe_close(u->ipv4_deny_map_fd);
         safe_close(u->ipv6_deny_map_fd);
+        safe_close(u->port_allow_map_ingress_fd);
+        safe_close(u->port_allow_map_egress_fd);
+        safe_close(u->port_deny_map_ingress_fd);
+        safe_close(u->port_deny_map_egress_fd);
 
         bpf_program_unref(u->ip_bpf_ingress);
         bpf_program_unref(u->ip_bpf_egress);

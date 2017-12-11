@@ -284,6 +284,10 @@ struct Unit {
         int ipv6_allow_map_fd;
         int ipv4_deny_map_fd;
         int ipv6_deny_map_fd;
+        int port_allow_map_ingress_fd;
+        int port_allow_map_egress_fd;
+        int port_deny_map_ingress_fd;
+        int port_deny_map_egress_fd;
 
         BPFProgram *ip_bpf_ingress;
         BPFProgram *ip_bpf_egress;
