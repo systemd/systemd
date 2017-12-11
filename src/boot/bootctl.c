@@ -61,19 +61,33 @@ static char *arg_path = NULL;
 static bool arg_print_path = false;
 static bool arg_touch_variables = true;
 
-static int find_esp_and_warn(uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
+static int acquire_esp(
+                bool unprivileged_mode,
+                uint32_t *ret_part,
+                uint64_t *ret_pstart,
+                uint64_t *ret_psize,
+                sd_id128_t *ret_uuid) {
+
+        char *np;
         int r;
 
-        r = find_esp(&arg_path, part, pstart, psize, uuid);
-        if (r == -ENOENT)
+        /* Find the ESP, and log about errors. Note that find_esp_and_warn() will log in all error cases on its own,
+         * except for ENOKEY (which is good, we want to show our own message in that case, suggesting use of --path=)
+         * and EACCESS (only when we request unprivileged mode; in this case we simply eat up the error here, so that
+         * --list and --status work too, without noise about this). */
+
+        r = find_esp_and_warn(arg_path, unprivileged_mode, &np, ret_part, ret_pstart, ret_psize, ret_uuid);
+        if (r == -ENOKEY)
                 return log_error_errno(r,
-                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot.\n"
+                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot or /efi.\n"
                                        "Alternatively, use --path= to specify path to mount point.");
-        else if (r < 0)
-                return log_error_errno(r,
-                                       "Couldn't find EFI system partition: %m");
+        if (r < 0)
+                return r;
+
+        free_and_replace(arg_path, np);
 
         log_debug("Using EFI System Partition at %s.", arg_path);
+
         return 0;
 }
 
@@ -925,15 +939,21 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         int r, k;
 
-        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
+        r = acquire_esp(geteuid() != 0, NULL, NULL, NULL, &uuid);
 
         if (arg_print_path) {
+                if (r == -EACCES) /* If we couldn't acquire the ESP path, log about access errors (which is the only
+                                   * error the find_esp_and_warn() won't log on its own) */
+                        return log_error_errno(r, "Failed to determine ESP: %m");
                 if (r < 0)
                         return r;
 
                 puts(arg_path);
                 return 0;
         }
+
+        r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just show what we
+                * can show */
 
         if (is_efi_boot()) {
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL;
@@ -997,13 +1017,18 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_list(int argc, char *argv[], void *userdata) {
-        sd_id128_t uuid = SD_ID128_NULL;
-        int r;
-        unsigned n;
-
         _cleanup_(boot_config_free) BootConfig config = {};
+        sd_id128_t uuid = SD_ID128_NULL;
+        unsigned n;
+        int r;
 
-        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
+        /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two things: turn
+         * off logging about access errors and turn off potentially privileged device probing. Here we're interested in
+         * the latter but not the former, hence request the mode, and log about EACCES. */
+
+        r = acquire_esp(geteuid() != 0, NULL, NULL, NULL, &uuid);
+        if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
+                return log_error_errno(r, "Failed to determine ESP: %m");
         if (r < 0)
                 return r;
 
@@ -1071,7 +1096,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = find_esp_and_warn(&part, &pstart, &psize, &uuid);
+        r = acquire_esp(false, &part, &pstart, &psize, &uuid);
         if (r < 0)
                 return r;
 
@@ -1106,7 +1131,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
+        r = acquire_esp(false, NULL, NULL, NULL, &uuid);
         if (r < 0)
                 return r;
 

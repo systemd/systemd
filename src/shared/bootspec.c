@@ -413,8 +413,9 @@ int boot_entries_load_config(const char *esp_path, BootConfig *config) {
 /********************************************************************************/
 
 static int verify_esp(
-                bool searching,
                 const char *p,
+                bool searching,
+                bool unprivileged_mode,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
@@ -430,21 +431,19 @@ static int verify_esp(
         struct statfs sfs;
         sd_id128_t uuid = SD_ID128_NULL;
         uint32_t part = 0;
-        bool quiet;
         int r;
 
         assert(p);
 
-        /* Non-root user can only check the status, so if an error occured in the following,
-         * it does not cause any issues. Let's silence the error messages. */
-        quiet = geteuid() != 0;
+        /* Non-root user can only check the status, so if an error occured in the following, it does not cause any
+         * issues. Let's also, silence the error messages. */
 
         if (statfs(p, &sfs) < 0) {
                 /* If we are searching for the mount point, don't generate a log message if we can't find the path */
                 if (errno == ENOENT && searching)
                         return -ENOENT;
 
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to check file system type of \"%s\": %m", p);
         }
 
@@ -457,7 +456,7 @@ static int verify_esp(
         }
 
         if (stat(p, &st) < 0)
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to determine block device node of \"%s\": %m", p);
 
         if (major(st.st_dev) == 0) {
@@ -468,7 +467,7 @@ static int verify_esp(
         t2 = strjoina(p, "/..");
         r = stat(t2, &st2);
         if (r < 0)
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to determine block device node of parent of \"%s\": %m", p);
 
         if (st.st_dev == st2.st_dev) {
@@ -478,7 +477,7 @@ static int verify_esp(
 
         /* In a container we don't have access to block devices, skip this part of the verification, we trust the
          * container manager set everything up correctly on its own. Also skip the following verification for non-root user. */
-        if (detect_container() > 0 || geteuid() != 0)
+        if (detect_container() > 0 || unprivileged_mode)
                 goto finish;
 
 #if HAVE_BLKID
@@ -579,29 +578,53 @@ finish:
         return 0;
 }
 
-int find_esp(char **path,
-             uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
+int find_esp_and_warn(
+                const char *path,
+                bool unprivileged_mode,
+                char **ret_path,
+                uint32_t *ret_part,
+                uint64_t *ret_pstart,
+                uint64_t *ret_psize,
+                sd_id128_t *ret_uuid) {
 
-        const char *p;
         int r;
 
-        if (*path)
-                return verify_esp(false, *path, part, pstart, psize, uuid);
+        /* This logs about all errors except:
+         *
+         *    -ENOKEY → when we can't find the partition
+         *   -EACCESS → when unprivileged_mode is true, and we can't access something
+         */
 
-        FOREACH_STRING(p, "/efi", "/boot", "/boot/efi") {
-
-                r = verify_esp(true, p, part, pstart, psize, uuid);
-                if (IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
-                        continue;
+        if (path) {
+                r = verify_esp(path, false, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid);
                 if (r < 0)
                         return r;
 
-                *path = strdup(p);
-                if (!*path)
-                        return log_oom();
-
-                return 0;
+                goto found;
         }
 
-        return -ENOENT;
+        FOREACH_STRING(path, "/efi", "/boot", "/boot/efi") {
+
+                r = verify_esp(path, true, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid);
+                if (r >= 0)
+                        goto found;
+                if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
+                        return r;
+        }
+
+        /* No logging here */
+        return -ENOKEY;
+
+found:
+        if (ret_path) {
+                char *c;
+
+                c = strdup(path);
+                if (!c)
+                        return log_oom();
+
+                *ret_path = c;
+        }
+
+        return 0;
 }
