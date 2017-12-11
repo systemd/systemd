@@ -999,9 +999,11 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         } else
                 printf("System:\n    Not booted with EFI\n\n");
 
-        k = status_binaries(arg_path, uuid);
-        if (k < 0)
-                r = k;
+        if (arg_path) {
+                k = status_binaries(arg_path, uuid);
+                if (k < 0)
+                        r = k;
+        }
 
         if (is_efi_boot()) {
                 k = status_variables();
@@ -1009,9 +1011,11 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         r = k;
         }
 
-        k = status_entries(arg_path, uuid);
-        if (k < 0)
-                r = k;
+        if (arg_path) {
+                k = status_entries(arg_path, uuid);
+                if (k < 0)
+                        r = k;
+        }
 
         return r;
 }
