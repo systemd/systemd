@@ -25,6 +25,7 @@
 #include "cgroup-util.h"
 #include "ip-address-access.h"
 #include "list.h"
+#include "port-range-access.h"
 #include "time-util.h"
 
 typedef struct CGroupContext CGroupContext;
@@ -108,6 +109,11 @@ struct CGroupContext {
 
         LIST_HEAD(IPAddressAccessItem, ip_address_allow);
         LIST_HEAD(IPAddressAccessItem, ip_address_deny);
+
+        LIST_HEAD(PortRangeAccessItem, port_ingress_allow);
+        LIST_HEAD(PortRangeAccessItem, port_ingress_deny);
+        LIST_HEAD(PortRangeAccessItem, port_egress_allow);
+        LIST_HEAD(PortRangeAccessItem, port_egress_deny);
 
         /* For legacy hierarchies */
         uint64_t cpu_shares;

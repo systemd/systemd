@@ -106,6 +106,8 @@ libcore_la_sources = '''
         namespace.h
         path.c
         path.h
+        port-range-access.c
+        port-range-access.h
         scope.c
         scope.h
         selinux-access.c

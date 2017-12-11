@@ -147,6 +147,10 @@ void cgroup_context_done(CGroupContext *c) {
 
         c->ip_address_allow = ip_address_access_free_all(c->ip_address_allow);
         c->ip_address_deny = ip_address_access_free_all(c->ip_address_deny);
+        c->port_ingress_allow = port_range_access_free_all(c->port_ingress_allow);
+        c->port_ingress_deny = port_range_access_free_all(c->port_ingress_deny);
+        c->port_egress_allow = port_range_access_free_all(c->port_egress_allow);
+        c->port_egress_deny = port_range_access_free_all(c->port_egress_deny);
 }
 
 void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
@@ -1207,17 +1211,25 @@ bool unit_get_needs_bpf(Unit *u) {
 
         if (c->ip_accounting ||
             c->ip_address_allow ||
-            c->ip_address_deny)
+            c->ip_address_deny ||
+            c->port_ingress_allow ||
+            c->port_ingress_deny ||
+            c->port_egress_allow ||
+            c->port_egress_deny)
                 return true;
 
-        /* If any parent slice has an IP access list defined, it applies too */
+        /* If any parent slice has an IP access list or port list defined, it applies too */
         for (p = UNIT_DEREF(u->slice); p; p = UNIT_DEREF(p->slice)) {
                 c = unit_get_cgroup_context(p);
                 if (!c)
                         return false;
 
                 if (c->ip_address_allow ||
-                    c->ip_address_deny)
+                    c->ip_address_deny ||
+                    c->port_ingress_allow ||
+                    c->port_ingress_deny ||
+                    c->port_egress_allow ||
+                    c->port_egress_deny)
                         return true;
         }
 

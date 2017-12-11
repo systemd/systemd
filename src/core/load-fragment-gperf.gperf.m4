@@ -185,6 +185,10 @@ $1.Delegate,                     config_parse_delegate,              0,         
 $1.IPAccounting,                 config_parse_bool,                  0,                             offsetof($1, cgroup_context.ip_accounting)
 $1.IPAddressAllow,               config_parse_ip_address_access,     0,                             offsetof($1, cgroup_context.ip_address_allow)
 $1.IPAddressDeny,                config_parse_ip_address_access,     0,                             offsetof($1, cgroup_context.ip_address_deny)
+$1.IPPortIngressAllow,           config_parse_port_range_access,     0,                             offsetof($1, cgroup_context.port_ingress_allow)
+$1.IPPortIngressDeny,            config_parse_port_range_access,     0,                             offsetof($1, cgroup_context.port_ingress_deny)
+$1.IPPortEgressAllow,            config_parse_port_range_access,     0,                             offsetof($1, cgroup_context.port_egress_allow)
+$1.IPPortEgressDeny,             config_parse_port_range_access,     0,                             offsetof($1, cgroup_context.port_egress_deny)
 $1.NetClass,                     config_parse_warn_compat,           DISABLED_LEGACY,               0'
 )m4_dnl
 Unit.Description,                config_parse_unit_string_printf,    0,                             offsetof(Unit, description)
