@@ -36,8 +36,9 @@
 #include "virt.h"
 
 void boot_entry_free(BootEntry *entry) {
-        free(entry->filename);
+        assert(entry);
 
+        free(entry->filename);
         free(entry->title);
         free(entry->show_title);
         free(entry->version);
@@ -55,6 +56,9 @@ int boot_entry_load(const char *path, BootEntry *entry) {
         unsigned line = 1;
         _cleanup_(boot_entry_free) BootEntry tmp = {};
         int r;
+
+        assert(path);
+        assert(entry);
 
         f = fopen(path, "re");
         if (!f)
@@ -123,6 +127,8 @@ int boot_entry_load(const char *path, BootEntry *entry) {
 void boot_config_free(BootConfig *config) {
         unsigned i;
 
+        assert(config);
+
         free(config->default_pattern);
         free(config->timeout);
         free(config->editor);
@@ -139,6 +145,9 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
         int r;
+
+        assert(path);
+        assert(config);
 
         f = fopen(path, "re");
         if (!f)
@@ -251,13 +260,16 @@ static int boot_entry_compare(const void *a, const void *b) {
         return str_verscmp(aa->filename, bb->filename);
 }
 
-int boot_entries_find(const char *dir, BootEntry **entries, size_t *n_entries) {
+int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_entries) {
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         int r;
-
         BootEntry *array = NULL;
         size_t n_allocated = 0, n = 0;
+
+        assert(dir);
+        assert(ret_entries);
+        assert(ret_n_entries);
 
         r = conf_files_list(&files, ".conf", NULL, 0, dir, NULL);
         if (r < 0)
@@ -276,14 +288,18 @@ int boot_entries_find(const char *dir, BootEntry **entries, size_t *n_entries) {
 
         qsort_safe(array, n, sizeof(BootEntry), boot_entry_compare);
 
-        *entries = array;
-        *n_entries = n;
+        *ret_entries = array;
+        *ret_n_entries = n;
+
         return 0;
 }
 
 static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
         unsigned i, j;
         bool non_unique = false;
+
+        assert(entries || n_entries == 0);
+        assert(arr || n_entries == 0);
 
         for (i = 0; i < n_entries; i++)
                 arr[i] = false;
@@ -302,6 +318,8 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
         unsigned i;
         int r;
         bool arr[n_entries];
+
+        assert(entries || n_entries == 0);
 
         /* Find _all_ non-unique titles */
         if (!find_nonunique(entries, n_entries, arr))
@@ -349,6 +367,8 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
 static int boot_entries_select_default(const BootConfig *config) {
         int i;
 
+        assert(config);
+
         if (config->entry_oneshot)
                 for (i = config->n_entries - 1; i >= 0; i--)
                         if (streq(config->entry_oneshot, config->entries[i].filename)) {
@@ -377,12 +397,16 @@ static int boot_entries_select_default(const BootConfig *config) {
                 log_debug("Found default: last entry \"%s\"", config->entries[config->n_entries - 1].filename);
         else
                 log_debug("Found no default boot entry :(");
+
         return config->n_entries - 1; /* -1 means "no default" */
 }
 
 int boot_entries_load_config(const char *esp_path, BootConfig *config) {
         const char *p;
         int r;
+
+        assert(esp_path);
+        assert(config);
 
         p = strjoina(esp_path, "/loader/loader.conf");
         r = boot_loader_read_conf(p, config);
