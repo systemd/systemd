@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdio_ext.h>
 #include <sys/prctl.h>
 #include <sys/xattr.h>
 #include <unistd.h>
@@ -540,6 +541,8 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         if (!stream)
                 return -ENOMEM;
 
+        (void) __fsetlocking(stream, FSETLOCKING_BYCALLER);
+
         FOREACH_DIRENT(dent, proc_fd_dir, return -errno) {
                 _cleanup_fclose_ FILE *fdinfo = NULL;
                 _cleanup_free_ char *fdname = NULL;
@@ -560,12 +563,12 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
 
                 fdinfo = fdopen(fd, "re");
                 if (!fdinfo) {
-                        close(fd);
+                        safe_close(fd);
                         continue;
                 }
 
                 FOREACH_LINE(line, fdinfo, break) {
-                        fputs_unlocked(line, stream);
+                        fputs(line, stream);
                         if (!endswith(line, "\n"))
                                 fputc('\n', stream);
                 }

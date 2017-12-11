@@ -20,6 +20,7 @@
 ***/
 
 #include <errno.h>
+#include <stdio_ext.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -358,14 +359,15 @@ int x11_write_data(Context *c) {
         if (r < 0)
                 return r;
 
-        fchmod(fileno(f), 0644);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) fchmod(fileno(f), 0644);
 
-        fputs_unlocked("# Written by systemd-localed(8), read by systemd-localed and Xorg. It's\n"
-                       "# probably wise not to edit this file manually. Use localectl(1) to\n"
-                       "# instruct systemd-localed to update it.\n"
-                       "Section \"InputClass\"\n"
-                       "        Identifier \"system-keyboard\"\n"
-                       "        MatchIsKeyboard \"on\"\n", f);
+        fputs("# Written by systemd-localed(8), read by systemd-localed and Xorg. It's\n"
+              "# probably wise not to edit this file manually. Use localectl(1) to\n"
+              "# instruct systemd-localed to update it.\n"
+              "Section \"InputClass\"\n"
+              "        Identifier \"system-keyboard\"\n"
+              "        MatchIsKeyboard \"on\"\n", f);
 
         if (!isempty(c->x11_layout))
                 fprintf(f, "        Option \"XkbLayout\" \"%s\"\n", c->x11_layout);
@@ -379,7 +381,7 @@ int x11_write_data(Context *c) {
         if (!isempty(c->x11_options))
                 fprintf(f, "        Option \"XkbOptions\" \"%s\"\n", c->x11_options);
 
-        fputs_unlocked("EndSection\n", f);
+        fputs("EndSection\n", f);
 
         r = fflush_sync_and_check(f);
         if (r < 0)

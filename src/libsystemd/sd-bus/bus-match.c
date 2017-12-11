@@ -18,6 +18,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdio_ext.h>
+
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-match.h"
@@ -954,22 +956,24 @@ char *bus_match_to_string(struct bus_match_component *components, unsigned n_com
         if (!f)
                 return NULL;
 
+        __fsetlocking(f, FSETLOCKING_BYCALLER);
+
         for (i = 0; i < n_components; i++) {
                 char buf[32];
 
                 if (i != 0)
-                        fputc_unlocked(',', f);
+                        fputc(',', f);
 
-                fputs_unlocked(bus_match_node_type_to_string(components[i].type, buf, sizeof(buf)), f);
-                fputc_unlocked('=', f);
-                fputc_unlocked('\'', f);
+                fputs(bus_match_node_type_to_string(components[i].type, buf, sizeof(buf)), f);
+                fputc('=', f);
+                fputc('\'', f);
 
                 if (components[i].type == BUS_MATCH_MESSAGE_TYPE)
-                        fputs_unlocked(bus_message_type_to_string(components[i].value_u8), f);
+                        fputs(bus_message_type_to_string(components[i].value_u8), f);
                 else
-                        fputs_unlocked(components[i].value_str, f);
+                        fputs(components[i].value_str, f);
 
-                fputc_unlocked('\'', f);
+                fputc('\'', f);
         }
 
         r = fflush_and_check(f);

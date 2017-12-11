@@ -22,6 +22,7 @@
 #include <qrencode.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 
 #include "journal-qrcode.h"
@@ -66,11 +67,13 @@ int print_qr_code(
         if (!f)
                 return -ENOMEM;
 
-        fputs_unlocked("fss://", f);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+        fputs("fss://", f);
 
         for (i = 0; i < seed_size; i++) {
                 if (i > 0 && i % 3 == 0)
-                        fputc_unlocked('-', f);
+                        fputc('-', f);
                 fprintf(f, "%02x", ((uint8_t*) seed)[i]);
         }
 

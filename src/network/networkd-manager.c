@@ -21,6 +21,7 @@
 #include <sys/socket.h>
 #include <linux/if.h>
 #include <linux/fib_rules.h>
+#include <stdio_ext.h>
 
 #include "sd-daemon.h"
 #include "sd-netlink.h"
@@ -991,12 +992,12 @@ static void print_string_set(FILE *f, const char *field, OrderedSet *s) {
         if (ordered_set_isempty(s))
                 return;
 
-        fputs_unlocked(field, f);
+        fputs(field, f);
 
         ORDERED_SET_FOREACH(p, s, i)
                 fputs_with_space(f, p, NULL, &space);
 
-        fputc_unlocked('\n', f);
+        fputc('\n', f);
 }
 
 static int manager_save(Manager *m) {
@@ -1114,6 +1115,7 @@ static int manager_save(Manager *m) {
         if (r < 0)
                 return r;
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,

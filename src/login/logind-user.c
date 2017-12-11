@@ -22,6 +22,7 @@
 #include <string.h>
 #include <sys/mount.h>
 #include <unistd.h>
+#include <stdio_ext.h>
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -150,7 +151,8 @@ static int user_save_internal(User *u) {
         if (r < 0)
                 goto fail;
 
-        fchmod(fileno(f), 0644);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -183,18 +185,18 @@ static int user_save_internal(User *u) {
                 Session *i;
                 bool first;
 
-                fputs_unlocked("SESSIONS=", f);
+                fputs("SESSIONS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->id, f);
+                        fputs(i->id, f);
                 }
 
-                fputs_unlocked("\nSEATS=", f);
+                fputs("\nSEATS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!i->seat)
@@ -203,12 +205,12 @@ static int user_save_internal(User *u) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->seat->id, f);
+                        fputs(i->seat->id, f);
                 }
 
-                fputs_unlocked("\nACTIVE_SESSIONS=", f);
+                fputs("\nACTIVE_SESSIONS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!session_is_active(i))
@@ -217,12 +219,12 @@ static int user_save_internal(User *u) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->id, f);
+                        fputs(i->id, f);
                 }
 
-                fputs_unlocked("\nONLINE_SESSIONS=", f);
+                fputs("\nONLINE_SESSIONS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (session_get_state(i) == SESSION_CLOSING)
@@ -231,12 +233,12 @@ static int user_save_internal(User *u) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->id, f);
+                        fputs(i->id, f);
                 }
 
-                fputs_unlocked("\nACTIVE_SEATS=", f);
+                fputs("\nACTIVE_SEATS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!session_is_active(i) || !i->seat)
@@ -245,12 +247,12 @@ static int user_save_internal(User *u) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->seat->id, f);
+                        fputs(i->seat->id, f);
                 }
 
-                fputs_unlocked("\nONLINE_SEATS=", f);
+                fputs("\nONLINE_SEATS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (session_get_state(i) == SESSION_CLOSING || !i->seat)
@@ -259,11 +261,11 @@ static int user_save_internal(User *u) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->seat->id, f);
+                        fputs(i->seat->id, f);
                 }
-                fputc_unlocked('\n', f);
+                fputc('\n', f);
         }
 
         r = fflush_and_check(f);
