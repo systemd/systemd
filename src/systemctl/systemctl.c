@@ -2074,10 +2074,9 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (geteuid() != 0) {
-                log_error("Must be root.");
-                return -EPERM;
-        }
+        r = must_be_root();
+        if (r < 0)
+                return r;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -3603,9 +3602,10 @@ static int start_special(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_force >= 2 && geteuid() != 0) {
-                log_error("Must be root.");
-                return -EPERM;
+        if (arg_force >= 2) {
+                r = must_be_root();
+                if (r < 0)
+                        return r;
         }
 
         r = prepare_firmware_setup();
@@ -8638,7 +8638,7 @@ static int halt_main(void) {
 
         if (geteuid() != 0) {
                 if (arg_dry_run || arg_force > 0) {
-                        log_error("Must be root.");
+                        (void) must_be_root();
                         return -EPERM;
                 }
 

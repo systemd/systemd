@@ -925,15 +925,6 @@ static void read_loader_efi_var(const char *name, char **var) {
                 log_warning_errno(r, "Failed to read EFI variable %s: %m", name);
 }
 
-static int must_be_root(void) {
-
-        if (geteuid() == 0)
-                return 0;
-
-        log_error("Need to be root.");
-        return -EPERM;
-}
-
 static int verb_status(int argc, char *argv[], void *userdata) {
 
         sd_id128_t uuid = SD_ID128_NULL;

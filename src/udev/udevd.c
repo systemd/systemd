@@ -1670,10 +1670,9 @@ int main(int argc, char *argv[]) {
                 log_set_max_level(LOG_DEBUG);
         }
 
-        if (getuid() != 0) {
-                r = log_error_errno(EPERM, "root privileges required");
+        r = must_be_root();
+        if (r < 0)
                 goto exit;
-        }
 
         if (arg_children_max == 0) {
                 cpu_set_t cpu_set;

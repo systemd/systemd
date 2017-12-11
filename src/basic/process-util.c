@@ -1053,6 +1053,15 @@ pid_t getpid_cached(void) {
         }
 }
 
+int must_be_root(void) {
+
+        if (geteuid() == 0)
+                return 0;
+
+        log_error("Need to be root.");
+        return -EPERM;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
