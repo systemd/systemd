@@ -956,18 +956,14 @@ static int introspect(sd_bus *bus, char **argv) {
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        fclose(mf);
-                        mf = NULL;
+                        mf = safe_fclose(mf);
 
                         z = set_get(members, &((Member) {
                                                 .type = "property",
                                                 .interface = m->interface,
                                                 .name = (char*) name }));
-                        if (z) {
-                                free(z->value);
-                                z->value = buf;
-                                buf = NULL;
-                        }
+                        if (z)
+                                free_and_replace(z->value, buf);
 
                         r = sd_bus_message_exit_container(reply);
                         if (r < 0)
