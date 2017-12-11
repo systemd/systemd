@@ -705,7 +705,9 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                sd_bus_message_append_array(m, 'y', cpuset, CPU_ALLOC_SIZE(ncpus));
+                r = sd_bus_message_append_array(m, 'y', cpuset, CPU_ALLOC_SIZE(ncpus));
+                if (r < 0)
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
 
