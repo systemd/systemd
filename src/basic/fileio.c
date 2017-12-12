@@ -167,6 +167,9 @@ int write_string_file_ts(
                 }
         }
 
+        if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)
+                setvbuf(f, NULL, _IONBF, 0);
+
         r = write_string_stream_ts(f, line, flags, ts);
         if (r < 0)
                 goto fail;
