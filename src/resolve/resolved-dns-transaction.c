@@ -408,6 +408,8 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
         dns_server_unref(t->server);
         t->server = dns_server_ref(server);
 
+        t->n_picked_servers ++;
+
         log_debug("Using DNS server %s for transaction %u.", dns_server_string(t->server), t->id);
 
         return 1;
@@ -737,8 +739,17 @@ static void dns_transaction_process_dnssec(DnsTransaction *t) {
 
         if (t->answer_dnssec_result == DNSSEC_INCOMPATIBLE_SERVER &&
             t->scope->dnssec_mode == DNSSEC_YES) {
-                /*  We are not in automatic downgrade mode, and the
-                 *  server is bad, refuse operation. */
+
+                /*  We are not in automatic downgrade mode, and the server is bad. Let's try a different server, maybe
+                 *  that works. */
+
+                if (t->n_picked_servers < dns_scope_get_n_dns_servers(t->scope)) {
+                        /* We tried fewer servers on this transaction than we know, let's try another one then */
+                        dns_transaction_retry(t, true);
+                        return;
+                }
+
+                /* OK, let's give up, apparently all servers we tried didn't work. */
                 dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                 return;
         }
@@ -913,12 +924,21 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         /* Request failed, immediately try again with reduced features */
 
                         if (t->current_feature_level <= DNS_SERVER_FEATURE_LEVEL_UDP) {
+
                                 /* This was already at UDP feature level? If so, it doesn't make sense to downgrade
-                                 * this transaction anymore, hence let's process the response, and accept the
+                                 * this transaction anymore, but let's see if it might make sense to send the request
+                                 * to a different DNS server instead. If not let's process the response, and accept the
                                  * rcode. Note that we don't retry on TCP, since that's a suitable way to mitigate
                                  * packet loss, but is not going to give us better rcodes should we actually have
                                  * managed to get them already at UDP level. */
 
+                                if (t->n_picked_servers < dns_scope_get_n_dns_servers(t->scope)) {
+                                        /* We tried fewer servers on this transaction than we know, let's try another one then */
+                                        dns_transaction_retry(t, true);
+                                        return;
+                                }
+
+                                /* Give up, accept the rcode */
                                 log_debug("Server returned error: %s", dns_rcode_to_string(DNS_PACKET_RCODE(p)));
                                 break;
                         }
@@ -1351,7 +1371,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 /* Before trying the cache, let's make sure we figured out a
                  * server to use. Should this cause a change of server this
                  * might flush the cache. */
-                dns_scope_get_dns_server(t->scope);
+                (void) dns_scope_get_dns_server(t->scope);
 
                 /* Let's then prune all outdated entries */
                 dns_cache_prune(&t->scope->cache);

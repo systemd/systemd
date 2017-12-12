@@ -95,6 +95,7 @@ DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, co
 bool dns_scope_good_key(DnsScope *s, const DnsResourceKey *key);
 
 DnsServer *dns_scope_get_dns_server(DnsScope *s);
+unsigned dns_scope_get_n_dns_servers(DnsScope *s);
 void dns_scope_next_dns_server(DnsScope *s);
 
 int dns_scope_llmnr_membership(DnsScope *s, bool b);
