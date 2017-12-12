@@ -365,7 +365,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
                 escaped_name = maj_min;
                 maj_min = NULL;
         } else
-                escaped_name = cescape(name);
+                escaped_name = cescape(src);
 
         if (!escaped_name)
                 return log_oom();
