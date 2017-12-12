@@ -221,6 +221,38 @@ int sethostname_idempotent(const char *s) {
         return 1;
 }
 
+int shorten_overlong(const char *s, char **ret) {
+        char *h, *p;
+
+        /* Shorten an overlong name to HOST_NAME_MAX or to the first dot,
+         * whatever comes earlier. */
+
+        assert(s);
+
+        h = strdup(s);
+        if (!h)
+                return -ENOMEM;
+
+        if (hostname_is_valid(h, false)) {
+                *ret = h;
+                return 0;
+        }
+
+        p = strchr(h, '.');
+        if (p)
+                *p = 0;
+
+        strshorten(h, HOST_NAME_MAX);
+
+        if (!hostname_is_valid(h, false)) {
+                free(h);
+                return -EDOM;
+        }
+
+        *ret = h;
+        return 1;
+}
+
 int read_etc_hostname_stream(FILE *f, char **ret) {
         int r;
 

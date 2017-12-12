@@ -462,12 +462,21 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         }
 
         if (link->network->dhcp_use_hostname) {
-                const char *hostname = NULL;
+                const char *dhcpname = NULL;
+                _cleanup_free_ char *hostname = NULL;
 
                 if (link->network->dhcp_hostname)
-                        hostname = link->network->dhcp_hostname;
+                        dhcpname = link->network->dhcp_hostname;
                 else
-                        (void) sd_dhcp_lease_get_hostname(lease, &hostname);
+                        (void) sd_dhcp_lease_get_hostname(lease, &dhcpname);
+
+                if (dhcpname) {
+                        r = shorten_overlong(dhcpname, &hostname);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Unable to shorten overlong DHCP hostname '%s', ignoring: %m", dhcpname);
+                        if (r == 1)
+                                log_link_notice(link, "Overlong DCHP hostname received, shortened from '%s' to '%s'", dhcpname, hostname);
+                }
 
                 if (hostname) {
                         r = manager_set_hostname(link->manager, hostname);
