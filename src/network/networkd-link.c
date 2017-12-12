@@ -739,7 +739,10 @@ void link_check_ready(Link *link) {
         if (!link->network)
                 return;
 
-        if (!link->static_configured)
+        if (!link->static_routes_configured)
+                return;
+
+        if (!link->routing_policy_rules_configured)
                 return;
 
         if (link_ipv4ll_enabled(link))
@@ -797,10 +800,15 @@ static int link_set_routing_policy_rule(Link *link) {
                         return r;
                 }
 
-                link->link_messages++;
+                link->routing_policy_rule_messages++;
         }
 
         routing_policy_rule_purge(link->manager, link);
+        if (link->routing_policy_rule_messages == 0) {
+                link->routing_policy_rules_configured = true;
+                link_check_ready(link);
+        } else
+                log_link_debug(link, "Setting routing policy rules");
 
         return 0;
 }
@@ -809,12 +817,12 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata
         _cleanup_link_unref_ Link *link = userdata;
         int r;
 
-        assert(link->link_messages > 0);
+        assert(link->route_messages > 0);
         assert(IN_SET(link->state, LINK_STATE_SETTING_ADDRESSES,
                       LINK_STATE_SETTING_ROUTES, LINK_STATE_FAILED,
                       LINK_STATE_LINGER));
 
-        link->link_messages--;
+        link->route_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -823,9 +831,9 @@ static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata
         if (r < 0 && r != -EEXIST)
                 log_link_warning_errno(link, r, "Could not set route: %m");
 
-        if (link->link_messages == 0) {
+        if (link->route_messages == 0) {
                 log_link_debug(link, "Routes set");
-                link->static_configured = true;
+                link->static_routes_configured = true;
                 link_check_ready(link);
         }
 
@@ -850,11 +858,13 @@ static int link_enter_set_routes(Link *link) {
                         return r;
                 }
 
-                link->link_messages++;
+                link->route_messages++;
         }
 
-        if (link->link_messages == 0) {
-                link->static_configured = true;
+        (void) link_set_routing_policy_rule(link);
+
+        if (link->route_messages == 0) {
+                link->static_routes_configured = true;
                 link_check_ready(link);
         } else
                 log_link_debug(link, "Setting routes");
@@ -888,11 +898,11 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         assert(m);
         assert(link);
         assert(link->ifname);
-        assert(link->link_messages > 0);
+        assert(link->address_messages > 0);
         assert(IN_SET(link->state, LINK_STATE_SETTING_ADDRESSES,
                LINK_STATE_FAILED, LINK_STATE_LINGER));
 
-        link->link_messages--;
+        link->address_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -903,7 +913,7 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
         else if (r >= 0)
                 manager_rtnl_process_address(rtnl, m, link->manager);
 
-        if (link->link_messages == 0) {
+        if (link->address_messages == 0) {
                 log_link_debug(link, "Addresses set");
                 link_enter_set_routes(link);
         }
@@ -919,9 +929,9 @@ static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, void *
         assert(m);
         assert(link);
         assert(link->ifname);
-        assert(link->link_messages > 0);
+        assert(link->address_label_messages > 0);
 
-        link->link_messages--;
+        link->address_label_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -932,7 +942,7 @@ static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, void *
         else if (r >= 0)
                 manager_rtnl_process_address(rtnl, m, link->manager);
 
-        if (link->link_messages == 0)
+        if (link->address_label_messages == 0)
                 log_link_debug(link, "Addresses label set");
 
         return 1;
@@ -1072,7 +1082,7 @@ static int link_enter_set_addresses(Link *link) {
                         return r;
                 }
 
-                link->link_messages++;
+                link->address_messages++;
         }
 
         LIST_FOREACH(labels, label, link->network->address_labels) {
@@ -1083,7 +1093,7 @@ static int link_enter_set_addresses(Link *link) {
                         return r;
                 }
 
-                link->link_messages++;
+                link->address_label_messages++;
         }
 
         /* now that we can figure out a default address for the dhcp server,
@@ -1206,7 +1216,7 @@ static int link_enter_set_addresses(Link *link) {
                 log_link_debug(link, "Offering DHCPv4 leases");
         }
 
-        if (link->link_messages == 0)
+        if (link->address_messages == 0)
                 link_enter_set_routes(link);
         else
                 log_link_debug(link, "Setting addresses");
@@ -2698,8 +2708,6 @@ static int link_configure(Link *link) {
                 if (r < 0)
                         return r;
         }
-
-         (void) link_set_routing_policy_rule(link);
 
         if (link_has_carrier(link) || link->network->configure_without_carrier) {
                 r = link_acquire_conf(link);
