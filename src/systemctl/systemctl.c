@@ -2074,11 +2074,6 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r;
 
-        if (geteuid() != 0) {
-                log_error("Must be root.");
-                return -EPERM;
-        }
-
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
@@ -3497,7 +3492,7 @@ static int prepare_firmware_setup(void) {
 
 static int load_kexec_kernel(void) {
         _cleanup_(boot_config_free) BootConfig config = {};
-        _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
+        _cleanup_free_ char *where = NULL, *kernel = NULL, *initrd = NULL, *options = NULL;
         const BootEntry *e;
         pid_t pid;
         int r;
@@ -3507,14 +3502,15 @@ static int load_kexec_kernel(void) {
                 return 0;
         }
 
-        r = find_esp(&arg_esp_path, NULL, NULL, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Cannot find the ESP partition mount point: %m");
+        r = find_esp_and_warn(arg_esp_path, false, &where, NULL, NULL, NULL, NULL);
+        if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn about this case */
+                return log_error_errno(r, "Cannot find the ESP partition mount point.");
+        if (r < 0) /* But it logs about all these cases, hence don't log here again */
+                return r;
 
-        r = boot_entries_load_config(arg_esp_path, &config);
+        r = boot_entries_load_config(where, &config);
         if (r < 0)
-                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m",
-                                       arg_esp_path);
+                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m", where);
 
         if (config.default_entry < 0) {
                 log_error("No entry suitable as default, refusing to guess.");
@@ -3527,9 +3523,9 @@ static int load_kexec_kernel(void) {
                 return -EINVAL;
         }
 
-        kernel = path_join(NULL, arg_esp_path, e->kernel);
+        kernel = path_join(NULL, where, e->kernel);
         if (!strv_isempty(e->initrd))
-                initrd = path_join(NULL, arg_esp_path, *e->initrd);
+                initrd = path_join(NULL, where, *e->initrd);
         options = strv_join(e->options, " ");
         if (!options)
                 return log_oom();
@@ -3602,9 +3598,10 @@ static int start_special(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_force >= 2 && geteuid() != 0) {
-                log_error("Must be root.");
-                return -EPERM;
+        if (arg_force >= 2) {
+                r = must_be_root();
+                if (r < 0)
+                        return r;
         }
 
         r = prepare_firmware_setup();
@@ -8407,7 +8404,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "list-sockets",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_sockets         },
                 { "list-timers",           VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_timers          },
                 { "list-jobs",             VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_jobs            },
-                { "list-machines",         VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_machines        },
+                { "list-machines",         VERB_ANY, VERB_ANY, VERB_NOCHROOT|VERB_MUSTBEROOT, list_machines },
                 { "clear-jobs",            VERB_ANY, 1,        VERB_NOCHROOT, trivial_method       },
                 { "cancel",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, cancel_job           },
                 { "start",                 2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
@@ -8637,7 +8634,7 @@ static int halt_main(void) {
 
         if (geteuid() != 0) {
                 if (arg_dry_run || arg_force > 0) {
-                        log_error("Must be root.");
+                        (void) must_be_root();
                         return -EPERM;
                 }
 

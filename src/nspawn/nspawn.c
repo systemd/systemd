@@ -3783,11 +3783,10 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (geteuid() != 0) {
-                log_error("Need to be root.");
-                r = -EPERM;
+        r = must_be_root();
+        if (r < 0)
                 goto finish;
-        }
+
         r = determine_names();
         if (r < 0)
                 goto finish;
