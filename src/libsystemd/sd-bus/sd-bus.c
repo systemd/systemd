@@ -3253,12 +3253,9 @@ _public_ int sd_bus_default(sd_bus **ret) {
 
         /* No type is specified, so we have not other option than to
          * use the starter address if it is set. */
-
         e = secure_getenv("DBUS_STARTER_ADDRESS");
-        if (e) {
-
+        if (e)
                 return bus_default(sd_bus_open, &default_starter_bus, ret);
-        }
 
         /* Finally, if nothing is set use the cached connection for
          * the right scope */
