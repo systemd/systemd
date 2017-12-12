@@ -147,7 +147,7 @@ static int verify_socket(Unit *u) {
 }
 
 static int verify_executable(Unit *u, ExecCommand *exec) {
-        if (exec == NULL)
+        if (!exec)
                 return 0;
 
         if (access(exec->path, X_OK) < 0)

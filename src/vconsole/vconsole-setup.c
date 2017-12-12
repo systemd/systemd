@@ -335,7 +335,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
         int ret_fd, r, err = 0;
 
         path = new(char, sizeof("/dev/tty63"));
-        if (path == NULL)
+        if (!path)
                 return log_oom();
 
         for (i = 1; i <= 63; i++) {
@@ -396,7 +396,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
                 return log_error_errno(r, "Virtual console %s is not in K_XLATE or K_UNICODE: %m", src_vc);
 
         path = strdup(src_vc);
-        if (path == NULL)
+        if (!path)
                 return log_oom();
 
         *ret_path = path;

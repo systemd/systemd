@@ -140,7 +140,7 @@ int write_string_file_ts(
 
                 return r;
         } else
-                assert(ts == NULL);
+                assert(!ts);
 
         if (flags & WRITE_STRING_FILE_CREATE) {
                 f = fopen(fn, "we");
@@ -1191,7 +1191,7 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
         if (!filename_is_valid(fn))
                 return -EINVAL;
 
-        if (extra == NULL)
+        if (!extra)
                 extra = "";
 
         t = new(char, strlen(p) + 2 + strlen(extra) + 6 + 1);

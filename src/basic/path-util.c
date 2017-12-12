@@ -538,7 +538,7 @@ bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool upd
 
         assert(timestamp);
 
-        if (paths == NULL)
+        if (!paths)
                 return false;
 
         STRV_FOREACH(i, paths) {

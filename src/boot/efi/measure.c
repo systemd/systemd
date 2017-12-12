@@ -201,7 +201,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
 
         tcg_event = AllocateZeroPool(desc_len + sizeof(TCG_PCR_EVENT));
 
-        if (tcg_event == NULL)
+        if (!tcg_event)
                 return EFI_OUT_OF_RESOURCES;
 
         tcg_event->EventSize = desc_len;
@@ -255,7 +255,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg, UINT32 
 
         tcg_event = AllocateZeroPool(sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len + 1);
 
-        if (tcg_event == NULL)
+        if (!tcg_event)
                 return EFI_OUT_OF_RESOURCES;
 
         tcg_event->Size = sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len + 1;
