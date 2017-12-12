@@ -592,8 +592,8 @@ void bus_socket_setup(sd_bus *b) {
         assert(b);
 
         /* Increase the buffers to 8 MB */
-        fd_inc_rcvbuf(b->input_fd, SNDBUF_SIZE);
-        fd_inc_sndbuf(b->output_fd, SNDBUF_SIZE);
+        (void) fd_inc_rcvbuf(b->input_fd, SNDBUF_SIZE);
+        (void) fd_inc_sndbuf(b->output_fd, SNDBUF_SIZE);
 
         b->message_version = 1;
         b->message_endian = 0;
@@ -742,10 +742,10 @@ int bus_socket_exec(sd_bus *b) {
                 if (!IN_SET(s[1], STDIN_FILENO, STDOUT_FILENO))
                         safe_close(s[1]);
 
-                fd_cloexec(STDIN_FILENO, false);
-                fd_cloexec(STDOUT_FILENO, false);
-                fd_nonblock(STDIN_FILENO, false);
-                fd_nonblock(STDOUT_FILENO, false);
+                (void) fd_cloexec(STDIN_FILENO, false);
+                (void) fd_cloexec(STDOUT_FILENO, false);
+                (void) fd_nonblock(STDIN_FILENO, false);
+                (void) fd_nonblock(STDOUT_FILENO, false);
 
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);
