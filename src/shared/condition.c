@@ -26,6 +26,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -141,6 +142,18 @@ static int condition_test_kernel_command_line(Condition *c) {
         }
 
         return false;
+}
+
+static int condition_test_kernel_version(Condition *c) {
+        struct utsname u;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_KERNEL_VERSION);
+
+        assert_se(uname(&u) >= 0);
+
+        return fnmatch(c->parameter, u.release, 0) == 0;
 }
 
 static int condition_test_user(Condition *c) {
@@ -552,6 +565,7 @@ int condition_test(Condition *c) {
                 [CONDITION_FILE_NOT_EMPTY] = condition_test_file_not_empty,
                 [CONDITION_FILE_IS_EXECUTABLE] = condition_test_file_is_executable,
                 [CONDITION_KERNEL_COMMAND_LINE] = condition_test_kernel_command_line,
+                [CONDITION_KERNEL_VERSION] = condition_test_kernel_version,
                 [CONDITION_VIRTUALIZATION] = condition_test_virtualization,
                 [CONDITION_SECURITY] = condition_test_security,
                 [CONDITION_CAPABILITY] = condition_test_capability,
@@ -612,6 +626,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_VIRTUALIZATION] = "ConditionVirtualization",
         [CONDITION_HOST] = "ConditionHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "ConditionKernelCommandLine",
+        [CONDITION_KERNEL_VERSION] = "ConditionKernelVersion",
         [CONDITION_SECURITY] = "ConditionSecurity",
         [CONDITION_CAPABILITY] = "ConditionCapability",
         [CONDITION_AC_POWER] = "ConditionACPower",
@@ -639,6 +654,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_VIRTUALIZATION] = "AssertVirtualization",
         [CONDITION_HOST] = "AssertHost",
         [CONDITION_KERNEL_COMMAND_LINE] = "AssertKernelCommandLine",
+        [CONDITION_KERNEL_VERSION] = "AssertKernelVersion",
         [CONDITION_SECURITY] = "AssertSecurity",
         [CONDITION_CAPABILITY] = "AssertCapability",
         [CONDITION_AC_POWER] = "AssertACPower",

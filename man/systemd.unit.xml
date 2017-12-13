@@ -923,6 +923,7 @@
         <term><varname>ConditionVirtualization=</varname></term>
         <term><varname>ConditionHost=</varname></term>
         <term><varname>ConditionKernelCommandLine=</varname></term>
+        <term><varname>ConditionKernelVersion=</varname></term>
         <term><varname>ConditionSecurity=</varname></term>
         <term><varname>ConditionCapability=</varname></term>
         <term><varname>ConditionACPower=</varname></term>
@@ -1049,6 +1050,10 @@
         is, or as left hand side of an assignment. In the latter case,
         the exact assignment is looked for with right and left hand
         side matching.</para>
+
+        <para><varname>ConditionKernelVersion=</varname> may be used to check whether the kernel version (as reported
+        by <command>uname -r</command>) matches a certain expression (or if prefixed with the exclamation mark does not
+        match it). The argument must be a single string, optionally containing shell-style globs.</para>
 
         <para><varname>ConditionSecurity=</varname> may be used to
         check whether the given security module is enabled on the
@@ -1201,6 +1206,7 @@
         <term><varname>AssertVirtualization=</varname></term>
         <term><varname>AssertHost=</varname></term>
         <term><varname>AssertKernelCommandLine=</varname></term>
+        <term><varname>AssertKernelVersion=</varname></term>
         <term><varname>AssertSecurity=</varname></term>
         <term><varname>AssertCapability=</varname></term>
         <term><varname>AssertACPower=</varname></term>

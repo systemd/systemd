@@ -149,7 +149,8 @@ static void netdev_free(NetDev *netdev) {
 
         condition_free_list(netdev->match_host);
         condition_free_list(netdev->match_virt);
-        condition_free_list(netdev->match_kernel);
+        condition_free_list(netdev->match_kernel_cmdline);
+        condition_free_list(netdev->match_kernel_version);
         condition_free_list(netdev->match_arch);
 
         if (NETDEV_VTABLE(netdev) &&
@@ -642,7 +643,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         /* skip out early if configuration does not match the environment */
         if (net_match_config(NULL, NULL, NULL, NULL, NULL,
                              netdev_raw->match_host, netdev_raw->match_virt,
-                             netdev_raw->match_kernel, netdev_raw->match_arch,
+                             netdev_raw->match_kernel_cmdline, netdev_raw->match_kernel_version,
+                             netdev_raw->match_arch,
                              NULL, NULL, NULL, NULL, NULL, NULL) <= 0)
                 return 0;
 

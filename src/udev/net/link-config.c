@@ -77,7 +77,8 @@ static void link_config_free(link_config *link) {
         free(link->match_name);
         free(link->match_host);
         free(link->match_virt);
-        free(link->match_kernel);
+        free(link->match_kernel_cmdline);
+        free(link->match_kernel_version);
         free(link->match_arch);
 
         free(link->description);
@@ -248,7 +249,8 @@ int link_config_get(link_config_ctx *ctx, struct udev_device *device,
 
                 if (net_match_config(link->match_mac, link->match_path, link->match_driver,
                                      link->match_type, link->match_name, link->match_host,
-                                     link->match_virt, link->match_kernel, link->match_arch,
+                                     link->match_virt, link->match_kernel_cmdline,
+                                     link->match_kernel_version, link->match_arch,
                                      attr_value ? ether_aton(attr_value) : NULL,
                                      udev_device_get_property_value(device, "ID_PATH"),
                                      udev_device_get_driver(udev_device_get_parent(device)),

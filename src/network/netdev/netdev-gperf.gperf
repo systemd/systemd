@@ -33,7 +33,8 @@ struct ConfigPerfItem;
 %%
 Match.Host,                  config_parse_net_condition,           CONDITION_HOST,                offsetof(NetDev, match_host)
 Match.Virtualization,        config_parse_net_condition,           CONDITION_VIRTUALIZATION,      offsetof(NetDev, match_virt)
-Match.KernelCommandLine,     config_parse_net_condition,           CONDITION_KERNEL_COMMAND_LINE, offsetof(NetDev, match_kernel)
+Match.KernelCommandLine,     config_parse_net_condition,           CONDITION_KERNEL_COMMAND_LINE, offsetof(NetDev, match_kernel_cmdline)
+Match.KernelVersion,         config_parse_net_condition,           CONDITION_KERNEL_VERSION,      offsetof(NetDev, match_kernel_version)
 Match.Architecture,          config_parse_net_condition,           CONDITION_ARCHITECTURE,        offsetof(NetDev, match_arch)
 NetDev.Description,          config_parse_string,                  0,                             offsetof(NetDev, description)
 NetDev.Name,                 config_parse_ifname,                  0,                             offsetof(NetDev, ifname)

@@ -93,7 +93,8 @@ typedef struct NetDev {
 
         Condition *match_host;
         Condition *match_virt;
-        Condition *match_kernel;
+        Condition *match_kernel_cmdline;
+        Condition *match_kernel_version;
         Condition *match_arch;
 
         NetDevState state;
