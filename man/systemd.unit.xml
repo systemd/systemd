@@ -937,6 +937,7 @@
         <term><varname>ConditionFileIsExecutable=</varname></term>
         <term><varname>ConditionUser=</varname></term>
         <term><varname>ConditionGroup=</varname></term>
+        <term><varname>ConditionControlGroupController=</varname></term>
 
         <!-- We do not document ConditionNull=
              here, as it is not particularly
@@ -1164,6 +1165,18 @@
         auxiliary groups match the specified group or GID. This setting
         does not have a special value <literal>@system</literal>.</para>
 
+        <para><varname>ConditionControlGroupController=</varname> takes a
+        cgroup controller name (eg. <option>cpu</option>), verifying that it is
+        available for use on the system. For example, a particular controller
+        may not be available if it was disabled on the kernel command line with
+        <literal>cgroup_disable=</literal><replaceable>controller</replaceable>.
+        Multiple controllers may be passed with a space separating them; in
+        this case the condition will only pass if all listed controllers are
+        available for use. Controllers unknown to systemd are ignored. Valid
+        controllers are <option>cpu</option>, <option>cpuacct</option>,
+        <option>io</option>, <option>blkio</option>, <option>memory</option>,
+        <option>devices</option>, and <option>pids</option>.</para>
+
         <para>If multiple conditions are specified, the unit will be
         executed if all of them apply (i.e. a logical AND is applied).
         Condition checks can be prefixed with a pipe symbol (|) in
@@ -1202,6 +1215,7 @@
         <term><varname>AssertFileIsExecutable=</varname></term>
         <term><varname>AssertUser=</varname></term>
         <term><varname>AssertGroup=</varname></term>
+        <term><varname>AssertControlGroupController=</varname></term>
 
         <listitem><para>Similar to the <varname>ConditionArchitecture=</varname>,
         <varname>ConditionVirtualization=</varname>, …, condition settings described above, these settings add

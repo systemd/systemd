@@ -29,12 +29,14 @@
 #include "architecture.h"
 #include "audit-util.h"
 #include "condition.h"
+#include "cgroup-util.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
 #include "log.h"
 #include "macro.h"
 #include "selinux-util.h"
+#include "set.h"
 #include "smack-util.h"
 #include "strv.h"
 #include "virt.h"
@@ -123,6 +125,77 @@ static void test_condition_test_path(void) {
         assert_se(condition);
         assert_se(condition_test(condition));
         condition_free(condition);
+}
+
+static int test_condition_test_control_group_controller(void) {
+        Condition *condition;
+        CGroupMask system_mask;
+        CGroupController controller;
+        _cleanup_free_ char *controller_name = NULL;
+        int r;
+
+        r = cg_unified_flush();
+        if (r < 0) {
+                log_notice_errno(r, "Skipping ConditionControlGroupController tests: %m");
+                return EXIT_TEST_SKIP;
+        }
+
+        /* Invalid controllers are ignored */
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, true);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        assert_se(cg_mask_supported(&system_mask) >= 0);
+
+        /* Individual valid controllers one by one */
+        for (controller = 0; controller < _CGROUP_CONTROLLER_MAX; controller++) {
+                const char *local_controller_name = cgroup_controller_to_string(controller);
+                log_info("chosen controller is '%s'", local_controller_name);
+                if (system_mask & CGROUP_CONTROLLER_TO_MASK(controller)) {
+                        log_info("this controller is available");
+                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
+                        assert_se(condition);
+                        assert_se(condition_test(condition));
+                        condition_free(condition);
+
+                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
+                        assert_se(condition);
+                        assert_se(!condition_test(condition));
+                        condition_free(condition);
+                } else {
+                        log_info("this controller is unavailable");
+                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
+                        assert_se(condition);
+                        assert_se(!condition_test(condition));
+                        condition_free(condition);
+
+                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
+                        assert_se(condition);
+                        assert_se(condition_test(condition));
+                        condition_free(condition);
+                }
+        }
+
+        /* Multiple valid controllers at the same time */
+        assert_se(cg_mask_to_string(system_mask, &controller_name) >= 0);
+
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, controller_name, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, controller_name, false, true);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        return EXIT_SUCCESS;
 }
 
 static void test_condition_test_ac_power(void) {
@@ -488,6 +561,7 @@ int main(int argc, char *argv[]) {
         test_condition_test_virtualization();
         test_condition_test_user();
         test_condition_test_group();
+        test_condition_test_control_group_controller();
 
         return 0;
 }

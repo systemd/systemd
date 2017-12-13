@@ -36,6 +36,7 @@
 #include "architecture.h"
 #include "audit-util.h"
 #include "cap-list.h"
+#include "cgroup-util.h"
 #include "condition.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -175,6 +176,30 @@ static int condition_test_user(Condition *c) {
                 return 0;
 
         return id == getuid() || id == geteuid();
+}
+
+static int condition_test_control_group_controller(Condition *c) {
+        int r;
+        CGroupMask system_mask, wanted_mask = 0;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_CONTROL_GROUP_CONTROLLER);
+
+        r = cg_mask_supported(&system_mask);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine supported controllers: %m");
+
+        r = cg_mask_from_string(c->parameter, &wanted_mask);
+        if (r < 0 || wanted_mask <= 0) {
+                /* This won't catch the case that we have an unknown controller
+                 * mixed in with valid ones -- these are only assessed on the
+                 * validity of the valid controllers found. */
+                log_debug("Failed to parse cgroup string: %s", c->parameter);
+                return 1;
+        }
+
+        return (system_mask & wanted_mask) == wanted_mask;
 }
 
 static int condition_test_group(Condition *c) {
@@ -537,6 +562,7 @@ int condition_test(Condition *c) {
                 [CONDITION_FIRST_BOOT] = condition_test_first_boot,
                 [CONDITION_USER] = condition_test_user,
                 [CONDITION_GROUP] = condition_test_group,
+                [CONDITION_CONTROL_GROUP_CONTROLLER] = condition_test_control_group_controller,
                 [CONDITION_NULL] = condition_test_null,
         };
 
@@ -602,6 +628,7 @@ static const char* const condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_FILE_IS_EXECUTABLE] = "ConditionFileIsExecutable",
         [CONDITION_USER] = "ConditionUser",
         [CONDITION_GROUP] = "ConditionGroup",
+        [CONDITION_CONTROL_GROUP_CONTROLLER] = "ConditionControlGroupController",
         [CONDITION_NULL] = "ConditionNull"
 };
 
@@ -628,6 +655,7 @@ static const char* const assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_FILE_IS_EXECUTABLE] = "AssertFileIsExecutable",
         [CONDITION_USER] = "AssertUser",
         [CONDITION_GROUP] = "AssertGroup",
+        [CONDITION_CONTROL_GROUP_CONTROLLER] = "AssertControlGroupController",
         [CONDITION_NULL] = "AssertNull"
 };
 
