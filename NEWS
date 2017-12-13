@@ -185,29 +185,33 @@ CHANGES WITH 236 in spe:
           continue to send EXTEND_TIMEOUT_USEC within the period specified to
           prevent the service manager from making the service as timedout.
 
+        * systemd-resolved's DNSSEC support gained support for RFC 8080
+          (Ed25519 keys and signatures).
+
         Contributions from: Alan Jenkins, Alan Robertson, Alessandro Ghedini,
         Andrew Jeddeloh, Antonio Rojas, Ari, asavah, bleep_blop, Carsten
         Strotmann, Christian Brauner, Christian Hesse, Clinton Roy, Collin
-        Eggert, Daniel Black, Daniel Lockyer, Daniel Rusek, Dimitri John
-        Ledkov, Dmitry Rozhkov, Edward A. James, Evgeny Vereshchagin, Florian
-        Klink, Franck Bui, Gwendal Grignou, Hans de Goede, Harald Hoyer, Hristo
-        Venev, Ikey Doherty, Jakub Wilk, Jérémy Rosen, Jiahui Xie, John Lin,
-        José Bollo, Josef Andersson, juga0, Krzysztof Nowicki, Lars Karlitski,
-        Lars Kellogg-Stedman, Lauri Tirkkonen, Lennart Poettering, Lubomir
-        Rintel, Lucas Werkmeister, Lukáš Nykrýn, Lukáš Říha, Lukasz
-        Rubaszewski, Maciej S. Szmigiero, Mantas Mikulėnas, Marcus Folkesson,
-        Martin Steuer, Mathieu Trudel-Lapierre, Matija Skala, Max Resch,
-        Michael Biebl, Michael Vogt, Michal Koutný, Michal Sekletar, Mike
-        Gilbert, Muhammet Kara, Neil Brown, Olaf Hering, Ondrej Kozina, Patrik
-        Flykt, Patryk Kocielnik, Peter Hutterer, Piotr Drąg, Razvan Cojocaru,
-        Robin McCorkell, Roland Hieber, Sergey Ptashnick, Shawn Landden, Shuang
+        Eggert, Cong Wang, Daniel Black, Daniel Lockyer, Daniel Rusek, Dimitri
+        John Ledkov, Dmitry Rozhkov, Edward A. James, Evgeny Vereshchagin,
+        Florian Klink, Franck Bui, Gwendal Grignou, Hans de Goede, Harald
+        Hoyer, Hristo Venev, Ikey Doherty, Jakub Wilk, Jérémy Rosen, Jiahui
+        Xie, John Lin, José Bollo, Josef Andersson, juga0, Krzysztof Nowicki,
+        Lars Karlitski, Lars Kellogg-Stedman, Lauri Tirkkonen, Lennart
+        Poettering, Lubomir Rintel, Luca Bruno, Lucas Werkmeister, Lukáš
+        Nykrýn, Lukáš Říha, Lukasz Rubaszewski, Maciej S. Szmigiero, Mantas
+        Mikulėnas, Marcus Folkesson, Martin Steuer, Mathieu Trudel-Lapierre,
+        Matija Skala, Matthias-Christian Ott, Max Resch, Michael Biebl, Michael
+        Vogt, Michal Koutný, Michal Sekletar, Mike Gilbert, Muhammet Kara, Neil
+        Brown, Olaf Hering, Ondrej Kozina, Patrik Flykt, Patryk Kocielnik,
+        Peter Hutterer, Piotr Drąg, Razvan Cojocaru, Robin McCorkell, Roland
+        Hieber, Saran Tunyasuvunakool, Sergey Ptashnick, Shawn Landden, Shuang
         Liu, Simon Arlott, Simon Peeters, Stanislav Angelovič, Stefan Agner,
-        Susant Sahani, Sylvain Plantefève, Thomas Blume, Tinu Weber, Tom
-        Stellard, Topi Miettinen, Torsten Hilbrich, Vito Caputo, Vladislav
-        Vishnyakov, WaLyong Cho, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, Zeal
-        Jagannatha
+        Susant Sahani, Sylvain Plantefève, Thomas Blume, Thomas Haller, Tiago
+        Salem Herrmann, Tinu Weber, Tom Stellard, Topi Miettinen, Torsten
+        Hilbrich, Vito Caputo, Vladislav Vishnyakov, WaLyong Cho, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek, Zeal Jagannatha
 
-        — Berlin, 2017-12-XX
+        — Berlin, 2017-12-14
 
 CHANGES WITH 235:
 
