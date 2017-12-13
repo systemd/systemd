@@ -987,7 +987,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         }
 
         LIST_FOREACH(options, option, lease->private_options) {
-                char key[strlen("OPTION_000")+1];
+                char key[STRLEN("OPTION_000")+1];
 
                 xsprintf(key, "OPTION_%" PRIu8, option->tag);
                 r = serialize_dhcp_option(f, key, option->data, option->length);

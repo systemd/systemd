@@ -368,7 +368,7 @@ bool fdname_is_valid(const char *s) {
 }
 
 int fd_get_path(int fd, char **ret) {
-        char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         int r;
 
         xsprintf(procfs_path, "/proc/self/fd/%i", fd);
