@@ -332,7 +332,7 @@ static bool install_client_side(void) {
         /* Decides when to execute enable/disable/... operations
          * client-side rather than server-side. */
 
-        if (running_in_chroot() > 0)
+        if (running_in_chroot_or_offline())
                 return true;
 
         if (sd_booted() <= 0)
