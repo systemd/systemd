@@ -32,11 +32,41 @@
 #include "string-util.h"
 #include "strv.h"
 
+/* A resolv.conf file containing the DNS server and domain data we learnt from uplink, i.e. the full uplink data */
+#define PRIVATE_UPLINK_RESOLV_CONF "/run/systemd/resolve/resolv.conf"
+
+/* A resolv.conf file containing the domain data we learnt from uplink, but our own DNS server address. */
+#define PRIVATE_STUB_RESOLV_CONF "/run/systemd/resolve/stub-resolv.conf"
+
+/* A static resolv.conf file containing no domains, but only our own DNS sever address */
+#define PRIVATE_STATIC_RESOLV_CONF ROOTLIBEXECDIR "/resolv.conf"
+
+static bool file_is_our_own(const struct stat *st) {
+        const char *path;
+
+        assert(st);
+
+        FOREACH_STRING(path,
+                       PRIVATE_UPLINK_RESOLV_CONF,
+                       PRIVATE_STUB_RESOLV_CONF,
+                       PRIVATE_STATIC_RESOLV_CONF) {
+
+                struct stat own;
+
+                /* Is it symlinked to our own uplink file? */
+                if (stat(path, &own) >= 0 &&
+                    st->st_dev == own.st_dev &&
+                    st->st_ino == own.st_ino)
+                        return true;
+        }
+
+        return false;
+}
+
 int manager_read_resolv_conf(Manager *m) {
         _cleanup_fclose_ FILE *f = NULL;
-        struct stat st, own;
+        struct stat st;
         char line[LINE_MAX];
-        usec_t t;
         int r;
 
         assert(m);
@@ -57,20 +87,10 @@ int manager_read_resolv_conf(Manager *m) {
         }
 
         /* Have we already seen the file? */
-        t = timespec_load(&st.st_mtim);
-        if (t == m->resolv_conf_mtime)
+        if (timespec_load(&st.st_mtim) == m->resolv_conf_mtime)
                 return 0;
 
-        /* Is it symlinked to our own file? */
-        if (stat(PRIVATE_UPLINK_RESOLV_CONF, &own) >= 0 &&
-            st.st_dev == own.st_dev &&
-            st.st_ino == own.st_ino)
-                return 0;
-
-        /* Is it symlinked to our own stub file? */
-        if (stat(PRIVATE_STUB_RESOLV_CONF, &own) >= 0 &&
-            st.st_dev == own.st_dev &&
-            st.st_ino == own.st_ino)
+        if (file_is_our_own(&st))
                 return 0;
 
         f = fopen("/etc/resolv.conf", "re");
@@ -86,6 +106,9 @@ int manager_read_resolv_conf(Manager *m) {
                 r = log_error_errno(errno, "Failed to stat open file: %m");
                 goto clear;
         }
+
+        if (file_is_our_own(&st))
+                return 0;
 
         dns_server_mark_all(m->dns_servers);
         dns_search_domain_mark_all(m->search_domains);
@@ -117,7 +140,7 @@ int manager_read_resolv_conf(Manager *m) {
                 }
         }
 
-        m->resolv_conf_mtime = t;
+        m->resolv_conf_mtime = timespec_load(&st.st_mtim);
 
         /* Flush out all servers and search domains that are still
          * marked. Those are then ones that didn't appear in the new
@@ -216,14 +239,18 @@ static void write_resolv_conf_search(
 static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
         Iterator i;
 
-        fputs_unlocked("# This file is managed by man:systemd-resolved(8). Do not edit.\n#\n"
+        fputs_unlocked("# This file is managed by man:systemd-resolved(8). Do not edit.\n"
+                       "#\n"
                        "# This is a dynamic resolv.conf file for connecting local clients directly to\n"
-                       "# all known DNS servers.\n#\n"
+                       "# all known uplink DNS servers. This file lists all configured search domains.\n"
+                       "#\n"
                        "# Third party programs must not access this file directly, but only through the\n"
                        "# symlink at /etc/resolv.conf. To manage man:resolv.conf(5) in a different way,\n"
-                       "# replace this symlink by a static file or a different symlink.\n#\n"
+                       "# replace this symlink by a static file or a different symlink.\n"
+                       "#\n"
                        "# See man:systemd-resolved.service(8) for details about the supported modes of\n"
-                       "# operation for /etc/resolv.conf.\n\n", f);
+                       "# operation for /etc/resolv.conf.\n"
+                       "\n", f);
 
         if (ordered_set_isempty(dns))
                 fputs_unlocked("# No DNS servers known.\n", f);
@@ -242,10 +269,23 @@ static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSe
 }
 
 static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
-        fputs("# This file is managed by man:systemd-resolved(8). Do not edit.\n#\n"
-              "# 127.0.0.53 is the systemd-resolved stub resolver.\n"
-              "# run \"systemd-resolve --status\" to see details about the actual nameservers.\n\n"
-              "nameserver 127.0.0.53\n", f);
+        fputs_unlocked("# This file is managed by man:systemd-resolved(8). Do not edit.\n"
+                       "#\n"
+                       "# This is a dynamic resolv.conf file for connecting local clients to the\n"
+                       "# internal DNS stub resolver of systemd-resolved. This file lists all\n"
+                       "# configured search domains.\n"
+                       "#\n"
+                       "# Run \"systemd-resolve --status\" to see details about the uplink DNS servers\n"
+                       "# currently in use.\n"
+                       "#\n"
+                       "# Third party programs must not access this file directly, but only through the\n"
+                       "# symlink at /etc/resolv.conf. To manage man:resolv.conf(5) in a different way,\n"
+                       "# replace this symlink by a static file or a different symlink.\n"
+                       "#\n"
+                       "# See man:systemd-resolved.service(8) for details about the supported modes of\n"
+                       "# operation for /etc/resolv.conf.\n"
+                       "\n"
+                       "nameserver 127.0.0.53\n", f);
 
         if (!ordered_set_isempty(domains))
                 write_resolv_conf_search(domains, f);
