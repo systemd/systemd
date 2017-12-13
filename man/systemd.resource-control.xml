@@ -596,6 +596,49 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPPortIngressAllow=<replaceable>PORT[-ENDPORT]/PROTOCOL…</replaceable></varname></term>
+        <term><varname>IPPortIngressDeny=<replaceable>PORT[-ENDPORT]/PROTOCOL…</replaceable></varname></term>
+        <term><varname>IPPortEgressAllow=<replaceable>PORT[-ENDPORT]/PROTOCOL…</replaceable></varname></term>
+        <term><varname>IPPortEgressDeny=<replaceable>PORT[-ENDPORT]/PROTOCOL…</replaceable></varname></term>
+
+        <listitem>
+          <para>Turn on port-based network traffic filtering for packets sent and received over AF_INET and AF_INET6
+          sockets for TCP and UDP protocols. The directives take a space separated list of ports and port ranges. Ports
+          are numbers in range [1, 65535] and port ranges have range start and end ports separated by a
+          <literal>-</literal> character. A special symbolic keyword <literal>any</literal> matches any port.
+          After every port declaration there must be a protocol specifier separated by a <literal>/</literal>
+          character. The known protocols are <literal>tcp</literal> and <literal>udp</literal>.
+          </para>
+
+          <para><varname>IPPortIngressAllow=</varname> and <varname>IPPortIngressDeny=</varname> directives concern
+          incoming packets and their destination port setting. For example, if a TCP connection attempt is made to
+          a socket with <varname>IPPortIngressDeny=</varname> setting matching the port being connected and
+          <varname>IPPortIngressAllow=</varname> not set, the connection attempt will be denied.
+          </para>
+
+          <para><varname>IPPortEgressAllow=</varname> and <varname>IPPortEgressDeny=</varname> directives concern outgoing
+          network traffic to the destination port. For example, if a service tries to create a TCP connection to an
+          external service with <varname>IPPortEgressDeny=</varname> matching the destination port and
+          <varname>IPPortEgressAllow=</varname> not set, the connection will be denied.
+          </para>
+
+          <para>The semantics concerning sockets are the same as with <varname>IPAddressAllow=</varname> and
+          <varname>IPAddressDeny=</varname> settings. Also, the logic for allowing packets goes the same way: if a port
+          is both denied and allowed, packets arriving to that port are accepted.
+          </para>
+
+          <para>If <varname>IPAddress*=</varname> directives are specified with <varname>IPPort*=</varname> directives,
+          a packet has to pass both the port and address checks in order to be accepted. In other words, you can deny
+          network traffic by either denying the address or the port.
+          </para>
+
+          <para>The known protocols (TCP and UDP) are managed by the filter. However, other protocols will pass the port
+          checking; they act as if there was no filter in place.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DeviceAllow=</varname></term>
 
         <listitem>
