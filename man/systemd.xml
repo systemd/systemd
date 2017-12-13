@@ -443,7 +443,7 @@
     verify that it makes sense, fixing it if possible, and only
     failing if it really cannot work.</para>
 
-    <para>Systemd contains native implementations of various tasks
+    <para>systemd contains native implementations of various tasks
     that need to be executed as part of the boot process. For example,
     it sets the hostname or configures the loopback network device. It
     also sets up and mounts various API file systems, such as
