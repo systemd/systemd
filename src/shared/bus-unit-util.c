@@ -153,8 +153,6 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 l = strlen(field);
                 n = newa(char, l + 2);
-                if (!n)
-                        return log_oom();
 
                 /* Change suffix Sec → USec */
                 strcpy(mempcpy(n, field, l - 3), "USec");
