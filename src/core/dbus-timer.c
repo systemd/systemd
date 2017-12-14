@@ -285,7 +285,7 @@ static int bus_timer_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "WakeSystem")) {
+        } else if (STR_IN_SET(name, "WakeSystem", "Persistent", "RemainAfterElapse")) {
                 int b;
 
                 r = sd_bus_message_read(message, "b", &b);
@@ -293,21 +293,13 @@ static int bus_timer_set_transient_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        t->wake_system = b;
-                        unit_write_settingf(UNIT(t), flags, name, "%s=%s", name, yes_no(b));
-                }
+                        if (streq(name, "WakeSystem"))
+                                t->wake_system = b;
+                        else if (streq(name, "Persistent"))
+                                t->persistent = b;
+                        else /* RemainAfterElapse */
+                                t->remain_after_elapse = b;
 
-                return 1;
-
-        } else if (streq(name, "RemainAfterElapse")) {
-                int b;
-
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        t->remain_after_elapse = b;
                         unit_write_settingf(UNIT(t), flags, name, "%s=%s", name, yes_no(b));
                 }
 

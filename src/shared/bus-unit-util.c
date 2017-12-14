@@ -357,7 +357,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "TasksAccounting", "IPAccounting", "SendSIGHUP", "SendSIGKILL", "WakeSystem",
                               "DefaultDependencies", "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "TTYVTDisallocate",
                               "RemainAfterExit", "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
-                              "NoNewPrivileges", "SyslogLevelPrefix", "RemainAfterElapse",
+                              "NoNewPrivileges", "SyslogLevelPrefix", "RemainAfterElapse", "Persistent",
                               "MemoryDenyWriteExecute", "RestrictRealtime", "DynamicUser", "RemoveIPC",
                               "ProtectKernelTunables", "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS",
                               "CPUSchedulingResetOnFork", "LockPersonality")) {
@@ -411,7 +411,9 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "RootDirectory", "SyslogIdentifier", "ProtectSystem",
                               "ProtectHome", "SELinuxContext", "Restart", "RootImage",
                               "NotifyAccess", "RuntimeDirectoryPreserve", "Personality",
-                              "KeyringMode", "CollectMode", "FailureAction", "SuccessAction"))
+                              "KeyringMode", "CollectMode", "FailureAction", "SuccessAction",
+                              "OnCalendar"))
+
                 r = sd_bus_message_append(m, "v", "s", eq);
 
         else if (streq(field, "StandardInputData")) {
@@ -705,7 +707,9 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                sd_bus_message_append_array(m, 'y', cpuset, CPU_ALLOC_SIZE(ncpus));
+                r = sd_bus_message_append_array(m, 'y', cpuset, CPU_ALLOC_SIZE(ncpus));
+                if (r < 0)
+                        return bus_log_create_error(r);
 
                 r = sd_bus_message_close_container(m);
 
@@ -1287,6 +1291,17 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return r;
 
                 r = sd_bus_message_close_container(m);
+
+        } else if (STR_IN_SET(field,
+                              "OnActiveSec", "OnBootSec", "OnStartupSec",
+                              "OnUnitActiveSec","OnUnitInactiveSec")) {
+                usec_t t;
+
+                r = parse_sec(eq, &t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);
+
+                r = sd_bus_message_append(m, "v", "t", t);
 
         } else {
                 log_error("Unknown assignment: %s", assignment);

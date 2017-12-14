@@ -68,13 +68,8 @@ static enum {
         ARG_STDIO_DIRECT,    /* Directly pass our stdin/stdout/stderr to the activated service, useful for usage in shell pipelines, requested by --pipe */
         ARG_STDIO_AUTO,      /* If --pipe and --pty are used together we use --pty when invoked on a TTY, and --pipe otherwise */
 } arg_stdio = ARG_STDIO_NONE;
-static usec_t arg_on_active = 0;
-static usec_t arg_on_boot = 0;
-static usec_t arg_on_startup = 0;
-static usec_t arg_on_unit_active = 0;
-static usec_t arg_on_unit_inactive = 0;
-static const char *arg_on_calendar = NULL;
 static char **arg_timer_property = NULL;
+static bool with_timer = false;
 static bool arg_quiet = false;
 static bool arg_aggressive_gc = false;
 
@@ -117,8 +112,22 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static bool with_timer(void) {
-        return arg_on_active || arg_on_boot || arg_on_startup || arg_on_unit_active || arg_on_unit_inactive || arg_on_calendar;
+static int add_timer_property(const char *name, const char *val) {
+        _cleanup_free_ char *p = NULL;
+
+        assert(name);
+        assert(val);
+
+        p = strjoin(name, "=", val);
+        if (!p)
+                return log_oom();
+
+        if (strv_consume(&arg_timer_property, p) < 0)
+                return log_oom();
+
+        p = NULL;
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -298,74 +307,65 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ON_ACTIVE:
-
-                        r = parse_sec(optarg, &arg_on_active);
-                        if (r < 0) {
-                                log_error("Failed to parse timer value: %s", optarg);
+                        r = add_timer_property("OnActiveSec", optarg);
+                        if (r < 0)
                                 return r;
-                        }
 
+                        with_timer = true;
                         break;
 
                 case ARG_ON_BOOT:
-
-                        r = parse_sec(optarg, &arg_on_boot);
-                        if (r < 0) {
-                                log_error("Failed to parse timer value: %s", optarg);
+                        r = add_timer_property("OnBootSec", optarg);
+                        if (r < 0)
                                 return r;
-                        }
 
+                        with_timer = true;
                         break;
 
                 case ARG_ON_STARTUP:
-
-                        r = parse_sec(optarg, &arg_on_startup);
-                        if (r < 0) {
-                                log_error("Failed to parse timer value: %s", optarg);
+                        r = add_timer_property("OnStartupSec", optarg);
+                        if (r < 0)
                                 return r;
-                        }
 
+                        with_timer = true;
                         break;
 
                 case ARG_ON_UNIT_ACTIVE:
-
-                        r = parse_sec(optarg, &arg_on_unit_active);
-                        if (r < 0) {
-                                log_error("Failed to parse timer value: %s", optarg);
+                        r = add_timer_property("OnUnitActiveSec", optarg);
+                        if (r < 0)
                                 return r;
-                        }
 
+                        with_timer = true;
                         break;
 
                 case ARG_ON_UNIT_INACTIVE:
-
-                        r = parse_sec(optarg, &arg_on_unit_inactive);
-                        if (r < 0) {
-                                log_error("Failed to parse timer value: %s", optarg);
+                        r = add_timer_property("OnUnitInactiveSec", optarg);
+                        if (r < 0)
                                 return r;
-                        }
 
+                        with_timer = true;
                         break;
 
-                case ARG_ON_CALENDAR: {
-                        CalendarSpec *spec = NULL;
-
-                        r = calendar_spec_from_string(optarg, &spec);
-                        if (r < 0) {
-                                log_error("Invalid calendar spec: %s", optarg);
+                case ARG_ON_CALENDAR:
+                        r = add_timer_property("OnCalendar", optarg);
+                        if (r < 0)
                                 return r;
-                        }
 
-                        calendar_spec_free(spec);
-                        arg_on_calendar = optarg;
+                        with_timer = true;
                         break;
-                }
 
                 case ARG_TIMER_PROPERTY:
 
                         if (strv_extend(&arg_timer_property, optarg) < 0)
                                 return log_oom();
 
+                        with_timer = with_timer ||
+                                !!startswith(optarg, "OnActiveSec=") ||
+                                !!startswith(optarg, "OnBootSec=") ||
+                                !!startswith(optarg, "OnStartupSec=") ||
+                                !!startswith(optarg, "OnUnitActiveSec=") ||
+                                !!startswith(optarg, "OnUnitInactiveSec=") ||
+                                !!startswith(optarg, "OnCalendar=");
                         break;
 
                 case ARG_NO_BLOCK:
@@ -397,7 +397,7 @@ static int parse_argv(int argc, char *argv[]) {
                         ARG_STDIO_DIRECT;
         }
 
-        if ((optind >= argc) && (!arg_unit || !with_timer())) {
+        if ((optind >= argc) && (!arg_unit || !with_timer)) {
                 log_error("Command line to execute required.");
                 return -EINVAL;
         }
@@ -417,7 +417,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_stdio != ARG_STDIO_NONE && (with_timer() || arg_scope)) {
+        if (arg_stdio != ARG_STDIO_NONE && (with_timer || arg_scope)) {
                 log_error("--pty/--pipe is not compatible in timer or --scope mode.");
                 return -EINVAL;
         }
@@ -432,12 +432,12 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (arg_scope && with_timer()) {
+        if (arg_scope && with_timer) {
                 log_error("Timer options are not supported in --scope mode.");
                 return -EINVAL;
         }
 
-        if (arg_timer_property && !with_timer()) {
+        if (arg_timer_property && !with_timer) {
                 log_error("--timer-property= has no effect without any other timer options.");
                 return -EINVAL;
         }
@@ -448,7 +448,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
                 }
 
-                if (with_timer()) {
+                if (with_timer) {
                         log_error("--wait may not be combined with timer operations.");
                         return -EINVAL;
                 }
@@ -726,42 +726,6 @@ static int transient_timer_set_properties(sd_bus_message *m) {
         r = sd_bus_message_append(m, "(sv)", "RemainAfterElapse", "b", false);
         if (r < 0)
                 return bus_log_create_error(r);
-
-        if (arg_on_active) {
-                r = sd_bus_message_append(m, "(sv)", "OnActiveSec", "t", arg_on_active);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
-
-        if (arg_on_boot) {
-                r = sd_bus_message_append(m, "(sv)", "OnBootSec", "t", arg_on_boot);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
-
-        if (arg_on_startup) {
-                r = sd_bus_message_append(m, "(sv)", "OnStartupSec", "t", arg_on_startup);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
-
-        if (arg_on_unit_active) {
-                r = sd_bus_message_append(m, "(sv)", "OnUnitActiveSec", "t", arg_on_unit_active);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
-
-        if (arg_on_unit_inactive) {
-                r = sd_bus_message_append(m, "(sv)", "OnUnitInactiveSec", "t", arg_on_unit_inactive);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
-
-        if (arg_on_calendar) {
-                r = sd_bus_message_append(m, "(sv)", "OnCalendar", "s", arg_on_calendar);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
 
         return 0;
 }
@@ -1524,7 +1488,7 @@ int main(int argc, char* argv[]) {
 
         if (arg_scope)
                 r = start_transient_scope(bus, argv + optind);
-        else if (with_timer())
+        else if (with_timer)
                 r = start_transient_timer(bus, argv + optind);
         else
                 r = start_transient_service(bus, argv + optind, &retval);
