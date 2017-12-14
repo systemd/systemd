@@ -335,3 +335,5 @@ int log_syntax_internal(
                                             "String is not UTF-8 clean, ignoring assignment: %s", strna(_p)); \
                 }                                                       \
         })
+
+#define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)

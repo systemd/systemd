@@ -220,7 +220,7 @@ static int verify_unit(Unit *u, bool check_man) {
 
         assert(u);
 
-        if (log_get_max_level() >= LOG_DEBUG)
+        if (DEBUG_LOGGING)
                 unit_dump(u, stdout, "\t");
 
         log_unit_debug(u, "Creating %s/start job", u->id);

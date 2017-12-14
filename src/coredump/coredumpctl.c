@@ -1061,7 +1061,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto end;
 
-        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *filter;
 
                 filter = journal_make_match_string(j);

@@ -3417,7 +3417,7 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
         if (!service_notify_message_authorized(SERVICE(u), pid, tags, fds))
                 return;
 
-        if (log_get_max_level() >= LOG_DEBUG) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *cc = NULL;
 
                 cc = strv_join(tags, ", ");

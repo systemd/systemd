@@ -3418,7 +3418,7 @@ static int exec_child(
                 return log_oom();
         }
 
-        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *line;
 
                 line = exec_command_line(final_argv);

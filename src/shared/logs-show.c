@@ -1392,7 +1392,7 @@ int show_journal_by_unit(
         if (r < 0)
                 return log_error_errno(r, "Failed to add unit matches: %m");
 
-        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *filter;
 
                 filter = journal_make_match_string(j);

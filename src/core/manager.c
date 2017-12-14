@@ -1887,7 +1887,7 @@ static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, const 
 
         if (UNIT_VTABLE(u)->notify_message)
                 UNIT_VTABLE(u)->notify_message(u, pid, tags, fds);
-        else if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
+        else if (DEBUG_LOGGING) {
                 _cleanup_free_ char *x = NULL, *y = NULL;
 
                 x = cescape(buf);
