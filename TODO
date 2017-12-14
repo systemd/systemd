@@ -657,6 +657,11 @@ Features:
     Benefit: nspawn --ephemeral would start working nicely with the journal.
   - assign MESSAGE_ID to log messages about failed services
 
+* add a test if all entries in the catalog are properly formatted.
+    (Adding dashes in a catalog entry currently results in the catalog entry
+     being silently skipped. journalctl --update-catalog must warn about this,
+     and we should also have a unit test to check that all our message are OK.)
+
 * document:
   - document that deps in [Unit] sections ignore Alias= fields in
     [Install] units of other units, unless those units are disabled
