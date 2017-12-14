@@ -297,11 +297,12 @@
     states are called "activating", "deactivating"). A special
     "failed" state is available as well, which is very similar to
     "inactive" and is entered when the service failed in some way
-    (process returned error code on exit, or crashed, or an operation
-    timed out). If this state is entered, the cause will be logged,
-    for later reference. Note that the various unit types may have a
-    number of additional substates, which are mapped to the five
-    generalized unit states described here.</para>
+    (process returned error code on exit, or crashed, an operation
+    timed out, or after too many restarts). If this state is entered,
+    the cause will be logged, for later reference. Note that the
+    various unit types may have a number of additional substates,
+    which are mapped to the five generalized unit states described
+    here.</para>
 
     <para>The following unit types are available:</para>
 
