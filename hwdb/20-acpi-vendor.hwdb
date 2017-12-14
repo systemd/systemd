@@ -120,6 +120,9 @@ acpi:IHSE*:
 acpi:IMPJ*:
  ID_VENDOR_FROM_DATABASE=Impinj
 
+acpi:INSY*:
+ ID_VENDOR_FROM_DATABASE=Insyde Software
+
 acpi:INTC*:
  ID_VENDOR_FROM_DATABASE=Intel Corporation
 
@@ -170,6 +173,9 @@ acpi:NVDA*:
 
 acpi:NVTN*:
  ID_VENDOR_FROM_DATABASE=Nuvoton Technology Corporation
+
+acpi:NXGO*:
+ ID_VENDOR_FROM_DATABASE=Nexstgo Company Limited
 
 acpi:OBDA*:
  ID_VENDOR_FROM_DATABASE=REALTEK Semiconductor Corp.
@@ -882,6 +888,9 @@ acpi:AVO*:
 acpi:AVR*:
  ID_VENDOR_FROM_DATABASE=AVer Information Inc.
 
+acpi:AVS*:
+ ID_VENDOR_FROM_DATABASE=Avatron Software Inc.
+
 acpi:AVT*:
  ID_VENDOR_FROM_DATABASE=Avtek (Electronics) Pty Ltd
 
@@ -962,6 +971,9 @@ acpi:BBH*:
 
 acpi:BBL*:
  ID_VENDOR_FROM_DATABASE=Brain Boxes Limited
+
+acpi:BBV*:
+ ID_VENDOR_FROM_DATABASE=BlueBox Video Limited
 
 acpi:BBX*:
  ID_VENDOR_FROM_DATABASE=Black Box Corporation
@@ -1340,6 +1352,9 @@ acpi:CHO*:
 
 acpi:CHP*:
  ID_VENDOR_FROM_DATABASE=CH Products
+
+acpi:CHR*:
+ ID_VENDOR_FROM_DATABASE=christmann informationstechnik + medien GmbH & Co. KG
 
 acpi:CHS*:
  ID_VENDOR_FROM_DATABASE=Agentur Chairos
@@ -2735,6 +2750,9 @@ acpi:GFN*:
 
 acpi:GGL*:
  ID_VENDOR_FROM_DATABASE=Google Inc.
+
+acpi:GGT*:
+ ID_VENDOR_FROM_DATABASE=G2TOUCH KOREA
 
 acpi:GIC*:
  ID_VENDOR_FROM_DATABASE=General Inst. Corporation
@@ -4371,6 +4389,9 @@ acpi:MNL*:
 acpi:MNP*:
  ID_VENDOR_FROM_DATABASE=Microcom
 
+acpi:MOC*:
+ ID_VENDOR_FROM_DATABASE=Matrix Orbital Corporation
+
 acpi:MOD*:
  ID_VENDOR_FROM_DATABASE=Modular Technology
 
@@ -4547,6 +4568,9 @@ acpi:MVM*:
 
 acpi:MVN*:
  ID_VENDOR_FROM_DATABASE=Meta Company
+
+acpi:MVR*:
+ ID_VENDOR_FROM_DATABASE=MediCapture, Inc.
 
 acpi:MVS*:
  ID_VENDOR_FROM_DATABASE=Microvision
@@ -4758,6 +4782,9 @@ acpi:NPA*:
 acpi:NPI*:
  ID_VENDOR_FROM_DATABASE=Network Peripherals Inc
 
+acpi:NRI*:
+ ID_VENDOR_FROM_DATABASE=Noritake Itron Corporation
+
 acpi:NRL*:
  ID_VENDOR_FROM_DATABASE=U.S. Naval Research Lab
 
@@ -4790,6 +4817,9 @@ acpi:NTC*:
 
 acpi:NTI*:
  ID_VENDOR_FROM_DATABASE=New Tech Int'l Company
+
+acpi:NTK*:
+ ID_VENDOR_FROM_DATABASE=NewTek
 
 acpi:NTL*:
  ID_VENDOR_FROM_DATABASE=National Transcomm. Ltd
@@ -5259,6 +5289,9 @@ acpi:PNR*:
 acpi:PNS*:
  ID_VENDOR_FROM_DATABASE=PanaScope
 
+acpi:PNT*:
+ ID_VENDOR_FROM_DATABASE=HOYA Corporation PENTAX Lifecare Division
+
 acpi:PNX*:
  ID_VENDOR_FROM_DATABASE=Phoenix Technologies, Ltd.
 
@@ -5270,6 +5303,9 @@ acpi:PON*:
 
 acpi:POR*:
  ID_VENDOR_FROM_DATABASE=Portalis LC
+
+acpi:POS*:
+ ID_VENDOR_FROM_DATABASE=Positivo Tecnologia S.A.
 
 acpi:POT*:
  ID_VENDOR_FROM_DATABASE=Parrot
@@ -5308,7 +5344,7 @@ acpi:PRD*:
  ID_VENDOR_FROM_DATABASE=Praim S.R.L.
 
 acpi:PRF*:
- ID_VENDOR_FROM_DATABASE=Digital Electronics Corporation
+ ID_VENDOR_FROM_DATABASE=Schneider Electric Japan Holdings, Ltd.
 
 acpi:PRG*:
  ID_VENDOR_FROM_DATABASE=The Phoenix Research Group Inc
@@ -6513,11 +6549,17 @@ acpi:TEK*:
 acpi:TEL*:
  ID_VENDOR_FROM_DATABASE=Promotion and Display Technology Ltd.
 
+acpi:TEN*:
+ ID_VENDOR_FROM_DATABASE=Tencent
+
 acpi:TER*:
  ID_VENDOR_FROM_DATABASE=TerraTec Electronic GmbH
 
 acpi:TET*:
  ID_VENDOR_FROM_DATABASE=TETRADYNE CO., LTD.
+
+acpi:TEV*:
+ ID_VENDOR_FROM_DATABASE=Televés, S.A.
 
 acpi:TEX*:
  ID_VENDOR_FROM_DATABASE=Texas Instruments
@@ -7146,8 +7188,14 @@ acpi:VQ@*:
 acpi:VRC*:
  ID_VENDOR_FROM_DATABASE=Virtual Resources Corporation
 
+acpi:VRG*:
+ ID_VENDOR_FROM_DATABASE=VRgineers, Inc.
+
 acpi:VRM*:
  ID_VENDOR_FROM_DATABASE=VRmagic Holding AG
+
+acpi:VRS*:
+ ID_VENDOR_FROM_DATABASE=VRstudios, Inc.
 
 acpi:VSC*:
  ID_VENDOR_FROM_DATABASE=ViewSonic Corporation
@@ -7343,6 +7391,9 @@ acpi:XAD*:
 
 acpi:XDM*:
  ID_VENDOR_FROM_DATABASE=XDM Ltd.
+
+acpi:XES*:
+ ID_VENDOR_FROM_DATABASE=Extreme Engineering Solutions, Inc.
 
 acpi:XFG*:
  ID_VENDOR_FROM_DATABASE=Jan Strapko - FOTO

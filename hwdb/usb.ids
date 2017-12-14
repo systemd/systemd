@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2017.09.10
-# Date:    2017-09-10 20:34:07
+# Version: 2017.11.27
+# Date:    2017-11-27 20:34:05
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -61,6 +61,8 @@
 	0499  SE340D PC Remote Control
 03da  Bernd Walter Computer Technology
 	0002  HD44780 LCD interface
+03e7  Intel
+	2150  Myriad VPU [Movidius Neural Compute Stick]
 03e8  EndPoints, Inc.
 	0004  SE401 Webcam
 	0008  101 Ethernet [klsi]
@@ -109,6 +111,7 @@
 	2106  STK600 development board
 	2107  AVR Dragon
 	2109  STK541 ZigBee Development Board
+	210a  AT86RF230 [RZUSBSTICK] transceiver
 	210d  XPLAIN evaluation kit (CDC ACM)
 	2110  AVR JTAGICE3 Debugger and Programmer
 	2111  Xplained Pro board debugger and programmer
@@ -202,6 +205,7 @@
 	0217  LaserJet 2200
 	0218  APOLLO P2500/2600
 	0221  StreamSmart 400 [F2235AA]
+	0223  Digital Drive Flash Reader
 	022a  Laserjet CP1525nw
 	0241  Link-5 micro dongle
 	0304  DeskJet 810c/812c
@@ -236,6 +240,7 @@
 	0611  OfficeJet K60xi
 	0612  business inkjet 3000
 	0624  Bluetooth Dongle
+	0641  X1200 Optical Mouse
 	0701  ScanJet 5300c/5370c
 	0704  DeskJet 825c
 	0705  ScanJet 4400c
@@ -314,6 +319,7 @@
 	1524  Smart Card Keyboard - KR
 	1539  Mini Magnetic Stripe Reader
 	1541  Prime [G8X92AA]
+	154a  Laser Mouse
 	1602  PhotoSmart 330 series
 	1604  DeskJet 940c
 	1605  ScanJet 5530C PhotoSmart
@@ -528,6 +534,7 @@
 	5307  v165w Stick
 	5311  OfficeJet 6300
 	5312  Officejet Pro 8500A
+	5317  Color LaserJet CP2025 series
 	5411  OfficeJet 4300
 	5511  DeskJet F300 series
 	5611  PhotoSmart C3180
@@ -648,6 +655,7 @@
 	9c02  PhotoSmart M440 series
 	a004  DeskJet 5850c
 	a011  Deskjet 3050A
+	a407  Wireless Optical Comfort Mouse
 	b002  PhotoSmart 7200 series
 	b102  PhotoSmart 7200 series
 	b107  v255w/c310w Flash Drive
@@ -781,6 +789,8 @@
 	a951  HCP HIT GSM/GPRS modem [Cinterion MC55i]
 	a9a0  FT2232D - Dual UART/FIFO IC - FTDI
 	abb8  Lego Mindstorms NXTCam
+	b0c2  iID contactless RFID device
+	b0c3  iID contactless RFID device
 	b810  US Interface Navigator (CAT and 2nd PTT lines)
 	b811  US Interface Navigator (WKEY and FSK lines)
 	b812  US Interface Navigator (RS232 and CONFIG lines)
@@ -1114,6 +1124,7 @@
 	602a  i900
 040b  Weltrend Semiconductor
 	0a68  Func MS-3 gaming mouse [WT6573F MCU]
+	2367  Human Interface Device [HP CalcPad 200 Calculator and Numeric Keypad]
 	6510  Weltrend Bar Code Reader
 	6520  XBOX Xploder
 	6533  Speed-Link Competition Pro
@@ -1431,6 +1442,10 @@
 	0104  ADL Re-Flashing Engine Parent
 	0105  Nokia Firmware Upgrade Mode
 	0106  ROM Parent
+	010d  E75 (Storage Mode)
+	010e  E75 (PC Suite mode)
+	010f  E75 (Media transfer mode)
+	0110  E75 (Imaging Mode)
 	0154  5800 XpressMusic (PC Suite mode)
 	0155  5800 XpressMusic (Multimedia mode)
 	0156  5800 XpressMusic (Storage mode)
@@ -2318,6 +2333,7 @@
 	0736  Sidewinder X5 Mouse
 	0737  Compact Optical Mouse 500
 	0745  Nano Transceiver v1.0 for Bluetooth
+	074a  LifeCam VX-500 [1357]
 	0750  Wired Keyboard 600
 	0752  Wired Keyboard 400
 	075d  LifeCam Cinema
@@ -2327,11 +2343,13 @@
 	0768  Sidewinder X4
 	076c  Comfort Mouse 4500
 	076d  LifeCam HD-5000
+	0770  LifeCam VX-700
 	0772  LifeCam Studio
 	0779  LifeCam HD-3000
 	077f  LifeChat LX-6000 Headset
 	0780  Comfort Curve Keyboard 3000
 	0797  Optical Mouse 200
+	0799  Surface Pro embedded keyboard
 	07a5  Wireless Receiver 1461C
 	07b9  Wired Keyboard 200
 	07ca  Surface Pro 3 Docking Station Audio Device
@@ -2387,7 +2405,7 @@
 	081c  Elitegroup ECS-C11 Camera
 	081d  Elitegroup ECS-C11 Storage
 	0a00  Micro Innovations Web Cam 320
-	4d01  Comfort Keyboard
+	4d01  Comfort Keyboard / Kensington Orbit Elite
 	4d02  Mouse-in-a-Box
 	4d03  Kensington Mouse-in-a-box
 	4d04  Mouse
@@ -2405,6 +2423,7 @@
 	4d75  Rocketfish RF-FLBTAD Bluetooth Adapter
 	4d81  Dell N889 Optical Mouse
 	4de7  webcam
+	4e04  Lenovo Keyboard KB1021
 0463  MGE UPS Systems
 	0001  UPS
 	ffff  UPS
@@ -2586,6 +2605,7 @@
 	0a45  960 Headset
 	0a4d  G430 Surround Sound Gaming Headset
 	0a5b  G933 Wireless Headset Dongle
+	0a66  [G533 Wireless Headset Dongle]
 	0b02  C-UV35 [Bluetooth Mini-Receiver] (HID proxy mode)
 	8801  Video Camera
 	b014  Bluetooth Mouse M336/M337/M535
@@ -2758,6 +2778,7 @@
 	c31c  Keyboard K120
 	c31d  Media Keyboard K200
 	c31f  Comfort Keyboard K290
+	c328  Corded Keyboard K280e
 	c332  G502 Proteus Spectrum Optical Mouse
 	c335  G910 Orion Spectrum Mechanical Keyboard
 	c401  TrackMan Marble Wheel
@@ -3121,6 +3142,7 @@
 	0203  AH-K3001V
 	0204  iBurst Terminal
 	0408  FS-1320D Printer
+	069b  ECOSYS M2635dn
 0483  STMicroelectronics
 	0137  BeWAN ADSL USB ST (blue or green)
 	0138  Unicorn II (ST70138B + MTC-20174TQ chipset)
@@ -3251,6 +3273,7 @@
 	1054  S90XS Keyboard/Music Synthesizer
 	160f  P-105
 	1613  Clavinova CLP535
+	1704  Steinberg UR44
 	2000  DGP-7
 	2001  DGP-5
 	3001  YST-MS55D USB Speaker
@@ -3673,12 +3696,12 @@
 	2229  CanoScan 8600F
 	2602  MultiPASS C555
 	2603  MultiPASS C755
-	260a  CAPT Printer
+	260a  LBP810
 	260e  LBP-2000
 	2610  MPC600F
 	2611  SmartBase MPC400
 	2612  MultiPASS C855
-	2617  CAPT Printer
+	2617  LBP1210
 	261a  iR1600
 	261b  iR1610
 	261c  iC2300
@@ -3733,9 +3756,9 @@
 	2671  iR5570/iR6570
 	2672  iR C3170
 	2673  iR 3170C EUR
-	2674  L120
+	2674  FAX-L120
 	2675  iR2830
-	2676  CAPT Device
+	2676  LBP2900
 	2677  iR C2570
 	2678  iR 2570C EUR
 	2679  CAPT Device
@@ -3746,6 +3769,7 @@
 	2686  MF6500 series
 	2687  iR4530
 	2688  LBP3460
+	2689  FAX-L180/L380S/L398S
 	268c  iR C6870
 	268d  iR 6870C EUR
 	268e  iR C5870
@@ -3757,6 +3781,7 @@
 	26b5  MF4200 series
 	26da  LBP3010B printer
 	26e6  iR1024
+	271a  LBP6000
 	2736  I-SENSYS MF4550d
 	2737  MF4410
 	3041  PowerShot S10
@@ -4067,6 +4092,7 @@
 	32ad  PowerShot SX410 IS
 	32b1  SELPHY CP1200
 	32b2  PowerShot G9 X
+	32b4  EOS Rebel T6
 	32bb  EOS M5
 	32bf  PowerShot SX420 IS
 	32c1  PowerShot ELPH 180 / IXUS 175
@@ -4528,6 +4554,8 @@
 	10fe  S500
 	1150  fi-6230
 	125a  PalmSecure Sensor Device - MP
+	200f  Sigma DP2 (Mass Storage)
+	2010  Sigma DP2 (PictBridge)
 	201d  SATA 3.0 6Gbit/s Adaptor [GROOVY]
 04c6  Toshiba America Electronic Components
 04c7  Micro Macro Technologies
@@ -4633,6 +4661,7 @@
 	01bf  FinePix F6000fd/S6500fd Zoom (PTP)
 	01c0  FinePix F20 (PTP)
 	01c1  FinePix F31fd (PTP)
+	01c3  FinePix S5 Pro
 	01c4  FinePix S5700 Zoom (PTP)
 	01c5  FinePix F40fd (PTP)
 	01c6  FinePix A820 Zoom (PTP)
@@ -4646,6 +4675,8 @@
 	0240  FinePix S2950 Digital Camera
 	0241  FinePix S3200 Digital Camera
 	0278  FinePix JV300
+	02c5  FinePix S9900W Digital Camera (PTP)
+	5006  ASK-300
 04cc  ST-Ericsson
 	1122  Hub
 	1520  USB 2.0 Hub (Avocent KVM)
@@ -4745,9 +4776,11 @@
 	a01c  wireless multimedia keyboard with trackball [Trust ADURA 17911]
 	a050  Chatman V1
 	a055  Keyboard
+	a096  Keyboard
 	a09f  E-Signal LUOM G10 Mechanical Gaming Mouse
 	a100  Mouse [HV-MS735]
 	a11b  Mouse [MX-3200]
+	e002  MCU
 04da  Panasonic (Matsushita)
 	0901  LS-120 Camera
 	0912  SDR-S10
@@ -5234,6 +5267,7 @@
 	b104  CNF7069 Webcam
 	b107  CNF7070 Webcam
 	b14c  CNF8050 Webcam
+	b159  CNF8243 Webcam
 	b15c  Sony Vaio Integrated Camera
 	b175  4-Port Hub
 	b1aa  Webcam-101
@@ -5265,6 +5299,7 @@
 04f3  Elan Microelectronics Corp.
 	000a  Touchscreen
 	0103  ActiveJet K-2024 Multimedia Keyboard
+	016f  Touchscreen
 	01a4  Wireless Keyboard
 	0201  Touchscreen
 	0210  Optical Mouse
@@ -5320,6 +5355,7 @@
 	002c  Printer
 	002d  Printer
 	0039  HL-5340 series
+	0041  HL-2250DN Laser Printer
 	0042  HL-2270DW Laser Printer
 	0100  MFC8600/9650 series
 	0101  MFC9600/9870 series
@@ -5507,6 +5543,7 @@
 	021c  MFC-9320CW
 	021d  MFC-9120CN
 	021e  DCP-9010CN
+	021f  DCP-8085DN
 	0220  MFC-9010CN
 	0222  DCP-195C
 	0223  DCP-365CN
@@ -5531,6 +5568,7 @@
 	023f  MFC-8680DN
 	0240  MFC-J950DN
 	0248  DCP-7055 scanner/printer
+	024e  MFC-7460DN
 	0253  DCP-J125
 	0254  DCP-J315W
 	0255  DCP-J515W
@@ -5550,6 +5588,7 @@
 	026d  MFC-J805D
 	026e  MFC-J855DN
 	026f  MFC-J270W
+	0270  MFC-7360N
 	0273  DCP-7057 scanner/printer
 	0276  MFC-5895CW
 	0278  MFC-J410W
@@ -5781,6 +5820,7 @@
 	2027  QL-560 P-touch Label Printer
 	2028  QL-570 P-touch Label Printer
 	202b  PT-7600 P-touch Label Printer
+	2041  PT-2730 P-touch Label Printer
 	2061  PT-P700 P-touch Label Printer
 	2064  PT-P700 P-touch Label Printer RemovableDisk
 	2100  Card Reader Writer
@@ -6162,6 +6202,7 @@
 	2727  Xircom PGUNET USB-USB Bridge
 	2750  EZ-Link (EZLNKUSB.SYS)
 	2810  Cypress ATAPI Bridge
+	4018  AmScope MU1803
 	4d90  AmScope MD1900 camera
 	6010  AmScope MU1000 camera
 	6510  Touptek UCMOS05100KPA
@@ -6358,6 +6399,7 @@
 	06bb  WALKMAN NWZ-F805
 	06c3  RC-S380
 	07c4  ILCE-6000 (aka Alpha-6000) in Mass Storage mode
+	0847  WG-C10 Portable Wireless Server
 	088c  Portable Headphone Amplifier
 	08b7  ILCE-6000 (aka Alpha-6000) in MTP mode
 	094e  ILCE-6000 (aka Alpha-6000) in PC Remote mode
@@ -6664,6 +6706,8 @@
 	0354  DTH-1620 [Cintiq Pro 16] touchscreen
 	0357  PTH-660 [Intuos Pro (M)]
 	0358  PTH-860 [Intuos Pro (L)]
+	035a  DTH-1152 tablet
+	0368  DTH-1152 touchscreen
 	0400  PenPartner 4x5
 	4001  TPC4001
 	4004  TPC4004
@@ -6684,6 +6728,7 @@
 	0003  Device Bay Controller
 056e  Elecom Co., Ltd
 	0002  29UO Mouse
+	0057  M-PGDL Mouse
 	0072  Mouse
 	200c  LD-USB/TX
 	4002  Laneed 100Mbps Ethernet LD-USB/TX [pegasus]
@@ -8334,6 +8379,7 @@
 0656  Glory Mark Electronic, Ltd
 0657  Tekcon Electronics Corp.
 0658  Sigma Designs, Inc.
+	0200  Aeotec Z-Stick Gen5 (ZW090) - UZB
 0659  Aethra
 065a  Optoelectronics Co., Ltd
 	0001  Opticon OPR-2001 / NLV-1001 (keyboard mode)
@@ -19915,7 +19961,7 @@ HUT 07  Keyboard
 	031  \ and | (Backslash and Bar)
 	032  # and ~ (Hash and Tilde, Non-US Keyboard near right shift)
 	033  ; and : (Semicolon and Colon)
-	034  Â´ and " (Accent Acute and Double Quotes)
+	034  ´ and " (Accent Acute and Double Quotes)
 	035  ` and ~ (Accent Grace and Tilde)
 	036  , and < (Comma and Less)
 	037  . and > (Period and Greater)
