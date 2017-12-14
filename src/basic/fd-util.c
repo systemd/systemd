@@ -427,7 +427,7 @@ int move_fd(int from, int to, int cloexec) {
 
 int acquire_data_fd(const void *data, size_t size, unsigned flags) {
 
-        char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_close_pair_ int pipefds[2] = { -1, -1 };
         char pattern[] = "/dev/shm/data-fd-XXXXXX";
         _cleanup_close_ int fd = -1;

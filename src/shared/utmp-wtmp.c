@@ -425,7 +425,7 @@ int utmp_wall(
                 if (u->ut_type != USER_PROCESS || u->ut_user[0] == 0)
                         continue;
 
-                /* this access is fine, because strlen("/dev/") << 32 (UT_LINESIZE) */
+                /* this access is fine, because STRLEN("/dev/") << 32 (UT_LINESIZE) */
                 if (path_startswith(u->ut_line, "/dev/"))
                         path = u->ut_line;
                 else {

@@ -992,7 +992,7 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
 }
 
 int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
-        char fn[sizeof("/dev/char/")-1 + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *b = NULL;
+        char fn[STRLEN("/dev/char/") + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *b = NULL;
         _cleanup_free_ char *s = NULL;
         const char *p;
         dev_t devnr;

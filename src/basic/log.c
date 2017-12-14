@@ -1047,18 +1047,18 @@ int log_struct_iovec_internal(
         }
 
         for (i = 0; i < n_input_iovec; i++) {
-                if (input_iovec[i].iov_len < strlen("MESSAGE="))
+                if (input_iovec[i].iov_len < STRLEN("MESSAGE="))
                         continue;
 
-                if (memcmp(input_iovec[i].iov_base, "MESSAGE=", strlen("MESSAGE=")) == 0)
+                if (memcmp(input_iovec[i].iov_base, "MESSAGE=", STRLEN("MESSAGE=")) == 0)
                         break;
         }
 
         if (_unlikely_(i >= n_input_iovec)) /* Couldn't find MESSAGE=? */
                 return -error;
 
-        m = strndupa(input_iovec[i].iov_base + strlen("MESSAGE="),
-                     input_iovec[i].iov_len - strlen("MESSAGE="));
+        m = strndupa(input_iovec[i].iov_base + STRLEN("MESSAGE="),
+                     input_iovec[i].iov_len - STRLEN("MESSAGE="));
 
         return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, m);
 }

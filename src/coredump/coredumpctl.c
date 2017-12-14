@@ -903,9 +903,9 @@ static int run_gdb(sd_journal *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to retrieve COREDUMP_EXE field: %m");
 
-        assert(len > strlen("COREDUMP_EXE="));
-        data += strlen("COREDUMP_EXE=");
-        len -= strlen("COREDUMP_EXE=");
+        assert(len > STRLEN("COREDUMP_EXE="));
+        data += STRLEN("COREDUMP_EXE=");
+        len -= STRLEN("COREDUMP_EXE=");
 
         exe = strndup(data, len);
         if (!exe)

@@ -398,7 +398,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
         if (pid == 0) {
-                char dash_c[sizeof("-C")-1 + DECIMAL_STR_MAX(int) + 1];
+                char dash_c[STRLEN("-C") + DECIMAL_STR_MAX(int) + 1];
                 int progress_socket = -1;
                 const char *cmdline[9];
                 int i = 0;

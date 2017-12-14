@@ -1471,7 +1471,7 @@ static bool valid_slice_name(const char *p, size_t n) {
         if (!p)
                 return false;
 
-        if (n < strlen("x.slice"))
+        if (n < STRLEN("x.slice"))
                 return false;
 
         if (memcmp(p + n - 6, ".slice", 6) == 0) {
@@ -1555,7 +1555,7 @@ static const char *skip_session(const char *p) {
         p += strspn(p, "/");
 
         n = strcspn(p, "/");
-        if (n < strlen("session-x.scope"))
+        if (n < STRLEN("session-x.scope"))
                 return NULL;
 
         if (memcmp(p, "session-", 8) == 0 && memcmp(p + n - 6, ".scope", 6) == 0) {
@@ -1592,7 +1592,7 @@ static const char *skip_user_manager(const char *p) {
         p += strspn(p, "/");
 
         n = strcspn(p, "/");
-        if (n < strlen("user@x.service"))
+        if (n < STRLEN("user@x.service"))
                 return NULL;
 
         if (memcmp(p, "user@", 5) == 0 && memcmp(p + n - 8, ".service", 8) == 0) {

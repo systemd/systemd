@@ -766,7 +766,7 @@ static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
         struct tm tm;
 
         assert(buf);
-        assert(l > strlen("YYYYMMDDHHmmSS"));
+        assert(l > STRLEN("YYYYMMDDHHmmSS"));
 
         if (!gmtime_r(&sec, &tm))
                 return -EINVAL;
@@ -1035,7 +1035,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
         case DNS_TYPE_RRSIG: {
                 _cleanup_free_ char *alg = NULL;
-                char expiration[strlen("YYYYMMDDHHmmSS") + 1], inception[strlen("YYYYMMDDHHmmSS") + 1];
+                char expiration[STRLEN("YYYYMMDDHHmmSS") + 1], inception[STRLEN("YYYYMMDDHHmmSS") + 1];
                 const char *type;
                 int n;
 

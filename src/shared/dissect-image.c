@@ -1186,7 +1186,7 @@ int root_hash_load(const char *image, void **ret, size_t *ret_size) {
                 if (!IN_SET(r, -ENODATA, -EOPNOTSUPP, -ENOENT))
                         return r;
 
-                fn = newa(char, strlen(image) + strlen(".roothash") + 1);
+                fn = newa(char, strlen(image) + STRLEN(".roothash") + 1);
                 n = stpcpy(fn, image);
                 e = endswith(fn, ".raw");
                 if (e)

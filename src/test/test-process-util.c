@@ -49,7 +49,7 @@ static void test_get_process_comm(pid_t pid) {
         struct stat st;
         _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL;
         _cleanup_free_ char *env = NULL;
-        char path[strlen("/proc//comm") + DECIMAL_STR_MAX(pid_t)];
+        char path[STRLEN("/proc//comm") + DECIMAL_STR_MAX(pid_t)];
         pid_t e;
         uid_t u;
         gid_t g;
@@ -382,7 +382,7 @@ static void test_rename_process_now(const char *p, int ret) {
         /* we cannot expect cmdline to be renamed properly without privileges */
         if (geteuid() == 0) {
                 log_info("cmdline = <%s>", cmdline);
-                assert_se(strneq(p, cmdline, strlen("test-process-util")));
+                assert_se(strneq(p, cmdline, STRLEN("test-process-util")));
                 assert_se(startswith(p, cmdline));
         } else
                 log_info("cmdline = <%s> (not verified)", cmdline);

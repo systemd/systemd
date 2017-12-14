@@ -180,7 +180,7 @@ struct Server {
         ClientContext *pid1_context; /* the context of PID 1 */
 };
 
-#define SERVER_MACHINE_ID(s) ((s)->machine_id_field + strlen("_MACHINE_ID="))
+#define SERVER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
 
 /* Extra fields for any log messages */
 #define N_IOVEC_META_FIELDS 22

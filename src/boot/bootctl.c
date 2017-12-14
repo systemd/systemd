@@ -497,7 +497,8 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                 char *v;
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
-                v = strjoina(esp_path, "/EFI/BOOT/BOOT", name + strlen("systemd-boot"));
+                v = strjoina(esp_path, "/EFI/BOOT/BOOT",
+                             name + STRLEN("systemd-boot"));
                 ascii_strupper(strrchr(v, '/') + 1);
 
                 k = copy_file_with_version_check(p, v, force);

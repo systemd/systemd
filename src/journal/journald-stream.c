@@ -106,7 +106,7 @@ struct StdoutStream {
         LIST_FIELDS(StdoutStream, stdout_stream);
         LIST_FIELDS(StdoutStream, stdout_stream_notify_queue);
 
-        char id_field[sizeof("_STREAM_ID=")-1 + SD_ID128_STRING_MAX];
+        char id_field[STRLEN("_STREAM_ID=") + SD_ID128_STRING_MAX];
 };
 
 void stdout_stream_free(StdoutStream *s) {
@@ -194,7 +194,7 @@ static int stdout_stream_save(StdoutStream *s) {
                 s->forward_to_syslog,
                 s->forward_to_kmsg,
                 s->forward_to_console,
-                s->id_field + strlen("_STREAM_ID="));
+                s->id_field + STRLEN("_STREAM_ID="));
 
         if (!isempty(s->identifier)) {
                 _cleanup_free_ char *escaped;
@@ -255,7 +255,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
         struct iovec *iovec;
         int priority;
         char syslog_priority[] = "PRIORITY=\0";
-        char syslog_facility[sizeof("SYSLOG_FACILITY=")-1 + DECIMAL_STR_MAX(int) + 1];
+        char syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *message = NULL, *syslog_identifier = NULL;
         size_t n = 0, m;
         int r;
@@ -300,7 +300,7 @@ static int stdout_stream_log(StdoutStream *s, const char *p, LineBreak line_brea
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=stdout");
         iovec[n++] = IOVEC_MAKE_STRING(s->id_field);
 
-        syslog_priority[strlen("PRIORITY=")] = '0' + LOG_PRI(priority);
+        syslog_priority[STRLEN("PRIORITY=")] = '0' + LOG_PRI(priority);
         iovec[n++] = IOVEC_MAKE_STRING(syslog_priority);
 
         if (priority & LOG_FACMASK) {
@@ -836,7 +836,7 @@ int server_open_stdout_socket(Server *s) {
 void stdout_stream_send_notify(StdoutStream *s) {
         struct iovec iovec = {
                 .iov_base = (char*) "FDSTORE=1",
-                .iov_len = strlen("FDSTORE=1"),
+                .iov_len = STRLEN("FDSTORE=1"),
         };
         struct msghdr msghdr = {
                 .msg_iov = &iovec,

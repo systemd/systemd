@@ -982,10 +982,10 @@ static int introspect(sd_bus *bus, char **argv) {
 
         pager_open(arg_no_pager, false);
 
-        name_width = strlen("NAME");
-        type_width = strlen("TYPE");
-        signature_width = strlen("SIGNATURE");
-        result_width = strlen("RESULT/VALUE");
+        name_width = STRLEN("NAME");
+        type_width = STRLEN("TYPE");
+        signature_width = STRLEN("SIGNATURE");
+        result_width = STRLEN("RESULT/VALUE");
 
         sorted = newa(Member*, set_size(members));
 

@@ -2572,7 +2572,7 @@ static int find_data_object_by_boot_id(
                 Object **o,
                 uint64_t *b) {
 
-        char t[sizeof("_BOOT_ID=")-1 + 32 + 1] = "_BOOT_ID=";
+        char t[STRLEN("_BOOT_ID=") + 32 + 1] = "_BOOT_ID=";
 
         sd_id128_to_string(boot_id, t + 9);
         return journal_file_find_data_object(f, t, sizeof(t) - 1, o, b);

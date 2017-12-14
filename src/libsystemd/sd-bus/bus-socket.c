@@ -232,8 +232,9 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
 
         if (f)
                 b->can_fds =
-                        (f - e == strlen("\r\nAGREE_UNIX_FD")) &&
-                        memcmp(e + 2, "AGREE_UNIX_FD", strlen("AGREE_UNIX_FD")) == 0;
+                        (f - e == STRLEN("\r\nAGREE_UNIX_FD")) &&
+                        memcmp(e + 2, "AGREE_UNIX_FD",
+                               STRLEN("AGREE_UNIX_FD")) == 0;
 
         b->rbuffer_size -= (start - (char*) b->rbuffer);
         memmove(b->rbuffer, start, b->rbuffer_size);

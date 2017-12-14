@@ -105,7 +105,7 @@ int socket_from_display(const char *display, char **path) {
 
         k = strspn(display+1, "0123456789");
 
-        f = new(char, strlen("/tmp/.X11-unix/X") + k + 1);
+        f = new(char, STRLEN("/tmp/.X11-unix/X") + k + 1);
         if (!f)
                 return -ENOMEM;
 

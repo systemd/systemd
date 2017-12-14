@@ -1461,7 +1461,7 @@ int link_tmpfile(int fd, const char *path, const char *target) {
                 if (rename_noreplace(AT_FDCWD, path, AT_FDCWD, target) < 0)
                         return -errno;
         } else {
-                char proc_fd_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
+                char proc_fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
 
                 xsprintf(proc_fd_path, "/proc/self/fd/%i", fd);
 

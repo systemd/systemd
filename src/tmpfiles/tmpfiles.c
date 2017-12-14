@@ -777,7 +777,7 @@ static int path_set_perms(Item *i, const char *path) {
         if (S_ISLNK(st.st_mode))
                 log_debug("Skipping mode and owner fix for symlink %s.", path);
         else {
-                char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+                char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
                 xsprintf(fn, "/proc/self/fd/%i", fd);
 
                 /* not using i->path directly because it may be a glob */
@@ -946,7 +946,7 @@ static int path_set_acl(const char *path, const char *pretty, acl_type_t type, a
 static int path_set_acls(Item *item, const char *path) {
         int r = 0;
 #if HAVE_ACL
-        char fn[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_close_ int fd = -1;
         struct stat st;
 

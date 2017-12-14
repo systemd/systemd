@@ -92,7 +92,7 @@ static int direct_lookup_name(const char *name, uid_t *ret) {
 }
 
 static int direct_lookup_uid(uid_t uid, char **ret) {
-        char path[strlen("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1], *s;
+        char path[STRLEN("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1], *s;
         int r;
 
         xsprintf(path, "/run/systemd/dynamic-uid/direct:" UID_FMT, uid);

@@ -580,7 +580,7 @@ int tmp_dir(const char **ret) {
 }
 
 int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
-        char path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
+        char path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         int r;
 
         /* This is like inotify_add_watch(), except that the file to watch is not referenced by a path, but by an fd */
@@ -825,7 +825,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 }
 
 int access_fd(int fd, int mode) {
-        char p[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
+        char p[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
         int r;
 
         /* Like access() but operates on an already open fd */

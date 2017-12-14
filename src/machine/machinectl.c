@@ -194,8 +194,8 @@ static int call_get_os_release(sd_bus *bus, const char *method, const char *name
 
 static int list_machines(int argc, char *argv[], void *userdata) {
 
-        size_t max_name = strlen("MACHINE"), max_class = strlen("CLASS"),
-               max_service = strlen("SERVICE"), max_os = strlen("OS"), max_version_id = strlen("VERSION");
+        size_t max_name = STRLEN("MACHINE"), max_class = STRLEN("CLASS"),
+               max_service = STRLEN("SERVICE"), max_os = STRLEN("OS"), max_version_id = STRLEN("VERSION");
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *prefix = NULL;
@@ -284,13 +284,13 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 
         qsort_safe(machines, n_machines, sizeof(MachineInfo), compare_machine_info);
 
-        /* Allocate for prefix max characters for all fields + spaces between them + strlen(",\n") */
+        /* Allocate for prefix max characters for all fields + spaces between them + STRLEN(",\n") */
         r = asprintf(&prefix, "%-*s",
                         (int) (max_name +
                         max_class +
                         max_service +
                         max_os +
-                        max_version_id + 5 + strlen(",\n")),
+                        max_version_id + 5 + STRLEN(",\n")),
                         ",\n");
         if (r < 0) {
                 r = log_oom();
@@ -352,7 +352,7 @@ static int compare_image_info(const void *a, const void *b) {
 static int list_images(int argc, char *argv[], void *userdata) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        size_t max_name = strlen("NAME"), max_type = strlen("TYPE"), max_size = strlen("USAGE"), max_crtime = strlen("CREATED"), max_mtime = strlen("MODIFIED");
+        size_t max_name = STRLEN("NAME"), max_type = STRLEN("TYPE"), max_size = STRLEN("USAGE"), max_crtime = STRLEN("CREATED"), max_mtime = STRLEN("MODIFIED");
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ ImageInfo *images = NULL;
         size_t n_images = 0, n_allocated = 0, j;
@@ -2527,7 +2527,7 @@ static int compare_transfer_info(const void *a, const void *b) {
 }
 
 static int list_transfers(int argc, char *argv[], void *userdata) {
-        size_t max_type = strlen("TYPE"), max_local = strlen("LOCAL"), max_remote = strlen("REMOTE");
+        size_t max_type = STRLEN("TYPE"), max_local = STRLEN("LOCAL"), max_remote = STRLEN("REMOTE");
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ TransferInfo *transfers = NULL;

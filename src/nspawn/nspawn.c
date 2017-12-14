@@ -2856,7 +2856,7 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
         (void) mkdir("/run/systemd/nspawn-uid", 0755);
 
         for (;;) {
-                char lock_path[strlen("/run/systemd/nspawn-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
+                char lock_path[STRLEN("/run/systemd/nspawn-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
                 _cleanup_release_lock_file_ LockFile lf = LOCK_FILE_INIT;
 
                 if (--n_tries <= 0)
@@ -2910,7 +2910,7 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
 }
 
 static int setup_uid_map(pid_t pid) {
-        char uid_map[strlen("/proc//uid_map") + DECIMAL_STR_MAX(uid_t) + 1], line[DECIMAL_STR_MAX(uid_t)*3+3+1];
+        char uid_map[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(uid_t) + 1], line[DECIMAL_STR_MAX(uid_t)*3+3+1];
         int r;
 
         assert(pid > 1);

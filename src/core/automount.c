@@ -565,8 +565,8 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
 static void automount_enter_waiting(Automount *a) {
         _cleanup_close_ int ioctl_fd = -1;
         int p[2] = { -1, -1 };
-        char name[sizeof("systemd-")-1 + DECIMAL_STR_MAX(pid_t) + 1];
-        char options[sizeof("fd=,pgrp=,minproto=5,maxproto=5,direct")-1
+        char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
+        char options[STRLEN("fd=,pgrp=,minproto=5,maxproto=5,direct")
                      + DECIMAL_STR_MAX(int) + DECIMAL_STR_MAX(gid_t) + 1];
         bool mounted = false;
         int r, dev_autofs_fd;

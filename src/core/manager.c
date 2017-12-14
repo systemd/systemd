@@ -140,7 +140,7 @@ static void manager_watch_jobs_in_progress(Manager *m) {
         (void) sd_event_source_set_description(m->jobs_in_progress_event_source, "manager-jobs-in-progress");
 }
 
-#define CYLON_BUFFER_EXTRA (2*(sizeof(ANSI_RED)-1) + sizeof(ANSI_HIGHLIGHT_RED)-1 + 2*(sizeof(ANSI_NORMAL)-1))
+#define CYLON_BUFFER_EXTRA (2*STRLEN(ANSI_RED) + STRLEN(ANSI_HIGHLIGHT_RED) + 2*STRLEN(ANSI_NORMAL))
 
 static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned pos) {
         char *p = buffer;
@@ -2651,7 +2651,7 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
 
                 t = manager_timestamp_to_string(q);
                 {
-                        char field[strlen(t) + strlen("-timestamp") + 1];
+                        char field[strlen(t) + STRLEN("-timestamp") + 1];
                         strcpy(stpcpy(field, t), "-timestamp");
                         dual_timestamp_serialize(f, field, m->timestamps + q);
                 }
