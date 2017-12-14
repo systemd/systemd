@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 236 in spe:
+CHANGES WITH 236:
 
         * The modprobe.d/ drop-in for the bonding.ko kernel module introduced
           in v235 has been extended to also set the dummy.ko module option
@@ -188,28 +188,40 @@ CHANGES WITH 236 in spe:
         * systemd-resolved's DNSSEC support gained support for RFC 8080
           (Ed25519 keys and signatures).
 
+        * The systemd-resolve command line tool gained a new set of options
+          --set-dns=, --set-domain=, --set-llmnr=, --set-mdns=, --set-dnssec=,
+          --set-nta= and --revert to configure per-interface DNS configuration
+          dynamically during runtime. It's useful for pushing DNS information
+          into systemd-resolved from DNS hook scripts that various interface
+          managing software supports (such as pppd).
+
+        * systemd-nspawn gained a new --network-namespace-path= command line
+          option, which may be used to make a container join an existing
+          network namespace, by specifying a path to a "netns" file.
+
         Contributions from: Alan Jenkins, Alan Robertson, Alessandro Ghedini,
         Andrew Jeddeloh, Antonio Rojas, Ari, asavah, bleep_blop, Carsten
         Strotmann, Christian Brauner, Christian Hesse, Clinton Roy, Collin
         Eggert, Cong Wang, Daniel Black, Daniel Lockyer, Daniel Rusek, Dimitri
-        John Ledkov, Dmitry Rozhkov, Edward A. James, Evgeny Vereshchagin,
-        Florian Klink, Franck Bui, Gwendal Grignou, Hans de Goede, Harald
-        Hoyer, Hristo Venev, Ikey Doherty, Jakub Wilk, Jérémy Rosen, Jiahui
-        Xie, John Lin, José Bollo, Josef Andersson, juga0, Krzysztof Nowicki,
-        Lars Karlitski, Lars Kellogg-Stedman, Lauri Tirkkonen, Lennart
-        Poettering, Lubomir Rintel, Luca Bruno, Lucas Werkmeister, Lukáš
-        Nykrýn, Lukáš Říha, Lukasz Rubaszewski, Maciej S. Szmigiero, Mantas
-        Mikulėnas, Marcus Folkesson, Martin Steuer, Mathieu Trudel-Lapierre,
-        Matija Skala, Matthias-Christian Ott, Max Resch, Michael Biebl, Michael
-        Vogt, Michal Koutný, Michal Sekletar, Mike Gilbert, Muhammet Kara, Neil
-        Brown, Olaf Hering, Ondrej Kozina, Patrik Flykt, Patryk Kocielnik,
-        Peter Hutterer, Piotr Drąg, Razvan Cojocaru, Robin McCorkell, Roland
-        Hieber, Saran Tunyasuvunakool, Sergey Ptashnick, Shawn Landden, Shuang
-        Liu, Simon Arlott, Simon Peeters, Stanislav Angelovič, Stefan Agner,
-        Susant Sahani, Sylvain Plantefève, Thomas Blume, Thomas Haller, Tiago
-        Salem Herrmann, Tinu Weber, Tom Stellard, Topi Miettinen, Torsten
-        Hilbrich, Vito Caputo, Vladislav Vishnyakov, WaLyong Cho, Yu Watanabe,
-        Zbigniew Jędrzejewski-Szmek, Zeal Jagannatha
+        John Ledkov, Dmitry Rozhkov, Dongsu Park, Edward A. James, Evgeny
+        Vereshchagin, Florian Klink, Franck Bui, Gwendal Grignou, Hans de
+        Goede, Harald Hoyer, Hristo Venev, Iago López Galeiras, Ikey Doherty,
+        Jakub Wilk, Jérémy Rosen, Jiahui Xie, John Lin, José Bollo, Josef
+        Andersson, juga0, Krzysztof Nowicki, Kyle Walker, Lars Karlitski, Lars
+        Kellogg-Stedman, Lauri Tirkkonen, Lennart Poettering, Lubomir Rintel,
+        Luca Bruno, Lucas Werkmeister, Lukáš Nykrýn, Lukáš Říha, Lukasz
+        Rubaszewski, Maciej S. Szmigiero, Mantas Mikulėnas, Marcus Folkesson,
+        Martin Steuer, Mathieu Trudel-Lapierre, Matija Skala,
+        Matthias-Christian Ott, Max Resch, Michael Biebl, Michael Vogt, Michal
+        Koutný, Michal Sekletar, Mike Gilbert, Muhammet Kara, Neil Brown, Olaf
+        Hering, Ondrej Kozina, Patrik Flykt, Patryk Kocielnik, Peter Hutterer,
+        Piotr Drąg, Razvan Cojocaru, Robin McCorkell, Roland Hieber, Saran
+        Tunyasuvunakool, Sergey Ptashnick, Shawn Landden, Shuang Liu, Simon
+        Arlott, Simon Peeters, Stanislav Angelovič, Stefan Agner, Susant
+        Sahani, Sylvain Plantefève, Thomas Blume, Thomas Haller, Tiago Salem
+        Herrmann, Tinu Weber, Tom Stellard, Topi Miettinen, Torsten Hilbrich,
+        Vito Caputo, Vladislav Vishnyakov, WaLyong Cho, Yu Watanabe, Zbigniew
+        Jędrzejewski-Szmek, Zeal Jagannatha
 
         — Berlin, 2017-12-14
 
