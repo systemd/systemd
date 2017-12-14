@@ -1320,7 +1320,7 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
 
         HASHMAP_FOREACH(machine, m->machines, i) {
                 _cleanup_fclose_ FILE *f = NULL;
-                char p[strlen("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+                char p[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
 
                 if (machine->class != MACHINE_CONTAINER)
                         continue;
@@ -1438,7 +1438,7 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
 
         HASHMAP_FOREACH(machine, m->machines, i) {
                 _cleanup_fclose_ FILE *f = NULL;
-                char p[strlen("/proc//gid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+                char p[STRLEN("/proc//gid_map") + DECIMAL_STR_MAX(pid_t) + 1];
 
                 if (machine->class != MACHINE_CONTAINER)
                         continue;

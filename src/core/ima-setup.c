@@ -62,7 +62,7 @@ int ima_setup(void) {
         }
 
         /* attempt to write the name of the policy file into sysfs file */
-        if (write(imafd, IMA_POLICY_PATH, strlen(IMA_POLICY_PATH)) > 0)
+        if (write(imafd, IMA_POLICY_PATH, STRLEN(IMA_POLICY_PATH)) > 0)
                 goto done;
 
         /* fall back to copying the policy line-by-line */

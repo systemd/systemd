@@ -63,7 +63,7 @@ struct sd_bus_track {
         ({                                                              \
                 char *_x;                                               \
                 size_t _l = strlen(name);                               \
-                _x = alloca(strlen(MATCH_PREFIX)+_l+strlen(MATCH_SUFFIX)+1); \
+                _x = alloca(STRLEN(MATCH_PREFIX)+_l+STRLEN(MATCH_SUFFIX)+1); \
                 strcpy(stpcpy(stpcpy(_x, MATCH_PREFIX), name), MATCH_SUFFIX); \
                 _x;                                                     \
         })

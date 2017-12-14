@@ -428,12 +428,12 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         unsigned n_shown = 0;
         int job_count = 0;
 
-        max_id_len = strlen("UNIT");
-        load_len = strlen("LOAD");
-        active_len = strlen("ACTIVE");
-        sub_len = strlen("SUB");
-        job_len = strlen("JOB");
-        max_desc_len = strlen("DESCRIPTION");
+        max_id_len = STRLEN("UNIT");
+        load_len = STRLEN("LOAD");
+        active_len = STRLEN("ACTIVE");
+        sub_len = STRLEN("SUB");
+        job_len = STRLEN("JOB");
+        max_desc_len = STRLEN("DESCRIPTION");
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 max_id_len = MAX(max_id_len, strlen(u->id) + (u->machine ? strlen(u->machine)+1 : 0));
@@ -914,10 +914,10 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
 
 static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         struct socket_info *s;
-        unsigned pathlen = strlen("LISTEN"),
-                typelen = strlen("TYPE") * arg_show_types,
-                socklen = strlen("UNIT"),
-                servlen = strlen("ACTIVATES");
+        unsigned pathlen = STRLEN("LISTEN"),
+                typelen = STRLEN("TYPE") * arg_show_types,
+                socklen = STRLEN("UNIT"),
+                servlen = STRLEN("ACTIVATES");
         const char *on, *off;
 
         for (s = socket_infos; s < socket_infos + cs; s++) {
@@ -1165,12 +1165,12 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
 static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         struct timer_info *t;
         unsigned
-                nextlen = strlen("NEXT"),
-                leftlen = strlen("LEFT"),
-                lastlen = strlen("LAST"),
-                passedlen = strlen("PASSED"),
-                unitlen = strlen("UNIT"),
-                activatelen = strlen("ACTIVATES");
+                nextlen = STRLEN("NEXT"),
+                leftlen = STRLEN("LEFT"),
+                lastlen = STRLEN("LAST"),
+                passedlen = STRLEN("PASSED"),
+                unitlen = STRLEN("UNIT"),
+                activatelen = STRLEN("ACTIVATES");
 
         const char *on, *off;
 
@@ -1410,8 +1410,8 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
         unsigned max_id_len, id_cols, state_cols;
         const UnitFileList *u;
 
-        max_id_len = strlen("UNIT FILE");
-        state_cols = strlen("STATE");
+        max_id_len = STRLEN("UNIT FILE");
+        state_cols = STRLEN("STATE");
 
         for (u = units; u < units + c; u++) {
                 max_id_len = MAX(max_id_len, strlen(basename(u->path)));
@@ -1999,15 +1999,16 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
         struct machine_info *m;
         unsigned
                 circle_len = 0,
-                namelen = sizeof("NAME") - 1,
-                statelen = sizeof("STATE") - 1,
-                failedlen = sizeof("FAILED") - 1,
-                jobslen = sizeof("JOBS") - 1;
+                namelen = STRLEN("NAME"),
+                statelen = STRLEN("STATE"),
+                failedlen = STRLEN("FAILED"),
+                jobslen = STRLEN("JOBS");
 
         assert(machine_infos || n == 0);
 
         for (m = machine_infos; m < machine_infos + n; m++) {
-                namelen = MAX(namelen, strlen(m->name) + (m->is_host ? sizeof(" (host)") - 1 : 0));
+                namelen = MAX(namelen,
+                              strlen(m->name) + (m->is_host ? STRLEN(" (host)") : 0));
                 statelen = MAX(statelen, strlen_ptr(m->state));
                 failedlen = MAX(failedlen, DECIMAL_STR_WIDTH(m->n_failed_units));
                 jobslen = MAX(jobslen, DECIMAL_STR_WIDTH(m->n_jobs));
@@ -2053,7 +2054,8 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
 
                 if (m->is_host)
                         printf("%-*s (host) %s%-*s%s %s%*" PRIu32 "%s %*" PRIu32 "\n",
-                               (int) (namelen - (sizeof(" (host)")-1)), strna(m->name),
+                               (int) (namelen - (STRLEN(" (host)"))),
+                               strna(m->name),
                                on_state, statelen, strna(m->state), off_state,
                                on_failed, failedlen, m->n_failed_units, off_failed,
                                jobslen, m->n_jobs);
@@ -2256,10 +2258,10 @@ static void output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned 
 
         pager_open(arg_no_pager, false);
 
-        id_len = strlen("JOB");
-        unit_len = strlen("UNIT");
-        type_len = strlen("TYPE");
-        state_len = strlen("STATE");
+        id_len = STRLEN("JOB");
+        unit_len = STRLEN("UNIT");
+        type_len = STRLEN("TYPE");
+        state_len = STRLEN("STATE");
 
         for (j = jobs; j < jobs + n; j++) {
                 uint32_t id = j->id;
@@ -6086,7 +6088,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!p)
                         return log_oom();
 
-                p[strlen(p) - strlen(".service")] = 0;
+                p[strlen(p) - STRLEN(".service")] = 0;
                 found_sysv = access(p, F_OK) >= 0;
                 if (!found_sysv)
                         continue;

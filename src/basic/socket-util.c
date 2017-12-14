@@ -122,7 +122,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
 
         } else if (startswith(s, "vsock:")) {
                 /* AF_VSOCK socket in vsock:cid:port notation */
-                const char *cid_start = s + strlen("vsock:");
+                const char *cid_start = s + STRLEN("vsock:");
 
                 e = strchr(cid_start, ':');
                 if (!e)

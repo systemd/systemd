@@ -209,7 +209,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                         return -ENOMEM;
         }
 
-        devpath = syspath + strlen("/sys");
+        devpath = syspath + STRLEN("/sys");
 
         r = device_add_property_internal(device, "DEVPATH", devpath);
         if (r < 0)
@@ -700,7 +700,7 @@ static int device_new_from_child(sd_device **ret, sd_device *child) {
         path = strdup(syspath);
         if (!path)
                 return -ENOMEM;
-        subdir = path + strlen("/sys");
+        subdir = path + STRLEN("/sys");
 
         for (;;) {
                 char *pos;

@@ -610,7 +610,7 @@ void machine_release_unit(Machine *m) {
 }
 
 int machine_get_uid_shift(Machine *m, uid_t *ret) {
-        char p[strlen("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+        char p[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
         uid_t uid_base, uid_shift, uid_range;
         gid_t gid_base, gid_shift, gid_range;
         _cleanup_fclose_ FILE *f = NULL;

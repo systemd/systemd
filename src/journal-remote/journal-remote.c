@@ -422,7 +422,7 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 static int add_raw_socket(RemoteServer *s, int fd) {
         int r;
         _cleanup_close_ int fd_ = fd;
-        char name[sizeof("raw-socket-")-1 + DECIMAL_STR_MAX(int) + 1];
+        char name[STRLEN("raw-socket-") + DECIMAL_STR_MAX(int) + 1];
 
         assert(fd >= 0);
 

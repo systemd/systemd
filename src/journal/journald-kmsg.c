@@ -50,7 +50,7 @@ void server_forward_kmsg(
         _cleanup_free_ char *ident_buf = NULL;
         struct iovec iovec[5];
         char header_priority[DECIMAL_STR_MAX(priority) + 3],
-             header_pid[sizeof("[]: ")-1 + DECIMAL_STR_MAX(pid_t) + 1];
+             header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
 
         assert(s);

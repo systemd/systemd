@@ -724,7 +724,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 #define IOVEC_ADD_NUMERIC_FIELD(iovec, n, value, type, isset, format, field)  \
         if (isset(value)) {                                             \
                 char *k;                                                \
-                k = newa(char, strlen(field "=") + DECIMAL_STR_MAX(type) + 1); \
+                k = newa(char, STRLEN(field "=") + DECIMAL_STR_MAX(type) + 1); \
                 sprintf(k, field "=" format, value);                    \
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
@@ -739,7 +739,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 #define IOVEC_ADD_ID128_FIELD(iovec, n, value, field)                   \
         if (!sd_id128_is_null(value)) {                                 \
                 char *k;                                                \
-                k = newa(char, strlen(field "=") + SD_ID128_STRING_MAX); \
+                k = newa(char, STRLEN(field "=") + SD_ID128_STRING_MAX); \
                 sd_id128_to_string(value, stpcpy(k, field "="));        \
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
@@ -747,7 +747,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 #define IOVEC_ADD_SIZED_FIELD(iovec, n, value, value_size, field)       \
         if (value_size > 0) {                                           \
                 char *k;                                                \
-                k = newa(char, strlen(field "=") + value_size + 1);     \
+                k = newa(char, STRLEN(field "=") + value_size + 1);     \
                 *((char*) mempcpy(stpcpy(k, field "="), value, value_size)) = 0; \
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }                                                               \
