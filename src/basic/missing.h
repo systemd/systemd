@@ -1271,4 +1271,12 @@ struct fib_rule_uid_range {
 #  define EXT4_IOC_RESIZE_FS              _IOW('f', 16, __u64)
 #endif
 
+#ifndef NSFS_MAGIC
+#define NSFS_MAGIC 0x6e736673
+#endif
+
+#ifndef NS_GET_NSTYPE
+#define NS_GET_NSTYPE _IO(0xb7, 0x3)
+#endif
+
 #include "missing_syscall.h"

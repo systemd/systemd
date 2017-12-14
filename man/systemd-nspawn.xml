@@ -523,6 +523,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--network-namespace-path=</option></term>
+
+        <listitem><para>Takes the path to a file representing a kernel
+        network namespace that the container shall run in. The specified path
+        should refer to a (possibly bind-mounted) network namespace file, as
+        exposed by the kernel below <filename>/proc/$PID/ns/net</filename>.
+        This makes the container enter the given network namespace. One of the
+        typical use cases is to give a network namespace under
+        <filename>/run/netns</filename> created by <citerefentry
+        project='man-pages'><refentrytitle>ip-netns</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        for example, <option>--network-namespace-path=/run/netns/foo</option>.
+        Note that this option cannot be used together with other
+        network-related options, such as <option>--private-network</option>
+        or <option>--network-interface=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--network-interface=</option></term>
 
         <listitem><para>Assign the specified network interface to the

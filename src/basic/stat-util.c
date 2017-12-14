@@ -226,6 +226,18 @@ int fd_is_temporary_fs(int fd) {
         return is_temporary_fs(&s);
 }
 
+int fd_is_network_ns(int fd) {
+        int r;
+
+        r = fd_is_fs_type(fd, NSFS_MAGIC);
+        if (r <= 0)
+                return r;
+        r = ioctl(fd, NS_GET_NSTYPE);
+        if (r < 0)
+                return -errno;
+        return r == CLONE_NEWNET;
+}
+
 int path_is_temporary_fs(const char *path) {
         _cleanup_close_ int fd = -1;
 
