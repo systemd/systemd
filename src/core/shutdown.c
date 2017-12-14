@@ -32,6 +32,7 @@
 
 #include "alloc-util.h"
 #include "cgroup-util.h"
+#include "fd-util.h"
 #include "def.h"
 #include "exec-util.h"
 #include "fileio.h"
@@ -40,6 +41,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "switch-root.h"
 #include "terminal-util.h"
@@ -49,6 +51,9 @@
 #include "watchdog.h"
 
 #define FINALIZE_ATTEMPTS 50
+
+#define SYNC_PROGRESS_ATTEMPTS 3
+#define SYNC_TIMEOUT_USEC (10*USEC_PER_SEC)
 
 static char* arg_verb;
 static uint8_t arg_exit_code;
@@ -159,6 +164,103 @@ static int switch_root_initramfs(void) {
         return switch_root("/run/initramfs", "/oldroot", false, MS_BIND);
 }
 
+/* Read the following fields from /proc/meminfo:
+ *
+ *  NFS_Unstable
+ *  Writeback
+ *  Dirty
+ *
+ * Return true if the sum of these fields is greater than the previous
+ * value input. For all other issues, report the failure and indicate that
+ * the sync is not making progress.
+ */
+static bool sync_making_progress(unsigned long long *prev_dirty) {
+        _cleanup_fclose_ FILE *f = NULL;
+        char line[LINE_MAX];
+        bool r = false;
+        unsigned long long val = 0;
+
+        f = fopen("/proc/meminfo", "re");
+        if (!f)
+                return log_warning_errno(errno, "Failed to open /proc/meminfo: %m");
+
+        FOREACH_LINE(line, f, log_warning_errno(errno, "Failed to parse /proc/meminfo: %m")) {
+                unsigned long long ull = 0;
+
+                if (!first_word(line, "NFS_Unstable:") && !first_word(line, "Writeback:") && !first_word(line, "Dirty:"))
+                        continue;
+
+                errno = 0;
+                if (sscanf(line, "%*s %llu %*s", &ull) != 1) {
+                        if (errno != 0)
+                                log_warning_errno(errno, "Failed to parse /proc/meminfo: %m");
+                        else
+                                log_warning("Failed to parse /proc/meminfo");
+
+                        return false;
+                }
+
+                val += ull;
+        }
+
+        r = *prev_dirty > val;
+
+        *prev_dirty = val;
+
+        return r;
+}
+
+static void sync_with_progress(void) {
+        unsigned checks;
+        pid_t pid;
+        int r;
+        unsigned long long dirty = ULONG_LONG_MAX;
+
+        BLOCK_SIGNALS(SIGCHLD);
+
+        /* Due to the possiblity of the sync operation hanging, we fork
+         * a child process and monitor the progress. If the timeout
+         * lapses, the assumption is that that particular sync stalled. */
+        pid = fork();
+        if (pid < 0) {
+                log_error_errno(errno, "Failed to fork: %m");
+                return;
+        }
+
+        if (pid == 0) {
+                /* Start the sync operation here in the child */
+                sync();
+                _exit(EXIT_SUCCESS);
+        }
+
+        log_info("Syncing filesystems and block devices.");
+
+        /* Start monitoring the sync operation. If more than
+         * SYNC_PROGRESS_ATTEMPTS lapse without progress being made,
+         * we assume that the sync is stalled */
+        for (checks = 0; checks < SYNC_PROGRESS_ATTEMPTS; checks++) {
+                r = wait_for_terminate_with_timeout(pid, SYNC_TIMEOUT_USEC);
+                if (r == 0)
+                        /* Sync finished without error.
+                         * (The sync itself does not return an error code) */
+                        return;
+                else if (r == -ETIMEDOUT) {
+                        /* Reset the check counter if the "Dirty" value is
+                         * decreasing */
+                        if (sync_making_progress(&dirty))
+                                checks = 0;
+                } else {
+                        log_error_errno(r, "Failed to sync filesystems and block devices: %m");
+                        return;
+                }
+        }
+
+        /* Only reached in the event of a timeout. We should issue a kill
+         * to the stray process. */
+        log_error("Syncing filesystems and block devices - timed out, issuing SIGKILL to PID "PID_FMT".", pid);
+        (void) kill(pid, SIGKILL);
+}
+
 int main(int argc, char *argv[]) {
         bool need_umount, need_swapoff, need_loop_detach, need_dm_detach;
         bool in_container, use_watchdog = false;
@@ -221,9 +323,10 @@ int main(int argc, char *argv[]) {
 
         /* Synchronize everything that is not written to disk yet at this point already. This is a good idea so that
          * slow IO is processed here already and the final process killing spree is not impacted by processes
-         * desperately trying to sync IO to disk within their timeout. */
+         * desperately trying to sync IO to disk within their timeout. Do not remove this sync, data corruption will
+         * result. */
         if (!in_container)
-                sync();
+                sync_with_progress();
 
         log_info("Sending SIGTERM to remaining processes...");
         broadcast_signal(SIGTERM, true, true);
@@ -365,9 +468,9 @@ int main(int argc, char *argv[]) {
         /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need to be
          * sync'ed explicitly in advance. So let's do this here, but not needlessly slow down containers. Note that we
          * sync'ed things already once above, but we did some more work since then which might have caused IO, hence
-         * let's doit once more. */
+         * let's do it once more. Do not remove this sync, data corruption will result. */
         if (!in_container)
-                sync();
+                sync_with_progress();
 
         if (streq(arg_verb, "exit")) {
                 if (in_container)
