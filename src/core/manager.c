@@ -3872,14 +3872,17 @@ char *manager_taint_string(Manager *m) {
         char *buf, *e;
         int r;
 
+        /* Returns a "taint string", e.g. "local-hwclock:var-run-bad".
+         * Only things that are detected at runtime should be tagged
+         * here. For stuff that is set during compilation, emit a warning
+         * in the configuration phase. */
+
         assert(m);
 
         buf = new(char, sizeof("split-usr:"
                                "cgroups-missing:"
                                "local-hwclock:"
                                "var-run-bad:"
-                               "weird-nobody-user:"
-                               "weird-nobody-group:"
                                "overflowuid-not-65534:"
                                "overflowgid-not-65534:"));
         if (!buf)
@@ -3900,12 +3903,6 @@ char *manager_taint_string(Manager *m) {
         r = readlink_malloc("/var/run", &destination);
         if (r < 0 || !PATH_IN_SET(destination, "../run", "/run"))
                 e = stpcpy(e, "var-run-bad:");
-
-        if (!streq(NOBODY_USER_NAME, "nobody"))
-                e = stpcpy(e, "weird-nobody-user:");
-
-        if (!streq(NOBODY_GROUP_NAME, "nobody"))
-                e = stpcpy(e, "weird-nobody-group:");
 
         r = read_one_line_file("/proc/sys/kernel/overflowuid", &overflowuid);
         if (r >= 0 && !streq(overflowuid, "65534"))
