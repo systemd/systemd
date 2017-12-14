@@ -126,7 +126,7 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                 return -EINVAL;
         }
 
-        if ((verb->flags & VERB_NOCHROOT) && running_in_chroot_or_offline()) {
+        if ((verb->flags & VERB_ONLINE_ONLY) && running_in_chroot_or_offline()) {
                 if (name)
                         log_info("Running in chroot, ignoring request: %s", name);
                 else
@@ -134,7 +134,7 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                 return 0;
         }
 
-        if (verb->flags & VERB_MUSTBEROOT) {
+        if (verb->flags & VERB_MUST_BE_ROOT) {
                 r = must_be_root();
                 if (r < 0)
                         return r;

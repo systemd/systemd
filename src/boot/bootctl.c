@@ -1138,12 +1138,12 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 static int bootctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "help",            VERB_ANY, VERB_ANY, 0,               help         },
-                { "status",          VERB_ANY, 1,        VERB_DEFAULT,    verb_status  },
-                { "list",            VERB_ANY, 1,        0,               verb_list    },
-                { "install",         VERB_ANY, 1,        VERB_MUSTBEROOT, verb_install },
-                { "update",          VERB_ANY, 1,        VERB_MUSTBEROOT, verb_install },
-                { "remove",          VERB_ANY, 1,        VERB_MUSTBEROOT, verb_remove  },
+                { "help",            VERB_ANY, VERB_ANY, 0,                 help         },
+                { "status",          VERB_ANY, 1,        VERB_DEFAULT,      verb_status  },
+                { "list",            VERB_ANY, 1,        0,                 verb_list    },
+                { "install",         VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install },
+                { "update",          VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install },
+                { "remove",          VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_remove  },
                 {}
         };
 
