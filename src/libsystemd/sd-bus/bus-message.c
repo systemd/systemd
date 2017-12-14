@@ -723,8 +723,10 @@ static int message_new_reply(
 
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
         t->reply_cookie = BUS_MESSAGE_COOKIE(call);
-        if (t->reply_cookie == 0)
-                return -EOPNOTSUPP;
+        if (t->reply_cookie == 0) {
+                r = -EOPNOTSUPP;
+                goto fail;
+        }
 
         r = message_append_reply_cookie(t, t->reply_cookie);
         if (r < 0)
@@ -5814,12 +5816,12 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
 
                 r = message_append_reply_cookie(n, n->reply_cookie);
                 if (r < 0)
-                        return r;
+                        goto fail;
 
                 if ((*m)->header->type == SD_BUS_MESSAGE_METHOD_ERROR && (*m)->error.name) {
                         r = message_append_field_string(n, BUS_MESSAGE_HEADER_ERROR_NAME, SD_BUS_TYPE_STRING, (*m)->error.name, &n->error.message);
                         if (r < 0)
-                                return r;
+                                goto fail;
 
                         n->error._need_free = -1;
                 }
@@ -5833,20 +5835,20 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
         if ((*m)->destination && !n->destination) {
                 r = message_append_field_string(n, BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, (*m)->destination, &n->destination);
                 if (r < 0)
-                        return r;
+                        goto fail;
         }
 
         if ((*m)->sender && !n->sender) {
                 r = message_append_field_string(n, BUS_MESSAGE_HEADER_SENDER, SD_BUS_TYPE_STRING, (*m)->sender, &n->sender);
                 if (r < 0)
-                        return r;
+                        goto fail;
         }
 
         n->header->flags |= (*m)->header->flags & (BUS_MESSAGE_NO_REPLY_EXPECTED|BUS_MESSAGE_NO_AUTO_START);
 
         r = sd_bus_message_copy(n, *m, true);
         if (r < 0)
-                return r;
+                goto fail;
 
         timeout = (*m)->timeout;
         if (timeout == 0 && !((*m)->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED))
@@ -5854,13 +5856,16 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
 
         r = sd_bus_message_seal(n, BUS_MESSAGE_COOKIE(*m), timeout);
         if (r < 0)
-                return r;
+                goto fail;
 
         sd_bus_message_unref(*m);
         *m = n;
         n = NULL;
 
         return 0;
+fail:
+        sd_bus_message_unref(n);
+        return r;
 }
 
 int bus_message_append_sender(sd_bus_message *m, const char *sender) {
