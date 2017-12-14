@@ -517,6 +517,15 @@
         <varname>Type=oneshot</varname> is used, in which case the
         timeout is disabled by default (see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        </para>
+
+        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
+        the start time to be extended beyond <varname>TimeoutStartSec=</varname>. The first receipt of this message
+        must occur before <varname>TimeoutStartSec=</varname> is exceeded, and once the start time has exended beyond
+        <varname>TimeoutStartSec=</varname>, the service manager will allow the service to continue to start, provided
+        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
+        startup status is finished by <literal>READY=1</literal>. (see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
       </varlistentry>
 
@@ -535,6 +544,14 @@
         <varname>DefaultTimeoutStopSec=</varname> from the manager
         configuration file (see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        </para>
+
+        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
+        the stop time to be extended beyond <varname>TimeoutStopSec=</varname>. The first receipt of this message
+        must occur before <varname>TimeoutStopSec=</varname> is exceeded, and once the stop time has exended beyond
+        <varname>TimeoutStopSec=</varname>, the service manager will allow the service to continue to stop, provided
+        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
+        (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
       </varlistentry>
 
@@ -553,7 +570,16 @@
         active for longer than the specified time it is terminated and put into a failure state. Note that this setting
         does not have any effect on <varname>Type=oneshot</varname> services, as they terminate immediately after
         activation completed. Pass <literal>infinity</literal> (the default) to configure no runtime
-        limit.</para></listitem>
+        limit.</para>
+
+        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
+        the runtime to be extended beyond <varname>RuntimeMaxSec=</varname>. The first receipt of this message
+        must occur before <varname>RuntimeMaxSec=</varname> is exceeded, and once the runtime has exended beyond
+        <varname>RuntimeMaxSec=</varname>, the service manager will allow the service to continue to run, provided
+        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
+        shutdown is acheived by <literal>STOPPING=1</literal> (or termination). (see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
