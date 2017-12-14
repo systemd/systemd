@@ -24,6 +24,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* implement transient socket unit.
+
+* make systemd-run create transient path and socket unit.
+
 * make use of ethtool veth peer info in machined, for automatically finding out
   host-side interface pointing to the container.
 
