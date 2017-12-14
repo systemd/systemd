@@ -972,6 +972,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 }
 
                 r = sd_bus_message_append(m, "v", "i", oa);
+
         } else if (STR_IN_SET(field, "ReadWriteDirectories", "ReadOnlyDirectories", "InaccessibleDirectories",
                               "ReadWritePaths", "ReadOnlyPaths", "InaccessiblePaths")) {
                 const char *p;
@@ -1003,7 +1004,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         offset += word[offset] == '+';
 
                         if (!path_is_absolute(word + offset)) {
-                                log_error("Failed to parse %s value %s", field, eq);
+                                log_error("Path specified by %s is not absolute: %s", field, eq);
                                 return -EINVAL;
                         }
 
@@ -1041,7 +1042,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 break;
 
                         if (!valid_user_group_name_or_id(word)) {
-                                log_error("Failed to parse %s value %s", field, eq);
+                                log_error("Invalid group name or id is specified by %s: %s", field, eq);
                                 return -EINVAL;
                         }
 
@@ -1122,8 +1123,11 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         flags = (~flags) & NAMESPACE_FLAGS_ALL;
 
                 r = sd_bus_message_append(m, "v", "t", (uint64_t) flags);
+
         } else if ((dep = unit_dependency_from_string(field)) >= 0)
+
                 r = sd_bus_message_append(m, "v", "as", 1, eq);
+
         else if (streq(field, "MountFlags")) {
                 unsigned long f;
 
@@ -1132,6 +1136,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return log_error_errno(r, "Failed to parse mount propagation flags: %s", eq);
 
                 r = sd_bus_message_append(m, "v", "t", (uint64_t) f);
+
         } else if (STR_IN_SET(field, "BindPaths", "BindReadOnlyPaths")) {
                 const char *p = eq;
 
