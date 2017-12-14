@@ -1959,7 +1959,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <term><varname>$PATH</varname></term>
 
         <listitem><para>Colon-separated list of directories to use
-        when launching executables. Systemd uses a fixed value of
+        when launching executables. systemd uses a fixed value of
         <filename>/usr/local/sbin</filename>:<filename>/usr/local/bin</filename>:<filename>/usr/sbin</filename>:<filename>/usr/bin</filename>:<filename>/sbin</filename>:<filename>/bin</filename>.
         </para></listitem>
       </varlistentry>

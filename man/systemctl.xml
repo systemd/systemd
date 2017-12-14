@@ -917,7 +917,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             convenient.
             </para>
 
-            <para>Systemd implicitly loads units as necessary, so just running the <command>status</command> will
+            <para>systemd implicitly loads units as necessary, so just running the <command>status</command> will
             attempt to load a file. The command is thus not useful for determining if something was already loaded or
             not.  The units may possibly also be quickly unloaded after the operation is completed if there's no reason
             to keep it in memory thereafter.

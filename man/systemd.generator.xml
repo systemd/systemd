@@ -48,7 +48,7 @@
 
   <refnamediv>
     <refname>systemd.generator</refname>
-    <refpurpose>Systemd unit generators</refpurpose>
+    <refpurpose>systemd unit generators</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

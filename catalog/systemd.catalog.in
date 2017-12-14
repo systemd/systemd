@@ -201,7 +201,7 @@ Subject: System shutdown initiated
 Defined-By: systemd
 Support: %SUPPORT_URL%
 
-Systemd shutdown has been initiated. The shutdown has now begun and
+System shutdown has been initiated. The shutdown has now begun and
 all system services are terminated and all file systems unmounted.
 
 -- 7d4958e842da4a758f6c1cdc7b36dcc5
