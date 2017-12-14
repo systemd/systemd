@@ -1603,13 +1603,6 @@ ExecStart=/usr/sbin/foo-daemon
       disadvantage that some future updates by the vendor might be
       incompatible with the local changes.</para>
 
-      <para>Note that for drop-in files, if one wants to remove
-      entries from a setting that is parsed as a list (and is not a
-      dependency), such as <varname>ConditionPathExists=</varname> (or
-      e.g. <varname>ExecStart=</varname> in service units), one needs
-      to first clear the list before re-adding all entries except the
-      one that is to be removed. See below for an example.</para>
-
       <para>This also applies for user instances of systemd, but with
       different locations for the unit files. See the section on unit
       load paths for further details.</para>
@@ -1681,7 +1674,12 @@ AssertPathExists=/srv/www
 Nice=0
 PrivateTmp=yes</programlisting>
 
-      <para>Note that dependencies (<varname>After=</varname>, etc.)
+      <para>Note that for drop-in files, if one wants to remove
+      entries from a setting that is parsed as a list (and is not a
+      dependency), such as <varname>AssertPathExists=</varname> (or
+      e.g. <varname>ExecStart=</varname> in service units), one needs
+      to first clear the list before re-adding all entries except the
+      one that is to be removed. Dependencies (<varname>After=</varname>, etc.)
       cannot be reset to an empty list, so dependencies can only be
       added in drop-ins. If you want to remove dependencies, you have
       to override the entire unit.</para>
