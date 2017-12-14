@@ -38,6 +38,7 @@
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
+#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "architecture.h"
@@ -2420,7 +2421,11 @@ int main(int argc, char *argv[]) {
 
                 taint = manager_taint_string(m);
                 if (!isempty(taint))
-                        log_notice("System is tainted: %s", taint);
+                        log_struct(LOG_NOTICE,
+                                   LOG_MESSAGE("System is tainted: %s", taint),
+                                   "TAINT=%s", taint,
+                                   "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR,
+                                   NULL);
         }
 
         if (arg_action == ACTION_TEST) {
