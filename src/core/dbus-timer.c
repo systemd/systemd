@@ -200,7 +200,7 @@ static int bus_timer_set_transient_property(
 
                 b = timer_base_from_string(name);
                 if (b < 0)
-                        return -EINVAL;
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown timer base");
 
                 r = sd_bus_message_read(message, "t", &u);
                 if (r < 0)
@@ -235,6 +235,8 @@ static int bus_timer_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         r = calendar_spec_from_string(str, &c);
+                        if (r == -EINVAL)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid calendar spec");
                         if (r < 0)
                                 return r;
 
