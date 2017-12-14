@@ -186,6 +186,8 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
                 return -ERANGE;
 
         link->filename = strdup(filename);
+        if (!link->filename)
+                return log_oom();
 
         LIST_PREPEND(links, ctx->links, link);
         link = NULL;
