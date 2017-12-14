@@ -19,6 +19,7 @@
 ***/
 
 #include <getopt.h>
+#include <stdio_ext.h>
 
 #include "sd-bus.h"
 
@@ -886,10 +887,8 @@ static int introspect(sd_bus *bus, char **argv) {
                 return log_oom();
 
         r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Introspectable", "Introspect", &error, &reply_xml, "");
-        if (r < 0) {
-                log_error("Failed to introspect object %s of service %s: %s", argv[2], argv[1], bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to introspect object %s of service %s: %s", argv[2], argv[1], bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply_xml, "s", &xml);
         if (r < 0)
@@ -914,10 +913,8 @@ static int introspect(sd_bus *bus, char **argv) {
                         continue;
 
                 r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "GetAll", &error, &reply, "s", m->interface);
-                if (r < 0) {
-                        log_error("%s", bus_error_message(&error, r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "%s", bus_error_message(&error, r));
 
                 r = sd_bus_message_enter_container(reply, 'a', "{sv}");
                 if (r < 0)
@@ -949,22 +946,20 @@ static int introspect(sd_bus *bus, char **argv) {
                         if (!mf)
                                 return log_oom();
 
+                        (void) __fsetlocking(mf, FSETLOCKING_BYCALLER);
+
                         r = format_cmdline(reply, mf, false);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        fclose(mf);
-                        mf = NULL;
+                        mf = safe_fclose(mf);
 
                         z = set_get(members, &((Member) {
                                                 .type = "property",
                                                 .interface = m->interface,
                                                 .name = (char*) name }));
-                        if (z) {
-                                free(z->value);
-                                z->value = buf;
-                                buf = NULL;
-                        }
+                        if (z)
+                                free_and_replace(z->value, buf);
 
                         r = sd_bus_message_exit_container(reply);
                         if (r < 0)

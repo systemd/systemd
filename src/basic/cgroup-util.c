@@ -24,6 +24,7 @@
 #include <limits.h>
 #include <signal.h>
 #include <stddef.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -1031,6 +1032,8 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         f = fopen(fs, "re");
         if (!f)
                 return errno == ENOENT ? -ESRCH : -errno;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         FOREACH_LINE(line, f, return -errno) {
                 char *e, *p;
@@ -2370,6 +2373,8 @@ int cg_kernel_controllers(Set **ret) {
 
                 return -errno;
         }
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         /* Ignore the header line */
         (void) read_line(f, (size_t) -1, NULL);

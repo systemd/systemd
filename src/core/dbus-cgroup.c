@@ -19,6 +19,7 @@
 ***/
 
 #include <arpa/inet.h>
+#include <stdio_ext.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -687,6 +688,8 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
                         fprintf(f, "%s=\n", name);
                         LIST_FOREACH(device_limits, a, c->io_device_limits)
                                         if (a->limits[iol_type] != cgroup_io_limit_defaults[iol_type])
@@ -764,7 +767,9 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs_unlocked("IODeviceWeight=\n", f);
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+                        fputs("IODeviceWeight=\n", f);
                         LIST_FOREACH(device_weights, a, c->io_device_weights)
                                 fprintf(f, "IODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
 
@@ -912,13 +917,15 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
                         if (read) {
-                                fputs_unlocked("BlockIOReadBandwidth=\n", f);
+                                fputs("BlockIOReadBandwidth=\n", f);
                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
                                         if (a->rbps != CGROUP_LIMIT_MAX)
                                                 fprintf(f, "BlockIOReadBandwidth=%s %" PRIu64 "\n", a->path, a->rbps);
                         } else {
-                                fputs_unlocked("BlockIOWriteBandwidth=\n", f);
+                                fputs("BlockIOWriteBandwidth=\n", f);
                                 LIST_FOREACH(device_bandwidths, a, c->blockio_device_bandwidths)
                                         if (a->wbps != CGROUP_LIMIT_MAX)
                                                 fprintf(f, "BlockIOWriteBandwidth=%s %" PRIu64 "\n", a->path, a->wbps);
@@ -997,7 +1004,9 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs_unlocked("BlockIODeviceWeight=\n", f);
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+                        fputs("BlockIODeviceWeight=\n", f);
                         LIST_FOREACH(device_weights, a, c->blockio_device_weights)
                                 fprintf(f, "BlockIODeviceWeight=%s %" PRIu64 "\n", a->path, a->weight);
 
@@ -1229,7 +1238,9 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs_unlocked("DeviceAllow=\n", f);
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+                        fputs("DeviceAllow=\n", f);
                         LIST_FOREACH(device_allow, a, c->device_allow)
                                 fprintf(f, "DeviceAllow=%s %s%s%s\n", a->path, a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
 
@@ -1399,8 +1410,10 @@ int bus_cgroup_set_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs_unlocked(name, f);
-                        fputs_unlocked("=\n", f);
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+                        fputs(name, f);
+                        fputs("=\n", f);
 
                         LIST_FOREACH(items, item, *list) {
                                 char buffer[CONST_MAX(INET_ADDRSTRLEN, INET6_ADDRSTRLEN)];

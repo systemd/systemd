@@ -19,6 +19,7 @@
  ***/
 
 #include <resolv.h>
+#include <stdio_ext.h>
 
 #include "alloc-util.h"
 #include "dns-domain.h"
@@ -201,7 +202,7 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         }
 
         if (*count == MAXNS)
-                fputs_unlocked("# Too many DNS servers configured, the following entries may be ignored.\n", f);
+                fputs("# Too many DNS servers configured, the following entries may be ignored.\n", f);
         (*count)++;
 
         fprintf(f, "nameserver %s\n", dns_server_string(s));
@@ -217,43 +218,43 @@ static void write_resolv_conf_search(
         assert(domains);
         assert(f);
 
-        fputs_unlocked("search", f);
+        fputs("search", f);
 
         ORDERED_SET_FOREACH(domain, domains, i) {
                 if (++count > MAXDNSRCH) {
-                        fputs_unlocked("\n# Too many search domains configured, remaining ones ignored.", f);
+                        fputs("\n# Too many search domains configured, remaining ones ignored.", f);
                         break;
                 }
                 length += strlen(domain) + 1;
                 if (length > 256) {
-                        fputs_unlocked("\n# Total length of all search domains is too long, remaining ones ignored.", f);
+                        fputs("\n# Total length of all search domains is too long, remaining ones ignored.", f);
                         break;
                 }
-                fputc_unlocked(' ', f);
-                fputs_unlocked(domain, f);
+                fputc(' ', f);
+                fputs(domain, f);
         }
 
-        fputs_unlocked("\n", f);
+        fputs("\n", f);
 }
 
 static int write_uplink_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet *domains) {
         Iterator i;
 
-        fputs_unlocked("# This file is managed by man:systemd-resolved(8). Do not edit.\n"
-                       "#\n"
-                       "# This is a dynamic resolv.conf file for connecting local clients directly to\n"
-                       "# all known uplink DNS servers. This file lists all configured search domains.\n"
-                       "#\n"
-                       "# Third party programs must not access this file directly, but only through the\n"
-                       "# symlink at /etc/resolv.conf. To manage man:resolv.conf(5) in a different way,\n"
-                       "# replace this symlink by a static file or a different symlink.\n"
-                       "#\n"
-                       "# See man:systemd-resolved.service(8) for details about the supported modes of\n"
-                       "# operation for /etc/resolv.conf.\n"
-                       "\n", f);
+        fputs("# This file is managed by man:systemd-resolved(8). Do not edit.\n"
+              "#\n"
+              "# This is a dynamic resolv.conf file for connecting local clients directly to\n"
+              "# all known uplink DNS servers. This file lists all configured search domains.\n"
+              "#\n"
+              "# Third party programs must not access this file directly, but only through the\n"
+              "# symlink at /etc/resolv.conf. To manage man:resolv.conf(5) in a different way,\n"
+              "# replace this symlink by a static file or a different symlink.\n"
+              "#\n"
+              "# See man:systemd-resolved.service(8) for details about the supported modes of\n"
+              "# operation for /etc/resolv.conf.\n"
+              "\n", f);
 
         if (ordered_set_isempty(dns))
-                fputs_unlocked("# No DNS servers known.\n", f);
+                fputs("# No DNS servers known.\n", f);
         else {
                 unsigned count = 0;
                 DnsServer *s;
@@ -296,10 +297,8 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
 int manager_write_resolv_conf(Manager *m) {
 
         _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
-        _cleanup_free_ char *temp_path_uplink = NULL;
-        _cleanup_free_ char *temp_path_stub = NULL;
-        _cleanup_fclose_ FILE *f_uplink = NULL;
-        _cleanup_fclose_ FILE *f_stub = NULL;
+        _cleanup_free_ char *temp_path_uplink = NULL, *temp_path_stub = NULL;
+        _cleanup_fclose_ FILE *f_uplink = NULL, *f_stub = NULL;
         int r;
 
         assert(m);
@@ -319,10 +318,15 @@ int manager_write_resolv_conf(Manager *m) {
         r = fopen_temporary_label(PRIVATE_UPLINK_RESOLV_CONF, PRIVATE_UPLINK_RESOLV_CONF, &f_uplink, &temp_path_uplink);
         if (r < 0)
                 return log_warning_errno(r, "Failed to open private resolv.conf file for writing: %m");
+
+        (void) __fsetlocking(f_uplink, FSETLOCKING_BYCALLER);
+        (void) fchmod(fileno(f_uplink), 0644);
+
         r = fopen_temporary_label(PRIVATE_STUB_RESOLV_CONF, PRIVATE_STUB_RESOLV_CONF, &f_stub, &temp_path_stub);
         if (r < 0)
                 return log_warning_errno(r, "Failed to open private stub-resolv.conf file for writing: %m");
-        (void) fchmod(fileno(f_uplink), 0644);
+
+        (void) __fsetlocking(f_stub, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f_stub), 0644);
 
         r = write_uplink_resolv_conf_contents(f_uplink, dns, domains);

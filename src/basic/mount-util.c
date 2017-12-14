@@ -19,6 +19,7 @@
 ***/
 
 #include <errno.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
@@ -337,6 +338,8 @@ int umount_recursive(const char *prefix, int flags) {
                 if (!proc_self_mountinfo)
                         return -errno;
 
+                (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
+
                 for (;;) {
                         _cleanup_free_ char *path = NULL, *p = NULL;
                         int k;
@@ -582,6 +585,8 @@ int bind_remount_recursive(const char *prefix, bool ro, char **blacklist) {
         proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
         if (!proc_self_mountinfo)
                 return -errno;
+
+        (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
 
         return bind_remount_recursive_with_mountinfo(prefix, ro, blacklist, proc_self_mountinfo);
 }

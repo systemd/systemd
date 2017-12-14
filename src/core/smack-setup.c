@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -243,20 +244,25 @@ static int write_netlabel_rules(const char* srcdir) {
                         continue;
                 }
 
+                (void) __fsetlocking(policy, FSETLOCKING_BYCALLER);
+
                 /* load2 write rules in the kernel require a line buffered stream */
                 FOREACH_LINE(buf, policy,
-                             log_error_errno(errno, "Failed to read line from %s: %m",
-                                       entry->d_name)) {
-                        if (!fputs_unlocked(buf, dst)) {
+                             log_error_errno(errno, "Failed to read line from %s: %m", entry->d_name)) {
+
+                        int q;
+
+                        if (!fputs(buf, dst)) {
                                 if (r == 0)
                                         r = -EINVAL;
                                 log_error_errno(errno, "Failed to write line to /sys/fs/smackfs/netlabel");
                                 break;
                         }
-                        if (fflush(dst)) {
+                        q = fflush_and_check(dst);
+                        if (q < 0) {
                                 if (r == 0)
-                                        r = -errno;
-                                log_error_errno(errno, "Failed to flush writes to /sys/fs/smackfs/netlabel: %m");
+                                        r = q;
+                                log_error_errno(q, "Failed to flush writes to /sys/fs/smackfs/netlabel: %m");
                                 break;
                         }
                 }

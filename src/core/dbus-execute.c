@@ -19,6 +19,7 @@
 ***/
 
 #include <sys/prctl.h>
+#include <stdio_ext.h>
 
 #if HAVE_SECCOMP
 #include <seccomp.h>
@@ -2201,6 +2202,8 @@ int bus_exec_context_set_transient_property(
                 f = open_memstream(&joined, &size);
                 if (!f)
                         return -ENOMEM;
+
+                (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
                 fputs("EnvironmentFile=\n", f);
 

@@ -1754,7 +1754,7 @@ int manager_get_dump_string(Manager *m, char **ret) {
         if (!f)
                 return -errno;
 
-        __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         manager_dump(m, f, NULL);
 
@@ -2704,15 +2704,15 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         manager_serialize_uid_refs(m, f);
         manager_serialize_gid_refs(m, f);
 
-        fputc_unlocked('\n', f);
+        (void) fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units, i) {
                 if (u->id != t)
                         continue;
 
                 /* Start marker */
-                fputs_unlocked(u->id, f);
-                fputc_unlocked('\n', f);
+                fputs(u->id, f);
+                fputc('\n', f);
 
                 r = unit_serialize(u, f, fds, !switching_root);
                 if (r < 0) {

@@ -18,6 +18,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdio_ext.h>
+
 #include "alloc-util.h"
 #include "async.h"
 #include "bus-util.h"
@@ -313,7 +315,9 @@ static int bus_service_set_transient_property(
                         if (!f)
                                 return -ENOMEM;
 
-                        fputs_unlocked("ExecStart=\n", f);
+                        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+                        fputs("ExecStart=\n", f);
 
                         LIST_FOREACH(command, c, s->exec_command[ci]) {
                                 _cleanup_free_ char *a = NULL, *t = NULL;
