@@ -707,6 +707,7 @@ static int message_new_reply(
                 sd_bus_message **m) {
 
         sd_bus_message *t;
+        uint64_t cookie;
         int r;
 
         assert_return(call, -EINVAL);
@@ -715,6 +716,10 @@ static int message_new_reply(
         assert_return(call->bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(m, -EINVAL);
 
+        cookie = BUS_MESSAGE_COOKIE(call);
+        if (cookie == 0)
+                return -EOPNOTSUPP;
+
         r = sd_bus_message_new(call->bus, &t, type);
         if (r < 0)
                 return -ENOMEM;
@@ -722,10 +727,7 @@ static int message_new_reply(
         assert(t);
 
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
-        t->reply_cookie = BUS_MESSAGE_COOKIE(call);
-        if (t->reply_cookie == 0)
-                return -EOPNOTSUPP;
-
+        t->reply_cookie = cookie;
         r = message_append_reply_cookie(t, t->reply_cookie);
         if (r < 0)
                 goto fail;
