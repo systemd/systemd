@@ -656,7 +656,7 @@ int ask_password_agent(
                                 goto finish;
                         }
 
-                        if (strv_length(l) <= 0) {
+                        if (strv_isempty(l)) {
                                 l = strv_free(l);
                                 log_debug("Invalid packet");
                                 continue;

@@ -1269,7 +1269,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                 if (r < 0)
                         return r;
 
-                if (strv_length(l) > 0) {
+                if (!strv_isempty(l)) {
 
                         r = sd_bus_message_open_container(m, 'r', "sasb");
                         if (r < 0)

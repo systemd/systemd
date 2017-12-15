@@ -4162,19 +4162,19 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         if (c->pam_name)
                 fprintf(f, "%sPAMName: %s\n", prefix, c->pam_name);
 
-        if (strv_length(c->read_write_paths) > 0) {
+        if (!strv_isempty(c->read_write_paths)) {
                 fprintf(f, "%sReadWritePaths:", prefix);
                 strv_fprintf(f, c->read_write_paths);
                 fputs("\n", f);
         }
 
-        if (strv_length(c->read_only_paths) > 0) {
+        if (!strv_isempty(c->read_only_paths)) {
                 fprintf(f, "%sReadOnlyPaths:", prefix);
                 strv_fprintf(f, c->read_only_paths);
                 fputs("\n", f);
         }
 
-        if (strv_length(c->inaccessible_paths) > 0) {
+        if (!strv_isempty(c->inaccessible_paths)) {
                 fprintf(f, "%sInaccessiblePaths:", prefix);
                 strv_fprintf(f, c->inaccessible_paths);
                 fputs("\n", f);
