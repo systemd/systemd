@@ -1917,25 +1917,35 @@ static int initialize_runtime(
          * - Some only apply when we first start up, but not when we reexecute
          */
 
-        if (arg_system && !skip_setup) {
-                status_welcome();
-                hostname_setup();
-                machine_id_setup(NULL, arg_machine_id, NULL);
-                loopback_setup();
-                bump_unix_max_dgram_qlen();
-                test_usr();
-                write_container_id();
-        }
+        if (arg_system) {
+                /* Make sure we leave a core dump without panicing the kernel. */
+                install_crash_handler();
 
-        if (arg_system && arg_watchdog_device) {
-                r = watchdog_set_device(arg_watchdog_device);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m",
-                                          arg_watchdog_device);
-        }
+                if (!skip_setup) {
+                        r = mount_cgroup_controllers(arg_join_controllers);
+                        if (r < 0) {
+                                *ret_error_message = "Failed to mount cgroup hierarchies";
+                                return r;
+                        }
 
-        if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
-                watchdog_set_timeout(&arg_runtime_watchdog);
+                        status_welcome();
+                        hostname_setup();
+                        machine_id_setup(NULL, arg_machine_id, NULL);
+                        loopback_setup();
+                        bump_unix_max_dgram_qlen();
+                        test_usr();
+                        write_container_id();
+                }
+
+                if (arg_watchdog_device) {
+                        r = watchdog_set_device(arg_watchdog_device);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
+                }
+
+                if (arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
+                        watchdog_set_timeout(&arg_runtime_watchdog);
+        }
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
@@ -2465,16 +2475,6 @@ int main(int argc, char *argv[]) {
 
                 /* Open the logging devices, if possible and necessary */
                 log_open();
-        }
-
-        /* Make sure we leave a core dump without panicing the
-         * kernel. */
-        if (getpid_cached() == 1) {
-                install_crash_handler();
-
-                r = mount_cgroup_controllers(arg_join_controllers);
-                if (r < 0)
-                        goto finish;
         }
 
         log_execution_mode(&first_boot);
