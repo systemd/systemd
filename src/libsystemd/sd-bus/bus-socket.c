@@ -32,9 +32,12 @@
 #include "bus-socket.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
+#include "io-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "path-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"
@@ -688,29 +691,248 @@ int bus_socket_start_auth(sd_bus *b) {
                 return bus_socket_start_auth_client(b);
 }
 
+static int bus_socket_inotify_setup(sd_bus *b) {
+        _cleanup_free_ int *new_watches = NULL;
+        _cleanup_free_ char *absolute = NULL;
+        size_t n_allocated = 0, n = 0, done = 0, i;
+        unsigned max_follow = 32;
+        const char *p;
+        int wd, r;
+
+        assert(b);
+        assert(b->watch_bind);
+        assert(b->sockaddr.sa.sa_family == AF_UNIX);
+        assert(b->sockaddr.un.sun_path[0] != 0);
+
+        /* Sets up an inotify fd in case watch_bind is enabled: wait until the configured AF_UNIX file system socket
+         * appears before connecting to it. The implemented is pretty simplistic: we just subscribe to relevant changes
+         * to all prefix components of the path, and every time we get an event for that we try to reconnect again,
+         * without actually caring what precisely the event we got told us. If we still can't connect we re-subscribe
+         * to all relevant changes of anything in the path, so that our watches include any possibly newly created path
+         * components. */
+
+        if (b->inotify_fd < 0) {
+                b->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+                if (b->inotify_fd < 0)
+                        return -errno;
+        }
+
+        /* Make sure the path is NUL terminated */
+        p = strndupa(b->sockaddr.un.sun_path, sizeof(b->sockaddr.un.sun_path));
+
+        /* Make sure the path is absolute */
+        r = path_make_absolute_cwd(p, &absolute);
+        if (r < 0)
+                goto fail;
+
+        /* Watch all parent directories, and don't mind any prefix that doesn't exist yet. For the innermost directory
+         * that exists we want to know when files are created or moved into it. For all parents of it we just care if
+         * they are removed or renamed. */
+
+        if (!GREEDY_REALLOC(new_watches, n_allocated, n + 1)) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        /* Start with the top-level directory, which is a bit simpler than the rest, since it can't be a symlink, and
+         * always exists */
+        wd = inotify_add_watch(b->inotify_fd, "/", IN_CREATE|IN_MOVED_TO);
+        if (wd < 0) {
+                r = log_debug_errno(errno, "Failed to add inotify watch on /: %m");
+                goto fail;
+        } else
+                new_watches[n++] = wd;
+
+        for (;;) {
+                _cleanup_free_ char *component = NULL, *prefix = NULL, *destination = NULL;
+                size_t n_slashes, n_component;
+                char *c = NULL;
+
+                n_slashes = strspn(absolute + done, "/");
+                n_component = n_slashes + strcspn(absolute + done + n_slashes, "/");
+
+                if (n_component == 0) /* The end */
+                        break;
+
+                component = strndup(absolute + done, n_component);
+                if (!component) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                /* A trailing slash? That's a directory, and not a socket then */
+                if (path_equal(component, "/")) {
+                        r = -EISDIR;
+                        goto fail;
+                }
+
+                /* A single dot? Let's eat this up */
+                if (path_equal(component, "/.")) {
+                        done += n_component;
+                        continue;
+                }
+
+                prefix = strndup(absolute, done + n_component);
+                if (!prefix) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                if (!GREEDY_REALLOC(new_watches, n_allocated, n + 1)) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                wd = inotify_add_watch(b->inotify_fd, prefix, IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO|IN_DONT_FOLLOW);
+                log_debug("Added inotify watch for %s on bus %s: %i", prefix, strna(b->description), wd);
+
+                if (wd < 0) {
+                        if (IN_SET(errno, ENOENT, ELOOP))
+                                break; /* This component doesn't exist yet, or the path contains a cyclic symlink right now */
+
+                        r = log_debug_errno(errno, "Failed to add inotify watch on %s: %m", isempty(prefix) ? "/" : prefix);
+                        goto fail;
+                } else
+                        new_watches[n++] = wd;
+
+                /* Check if this is possibly a symlink. If so, let's follow it and watch it too. */
+                r = readlink_malloc(prefix, &destination);
+                if (r == -EINVAL) { /* not a symlink */
+                        done += n_component;
+                        continue;
+                }
+                if (r < 0)
+                        goto fail;
+
+                if (isempty(destination)) { /* Empty symlink target? Yuck! */
+                        r = -EINVAL;
+                        goto fail;
+                }
+
+                if (max_follow <= 0) { /* Let's make sure we don't follow symlinks forever */
+                        r = -ELOOP;
+                        goto fail;
+                }
+
+                if (path_is_absolute(destination)) {
+                        /* For absolute symlinks we build the new path and start anew */
+                        c = strjoin(destination, absolute + done + n_component);
+                        done = 0;
+                } else {
+                        _cleanup_free_ char *t = NULL;
+
+                        /* For relative symlinks we replace the last component, and try again */
+                        t = strndup(absolute, done);
+                        if (!t)
+                                return -ENOMEM;
+
+                        c = strjoin(t, "/", destination, absolute + done + n_component);
+                }
+                if (!c) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                free(absolute);
+                absolute = c;
+
+                max_follow--;
+        }
+
+        /* And now, let's remove all watches from the previous iteration we don't need anymore */
+        for (i = 0; i < b->n_inotify_watches; i++) {
+                bool found = false;
+                size_t j;
+
+                for (j = 0; j < n; j++)
+                        if (new_watches[j] == b->inotify_watches[i]) {
+                                found = true;
+                                break;
+                        }
+
+                if (found)
+                        continue;
+
+                (void) inotify_rm_watch(b->inotify_fd, b->inotify_watches[i]);
+        }
+
+        free_and_replace(b->inotify_watches, new_watches);
+        b->n_inotify_watches = n;
+
+        return 0;
+
+fail:
+        bus_close_inotify_fd(b);
+        return r;
+}
+
 int bus_socket_connect(sd_bus *b) {
+        bool inotify_done = false;
         int r;
 
         assert(b);
-        assert(b->input_fd < 0);
-        assert(b->output_fd < 0);
-        assert(b->sockaddr.sa.sa_family != AF_UNSPEC);
 
-        b->input_fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (b->input_fd < 0)
-                return -errno;
+        for (;;) {
+                assert(b->input_fd < 0);
+                assert(b->output_fd < 0);
+                assert(b->sockaddr.sa.sa_family != AF_UNSPEC);
 
-        b->output_fd = b->input_fd;
+                b->input_fd = socket(b->sockaddr.sa.sa_family, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+                if (b->input_fd < 0)
+                        return -errno;
 
-        bus_socket_setup(b);
+                b->output_fd = b->input_fd;
+                bus_socket_setup(b);
 
-        r = connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size);
-        if (r < 0) {
-                if (errno == EINPROGRESS)
-                        return 1;
+                if (connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size) < 0) {
+                        if (errno == EINPROGRESS) {
 
-                return -errno;
+                                /* If we have any inotify watches open, close them now, we don't need them anymore, as
+                                 * we have successfully initiated a connection */
+                                bus_close_inotify_fd(b);
+
+                                /* Note that very likely we are already in BUS_OPENING state here, as we enter it when
+                                 * we start parsing the address string. The only reason we set the state explicitly
+                                 * here, is to undo BUS_WATCH_BIND, in case we did the inotify magic. */
+                                b->state = BUS_OPENING;
+                                return 1;
+                        }
+
+                        if (IN_SET(errno, ENOENT, ECONNREFUSED) &&  /* ENOENT → unix socket doesn't exist at all; ECONNREFUSED → unix socket stale */
+                            b->watch_bind &&
+                            b->sockaddr.sa.sa_family == AF_UNIX &&
+                            b->sockaddr.un.sun_path[0] != 0) {
+
+                                /* This connection attempt failed, let's release the socket for now, and start with a
+                                 * fresh one when reconnecting. */
+                                bus_close_io_fds(b);
+
+                                if (inotify_done) {
+                                        /* inotify set up already, don't do it again, just return now, and remember
+                                         * that we are waiting for inotify events now. */
+                                        b->state = BUS_WATCH_BIND;
+                                        return 1;
+                                }
+
+                                /* This is a file system socket, and the inotify logic is enabled. Let's create the necessary inotify fd. */
+                                r = bus_socket_inotify_setup(b);
+                                if (r < 0)
+                                        return r;
+
+                                /* Let's now try to connect a second time, because in theory there's otherwise a race
+                                 * here: the socket might have been created in the time between our first connect() and
+                                 * the time we set up the inotify logic. But let's remember that we set up inotify now,
+                                 * so that we don't do the connect() more than twice. */
+                                inotify_done = true;
+
+                        } else
+                                return -errno;
+                } else
+                        break;
         }
+
+        /* Yay, established, we don't need no inotify anymore! */
+        bus_close_inotify_fd(b);
 
         return bus_socket_start_auth(b);
 }
@@ -1068,4 +1290,35 @@ int bus_socket_process_authenticating(sd_bus *b) {
                 return r;
 
         return bus_socket_read_auth(b);
+}
+
+int bus_socket_process_watch_bind(sd_bus *b) {
+        int r, q;
+
+        assert(b);
+        assert(b->state == BUS_WATCH_BIND);
+        assert(b->inotify_fd >= 0);
+
+        r = flush_fd(b->inotify_fd);
+        if (r <= 0)
+                return r;
+
+        log_debug("Got inotify event on bus %s.", strna(b->description));
+
+        /* We flushed events out of the inotify fd. In that case, maybe the socket is valid now? Let's try to connect
+         * to it again */
+
+        r = bus_socket_connect(b);
+        if (r < 0)
+                return r;
+
+        q = bus_attach_io_events(b);
+        if (q < 0)
+                return q;
+
+        q = bus_attach_inotify_event(b);
+        if (q < 0)
+                return q;
+
+        return r;
 }

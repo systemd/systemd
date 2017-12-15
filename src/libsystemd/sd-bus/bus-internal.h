@@ -157,6 +157,7 @@ struct sd_bus_slot {
 
 enum bus_state {
         BUS_UNSET,
+        BUS_WATCH_BIND, /* waiting for the socket to appear via inotify */
         BUS_OPENING,
         BUS_AUTHENTICATING,
         BUS_HELLO,
@@ -188,6 +189,7 @@ struct sd_bus {
 
         enum bus_state state;
         int input_fd, output_fd;
+        int inotify_fd;
         int message_version;
         int message_endian;
 
@@ -210,6 +212,7 @@ struct sd_bus {
         bool exited:1;
         bool exit_triggered:1;
         bool is_local:1;
+        bool watch_bind:1;
 
         int use_memfd;
 
@@ -293,6 +296,7 @@ struct sd_bus {
         sd_event_source *output_io_event_source;
         sd_event_source *time_event_source;
         sd_event_source *quit_event_source;
+        sd_event_source *inotify_event_source;
         sd_event *event;
         int event_priority;
 
@@ -312,6 +316,9 @@ struct sd_bus {
 
         LIST_HEAD(sd_bus_slot, slots);
         LIST_HEAD(sd_bus_track, tracks);
+
+        int *inotify_watches;
+        size_t n_inotify_watches;
 };
 
 /* For method calls we time-out at 25s, like in the D-Bus reference implementation */
@@ -366,6 +373,12 @@ int bus_rqueue_make_room(sd_bus *bus);
 bool bus_pid_changed(sd_bus *bus);
 
 char *bus_address_escape(const char *v);
+
+int bus_attach_io_events(sd_bus *b);
+int bus_attach_inotify_event(sd_bus *b);
+
+void bus_close_inotify_fd(sd_bus *b);
+void bus_close_io_fds(sd_bus *b);
 
 #define OBJECT_PATH_FOREACH_PREFIX(prefix, path)                        \
         for (char *_slash = ({ strcpy((prefix), (path)); streq((prefix), "/") ? NULL : strrchr((prefix), '/'); }) ; \

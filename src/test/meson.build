@@ -762,6 +762,10 @@ tests += [
          [],
          [threads]],
 
+        [['src/libsystemd/sd-bus/test-bus-watch-bind.c'],
+         [],
+         [threads], '', 'timeout=120'],
+
         [['src/libsystemd/sd-bus/test-bus-chat.c'],
          [],
          [threads]],

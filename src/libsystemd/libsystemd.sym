@@ -530,3 +530,9 @@ global:
         sd_bus_message_new;
         sd_bus_message_seal;
 } LIBSYSTEMD_234;
+
+LIBSYSTEMD_237 {
+global:
+        sd_bus_set_watch_bind;
+        sd_bus_get_watch_bind;
+} LIBSYSTEMD_236;
