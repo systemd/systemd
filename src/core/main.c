@@ -2091,6 +2091,38 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
         return 0;
 }
 
+static int safety_checks(void) {
+
+        if (arg_action == ACTION_TEST &&
+            geteuid() == 0) {
+                log_error("Don't run test mode as root.");
+                return -EPERM;
+        }
+
+        if (!arg_system &&
+            arg_action == ACTION_RUN &&
+            sd_booted() <= 0) {
+                log_error("Trying to run as user instance, but the system has not been booted with systemd.");
+                return -EOPNOTSUPP;
+        }
+
+        if (!arg_system &&
+            arg_action == ACTION_RUN &&
+            !getenv("XDG_RUNTIME_DIR")) {
+                log_error("Trying to run as user instance, but $XDG_RUNTIME_DIR is not set.");
+                return -EUNATCH;
+        }
+
+        if (arg_system &&
+            arg_action == ACTION_RUN &&
+            running_in_chroot() > 0) {
+                log_error("Cannot be run in a chroot() environment.");
+                return -EOPNOTSUPP;
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -2269,30 +2301,15 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (arg_action == ACTION_TEST &&
-            geteuid() == 0) {
-                log_error("Don't run test mode as root.");
+        r = safety_checks();
+        if (r < 0)
                 goto finish;
-        }
 
-        if (!arg_system &&
-            arg_action == ACTION_RUN &&
-            sd_booted() <= 0) {
-                log_error("Trying to run as user instance, but the system has not been booted with systemd.");
-                goto finish;
-        }
-
-        if (arg_system &&
-            arg_action == ACTION_RUN &&
-            running_in_chroot() > 0) {
-                log_error("Cannot be run in a chroot() environment.");
-                goto finish;
-        }
-
-        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP)) {
+        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP))
                 pager_open(arg_no_pager, false);
+
+        if (arg_action != ACTION_RUN)
                 skip_setup = true;
-        }
 
         if (arg_action == ACTION_HELP) {
                 retval = help();
@@ -2304,12 +2321,6 @@ int main(int argc, char *argv[]) {
                 pager_open(arg_no_pager, false);
                 unit_dump_config_items(stdout);
                 retval = EXIT_SUCCESS;
-                goto finish;
-        }
-
-        if (!arg_system &&
-            !getenv("XDG_RUNTIME_DIR")) {
-                log_error("Trying to run as user instance, but $XDG_RUNTIME_DIR is not set.");
                 goto finish;
         }
 
