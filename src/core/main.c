@@ -2304,20 +2304,23 @@ int main(int argc, char *argv[]) {
         Manager *m = NULL;
         FDSet *fds = NULL;
 
+        /* SysV compatibility: redirect init → telinit */
         redirect_telinit(argc, argv);
 
+        /* Take timestamps early on */
         dual_timestamp_from_monotonic(&kernel_timestamp, 0);
         dual_timestamp_get(&userspace_timestamp);
 
+        /* Figure out whether we need to do initialize the system, or if we already did that because we are
+         * reexecuting */
         skip_setup = early_skip_setup_check(argc, argv);
 
-        /* If we get started via the /sbin/init symlink then we are
-           called 'init'. After a subsequent reexecution we are then
-           called 'systemd'. That is confusing, hence let's call us
-           systemd right-away. */
+        /* If we get started via the /sbin/init symlink then we are called 'init'. After a subsequent reexecution we
+         * are then called 'systemd'. That is confusing, hence let's call us systemd right-away. */
         program_invocation_short_name = systemd;
         (void) prctl(PR_SET_NAME, systemd);
 
+        /* Save the original command line */
         saved_argv = argv;
         saved_argc = argc;
 
