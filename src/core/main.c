@@ -2160,6 +2160,16 @@ static int initialize_security(
         return 0;
 }
 
+static void test_summary(Manager *m) {
+        assert(m);
+
+        printf("-> By units:\n");
+        manager_dump_units(m, stdout, "\t");
+
+        printf("-> By jobs:\n");
+        manager_dump_jobs(m, stdout, "\t");
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -2481,11 +2491,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_action == ACTION_TEST) {
-                printf("-> By units:\n");
-                manager_dump_units(m, stdout, "\t");
-
-                printf("-> By jobs:\n");
-                manager_dump_jobs(m, stdout, "\t");
+                test_summary(m);
                 retval = EXIT_SUCCESS;
                 goto finish;
         }
