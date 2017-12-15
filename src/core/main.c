@@ -2095,6 +2095,10 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
                 }
         }
 
+        /* Initialize the show status setting if it hasn't been set explicitly yet */
+        if (arg_show_status == _SHOW_STATUS_UNSET)
+                arg_show_status = SHOW_STATUS_YES;
+
         return 0;
 }
 
@@ -2462,9 +2466,6 @@ int main(int argc, char *argv[]) {
                 /* Open the logging devices, if possible and necessary */
                 log_open();
         }
-
-        if (arg_show_status == _SHOW_STATUS_UNSET)
-                arg_show_status = SHOW_STATUS_YES;
 
         /* Make sure we leave a core dump without panicing the
          * kernel. */
