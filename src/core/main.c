@@ -2270,6 +2270,25 @@ static void setup_console_terminal(bool skip_setup) {
                 (void) console_setup();
 }
 
+static bool early_skip_setup_check(int argc, char *argv[]) {
+        bool found_deserialize = false;
+        int i;
+
+        /* Determine if this is a reexecution or normal bootup. We do the full command line parsing much later, so
+         * let's just have a quick peek here. Note that if we have switched root, do all the special setup things
+         * anyway, even if in that case we also do deserialization. */
+
+        for (i = 1; i < argc; i++) {
+
+                if (streq(argv[i], "--switched-root"))
+                        return false; /* If we switched root, don't skip the setup. */
+                else if (streq(argv[i], "--deserialize"))
+                        found_deserialize = true;
+        }
+
+        return found_deserialize; /* When we are deserializing, then we are reexecuting, hence avoid the extensive setup */
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -2284,7 +2303,7 @@ int main(int argc, char *argv[]) {
         dual_timestamp security_start_timestamp = DUAL_TIMESTAMP_NULL;
         dual_timestamp security_finish_timestamp = DUAL_TIMESTAMP_NULL;
         static char systemd[] = "systemd";
-        bool skip_setup = false;
+        bool skip_setup;
         bool loaded_policy = false;
         bool queue_default_job = false;
         bool first_boot = false;
@@ -2297,16 +2316,7 @@ int main(int argc, char *argv[]) {
         dual_timestamp_from_monotonic(&kernel_timestamp, 0);
         dual_timestamp_get(&userspace_timestamp);
 
-        /* Determine if this is a reexecution or normal bootup. We do
-         * the full command line parsing much later, so let's just
-         * have a quick peek here. */
-        if (strv_find(argv+1, "--deserialize"))
-                skip_setup = true;
-
-        /* If we have switched root, do all the special setup
-         * things */
-        if (strv_find(argv+1, "--switched-root"))
-                skip_setup = false;
+        skip_setup = early_skip_setup_check(argc, argv);
 
         /* If we get started via the /sbin/init symlink then we are
            called 'init'. After a subsequent reexecution we are then
