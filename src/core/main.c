@@ -2305,7 +2305,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP))
+        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS))
                 pager_open(arg_no_pager, false);
 
         if (arg_action != ACTION_RUN)
@@ -2318,7 +2318,6 @@ int main(int argc, char *argv[]) {
                 retval = version();
                 goto finish;
         } else if (arg_action == ACTION_DUMP_CONFIGURATION_ITEMS) {
-                pager_open(arg_no_pager, false);
                 unit_dump_config_items(stdout);
                 retval = EXIT_SUCCESS;
                 goto finish;
