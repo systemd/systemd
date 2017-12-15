@@ -241,6 +241,16 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--watch-bind=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem>
+          <para>Controls whether to wait for the specified <constant>AF_UNIX</constant> bus socket to appear in the
+          file system before connecting to it. Defaults to off. When enabled, the tool will watch the file system until
+          the socket is created and then connect to it.</para>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />
