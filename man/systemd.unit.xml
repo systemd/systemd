@@ -1055,6 +1055,11 @@
         by <command>uname -r</command>) matches a certain expression (or if prefixed with the exclamation mark does not
         match it). The argument must be a single string, optionally containing shell-style globs.</para>
 
+        <para>Note that using the kernel version string is an unreliable way to determine which features are supported
+        by a kernel, because of the widespread practice of backporting drivers, features, and fixes from newer upstream
+        kernels into older versions provided by distributions. Hence, this check is inherently unportable and should
+        not be used for units which may be used on different distributions.</para>
+
         <para><varname>ConditionSecurity=</varname> may be used to
         check whether the given security module is enabled on the
         system. Currently, the recognized values are
