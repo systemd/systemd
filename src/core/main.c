@@ -2290,26 +2290,19 @@ static bool early_skip_setup_check(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        Manager *m = NULL;
-        int r, retval = EXIT_FAILURE;
-        usec_t before_startup, after_startup;
-        char timespan[FORMAT_TIMESPAN_MAX];
-        FDSet *fds = NULL;
-        bool reexecute = false;
-        const char *shutdown_verb = NULL;
-        dual_timestamp initrd_timestamp = DUAL_TIMESTAMP_NULL;
-        dual_timestamp userspace_timestamp = DUAL_TIMESTAMP_NULL;
-        dual_timestamp kernel_timestamp = DUAL_TIMESTAMP_NULL;
-        dual_timestamp security_start_timestamp = DUAL_TIMESTAMP_NULL;
-        dual_timestamp security_finish_timestamp = DUAL_TIMESTAMP_NULL;
-        static char systemd[] = "systemd";
-        bool skip_setup;
-        bool loaded_policy = false;
-        bool queue_default_job = false;
-        bool first_boot = false;
-        char *switch_root_dir = NULL, *switch_root_init = NULL;
+
+        dual_timestamp initrd_timestamp = DUAL_TIMESTAMP_NULL, userspace_timestamp = DUAL_TIMESTAMP_NULL, kernel_timestamp = DUAL_TIMESTAMP_NULL,
+                security_start_timestamp = DUAL_TIMESTAMP_NULL, security_finish_timestamp = DUAL_TIMESTAMP_NULL;
         struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0), saved_rlimit_memlock = RLIMIT_MAKE_CONST((rlim_t) -1);
-        const char *error_message = NULL;
+        bool skip_setup, loaded_policy = false, queue_default_job = false, first_boot = false, reexecute = false;
+        char *switch_root_dir = NULL, *switch_root_init = NULL;
+        usec_t before_startup, after_startup;
+        static char systemd[] = "systemd";
+        char timespan[FORMAT_TIMESPAN_MAX];
+        const char *shutdown_verb = NULL, *error_message = NULL;
+        int r, retval = EXIT_FAILURE;
+        Manager *m = NULL;
+        FDSet *fds = NULL;
 
         redirect_telinit(argc, argv);
 
