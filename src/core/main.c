@@ -2215,6 +2215,26 @@ static void log_taint_string(Manager *m) {
                    NULL);
 }
 
+static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
+        int r;
+
+        assert(ret_fds);
+        assert(ret_error_message);
+
+        r = fdset_new_fill(ret_fds);
+        if (r < 0) {
+                *ret_error_message = "Failed to allocate fd set";
+                return log_emergency_errno(r, "Failed to allocate fd set: %m");
+        }
+
+        fdset_cloexec(*ret_fds, true);
+
+        if (arg_serialization)
+                assert_se(fdset_remove(*ret_fds, fileno(arg_serialization)) >= 0);
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -2411,20 +2431,13 @@ int main(int argc, char *argv[]) {
 
         if (arg_action == ACTION_RUN) {
 
-                /* Close logging fds, in order not to confuse fdset below */
+                /* Close logging fds, in order not to confuse collecting passed fds and terminal logic below */
                 log_close();
 
                 /* Remember open file descriptors for later deserialization */
-                r = fdset_new_fill(&fds);
-                if (r < 0) {
-                        log_emergency_errno(r, "Failed to allocate fd set: %m");
-                        error_message = "Failed to allocate fd set";
+                r = collect_fds(&fds, &error_message);
+                if (r < 0)
                         goto finish;
-                } else
-                        fdset_cloexec(fds, true);
-
-                if (arg_serialization)
-                        assert_se(fdset_remove(fds, fileno(arg_serialization)) >= 0);
 
                 if (arg_system) {
                         /* Become a session leader if we aren't one yet. */
