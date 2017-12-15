@@ -325,7 +325,7 @@ Most timer unit settings are available to transient units.
 ✓ OnStartupSec=
 ✓ OnUnitActiveSec=
 ✓ OnUnitInactiveSec=
-  Persistent=
+✓ Persistent=
 ✓ WakeSystem=
 ✓ RemainAfterElapse=
 ✓ AccuracySec=
@@ -421,17 +421,17 @@ Swap units are currently not available at all as transient units:
 
 ## Path Unit Settings
 
-Path units are currently not available at all as transient units:
+Most path unit settings are available to transient units.
 
 ```
-  PathExists=
-  PathExistsGlob=
-  PathChanged=
-  PathModified=
-  DirectoryNotEmpty=
+✓ PathExists=
+✓ PathExistsGlob=
+✓ PathChanged=
+✓ PathModified=
+✓ DirectoryNotEmpty=
   Unit=
-  MakeDirectory=
-  DirectoryMode=
+✓ MakeDirectory=
+✓ DirectoryMode=
 ```
 
 ## Install Section

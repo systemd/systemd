@@ -772,6 +772,9 @@ const UnitVTable path_vtable = {
                 "Unit\0"
                 "Path\0"
                 "Install\0",
+        .private_section = "Path",
+
+        .can_transient = true,
 
         .init = path_init,
         .done = path_done,
@@ -794,5 +797,6 @@ const UnitVTable path_vtable = {
 
         .reset_failed = path_reset_failed,
 
-        .bus_vtable = bus_path_vtable
+        .bus_vtable = bus_path_vtable,
+        .bus_set_property = bus_path_set_property,
 };
