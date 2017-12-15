@@ -155,9 +155,11 @@ bool mount_point_ignore(const char *path) {
 }
 
 static int mount_one(const MountPoint *p, bool relabel) {
-        int r;
+        int r, priority;
 
         assert(p);
+
+        priority = (p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG;
 
         if (p->condition_fn && !p->condition_fn())
                 return 0;
@@ -168,7 +170,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
 
         r = path_is_mount_point(p->where, NULL, AT_SYMLINK_FOLLOW);
         if (r < 0 && r != -ENOENT) {
-                log_full_errno((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, r, "Failed to determine whether %s is a mount point: %m", p->where);
+                log_full_errno(priority, r, "Failed to determine whether %s is a mount point: %m", p->where);
                 return (p->mode & MNT_FATAL) ? r : 0;
         }
         if (r > 0)
@@ -196,7 +198,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
                   p->type,
                   p->flags,
                   p->options) < 0) {
-                log_full_errno((p->mode & MNT_FATAL) ? LOG_ERR : LOG_DEBUG, errno, "Failed to mount %s at %s: %m", p->type, p->where);
+                log_full_errno(priority, errno, "Failed to mount %s at %s: %m", p->type, p->where);
                 return (p->mode & MNT_FATAL) ? -errno : 0;
         }
 
@@ -205,10 +207,13 @@ static int mount_one(const MountPoint *p, bool relabel) {
                 (void) label_fix(p->where, false, false);
 
         if (p->mode & MNT_CHECK_WRITABLE) {
-                r = access(p->where, W_OK);
-                if (r < 0) {
+                if (access(p->where, W_OK) < 0) {
+                        r = -errno;
+
                         (void) umount(p->where);
                         (void) rmdir(p->where);
+
+                        log_full_errno(priority, r, "Mount point %s not writable after mounting: %m", p->where);
                         return (p->mode & MNT_FATAL) ? r : 0;
                 }
         }
