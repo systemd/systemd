@@ -2093,6 +2093,25 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
 
 static int safety_checks(void) {
 
+        if (getpid_cached() == 1 &&
+            arg_action != ACTION_RUN) {
+                log_error("Unsupported execution mode while PID 1.");
+                return -EPERM;
+        }
+
+        if (getpid_cached() == 1 &&
+            !arg_system) {
+                log_error("Can't run --user mode as PID 1.");
+                return -EPERM;
+        }
+
+        if (arg_action == ACTION_RUN &&
+            arg_system &&
+            getpid_cached() != 1) {
+                log_error("Can't run system mode unless PID 1.");
+                return -EPERM;
+        }
+
         if (arg_action == ACTION_TEST &&
             geteuid() == 0) {
                 log_error("Don't run test mode as root.");
