@@ -2051,6 +2051,46 @@ static void free_arguments(void) {
         arg_syscall_archs = set_free(arg_syscall_archs);
 }
 
+static int load_configuration(int argc, char **argv, const char **ret_error_message) {
+        int r;
+
+        assert(ret_error_message);
+
+        arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
+
+        r = parse_config_file();
+        if (r < 0) {
+                *ret_error_message = "Failed to parse config file";
+                return r;
+        }
+
+        if (arg_system) {
+                r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+        }
+
+        /* Note that this also parses bits from the kernel command line, including "debug". */
+        log_parse_environment();
+
+        r = parse_argv(argc, argv);
+        if (r < 0) {
+                *ret_error_message = "Failed to parse commandline arguments";
+                return r;
+        }
+
+        /* Initialize default unit */
+        if (!arg_default_unit) {
+                arg_default_unit = strdup(SPECIAL_DEFAULT_TARGET);
+                if (!arg_default_unit) {
+                        *ret_error_message = "Failed to set default unit";
+                        return log_oom();
+                }
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -2225,37 +2265,9 @@ int main(int argc, char *argv[]) {
         (void) reset_all_signal_handlers();
         (void) ignore_signals(SIGNALS_IGNORE, -1);
 
-        arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
-
-        if (parse_config_file() < 0) {
-                error_message = "Failed to parse config file";
+        r = load_configuration(argc, argv, &error_message);
+        if (r < 0)
                 goto finish;
-        }
-
-        if (arg_system) {
-                r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
-        }
-
-        /* Note that this also parses bits from the kernel command
-         * line, including "debug". */
-        log_parse_environment();
-
-        if (parse_argv(argc, argv) < 0) {
-                error_message = "Failed to parse commandline arguments";
-                goto finish;
-        }
-
-        /* Initialize default unit */
-        if (!arg_default_unit) {
-                arg_default_unit = strdup(SPECIAL_DEFAULT_TARGET);
-                if (!arg_default_unit) {
-                        r = log_oom();
-                        error_message = "Failed to set default unit";
-                        goto finish;
-                }
-        }
 
         if (arg_action == ACTION_TEST &&
             geteuid() == 0) {
