@@ -1336,23 +1336,23 @@ static int enforce_syscall_archs(Set *archs) {
 
 static int status_welcome(void) {
         _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
+        const char *fn;
         int r;
 
         if (arg_show_status <= 0)
                 return 0;
 
-        r = parse_env_file("/etc/os-release", NEWLINE,
-                           "PRETTY_NAME", &pretty_name,
-                           "ANSI_COLOR", &ansi_color,
-                           NULL);
-        if (r == -ENOENT)
-                r = parse_env_file("/usr/lib/os-release", NEWLINE,
+        FOREACH_STRING(fn, "/etc/os-release", "/usr/lib/os-release") {
+                r = parse_env_file(fn, NEWLINE,
                                    "PRETTY_NAME", &pretty_name,
                                    "ANSI_COLOR", &ansi_color,
                                    NULL);
 
+                if (r != -ENOENT)
+                        break;
+        }
         if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to read os-release file: %m");
+                log_warning_errno(r, "Failed to read os-release file, ignoring: %m");
 
         if (log_get_show_color())
                 return status_printf(NULL, false, false,
