@@ -1573,7 +1573,7 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!ioprio_priority_is_valid(n))
+                if (!sched_priority_is_valid(n))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling priority");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
