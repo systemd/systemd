@@ -133,7 +133,7 @@ static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used,
 }
 
 static void cache_space_invalidate(JournalStorageSpace *space) {
-        memset(space, 0, sizeof(*space));
+        zero(*space);
 }
 
 static int cache_space_refresh(Server *s, JournalStorage *storage) {

@@ -171,7 +171,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         link->port = _NET_DEV_PORT_INVALID;
         link->autonegotiation = -1;
 
-        memset(&link->features, -1, sizeof(link->features));
+        memset(&link->features, 0xFF, sizeof(link->features));
 
         r = config_parse(NULL, filename, file,
                          "Match\0Link\0Ethernet\0",
@@ -186,6 +186,8 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
                 return -ERANGE;
 
         link->filename = strdup(filename);
+        if (!link->filename)
+                return log_oom();
 
         LIST_PREPEND(links, ctx->links, link);
         link = NULL;
