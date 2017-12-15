@@ -2967,8 +2967,10 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         assert(bus);
 
         r = sd_bus_process(bus, NULL);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Processing of bus failed, closing down: %m");
+                bus_enter_closing(bus);
+        }
 
         return 1;
 }
@@ -2980,8 +2982,10 @@ static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         assert(bus);
 
         r = sd_bus_process(bus, NULL);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                log_debug_errno(r, "Processing of bus failed, closing down: %m");
+                bus_enter_closing(bus);
+        }
 
         return 1;
 }
@@ -2995,38 +2999,45 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
         assert(bus);
 
         e = sd_bus_get_events(bus);
-        if (e < 0)
-                return e;
+        if (e < 0) {
+                r = e;
+                goto fail;
+        }
 
         if (bus->output_fd != bus->input_fd) {
 
                 r = sd_event_source_set_io_events(bus->input_io_event_source, e & POLLIN);
                 if (r < 0)
-                        return r;
+                        goto fail;
 
                 r = sd_event_source_set_io_events(bus->output_io_event_source, e & POLLOUT);
-                if (r < 0)
-                        return r;
-        } else {
+        } else
                 r = sd_event_source_set_io_events(bus->input_io_event_source, e);
-                if (r < 0)
-                        return r;
-        }
+        if (r < 0)
+                goto fail;
 
         r = sd_bus_get_timeout(bus, &until);
         if (r < 0)
-                return r;
+                goto fail;
         if (r > 0) {
                 int j;
 
                 j = sd_event_source_set_time(bus->time_event_source, until);
-                if (j < 0)
-                        return j;
+                if (j < 0) {
+                        r = j;
+                        goto fail;
+                }
         }
 
         r = sd_event_source_set_enabled(bus->time_event_source, r > 0);
         if (r < 0)
-                return r;
+                goto fail;
+
+        return 1;
+
+fail:
+        log_debug_errno(r, "Preparing of bus events failed, closing down: %m");
+        bus_enter_closing(bus);
 
         return 1;
 }
