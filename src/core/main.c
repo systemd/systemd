@@ -1419,20 +1419,19 @@ static int fixup_environment(void) {
         const char *t;
         int r;
 
-        /* We expect the environment to be set correctly
-         * if run inside a container. */
+        /* Only fix up the environment when we are started as PID 1 */
+        if (getpid_cached() != 1)
+                return 0;
+
+        /* We expect the environment to be set correctly if run inside a container. */
         if (detect_container() > 0)
                 return 0;
 
-        /* When started as PID1, the kernel uses /dev/console
-         * for our stdios and uses TERM=linux whatever the
-         * backend device used by the console. We try to make
-         * a better guess here since some consoles might not
-         * have support for color mode for example.
+        /* When started as PID1, the kernel uses /dev/console for our stdios and uses TERM=linux whatever the backend
+         * device used by the console. We try to make a better guess here since some consoles might not have support
+         * for color mode for example.
          *
-         * However if TERM was configured through the kernel
-         * command line then leave it alone. */
-
+         * However if TERM was configured through the kernel command line then leave it alone. */
         r = proc_cmdline_get_key("TERM", 0, &term);
         if (r < 0)
                 return r;
@@ -2398,11 +2397,14 @@ int main(int argc, char *argv[]) {
 
         initialize_coredump(skip_setup);
 
+        r = fixup_environment();
+        if (r < 0) {
+                log_emergency_errno(r, "Failed to fix up PID 1 environment: %m");
+                error_message = "Failed to fix up PID1 environment";
+                goto finish;
+        }
+
         if (arg_system) {
-                if (fixup_environment() < 0) {
-                        error_message = "Failed to fix up PID1 environment";
-                        goto finish;
-                }
 
                 /* Try to figure out if we can use colors with the console. No
                  * need to do that for user instances since they never log
