@@ -13,10 +13,21 @@ documented in the proper man pages.
 
 All tools:
 
+* `$SYSTEMD_OFFLINE=[0|1]` — if set to `1`, then `systemctl` will
+  refrain from talking to PID 1; this has the same effect as the historical
+  detection of `chroot()`.  Setting this variable to `0` instead has a similar
+  effect as `SYSTEMD_IGNORE_CHROOT=1`; i.e. tools will try to
+  communicate with PID 1 even if a `chroot()` environment is detected.
+  You almost certainly want to set this to `1` if you maintain a package build system
+  or similar and are trying to use a modern container system and not plain
+  `chroot()`.
+
 * `$SYSTEMD_IGNORE_CHROOT=1` — if set, don't check whether being invoked in a
-  chroot() environment. This is particularly relevant for systemctl, as it will
-  not alter its behaviour for chroot() environments if set. (Normally it
-  refrains from talking to PID 1 in such a case.)
+  `chroot()` environment. This is particularly relevant for systemctl, as it
+  will not alter its behaviour for `chroot()` environments if set.  Normally it
+  refrains from talking to PID 1 in such a case; turning most operations such
+  as `start` into no-ops.  If that's what's explicitly desired, you might
+  consider setting `SYSTEMD_OFFLINE=1`.
 
 * `$SD_EVENT_PROFILE_DELAYS=1` — if set, the sd-event event loop implementation
   will print latency information at runtime.
