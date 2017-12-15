@@ -954,7 +954,7 @@ int seccomp_restrict_namespaces(unsigned long retain) {
         uint32_t arch;
         int r;
 
-        if (log_get_max_level() >= LOG_DEBUG) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *s = NULL;
 
                 (void) namespace_flag_to_string_many(retain, &s);

@@ -1410,7 +1410,7 @@ void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResource
         assert(verdict >= 0);
         assert(verdict < _DNSSEC_VERDICT_MAX);
 
-        if (log_get_max_level() >= LOG_DEBUG) {
+        if (DEBUG_LOGGING) {
                 char s[DNS_RESOURCE_KEY_STRING_MAX];
 
                 log_debug("Found verdict for lookup %s: %s",
