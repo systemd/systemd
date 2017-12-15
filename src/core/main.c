@@ -2056,6 +2056,12 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
 
         assert(ret_error_message);
 
+        r = initialize_join_controllers();
+        if (r < 0) {
+                *ret_error_message = "Failed to initialize cgroup controller joining table";
+                return r;
+        }
+
         arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
 
         r = parse_config_file();
@@ -2350,12 +2356,6 @@ int main(int argc, char *argv[]) {
                 r = make_null_stdio();
                 if (r < 0)
                         log_warning_errno(r, "Failed to redirect standard streams to /dev/null: %m");
-        }
-
-        r = initialize_join_controllers();
-        if (r < 0) {
-                error_message = "Failed to initialize cgroup controllers";
-                goto finish;
         }
 
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
