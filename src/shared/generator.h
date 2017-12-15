@@ -22,6 +22,12 @@
 
 #include <stdio.h>
 
+int generator_open_unit_file(
+        const char *dest,
+        const char *source,
+        const char *name,
+        FILE **file);
+
 int generator_add_symlink(const char *root, const char *dst, const char *dep_type, const char *src);
 
 int generator_write_fsck_deps(

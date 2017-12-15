@@ -27,6 +27,7 @@
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "test-helper.h"
@@ -141,10 +142,10 @@ static void check_p_g_slice(const char *path, int code, const char *result) {
 
 static void test_path_get_slice(void) {
         check_p_g_slice("/user.slice", 0, "user.slice");
-        check_p_g_slice("/foobar", 0, "-.slice");
+        check_p_g_slice("/foobar", 0, SPECIAL_ROOT_SLICE);
         check_p_g_slice("/user.slice/user-waldo.slice", 0, "user-waldo.slice");
-        check_p_g_slice("", 0, "-.slice");
-        check_p_g_slice("foobar", 0, "-.slice");
+        check_p_g_slice("", 0, SPECIAL_ROOT_SLICE);
+        check_p_g_slice("foobar", 0, SPECIAL_ROOT_SLICE);
         check_p_g_slice("foobar.slice", 0, "foobar.slice");
         check_p_g_slice("foo.slice/foo-bar.slice/waldo.service", 0, "foo-bar.slice");
 }
@@ -165,10 +166,10 @@ static void test_path_get_user_slice(void) {
         check_p_g_u_slice("foobar.slice", -ENXIO, NULL);
         check_p_g_u_slice("foo.slice/foo-bar.slice/waldo.service", -ENXIO, NULL);
 
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service", 0, "-.slice");
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/", 0, "-.slice");
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service///", 0, "-.slice");
-        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/waldo.service", 0, "-.slice");
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service", 0, SPECIAL_ROOT_SLICE);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/", 0, SPECIAL_ROOT_SLICE);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service///", 0, SPECIAL_ROOT_SLICE);
+        check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/waldo.service", 0, SPECIAL_ROOT_SLICE);
         check_p_g_u_slice("foo.slice/foo-bar.slice/user@1000.service/piep.slice/foo.service", 0, "piep.slice");
         check_p_g_u_slice("/foo.slice//foo-bar.slice/user@1000.service/piep.slice//piep-pap.slice//foo.service", 0, "piep-pap.slice");
 }
@@ -274,7 +275,7 @@ static void test_slice_to_path(void) {
         test_slice_to_path_one("foobar.slice", "foobar.slice", 0);
         test_slice_to_path_one("foobar-waldo.slice", "foobar.slice/foobar-waldo.slice", 0);
         test_slice_to_path_one("foobar-waldo.service", NULL, -EINVAL);
-        test_slice_to_path_one("-.slice", "", 0);
+        test_slice_to_path_one(SPECIAL_ROOT_SLICE, "", 0);
         test_slice_to_path_one("--.slice", NULL, -EINVAL);
         test_slice_to_path_one("-", NULL, -EINVAL);
         test_slice_to_path_one("-foo-.slice", NULL, -EINVAL);

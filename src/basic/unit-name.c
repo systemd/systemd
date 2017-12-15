@@ -28,6 +28,7 @@
 #include "glob-util.h"
 #include "hexdecoct.h"
 #include "path-util.h"
+#include "special.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit-name.h"
@@ -673,7 +674,7 @@ int slice_build_parent_slice(const char *slice, char **ret) {
         if (!slice_name_is_valid(slice))
                 return -EINVAL;
 
-        if (streq(slice, "-.slice")) {
+        if (streq(slice, SPECIAL_ROOT_SLICE)) {
                 *ret = NULL;
                 return 0;
         }
@@ -686,7 +687,7 @@ int slice_build_parent_slice(const char *slice, char **ret) {
         if (dash)
                 strcpy(dash, ".slice");
         else {
-                r = free_and_strdup(&s, "-.slice");
+                r = free_and_strdup(&s, SPECIAL_ROOT_SLICE);
                 if (r < 0) {
                         free(s);
                         return r;
@@ -710,7 +711,7 @@ int slice_build_subslice(const char *slice, const char*name, char **ret) {
         if (!unit_prefix_is_valid(name))
                 return -EINVAL;
 
-        if (streq(slice, "-.slice"))
+        if (streq(slice, SPECIAL_ROOT_SLICE))
                 subslice = strappend(name, ".slice");
         else {
                 char *e;
@@ -735,7 +736,7 @@ bool slice_name_is_valid(const char *name) {
         if (!unit_name_is_valid(name, UNIT_NAME_PLAIN))
                 return false;
 
-        if (streq(name, "-.slice"))
+        if (streq(name, SPECIAL_ROOT_SLICE))
                 return true;
 
         e = endswith(name, ".slice");
