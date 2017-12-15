@@ -2323,7 +2323,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l) {
-                        const char *i = *p;
+                        char *i = *p;
                         size_t offset;
 
                         if (!utf8_is_valid(i))
@@ -2333,6 +2333,8 @@ int bus_exec_context_set_transient_property(
                         offset += i[offset] == '+';
                         if (!path_is_absolute(i + offset))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
+
+                        path_kill_slashes(i + offset);
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {

@@ -1008,8 +1008,6 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                                 return -EINVAL;
                         }
 
-                        path_kill_slashes(word + offset);
-
                         r = sd_bus_message_append_basic(m, 's', word);
                         if (r < 0)
                                 return bus_log_create_error(r);
