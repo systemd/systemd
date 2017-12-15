@@ -1338,6 +1338,9 @@ static int status_welcome(void) {
         _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
         int r;
 
+        if (arg_show_status <= 0)
+                return 0;
+
         r = parse_env_file("/etc/os-release", NEWLINE,
                            "PRETTY_NAME", &pretty_name,
                            "ANSI_COLOR", &ansi_color,
@@ -1915,9 +1918,7 @@ static int initialize_runtime(
          */
 
         if (arg_system && !skip_setup) {
-                if (arg_show_status > 0)
-                        status_welcome();
-
+                status_welcome();
                 hostname_setup();
                 machine_id_setup(NULL, arg_machine_id, NULL);
                 loopback_setup();
