@@ -1889,11 +1889,13 @@ static void log_execution_mode(bool *ret_first_boot) {
                                 log_info("Running with unpopulated /etc.");
                 }
         } else {
-                _cleanup_free_ char *t;
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *t;
 
-                t = uid_to_name(getuid());
-                log_debug(PACKAGE_STRING " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
-                          arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
+                        t = uid_to_name(getuid());
+                        log_debug(PACKAGE_STRING " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
+                                  arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
+                }
 
                 *ret_first_boot = false;
         }
