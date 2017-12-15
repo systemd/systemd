@@ -779,13 +779,11 @@ int cg_create(const char *controller, const char *path) {
         if (r < 0)
                 return r;
 
-        if (mkdir(fs, 0755) < 0) {
-
-                if (errno == EEXIST)
-                        return 0;
-
-                return -errno;
-        }
+        r = mkdir_errno_wrapper(fs, 0755);
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0)
+                return r;
 
         r = cg_hybrid_unified();
         if (r < 0)

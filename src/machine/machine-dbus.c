@@ -931,7 +931,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         /* Second, we mount the source file or directory to a directory inside of our MS_SLAVE playground. */
         mount_tmp = strjoina(mount_slave, "/mount");
         if (S_ISDIR(st.st_mode))
-                r = mkdir(mount_tmp, 0700) < 0 ? -errno : 0;
+                r = mkdir_errno_wrapper(mount_tmp, 0700);
         else
                 r = touch(mount_tmp);
         if (r < 0) {
