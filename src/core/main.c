@@ -2405,6 +2405,9 @@ int main(int argc, char *argv[]) {
 
         assert_se(IN_SET(arg_action, ACTION_RUN, ACTION_TEST));
 
+        /* Move out of the way, so that we won't block unmounts */
+        assert_se(chdir("/") == 0);
+
         /* Close logging fds, in order not to confuse fdset below */
         log_close();
 
@@ -2425,9 +2428,6 @@ int main(int argc, char *argv[]) {
                         /* Become a session leader if we aren't one yet. */
                         setsid();
         }
-
-        /* Move out of the way, so that we won't block unmounts */
-        assert_se(chdir("/") == 0);
 
         /* Reset the console, but only if this is really init and we
          * are freshly booted */
