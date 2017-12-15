@@ -1413,6 +1413,7 @@ static int bump_unix_max_dgram_qlen(void) {
 
 static int fixup_environment(void) {
         _cleanup_free_ char *term = NULL;
+        const char *t;
         int r;
 
         /* We expect the environment to be set correctly
@@ -1432,13 +1433,10 @@ static int fixup_environment(void) {
         r = proc_cmdline_get_key("TERM", 0, &term);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                term = strdup(default_term_for_tty("/dev/console"));
-                if (!term)
-                        return -ENOMEM;
-        }
 
-        if (setenv("TERM", term, 1) < 0)
+        t = term ?: default_term_for_tty("/dev/console");
+
+        if (setenv("TERM", t, 1) < 0)
                 return -errno;
 
         return 0;
