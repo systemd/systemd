@@ -358,7 +358,7 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                               "NoNewPrivileges", "SyslogLevelPrefix", "RemainAfterElapse", "Persistent",
                               "MemoryDenyWriteExecute", "RestrictRealtime", "DynamicUser", "RemoveIPC",
                               "ProtectKernelTunables", "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS",
-                              "CPUSchedulingResetOnFork", "LockPersonality")) {
+                              "CPUSchedulingResetOnFork", "LockPersonality", "MakeDirectory")) {
 
                 r = parse_boolean(eq);
                 if (r < 0)
@@ -1057,7 +1057,10 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
 
                 r = sd_bus_message_close_container(m);
 
-        } else if (STR_IN_SET(field, "RuntimeDirectoryMode", "StateDirectoryMode", "CacheDirectoryMode", "LogsDirectoryMode", "ConfigurationDirectoryMode", "UMask")) {
+        } else if (STR_IN_SET(field,
+                              "RuntimeDirectoryMode", "StateDirectoryMode", "CacheDirectoryMode",
+                              "LogsDirectoryMode", "ConfigurationDirectoryMode", "UMask",
+                              "DirectoryMode")) {
                 mode_t mode;
 
                 r = parse_mode(eq, &mode);
@@ -1305,6 +1308,17 @@ int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignmen
                         return log_error_errno(r, "Failed to parse %s= parameter: %s", field, eq);
 
                 r = sd_bus_message_append(m, "v", "t", t);
+
+        } else if (STR_IN_SET(field,
+                              "PathExists", "PathExistsGlob", "PathChanged",
+                              "PathModified", "DirectoryNotEmpty")) {
+
+                if (!path_is_absolute(eq)) {
+                        log_error("Path specified by %s= is not absolute: %s", field, eq);
+                        return -EINVAL;
+                }
+
+                r = sd_bus_message_append(m, "v", "s", eq);
 
         } else {
                 log_error("Unknown assignment: %s", assignment);
