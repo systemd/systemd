@@ -1917,6 +1917,9 @@ static int initialize_runtime(
          * - Some only apply when we first start up, but not when we reexecute
          */
 
+        if (arg_action != ACTION_RUN)
+                return 0;
+
         if (arg_system) {
                 /* Make sure we leave a core dump without panicing the kernel. */
                 install_crash_handler();
@@ -2479,14 +2482,12 @@ int main(int argc, char *argv[]) {
 
         log_execution_mode(&first_boot);
 
-        if (arg_action == ACTION_RUN) {
-                r = initialize_runtime(skip_setup,
-                                       &saved_rlimit_nofile,
-                                       &saved_rlimit_memlock,
-                                       &error_message);
-                if (r < 0)
-                        goto finish;
-        }
+        r = initialize_runtime(skip_setup,
+                               &saved_rlimit_nofile,
+                               &saved_rlimit_memlock,
+                               &error_message);
+        if (r < 0)
+                goto finish;
 
         r = manager_new(arg_system ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
                         arg_action == ACTION_TEST ? MANAGER_TEST_FULL : 0,
