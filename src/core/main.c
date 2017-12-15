@@ -2123,6 +2123,43 @@ static int safety_checks(void) {
         return 0;
 }
 
+static int initialize_security(
+                bool *loaded_policy,
+                dual_timestamp *security_start_timestamp,
+                dual_timestamp *security_finish_timestamp,
+                const char **ret_error_message) {
+
+        int r;
+
+        assert(loaded_policy);
+        assert(security_start_timestamp);
+        assert(security_finish_timestamp);
+        assert(ret_error_message);
+
+        dual_timestamp_get(security_start_timestamp);
+
+        r = mac_selinux_setup(loaded_policy) < 0;
+        if (r < 0) {
+                *ret_error_message = "Failed to load SELinux policy";
+                return r;
+        }
+
+        r = mac_smack_setup(loaded_policy);
+        if (r < 0) {
+                *ret_error_message = "Failed to load SMACK policy";
+                return r;
+        }
+
+        r = ima_setup();
+        if (r < 0) {
+                *ret_error_message = "Failed to load IMA policy";
+                return r;
+        }
+
+        dual_timestamp_get(security_finish_timestamp);
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -2201,18 +2238,13 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        dual_timestamp_get(&security_start_timestamp);
-                        if (mac_selinux_setup(&loaded_policy) < 0) {
-                                error_message = "Failed to load SELinux policy";
+                        r = initialize_security(
+                                        &loaded_policy,
+                                        &security_start_timestamp,
+                                        &security_finish_timestamp,
+                                        &error_message);
+                        if (r < 0)
                                 goto finish;
-                        } else if (mac_smack_setup(&loaded_policy) < 0) {
-                                error_message = "Failed to load SMACK policy";
-                                goto finish;
-                        } else if (ima_setup() < 0) {
-                                error_message = "Failed to load IMA policy";
-                                goto finish;
-                        }
-                        dual_timestamp_get(&security_finish_timestamp);
                 }
 
                 if (mac_selinux_init() < 0) {
