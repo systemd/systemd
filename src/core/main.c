@@ -2235,6 +2235,23 @@ static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
         return 0;
 }
 
+static void setup_console_terminal(bool skip_setup) {
+
+        if (!arg_system)
+                return;
+
+        /* Become a session leader if we aren't one yet. */
+        (void) setsid();
+
+        /* If we are init, we connect stdin/stdout/stderr to /dev/null and make sure we don't have a controlling
+         * tty. */
+        (void) release_terminal();
+
+        /* Reset the console, but only if this is really init and we are freshly booted */
+        if (getpid_cached() == 1 && !skip_setup)
+                (void) console_setup();
+}
+
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
         int r, retval = EXIT_FAILURE;
@@ -2439,18 +2456,8 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         goto finish;
 
-                if (arg_system) {
-                        /* Become a session leader if we aren't one yet. */
-                        setsid();
-
-                        /* If we are init, we connect stdin/stdout/stderr to /dev/null and make sure we don't have a
-                         * controlling tty. */
-                        release_terminal();
-
-                        /* Reset the console, but only if this is really init and we are freshly booted */
-                        if (getpid_cached() == 1 && !skip_setup)
-                                console_setup();
-                }
+                /* Give up any control of the console, but make sure its initialized. */
+                setup_console_terminal(skip_setup);
 
                 /* Open the logging devices, if possible and necessary */
                 log_open();
