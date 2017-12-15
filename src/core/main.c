@@ -2408,11 +2408,12 @@ int main(int argc, char *argv[]) {
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/") == 0);
 
-        /* Close logging fds, in order not to confuse fdset below */
-        log_close();
-
-        /* Remember open file descriptors for later deserialization */
         if (arg_action == ACTION_RUN) {
+
+                /* Close logging fds, in order not to confuse fdset below */
+                log_close();
+
+                /* Remember open file descriptors for later deserialization */
                 r = fdset_new_fill(&fds);
                 if (r < 0) {
                         log_emergency_errno(r, "Failed to allocate fd set: %m");
@@ -2424,26 +2425,22 @@ int main(int argc, char *argv[]) {
                 if (arg_serialization)
                         assert_se(fdset_remove(fds, fileno(arg_serialization)) >= 0);
 
-                if (arg_system)
+                if (arg_system) {
                         /* Become a session leader if we aren't one yet. */
                         setsid();
+
+                        /* If we are init, we connect stdin/stdout/stderr to /dev/null and make sure we don't have a
+                         * controlling tty. */
+                        release_terminal();
+
+                        /* Reset the console, but only if this is really init and we are freshly booted */
+                        if (getpid_cached() == 1 && !skip_setup)
+                                console_setup();
+                }
+
+                /* Open the logging devices, if possible and necessary */
+                log_open();
         }
-
-        /* Reset the console, but only if this is really init and we
-         * are freshly booted */
-        if (arg_system && arg_action == ACTION_RUN) {
-
-                /* If we are init, we connect stdin/stdout/stderr to
-                 * /dev/null and make sure we don't have a controlling
-                 * tty. */
-                release_terminal();
-
-                if (getpid_cached() == 1 && !skip_setup)
-                        console_setup();
-        }
-
-        /* Open the logging devices, if possible and necessary */
-        log_open();
 
         if (arg_show_status == _SHOW_STATUS_UNSET)
                 arg_show_status = SHOW_STATUS_YES;
