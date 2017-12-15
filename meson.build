@@ -67,7 +67,7 @@ endif
 
 sysvinit_path = get_option('sysvinit-path')
 sysvrcnd_path = get_option('sysvrcnd-path')
-have = sysvinit_path != '' or sysvrcnd_path != ''
+have = sysvinit_path != '' and sysvrcnd_path != ''
 conf.set10('HAVE_SYSV_COMPAT', have,
            description : 'SysV init scripts and rcN.d links are supported')
 m4_defines += have ? ['-DHAVE_SYSV_COMPAT'] : []
