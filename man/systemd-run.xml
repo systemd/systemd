@@ -352,8 +352,8 @@
 
     <para>All command line arguments after the first non-option
     argument become part of the command line of the launched
-    process. If a command is run as service unit, its first argument
-    needs to be an absolute binary path.</para>
+    process. If a command is run as service unit, the first argument
+    needs to be an absolute program path.</para>
   </refsect1>
 
   <refsect1>

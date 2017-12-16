@@ -62,8 +62,9 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-socket-activate</command> may be used to launch a socket-activated service binary from the command
-    line for testing purposes. It may also be used to launch individual instances of the service binary per connection.
+    <para><command>systemd-socket-activate</command> may be used to launch a socket-activated service program from the
+    command line for testing purposes. It may also be used to launch individual instances of the service program per
+    connection.
     </para>
 
     <para>The daemon to launch and its options should be specified
@@ -97,7 +98,7 @@
         <term><option>-a</option></term>
         <term><option>--accept</option></term>
 
-        <listitem><para>Launch an instance of the service binary for each connection and pass the connection
+        <listitem><para>Launch an instance of the service program for each connection and pass the connection
         socket.</para></listitem>
       </varlistentry>
 
