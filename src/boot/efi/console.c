@@ -134,3 +134,17 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
         *key = KEYPRESS(0, k.ScanCode, k.UnicodeChar);
         return 0;
 }
+
+EFI_STATUS console_set_mode(UINTN mode) {
+        EFI_STATUS err;
+
+        err = uefi_call_wrapper(ST->ConOut->SetMode, 2, ST->ConOut, mode);
+
+        /* Special case mode 1: when using OVMF and qemu, setting it returns error
+         * and breaks console output. */
+        if (EFI_ERROR(err) && mode == 1) {
+                uefi_call_wrapper(ST->ConOut->SetMode, 2, ST->ConOut, (UINTN)0);
+        }
+
+        return err;
+}

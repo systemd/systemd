@@ -493,6 +493,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
         BOOLEAN exit = FALSE;
         BOOLEAN run = TRUE;
         BOOLEAN wait = FALSE;
+        BOOLEAN cleared_screen = FALSE;
 
         graphics_mode(FALSE);
         uefi_call_wrapper(ST->ConIn->Reset, 2, ST->ConIn, FALSE);
@@ -501,7 +502,18 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
 
         /* draw a single character to make ClearScreen work on some firmware */
         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, L" ");
-        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+
+        if (config->console_mode_change) {
+                err = console_set_mode(config->console_mode);
+                if (!EFI_ERROR(err))
+                        cleared_screen = TRUE;
+        }
+
+        if (!cleared_screen)
+                uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+
+        if (config->console_mode_change && EFI_ERROR(err))
+                Print(L"Error switching console mode to %ld: %r.\r", (UINT64)config->console_mode, err);
 
         err = uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x_max, &y_max);
         if (EFI_ERROR(err)) {

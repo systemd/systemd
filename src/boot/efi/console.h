@@ -30,4 +30,5 @@
 #define CHAR_CTRL(c) ((c) - 'a' + 1)
 
 EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait);
+EFI_STATUS console_set_mode(UINTN mode);
 #endif
