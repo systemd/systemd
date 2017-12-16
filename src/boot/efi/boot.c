@@ -70,7 +70,7 @@ typedef struct {
         CHAR16 *options_edit;
         BOOLEAN no_editor;
         UINTN console_mode;
-        BOOLEAN console_mode_change;
+        enum console_mode_change_type console_mode_change;
 } Config;
 
 static VOID cursor_left(UINTN *cursor, UINTN *first) {
@@ -503,8 +503,8 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
         /* draw a single character to make ClearScreen work on some firmware */
         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, L" ");
 
-        if (config->console_mode_change) {
-                err = console_set_mode(config->console_mode);
+        if (config->console_mode_change != CONSOLE_MODE_KEEP) {
+                err = console_set_mode(&config->console_mode, config->console_mode_change);
                 if (!EFI_ERROR(err))
                         cleared_screen = TRUE;
         }
@@ -512,7 +512,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
         if (!cleared_screen)
                 uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 
-        if (config->console_mode_change && EFI_ERROR(err))
+        if (config->console_mode_change != CONSOLE_MODE_KEEP && EFI_ERROR(err))
                 Print(L"Error switching console mode to %ld: %r.\r", (UINT64)config->console_mode, err);
 
         err = uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x_max, &y_max);
@@ -1026,10 +1026,15 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                 if (strcmpa((CHAR8 *)"console_mode", key) == 0) {
                         CHAR16 *s;
 
-                        s = stra_to_str(value);
-                        config->console_mode = Atoi(s);
-                        config->console_mode_change = TRUE;
-                        FreePool(s);
+                        if (strcmpa((CHAR8 *)"auto", value) == 0)
+                                config->console_mode_change = CONSOLE_MODE_AUTO;
+                        else {
+                                s = stra_to_str(value);
+                                config->console_mode = Atoi(s);
+                                config->console_mode_change = CONSOLE_MODE_SET;
+                                FreePool(s);
+                        }
+
                         continue;
                 }
 

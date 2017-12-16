@@ -135,7 +135,7 @@ EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait) {
         return 0;
 }
 
-EFI_STATUS console_set_mode(UINTN mode) {
+static EFI_STATUS change_mode(UINTN mode) {
         EFI_STATUS err;
 
         err = uefi_call_wrapper(ST->ConOut->SetMode, 2, ST->ConOut, mode);
@@ -147,4 +147,27 @@ EFI_STATUS console_set_mode(UINTN mode) {
         }
 
         return err;
+}
+
+static EFI_STATUS mode_auto(UINTN *mode) {
+        /* Mode number 2 is first non standard mode, which is provided by
+         * the device manufacturer, so it should be a good mode. */
+        if (ST->ConOut->Mode->MaxMode >= 2)
+                *mode = 2;
+        /* Try again with mode different than zero (assume user requests
+         * auto mode due to some problem with mode zero). */
+        else if (ST->ConOut->Mode->MaxMode == 1)
+                *mode = 1;
+        /* Else force mode change to zero. */
+        else
+                *mode = 0;
+
+        return change_mode(*mode);
+}
+
+EFI_STATUS console_set_mode(UINTN *mode, enum console_mode_change_type how) {
+        if (how == CONSOLE_MODE_AUTO)
+                return mode_auto(mode);
+
+        return change_mode(*mode);
 }
