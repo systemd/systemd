@@ -69,6 +69,8 @@ typedef struct {
         CHAR16 *entry_oneshot;
         CHAR16 *options_edit;
         BOOLEAN no_editor;
+        UINTN console_mode;
+        BOOLEAN console_mode_change;
 } Config;
 
 static VOID cursor_left(UINTN *cursor, UINTN *first) {
@@ -1008,6 +1010,17 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                                 continue;
                         config->no_editor = !on;
                 }
+
+                if (strcmpa((CHAR8 *)"console_mode", key) == 0) {
+                        CHAR16 *s;
+
+                        s = stra_to_str(value);
+                        config->console_mode = Atoi(s);
+                        config->console_mode_change = TRUE;
+                        FreePool(s);
+                        continue;
+                }
+
         }
 }
 
