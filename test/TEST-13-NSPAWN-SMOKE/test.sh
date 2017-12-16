@@ -147,7 +147,7 @@ function run {
     # test --network-namespace-path works with a network namespace created by "ip netns"
     ip netns add nspawn_test
     _netns_opt="--network-namespace-path=/run/netns/nspawn_test"
-    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" ip a | grep -E '^1: lo.*DOWN'
+    UNIFIED_CGROUP_HIERARCHY="$1" SYSTEMD_NSPAWN_USE_CGNS="$2" SYSTEMD_NSPAWN_API_VFS_WRITABLE="$3" systemd-nspawn --register=no -D "$_root" "$_netns_opt" /bin/ip a | grep -v -E '^1: lo.*UP'
     local r=$?
     ip netns del nspawn_test
 
