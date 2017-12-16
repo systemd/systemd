@@ -107,7 +107,7 @@ static int create_disk(
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
         password_escaped = specifier_escape(password);
-        if (!password_escaped)
+        if (password && !password_escaped)
                 return log_oom();
 
         r = generator_open_unit_file(arg_dest, NULL, n, &f);
@@ -177,7 +177,7 @@ static int create_disk(
                 return r;
 
         filtered_escaped = specifier_escape(filtered);
-        if (!filtered_escaped)
+        if (filtered && !filtered_escaped)
                 return log_oom();
 
         fprintf(f,
