@@ -40,6 +40,7 @@
 #include "stat-util.h"
 #include "strv.h"
 #include "udev-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "terminal-util.h"
@@ -403,7 +404,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
+static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **properties) {
         int r;
 
         if (!isempty(arg_description)) {
@@ -432,7 +433,7 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
                         return r;
         }
 
-        r = bus_append_unit_property_assignment_many(m, properties);
+        r = bus_append_unit_property_assignment_many(m, t, properties);
         if (r < 0)
                 return r;
 
@@ -445,7 +446,7 @@ static int transient_mount_set_properties(sd_bus_message *m) {
 
         assert(m);
 
-        r = transient_unit_set_properties(m, arg_property);
+        r = transient_unit_set_properties(m, UNIT_MOUNT, arg_property);
         if (r < 0)
                 return r;
 
@@ -503,7 +504,7 @@ static int transient_automount_set_properties(sd_bus_message *m) {
 
         assert(m);
 
-        r = transient_unit_set_properties(m, arg_automount_property);
+        r = transient_unit_set_properties(m, UNIT_AUTOMOUNT, arg_automount_property);
         if (r < 0)
                 return r;
 
