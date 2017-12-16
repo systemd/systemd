@@ -1030,6 +1030,8 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                                 config->console_mode_change = CONSOLE_MODE_AUTO;
                         else if (strcmpa((CHAR8 *)"max", value) == 0)
                                 config->console_mode_change = CONSOLE_MODE_MAX;
+                        else if (strcmpa((CHAR8 *)"keep", value)  == 0)
+                                config->console_mode_change = CONSOLE_MODE_KEEP;
                         else {
                                 s = stra_to_str(value);
                                 config->console_mode = Atoi(s);
