@@ -151,8 +151,9 @@ static EFI_STATUS change_mode(UINTN mode) {
 
 static EFI_STATUS mode_auto(UINTN *mode) {
         /* Mode number 2 is first non standard mode, which is provided by
-         * the device manufacturer, so it should be a good mode. */
-        if (ST->ConOut->Mode->MaxMode >= 2)
+         * the device manufacturer, so it should be a good mode.
+         * Note: MaxMode is the number of modes, not the last mode. */
+        if (ST->ConOut->Mode->MaxMode > 2)
                 *mode = 2;
         /* Try again with mode different than zero (assume user requests
          * auto mode due to some problem with mode zero). */
@@ -168,6 +169,14 @@ static EFI_STATUS mode_auto(UINTN *mode) {
 EFI_STATUS console_set_mode(UINTN *mode, enum console_mode_change_type how) {
         if (how == CONSOLE_MODE_AUTO)
                 return mode_auto(mode);
+
+        if (how == CONSOLE_MODE_MAX) {
+                /* Note: MaxMode is the number of modes, not the last mode. */
+                if (ST->ConOut->Mode->MaxMode > 0)
+                        *mode = ST->ConOut->Mode->MaxMode-1;
+                else
+                        *mode = 0;
+        }
 
         return change_mode(*mode);
 }

@@ -33,6 +33,7 @@ enum console_mode_change_type {
         CONSOLE_MODE_KEEP = 0,
         CONSOLE_MODE_SET,
         CONSOLE_MODE_AUTO,
+        CONSOLE_MODE_MAX,
 };
 
 EFI_STATUS console_key_read(UINT64 *key, BOOLEAN wait);
