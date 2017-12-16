@@ -130,6 +130,7 @@ libudev_core = static_library(
         link_config_gperf_c,
         keyboard_keys_from_name_h,
         include_directories : libudev_core_includes,
+        c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
         link_with : udev_link_with,
         dependencies : [libblkid, libkmod])
 
