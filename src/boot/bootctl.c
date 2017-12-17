@@ -824,6 +824,7 @@ static int install_loader_config(const char *esp_path) {
         }
 
         fprintf(f, "#timeout 3\n");
+        fprintf(f, "#console_mode keep\n");
         fprintf(f, "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
 
         r = fflush_sync_and_check(f);
