@@ -194,6 +194,8 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
                         r = free_and_strdup(&config->timeout, p);
                 else if (streq(buf, "editor"))
                         r = free_and_strdup(&config->editor, p);
+                else if (streq(buf, "console-mode"))
+                        r = free_and_strdup(&config->console_mode, p);
                 else {
                         log_notice("%s:%u: Unknown line \"%s\"", path, line, buf);
                         continue;

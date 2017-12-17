@@ -40,6 +40,7 @@ typedef struct BootConfig {
         char *default_pattern;
         char *timeout;
         char *editor;
+        char *console_mode;
 
         char *entry_oneshot;
         char *entry_default;
