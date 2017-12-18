@@ -3004,37 +3004,6 @@ finish:
         return r;
 }
 
-int bus_remove_match_by_string(
-                sd_bus *bus,
-                const char *match,
-                sd_bus_message_handler_t callback,
-                void *userdata) {
-
-        struct bus_match_component *components = NULL;
-        unsigned n_components = 0;
-        struct match_callback *c;
-        int r = 0;
-
-        assert_return(bus, -EINVAL);
-        assert_return(match, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        r = bus_match_parse(match, &components, &n_components);
-        if (r < 0)
-                goto finish;
-
-        r = bus_match_find(&bus->match_callbacks, components, n_components, NULL, NULL, &c);
-        if (r <= 0)
-                goto finish;
-
-        sd_bus_slot_unref(container_of(c, sd_bus_slot, match_callback));
-
-finish:
-        bus_match_parse_free(components, n_components);
-
-        return r;
-}
-
 bool bus_pid_changed(sd_bus *bus) {
         assert(bus);
 
