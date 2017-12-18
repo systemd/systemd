@@ -2490,6 +2490,8 @@ install_data('README',
              'ENVIRONMENT.md',
              'LICENSE.GPL2',
              'LICENSE.LGPL2.1',
+             'TRANSIENT-SETTINGS.md',
+             'UIDS-GIDS.md',
              'src/libsystemd/sd-bus/GVARIANT-SERIALIZATION',
              install_dir : docdir)
 
