@@ -22,7 +22,5 @@
 
 #include "sd-bus.h"
 
-#include "bus-match.h"
-
-int bus_add_match_internal(sd_bus *bus, const char *match, struct bus_match_component *components, unsigned n_components);
+int bus_add_match_internal(sd_bus *bus, const char *match);
 int bus_remove_match_internal(sd_bus *bus, const char *match);

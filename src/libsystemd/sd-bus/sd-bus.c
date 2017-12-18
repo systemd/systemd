@@ -2980,7 +2980,7 @@ _public_ int sd_bus_add_match(
                                 goto finish;
                         }
 
-                        r = bus_add_match_internal(bus, s->match_callback.match_string, components, n_components);
+                        r = bus_add_match_internal(bus, s->match_callback.match_string);
                         if (r < 0)
                                 goto finish;
 

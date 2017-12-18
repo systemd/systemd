@@ -814,9 +814,7 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
 
 int bus_add_match_internal(
                 sd_bus *bus,
-                const char *match,
-                struct bus_match_component *components,
-                unsigned n_components) {
+                const char *match) {
 
         const char *e;
 
