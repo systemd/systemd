@@ -851,8 +851,11 @@ int bus_remove_match_internal(
 
         e = append_eavesdrop(bus, match);
 
-        return sd_bus_call_method(
+        /* Fire and forget */
+
+        return sd_bus_call_method_async(
                         bus,
+                        NULL,
                         "org.freedesktop.DBus",
                         "/org/freedesktop/DBus",
                         "org.freedesktop.DBus",
