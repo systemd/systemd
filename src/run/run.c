@@ -40,6 +40,7 @@
 #include "spawn-polkit-agent.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -462,7 +463,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
+static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **properties) {
         int r;
 
         r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
@@ -475,7 +476,7 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
                         return bus_log_create_error(r);
         }
 
-        r = bus_append_unit_property_assignment_many(m, properties);
+        r = bus_append_unit_property_assignment_many(m, t, properties);
         if (r < 0)
                 return r;
 
@@ -521,7 +522,7 @@ static int transient_service_set_properties(sd_bus_message *m, char **argv, cons
 
         assert(m);
 
-        r = transient_unit_set_properties(m, arg_property);
+        r = transient_unit_set_properties(m, UNIT_SERVICE, arg_property);
         if (r < 0)
                 return r;
 
@@ -694,7 +695,7 @@ static int transient_scope_set_properties(sd_bus_message *m) {
 
         assert(m);
 
-        r = transient_unit_set_properties(m, arg_property);
+        r = transient_unit_set_properties(m, UNIT_SCOPE, arg_property);
         if (r < 0)
                 return r;
 
@@ -718,7 +719,7 @@ static int transient_timer_set_properties(sd_bus_message *m) {
 
         assert(m);
 
-        r = transient_unit_set_properties(m, arg_timer_property);
+        r = transient_unit_set_properties(m, UNIT_TIMER, arg_timer_property);
         if (r < 0)
                 return r;
 

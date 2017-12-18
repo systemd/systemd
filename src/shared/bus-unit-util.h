@@ -20,10 +20,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include "sd-bus.h"
-
-#include "output-mode.h"
 #include "install.h"
+#include "output-mode.h"
+#include "sd-bus.h"
+#include "unit-def.h"
 
 typedef struct UnitInfo {
         const char *machine;
@@ -41,8 +41,8 @@ typedef struct UnitInfo {
 
 int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u);
 
-int bus_append_unit_property_assignment(sd_bus_message *m, const char *assignment);
-int bus_append_unit_property_assignment_many(sd_bus_message *m, char **l);
+int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const char *assignment);
+int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char **l);
 
 typedef struct BusWaitForJobs BusWaitForJobs;
 

@@ -1361,59 +1361,42 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *joined = NULL;
+                        bool invert = !whitelist;
+                        char **s;
 
                         if (strv_isempty(l)) {
                                 c->syscall_whitelist = false;
                                 c->syscall_filter = hashmap_free(c->syscall_filter);
-                        } else {
-                                char **s;
+
+                                unit_write_settingf(u, flags, name, "SystemCallFilter=");
+                                return 1;
+                        }
+
+                        if (!c->syscall_filter) {
+                                c->syscall_filter = hashmap_new(NULL);
+                                if (!c->syscall_filter)
+                                        return log_oom();
 
                                 c->syscall_whitelist = whitelist;
 
-                                r = hashmap_ensure_allocated(&c->syscall_filter, NULL);
+                                if (c->syscall_whitelist) {
+                                        r = seccomp_parse_syscall_filter(invert, "@default", -1, c->syscall_filter, true);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+
+                        STRV_FOREACH(s, l) {
+                                _cleanup_free_ char *n = NULL;
+                                int e;
+
+                                r = parse_syscall_and_errno(*s, &n, &e);
                                 if (r < 0)
                                         return r;
 
-                                STRV_FOREACH(s, l) {
-                                        _cleanup_free_ char *n = NULL;
-                                        int e;
-
-                                        r = parse_syscall_and_errno(*s, &n, &e);
-                                        if (r < 0)
-                                                return r;
-
-                                        if (*n == '@') {
-                                                const SyscallFilterSet *set;
-                                                const char *i;
-
-                                                set = syscall_filter_set_find(n);
-                                                if (!set)
-                                                        return -EINVAL;
-
-                                                NULSTR_FOREACH(i, set->value) {
-                                                        int id;
-
-                                                        id = seccomp_syscall_resolve_name(i);
-                                                        if (id == __NR_SCMP_ERROR)
-                                                                return -EINVAL;
-
-                                                        r = hashmap_put(c->syscall_filter, INT_TO_PTR(id + 1), INT_TO_PTR(e));
-                                                        if (r < 0)
-                                                                return r;
-                                                }
-
-                                        } else {
-                                                int id;
-
-                                                id = seccomp_syscall_resolve_name(n);
-                                                if (id == __NR_SCMP_ERROR)
-                                                        return -EINVAL;
-
-                                                r = hashmap_put(c->syscall_filter, INT_TO_PTR(id + 1), INT_TO_PTR(e));
-                                                if (r < 0)
-                                                        return r;
-                                        }
-                                }
+                                r = seccomp_parse_syscall_filter(invert, n, e, c->syscall_filter, c->syscall_whitelist);
+                                if (r < 0)
+                                        return r;
                         }
 
                         joined = strv_join(l, " ");
@@ -1573,7 +1556,7 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!ioprio_priority_is_valid(n))
+                if (!sched_priority_is_valid(n))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling priority");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -2323,7 +2306,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l) {
-                        const char *i = *p;
+                        char *i = *p;
                         size_t offset;
 
                         if (!utf8_is_valid(i))
@@ -2333,6 +2316,8 @@ int bus_exec_context_set_transient_property(
                         offset += i[offset] == '+';
                         if (!path_is_absolute(i + offset))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
+
+                        path_kill_slashes(i + offset);
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {

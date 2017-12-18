@@ -2,8 +2,8 @@
 
 Our intention is to make all settings that are available as unit file settings
 also available for transient units, through the D-Bus API. At the moment, some
-unit types (socket, swap, path) are not supported at all via unit types, but
-most others are pretty well supported, with some notable omissions.
+unit types (device, socket, swap, target) are not supported at all via unit types,
+but most others are pretty well supported, with some notable omissions.
 
 The lists below contain all settings currently available in unit files. The
 ones currently available in transient units are prefixed with `✓`.
@@ -341,8 +341,8 @@ of their own beyond the generic unit and resource control settings.
 ## Scope Unit Settings
 
 Scope units are fully supported as transient units (in fact they only exist as
-such), but they have no settings of their own beyond the generic unit and
-resource control settings.
+such), but they have no settings of their own beyond the generic unit,
+resource control, and process killing settings.
 
 ## Socket Unit Settings
 
