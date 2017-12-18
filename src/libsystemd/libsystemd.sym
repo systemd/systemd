@@ -538,4 +538,6 @@ global:
         sd_bus_request_name_async;
         sd_bus_release_name_async;
         sd_bus_add_match_async;
+        sd_bus_match_signal;
+        sd_bus_match_signal_async;
 } LIBSYSTEMD_236;
