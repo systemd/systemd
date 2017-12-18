@@ -120,6 +120,7 @@ shared_sources = '''
         volatile-util.h
         watchdog.c
         watchdog.h
+        wireguard-netlink.h
 '''.split()
 
 test_tables_h = files('test-tables.h')
