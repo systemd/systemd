@@ -143,13 +143,13 @@ static void test_address_get(sd_netlink *rtnl, int ifindex) {
 
 }
 
-static void test_route(void) {
+static void test_route(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req;
         struct in_addr addr, addr_data;
         uint32_t index = 2, u32_data;
         int r;
 
-        r = sd_rtnl_message_new_route(NULL, &req, RTM_NEWROUTE, AF_INET, RTPROT_STATIC);
+        r = sd_rtnl_message_new_route(rtnl, &req, RTM_NEWROUTE, AF_INET, RTPROT_STATIC);
         if (r < 0) {
                 log_error_errno(r, "Could not create RTM_NEWROUTE message: %m");
                 return;
@@ -291,13 +291,13 @@ static void test_pipe(int ifindex) {
         assert_se((rtnl = sd_netlink_unref(rtnl)) == NULL);
 }
 
-static void test_container(void) {
+static void test_container(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         uint16_t u16_data;
         uint32_t u32_data;
         const char *string_data;
 
-        assert_se(sd_rtnl_message_new_link(NULL, &m, RTM_NEWLINK, 0) >= 0);
+        assert_se(sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0) >= 0);
 
         assert_se(sd_netlink_message_open_container(m, IFLA_LINKINFO) >= 0);
         assert_se(sd_netlink_message_open_container_union(m, IFLA_INFO_DATA, "vlan") >= 0);
@@ -369,10 +369,10 @@ static void test_get_addresses(sd_netlink *rtnl) {
         }
 }
 
-static void test_message(void) {
+static void test_message(sd_netlink *rtnl) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
-        assert_se(rtnl_message_new_synthetic_error(-ETIMEDOUT, 1, &m) >= 0);
+        assert_se(rtnl_message_new_synthetic_error(rtnl, -ETIMEDOUT, 1, &m) >= 0);
         assert_se(sd_netlink_message_get_errno(m) == -ETIMEDOUT);
 }
 
@@ -384,18 +384,18 @@ int main(void) {
         int if_loopback;
         uint16_t type;
 
-        test_message();
-
         test_match();
 
         test_multiple();
 
-        test_route();
-
-        test_container();
-
         assert_se(sd_netlink_open(&rtnl) >= 0);
         assert_se(rtnl);
+
+        test_route(rtnl);
+
+        test_message(rtnl);
+
+        test_container(rtnl);
 
         if_loopback = (int) if_nametoindex("lo");
         assert_se(if_loopback > 0);
