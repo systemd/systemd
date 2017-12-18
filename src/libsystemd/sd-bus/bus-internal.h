@@ -53,6 +53,9 @@ struct filter_callback {
 
 struct match_callback {
         sd_bus_message_handler_t callback;
+        sd_bus_message_handler_t install_callback;
+
+        sd_bus_slot *install_slot; /* The AddMatch() call */
 
         unsigned last_iteration;
 

@@ -2934,11 +2934,78 @@ _public_ int sd_bus_add_filter(
         return 0;
 }
 
-_public_ int sd_bus_add_match(
+static int add_match_callback(
+                sd_bus_message *m,
+                void *userdata,
+                sd_bus_error *ret_error) {
+
+        sd_bus_slot *match_slot = userdata;
+        bool failed = false;
+        int r;
+
+        assert(m);
+        assert(match_slot);
+
+        sd_bus_slot_ref(match_slot);
+
+        if (sd_bus_message_is_method_error(m, NULL)) {
+                log_debug_errno(sd_bus_message_get_errno(m),
+                                "Unable to add match %s, failing connection: %s",
+                                match_slot->match_callback.match_string,
+                                sd_bus_message_get_error(m)->message);
+
+                failed = true;
+        } else
+                log_debug("Match %s successfully installed.", match_slot->match_callback.match_string);
+
+        if (match_slot->match_callback.install_callback) {
+                sd_bus *bus;
+
+                bus = sd_bus_message_get_bus(m);
+
+                /* This function has been called as slot handler, and we want to call another slot handler. Let's
+                 * update the slot callback metadata temporarily with our own data, and then revert back to the old
+                 * values. */
+
+                assert(bus->current_slot == match_slot->match_callback.install_slot);
+                assert(bus->current_handler == add_match_callback);
+                assert(bus->current_userdata == userdata);
+
+                bus->current_slot = match_slot;
+                bus->current_handler = match_slot->match_callback.install_callback;
+                bus->current_userdata = match_slot->userdata;
+
+                r = match_slot->match_callback.install_callback(m, match_slot->userdata, ret_error);
+
+                bus->current_slot = match_slot->match_callback.install_slot;
+                bus->current_handler = add_match_callback;
+                bus->current_userdata = userdata;
+
+                match_slot->match_callback.install_slot = sd_bus_slot_unref(match_slot->match_callback.install_slot);
+        } else {
+                if (failed) /* Generic failure handling: destroy the connection */
+                        bus_enter_closing(sd_bus_message_get_bus(m));
+
+                r = 1;
+        }
+
+        if (failed && match_slot->floating) {
+                bus_slot_disconnect(match_slot);
+                sd_bus_slot_unref(match_slot);
+        }
+
+        sd_bus_slot_unref(match_slot);
+
+        return r;
+}
+
+static int bus_add_match_full(
                 sd_bus *bus,
                 sd_bus_slot **slot,
+                bool asynchronous,
                 const char *match,
                 sd_bus_message_handler_t callback,
+                sd_bus_message_handler_t install_callback,
                 void *userdata) {
 
         struct bus_match_component *components = NULL;
@@ -2961,18 +3028,17 @@ _public_ int sd_bus_add_match(
         }
 
         s->match_callback.callback = callback;
+        s->match_callback.install_callback = install_callback;
 
         if (bus->bus_client) {
                 enum bus_match_scope scope;
 
                 scope = bus_match_get_scope(components, n_components);
 
-                /* Do not install server-side matches for matches
-                 * against the local service, interface or bus path. */
+                /* Do not install server-side matches for matches against the local service, interface or bus path. */
                 if (scope != BUS_MATCH_LOCAL) {
 
-                        /* We store the original match string, so that
-                         * we can use it to remove the match again. */
+                        /* We store the original match string, so that we can use it to remove the match again. */
 
                         s->match_callback.match_string = strdup(match);
                         if (!s->match_callback.match_string) {
@@ -2980,7 +3046,14 @@ _public_ int sd_bus_add_match(
                                 goto finish;
                         }
 
-                        r = bus_add_match_internal(bus, s->match_callback.match_string);
+                        if (asynchronous)
+                                r = bus_add_match_internal_async(bus,
+                                                                 &s->match_callback.install_slot,
+                                                                 s->match_callback.match_string,
+                                                                 add_match_callback,
+                                                                 s);
+                        else
+                                r = bus_add_match_internal(bus, s->match_callback.match_string);
                         if (r < 0)
                                 goto finish;
 
@@ -3002,6 +3075,27 @@ finish:
         sd_bus_slot_unref(s);
 
         return r;
+}
+
+_public_ int sd_bus_add_match(
+                sd_bus *bus,
+                sd_bus_slot **slot,
+                const char *match,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
+
+        return bus_add_match_full(bus, slot, false, match, callback, NULL, userdata);
+}
+
+_public_ int sd_bus_add_match_async(
+                sd_bus *bus,
+                sd_bus_slot **slot,
+                const char *match,
+                sd_bus_message_handler_t callback,
+                sd_bus_message_handler_t install_callback,
+                void *userdata) {
+
+        return bus_add_match_full(bus, slot, true, match, callback, install_callback, userdata);
 }
 
 bool bus_pid_changed(sd_bus *bus) {
