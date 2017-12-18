@@ -47,6 +47,7 @@
 #include "netlink-types.h"
 #include "string-table.h"
 #include "util.h"
+#include "wireguard-netlink.h"
 #include "sd-netlink.h"
 
 /* Maximum ARP IP target defined in kernel */
@@ -340,7 +341,7 @@ static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_VCAN] = "vcan",
         [NL_UNION_LINK_INFO_DATA_GENEVE] = "geneve",
         [NL_UNION_LINK_INFO_DATA_VXCAN] = "vxcan",
-
+        [NL_UNION_LINK_INFO_DATA_WIREGUARD] = "wireguard",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
@@ -672,6 +673,54 @@ const NLTypeSystem rtnl_type_system_root = {
         .types = rtnl_types,
 };
 
+static const NLType genl_wireguard_allowedip_types[] = {
+        [WGALLOWEDIP_A_FAMILY] = { .type = NETLINK_TYPE_U16 },
+        [WGALLOWEDIP_A_IPADDR] = { .type = NETLINK_TYPE_IN_ADDR },
+        [WGALLOWEDIP_A_CIDR_MASK] = { .type = NETLINK_TYPE_U8 },
+};
+
+static const NLTypeSystem genl_wireguard_allowedip_type_system = {
+        .count = ELEMENTSOF(genl_wireguard_allowedip_types),
+        .types = genl_wireguard_allowedip_types,
+};
+
+static const NLType genl_wireguard_peer_types[] = {
+        [WGPEER_A_PUBLIC_KEY] = { .size = WG_KEY_LEN  },
+        [WGPEER_A_FLAGS] = { .type = NETLINK_TYPE_U32 },
+        [WGPEER_A_PRESHARED_KEY] = { .size = WG_KEY_LEN },
+        [WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL] = { .type = NETLINK_TYPE_U32 },
+        [WGPEER_A_ENDPOINT] = { /* either size of sockaddr_in or sockaddr_in6 depending on address family */ },
+        [WGPEER_A_ALLOWEDIPS] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_allowedip_type_system },
+};
+
+static const NLTypeSystem genl_wireguard_peer_type_system = {
+        .count = ELEMENTSOF(genl_wireguard_peer_types),
+        .types = genl_wireguard_peer_types,
+};
+
+static const NLType genl_wireguard_set_device_types[] = {
+        [WGDEVICE_A_IFINDEX] = { .type = NETLINK_TYPE_U32 },
+        [WGDEVICE_A_IFNAME] = { .type = NETLINK_TYPE_STRING },
+        [WGDEVICE_A_FLAGS] = { .type = NETLINK_TYPE_U32 },
+        [WGDEVICE_A_PRIVATE_KEY] = { .size = WG_KEY_LEN },
+        [WGDEVICE_A_LISTEN_PORT] = { .type = NETLINK_TYPE_U16 },
+        [WGDEVICE_A_FWMARK] = { .type = NETLINK_TYPE_U32 },
+        [WGDEVICE_A_PEERS] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_peer_type_system },
+};
+
+static const NLTypeSystem genl_wireguard_set_device_type_system = {
+        .count = ELEMENTSOF(genl_wireguard_set_device_types),
+        .types = genl_wireguard_set_device_types,
+};
+
+static const NLType genl_wireguard_cmds[] = {
+        [WG_CMD_SET_DEVICE] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_set_device_type_system },
+};
+
+static const NLTypeSystem genl_wireguard_type_system = {
+        .count = ELEMENTSOF(genl_wireguard_cmds),
+        .types = genl_wireguard_cmds,
+};
 
 static const NLType genl_get_family_types[] = {
         [CTRL_ATTR_FAMILY_NAME] = { .type = NETLINK_TYPE_STRING },
@@ -694,6 +743,7 @@ static const NLTypeSystem genl_ctrl_id_ctrl_type_system = {
 
 static const NLType genl_families[] = {
         [SD_GENL_ID_CTRL]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_id_ctrl_type_system },
+        [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system },
 };
 
 const NLTypeSystem genl_family_type_system_root = {
