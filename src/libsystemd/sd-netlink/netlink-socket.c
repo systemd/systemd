@@ -330,10 +330,13 @@ int socket_read_message(sd_netlink *rtnl) {
         size_t len;
         int r;
         unsigned i = 0;
+        const NLTypeSystem *type_system_root;
 
         assert(rtnl);
         assert(rtnl->rbuffer);
         assert(rtnl->rbuffer_allocated >= sizeof(struct nlmsghdr));
+
+        type_system_root = type_system_get_root(rtnl->protocol);
 
         /* read nothing, just get the pending message size */
         r = socket_recv_message(rtnl->fd, &iov, NULL, true);
@@ -396,7 +399,8 @@ int socket_read_message(sd_netlink *rtnl) {
                 }
 
                 /* check that we support this message type */
-                r = type_system_get_type(&type_system_root, &nl_type, new_msg->nlmsg_type);
+                r = type_system_get_type(type_system_root, &nl_type, new_msg->nlmsg_type);
+
                 if (r < 0) {
                         if (r == -EOPNOTSUPP)
                                 log_debug("sd-netlink: ignored message with unknown type: %i",

@@ -36,6 +36,7 @@
 #include <linux/if_link.h>
 #include <linux/if_tunnel.h>
 #include <linux/fib_rules.h>
+#include <linux/genetlink.h>
 
 #if HAVE_VXCAN_INFO_PEER
 #include <linux/can/vxcan.h>
@@ -46,6 +47,7 @@
 #include "netlink-types.h"
 #include "string-table.h"
 #include "util.h"
+#include "sd-netlink.h"
 
 /* Maximum ARP IP target defined in kernel */
 #define BOND_MAX_ARP_TARGETS    16
@@ -665,9 +667,47 @@ static const NLType rtnl_types[] = {
         [RTM_GETRULE]      = { .type = NETLINK_TYPE_NESTED, .type_system = &rtnl_routing_policy_rule_type_system, .size = sizeof(struct rtmsg) },
 };
 
-const NLTypeSystem type_system_root = {
+const NLTypeSystem rtnl_type_system_root = {
         .count = ELEMENTSOF(rtnl_types),
         .types = rtnl_types,
+};
+
+
+static const NLType genl_get_family_types[] = {
+        [CTRL_ATTR_FAMILY_NAME] = { .type = NETLINK_TYPE_STRING },
+        [CTRL_ATTR_FAMILY_ID] = { .type = NETLINK_TYPE_U16 },
+};
+
+static const NLTypeSystem genl_get_family_type_system = {
+        .count = ELEMENTSOF(genl_get_family_types),
+        .types = genl_get_family_types,
+};
+
+static const NLType genl_ctrl_id_ctrl_cmds[] = {
+        [CTRL_CMD_GETFAMILY] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_get_family_type_system },
+};
+
+static const NLTypeSystem genl_ctrl_id_ctrl_type_system = {
+        .count = ELEMENTSOF(genl_ctrl_id_ctrl_cmds),
+        .types = genl_ctrl_id_ctrl_cmds,
+};
+
+static const NLType genl_families[] = {
+        [SD_GENL_ID_CTRL]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_id_ctrl_type_system },
+};
+
+const NLTypeSystem genl_family_type_system_root = {
+        .count = ELEMENTSOF(genl_families),
+        .types = genl_families,
+};
+
+static const NLType genl_types[] = {
+        [GENL_ID_CTRL] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_get_family_type_system, .size = sizeof(struct genlmsghdr) },
+};
+
+const NLTypeSystem genl_type_system_root = {
+        .count = ELEMENTSOF(genl_types),
+        .types = genl_types,
 };
 
 uint16_t type_get_type(const NLType *type) {
@@ -701,6 +741,15 @@ void type_get_type_system_union(const NLType *nl_type, const NLTypeSystemUnion *
 uint16_t type_system_get_count(const NLTypeSystem *type_system) {
         assert(type_system);
         return type_system->count;
+}
+
+const NLTypeSystem *type_system_get_root(int protocol) {
+        switch (protocol) {
+                case NETLINK_GENERIC:
+                        return &genl_type_system_root;
+                default: /* NETLINK_ROUTE: */
+                        return &rtnl_type_system_root;
+        }
 }
 
 int type_system_get_type(const NLTypeSystem *type_system, const NLType **ret, uint16_t type) {

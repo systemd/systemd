@@ -114,7 +114,7 @@ static void netdev_cancel_callbacks(NetDev *netdev) {
         if (!netdev || !netdev->callbacks)
                 return;
 
-        rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
+        rtnl_message_new_synthetic_error(netdev->manager->rtnl, -ENODEV, 0, &m);
 
         while ((callback = netdev->callbacks)) {
                 if (m) {
@@ -323,7 +323,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t call
         } else if (IN_SET(netdev->state, NETDEV_STATE_LINGER, NETDEV_STATE_FAILED)) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
-                r = rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
+                r = rtnl_message_new_synthetic_error(netdev->manager->rtnl, -ENODEV, 0, &m);
                 if (r >= 0)
                         callback(netdev->manager->rtnl, m, link);
         } else {

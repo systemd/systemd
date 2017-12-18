@@ -912,6 +912,26 @@ static int systemd_netlink_fd(void) {
         return rtnl_fd;
 }
 
+static int manager_connect_genl(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = sd_genl_socket_open(&m->genl);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_inc_rcvbuf(m->genl, RCVBUF_SIZE);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_attach_event(m->genl, m->event, 0);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int manager_connect_rtnl(Manager *m) {
         int fd, r;
 
@@ -1256,6 +1276,10 @@ int manager_new(Manager **ret, sd_event *event) {
         if (r < 0)
                 return r;
 
+        r = manager_connect_genl(m);
+        if (r < 0)
+                return r;
+
         r = manager_connect_udev(m);
         if (r < 0)
                 return r;
@@ -1265,6 +1289,14 @@ int manager_new(Manager **ret, sd_event *event) {
                 return -ENOMEM;
 
         LIST_HEAD_INIT(m->networks);
+
+        r = sd_resolve_default(&m->resolve);
+        if (r < 0)
+                return r;
+
+        r = sd_resolve_attach_event(m->resolve, m->event, 0);
+        if (r < 0)
+                return r;
 
         r = setup_default_address_pool(m);
         if (r < 0)
@@ -1314,6 +1346,8 @@ void manager_free(Manager *m) {
 
         sd_netlink_unref(m->rtnl);
         sd_event_unref(m->event);
+
+        sd_resolve_unref(m->resolve);
 
         sd_event_source_unref(m->udev_event_source);
         udev_monitor_unref(m->udev_monitor);
