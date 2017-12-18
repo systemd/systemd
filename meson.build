@@ -728,6 +728,8 @@ substs.set('NTP_SERVERS', ntp_servers)
 
 conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 
+conf.set_quoted('MACHINECTL_SHELL', get_option('machinectl-shell'))
+
 substs.set('SUSHELL', get_option('debug-shell'))
 substs.set('DEBUGTTY', get_option('debug-tty'))
 
@@ -2577,6 +2579,7 @@ status = [
         'zsh completions directory:         @0@'.format(zshcompletiondir),
         'extra start script:                @0@'.format(get_option('rc-local')),
         'extra stop script:                 @0@'.format(get_option('halt-local')),
+        'machinectl shell:                  @0@'.format(get_option('machinectl-shell')),
         'debug shell:                       @0@ @ @1@'.format(get_option('debug-shell'),
                                                               get_option('debug-tty')),
         'TTY GID:                           @0@'.format(tty_gid),
