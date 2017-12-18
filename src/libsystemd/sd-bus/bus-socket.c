@@ -191,7 +191,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         if (!e)
                 return 0;
 
-        if (b->hello_flags & KDBUS_HELLO_ACCEPT_FD) {
+        if (b->accept_fd) {
                 f = memmem(e + 2, b->rbuffer_size - (e - (char*) b->rbuffer) - 2, "\r\n", 2);
                 if (!f)
                         return 0;
@@ -478,7 +478,7 @@ static int bus_socket_auth_verify_server(sd_bus *b) {
                                         r = bus_socket_auth_write_ok(b);
                         }
                 } else if (line_equals(line, l, "NEGOTIATE_UNIX_FD")) {
-                        if (b->auth == _BUS_AUTH_INVALID || !(b->hello_flags & KDBUS_HELLO_ACCEPT_FD))
+                        if (b->auth == _BUS_AUTH_INVALID || !b->accept_fd)
                                 r = bus_socket_auth_write(b, "ERROR\r\n");
                         else {
                                 b->can_fds = true;
@@ -655,7 +655,7 @@ static int bus_socket_start_auth_client(sd_bus *b) {
         if (!b->auth_buffer)
                 return -ENOMEM;
 
-        if (b->hello_flags & KDBUS_HELLO_ACCEPT_FD)
+        if (b->accept_fd)
                 auth_suffix = "\r\nNEGOTIATE_UNIX_FD\r\nBEGIN\r\n";
         else
                 auth_suffix = "\r\nBEGIN\r\n";
@@ -679,11 +679,11 @@ int bus_socket_start_auth(sd_bus *b) {
         b->auth_timeout = now(CLOCK_MONOTONIC) + BUS_AUTH_TIMEOUT;
 
         if (sd_is_socket(b->input_fd, AF_UNIX, 0, 0) <= 0)
-                b->hello_flags &= ~KDBUS_HELLO_ACCEPT_FD;
+                b->accept_fd = false;
 
         if (b->output_fd != b->input_fd)
                 if (sd_is_socket(b->output_fd, AF_UNIX, 0, 0) <= 0)
-                        b->hello_flags &= ~KDBUS_HELLO_ACCEPT_FD;
+                        b->accept_fd = false;
 
         if (b->is_server)
                 return bus_socket_read_auth(b);

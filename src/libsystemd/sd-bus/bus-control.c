@@ -631,7 +631,7 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
 }
 
 #define internal_match(bus, m)                                          \
-        ((bus)->hello_flags & KDBUS_HELLO_MONITOR                       \
+        ((bus)->is_monitor                                              \
          ? (isempty(m) ? "eavesdrop='true'" : strjoina((m), ",eavesdrop='true'")) \
          : (m))
 
