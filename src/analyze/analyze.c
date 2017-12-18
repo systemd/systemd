@@ -130,6 +130,13 @@ struct host_info {
         char *architecture;
 };
 
+static int acquire_bus(bool need_full_bus, sd_bus **bus) {
+        if (need_full_bus)
+                return bus_connect_transport(arg_transport, arg_host, arg_user, bus);
+        else
+                return bus_connect_transport_systemd(arg_transport, arg_host, arg_user, bus);
+}
+
 static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *interface, const char *property, uint64_t *val) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1688,7 +1695,7 @@ int main(int argc, char *argv[]) {
         else {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
-                r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
+                r = acquire_bus(streq_ptr(argv[optind], "plot"), &bus);
                 if (r < 0) {
                         log_error_errno(r, "Failed to create bus connection: %m");
                         goto finish;
