@@ -104,7 +104,7 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                 slot->bus->match_callbacks_modified = true;
                 bus_match_remove(&slot->bus->match_callbacks, &slot->match_callback);
 
-                free(slot->match_callback.match_string);
+                slot->match_callback.match_string = mfree(slot->match_callback.match_string);
 
                 break;
 
@@ -179,7 +179,7 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                         }
                 }
 
-                free(slot->node_vtable.interface);
+                slot->node_vtable.interface = mfree(slot->node_vtable.interface);
 
                 if (slot->node_vtable.node) {
                         LIST_REMOVE(vtables, slot->node_vtable.node->vtables, &slot->node_vtable);
