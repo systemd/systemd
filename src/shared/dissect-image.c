@@ -38,6 +38,7 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "linux-3.13/dm-ioctl.h"
+#include "missing.h"
 #include "mount-util.h"
 #include "path-util.h"
 #include "process-util.h"
