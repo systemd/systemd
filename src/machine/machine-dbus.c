@@ -626,7 +626,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                 return r;
         user = empty_to_null(user);
         if (isempty(path))
-                path = "/bin/sh";
+                path = MACHINECTL_SHELL;
         if (!path_is_absolute(path))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
 
