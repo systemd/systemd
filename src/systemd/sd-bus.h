@@ -302,7 +302,9 @@ int sd_bus_message_rewind(sd_bus_message *m, int complete);
 
 int sd_bus_get_unique_name(sd_bus *bus, const char **unique);
 int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags);
+int sd_bus_request_name_async(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, uint64_t flags, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_release_name(sd_bus *bus, const char *name);
+int sd_bus_release_name_async(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable); /* free the results */
 int sd_bus_get_name_creds(sd_bus *bus, const char *name, uint64_t mask, sd_bus_creds **creds); /* unref the result! */
 int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine);

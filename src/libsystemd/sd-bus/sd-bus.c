@@ -1354,7 +1354,7 @@ _public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
         return sd_bus_unref(bus);
 }
 
-static void bus_enter_closing(sd_bus *bus) {
+void bus_enter_closing(sd_bus *bus) {
         assert(bus);
 
         if (!IN_SET(bus->state, BUS_WATCH_BIND, BUS_OPENING, BUS_AUTHENTICATING, BUS_HELLO, BUS_RUNNING))

@@ -407,3 +407,5 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
                 if (!assert_log(expr, #expr))                           \
                         return sd_bus_error_set_errno(error, r);        \
         } while (false)
+
+void bus_enter_closing(sd_bus *bus);

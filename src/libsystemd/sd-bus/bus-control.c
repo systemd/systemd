@@ -57,14 +57,18 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         return 0;
 }
 
-_public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        uint32_t ret, param = 0;
-        int r;
+static int validate_request_name_parameters(
+                sd_bus *bus,
+                const char *name,
+                uint64_t flags,
+                uint32_t *ret_param) {
 
-        assert_return(bus, -EINVAL);
-        assert_return(name, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
+        uint32_t param = 0;
+
+        assert(bus);
+        assert(name);
+        assert(ret_param);
+
         assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT|SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_QUEUE)), -EINVAL);
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
@@ -86,6 +90,28 @@ _public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) 
         if (!(flags & SD_BUS_NAME_QUEUE))
                 param |= BUS_NAME_DO_NOT_QUEUE;
 
+        *ret_param = param;
+
+        return 0;
+}
+
+_public_ int sd_bus_request_name(
+                sd_bus *bus,
+                const char *name,
+                uint64_t flags) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        uint32_t ret, param = 0;
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        r = validate_request_name_parameters(bus, name, flags, &param);
+        if (r < 0)
+                return r;
+
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.DBus",
@@ -104,26 +130,112 @@ _public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) 
         if (r < 0)
                 return r;
 
-        if (ret == BUS_NAME_ALREADY_OWNER)
+        switch (ret) {
+
+        case BUS_NAME_ALREADY_OWNER:
                 return -EALREADY;
-        else if (ret == BUS_NAME_EXISTS)
+
+        case BUS_NAME_EXISTS:
                 return -EEXIST;
-        else if (ret == BUS_NAME_IN_QUEUE)
+
+        case BUS_NAME_IN_QUEUE:
                 return 0;
-        else if (ret == BUS_NAME_PRIMARY_OWNER)
+
+        case BUS_NAME_PRIMARY_OWNER:
                 return 1;
+        }
 
         return -EIO;
 }
 
-_public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+static int default_request_name_handler(
+                sd_bus_message *m,
+                void *userdata,
+                sd_bus_error *ret_error) {
+
         uint32_t ret;
+        int r;
+
+        assert(m);
+
+        if (sd_bus_message_is_method_error(m, NULL)) {
+                log_debug_errno(sd_bus_message_get_errno(m),
+                                "Unable to request name, failing connection: %s",
+                                sd_bus_message_get_error(m)->message);
+
+                bus_enter_closing(sd_bus_message_get_bus(m));
+                return 1;
+        }
+
+        r = sd_bus_message_read(m, "u", &ret);
+        if (r < 0)
+                return r;
+
+        switch (ret) {
+
+        case BUS_NAME_ALREADY_OWNER:
+                log_debug("Already owner of requested service name, ignoring.");
+                return 1;
+
+        case BUS_NAME_IN_QUEUE:
+                log_debug("In queue for requested service name.");
+                return 1;
+
+        case BUS_NAME_PRIMARY_OWNER:
+                log_debug("Successfully acquired requested service name.");
+                return 1;
+
+        case BUS_NAME_EXISTS:
+                log_debug("Requested service name already owned, failing connection.");
+                bus_enter_closing(sd_bus_message_get_bus(m));
+                return 1;
+        }
+
+        log_debug("Unexpected response from RequestName(), failing connection.");
+        bus_enter_closing(sd_bus_message_get_bus(m));
+        return 1;
+}
+
+_public_ int sd_bus_request_name_async(
+                sd_bus *bus,
+                sd_bus_slot **ret_slot,
+                const char *name,
+                uint64_t flags,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
+
+        uint32_t param = 0;
         int r;
 
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        r = validate_request_name_parameters(bus, name, flags, &param);
+        if (r < 0)
+                return r;
+
+        return sd_bus_call_method_async(
+                        bus,
+                        ret_slot,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "RequestName",
+                        callback ?: default_request_name_handler,
+                        userdata,
+                        "su",
+                        name,
+                        param);
+}
+
+static int validate_release_name_parameters(
+                sd_bus *bus,
+                const char *name) {
+
+        assert(bus);
+        assert(name);
+
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
 
@@ -136,6 +248,25 @@ _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
+
+        return 0;
+}
+
+_public_ int sd_bus_release_name(
+                sd_bus *bus,
+                const char *name) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        uint32_t ret;
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        r = validate_release_name_parameters(bus, name);
+        if (r < 0)
+                return r;
 
         r = sd_bus_call_method(
                         bus,
@@ -153,14 +284,93 @@ _public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
         r = sd_bus_message_read(reply, "u", &ret);
         if (r < 0)
                 return r;
-        if (ret == BUS_NAME_NON_EXISTENT)
-                return -ESRCH;
-        if (ret == BUS_NAME_NOT_OWNER)
-                return -EADDRINUSE;
-        if (ret == BUS_NAME_RELEASED)
-                return 0;
 
-        return -EINVAL;
+        switch (ret) {
+
+        case BUS_NAME_NON_EXISTENT:
+                return -ESRCH;
+
+        case BUS_NAME_NOT_OWNER:
+                return -EADDRINUSE;
+
+        case BUS_NAME_RELEASED:
+                return 0;
+        }
+
+        return -EIO;
+}
+
+static int default_release_name_handler(
+                sd_bus_message *m,
+                void *userdata,
+                sd_bus_error *ret_error) {
+
+        uint32_t ret;
+        int r;
+
+        assert(m);
+
+        if (sd_bus_message_is_method_error(m, NULL)) {
+                log_debug_errno(sd_bus_message_get_errno(m),
+                                "Unable to release name, failing connection: %s",
+                                sd_bus_message_get_error(m)->message);
+
+                bus_enter_closing(sd_bus_message_get_bus(m));
+                return 1;
+        }
+
+        r = sd_bus_message_read(m, "u", &ret);
+        if (r < 0)
+                return r;
+
+        switch (ret) {
+
+        case BUS_NAME_NON_EXISTENT:
+                log_debug("Name asked to release is not taken currently, ignoring.");
+                return 1;
+
+        case BUS_NAME_NOT_OWNER:
+                log_debug("Name asked to release is owned by somebody else, ignoring.");
+                return 1;
+
+        case BUS_NAME_RELEASED:
+                log_debug("Name successfully released.");
+                return 1;
+        }
+
+        log_debug("Unexpected response from ReleaseName(), failing connection.");
+        bus_enter_closing(sd_bus_message_get_bus(m));
+        return 1;
+}
+
+_public_ int sd_bus_release_name_async(
+                sd_bus *bus,
+                sd_bus_slot **ret_slot,
+                const char *name,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
+
+        int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        r = validate_release_name_parameters(bus, name);
+        if (r < 0)
+                return r;
+
+        return sd_bus_call_method_async(
+                        bus,
+                        ret_slot,
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.DBus",
+                        "ReleaseName",
+                        callback ?: default_release_name_handler,
+                        userdata,
+                        "s",
+                        name);
 }
 
 _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable) {
