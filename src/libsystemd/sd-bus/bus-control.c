@@ -57,13 +57,27 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         return 0;
 }
 
-static int bus_request_name_dbus1(sd_bus *bus, const char *name, uint64_t flags) {
+_public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         uint32_t ret, param = 0;
         int r;
 
-        assert(bus);
-        assert(name);
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT|SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_QUEUE)), -EINVAL);
+        assert_return(service_name_is_valid(name), -EINVAL);
+        assert_return(name[0] != ':', -EINVAL);
+
+        if (!bus->bus_client)
+                return -EINVAL;
+
+        /* Don't allow requesting the special driver and local names */
+        if (STR_IN_SET(name, "org.freedesktop.DBus", "org.freedesktop.DBus.Local"))
+                return -EINVAL;
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
 
         if (flags & SD_BUS_NAME_ALLOW_REPLACEMENT)
                 param |= BUS_NAME_ALLOW_REPLACEMENT;
@@ -102,34 +116,26 @@ static int bus_request_name_dbus1(sd_bus *bus, const char *name, uint64_t flags)
         return -EIO;
 }
 
-_public_ int sd_bus_request_name(sd_bus *bus, const char *name, uint64_t flags) {
+_public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        uint32_t ret;
+        int r;
+
         assert_return(bus, -EINVAL);
         assert_return(name, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
-        assert_return(!(flags & ~(SD_BUS_NAME_ALLOW_REPLACEMENT|SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_QUEUE)), -EINVAL);
         assert_return(service_name_is_valid(name), -EINVAL);
         assert_return(name[0] != ':', -EINVAL);
 
         if (!bus->bus_client)
                 return -EINVAL;
 
-        /* Don't allow requesting the special driver and local names */
+        /* Don't allow releasing the special driver and local names */
         if (STR_IN_SET(name, "org.freedesktop.DBus", "org.freedesktop.DBus.Local"))
                 return -EINVAL;
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
-
-        return bus_request_name_dbus1(bus, name, flags);
-}
-
-static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        uint32_t ret;
-        int r;
-
-        assert(bus);
-        assert(name);
 
         r = sd_bus_call_method(
                         bus,
@@ -157,30 +163,20 @@ static int bus_release_name_dbus1(sd_bus *bus, const char *name) {
         return -EINVAL;
 }
 
-_public_ int sd_bus_release_name(sd_bus *bus, const char *name) {
+_public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_strv_free_ char **x = NULL, **y = NULL;
+        int r;
+
         assert_return(bus, -EINVAL);
-        assert_return(name, -EINVAL);
+        assert_return(acquired || activatable, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
-        assert_return(service_name_is_valid(name), -EINVAL);
-        assert_return(name[0] != ':', -EINVAL);
 
         if (!bus->bus_client)
                 return -EINVAL;
 
-        /* Don't allow releasing the special driver and local names */
-        if (STR_IN_SET(name, "org.freedesktop.DBus", "org.freedesktop.DBus.Local"))
-                return -EINVAL;
-
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
-
-        return bus_release_name_dbus1(bus, name);
-}
-
-static int bus_list_names_dbus1(sd_bus *bus, char ***acquired, char ***activatable) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **x = NULL, **y = NULL;
-        int r;
 
         if (acquired) {
                 r = sd_bus_call_method(
@@ -231,21 +227,7 @@ static int bus_list_names_dbus1(sd_bus *bus, char ***acquired, char ***activatab
         return 0;
 }
 
-_public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatable) {
-        assert_return(bus, -EINVAL);
-        assert_return(acquired || activatable, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        if (!bus->bus_client)
-                return -EINVAL;
-
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-
-        return bus_list_names_dbus1(bus, acquired, activatable);
-}
-
-static int bus_get_name_creds_dbus1(
+_public_ int sd_bus_get_name_creds(
                 sd_bus *bus,
                 const char *name,
                 uint64_t mask,
@@ -256,6 +238,30 @@ static int bus_get_name_creds_dbus1(
         const char *unique = NULL;
         pid_t pid = 0;
         int r;
+
+        assert_return(bus, -EINVAL);
+        assert_return(name, -EINVAL);
+        assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
+        assert_return(mask == 0 || creds, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(service_name_is_valid(name), -EINVAL);
+
+        if (!bus->bus_client)
+                return -EINVAL;
+
+        /* Turn off augmenting if this isn't a local connection. If the connection is not local, then /proc is not
+         * going to match. */
+        if (!bus->is_local)
+                mask &= ~SD_BUS_CREDS_AUGMENT;
+
+        if (streq(name, "org.freedesktop.DBus.Local"))
+                return -EINVAL;
+
+        if (streq(name, "org.freedesktop.DBus"))
+                return sd_bus_get_owner_creds(bus, mask, creds);
+
+        if (!BUS_IS_OPEN(bus->state))
+                return -ENOTCONN;
 
         /* Only query the owner if the caller wants to know it or if
          * the caller just wants to check whether a name exists */
@@ -519,46 +525,22 @@ static int bus_get_name_creds_dbus1(
         return 0;
 }
 
-_public_ int sd_bus_get_name_creds(
-                sd_bus *bus,
-                const char *name,
-                uint64_t mask,
-                sd_bus_creds **creds) {
+_public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
+        bool do_label, do_groups;
+        pid_t pid = 0;
+        int r;
 
         assert_return(bus, -EINVAL);
-        assert_return(name, -EINVAL);
         assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
-        assert_return(mask == 0 || creds, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
-        assert_return(service_name_is_valid(name), -EINVAL);
-
-        if (!bus->bus_client)
-                return -EINVAL;
-
-        /* Turn off augmenting if this isn't a local connection. If the connection is not local, then /proc is not
-         * going to match. */
-        if (!bus->is_local)
-                mask &= ~SD_BUS_CREDS_AUGMENT;
-
-        if (streq(name, "org.freedesktop.DBus.Local"))
-                return -EINVAL;
-
-        if (streq(name, "org.freedesktop.DBus"))
-                return sd_bus_get_owner_creds(bus, mask, creds);
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
 
-        return bus_get_name_creds_dbus1(bus, name, mask, creds);
-}
-
-static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
-        pid_t pid = 0;
-        bool do_label, do_groups;
-        int r;
-
-        assert(bus);
+        if (!bus->is_local)
+                mask &= ~SD_BUS_CREDS_AUGMENT;
 
         do_label = bus->label && (mask & SD_BUS_CREDS_SELINUX_CONTEXT);
         do_groups = bus->n_groups != (size_t) -1 && (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS);
@@ -615,36 +597,25 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
         return 0;
 }
 
-_public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
-        assert_return(bus, -EINVAL);
-        assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
-        assert_return(ret, -EINVAL);
-        assert_return(!bus_pid_changed(bus), -ECHILD);
-
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
-
-        if (!bus->is_local)
-                mask &= ~SD_BUS_CREDS_AUGMENT;
-
-        return bus_get_owner_creds_dbus1(bus, mask, ret);
-}
-
-#define internal_match(bus, m)                                          \
+#define append_eavesdrop(bus, m)                                        \
         ((bus)->is_monitor                                              \
          ? (isempty(m) ? "eavesdrop='true'" : strjoina((m), ",eavesdrop='true'")) \
          : (m))
 
-static int bus_add_match_internal_dbus1(
+int bus_add_match_internal(
                 sd_bus *bus,
-                const char *match) {
+                const char *match,
+                struct bus_match_component *components,
+                unsigned n_components) {
 
         const char *e;
 
         assert(bus);
-        assert(match);
 
-        e = internal_match(bus, match);
+        if (!bus->bus_client)
+                return -EINVAL;
+
+        e = append_eavesdrop(bus, match);
 
         return sd_bus_call_method(
                         bus,
@@ -658,21 +629,7 @@ static int bus_add_match_internal_dbus1(
                         e);
 }
 
-int bus_add_match_internal(
-                sd_bus *bus,
-                const char *match,
-                struct bus_match_component *components,
-                unsigned n_components) {
-
-        assert(bus);
-
-        if (!bus->bus_client)
-                return -EINVAL;
-
-        return bus_add_match_internal_dbus1(bus, match);
-}
-
-static int bus_remove_match_internal_dbus1(
+int bus_remove_match_internal(
                 sd_bus *bus,
                 const char *match) {
 
@@ -681,7 +638,10 @@ static int bus_remove_match_internal_dbus1(
         assert(bus);
         assert(match);
 
-        e = internal_match(bus, match);
+        if (!bus->bus_client)
+                return -EINVAL;
+
+        e = append_eavesdrop(bus, match);
 
         return sd_bus_call_method(
                         bus,
@@ -693,18 +653,6 @@ static int bus_remove_match_internal_dbus1(
                         NULL,
                         "s",
                         e);
-}
-
-int bus_remove_match_internal(
-                sd_bus *bus,
-                const char *match) {
-
-        assert(bus);
-
-        if (!bus->bus_client)
-                return -EINVAL;
-
-        return bus_remove_match_internal_dbus1(bus, match);
 }
 
 _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machine) {
