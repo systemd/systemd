@@ -1336,20 +1336,23 @@ static int enforce_syscall_archs(Set *archs) {
 
 static int status_welcome(void) {
         _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
+        const char *fn;
         int r;
 
-        r = parse_env_file("/etc/os-release", NEWLINE,
-                           "PRETTY_NAME", &pretty_name,
-                           "ANSI_COLOR", &ansi_color,
-                           NULL);
-        if (r == -ENOENT)
-                r = parse_env_file("/usr/lib/os-release", NEWLINE,
+        if (arg_show_status <= 0)
+                return 0;
+
+        FOREACH_STRING(fn, "/etc/os-release", "/usr/lib/os-release") {
+                r = parse_env_file(fn, NEWLINE,
                                    "PRETTY_NAME", &pretty_name,
                                    "ANSI_COLOR", &ansi_color,
                                    NULL);
 
+                if (r != -ENOENT)
+                        break;
+        }
         if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to read os-release file: %m");
+                log_warning_errno(r, "Failed to read os-release file, ignoring: %m");
 
         if (log_get_show_color())
                 return status_printf(NULL, false, false,
@@ -1413,32 +1416,29 @@ static int bump_unix_max_dgram_qlen(void) {
 
 static int fixup_environment(void) {
         _cleanup_free_ char *term = NULL;
+        const char *t;
         int r;
 
-        /* We expect the environment to be set correctly
-         * if run inside a container. */
+        /* Only fix up the environment when we are started as PID 1 */
+        if (getpid_cached() != 1)
+                return 0;
+
+        /* We expect the environment to be set correctly if run inside a container. */
         if (detect_container() > 0)
                 return 0;
 
-        /* When started as PID1, the kernel uses /dev/console
-         * for our stdios and uses TERM=linux whatever the
-         * backend device used by the console. We try to make
-         * a better guess here since some consoles might not
-         * have support for color mode for example.
+        /* When started as PID1, the kernel uses /dev/console for our stdios and uses TERM=linux whatever the backend
+         * device used by the console. We try to make a better guess here since some consoles might not have support
+         * for color mode for example.
          *
-         * However if TERM was configured through the kernel
-         * command line then leave it alone. */
-
+         * However if TERM was configured through the kernel command line then leave it alone. */
         r = proc_cmdline_get_key("TERM", 0, &term);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                term = strdup(default_term_for_tty("/dev/console"));
-                if (!term)
-                        return -ENOMEM;
-        }
 
-        if (setenv("TERM", term, 1) < 0)
+        t = term ?: default_term_for_tty("/dev/console");
+
+        if (setenv("TERM", t, 1) < 0)
                 return -errno;
 
         return 0;
@@ -1889,11 +1889,13 @@ static void log_execution_mode(bool *ret_first_boot) {
                                 log_info("Running with unpopulated /etc.");
                 }
         } else {
-                _cleanup_free_ char *t;
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *t;
 
-                t = uid_to_name(getuid());
-                log_debug(PACKAGE_STRING " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
-                          arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
+                        t = uid_to_name(getuid());
+                        log_debug(PACKAGE_STRING " running in %suser mode for user " UID_FMT "/%s. (" SYSTEMD_FEATURES ")",
+                                  arg_action == ACTION_TEST ? " test" : "", getuid(), strna(t));
+                }
 
                 *ret_first_boot = false;
         }
@@ -1916,31 +1918,42 @@ static int initialize_runtime(
          * - Some only apply when we first start up, but not when we reexecute
          */
 
-        if (arg_system && !skip_setup) {
-                if (arg_show_status > 0)
+        if (arg_action != ACTION_RUN)
+                return 0;
+
+        if (arg_system) {
+                /* Make sure we leave a core dump without panicing the kernel. */
+                install_crash_handler();
+
+                if (!skip_setup) {
+                        r = mount_cgroup_controllers(arg_join_controllers);
+                        if (r < 0) {
+                                *ret_error_message = "Failed to mount cgroup hierarchies";
+                                return r;
+                        }
+
                         status_welcome();
+                        hostname_setup();
+                        machine_id_setup(NULL, arg_machine_id, NULL);
+                        loopback_setup();
+                        bump_unix_max_dgram_qlen();
+                        test_usr();
+                        write_container_id();
+                }
 
-                hostname_setup();
-                machine_id_setup(NULL, arg_machine_id, NULL);
-                loopback_setup();
-                bump_unix_max_dgram_qlen();
-                test_usr();
-                write_container_id();
+                if (arg_watchdog_device) {
+                        r = watchdog_set_device(arg_watchdog_device);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", arg_watchdog_device);
+                }
+
+                if (arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
+                        watchdog_set_timeout(&arg_runtime_watchdog);
         }
-
-        if (arg_system && arg_watchdog_device) {
-                r = watchdog_set_device(arg_watchdog_device);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m",
-                                          arg_watchdog_device);
-        }
-
-        if (arg_system && arg_runtime_watchdog > 0 && arg_runtime_watchdog != USEC_INFINITY)
-                watchdog_set_timeout(&arg_runtime_watchdog);
 
         if (arg_timer_slack_nsec != NSEC_INFINITY)
                 if (prctl(PR_SET_TIMERSLACK, arg_timer_slack_nsec) < 0)
-                        log_error_errno(errno, "Failed to adjust timer slack: %m");
+                        log_warning_errno(errno, "Failed to adjust timer slack, ignoring: %m");
 
         if (arg_system && !cap_test_all(arg_capability_bounding_set)) {
                 r = capability_bounding_set_drop_usermode(arg_capability_bounding_set);
@@ -2053,51 +2066,261 @@ static void free_arguments(void) {
         arg_syscall_archs = set_free(arg_syscall_archs);
 }
 
-int main(int argc, char *argv[]) {
-        Manager *m = NULL;
-        int r, retval = EXIT_FAILURE;
-        usec_t before_startup, after_startup;
-        char timespan[FORMAT_TIMESPAN_MAX];
-        FDSet *fds = NULL;
-        bool reexecute = false;
-        const char *shutdown_verb = NULL;
-        dual_timestamp initrd_timestamp = DUAL_TIMESTAMP_NULL;
-        dual_timestamp userspace_timestamp = DUAL_TIMESTAMP_NULL;
-        dual_timestamp kernel_timestamp = DUAL_TIMESTAMP_NULL;
-        dual_timestamp security_start_timestamp = DUAL_TIMESTAMP_NULL;
-        dual_timestamp security_finish_timestamp = DUAL_TIMESTAMP_NULL;
-        static char systemd[] = "systemd";
-        bool skip_setup = false;
-        bool loaded_policy = false;
-        bool queue_default_job = false;
-        bool first_boot = false;
-        char *switch_root_dir = NULL, *switch_root_init = NULL;
-        struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0), saved_rlimit_memlock = RLIMIT_MAKE_CONST((rlim_t) -1);
-        const char *error_message = NULL;
+static int load_configuration(int argc, char **argv, const char **ret_error_message) {
+        int r;
 
+        assert(ret_error_message);
+
+        r = initialize_join_controllers();
+        if (r < 0) {
+                *ret_error_message = "Failed to initialize cgroup controller joining table";
+                return r;
+        }
+
+        arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
+
+        r = parse_config_file();
+        if (r < 0) {
+                *ret_error_message = "Failed to parse config file";
+                return r;
+        }
+
+        if (arg_system) {
+                r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
+        }
+
+        /* Note that this also parses bits from the kernel command line, including "debug". */
+        log_parse_environment();
+
+        r = parse_argv(argc, argv);
+        if (r < 0) {
+                *ret_error_message = "Failed to parse commandline arguments";
+                return r;
+        }
+
+        /* Initialize default unit */
+        if (!arg_default_unit) {
+                arg_default_unit = strdup(SPECIAL_DEFAULT_TARGET);
+                if (!arg_default_unit) {
+                        *ret_error_message = "Failed to set default unit";
+                        return log_oom();
+                }
+        }
+
+        /* Initialize the show status setting if it hasn't been set explicitly yet */
+        if (arg_show_status == _SHOW_STATUS_UNSET)
+                arg_show_status = SHOW_STATUS_YES;
+
+        return 0;
+}
+
+static int safety_checks(void) {
+
+        if (getpid_cached() == 1 &&
+            arg_action != ACTION_RUN) {
+                log_error("Unsupported execution mode while PID 1.");
+                return -EPERM;
+        }
+
+        if (getpid_cached() == 1 &&
+            !arg_system) {
+                log_error("Can't run --user mode as PID 1.");
+                return -EPERM;
+        }
+
+        if (arg_action == ACTION_RUN &&
+            arg_system &&
+            getpid_cached() != 1) {
+                log_error("Can't run system mode unless PID 1.");
+                return -EPERM;
+        }
+
+        if (arg_action == ACTION_TEST &&
+            geteuid() == 0) {
+                log_error("Don't run test mode as root.");
+                return -EPERM;
+        }
+
+        if (!arg_system &&
+            arg_action == ACTION_RUN &&
+            sd_booted() <= 0) {
+                log_error("Trying to run as user instance, but the system has not been booted with systemd.");
+                return -EOPNOTSUPP;
+        }
+
+        if (!arg_system &&
+            arg_action == ACTION_RUN &&
+            !getenv("XDG_RUNTIME_DIR")) {
+                log_error("Trying to run as user instance, but $XDG_RUNTIME_DIR is not set.");
+                return -EUNATCH;
+        }
+
+        if (arg_system &&
+            arg_action == ACTION_RUN &&
+            running_in_chroot() > 0) {
+                log_error("Cannot be run in a chroot() environment.");
+                return -EOPNOTSUPP;
+        }
+
+        return 0;
+}
+
+static int initialize_security(
+                bool *loaded_policy,
+                dual_timestamp *security_start_timestamp,
+                dual_timestamp *security_finish_timestamp,
+                const char **ret_error_message) {
+
+        int r;
+
+        assert(loaded_policy);
+        assert(security_start_timestamp);
+        assert(security_finish_timestamp);
+        assert(ret_error_message);
+
+        dual_timestamp_get(security_start_timestamp);
+
+        r = mac_selinux_setup(loaded_policy) < 0;
+        if (r < 0) {
+                *ret_error_message = "Failed to load SELinux policy";
+                return r;
+        }
+
+        r = mac_smack_setup(loaded_policy);
+        if (r < 0) {
+                *ret_error_message = "Failed to load SMACK policy";
+                return r;
+        }
+
+        r = ima_setup();
+        if (r < 0) {
+                *ret_error_message = "Failed to load IMA policy";
+                return r;
+        }
+
+        dual_timestamp_get(security_finish_timestamp);
+        return 0;
+}
+
+static void test_summary(Manager *m) {
+        assert(m);
+
+        printf("-> By units:\n");
+        manager_dump_units(m, stdout, "\t");
+
+        printf("-> By jobs:\n");
+        manager_dump_jobs(m, stdout, "\t");
+}
+
+static void log_taint_string(Manager *m) {
+        _cleanup_free_ char *taint = NULL;
+
+        assert(m);
+
+        if (!arg_system)
+                return;
+
+        taint = manager_taint_string(m);
+        if (isempty(taint))
+                return;
+
+        log_struct(LOG_NOTICE,
+                   LOG_MESSAGE("System is tainted: %s", taint),
+                   "TAINT=%s", taint,
+                   "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR,
+                   NULL);
+}
+
+static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
+        int r;
+
+        assert(ret_fds);
+        assert(ret_error_message);
+
+        r = fdset_new_fill(ret_fds);
+        if (r < 0) {
+                *ret_error_message = "Failed to allocate fd set";
+                return log_emergency_errno(r, "Failed to allocate fd set: %m");
+        }
+
+        fdset_cloexec(*ret_fds, true);
+
+        if (arg_serialization)
+                assert_se(fdset_remove(*ret_fds, fileno(arg_serialization)) >= 0);
+
+        return 0;
+}
+
+static void setup_console_terminal(bool skip_setup) {
+
+        if (!arg_system)
+                return;
+
+        /* Become a session leader if we aren't one yet. */
+        (void) setsid();
+
+        /* If we are init, we connect stdin/stdout/stderr to /dev/null and make sure we don't have a controlling
+         * tty. */
+        (void) release_terminal();
+
+        /* Reset the console, but only if this is really init and we are freshly booted */
+        if (getpid_cached() == 1 && !skip_setup)
+                (void) console_setup();
+}
+
+static bool early_skip_setup_check(int argc, char *argv[]) {
+        bool found_deserialize = false;
+        int i;
+
+        /* Determine if this is a reexecution or normal bootup. We do the full command line parsing much later, so
+         * let's just have a quick peek here. Note that if we have switched root, do all the special setup things
+         * anyway, even if in that case we also do deserialization. */
+
+        for (i = 1; i < argc; i++) {
+
+                if (streq(argv[i], "--switched-root"))
+                        return false; /* If we switched root, don't skip the setup. */
+                else if (streq(argv[i], "--deserialize"))
+                        found_deserialize = true;
+        }
+
+        return found_deserialize; /* When we are deserializing, then we are reexecuting, hence avoid the extensive setup */
+}
+
+int main(int argc, char *argv[]) {
+
+        dual_timestamp initrd_timestamp = DUAL_TIMESTAMP_NULL, userspace_timestamp = DUAL_TIMESTAMP_NULL, kernel_timestamp = DUAL_TIMESTAMP_NULL,
+                security_start_timestamp = DUAL_TIMESTAMP_NULL, security_finish_timestamp = DUAL_TIMESTAMP_NULL;
+        struct rlimit saved_rlimit_nofile = RLIMIT_MAKE_CONST(0), saved_rlimit_memlock = RLIMIT_MAKE_CONST((rlim_t) -1);
+        bool skip_setup, loaded_policy = false, queue_default_job = false, first_boot = false, reexecute = false;
+        char *switch_root_dir = NULL, *switch_root_init = NULL;
+        usec_t before_startup, after_startup;
+        static char systemd[] = "systemd";
+        char timespan[FORMAT_TIMESPAN_MAX];
+        const char *shutdown_verb = NULL, *error_message = NULL;
+        int r, retval = EXIT_FAILURE;
+        Manager *m = NULL;
+        FDSet *fds = NULL;
+
+        /* SysV compatibility: redirect init → telinit */
         redirect_telinit(argc, argv);
 
+        /* Take timestamps early on */
         dual_timestamp_from_monotonic(&kernel_timestamp, 0);
         dual_timestamp_get(&userspace_timestamp);
 
-        /* Determine if this is a reexecution or normal bootup. We do
-         * the full command line parsing much later, so let's just
-         * have a quick peek here. */
-        if (strv_find(argv+1, "--deserialize"))
-                skip_setup = true;
+        /* Figure out whether we need to do initialize the system, or if we already did that because we are
+         * reexecuting */
+        skip_setup = early_skip_setup_check(argc, argv);
 
-        /* If we have switched root, do all the special setup
-         * things */
-        if (strv_find(argv+1, "--switched-root"))
-                skip_setup = false;
-
-        /* If we get started via the /sbin/init symlink then we are
-           called 'init'. After a subsequent reexecution we are then
-           called 'systemd'. That is confusing, hence let's call us
-           systemd right-away. */
+        /* If we get started via the /sbin/init symlink then we are called 'init'. After a subsequent reexecution we
+         * are then called 'systemd'. That is confusing, hence let's call us systemd right-away. */
         program_invocation_short_name = systemd;
         (void) prctl(PR_SET_NAME, systemd);
 
+        /* Save the original command line */
         saved_argv = argv;
         saved_argc = argc;
 
@@ -2131,18 +2354,13 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        dual_timestamp_get(&security_start_timestamp);
-                        if (mac_selinux_setup(&loaded_policy) < 0) {
-                                error_message = "Failed to load SELinux policy";
+                        r = initialize_security(
+                                        &loaded_policy,
+                                        &security_start_timestamp,
+                                        &security_finish_timestamp,
+                                        &error_message);
+                        if (r < 0)
                                 goto finish;
-                        } else if (mac_smack_setup(&loaded_policy) < 0) {
-                                error_message = "Failed to load SMACK policy";
-                                goto finish;
-                        } else if (ima_setup() < 0) {
-                                error_message = "Failed to load IMA policy";
-                                goto finish;
-                        }
-                        dual_timestamp_get(&security_finish_timestamp);
                 }
 
                 if (mac_selinux_init() < 0) {
@@ -2187,11 +2405,14 @@ int main(int argc, char *argv[]) {
 
         initialize_coredump(skip_setup);
 
+        r = fixup_environment();
+        if (r < 0) {
+                log_emergency_errno(r, "Failed to fix up PID 1 environment: %m");
+                error_message = "Failed to fix up PID1 environment";
+                goto finish;
+        }
+
         if (arg_system) {
-                if (fixup_environment() < 0) {
-                        error_message = "Failed to fix up PID1 environment";
-                        goto finish;
-                }
 
                 /* Try to figure out if we can use colors with the console. No
                  * need to do that for user instances since they never log
@@ -2200,12 +2421,6 @@ int main(int argc, char *argv[]) {
                 r = make_null_stdio();
                 if (r < 0)
                         log_warning_errno(r, "Failed to redirect standard streams to /dev/null: %m");
-        }
-
-        r = initialize_join_controllers();
-        if (r < 0) {
-                error_message = "Failed to initialize cgroup controllers";
-                goto finish;
         }
 
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
@@ -2227,62 +2442,19 @@ int main(int argc, char *argv[]) {
         (void) reset_all_signal_handlers();
         (void) ignore_signals(SIGNALS_IGNORE, -1);
 
-        arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
-
-        if (parse_config_file() < 0) {
-                error_message = "Failed to parse config file";
+        r = load_configuration(argc, argv, &error_message);
+        if (r < 0)
                 goto finish;
-        }
 
-        if (arg_system) {
-                r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
-        }
-
-        /* Note that this also parses bits from the kernel command
-         * line, including "debug". */
-        log_parse_environment();
-
-        if (parse_argv(argc, argv) < 0) {
-                error_message = "Failed to parse commandline arguments";
+        r = safety_checks();
+        if (r < 0)
                 goto finish;
-        }
 
-        /* Initialize default unit */
-        if (!arg_default_unit) {
-                arg_default_unit = strdup(SPECIAL_DEFAULT_TARGET);
-                if (!arg_default_unit) {
-                        r = log_oom();
-                        error_message = "Failed to set default unit";
-                        goto finish;
-                }
-        }
-
-        if (arg_action == ACTION_TEST &&
-            geteuid() == 0) {
-                log_error("Don't run test mode as root.");
-                goto finish;
-        }
-
-        if (!arg_system &&
-            arg_action == ACTION_RUN &&
-            sd_booted() <= 0) {
-                log_error("Trying to run as user instance, but the system has not been booted with systemd.");
-                goto finish;
-        }
-
-        if (arg_system &&
-            arg_action == ACTION_RUN &&
-            running_in_chroot() > 0) {
-                log_error("Cannot be run in a chroot() environment.");
-                goto finish;
-        }
-
-        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP)) {
+        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS))
                 pager_open(arg_no_pager, false);
+
+        if (arg_action != ACTION_RUN)
                 skip_setup = true;
-        }
 
         if (arg_action == ACTION_HELP) {
                 retval = help();
@@ -2291,83 +2463,41 @@ int main(int argc, char *argv[]) {
                 retval = version();
                 goto finish;
         } else if (arg_action == ACTION_DUMP_CONFIGURATION_ITEMS) {
-                pager_open(arg_no_pager, false);
                 unit_dump_config_items(stdout);
                 retval = EXIT_SUCCESS;
                 goto finish;
         }
 
-        if (!arg_system &&
-            !getenv("XDG_RUNTIME_DIR")) {
-                log_error("Trying to run as user instance, but $XDG_RUNTIME_DIR is not set.");
-                goto finish;
-        }
-
         assert_se(IN_SET(arg_action, ACTION_RUN, ACTION_TEST));
-
-        /* Close logging fds, in order not to confuse fdset below */
-        log_close();
-
-        /* Remember open file descriptors for later deserialization */
-        if (arg_action == ACTION_RUN) {
-                r = fdset_new_fill(&fds);
-                if (r < 0) {
-                        log_emergency_errno(r, "Failed to allocate fd set: %m");
-                        error_message = "Failed to allocate fd set";
-                        goto finish;
-                } else
-                        fdset_cloexec(fds, true);
-
-                if (arg_serialization)
-                        assert_se(fdset_remove(fds, fileno(arg_serialization)) >= 0);
-
-                if (arg_system)
-                        /* Become a session leader if we aren't one yet. */
-                        setsid();
-        }
 
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/") == 0);
 
-        /* Reset the console, but only if this is really init and we
-         * are freshly booted */
-        if (arg_system && arg_action == ACTION_RUN) {
+        if (arg_action == ACTION_RUN) {
 
-                /* If we are init, we connect stdin/stdout/stderr to
-                 * /dev/null and make sure we don't have a controlling
-                 * tty. */
-                release_terminal();
+                /* Close logging fds, in order not to confuse collecting passed fds and terminal logic below */
+                log_close();
 
-                if (getpid_cached() == 1 && !skip_setup)
-                        console_setup();
-        }
-
-        /* Open the logging devices, if possible and necessary */
-        log_open();
-
-        if (arg_show_status == _SHOW_STATUS_UNSET)
-                arg_show_status = SHOW_STATUS_YES;
-
-        /* Make sure we leave a core dump without panicing the
-         * kernel. */
-        if (getpid_cached() == 1) {
-                install_crash_handler();
-
-                r = mount_cgroup_controllers(arg_join_controllers);
+                /* Remember open file descriptors for later deserialization */
+                r = collect_fds(&fds, &error_message);
                 if (r < 0)
                         goto finish;
+
+                /* Give up any control of the console, but make sure its initialized. */
+                setup_console_terminal(skip_setup);
+
+                /* Open the logging devices, if possible and necessary */
+                log_open();
         }
 
         log_execution_mode(&first_boot);
 
-        if (arg_action == ACTION_RUN) {
-                r = initialize_runtime(skip_setup,
-                                       &saved_rlimit_nofile,
-                                       &saved_rlimit_memlock,
-                                       &error_message);
-                if (r < 0)
-                        goto finish;
-        }
+        r = initialize_runtime(skip_setup,
+                               &saved_rlimit_nofile,
+                               &saved_rlimit_memlock,
+                               &error_message);
+        if (r < 0)
+                goto finish;
 
         r = manager_new(arg_system ? UNIT_FILE_SYSTEM : UNIT_FILE_USER,
                         arg_action == ACTION_TEST ? MANAGER_TEST_FULL : 0,
@@ -2416,24 +2546,10 @@ int main(int argc, char *argv[]) {
                  "Loaded units and determined initial transaction in %s.",
                  format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
 
-        if (arg_system) {
-                _cleanup_free_ char *taint;
-
-                taint = manager_taint_string(m);
-                if (!isempty(taint))
-                        log_struct(LOG_NOTICE,
-                                   LOG_MESSAGE("System is tainted: %s", taint),
-                                   "TAINT=%s", taint,
-                                   "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR,
-                                   NULL);
-        }
+        log_taint_string(m);
 
         if (arg_action == ACTION_TEST) {
-                printf("-> By units:\n");
-                manager_dump_units(m, stdout, "\t");
-
-                printf("-> By jobs:\n");
-                manager_dump_jobs(m, stdout, "\t");
+                test_summary(m);
                 retval = EXIT_SUCCESS;
                 goto finish;
         }
