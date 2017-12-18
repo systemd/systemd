@@ -277,9 +277,9 @@ static int manager_connect_bus(Manager *m) {
                 return r;
         }
 
-        r = sd_bus_request_name(m->bus, "org.freedesktop.machine1", 0);
+        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.machine1", 0, NULL, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to register name: %m");
+                return log_error_errno(r, "Failed to request name: %m");
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)

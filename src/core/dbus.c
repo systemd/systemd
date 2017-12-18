@@ -826,14 +826,12 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 log_warning_errno(r, "Failed to subscribe to activation signal: %m");
 
-        /* Allow replacing of our name, to ease implementation of
-         * reexecution, where we keep the old connection open until
-         * after the new connection is set up and the name installed
-         * to allow clients to synchronously wait for reexecution to
-         * finish */
-        r = sd_bus_request_name(bus,"org.freedesktop.systemd1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_ALLOW_REPLACEMENT);
+        /* Allow replacing of our name, to ease implementation of reexecution, where we keep the old connection open
+         * until after the new connection is set up and the name installed to allow clients to synchronously wait for
+         * reexecution to finish */
+        r = sd_bus_request_name_async(bus, NULL, "org.freedesktop.systemd1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_ALLOW_REPLACEMENT, NULL, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to register name: %m");
+                return log_error_errno(r, "Failed to request name: %m");
 
         r = manager_sync_bus_names(m, bus);
         if (r < 0)
