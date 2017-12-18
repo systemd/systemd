@@ -38,7 +38,7 @@
 
 struct reply_callback {
         sd_bus_message_handler_t callback;
-        usec_t timeout;
+        usec_t timeout_usec; /* this is a relative timeout until we reach the BUS_HELLO state, and an absolute one right after */
         uint64_t cookie;
         unsigned prioq_idx;
 };
@@ -157,10 +157,10 @@ struct sd_bus_slot {
 
 enum bus_state {
         BUS_UNSET,
-        BUS_WATCH_BIND, /* waiting for the socket to appear via inotify */
-        BUS_OPENING,
-        BUS_AUTHENTICATING,
-        BUS_HELLO,
+        BUS_WATCH_BIND,      /* waiting for the socket to appear via inotify */
+        BUS_OPENING,         /* the kernel's connect() is still not ready */
+        BUS_AUTHENTICATING,  /* we are currently in the "SASL" authorization phase of dbus */
+        BUS_HELLO,           /* we are waiting for the Hello() response */
         BUS_RUNNING,
         BUS_CLOSING,
         BUS_CLOSED

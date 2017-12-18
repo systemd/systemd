@@ -461,7 +461,24 @@ static int bus_send_hello(sd_bus *bus) {
 }
 
 int bus_start_running(sd_bus *bus) {
+        struct reply_callback *c;
+        Iterator i;
+        usec_t n;
+
         assert(bus);
+        assert(bus->state < BUS_HELLO);
+
+        /* We start all method call timeouts when we enter BUS_HELLO or BUS_RUNNING mode. At this point let's convert
+         * all relative to absolute timestamps. Note that we do not reshuffle the reply callback priority queue since
+         * adding a fixed value to all entries should not alter the internal order. */
+
+        n = now(CLOCK_MONOTONIC);
+        ORDERED_HASHMAP_FOREACH(c, bus->reply_callbacks, i) {
+                if (c->timeout_usec == 0)
+                        continue;
+
+                c->timeout_usec = usec_add(n, c->timeout_usec);
+        }
 
         if (bus->bus_client) {
                 bus->state = BUS_HELLO;
@@ -1721,26 +1738,35 @@ _public_ int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destinat
         return sd_bus_send(bus, m, cookie);
 }
 
-static usec_t calc_elapse(uint64_t usec) {
+static usec_t calc_elapse(sd_bus *bus, uint64_t usec) {
+        assert(bus);
+
         if (usec == (uint64_t) -1)
                 return 0;
 
-        return now(CLOCK_MONOTONIC) + usec;
+        /* We start all timeouts the instant we enter BUS_HELLO/BUS_RUNNING state, so that the don't run in parallel
+         * with any connection setup states. Hence, if a method callback is started earlier than that we just store the
+         * relative timestamp, and afterwards the absolute one. */
+
+        if (IN_SET(bus->state, BUS_WATCH_BIND, BUS_OPENING, BUS_AUTHENTICATING))
+                return usec;
+        else
+                return now(CLOCK_MONOTONIC) + usec;
 }
 
 static int timeout_compare(const void *a, const void *b) {
         const struct reply_callback *x = a, *y = b;
 
-        if (x->timeout != 0 && y->timeout == 0)
+        if (x->timeout_usec != 0 && y->timeout_usec == 0)
                 return -1;
 
-        if (x->timeout == 0 && y->timeout != 0)
+        if (x->timeout_usec == 0 && y->timeout_usec != 0)
                 return 1;
 
-        if (x->timeout < y->timeout)
+        if (x->timeout_usec < y->timeout_usec)
                 return -1;
 
-        if (x->timeout > y->timeout)
+        if (x->timeout_usec > y->timeout_usec)
                 return 1;
 
         return 0;
@@ -1800,11 +1826,11 @@ _public_ int sd_bus_call_async(
                 return r;
         }
 
-        s->reply_callback.timeout = calc_elapse(m->timeout);
-        if (s->reply_callback.timeout != 0) {
+        s->reply_callback.timeout_usec = calc_elapse(bus, m->timeout);
+        if (s->reply_callback.timeout_usec != 0) {
                 r = prioq_put(bus->reply_callbacks_prioq, &s->reply_callback, &s->reply_callback.prioq_idx);
                 if (r < 0) {
-                        s->reply_callback.timeout = 0;
+                        s->reply_callback.timeout_usec = 0;
                         return r;
                 }
         }
@@ -1891,7 +1917,7 @@ _public_ int sd_bus_call(
         if (r < 0)
                 goto fail;
 
-        timeout = calc_elapse(m->timeout);
+        timeout = calc_elapse(bus, m->timeout);
 
         for (;;) {
                 usec_t left;
@@ -2099,12 +2125,12 @@ _public_ int sd_bus_get_timeout(sd_bus *bus, uint64_t *timeout_usec) {
                         return 0;
                 }
 
-                if (c->timeout == 0) {
+                if (c->timeout_usec == 0) {
                         *timeout_usec = (uint64_t) -1;
                         return 0;
                 }
 
-                *timeout_usec = c->timeout;
+                *timeout_usec = c->timeout_usec;
                 return 1;
 
         case BUS_CLOSING:
@@ -2131,13 +2157,14 @@ static int process_timeout(sd_bus *bus) {
         int r;
 
         assert(bus);
+        assert(IN_SET(bus->state, BUS_RUNNING, BUS_HELLO));
 
         c = prioq_peek(bus->reply_callbacks_prioq);
         if (!c)
                 return 0;
 
         n = now(CLOCK_MONOTONIC);
-        if (c->timeout > n)
+        if (c->timeout_usec > n)
                 return 0;
 
         r = bus_message_new_synthetic_error(
@@ -2153,7 +2180,7 @@ static int process_timeout(sd_bus *bus) {
                 return r;
 
         assert_se(prioq_pop(bus->reply_callbacks_prioq) == c);
-        c->timeout = 0;
+        c->timeout_usec = 0;
 
         ordered_hashmap_remove(bus->reply_callbacks, &c->cookie);
         c->cookie = 0;
@@ -2264,9 +2291,9 @@ static int process_reply(sd_bus *bus, sd_bus_message *m) {
                         return r;
         }
 
-        if (c->timeout != 0) {
+        if (c->timeout_usec != 0) {
                 prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
-                c->timeout = 0;
+                c->timeout_usec = 0;
         }
 
         is_hello = bus->state == BUS_HELLO && c->callback == hello_callback;
@@ -2602,9 +2629,9 @@ static int process_closing_reply_callback(sd_bus *bus, struct reply_callback *c)
         if (r < 0)
                 return r;
 
-        if (c->timeout != 0) {
+        if (c->timeout_usec != 0) {
                 prioq_remove(bus->reply_callbacks_prioq, c, &c->prioq_idx);
-                c->timeout = 0;
+                c->timeout_usec = 0;
         }
 
         ordered_hashmap_remove(bus->reply_callbacks, &c->cookie);

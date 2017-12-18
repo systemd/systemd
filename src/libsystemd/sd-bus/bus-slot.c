@@ -81,7 +81,7 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                 if (slot->reply_callback.cookie != 0)
                         ordered_hashmap_remove(slot->bus->reply_callbacks, &slot->reply_callback.cookie);
 
-                if (slot->reply_callback.timeout != 0)
+                if (slot->reply_callback.timeout_usec != 0)
                         prioq_remove(slot->bus->reply_callbacks_prioq, &slot->reply_callback, &slot->reply_callback.prioq_idx);
 
                 break;
