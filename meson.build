@@ -1231,8 +1231,7 @@ includes = include_directories('src/basic',
                                'src/libsystemd/sd-netlink',
                                'src/libsystemd/sd-network',
                                'src/libsystemd-network',
-                               '.',
-                              )
+                               '.')
 
 add_project_arguments('-include', 'config.h', language : 'c')
 
@@ -1259,6 +1258,7 @@ libsystemd_sym_path = '@0@/@1@'.format(meson.current_source_dir(), libsystemd_sy
 libsystemd = shared_library(
         'systemd',
         journal_internal_sources,
+        gcrypt_util_sources,
         version : libsystemd_version,
         include_directories : includes,
         link_args : ['-shared',

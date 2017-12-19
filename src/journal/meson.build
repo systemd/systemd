@@ -44,8 +44,6 @@ if conf.get('HAVE_GCRYPT') == 1
                 fsprg.c
                 fsprg.h
         '''.split())
-
-        journal_internal_sources += gcrypt_util_sources
 endif
 
 ############################################################

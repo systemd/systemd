@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-basic_sources_plain = files('''
+basic_sources = files('''
         MurmurHash2.c
         MurmurHash2.h
         af-list.c
@@ -294,7 +294,7 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
         generated_gperf_headers += [target1, target2]
 endforeach
 
-basic_sources = basic_sources_plain + [missing_h] + generated_gperf_headers
+basic_sources += [missing_h] + generated_gperf_headers
 
 libbasic = static_library(
         'basic',
@@ -303,6 +303,6 @@ libbasic = static_library(
         dependencies : [threads,
                         libcap,
                         libblkid,
-                        libselinux,
-                       ],
+                        libselinux],
+        c_args : ['-fvisibility=default'],
         install : false)

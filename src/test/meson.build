@@ -119,6 +119,7 @@ tests += [
 
         [['src/test/test-dns-domain.c'],
          [libcore,
+          libshared,
           libsystemd_network],
          []],
 
@@ -167,7 +168,7 @@ tests += [
          []],
 
         [['src/test/test-copy.c'],
-         [libshared_static],
+         [],
          []],
 
         [['src/test/test-sigbus.c'],
