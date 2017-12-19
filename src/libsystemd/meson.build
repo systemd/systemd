@@ -100,7 +100,8 @@ libsystemd_static = static_library(
         include_directories : includes,
         link_with : libbasic,
         dependencies : [threads,
-                        librt])
+                        librt],
+        c_args : ['-fvisibility=default'])
 
 libsystemd_sym = 'src/libsystemd/libsystemd.sym'
 
