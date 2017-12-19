@@ -68,6 +68,7 @@ Only the most important generic unit settings are available for transient units.
   ConditionACPower=
   ConditionUser=
   ConditionGroup=
+  ConditionControlGroupController=
   AssertPathExists=
   AssertPathExistsGlob=
   AssertPathIsDirectory=
@@ -88,6 +89,7 @@ Only the most important generic unit settings are available for transient units.
   AssertACPower=
   AssertUser=
   AssertGroup=
+  AssertControlGroupController=
 ✓ CollectMode=
 ```
 
