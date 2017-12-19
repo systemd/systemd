@@ -3042,7 +3042,7 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                          "member='NameOwnerChanged',"
                          "arg0='", name, "'");
 
-        return sd_bus_add_match(bus, &u->match_bus_slot, match, signal_name_owner_changed, u);
+        return sd_bus_add_match_async(bus, &u->match_bus_slot, match, signal_name_owner_changed, NULL, u);
 }
 
 int unit_watch_bus_name(Unit *u, const char *name) {

@@ -152,16 +152,15 @@ int manager_connect_bus(Manager *m) {
                 return 0;
         }
 
-        r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
-                             "type='signal',"
-                             "sender='org.freedesktop.login1',"
-                             "interface='org.freedesktop.login1.Manager',"
-                             "member='PrepareForSleep',"
-                             "path='/org/freedesktop/login1'",
-                             match_prepare_for_sleep,
-                             m);
+        r = sd_bus_match_signal_async(
+                        m->bus, &m->prepare_for_sleep_slot,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "PrepareForSleep",
+                        match_prepare_for_sleep, NULL, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match for PrepareForSleep: %m");
+                return log_error_errno(r, "Failed to request match for PrepareForSleep: %m");
 
         r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/network1", "org.freedesktop.network1.Manager", manager_vtable, m);
         if (r < 0)

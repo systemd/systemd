@@ -1929,16 +1929,18 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
-                             "type='signal',"
-                             "sender='org.freedesktop.login1',"
-                             "interface='org.freedesktop.login1.Manager',"
-                             "member='PrepareForSleep',"
-                             "path='/org/freedesktop/login1'",
-                             match_prepare_for_sleep,
-                             m);
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        &m->prepare_for_sleep_slot,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "PrepareForSleep",
+                        match_prepare_for_sleep,
+                        NULL,
+                        m);
         if (r < 0)
-                log_error_errno(r, "Failed to add match for PrepareForSleep: %m");
+                log_error_errno(r, "Failed to request match for PrepareForSleep: %m");
 
         return 0;
 }

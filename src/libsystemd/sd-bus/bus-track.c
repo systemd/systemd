@@ -259,9 +259,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
 
         bus_track_remove_from_queue(track); /* don't dispatch this while we work in it */
 
-        track->n_adding++; /* make sure we aren't dispatched while we synchronously add this match */
-        r = sd_bus_add_match(track->bus, &n->slot, match, on_name_owner_changed, track);
-        track->n_adding--;
+        r = sd_bus_add_match_async(track->bus, &n->slot, match, on_name_owner_changed, NULL, track);
         if (r < 0) {
                 bus_track_add_to_queue(track);
                 return r;

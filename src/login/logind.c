@@ -696,48 +696,49 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add user enumerator: %m");
 
-        r = sd_bus_add_match(m->bus,
-                             NULL,
-                             "type='signal',"
-                             "sender='org.freedesktop.systemd1',"
-                             "interface='org.freedesktop.systemd1.Manager',"
-                             "member='JobRemoved',"
-                             "path='/org/freedesktop/systemd1'",
-                             match_job_removed, m);
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "JobRemoved",
+                        match_job_removed, NULL, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match for JobRemoved: %m");
+                return log_error_errno(r, "Failed to request match for JobRemoved: %m");
 
-        r = sd_bus_add_match(m->bus,
-                             NULL,
-                             "type='signal',"
-                             "sender='org.freedesktop.systemd1',"
-                             "interface='org.freedesktop.systemd1.Manager',"
-                             "member='UnitRemoved',"
-                             "path='/org/freedesktop/systemd1'",
-                             match_unit_removed, m);
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "UnitRemoved",
+                        match_unit_removed, NULL, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match for UnitRemoved: %m");
+                return log_error_errno(r, "Failed to request match for UnitRemoved: %m");
 
-        r = sd_bus_add_match(m->bus,
-                             NULL,
-                             "type='signal',"
-                             "sender='org.freedesktop.systemd1',"
-                             "interface='org.freedesktop.DBus.Properties',"
-                             "member='PropertiesChanged'",
-                             match_properties_changed, m);
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.systemd1",
+                        NULL,
+                        "org.freedesktop.DBus.Properties",
+                        "PropertiesChanged",
+                        match_properties_changed, NULL, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match for PropertiesChanged: %m");
+                return log_error_errno(r, "Failed to request match for PropertiesChanged: %m");
 
-        r = sd_bus_add_match(m->bus,
-                             NULL,
-                             "type='signal',"
-                             "sender='org.freedesktop.systemd1',"
-                             "interface='org.freedesktop.systemd1.Manager',"
-                             "member='Reloading',"
-                             "path='/org/freedesktop/systemd1'",
-                             match_reloading, m);
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "Reloading",
+                        match_reloading, NULL, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match for Reloading: %m");
+                return log_error_errno(r, "Failed to request match for Reloading: %m");
 
         r = sd_bus_call_method(
                         m->bus,

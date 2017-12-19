@@ -68,7 +68,7 @@ static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_
 }
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
-        _cleanup_free_ char *match = NULL;
+        const char *match;
         const char *unique;
         int r;
 
@@ -85,23 +85,21 @@ int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
         if (r < 0)
                 return r;
 
-        r = asprintf(&match,
-                     "sender='org.freedesktop.DBus',"
-                     "type='signal',"
-                     "interface='org.freedesktop.DBus',"
-                     "member='NameOwnerChanged',"
-                     "path='/org/freedesktop/DBus',"
-                     "arg0='%s',"
-                     "arg1='%s',"
-                     "arg2=''", name, unique);
-        if (r < 0)
-                return -ENOMEM;
+        match = strjoina(
+                        "sender='org.freedesktop.DBus',"
+                        "type='signal',"
+                        "interface='org.freedesktop.DBus',"
+                        "member='NameOwnerChanged',"
+                        "path='/org/freedesktop/DBus',"
+                        "arg0='", name, "',",
+                        "arg1='", unique, "',",
+                        "arg2=''");
 
-        r = sd_bus_add_match(bus, NULL, match, name_owner_change_callback, e);
+        r = sd_bus_add_match_async(bus, NULL, match, name_owner_change_callback, NULL, e);
         if (r < 0)
                 return r;
 
-        r = sd_bus_release_name(bus, name);
+        r = sd_bus_release_name_async(bus, NULL, name, NULL, NULL);
         if (r < 0)
                 return r;
 

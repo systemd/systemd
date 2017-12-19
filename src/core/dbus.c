@@ -604,18 +604,16 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
         assert(m);
         assert(bus);
 
-        r = sd_bus_add_match(
+        r = sd_bus_match_signal_async(
                         bus,
                         NULL,
-                        "sender='org.freedesktop.DBus.Local',"
-                        "type='signal',"
-                        "path='/org/freedesktop/DBus/Local',"
-                        "interface='org.freedesktop.DBus.Local',"
-                        "member='Disconnected'",
-                        signal_disconnected, m);
-
+                        "org.freedesktop.DBus.Local",
+                        "/org/freedesktop/DBus/Local",
+                        "org.freedesktop.DBus.Local",
+                        "Disconnected",
+                        signal_disconnected, NULL, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to register match for Disconnected message: %m");
+                return log_error_errno(r, "Failed to request match for Disconnected message: %m");
 
         return 0;
 }
@@ -814,15 +812,14 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
                         log_error_errno(r, "Failed to subscribe to NameOwnerChanged signal for '%s': %m", name);
         }
 
-        r = sd_bus_add_match(
+        r = sd_bus_match_signal_async(
                         bus,
                         NULL,
-                        "type='signal',"
-                        "sender='org.freedesktop.DBus',"
-                        "path='/org/freedesktop/DBus',"
-                        "interface='org.freedesktop.systemd1.Activator',"
-                        "member='ActivationRequest'",
-                        signal_activation_request, m);
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.systemd1.Activator",
+                        "ActivationRequest",
+                        signal_activation_request, NULL, m);
         if (r < 0)
                 log_warning_errno(r, "Failed to subscribe to activation signal: %m");
 
@@ -856,7 +853,6 @@ static int bus_init_api(Manager *m) {
                         r = sd_bus_open_system(&bus);
                 else
                         r = sd_bus_open_user(&bus);
-
                 if (r < 0) {
                         log_debug("Failed to connect to API bus, retrying later...");
                         return 0;
@@ -893,16 +889,16 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
 
         /* if we are a user instance we get the Released message via the system bus */
         if (MANAGER_IS_USER(m)) {
-                r = sd_bus_add_match(
+                r = sd_bus_match_signal_async(
                                 bus,
                                 NULL,
-                                "type='signal',"
-                                "interface='org.freedesktop.systemd1.Agent',"
-                                "member='Released',"
-                                "path='/org/freedesktop/systemd1/agent'",
-                                signal_agent_released, m);
+                                NULL,
+                                "/org/freedesktop/systemd1/agent",
+                                "org.freedesktop.systemd1.Agent",
+                                "Released",
+                                signal_agent_released, NULL, m);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to register Released match on system bus: %m");
+                        log_warning_errno(r, "Failed to request Released match on system bus: %m");
         }
 
         log_debug("Successfully connected to system bus.");

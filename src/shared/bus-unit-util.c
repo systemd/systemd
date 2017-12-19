@@ -1730,31 +1730,25 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
         /* When we are a bus client we match by sender. Direct
          * connections OTOH have no initialized sender field, and
          * hence we ignore the sender then */
-        r = sd_bus_add_match(
+        r = sd_bus_match_signal_async(
                         bus,
                         &d->slot_job_removed,
-                        bus->bus_client ?
-                        "type='signal',"
-                        "sender='org.freedesktop.systemd1',"
-                        "interface='org.freedesktop.systemd1.Manager',"
-                        "member='JobRemoved',"
-                        "path='/org/freedesktop/systemd1'" :
-                        "type='signal',"
-                        "interface='org.freedesktop.systemd1.Manager',"
-                        "member='JobRemoved',"
-                        "path='/org/freedesktop/systemd1'",
-                        match_job_removed, d);
+                        bus->bus_client ? "org.freedesktop.systemd1" : NULL,
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "JobRemoved",
+                        match_job_removed, NULL, d);
         if (r < 0)
                 return r;
 
-        r = sd_bus_add_match(
+        r = sd_bus_match_signal_async(
                         bus,
                         &d->slot_disconnected,
-                        "type='signal',"
-                        "sender='org.freedesktop.DBus.Local',"
-                        "interface='org.freedesktop.DBus.Local',"
-                        "member='Disconnected'",
-                        match_disconnected, d);
+                        "org.freedesktop.DBus.Local",
+                        NULL,
+                        "org.freedesktop.DBus.Local",
+                        "Disconnected",
+                        match_disconnected, NULL, d);
         if (r < 0)
                 return r;
 
