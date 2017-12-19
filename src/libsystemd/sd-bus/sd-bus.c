@@ -1396,6 +1396,13 @@ _public_ int sd_bus_is_open(sd_bus *bus) {
         return BUS_IS_OPEN(bus->state);
 }
 
+_public_ int sd_bus_is_ready(sd_bus *bus) {
+        assert_return(bus, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        return bus->state == BUS_RUNNING;
+}
+
 _public_ int sd_bus_can_send(sd_bus *bus, char type) {
         int r;
 
