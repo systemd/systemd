@@ -31,7 +31,7 @@ basic_dns_sources = files('''
 
 dns_type_h = files('dns-type.h')[0]
 
-systemd_resolved_only_sources = files('''
+systemd_resolved_sources = files('''
         resolved.c
         resolved-manager.c
         resolved-manager.h
@@ -80,7 +80,7 @@ systemd_resolved_only_sources = files('''
         resolved-etc-hosts.c
 '''.split())
 
-systemd_resolve_only_sources = files('resolve-tool.c')
+systemd_resolve_sources = files('resolve-tool.c')
 
 ############################################################
 
@@ -141,14 +141,13 @@ resolved_dnssd_gperf_c = custom_target(
         output : 'resolved-dnssd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_resolved_sources = (basic_dns_sources +
-                            [resolved_gperf_c, resolved_dnssd_gperf_c] +
-                            systemd_resolved_only_sources +
-                            dns_type_headers)
+libsystemd_resolve_core = static_library(
+        'systemd-resolve-core',
+        basic_dns_sources,
+        dns_type_headers,
+        include_directories : includes)
 
-systemd_resolve_sources = (basic_dns_sources +
-                           systemd_resolve_only_sources +
-                           dns_type_headers)
+systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
 
 if conf.get('ENABLE_RESOLVE') == 1
         install_data('org.freedesktop.resolve1.conf',
@@ -178,37 +177,37 @@ endif
 
 tests += [
         [['src/resolve/test-resolve-tables.c',
-          basic_dns_sources,
           dns_type_headers,
           'src/shared/test-tables.h'],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],
          'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dns-packet.c',
-          basic_dns_sources,
           dns_type_headers],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],
          'ENABLE_RESOLVE'],
 
         [['src/resolve/test-resolved-packet.c',
-          basic_dns_sources,
           dns_type_headers],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],
          'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dnssec.c',
-          basic_dns_sources,
           dns_type_headers],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],
