@@ -117,11 +117,31 @@ else
         udev_rpath = ''
 endif
 
-libudev_internal = static_library(
-        'udev',
+libudev_basic = static_library(
+        'udev-basic',
         libudev_sources,
         include_directories : includes,
-        link_with : udev_link_with)
+        c_args : ['-fvisibility=default'])
+
+libudev_static = static_library(
+        'udev',
+        'udev.h',
+        include_directories : includes,
+        link_with : udev_link_with,
+        link_whole : libudev_basic)
+
+libudev = shared_library(
+        'udev',
+        version : libudev_version,
+        include_directories : includes,
+        link_args : ['-shared',
+                     '-Wl,--version-script=' + libudev_sym_path],
+        link_with : [libsystemd_static, libshared_static],
+        link_whole : libudev_basic,
+        dependencies : [threads],
+        link_depends : libudev_sym,
+        install : true,
+        install_dir : rootlibdir)
 
 libudev_core_includes = [includes, include_directories('net')]
 libudev_core = static_library(
@@ -150,7 +170,7 @@ foreach prog : [['ata_id/ata_id.c'],
                    prog,
                    include_directories : includes,
                    c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
-                   link_with : [libudev_internal],
+                   link_with : [libudev_static],
                    install_rpath : udev_rpath,
                    install : true,
                    install_dir : udevlibexecdir)
