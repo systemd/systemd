@@ -129,8 +129,8 @@ static void print_status_info(const StatusInfo *i) {
                "systemd-timesyncd.service active: %s\n"
                "                 RTC in local TZ: %s\n",
                strna(i->timezone), have_time && n > 0 ? a : "n/a",
-               i->ntp_capable ? yes_no(i->ntp_enabled) : "n/a",
                yes_no(i->ntp_synced),
+               i->ntp_capable ? yes_no(i->ntp_enabled) : "n/a",
                yes_no(i->rtc_local));
 
         if (i->rtc_local)
