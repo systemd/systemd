@@ -630,6 +630,9 @@ int bus_cgroup_set_property(
 
                 while ((r = sd_bus_message_read(message, "(st)", &path, &u64)) > 0) {
 
+                        if (!path_startswith(path, "/dev"))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s specified in %s= is not a device file in /dev", name, path);
+
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupIODeviceLimit *a = NULL, *b;
 
@@ -713,6 +716,9 @@ int bus_cgroup_set_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(st)", &path, &weight)) > 0) {
+
+                        if (!path_startswith(path, "/dev"))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s specified in %s= is not a device file in /dev", name, path);
 
                         if (!CGROUP_WEIGHT_IS_OK(weight) || weight == CGROUP_WEIGHT_INVALID)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "IODeviceWeight= value out of range");
@@ -855,6 +861,9 @@ int bus_cgroup_set_property(
 
                 while ((r = sd_bus_message_read(message, "(st)", &path, &u64)) > 0) {
 
+                        if (!path_startswith(path, "/dev"))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s specified in %s= is not a device file in /dev", name, path);
+
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 CGroupBlockIODeviceBandwidth *a = NULL, *b;
 
@@ -950,6 +959,9 @@ int bus_cgroup_set_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(st)", &path, &weight)) > 0) {
+
+                        if (!path_startswith(path, "/dev"))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s specified in %s= is not a device file in /dev", name, path);
 
                         if (!CGROUP_BLKIO_WEIGHT_IS_OK(weight) || weight == CGROUP_BLKIO_WEIGHT_INVALID)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "BlockIODeviceWeight= out of range");
@@ -1170,10 +1182,8 @@ int bus_cgroup_set_property(
 
                 while ((r = sd_bus_message_read(message, "(ss)", &path, &rwm)) > 0) {
 
-                        if ((!path_startswith(path, "/dev/") &&
-                             !path_startswith(path, "/run/systemd/inaccessible/") &&
-                             !startswith(path, "block-") &&
-                             !startswith(path, "char-")) ||
+                        if ((!is_deviceallow_pattern(path) &&
+                             !path_startswith(path, "/run/systemd/inaccessible/")) ||
                             strpbrk(path, WHITESPACE))
                             return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node");
 

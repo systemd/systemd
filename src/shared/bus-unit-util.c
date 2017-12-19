@@ -480,23 +480,15 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 0);
                 else {
-                        const char *path, *rwm, *e;
+                        const char *path = eq, *rwm = NULL, *e;
 
                         e = strchr(eq, ' ');
                         if (e) {
                                 path = strndupa(eq, e - eq);
                                 rwm = e+1;
-                        } else {
-                                path = eq;
-                                rwm = "";
                         }
 
-                        if (!is_deviceallow_pattern(path)) {
-                                log_error("%s is not a device file in /dev.", path);
-                                return -EINVAL;
-                        }
-
-                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, path, rwm);
+                        r = sd_bus_message_append(m, "(sv)", field, "a(ss)", 1, path, strempty(rwm));
                 }
 
                 if (r < 0)
@@ -514,18 +506,13 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         uint64_t bytes;
 
                         e = strchr(eq, ' ');
-                        if (e) {
-                                path = strndupa(eq, e - eq);
-                                bandwidth = e+1;
-                        } else {
+                        if (!e) {
                                 log_error("Failed to parse %s value %s.", field, eq);
                                 return -EINVAL;
                         }
 
-                        if (!path_startswith(path, "/dev")) {
-                                log_error("%s is not a device file in /dev.", path);
-                                return -EINVAL;
-                        }
+                        path = strndupa(eq, e - eq);
+                        bandwidth = e+1;
 
                         if (streq(bandwidth, "infinity")) {
                                 bytes = CGROUP_LIMIT_MAX;
@@ -553,18 +540,13 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         uint64_t u;
 
                         e = strchr(eq, ' ');
-                        if (e) {
-                                path = strndupa(eq, e - eq);
-                                weight = e+1;
-                        } else {
+                        if (!e) {
                                 log_error("Failed to parse %s value %s.", field, eq);
                                 return -EINVAL;
                         }
 
-                        if (!path_startswith(path, "/dev")) {
-                                log_error("%s is not a device file in /dev.", path);
-                                return -EINVAL;
-                        }
+                        path = strndupa(eq, e - eq);
+                        weight = e+1;
 
                         r = safe_atou64(weight, &u);
                         if (r < 0)
