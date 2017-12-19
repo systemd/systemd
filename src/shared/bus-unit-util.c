@@ -124,6 +124,7 @@ DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_shares_parse)
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_weight_parse)
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, unsigned long, mount_propagation_flags_from_string)
 DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, usec_t, parse_sec)
+DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, safe_atou64)
 DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, mode_t, parse_mode)
 DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, unsigned, safe_atou)
 DEFINE_BUS_APPEND_PARSE_PTR("x", int64_t, int64_t, safe_atoi64)
@@ -423,7 +424,6 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         }
 
         if (STR_IN_SET(field, "MemoryLow", "MemoryHigh", "MemoryMax", "MemorySwapMax", "MemoryLimit", "TasksMax")) {
-                uint64_t val;
 
                 if (isempty(eq) || streq(eq, "infinity")) {
                         r = sd_bus_message_append(m, "(sv)", field, "t", CGROUP_LIMIT_MAX);
@@ -449,18 +449,10 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 }
 
                 if (streq(field, "TasksMax"))
-                        r = safe_atou64(eq, &val);
-                else
-                        r = parse_size(eq, 1024, &val);
+                        return bus_append_safe_atou64(m, field, eq);
 
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
+                return bus_append_parse_size(m, field, eq, 1024);
 
-                r = sd_bus_message_append(m, "(sv)", field, "t", val);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
         }
 
         if (streq(field, "CPUQuota")) {
