@@ -541,4 +541,6 @@ global:
         sd_bus_match_signal;
         sd_bus_match_signal_async;
         sd_bus_is_ready;
+        sd_bus_set_connected_signal;
+        sd_bus_get_connected_signal;
 } LIBSYSTEMD_236;

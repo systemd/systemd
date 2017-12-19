@@ -219,6 +219,7 @@ struct sd_bus {
         bool is_monitor:1;
         bool accept_fd:1;
         bool attach_timestamp:1;
+        bool connected_signal:1;
 
         int use_memfd;
 

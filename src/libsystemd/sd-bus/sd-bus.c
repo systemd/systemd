@@ -392,6 +392,66 @@ _public_ int sd_bus_get_watch_bind(sd_bus *bus) {
         return bus->watch_bind;
 }
 
+_public_ int sd_bus_set_connected_signal(sd_bus *bus, int b) {
+        assert_return(bus, -EINVAL);
+        assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        bus->connected_signal = b;
+        return 0;
+}
+
+_public_ int sd_bus_get_connected_signal(sd_bus *bus) {
+        assert_return(bus, -EINVAL);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+
+        return bus->connected_signal;
+}
+
+static int synthesize_connected_signal(sd_bus *bus) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        assert(bus);
+
+        /* If enabled, synthesizes a local "Connected" signal mirroring the local "Disconnected" signal. This is called
+         * whenever we fully established a connection, i.e. after the authorization phase, and after receiving the
+         * Hello() reply. Or in other words, whenver we enter BUS_RUNNING state.
+         *
+         * This is useful so that clients can start doing stuff whenver the connection is fully established in a way
+         * that works independently from whether we connected to a full bus or just a direct connection. */
+
+        if (!bus->connected_signal)
+                return 0;
+
+        r = sd_bus_message_new_signal(
+                        bus,
+                        &m,
+                        "/org/freedesktop/DBus/Local",
+                        "org.freedesktop.DBus.Local",
+                        "Connected");
+        if (r < 0)
+                return r;
+
+        bus_message_set_sender_local(bus, m);
+
+        r = bus_seal_synthetic_message(bus, m);
+        if (r < 0)
+                return r;
+
+        r = bus_rqueue_make_room(bus);
+        if (r < 0)
+                return r;
+
+        /* Insert at the very front */
+        memmove(bus->rqueue + 1, bus->rqueue, sizeof(sd_bus_message*) * bus->rqueue_size);
+        bus->rqueue[0] = m;
+        m = NULL;
+        bus->rqueue_size++;
+
+        return 0;
+}
+
 static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         const char *s;
         sd_bus *bus;
@@ -417,8 +477,13 @@ static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *e
         if (!bus->unique_name)
                 return -ENOMEM;
 
-        if (bus->state == BUS_HELLO)
+        if (bus->state == BUS_HELLO) {
                 bus->state = BUS_RUNNING;
+
+                r = synthesize_connected_signal(bus);
+                if (r < 0)
+                        return r;
+        }
 
         return 1;
 }
@@ -449,6 +514,7 @@ int bus_start_running(sd_bus *bus) {
         struct reply_callback *c;
         Iterator i;
         usec_t n;
+        int r;
 
         assert(bus);
         assert(bus->state < BUS_HELLO);
@@ -471,6 +537,11 @@ int bus_start_running(sd_bus *bus) {
         }
 
         bus->state = BUS_RUNNING;
+
+        r = synthesize_connected_signal(bus);
+        if (r < 0)
+                return r;
+
         return 1;
 }
 
