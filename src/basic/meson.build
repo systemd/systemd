@@ -306,3 +306,13 @@ libbasic = static_library(
                         libselinux],
         c_args : ['-fvisibility=default'],
         install : false)
+
+# A convenience library that is separate from libbasic to avoid
+# unnecessary linking to libgcrypt.
+libbasic_gcrypt = static_library(
+        'basic-gcrypt',
+        'gcrypt-util.c',
+        'gcrypt-util.h',
+        include_directories : includes,
+        dependencies : [libgcrypt],
+        c_args : ['-fvisibility=default'])

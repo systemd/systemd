@@ -56,8 +56,6 @@ shared_sources = '''
         firewall-util.h
         fstab-util.c
         fstab-util.h
-        gcrypt-util.c
-        gcrypt-util.h
         generator.c
         generator.h
         gpt.h
@@ -175,7 +173,8 @@ libshared = shared_library(
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_whole : [libshared_static,
-                      libbasic],
+                      libbasic,
+                      libbasic_gcrypt],
         c_args : ['-fvisibility=default'],
         dependencies : libshared_deps,
         install : true,
