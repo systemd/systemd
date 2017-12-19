@@ -17,7 +17,7 @@
 
 sd_login_c = files('sd-login/sd-login.c')
 
-libsystemd_internal_sources = files('''
+libsystemd_sources = files('''
         sd-bus/bus-bloom.c
         sd-bus/bus-bloom.h
         sd-bus/bus-common-errors.c
@@ -93,9 +93,9 @@ libsystemd_internal_sources = files('''
         sd-utf8/sd-utf8.c
 '''.split()) + sd_login_c
 
-libsystemd_internal = static_library(
+libsystemd_static = static_library(
         'systemd',
-        libsystemd_internal_sources,
+        libsystemd_sources,
         install : false,
         include_directories : includes,
         link_with : libbasic,

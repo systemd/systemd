@@ -67,7 +67,7 @@ tests += [
           'src/test/test-helper.c'],
          [libcore,
           libudev,
-          libsystemd_internal],
+          libsystemd_static],
          [threads,
           librt,
           libseccomp,
@@ -772,7 +772,7 @@ tests += [
 
         [['src/libsystemd/sd-bus/test-bus-error.c'],
          [libshared_static,
-          libsystemd_internal],
+          libsystemd_static],
          []],
 
         [['src/libsystemd/sd-bus/test-bus-track.c'],

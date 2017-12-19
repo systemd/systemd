@@ -113,7 +113,7 @@ if get_option('link-udev-shared')
         udev_rpath = rootlibexecdir
 else
         udev_link_with = [libshared_static,
-                          libsystemd_internal]
+                          libsystemd_static]
         udev_rpath = ''
 endif
 

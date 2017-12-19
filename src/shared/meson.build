@@ -164,7 +164,7 @@ libshared = shared_library(
         shared_sources,
         basic_sources,
         journal_internal_sources,
-        libsystemd_internal_sources,
+        libsystemd_sources,
         libudev_sources,
         include_directories : includes,
         link_args : ['-shared',
