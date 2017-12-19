@@ -1293,8 +1293,6 @@ static int bus_append_timer_property(sd_bus_message *m, const char *field, const
 }
 
 static int bus_append_unit_property(sd_bus_message *m, const char *field, const char *eq) {
-        UnitDependency dep;
-        int r;
 
         if (STR_IN_SET(field, "Description", "CollectMode", "FailureAction", "SuccessAction"))
 
@@ -1304,14 +1302,9 @@ static int bus_append_unit_property(sd_bus_message *m, const char *field, const 
 
                 return bus_append_parse_boolean(m, field, eq);
 
-        if ((dep = unit_dependency_from_string(field)) >= 0) {
+        if (unit_dependency_from_string(field) >= 0)
 
-                r = sd_bus_message_append(m, "(sv)", field, "as", 1, eq);
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                return bus_append_strv(m, field, eq, EXTRACT_QUOTES);
 
         return 0;
 }
