@@ -1169,7 +1169,7 @@ int bus_exec_context_set_transient_property(
 
         flags |= UNIT_PRIVATE;
 
-        if (streq(name, "User")) {
+        if (STR_IN_SET(name, "User", "Group")) {
                 const char *uu;
 
                 r = sd_bus_message_read(message, "s", &uu);
@@ -1177,36 +1177,18 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!isempty(uu) && !valid_user_group_name_or_id(uu))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user name: %s", uu);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s: %s", name, uu);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
-                        r = free_and_strdup(&c->user, empty_to_null(uu));
+                        if (streq(name, "User"))
+                                r = free_and_strdup(&c->user, empty_to_null(uu));
+                        else /* "Group" */
+                                r = free_and_strdup(&c->group, empty_to_null(uu));
                         if (r < 0)
                                 return r;
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "User=%s", uu);
-                }
-
-                return 1;
-
-        } else if (streq(name, "Group")) {
-                const char *gg;
-
-                r = sd_bus_message_read(message, "s", &gg);
-                if (r < 0)
-                        return r;
-
-                if (!isempty(gg) && !valid_user_group_name_or_id(gg))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group name: %s", gg);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-
-                        r = free_and_strdup(&c->group, empty_to_null(gg));
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "Group=%s", gg);
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, uu);
                 }
 
                 return 1;
@@ -1254,10 +1236,9 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
-                        if (isempty(id))
-                                c->syslog_identifier = mfree(c->syslog_identifier);
-                        else if (free_and_strdup(&c->syslog_identifier, id) < 0)
-                                return -ENOMEM;
+                        r = free_and_strdup(&c->syslog_identifier, empty_to_null(id));
+                        if (r < 0)
+                                return r;
 
                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "SyslogIdentifier=%s", id);
                 }
@@ -1823,17 +1804,17 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!path_is_absolute(s))
+                if (!isempty(s) && !path_is_absolute(s))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s takes an absolute path", name);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (streq(name, "TTYPath"))
-                                r = free_and_strdup(&c->tty_path, s);
+                                r = free_and_strdup(&c->tty_path, empty_to_null(s));
                         else if (streq(name, "RootImage"))
-                                r = free_and_strdup(&c->root_image, s);
+                                r = free_and_strdup(&c->root_image, empty_to_null(s));
                         else {
                                 assert(streq(name, "RootDirectory"));
-                                r = free_and_strdup(&c->root_directory, s);
+                                r = free_and_strdup(&c->root_directory, empty_to_null(s));
                         }
                         if (r < 0)
                                 return r;
@@ -1857,7 +1838,7 @@ int bus_exec_context_set_transient_property(
                 } else
                         missing_ok = false;
 
-                if (!streq(s, "~") && !path_is_absolute(s))
+                if (!isempty(s) && !streq(s, "~") && !path_is_absolute(s))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects an absolute path or '~'");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -1865,7 +1846,7 @@ int bus_exec_context_set_transient_property(
                                 c->working_directory = mfree(c->working_directory);
                                 c->working_directory_home = true;
                         } else {
-                                r = free_and_strdup(&c->working_directory, s);
+                                r = free_and_strdup(&c->working_directory, empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -1946,15 +1927,13 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (isempty(s))
-                        s = NULL;
-                else if (!fdname_is_valid(s))
+                if (!isempty(s) && !fdname_is_valid(s))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid file descriptor name");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
                         if (streq(name, "StandardInputFileDescriptorName")) {
-                                r = free_and_strdup(c->stdio_fdname + STDIN_FILENO, s);
+                                r = free_and_strdup(c->stdio_fdname + STDIN_FILENO, empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -1962,7 +1941,7 @@ int bus_exec_context_set_transient_property(
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardInput=fd:%s", exec_context_fdname(c, STDIN_FILENO));
 
                         } else if (streq(name, "StandardOutputFileDescriptorName")) {
-                                r = free_and_strdup(c->stdio_fdname + STDOUT_FILENO, s);
+                                r = free_and_strdup(c->stdio_fdname + STDOUT_FILENO, empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -1972,7 +1951,7 @@ int bus_exec_context_set_transient_property(
                         } else {
                                 assert(streq(name, "StandardErrorFileDescriptorName"));
 
-                                r = free_and_strdup(&c->stdio_fdname[STDERR_FILENO], s);
+                                r = free_and_strdup(&c->stdio_fdname[STDERR_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -1990,15 +1969,17 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!path_is_absolute(s))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute", s);
-                if (!path_is_normalized(s))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", s);
+                if (!isempty(s)) {
+                        if (!path_is_absolute(s))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute", s);
+                        if (!path_is_normalized(s))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", s);
+                }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
                         if (streq(name, "StandardInputFile")) {
-                                r = free_and_strdup(&c->stdio_file[STDIN_FILENO], s);
+                                r = free_and_strdup(&c->stdio_file[STDIN_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -2006,7 +1987,7 @@ int bus_exec_context_set_transient_property(
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardInput=file:%s", s);
 
                         } else if (streq(name, "StandardOutputFile")) {
-                                r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], s);
+                                r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -2016,7 +1997,7 @@ int bus_exec_context_set_transient_property(
                         } else {
                                 assert(streq(name, "StandardErrorFile"));
 
-                                r = free_and_strdup(&c->stdio_file[STDERR_FILENO], s);
+                                r = free_and_strdup(&c->stdio_file[STDERR_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -2635,15 +2616,16 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "SELinuxContext")) {
                 const char *s;
+
                 r = sd_bus_message_read(message, "s", &s);
                 if (r < 0)
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (isempty(s))
-                                c->selinux_context = mfree(c->selinux_context);
-                        else if (free_and_strdup(&c->selinux_context, s) < 0)
-                                return -ENOMEM;
+
+                        r = free_and_strdup(&c->selinux_context, empty_to_null(s));
+                        if (r < 0)
+                                return r;
 
                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, strempty(s));
                 }
