@@ -1490,30 +1490,38 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *joined = NULL;
+                        bool invert = !whitelist;
+                        char **s;
 
                         if (strv_isempty(l)) {
                                 c->address_families_whitelist = false;
                                 c->address_families = set_free(c->address_families);
-                        } else {
-                                char **s;
+
+                                unit_write_settingf(u, flags, name, "RestrictAddressFamilies=");
+                                return 1;
+                        }
+
+                        if (!c->address_families) {
+                                c->address_families = set_new(NULL);
+                                if (!c->address_families)
+                                        return log_oom();
 
                                 c->address_families_whitelist = whitelist;
+                        }
 
-                                r = set_ensure_allocated(&c->address_families, NULL);
-                                if (r < 0)
-                                        return r;
+                        STRV_FOREACH(s, l) {
+                                int af;
 
-                                STRV_FOREACH(s, l) {
-                                        int af;
+                                af = af_from_name(*s);
+                                if (af <= 0)
+                                        return -EINVAL;
 
-                                        af = af_from_name(*s);
-                                        if (af <= 0)
-                                                return -EINVAL;
-
+                                if (!invert == c->address_families_whitelist) {
                                         r = set_put(c->address_families, INT_TO_PTR(af));
                                         if (r < 0)
                                                 return r;
-                                }
+                                } else
+                                        (void) set_remove(c->address_families, INT_TO_PTR(af));
                         }
 
                         joined = strv_join(l, " ");
