@@ -1258,13 +1258,13 @@ libjournal_core = static_library(
 libsystemd_sym_path = '@0@/@1@'.format(meson.current_source_dir(), libsystemd_sym)
 libsystemd = shared_library(
         'systemd',
-        libsystemd_sources,
         journal_internal_sources,
         version : libsystemd_version,
         include_directories : includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic],
+        link_with : libbasic,
+        link_whole : libsystemd_static,
         dependencies : [threads,
                         libgcrypt,
                         librt,
