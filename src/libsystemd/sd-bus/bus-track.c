@@ -48,25 +48,13 @@ struct sd_bus_track {
         LIST_FIELDS(sd_bus_track, tracks);
 };
 
-#define MATCH_PREFIX                                        \
-        "type='signal',"                                    \
-        "sender='org.freedesktop.DBus',"                    \
-        "path='/org/freedesktop/DBus',"                     \
-        "interface='org.freedesktop.DBus',"                 \
-        "member='NameOwnerChanged',"                        \
-        "arg0='"
-
-#define MATCH_SUFFIX \
-        "'"
-
-#define MATCH_FOR_NAME(name)                                            \
-        ({                                                              \
-                char *_x;                                               \
-                size_t _l = strlen(name);                               \
-                _x = alloca(STRLEN(MATCH_PREFIX)+_l+STRLEN(MATCH_SUFFIX)+1); \
-                strcpy(stpcpy(stpcpy(_x, MATCH_PREFIX), name), MATCH_SUFFIX); \
-                _x;                                                     \
-        })
+#define MATCH_FOR_NAME(name)                            \
+        strjoina("type='signal',"                       \
+                 "sender='org.freedesktop.DBus',"       \
+                 "path='/org/freedesktop/DBus',"        \
+                 "interface='org.freedesktop.DBus',"    \
+                 "member='NameOwnerChanged',"           \
+                 "arg0='", name, "'")
 
 static struct track_item* track_item_free(struct track_item *i) {
 
