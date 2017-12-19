@@ -47,7 +47,7 @@ static char *arg_cipher = NULL;
 static unsigned arg_key_size = 0;
 static int arg_key_slot = CRYPT_ANY_SLOT;
 static unsigned arg_keyfile_size = 0;
-static unsigned arg_keyfile_offset = 0;
+static uint64_t arg_keyfile_offset = 0;
 static char *arg_hash = NULL;
 static char *arg_header = NULL;
 static unsigned arg_tries = 3;
@@ -131,12 +131,21 @@ static int parse_one_option(const char *option) {
                 }
 
         } else if ((val = startswith(option, "keyfile-offset="))) {
+                uint64_t off;
 
-                r = safe_atou(val, &arg_keyfile_offset);
+                r = safe_atou64(val, &off);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
+
+                if ((size_t) off != off) {
+                        /* https://gitlab.com/cryptsetup/cryptsetup/issues/359 */
+                        log_error("keyfile-offset= value would truncated to %zu, ignoring.", (size_t) off);
+                        return 0;
+                }
+
+                arg_keyfile_offset = off;
 
         } else if ((val = startswith(option, "hash="))) {
                 r = free_and_strdup(&arg_hash, val);
