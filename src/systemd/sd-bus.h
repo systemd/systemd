@@ -152,6 +152,8 @@ int sd_bus_set_exit_on_disconnect(sd_bus *bus, int b);
 int sd_bus_get_exit_on_disconnect(sd_bus *bus);
 int sd_bus_set_watch_bind(sd_bus *bus, int b);
 int sd_bus_get_watch_bind(sd_bus *bus);
+int sd_bus_set_connected_signal(sd_bus *bus, int b);
+int sd_bus_get_connected_signal(sd_bus *bus);
 
 int sd_bus_start(sd_bus *bus);
 

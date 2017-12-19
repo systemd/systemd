@@ -1598,3 +1598,54 @@ int bus_track_add_name_many(sd_bus_track *t, char **l) {
 
         return r;
 }
+
+int bus_open_system_watch_bind(sd_bus **ret) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        const char *e;
+        int r;
+
+        assert(ret);
+
+        /* Match like sd_bus_open_system(), but with the "watch_bind" feature and the Connected() signal turned on. */
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
+        if (!e)
+                e = DEFAULT_SYSTEM_BUS_ADDRESS;
+
+        r = sd_bus_set_address(bus, e);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_bus_client(bus, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_trusted(bus, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_negotiate_creds(bus, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_watch_bind(bus, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_connected_signal(bus, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        *ret = bus;
+        bus = NULL;
+
+        return 0;
+}
