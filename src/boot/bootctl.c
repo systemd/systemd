@@ -1043,7 +1043,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                        boot_entry_title(e),
                        ansi_normal(),
                        ansi_highlight_green(),
-                       n == config.default_entry ? " (default)" : "",
+                       n == (unsigned) config.default_entry ? " (default)" : "",
                        ansi_normal());
                 if (e->version)
                         printf("      version: %s\n", e->version);
