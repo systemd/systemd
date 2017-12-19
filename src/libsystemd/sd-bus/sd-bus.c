@@ -832,6 +832,7 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
                 b->nspid = 0;
 
         b->sockaddr.un.sun_family = AF_UNIX;
+        /* Note that we use the old /var/run prefix here, to increase compatibility with really old containers */
         strncpy(b->sockaddr.un.sun_path, "/var/run/dbus/system_bus_socket", sizeof(b->sockaddr.un.sun_path));
         b->sockaddr_size = SOCKADDR_UN_LEN(b->sockaddr.un);
         b->is_local = false;
@@ -1157,7 +1158,7 @@ int bus_set_address_user(sd_bus *b) {
         if (!ee)
                 return -ENOMEM;
 
-        if (asprintf(&s, UNIX_USER_BUS_ADDRESS_FMT, ee) < 0)
+        if (asprintf(&s, DEFAULT_USER_BUS_ADDRESS_FMT, ee) < 0)
                 return -ENOMEM;
 
         b->address = s;
