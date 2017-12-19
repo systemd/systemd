@@ -3250,10 +3250,7 @@ char *socket_fdname(Socket *s) {
          * didn't specify anything specifically, use the socket unit's
          * name as fallback. */
 
-        if (s->fdname)
-                return s->fdname;
-
-        return UNIT(s)->id;
+        return s->fdname ?: UNIT(s)->id;
 }
 
 static int socket_control_pid(Unit *u) {
