@@ -381,6 +381,9 @@ static int bus_socket_set_transient_property(
                 if (r < 0)
                         return r;
 
+                if ((uint64_t) (size_t) t != t)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s: %" PRIu64, name, t);
+
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (streq(name, "ReceiveBuffer"))
                                 s->receive_buffer = t;

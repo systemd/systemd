@@ -241,12 +241,12 @@ static int bus_append_parse_sec_rename(sd_bus_message *m, const char *field, con
         return 1;
 }
 
-static int bus_append_parse_iec_size(sd_bus_message *m, const char *field, const char *eq) {
+static int bus_append_parse_size(sd_bus_message *m, const char *field, const char *eq, uint64_t base) {
         uint64_t v;
         int r;
 
-        r = parse_size(eq, 1024, &v);
-        if (r < 0 || (uint64_t) (size_t) v != v)
+        r = parse_size(eq, base, &v);
+        if (r < 0)
                 return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
 
         r = sd_bus_message_append(m, "(sv)", field, "t", v);
@@ -1235,7 +1235,7 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
 
         if (STR_IN_SET(field, "ReceiveBuffer", "SendBuffer", "PipeSize"))
 
-                return bus_append_parse_iec_size(m, field, eq);
+                return bus_append_parse_size(m, field, eq, 1024);
 
         if (STR_IN_SET(field, "ExecStartPre", "ExecStartPost", "ExecReload", "ExecStopPost"))
 
