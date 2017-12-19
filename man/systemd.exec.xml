@@ -376,12 +376,14 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>Takes a boolean argument. If true, ensures that the service process and all its children can
         never gain new privileges through <function>execve()</function> (e.g. via setuid or setgid bits, or filesystem
         capabilities). This is the simplest and most effective way to ensure that a process and its children can never
-        elevate privileges again. Defaults to false, but certain settings force <varname>NoNewPrivileges=yes</varname>,
-        ignoring the value of this setting.  This is the case when <varname>SystemCallFilter=</varname>,
+        elevate privileges again. Defaults to false, but certain settings override this and ignore the value of this
+        setting.  This is the case when <varname>SystemCallFilter=</varname>,
         <varname>SystemCallArchitectures=</varname>, <varname>RestrictAddressFamilies=</varname>,
         <varname>RestrictNamespaces=</varname>, <varname>PrivateDevices=</varname>,
         <varname>ProtectKernelTunables=</varname>, <varname>ProtectKernelModules=</varname>,
-        <varname>MemoryDenyWriteExecute=</varname>, or <varname>RestrictRealtime=</varname> are specified. Also see
+        <varname>MemoryDenyWriteExecute=</varname>, <varname>RestrictRealtime=</varname>, or
+        <varname>LockPersonality=</varname> are specified. Note that even if this setting is overridden by them,
+        <command>systemctl show</command> shows the original value of this setting. Also see
         <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges
         Flag</ulink>.  </para></listitem>
       </varlistentry>
