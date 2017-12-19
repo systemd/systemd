@@ -3227,11 +3227,11 @@ static int socket_control_pid(Unit *u) {
 }
 
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
-        [SOCKET_EXEC_START_PRE] = "StartPre",
-        [SOCKET_EXEC_START_CHOWN] = "StartChown",
-        [SOCKET_EXEC_START_POST] = "StartPost",
-        [SOCKET_EXEC_STOP_PRE] = "StopPre",
-        [SOCKET_EXEC_STOP_POST] = "StopPost"
+        [SOCKET_EXEC_START_PRE] = "ExecStartPre",
+        [SOCKET_EXEC_START_CHOWN] = "ExecStartChown",
+        [SOCKET_EXEC_START_POST] = "ExecStartPost",
+        [SOCKET_EXEC_STOP_PRE] = "ExecStopPre",
+        [SOCKET_EXEC_STOP_POST] = "ExecStopPost"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
