@@ -452,6 +452,29 @@ static int synthesize_connected_signal(sd_bus *bus) {
         return 0;
 }
 
+void bus_set_state(sd_bus *bus, enum bus_state state) {
+
+        static const char * const table[_BUS_STATE_MAX] = {
+                [BUS_UNSET] = "UNSET",
+                [BUS_WATCH_BIND] = "WATCH_BIND",
+                [BUS_OPENING] = "OPENING",
+                [BUS_AUTHENTICATING] = "AUTHENTICATING",
+                [BUS_HELLO] = "HELLO",
+                [BUS_RUNNING] = "RUNNING",
+                [BUS_CLOSING] = "CLOSING",
+                [BUS_CLOSED] = "CLOSED",
+        };
+
+        assert(bus);
+        assert(state < _BUS_STATE_MAX);
+
+        if (state == bus->state)
+                return;
+
+        log_debug("Bus %s: changing state %s → %s", strna(bus->description), table[bus->state], table[state]);
+        bus->state = state;
+}
+
 static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         const char *s;
         sd_bus *bus;
@@ -478,7 +501,7 @@ static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *e
                 return -ENOMEM;
 
         if (bus->state == BUS_HELLO) {
-                bus->state = BUS_RUNNING;
+                bus_set_state(bus, BUS_RUNNING);
 
                 r = synthesize_connected_signal(bus);
                 if (r < 0)
@@ -532,11 +555,11 @@ int bus_start_running(sd_bus *bus) {
         }
 
         if (bus->bus_client) {
-                bus->state = BUS_HELLO;
+                bus_set_state(bus, BUS_HELLO);
                 return 1;
         }
 
-        bus->state = BUS_RUNNING;
+        bus_set_state(bus, BUS_RUNNING);
 
         r = synthesize_connected_signal(bus);
         if (r < 0)
@@ -1090,7 +1113,7 @@ _public_ int sd_bus_start(sd_bus *bus) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        bus->state = BUS_OPENING;
+        bus_set_state(bus, BUS_OPENING);
 
         if (bus->is_server && bus->bus_client)
                 return -EINVAL;
@@ -1403,7 +1426,7 @@ _public_ void sd_bus_close(sd_bus *bus) {
         if (bus_pid_changed(bus))
                 return;
 
-        bus->state = BUS_CLOSED;
+        bus_set_state(bus, BUS_CLOSED);
 
         sd_bus_detach_event(bus);
 
@@ -1432,7 +1455,7 @@ void bus_enter_closing(sd_bus *bus) {
         if (!IN_SET(bus->state, BUS_WATCH_BIND, BUS_OPENING, BUS_AUTHENTICATING, BUS_HELLO, BUS_RUNNING))
                 return;
 
-        bus->state = BUS_CLOSING;
+        bus_set_state(bus, BUS_CLOSING);
 }
 
 _public_ sd_bus *sd_bus_ref(sd_bus *bus) {

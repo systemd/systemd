@@ -166,7 +166,8 @@ enum bus_state {
         BUS_HELLO,           /* we are waiting for the Hello() response */
         BUS_RUNNING,
         BUS_CLOSING,
-        BUS_CLOSED
+        BUS_CLOSED,
+        _BUS_STATE_MAX,
 };
 
 static inline bool BUS_IS_OPEN(enum bus_state state) {
@@ -411,3 +412,5 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
         } while (false)
 
 void bus_enter_closing(sd_bus *bus);
+
+void bus_set_state(sd_bus *bus, enum bus_state state);

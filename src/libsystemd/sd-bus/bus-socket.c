@@ -675,7 +675,7 @@ int bus_socket_start_auth(sd_bus *b) {
 
         bus_get_peercred(b);
 
-        b->state = BUS_AUTHENTICATING;
+        bus_set_state(b, BUS_AUTHENTICATING);
         b->auth_timeout = now(CLOCK_MONOTONIC) + BUS_AUTH_TIMEOUT;
 
         if (sd_is_socket(b->input_fd, AF_UNIX, 0, 0) <= 0)
@@ -894,7 +894,7 @@ int bus_socket_connect(sd_bus *b) {
                                 /* Note that very likely we are already in BUS_OPENING state here, as we enter it when
                                  * we start parsing the address string. The only reason we set the state explicitly
                                  * here, is to undo BUS_WATCH_BIND, in case we did the inotify magic. */
-                                b->state = BUS_OPENING;
+                                bus_set_state(b, BUS_OPENING);
                                 return 1;
                         }
 
@@ -910,7 +910,7 @@ int bus_socket_connect(sd_bus *b) {
                                 if (inotify_done) {
                                         /* inotify set up already, don't do it again, just return now, and remember
                                          * that we are waiting for inotify events now. */
-                                        b->state = BUS_WATCH_BIND;
+                                        bus_set_state(b, BUS_WATCH_BIND);
                                         return 1;
                                 }
 
