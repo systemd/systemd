@@ -154,6 +154,7 @@ static void bus_free(sd_bus *b) {
         free(b->machine);
         free(b->cgroup_root);
         free(b->description);
+        free(b->patch_sender);
 
         free(b->exec_path);
         strv_free(b->exec_argv);
@@ -274,6 +275,7 @@ _public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) 
 _public_ int sd_bus_set_bus_client(sd_bus *bus, int b) {
         assert_return(bus, -EINVAL);
         assert_return(bus->state == BUS_UNSET, -EPERM);
+        assert_return(!bus->patch_sender, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         bus->bus_client = !!b;
@@ -1537,6 +1539,8 @@ _public_ int sd_bus_get_bus_id(sd_bus *bus, sd_id128_t *id) {
 }
 
 static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
+        int r;
+
         assert(b);
         assert(m);
 
@@ -1550,6 +1554,12 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
 
         if (timeout == 0)
                 timeout = BUS_DEFAULT_TIMEOUT;
+
+        if (!m->sender && b->patch_sender) {
+                r = sd_bus_message_set_sender(m, b->patch_sender);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_bus_message_seal(m, ++b->cookie, timeout);
 }
@@ -3958,4 +3968,23 @@ _public_ int sd_bus_get_exit_on_disconnect(sd_bus *bus) {
         assert_return(bus, -EINVAL);
 
         return bus->exit_on_disconnect;
+}
+
+_public_ int sd_bus_set_sender(sd_bus *bus, const char *sender) {
+        assert_return(bus, -EINVAL);
+        assert_return(!bus->bus_client, -EPERM);
+        assert_return(!sender || service_name_is_valid(sender), -EINVAL);
+
+        return free_and_strdup(&bus->patch_sender, sender);
+}
+
+_public_ int sd_bus_get_sender(sd_bus *bus, const char **ret) {
+        assert_return(bus, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!bus->patch_sender)
+                return -ENODATA;
+
+        *ret = bus->patch_sender;
+        return 0;
 }

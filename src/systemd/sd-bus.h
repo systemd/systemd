@@ -154,6 +154,8 @@ int sd_bus_set_watch_bind(sd_bus *bus, int b);
 int sd_bus_get_watch_bind(sd_bus *bus);
 int sd_bus_set_connected_signal(sd_bus *bus, int b);
 int sd_bus_get_connected_signal(sd_bus *bus);
+int sd_bus_set_sender(sd_bus *bus, const char *sender);
+int sd_bus_get_sender(sd_bus *bus, const char **ret);
 
 int sd_bus_start(sd_bus *bus);
 
@@ -273,6 +275,7 @@ int sd_bus_message_set_auto_start(sd_bus_message *m, int b);
 int sd_bus_message_set_allow_interactive_authorization(sd_bus_message *m, int b);
 
 int sd_bus_message_set_destination(sd_bus_message *m, const char *destination);
+int sd_bus_message_set_sender(sd_bus_message *m, const char *sender);
 int sd_bus_message_set_priority(sd_bus_message *m, int64_t priority);
 
 int sd_bus_message_append(sd_bus_message *m, const char *types, ...);

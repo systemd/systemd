@@ -316,6 +316,7 @@ struct sd_bus {
         char *cgroup_root;
 
         char *description;
+        char *patch_sender;
 
         sd_bus_track *track_queue;
 
