@@ -1604,7 +1604,7 @@ int bus_seal_synthetic_message(sd_bus *b, sd_bus_message *m) {
         return sd_bus_message_seal(m, 0xFFFFFFFFULL, 0);
 }
 
-static int bus_write_message(sd_bus *bus, sd_bus_message *m, bool hint_sync_call, size_t *idx) {
+static int bus_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
         int r;
 
         assert(bus);
@@ -1639,7 +1639,7 @@ static int dispatch_wqueue(sd_bus *bus) {
 
         while (bus->wqueue_size > 0) {
 
-                r = bus_write_message(bus, bus->wqueue[0], false, &bus->windex);
+                r = bus_write_message(bus, bus->wqueue[0], &bus->windex);
                 if (r < 0)
                         return r;
                 else if (r == 0)
@@ -1718,7 +1718,7 @@ static int dispatch_rqueue(sd_bus *bus, bool hint_priority, int64_t priority, sd
         }
 }
 
-static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, bool hint_sync_call) {
+_public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = sd_bus_message_ref(_m);
         int r;
 
@@ -1763,7 +1763,7 @@ static int bus_send_internal(sd_bus *bus, sd_bus_message *_m, uint64_t *cookie, 
         if (IN_SET(bus->state, BUS_RUNNING, BUS_HELLO) && bus->wqueue_size <= 0) {
                 size_t idx = 0;
 
-                r = bus_write_message(bus, m, hint_sync_call, &idx);
+                r = bus_write_message(bus, m, &idx);
                 if (r < 0) {
                         if (IN_SET(r, -ENOTCONN, -ECONNRESET, -EPIPE, -ESHUTDOWN)) {
                                 bus_enter_closing(bus);
@@ -1801,10 +1801,6 @@ finish:
                 *cookie = BUS_MESSAGE_COOKIE(m);
 
         return 1;
-}
-
-_public_ int sd_bus_send(sd_bus *bus, sd_bus_message *m, uint64_t *cookie) {
-        return bus_send_internal(bus, m, cookie, false);
 }
 
 _public_ int sd_bus_send_to(sd_bus *bus, sd_bus_message *m, const char *destination, uint64_t *cookie) {
@@ -2013,7 +2009,7 @@ _public_ int sd_bus_call(
         if (r < 0)
                 goto fail;
 
-        r = bus_send_internal(bus, m, &cookie, true);
+        r = sd_bus_send(bus, m, &cookie);
         if (r < 0)
                 goto fail;
 
