@@ -136,10 +136,6 @@ struct sd_bus_message {
 
         usec_t timeout;
 
-        char sender_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
-        char destination_buffer[3 + DECIMAL_STR_MAX(uint64_t) + 1];
-        char *destination_ptr;
-
         size_t header_offsets[_BUS_MESSAGE_HEADER_MAX];
         unsigned n_header_offsets;
 };
