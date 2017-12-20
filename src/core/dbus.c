@@ -682,6 +682,12 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
+        r = sd_bus_set_sender(bus, "org.freedesktop.systemd1");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to set direct connection sender: %m");
+                return 0;
+        }
+
         r = sd_bus_start(bus);
         if (r < 0) {
                 log_warning_errno(r, "Failed to start new connection bus: %m");
