@@ -3151,22 +3151,21 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_wait) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-
                 wait_context.unit_paths = set_new(&string_hash_ops);
                 if (!wait_context.unit_paths)
                         return log_oom();
 
-                r = sd_bus_call_method(
+                r = sd_bus_call_method_async(
                                 bus,
+                                NULL,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "Subscribe",
-                                &error,
-                                NULL, NULL);
+                                NULL, NULL,
+                                NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to enable subscription: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to enable subscription: %m");
                 r = sd_event_default(&wait_context.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate event loop: %m");
