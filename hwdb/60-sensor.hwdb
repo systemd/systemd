@@ -82,7 +82,11 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnStandard:pnWCBT1011:*
 # Chuwi
 #########################################
 
-# Chuwi Vi8 Plus
+# Chuwi Vi8 (CWI506)
+sensor:modalias:acpi:BMA250E*:dmi:bvnINSYDECorp.:bvrCHUWI.D86JLBNR*:svnInsyde:pni86:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+# Chuwi Vi8 Plus (CWI519)
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnD2D3_Vi8A1:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
