@@ -143,7 +143,7 @@ typedef struct NetDevVTable {
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 
-#define NETDEV_VTABLE(n) netdev_vtable[(n)->kind]
+#define NETDEV_VTABLE(n) ((n)->kind != _NETDEV_KIND_INVALID ? netdev_vtable[(n)->kind] : NULL)
 
 /* For casting a netdev into the various netdev kinds */
 #define DEFINE_NETDEV_CAST(UPPERCASE, MixedCase)                            \
