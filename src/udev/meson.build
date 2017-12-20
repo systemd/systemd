@@ -132,6 +132,7 @@ libudev_static = static_library(
 
 libudev = shared_library(
         'udev',
+        'udev.h', # pick a header file at random to work around old meson bug
         version : libudev_version,
         include_directories : includes,
         link_args : ['-shared',
