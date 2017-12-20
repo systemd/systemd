@@ -4044,7 +4044,8 @@ static void print_status_info(
         if (i->load_error != 0)
                 printf("   Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
-        else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset))
+        else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset) &&
+                 !STR_IN_SET(i->unit_file_state, "generated", "transient"))
                 printf("   Loaded: %s%s%s (%s; %s; vendor preset: %s)\n",
                        on, strna(i->load_state), off, path, i->unit_file_state, i->unit_file_preset);
         else if (path && !isempty(i->unit_file_state))
