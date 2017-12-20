@@ -29,8 +29,8 @@
 #include "apparmor-util.h"
 #include "architecture.h"
 #include "audit-util.h"
-#include "condition.h"
 #include "cgroup-util.h"
+#include "condition.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
@@ -187,12 +187,12 @@ static int test_condition_test_control_group_controller(void) {
         /* Multiple valid controllers at the same time */
         assert_se(cg_mask_to_string(system_mask, &controller_name) >= 0);
 
-        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, controller_name, false, false);
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, strempty(controller_name), false, false);
         assert_se(condition);
         assert_se(condition_test(condition));
         condition_free(condition);
 
-        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, controller_name, false, true);
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, strempty(controller_name), false, true);
         assert_se(condition);
         assert_se(!condition_test(condition));
         condition_free(condition);
