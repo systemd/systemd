@@ -60,10 +60,11 @@ void routing_policy_rule_free(RoutingPolicyRule *rule) {
                         network_config_section_free(rule->section);
                 }
 
-                if (rule->network->manager) {
-                        set_remove(rule->network->manager->rules, rule);
-                        set_remove(rule->network->manager->rules_foreign, rule);
-                }
+        }
+
+        if (rule->m) {
+                set_remove(rule->m->rules, rule);
+                set_remove(rule->m->rules_foreign, rule);
         }
 
         free(rule->iif);
@@ -236,7 +237,8 @@ int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule) {
         return -ENOENT;
 }
 
-static int routing_policy_rule_add_internal(Set **rules,
+static int routing_policy_rule_add_internal(Manager *m,
+                                            Set **rules,
                                             int family,
                                             const union in_addr_union *from,
                                             uint8_t from_prefixlen,
@@ -258,6 +260,7 @@ static int routing_policy_rule_add_internal(Set **rules,
         if (r < 0)
                 return r;
 
+        rule->m = m;
         rule->family = family;
         rule->from = *from;
         rule->from_prefixlen = from_prefixlen;
@@ -298,7 +301,7 @@ int routing_policy_rule_add(Manager *m,
                             char *oif,
                             RoutingPolicyRule **ret) {
 
-        return routing_policy_rule_add_internal(&m->rules, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, ret);
+        return routing_policy_rule_add_internal(m, &m->rules, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, ret);
 }
 
 int routing_policy_rule_add_foreign(Manager *m,
@@ -313,7 +316,7 @@ int routing_policy_rule_add_foreign(Manager *m,
                                     char *iif,
                                     char *oif,
                                     RoutingPolicyRule **ret) {
-        return routing_policy_rule_add_internal(&m->rules_foreign, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, ret);
+        return routing_policy_rule_add_internal(m, &m->rules_foreign, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, ret);
 }
 
 static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
