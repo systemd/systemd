@@ -1871,8 +1871,7 @@ _public_ int sd_bus_call_async(
 
         assert_return(m, -EINVAL);
         assert_return(m->header->type == SD_BUS_MESSAGE_METHOD_CALL, -EINVAL);
-        assert_return(!(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED), -EINVAL);
-        assert_return(callback, -EINVAL);
+        assert_return(!m->sealed || (!!callback == !(m->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)), -EINVAL);
 
         if (!bus)
                 bus = m->bus;
@@ -1881,6 +1880,10 @@ _public_ int sd_bus_call_async(
 
         if (!BUS_IS_OPEN(bus->state))
                 return -ENOTCONN;
+
+        /* If no callback is specified and there's no interest in a slot, then there's no reason to ask for a reply */
+        if (!callback && !slot && !m->sealed)
+                m->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
 
         r = ordered_hashmap_ensure_allocated(&bus->reply_callbacks, &uint64_hash_ops);
         if (r < 0)
@@ -1898,29 +1901,31 @@ _public_ int sd_bus_call_async(
         if (r < 0)
                 return r;
 
-        s = bus_slot_allocate(bus, !slot, BUS_REPLY_CALLBACK, sizeof(struct reply_callback), userdata);
-        if (!s)
-                return -ENOMEM;
+        if (slot || callback) {
+                s = bus_slot_allocate(bus, !slot, BUS_REPLY_CALLBACK, sizeof(struct reply_callback), userdata);
+                if (!s)
+                        return -ENOMEM;
 
-        s->reply_callback.callback = callback;
+                s->reply_callback.callback = callback;
 
-        s->reply_callback.cookie = BUS_MESSAGE_COOKIE(m);
-        r = ordered_hashmap_put(bus->reply_callbacks, &s->reply_callback.cookie, &s->reply_callback);
-        if (r < 0) {
-                s->reply_callback.cookie = 0;
-                return r;
-        }
-
-        s->reply_callback.timeout_usec = calc_elapse(bus, m->timeout);
-        if (s->reply_callback.timeout_usec != 0) {
-                r = prioq_put(bus->reply_callbacks_prioq, &s->reply_callback, &s->reply_callback.prioq_idx);
+                s->reply_callback.cookie = BUS_MESSAGE_COOKIE(m);
+                r = ordered_hashmap_put(bus->reply_callbacks, &s->reply_callback.cookie, &s->reply_callback);
                 if (r < 0) {
-                        s->reply_callback.timeout_usec = 0;
+                        s->reply_callback.cookie = 0;
                         return r;
+                }
+
+                s->reply_callback.timeout_usec = calc_elapse(bus, m->timeout);
+                if (s->reply_callback.timeout_usec != 0) {
+                        r = prioq_put(bus->reply_callbacks_prioq, &s->reply_callback, &s->reply_callback.prioq_idx);
+                        if (r < 0) {
+                                s->reply_callback.timeout_usec = 0;
+                                return r;
+                        }
                 }
         }
 
-        r = sd_bus_send(bus, m, &s->reply_callback.cookie);
+        r = sd_bus_send(bus, m, s ? &s->reply_callback.cookie : NULL);
         if (r < 0)
                 return r;
 
