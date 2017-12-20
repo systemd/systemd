@@ -138,7 +138,7 @@ static void netdev_free(NetDev *netdev) {
 
         netdev_cancel_callbacks(netdev);
 
-        if (netdev->ifname)
+        if (netdev->ifname && netdev->manager)
                 hashmap_remove(netdev->manager->netdevs, netdev->ifname);
 
         free(netdev->filename);
@@ -601,8 +601,7 @@ int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t callbac
 }
 
 static int netdev_load_one(Manager *manager, const char *filename) {
-        _cleanup_netdev_unref_ NetDev *netdev = NULL;
-        _cleanup_free_ NetDev *netdev_raw = NULL;
+        _cleanup_netdev_unref_ NetDev *netdev_raw = NULL, *netdev = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
         bool independent = false;
@@ -628,19 +627,17 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         if (!netdev_raw)
                 return log_oom();
 
+        netdev_raw->n_ref = 1;
         netdev_raw->kind = _NETDEV_KIND_INVALID;
-        dropin_dirname = strjoina(basename(filename), ".d");
+        netdev_raw->state = _NETDEV_STATE_INVALID;
 
+        dropin_dirname = strjoina(basename(filename), ".d");
         r = config_parse_many(filename, network_dirs, dropin_dirname,
                               "Match\0NetDev\0",
                               config_item_perf_lookup, network_netdev_gperf_lookup,
                               CONFIG_PARSE_WARN, netdev_raw);
         if (r < 0)
                 return r;
-
-        r = fseek(file, 0, SEEK_SET);
-        if (r < 0)
-                return -errno;
 
         /* skip out early if configuration does not match the environment */
         if (net_match_config(NULL, NULL, NULL, NULL, NULL,
@@ -659,15 +656,18 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return 0;
         }
 
+        r = fseek(file, 0, SEEK_SET);
+        if (r < 0)
+                return -errno;
+
         netdev = malloc0(NETDEV_VTABLE(netdev_raw)->object_size);
         if (!netdev)
                 return log_oom();
 
         netdev->n_ref = 1;
         netdev->manager = manager;
-        netdev->state = _NETDEV_STATE_INVALID;
         netdev->kind = netdev_raw->kind;
-        netdev->ifname = netdev_raw->ifname;
+        netdev->state = _NETDEV_STATE_INVALID;
 
         if (NETDEV_VTABLE(netdev)->init)
                 NETDEV_VTABLE(netdev)->init(netdev);
