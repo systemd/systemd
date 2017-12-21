@@ -128,7 +128,7 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
 
         log_debug("Coming back from suspend, resetting all connections...");
 
-        manager_reset_all(m);
+        (void) manager_reset_all(m);
 
         return 0;
 }
@@ -244,7 +244,8 @@ static int manager_dispatch_link_udev(sd_event_source *source, int fd, uint32_t 
         if (!device)
                 return -ENOMEM;
 
-        manager_udev_process_link(m, device);
+        (void) manager_udev_process_link(m, device);
+
         return 0;
 }
 
@@ -309,17 +310,17 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive route: %m");
+                        log_warning_errno(r, "rtnl: failed to receive route, ignoring: %m");
 
                 return 0;
         }
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get message type: %m");
+                log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
         } else if (!IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE)) {
-                log_warning("rtnl: received unexpected message type when processing route");
+                log_warning("rtnl: received unexpected message type when processing route, ignoring");
                 return 0;
         }
 
@@ -346,7 +347,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
 
         r = sd_rtnl_message_route_get_family(message, &family);
         if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
-                log_link_warning(link, "rtnl: received address with invalid family, ignoring.");
+                log_link_warning(link, "rtnl: received address with invalid family, ignoring");
                 return 0;
         }
 
@@ -458,15 +459,17 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, vo
                 return 0;
         }
 
-        route_get(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
+        (void) route_get(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
 
         switch (type) {
         case RTM_NEWROUTE:
                 if (!route) {
                         /* A route appeared that we did not request */
                         r = route_add_foreign(link, family, &dst, dst_prefixlen, tos, priority, table, &route);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to add route, ignoring: %m");
                                 return 0;
+                        }
                 }
 
                 route_update(route, &src, src_prefixlen, &gw, &prefsrc, scope, protocol, rt_type);
@@ -506,26 +509,26 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive address: %m");
+                        log_warning_errno(r, "rtnl: failed to receive address, ignoring: %m");
 
                 return 0;
         }
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get message type: %m");
+                log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
         } else if (!IN_SET(type, RTM_NEWADDR, RTM_DELADDR)) {
-                log_warning("rtnl: received unexpected message type when processing address");
+                log_warning("rtnl: received unexpected message type when processing address, ignoring");
                 return 0;
         }
 
         r = sd_rtnl_message_addr_get_ifindex(message, &ifindex);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get ifindex from address: %m");
+                log_warning_errno(r, "rtnl: could not get ifindex from address, ignoring: %m");
                 return 0;
         } else if (ifindex <= 0) {
-                log_warning("rtnl: received address message with invalid ifindex: %d", ifindex);
+                log_warning("rtnl: received address message with invalid ifindex, ignoring: %d", ifindex);
                 return 0;
         } else {
                 r = link_get(m, ifindex, &link);
@@ -540,7 +543,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
 
         r = sd_rtnl_message_addr_get_family(message, &family);
         if (r < 0 || !IN_SET(family, AF_INET, AF_INET6)) {
-                log_link_warning(link, "rtnl: received address with invalid family, ignoring.");
+                log_link_warning(link, "rtnl: received address with invalid family, ignoring");
                 return 0;
         }
 
@@ -582,23 +585,26 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 break;
 
         default:
-                log_link_debug(link, "rtnl: ignoring unsupported address family: %d", family);
+                assert_not_reached("Received unsupported address family");
         }
 
         if (!inet_ntop(family, &in_addr, buf, INET6_ADDRSTRLEN)) {
-                log_link_warning(link, "Could not print address");
+                log_link_warning(link, "Could not print address, ignoring");
                 return 0;
         }
 
         r = sd_netlink_message_read_cache_info(message, IFA_CACHEINFO, &cinfo);
-        if (r >= 0) {
+        if (r < 0 && r != -ENODATA) {
+                log_link_warning_errno(link, r, "rtnl: cannot get IFA_CACHEINFO attribute, ignoring: %m");
+                return 0;
+        } else if (r >= 0) {
                 if (cinfo.ifa_valid != CACHE_INFO_INFINITY_LIFE_TIME)
                         valid_str = format_timespan(valid_buf, FORMAT_TIMESPAN_MAX,
                                                     cinfo.ifa_valid * USEC_PER_SEC,
                                                     USEC_PER_SEC);
         }
 
-        address_get(link, family, &in_addr, prefixlen, &address);
+        (void) address_get(link, family, &in_addr, prefixlen, &address);
 
         switch (type) {
         case RTM_NEWADDR:
@@ -609,14 +615,18 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                         /* An address appeared that we did not request */
                         r = address_add_foreign(link, family, &in_addr, prefixlen, &address);
                         if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to add address %s/%u: %m", buf, prefixlen);
+                                log_link_warning_errno(link, r, "Failed to add address %s/%u, ignoring: %m", buf, prefixlen);
                                 return 0;
                         } else
                                 log_link_debug(link, "Adding address: %s/%u (valid %s%s)", buf, prefixlen,
                                                valid_str ? "for " : "forever", strempty(valid_str));
                 }
 
-                address_update(address, flags, scope, &cinfo);
+                r = address_update(address, flags, scope, &cinfo);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to update address %s/%u, ignoring: %m", buf, prefixlen);
+                        return 0;
+                }
 
                 break;
 
@@ -625,9 +635,9 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 if (address) {
                         log_link_debug(link, "Removing address: %s/%u (valid %s%s)", buf, prefixlen,
                                        valid_str ? "for " : "forever", strempty(valid_str));
-                        address_drop(address);
+                        (void) address_drop(address);
                 } else
-                        log_link_warning(link, "Removing non-existent address: %s/%u (valid %s%s)", buf, prefixlen,
+                        log_link_warning(link, "Removing non-existent address: %s/%u (valid %s%s), ignoring", buf, prefixlen,
                                          valid_str ? "for " : "forever", strempty(valid_str));
 
                 break;
@@ -653,32 +663,32 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: Could not receive link: %m");
+                        log_warning_errno(r, "rtnl: Could not receive link, ignoring: %m");
 
                 return 0;
         }
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: Could not get message type: %m");
+                log_warning_errno(r, "rtnl: Could not get message type, ignoring: %m");
                 return 0;
         } else if (!IN_SET(type, RTM_NEWLINK, RTM_DELLINK)) {
-                log_warning("rtnl: Received unexpected message type when processing link");
+                log_warning("rtnl: Received unexpected message type when processing link, ignoring");
                 return 0;
         }
 
         r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: Could not get ifindex from link: %m");
+                log_warning_errno(r, "rtnl: Could not get ifindex from link, ignoring: %m");
                 return 0;
         } else if (ifindex <= 0) {
-                log_warning("rtnl: received link message with invalid ifindex: %d", ifindex);
+                log_warning("rtnl: received link message with invalid ifindex %d, ignoring", ifindex);
                 return 0;
         }
 
         r = sd_netlink_message_read_string(message, IFLA_IFNAME, &name);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: Received link message without ifname: %m");
+                log_warning_errno(r, "rtnl: Received link message without ifname, ignoring: %m");
                 return 0;
         }
 
@@ -691,7 +701,7 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
                         /* link is new, so add it */
                         r = link_add(m, message, &link);
                         if (r < 0) {
-                                log_warning_errno(r, "Could not add new link: %m");
+                                log_warning_errno(r, "Could not add new link, ignoring: %m");
                                 return 0;
                         }
                 }
@@ -700,14 +710,16 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
                         /* netdev exists, so make sure the ifindex matches */
                         r = netdev_set_ifindex(netdev, message);
                         if (r < 0) {
-                                log_warning_errno(r, "Could not set ifindex on netdev: %m");
+                                log_warning_errno(r, "Could not set ifindex on netdev, ignoring: %m");
                                 return 0;
                         }
                 }
 
                 r = link_update(link, message);
-                if (r < 0)
+                if (r < 0) {
+                        log_warning_errno(r, "Could not update link, ignoring: %m");
                         return 0;
+                }
 
                 break;
 
@@ -742,60 +754,80 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         if (sd_netlink_message_is_error(message)) {
                 r = sd_netlink_message_get_errno(message);
                 if (r < 0)
-                        log_warning_errno(r, "rtnl: failed to receive rule: %m");
+                        log_warning_errno(r, "rtnl: failed to receive rule, ignoring: %m");
 
                 return 0;
         }
 
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get message type: %m");
+                log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
                 return 0;
         } else if (!IN_SET(type, RTM_NEWRULE, RTM_DELRULE)) {
-                log_warning("rtnl: received unexpected message type '%u' when processing rule.", type);
+                log_warning("rtnl: received unexpected message type '%u' when processing rule, ignoring", type);
                 return 0;
         }
 
         r = sd_rtnl_message_get_family(message, &family);
         if (r < 0) {
-                log_warning_errno(r, "rtnl: could not get rule family: %m");
+                log_warning_errno(r, "rtnl: could not get rule family, ignoring: %m");
                 return 0;
         } else if (!IN_SET(family, AF_INET, AF_INET6)) {
-                log_debug("rtnl: received address with invalid family %u, ignoring.", family);
+                log_debug("rtnl: received address with invalid family %u, ignoring", family);
                 return 0;
         }
 
         switch (family) {
         case AF_INET:
                 r = sd_netlink_message_read_in_addr(message, FRA_SRC, &from.in);
-                if (r >= 0) {
+                if (r < 0 && r != -ENODATA) {
+                        log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
+                        return 0;
+                } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &from_prefixlen);
-                        if (r < 0)
-                                log_warning_errno(r, "rtnl: failed to retrive rule from prefix length: %m");
+                        if (r < 0) {
+                                log_warning_errno(r, "rtnl: failed to retrive rule from prefix length, ignoring: %m");
+                                return 0;
+                        }
                 }
 
                 r = sd_netlink_message_read_in_addr(message, FRA_DST, &to.in);
-                if (r >= 0) {
+                if (r < 0 && r != -ENODATA) {
+                        log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
+                        return 0;
+                } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &to_prefixlen);
-                        if (r < 0)
-                                log_warning_errno(r, "rtnl: failed to retrive rule to prefix length: %m");
+                        if (r < 0) {
+                                log_warning_errno(r, "rtnl: failed to retrive rule to prefix length, ignoring: %m");
+                                return 0;
+                        }
                 }
 
                 break;
 
         case AF_INET6:
                 r = sd_netlink_message_read_in6_addr(message, FRA_SRC, &from.in6);
-                if (r >= 0) {
+                if (r < 0 && r != -ENODATA) {
+                        log_warning_errno(r, "rtnl: could not get FRA_SRC attribute, ignoring: %m");
+                        return 0;
+                } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &from_prefixlen);
-                        if (r < 0)
-                                log_warning_errno(r, "rtnl: failed to retrive rule from prefix length: %m");
+                        if (r < 0) {
+                                log_warning_errno(r, "rtnl: failed to retrive rule from prefix length, ignoring: %m");
+                                return 0;
+                        }
                 }
 
                 r = sd_netlink_message_read_in6_addr(message, FRA_DST, &to.in6);
-                if (r >= 0) {
+                if (r < 0 && r != -ENODATA) {
+                        log_warning_errno(r, "rtnl: could not get FRA_DST attribute, ignoring: %m");
+                        return 0;
+                } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &to_prefixlen);
-                        if (r < 0)
-                                log_warning_errno(r, "rtnl: failed to retrive rule to prefix length: %m");
+                        if (r < 0) {
+                                log_warning_errno(r, "rtnl: failed to retrive rule to prefix length, ignoring: %m");
+                                return 0;
+                        }
                 }
 
                 break;
@@ -807,11 +839,35 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
         if (from_prefixlen == 0 && to_prefixlen == 0)
                 return 0;
 
-        (void) sd_netlink_message_read_u32(message, FRA_FWMARK, &fwmark);
-        (void) sd_netlink_message_read_u32(message, FRA_TABLE, &table);
-        (void) sd_rtnl_message_routing_policy_rule_get_tos(message, &tos);
-        (void) sd_netlink_message_read_string(message, FRA_IIFNAME, (const char **) &iif);
-        (void) sd_netlink_message_read_string(message, FRA_OIFNAME, (const char **) &oif);
+        r = sd_netlink_message_read_u32(message, FRA_FWMARK, &fwmark);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_FWMARK attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_u32(message, FRA_TABLE, &table);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_TABLE attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_rtnl_message_routing_policy_rule_get_tos(message, &tos);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get ip rule TOS, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_string(message, FRA_IIFNAME, (const char **) &iif);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_IIFNAME attribute, ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_string(message, FRA_OIFNAME, (const char **) &oif);
+        if (r < 0 && r != -ENODATA) {
+                log_warning_errno(r, "rtnl: could not get FRA_OIFNAME attribute, ignoring: %m");
+                return 0;
+        }
 
         (void) routing_policy_rule_get(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, &rule);
 
@@ -820,7 +876,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 if (!rule) {
                         r = routing_policy_rule_add_foreign(m, family, &from, from_prefixlen, &to, to_prefixlen, tos, fwmark, table, iif, oif, &rule);
                         if (r < 0) {
-                                log_warning_errno(r, "Could not add rule: %m");
+                                log_warning_errno(r, "Could not add rule, ignoring: %m");
                                 return 0;
                         }
                 }
