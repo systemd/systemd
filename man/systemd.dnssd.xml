@@ -206,7 +206,7 @@
 
       <programlisting># /etc/systemd/dnssd/http.dnssd
 [Service]
-Name=%h
+Name=%H
 Type=_http._tcp
 Port=80
 TxtText=path=/stats/index.html t=temperature_sensor</programlisting>
