@@ -26,6 +26,7 @@ typedef struct NetworkConfigSection NetworkConfigSection;
 #include "networkd-network.h"
 
 struct Route {
+        Manager *m;
         Network *network;
         NetworkConfigSection *section;
 

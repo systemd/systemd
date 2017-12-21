@@ -726,11 +726,11 @@ static int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *messa
 
 int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, void *userdata) {
         uint8_t tos = 0, to_prefixlen = 0, from_prefixlen = 0;
+        union in_addr_union to = {}, from = {};
         RoutingPolicyRule *rule = NULL;
-        union in_addr_union to, from;
         uint32_t fwmark = 0, table = 0;
+        char *iif = NULL, *oif = NULL;
         Manager *m = userdata;
-        char *iif, *oif;
         uint16_t type;
         int family;
         int r;
