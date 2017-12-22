@@ -1386,6 +1386,7 @@ int seccomp_memory_deny_write_execute(void) {
                         block_syscall = SCMP_SYS(mmap);
                         break;
 
+                case SCMP_ARCH_PPC:
                 case SCMP_ARCH_PPC64:
                 case SCMP_ARCH_PPC64LE:
                         filter_syscall = SCMP_SYS(mmap);
@@ -1410,7 +1411,7 @@ int seccomp_memory_deny_write_execute(void) {
 
                 /* Please add more definitions here, if you port systemd to other architectures! */
 
-#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__)
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__)
 #warning "Consider adding the right mmap() syscall definitions here!"
 #endif
                 }
