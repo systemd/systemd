@@ -499,7 +499,15 @@
         <term><varname>Mode=</varname></term>
           <listitem>
             <para>The IPVLAN mode to use. The supported options are
-            <literal>L2</literal> and <literal>L3</literal>.
+            <literal>L2</literal>,<literal>L3</literal> and <literal>L3S</literal>.
+            </para>
+          </listitem>
+      </varlistentry>
+       <varlistentry>
+        <term><varname>Flags=</varname></term>
+          <listitem>
+            <para>The IPVLAN flags to use. The supported options are
+            <literal>bridge</literal>,<literal>private</literal> and <literal>vepa</literal>.
             </para>
           </listitem>
       </varlistentry>
