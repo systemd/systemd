@@ -24,6 +24,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* add support for recursive bpf firewalling as supported by the newest kernel
+
+* add bpf-based implementation of devices cgroup controller logic for compat with cgroupsv2 as supported by newest kernel
+
 * implement transient socket unit.
 
 * make systemd-run create transient path and socket unit.
