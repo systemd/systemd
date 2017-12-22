@@ -48,7 +48,7 @@ const char* get_testdata_dir(const char *suffix) {
         if (env) {
                 if (access(env, F_OK) < 0) {
                         fputs("ERROR: $SYSTEMD_TEST_DATA directory does not exist\n", stderr);
-                        exit(1);
+                        exit(EXIT_FAILURE);
                 }
                 strncpy(testdir, env, sizeof(testdir) - 1);
         } else {
@@ -65,7 +65,7 @@ const char* get_testdata_dir(const char *suffix) {
                 /* test this without the suffix, as it may contain a glob */
                 if (access(testdir, F_OK) < 0) {
                         fputs("ERROR: Cannot find testdata directory, set $SYSTEMD_TEST_DATA\n", stderr);
-                        exit(1);
+                        exit(EXIT_FAILURE);
                 }
         }
 

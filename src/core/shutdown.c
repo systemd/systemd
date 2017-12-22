@@ -544,7 +544,7 @@ int main(int argc, char *argv[]) {
                  * CAP_SYS_BOOT just exit, this will kill our
                  * container for good. */
                 log_info("Exiting container.");
-                exit(0);
+                exit(EXIT_SUCCESS);
         }
 
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");

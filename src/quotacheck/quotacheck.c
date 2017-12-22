@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
                 /* Child */
 
                 execv(cmdline[0], (char**) cmdline);
-                _exit(1); /* Operational error */
+                _exit(EXIT_FAILURE); /* Operational error */
         }
 
         r = wait_for_terminate_and_warn("quotacheck", pid, true);

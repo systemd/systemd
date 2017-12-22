@@ -90,7 +90,7 @@ void probe_smart_media(int mtd_fd, mtd_info_t* info)
 
         printf("MTD_FTL=smartmedia\n");
         free(cis_buffer);
-        exit(0);
+        exit(EXIT_SUCCESS);
 exit:
         free(cis_buffer);
         return;

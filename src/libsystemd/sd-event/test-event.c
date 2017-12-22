@@ -97,7 +97,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
         assert_se(pid >= 0);
 
         if (pid == 0)
-                _exit(0);
+                _exit(EXIT_SUCCESS);
 
         assert_se(sd_event_add_child(sd_event_source_get_event(s), &p, pid, WEXITED, child_handler, INT_TO_PTR('f')) >= 0);
         assert_se(sd_event_source_set_enabled(p, SD_EVENT_ONESHOT) >= 0);

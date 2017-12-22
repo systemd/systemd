@@ -358,7 +358,7 @@ static int set_options(struct udev *udev,
 
                 case 'h':
                         help();
-                        exit(0);
+                        exit(EXIT_SUCCESS);
 
                 case 'p':
                         if (streq(optarg, "0x80"))
@@ -393,7 +393,7 @@ static int set_options(struct udev *udev,
 
                 case 'V':
                         printf("%s\n", PACKAGE_VERSION);
-                        exit(0);
+                        exit(EXIT_SUCCESS);
 
                 case 'x':
                         export = true;
@@ -608,7 +608,7 @@ int main(int argc, char **argv)
          * Get command line options (overriding any config file settings).
          */
         if (set_options(udev, argc, argv, maj_min_dev) < 0)
-                exit(1);
+                exit(EXIT_FAILURE);
 
         if (!dev_specified) {
                 log_error("No device specified.");

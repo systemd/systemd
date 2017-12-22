@@ -354,7 +354,7 @@ static void test_get_process_cmdline_harder(void) {
         line = mfree(line);
 
         safe_close(fd);
-        _exit(0);
+        _exit(EXIT_SUCCESS);
 }
 
 static void test_rename_process_now(const char *p, int ret) {
@@ -463,7 +463,7 @@ static void test_getpid_cached(void) {
                 c = getpid();
 
                 assert_se(a == b && a == c);
-                _exit(0);
+                _exit(EXIT_SUCCESS);
         }
 
         d = raw_getpid();
