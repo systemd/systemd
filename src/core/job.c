@@ -1244,7 +1244,7 @@ void job_shutdown_magic(Job *j) {
         if (detect_container() > 0)
                 return;
 
-        (void) asynchronous_sync();
+        (void) asynchronous_sync(NULL);
 }
 
 int job_get_timeout(Job *j, usec_t *timeout) {

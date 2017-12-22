@@ -60,7 +60,7 @@ finish:
         return -r;
 }
 
-int asynchronous_sync(void) {
+int asynchronous_sync(pid_t *ret_pid) {
         int r;
 
         /* This forks off an invocation of fork() as a child process, in order to initiate synchronization to
@@ -68,7 +68,7 @@ int asynchronous_sync(void) {
          * original process ever, and a thread would do that as the process can't exit with threads hanging in blocking
          * syscalls. */
 
-        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, NULL);
+        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -77,7 +77,6 @@ int asynchronous_sync(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        /* We don' really care about the PID from here on. It will exit when it's done. */
         return 0;
 }
 

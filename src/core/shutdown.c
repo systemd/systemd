@@ -31,10 +31,11 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "async.h"
 #include "cgroup-util.h"
-#include "fd-util.h"
 #include "def.h"
 #include "exec-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "killall.h"
 #include "log.h"
@@ -211,25 +212,20 @@ static bool sync_making_progress(unsigned long long *prev_dirty) {
 }
 
 static void sync_with_progress(void) {
+        unsigned long long dirty = ULONG_LONG_MAX;
         unsigned checks;
         pid_t pid;
         int r;
-        unsigned long long dirty = ULONG_LONG_MAX;
 
         BLOCK_SIGNALS(SIGCHLD);
 
-        /* Due to the possiblity of the sync operation hanging, we fork
-         * a child process and monitor the progress. If the timeout
-         * lapses, the assumption is that that particular sync stalled. */
-        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+        /* Due to the possiblity of the sync operation hanging, we fork a child process and monitor the progress. If
+         * the timeout lapses, the assumption is that that particular sync stalled. */
+
+        r = asynchronous_sync(&pid);
         if (r < 0) {
-                log_error_errno(r, "Failed to fork: %m");
+                log_error_errno(r, "Failed to fork sync(): %m");
                 return;
-        }
-        if (r == 0) {
-                /* Start the sync operation here in the child */
-                sync();
-                _exit(EXIT_SUCCESS);
         }
 
         log_info("Syncing filesystems and block devices.");
