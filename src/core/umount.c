@@ -28,6 +28,7 @@
 #include "libudev.h"
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "def.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -35,12 +36,12 @@
 #include "linux-3.13/dm-ioctl.h"
 #include "list.h"
 #include "mount-setup.h"
+#include "mount-util.h"
 #include "path-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "umount.h"
-#include "mount-util.h"
 #include "util.h"
 #include "virt.h"
 

@@ -71,8 +71,6 @@ bool plymouth_running(void);
 bool display_is_local(const char *display) _pure_;
 int socket_from_display(const char *display, char **path);
 
-int block_get_whole_disk(dev_t d, dev_t *ret);
-
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
 
@@ -191,6 +189,3 @@ uint64_t system_tasks_max_scale(uint64_t v, uint64_t max);
 int update_reboot_parameter_and_warn(const char *param);
 
 int version(void);
-
-int get_block_device(const char *path, dev_t *dev);
-int get_block_device_harder(const char *path, dev_t *dev);
