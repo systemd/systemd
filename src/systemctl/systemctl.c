@@ -3539,10 +3539,10 @@ static int load_kexec_kernel(void) {
         if (arg_dry_run)
                 return 0;
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-        else if (pid == 0) {
+        r = safe_fork("(kexec)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork: %m");
+        if (r == 0) {
 
                 const char* const args[] = {
                         KEXEC,
@@ -3552,15 +3552,11 @@ static int load_kexec_kernel(void) {
                         NULL };
 
                 /* Child */
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
                 execv(args[0], (char * const *) args);
                 _exit(EXIT_FAILURE);
-        } else
-                return wait_for_terminate_and_warn("kexec", pid, true);
+        }
+
+        return wait_for_terminate_and_warn("kexec", pid, true);
 }
 
 static int set_exit_code(uint8_t code) {
@@ -6123,15 +6119,11 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!arg_quiet)
                         log_info("Executing: %s", l);
 
-                pid = fork();
-                if (pid < 0)
-                        return log_error_errno(errno, "Failed to fork: %m");
-                else if (pid == 0) {
+                j = safe_fork("(sysv)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+                if (j < 0)
+                        return log_error_errno(j, "Failed to fork: %m");
+                if (j == 0) {
                         /* Child */
-
-                        (void) reset_all_signal_handlers();
-                        (void) reset_signal_mask();
-
                         execv(argv[0], (char**) argv);
                         log_error_errno(errno, "Failed to execute %s: %m", argv[0]);
                         _exit(EXIT_FAILURE);
@@ -7000,19 +6992,15 @@ static int run_editor(char **paths) {
 
         assert(paths);
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-
-        if (pid == 0) {
+        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork: %m");
+        if (r == 0) {
                 const char **args;
                 char *editor, **editor_args = NULL;
                 char **tmp_path, **original_path, *p;
                 unsigned n_editor_args = 0, i = 1;
                 size_t argc;
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
 
                 argc = strv_length(paths)/2 + 1;
 

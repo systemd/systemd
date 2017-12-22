@@ -38,6 +38,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -497,6 +498,28 @@ static void test_getpid_measure(void) {
         log_info("getpid_cached(): %llu/s\n", (unsigned long long) (MEASURE_ITERATIONS*USEC_PER_SEC/q));
 }
 
+static void test_safe_fork(void) {
+        siginfo_t status;
+        pid_t pid;
+        int r;
+
+        BLOCK_SIGNALS(SIGCHLD);
+
+        r = safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NULL_STDIO|FORK_REOPEN_LOG, &pid);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                /* child */
+                usleep(100 * USEC_PER_MSEC);
+
+                _exit(88);
+        }
+
+        assert_se(wait_for_terminate(pid, &status) >= 0);
+        assert_se(status.si_code == CLD_EXITED);
+        assert_se(status.si_status == 88);
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -523,6 +546,7 @@ int main(int argc, char *argv[]) {
         test_rename_process();
         test_getpid_cached();
         test_getpid_measure();
+        test_safe_fork();
 
         return 0;
 }

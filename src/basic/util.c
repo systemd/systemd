@@ -186,11 +186,11 @@ int prot_from_flags(int flags) {
 
 int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...) {
         bool stdout_is_tty, stderr_is_tty;
-        pid_t parent_pid, agent_pid;
-        sigset_t ss, saved_ss;
+        pid_t agent_pid;
         unsigned n, i;
         va_list ap;
         char **l;
+        int r;
 
         assert(pid);
         assert(path);
@@ -198,45 +198,13 @@ int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *pa
         /* Spawns a temporary TTY agent, making sure it goes away when
          * we go away */
 
-        parent_pid = getpid_cached();
-
-        /* First we temporarily block all signals, so that the new
-         * child has them blocked initially. This way, we can be sure
-         * that SIGTERMs are not lost we might send to the agent. */
-        assert_se(sigfillset(&ss) >= 0);
-        assert_se(sigprocmask(SIG_SETMASK, &ss, &saved_ss) >= 0);
-
-        agent_pid = fork();
-        if (agent_pid < 0) {
-                assert_se(sigprocmask(SIG_SETMASK, &saved_ss, NULL) >= 0);
-                return -errno;
-        }
-
-        if (agent_pid != 0) {
-                assert_se(sigprocmask(SIG_SETMASK, &saved_ss, NULL) >= 0);
-                *pid = agent_pid;
+        r = safe_fork_full("(sd-agent)", except, n_except, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS, &agent_pid);
+        if (r < 0)
+                return r;
+        if (r > 0)
                 return 0;
-        }
 
-        /* In the child:
-         *
-         * Make sure the agent goes away when the parent dies */
-        if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
-                _exit(EXIT_FAILURE);
-
-        /* Make sure we actually can kill the agent, if we need to, in
-         * case somebody invoked us from a shell script that trapped
-         * SIGTERM or so... */
-        (void) reset_all_signal_handlers();
-        (void) reset_signal_mask();
-
-        /* Check whether our parent died before we were able
-         * to set the death signal and unblock the signals */
-        if (getppid() != parent_pid)
-                _exit(EXIT_SUCCESS);
-
-        /* Don't leak fds to the agent */
-        close_all_fds(except, n_except);
+        /* In the child: */
 
         stdout_is_tty = isatty(STDOUT_FILENO);
         stderr_is_tty = isatty(STDERR_FILENO);

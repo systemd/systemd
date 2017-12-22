@@ -1527,7 +1527,7 @@ static int socket_address_listen_in_cgroup(
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "Failed to create communication channel: %m");
 
-        r = unit_fork_helper_process(UNIT(s), &pid);
+        r = unit_fork_helper_process(UNIT(s), "(sd-listen)", &pid);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to fork off listener stub process: %m");
         if (r == 0) {
@@ -1944,7 +1944,7 @@ static int socket_chown(Socket *s, pid_t *_pid) {
         /* We have to resolve the user names out-of-process, hence
          * let's fork here. It's messy, but well, what can we do? */
 
-        r = unit_fork_helper_process(UNIT(s), &pid);
+        r = unit_fork_helper_process(UNIT(s), "(sd-chown)", &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -2871,7 +2871,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "Failed to create communication channel: %m");
 
-        r = unit_fork_helper_process(UNIT(s), &pid);
+        r = unit_fork_helper_process(UNIT(s), "(sd-accept)", &pid);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to fork off accept stub process: %m");
         if (r == 0) {

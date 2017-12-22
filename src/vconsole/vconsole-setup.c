@@ -133,6 +133,7 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
         const char *args[8];
         unsigned i = 0;
         pid_t pid;
+        int r;
 
         /* An empty map means kernel map */
         if (isempty(map))
@@ -152,14 +153,10 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
         log_debug("Executing \"%s\"...",
                   strnull((cmd = strv_join((char**) args, " "))));
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-        else if (pid == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
+        r = safe_fork("(loadkeys)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork: %m");
+        if (r == 0) {
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }
@@ -172,6 +169,7 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         const char *args[9];
         unsigned i = 0;
         pid_t pid;
+        int r;
 
         /* Any part can be set independently */
         if (isempty(font) && isempty(map) && isempty(unimap))
@@ -195,14 +193,10 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         log_debug("Executing \"%s\"...",
                   strnull((cmd = strv_join((char**) args, " "))));
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-        else if (pid == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
+        r = safe_fork("(setfont)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork: %m");
+        if (r == 0) {
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }

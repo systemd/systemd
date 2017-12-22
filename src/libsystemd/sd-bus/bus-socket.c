@@ -715,18 +715,13 @@ int bus_socket_exec(sd_bus *b) {
         if (r < 0)
                 return -errno;
 
-        pid = fork();
-        if (pid < 0) {
+        r = safe_fork_full("(sd-busexec)", s+1, 1, FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+        if (r < 0) {
                 safe_close_pair(s);
-                return -errno;
+                return r;
         }
-        if (pid == 0) {
+        if (r == 0) {
                 /* Child */
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
-                close_all_fds(s+1, 1);
 
                 assert_se(dup3(s[1], STDIN_FILENO, 0) == STDIN_FILENO);
                 assert_se(dup3(s[1], STDOUT_FILENO, 0) == STDOUT_FILENO);

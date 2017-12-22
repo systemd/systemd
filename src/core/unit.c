@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -4968,8 +4969,7 @@ void unit_set_exec_params(Unit *u, ExecParameters *p) {
         SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, UNIT_CGROUP_BOOL(u, delegate));
 }
 
-int unit_fork_helper_process(Unit *u, pid_t *ret) {
-        pid_t pid;
+int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {
         int r;
 
         assert(u);
@@ -4980,32 +4980,24 @@ int unit_fork_helper_process(Unit *u, pid_t *ret) {
 
         (void) unit_realize_cgroup(u);
 
-        pid = fork();
-        if (pid < 0)
-                return -errno;
+        r = safe_fork(name, FORK_REOPEN_LOG, ret);
+        if (r != 0)
+                return r;
 
-        if (pid == 0) {
+        (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
+        (void) ignore_signals(SIGPIPE, -1);
 
-                (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
-                (void) ignore_signals(SIGPIPE, -1);
+        (void) prctl(PR_SET_PDEATHSIG, SIGTERM);
 
-                log_close();
-                log_open();
-
-                if (u->cgroup_path) {
-                        r = cg_attach_everywhere(u->manager->cgroup_supported, u->cgroup_path, 0, NULL, NULL);
-                        if (r < 0) {
-                                log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", u->cgroup_path);
-                                _exit(EXIT_CGROUP);
-                        }
+        if (u->cgroup_path) {
+                r = cg_attach_everywhere(u->manager->cgroup_supported, u->cgroup_path, 0, NULL, NULL);
+                if (r < 0) {
+                        log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", u->cgroup_path);
+                        _exit(EXIT_CGROUP);
                 }
-
-                *ret = getpid_cached();
-                return 0;
         }
 
-        *ret = pid;
-        return 1;
+        return 0;
 }
 
 static void unit_update_dependency_mask(Unit *u, UnitDependency d, Unit *other, UnitDependencyInfo di) {

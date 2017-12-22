@@ -93,7 +93,7 @@ int stub_pid1(sd_id128_t uuid) {
         sd_id128_to_string(uuid, new_environment + sizeof(new_environment) - SD_ID128_STRING_MAX);
         reset_environ(new_environment, sizeof(new_environment));
 
-        rename_process("STUBINIT");
+        (void) rename_process("(sd-stubinit)");
 
         assert_se(sigemptyset(&waitmask) >= 0);
         assert_se(sigset_add_many(&waitmask,

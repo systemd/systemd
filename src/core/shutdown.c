@@ -221,13 +221,12 @@ static void sync_with_progress(void) {
         /* Due to the possiblity of the sync operation hanging, we fork
          * a child process and monitor the progress. If the timeout
          * lapses, the assumption is that that particular sync stalled. */
-        pid = fork();
-        if (pid < 0) {
-                log_error_errno(errno, "Failed to fork: %m");
+        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+        if (r < 0) {
+                log_error_errno(r, "Failed to fork: %m");
                 return;
         }
-
-        if (pid == 0) {
+        if (r == 0) {
                 /* Start the sync operation here in the child */
                 sync();
                 _exit(EXIT_SUCCESS);
@@ -492,10 +491,10 @@ int main(int argc, char *argv[]) {
 
                         log_info("Rebooting with kexec.");
 
-                        pid = fork();
-                        if (pid < 0)
-                                log_error_errno(errno, "Failed to fork: %m");
-                        else if (pid == 0) {
+                        r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to fork: %m");
+                        if (r == 0) {
 
                                 const char * const args[] = {
                                         KEXEC, "-e", NULL
@@ -505,8 +504,9 @@ int main(int argc, char *argv[]) {
 
                                 execv(args[0], (char * const *) args);
                                 _exit(EXIT_FAILURE);
-                        } else
-                                wait_for_terminate_and_warn("kexec", pid, true);
+                        }
+
+                        (void) wait_for_terminate_and_warn("kexec", pid, true);
                 }
 
                 cmd = RB_AUTOBOOT;

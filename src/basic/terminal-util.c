@@ -1106,11 +1106,10 @@ int openpt_in_namespace(pid_t pid, int flags) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        child = fork();
-        if (child < 0)
-                return -errno;
-
-        if (child == 0) {
+        r = safe_fork("(sd-openpt)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int master;
 
                 pair[0] = safe_close(pair[0]);
@@ -1157,11 +1156,10 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        child = fork();
-        if (child < 0)
-                return -errno;
-
-        if (child == 0) {
+        r = safe_fork("(sd-terminal)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int master;
 
                 pair[0] = safe_close(pair[0]);

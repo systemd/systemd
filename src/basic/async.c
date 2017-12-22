@@ -61,29 +61,18 @@ finish:
 }
 
 int asynchronous_sync(void) {
-        pid_t pid;
+        int r;
 
         /* This forks off an invocation of fork() as a child process, in order to initiate synchronization to
          * disk. Note that we implement this as helper process rather than thread as we don't want the sync() to hang our
          * original process ever, and a thread would do that as the process can't exit with threads hanging in blocking
          * syscalls. */
 
-        log_debug("Spawning new process for sync");
-
-        pid = fork();
-        if (pid < 0)
-                return -errno;
-
-        if (pid == 0) {
+        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 /* Child process */
-
-                (void) rename_process("(sd-sync)");
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
-                (void) close_all_fds(NULL, 0);
-
                 (void) sync();
                 _exit(EXIT_SUCCESS);
         }

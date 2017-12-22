@@ -388,11 +388,10 @@ static int remount_with_timeout(MountPoint *m, char *options, int *n_failed) {
          * fork a child process and set a timeout. If the timeout
          * lapses, the assumption is that that particular remount
          * failed. */
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-
-        if (pid == 0) {
+        r = safe_fork("(sd-remount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork: %m");
+        if (r == 0) {
                 log_info("Remounting '%s' read-only in with options '%s'.", m->path, options);
 
                 /* Start the mount operation here in the child */
@@ -423,11 +422,10 @@ static int umount_with_timeout(MountPoint *m, bool *changed) {
          * fork a child process and set a timeout. If the timeout
          * lapses, the assumption is that that particular umount
          * failed. */
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-
-        if (pid == 0) {
+        r = safe_fork("(sd-umount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork: %m");
+        if (r == 0) {
                 log_info("Unmounting '%s'.", m->path);
 
                 /* Start the mount operation here in the child Using MNT_FORCE
