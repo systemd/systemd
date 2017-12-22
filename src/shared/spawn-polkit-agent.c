@@ -83,9 +83,7 @@ void polkit_agent_close(void) {
                 return;
 
         /* Inform agent that we are done */
-        (void) kill(agent_pid, SIGTERM);
-        (void) kill(agent_pid, SIGCONT);
-
+        (void) kill_and_sigcont(agent_pid, SIGTERM);
         (void) wait_for_terminate(agent_pid, NULL);
         agent_pid = 0;
 }
