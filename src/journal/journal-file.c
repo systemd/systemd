@@ -147,6 +147,8 @@ static void journal_file_set_offline_internal(JournalFile *f) {
 static void * journal_file_set_offline_thread(void *arg) {
         JournalFile *f = arg;
 
+        (void) pthread_setname_np(pthread_self(), "journal-offline");
+
         journal_file_set_offline_internal(f);
 
         return NULL;

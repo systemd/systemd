@@ -405,7 +405,7 @@ static void* thread_worker(void *p) {
         assert_se(pthread_sigmask(SIG_BLOCK, &fullset, NULL) == 0);
 
         /* Assign a pretty name to this thread */
-        (void) prctl(PR_SET_NAME, (unsigned long) "sd-resolve");
+        (void) pthread_setname_np(pthread_self(), "sd-resolve");
 
         while (!resolve->dead) {
                 union {

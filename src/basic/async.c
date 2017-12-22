@@ -81,6 +81,8 @@ int asynchronous_sync(pid_t *ret_pid) {
 }
 
 static void *close_thread(void *p) {
+        (void) pthread_setname_np(pthread_self(), "close");
+
         assert_se(close_nointr(PTR_TO_FD(p)) != -EBADF);
         return NULL;
 }
