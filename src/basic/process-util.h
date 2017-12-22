@@ -156,3 +156,5 @@ int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds
 static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
         return safe_fork_full(name, NULL, 0, flags, ret_pid);
 }
+
+int fork_agent(const char *name, const int except[], unsigned n_except, pid_t *pid, const char *path, ...);

@@ -86,8 +86,6 @@ bool kexec_loaded(void);
 
 int prot_from_flags(int flags) _const_;
 
-int fork_agent(pid_t *pid, const int except[], unsigned n_except, const char *path, ...);
-
 bool in_initrd(void);
 void in_initrd_force(bool value);
 

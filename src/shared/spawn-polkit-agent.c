@@ -38,9 +38,8 @@
 static pid_t agent_pid = 0;
 
 int polkit_agent_open(void) {
-        int r;
-        int pipe_fd[2];
         char notify_fd[DECIMAL_STR_MAX(int) + 1];
+        int pipe_fd[2], r;
 
         if (agent_pid > 0)
                 return 0;
@@ -49,8 +48,7 @@ int polkit_agent_open(void) {
         if (geteuid() == 0)
                 return 0;
 
-        /* We check STDIN here, not STDOUT, since this is about input,
-         * not output */
+        /* We check STDIN here, not STDOUT, since this is about input, not output */
         if (!isatty(STDIN_FILENO))
                 return 0;
 
@@ -59,8 +57,9 @@ int polkit_agent_open(void) {
 
         xsprintf(notify_fd, "%i", pipe_fd[1]);
 
-        r = fork_agent(&agent_pid,
+        r = fork_agent("(polkit-agent)",
                        &pipe_fd[1], 1,
+                       &agent_pid,
                        POLKIT_AGENT_BINARY_PATH,
                        POLKIT_AGENT_BINARY_PATH, "--notify-fd", notify_fd, "--fallback", NULL);
 
