@@ -875,25 +875,24 @@ bool on_tty(void) {
 }
 
 int make_stdio(int fd) {
-        int r, s, t;
+        int r = 0;
 
         assert(fd >= 0);
 
-        r = dup2(fd, STDIN_FILENO);
-        s = dup2(fd, STDOUT_FILENO);
-        t = dup2(fd, STDERR_FILENO);
+        if (dup2(fd, STDIN_FILENO) < 0 && r >= 0)
+                r = -errno;
+        if (dup2(fd, STDOUT_FILENO) < 0 && r >= 0)
+                r = -errno;
+        if (dup2(fd, STDERR_FILENO) < 0 && r >= 0)
+                r = -errno;
 
         if (fd >= 3)
                 safe_close(fd);
 
-        if (r < 0 || s < 0 || t < 0)
-                return -errno;
-
-        /* Explicitly unset O_CLOEXEC, since if fd was < 3, then
-         * dup2() was a NOP and the bit hence possibly set. */
+        /* Explicitly unset O_CLOEXEC, since if fd was < 3, then dup2() was a NOP and the bit hence possibly set. */
         stdio_unset_cloexec();
 
-        return 0;
+        return r;
 }
 
 int make_null_stdio(void) {
