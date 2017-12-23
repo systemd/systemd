@@ -898,7 +898,7 @@ int make_stdio(int fd) {
 int make_null_stdio(void) {
         int null_fd;
 
-        null_fd = open("/dev/null", O_RDWR|O_NOCTTY);
+        null_fd = open("/dev/null", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (null_fd < 0)
                 return -errno;
 
