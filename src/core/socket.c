@@ -3281,6 +3281,8 @@ const UnitVTable socket_vtable = {
                 "Install\0",
         .private_section = "Socket",
 
+        .can_transient = true,
+
         .init = socket_init,
         .done = socket_done,
         .load = socket_load,

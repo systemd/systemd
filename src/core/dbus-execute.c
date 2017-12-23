@@ -1036,6 +1036,121 @@ int bus_property_get_exec_command_list(
         return sd_bus_message_close_container(reply);
 }
 
+int bus_exec_command_set_transient_property(
+                Unit *u,
+                const char *name,
+                ExecCommand **exec_command,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+        unsigned n = 0;
+        int r;
+
+        r = sd_bus_message_enter_container(message, 'a', "(sasb)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_enter_container(message, 'r', "sasb")) > 0) {
+                _cleanup_strv_free_ char **argv = NULL;
+                const char *path;
+                int b;
+
+                r = sd_bus_message_read(message, "s", &path);
+                if (r < 0)
+                        return r;
+
+                if (!path_is_absolute(path))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
+
+                r = sd_bus_message_read_strv(message, &argv);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        ExecCommand *c;
+
+                        c = new0(ExecCommand, 1);
+                        if (!c)
+                                return -ENOMEM;
+
+                        c->path = strdup(path);
+                        if (!c->path) {
+                                free(c);
+                                return -ENOMEM;
+                        }
+
+                        c->argv = argv;
+                        argv = NULL;
+
+                        c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
+
+                        path_kill_slashes(c->path);
+                        exec_command_append_list(exec_command, c);
+                }
+
+                n++;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                _cleanup_free_ char *buf = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+                ExecCommand *c;
+                size_t size = 0;
+
+                if (n == 0)
+                        *exec_command = exec_command_free_list(*exec_command);
+
+                f = open_memstream(&buf, &size);
+                if (!f)
+                        return -ENOMEM;
+
+                (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+                fputs("ExecStart=\n", f);
+
+                LIST_FOREACH(command, c, *exec_command) {
+                        _cleanup_free_ char *a = NULL, *t = NULL;
+                        const char *p;
+
+                        p = unit_escape_setting(c->path, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS, &t);
+                        if (!p)
+                                return -ENOMEM;
+
+                        a = unit_concat_strv(c->argv, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS);
+                        if (!a)
+                                return -ENOMEM;
+
+                        fprintf(f, "%s=%s@%s %s\n",
+                                name,
+                                c->flags & EXEC_COMMAND_IGNORE_FAILURE ? "-" : "",
+                                p,
+                                a);
+                }
+
+                r = fflush_and_check(f);
+                if (r < 0)
+                        return r;
+
+                unit_write_setting(u, flags, name, buf);
+        }
+
+        return 1;
+}
+
 int bus_exec_context_set_transient_property(
                 Unit *u,
                 ExecContext *c,
