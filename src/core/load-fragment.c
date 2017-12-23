@@ -3525,7 +3525,8 @@ int config_parse_device_allow(
         if (!path)
                 return log_oom();
 
-        if (!is_deviceallow_pattern(path)) {
+        if (!is_deviceallow_pattern(path) &&
+            !path_startswith(path, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
@@ -3625,7 +3626,8 @@ int config_parse_io_device_weight(
         if (!path)
                 return log_oom();
 
-        if (!path_startswith(path, "/dev")) {
+        if (!path_startswith(path, "/dev") &&
+            !path_startswith(path, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
@@ -3698,7 +3700,8 @@ int config_parse_io_limit(
         if (!path)
                 return log_oom();
 
-        if (!path_startswith(path, "/dev")) {
+        if (!path_startswith(path, "/dev") &&
+            !path_startswith(path, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
@@ -3812,7 +3815,8 @@ int config_parse_blockio_device_weight(
         if (!path)
                 return log_oom();
 
-        if (!path_startswith(path, "/dev")) {
+        if (!path_startswith(path, "/dev") &&
+            !path_startswith(path, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
@@ -3886,7 +3890,8 @@ int config_parse_blockio_bandwidth(
         if (!path)
                 return log_oom();
 
-        if (!path_startswith(path, "/dev")) {
+        if (!path_startswith(path, "/dev") &&
+            !path_startswith(path, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
