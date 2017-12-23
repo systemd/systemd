@@ -656,7 +656,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         SocketExecCommand c;
         Socket *s = SOCKET(u);
         SocketPort *p;
-        const char *prefix2;
+        const char *prefix2, *str;
 
         assert(s);
         assert(f);
@@ -681,7 +681,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTCPCongestion: %s\n"
                 "%sRemoveOnStop: %s\n"
                 "%sWritable: %s\n"
-                "%sFDName: %s\n"
+                "%sFileDescriptorName: %s\n"
                 "%sSELinuxContextFromNet: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
@@ -716,10 +716,12 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%sAccepted: %u\n"
                         "%sNConnections: %u\n"
-                        "%sMaxConnections: %u\n",
+                        "%sMaxConnections: %u\n"
+                        "%sMaxConnectionsPerSource: %u\n",
                         prefix, s->n_accepted,
                         prefix, s->n_connections,
-                        prefix, s->max_connections);
+                        prefix, s->max_connections,
+                        prefix, s->max_connections_per_source);
 
         if (s->priority >= 0)
                 fprintf(f,
@@ -843,6 +845,24 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTriggerLimitBurst: %u\n",
                 prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->trigger_limit.interval, USEC_PER_SEC),
                 prefix, s->trigger_limit.burst);
+
+        str = socket_protocol_to_name(s->socket_protocol);
+        if (str)
+                fprintf(f, "%sSocketProtocol: %s\n", prefix, str);
+
+        if (!strv_isempty(s->symlinks)) {
+                char **q;
+
+                fprintf(f, "%sSymlinks:", prefix);
+                STRV_FOREACH(q, s->symlinks)
+                        fprintf(f, " %s", *q);
+
+                fprintf(f, "\n");
+        }
+
+        fprintf(f,
+                "%sTimeoutSec: %s\n",
+                prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->timeout_usec, USEC_PER_SEC));
 
         exec_context_dump(&s->exec_context, f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
