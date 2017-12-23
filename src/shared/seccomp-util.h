@@ -81,6 +81,24 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *ctx, const char *name, uint
 int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action);
 int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, uint32_t action);
 
+int seccomp_parse_syscall_filter_internal(
+                bool invert, const char *name, int errno_num, Hashmap *filter, bool whitelist,
+                bool warn, const char *unit, const char *filename, unsigned line);
+
+static inline int seccomp_parse_syscall_filter_and_warn(
+                bool invert, const char *name, int errno_num, Hashmap *filter, bool whitelist,
+                const char *unit, const char *filename, unsigned line) {
+        assert(unit);
+        assert(filename);
+
+        return seccomp_parse_syscall_filter_internal(invert, name, errno_num, filter, whitelist, true, unit, filename, line);
+}
+
+static inline int seccomp_parse_syscall_filter(
+                bool invert, const char *name, int errno_num, Hashmap *filter, bool whitelist) {
+        return seccomp_parse_syscall_filter_internal(invert, name, errno_num, filter, whitelist, false, NULL, NULL, 0);
+}
+
 int seccomp_restrict_archs(Set *archs);
 int seccomp_restrict_namespaces(unsigned long retain);
 int seccomp_protect_sysctl(void);

@@ -72,6 +72,9 @@ typedef enum SocketAddressBindIPv6Only {
 
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
 
+const char* socket_address_type_to_string(int t) _const_;
+int socket_address_type_from_string(const char *s) _pure_;
+
 int socket_address_parse(SocketAddress *a, const char *s);
 int socket_address_parse_and_warn(SocketAddress *a, const char *s);
 int socket_address_parse_netlink(SocketAddress *a, const char *s);

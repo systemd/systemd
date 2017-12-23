@@ -2,8 +2,8 @@
 
 Our intention is to make all settings that are available as unit file settings
 also available for transient units, through the D-Bus API. At the moment, some
-unit types (socket, swap, path) are not supported at all via unit types, but
-most others are pretty well supported, with some notable omissions.
+unit types (device, swap, target) are not supported at all via unit types,
+but most others are pretty well supported, with some notable omissions.
 
 The lists below contain all settings currently available in unit files. The
 ones currently available in transient units are prefixed with `✓`.
@@ -68,6 +68,7 @@ Only the most important generic unit settings are available for transient units.
   ConditionACPower=
   ConditionUser=
   ConditionGroup=
+  ConditionControlGroupController=
   AssertPathExists=
   AssertPathExistsGlob=
   AssertPathIsDirectory=
@@ -88,6 +89,7 @@ Only the most important generic unit settings are available for transient units.
   AssertACPower=
   AssertUser=
   AssertGroup=
+  AssertControlGroupController=
 ✓ CollectMode=
 ```
 
@@ -341,71 +343,71 @@ of their own beyond the generic unit and resource control settings.
 ## Scope Unit Settings
 
 Scope units are fully supported as transient units (in fact they only exist as
-such), but they have no settings of their own beyond the generic unit and
-resource control settings.
+such), but they have no settings of their own beyond the generic unit,
+resource control, and process killing settings.
 
 ## Socket Unit Settings
 
-Socket units are currently not available at all as transient units:
+Most socket unit settings are available to transient units.
 
 ```
-  ListenStream=
-  ListenDatagram=
-  ListenSequentialPacket=
-  ListenFIFO=
-  ListenNetlink=
-  ListenSpecial=
-  ListenMessageQueue=
-  ListenUSBFunction=
-  SocketProtocol=
-  BindIPv6Only=
-  Backlog=
-  BindToDevice=
-  ExecStartPre=
-  ExecStartPost=
-  ExecStopPre=
-  ExecStopPost=
-  TimeoutSec=
-  SocketUser=
-  SocketGroup=
-  SocketMode=
-  DirectoryMode=
-  Accept=
-  Writable=
-  MaxConnections=
-  MaxConnectionsPerSource=
-  KeepAlive=
-  KeepAliveTimeSec=
-  KeepAliveIntervalSec=
-  KeepAliveProbes=
-  DeferAcceptSec=
-  NoDelay=
-  Priority=
-  ReceiveBuffer=
-  SendBuffer=
-  IPTOS=
-  IPTTL=
-  Mark=
-  PipeSize=
-  FreeBind=
-  Transparent=
-  Broadcast=
-  PassCredentials=
-  PassSecurity=
-  TCPCongestion=
-  ReusePort=
-  MessageQueueMaxMessages=
-  MessageQueueMessageSize=
-  RemoveOnStop=
-  Symlinks=
-  FileDescriptorName=
+✓ ListenStream=
+✓ ListenDatagram=
+✓ ListenSequentialPacket=
+✓ ListenFIFO=
+✓ ListenNetlink=
+✓ ListenSpecial=
+✓ ListenMessageQueue=
+✓ ListenUSBFunction=
+✓ SocketProtocol=
+✓ BindIPv6Only=
+✓ Backlog=
+✓ BindToDevice=
+✓ ExecStartPre=
+✓ ExecStartPost=
+✓ ExecStopPre=
+✓ ExecStopPost=
+✓ TimeoutSec=
+✓ SocketUser=
+✓ SocketGroup=
+✓ SocketMode=
+✓ DirectoryMode=
+✓ Accept=
+✓ Writable=
+✓ MaxConnections=
+✓ MaxConnectionsPerSource=
+✓ KeepAlive=
+✓ KeepAliveTimeSec=
+✓ KeepAliveIntervalSec=
+✓ KeepAliveProbes=
+✓ DeferAcceptSec=
+✓ NoDelay=
+✓ Priority=
+✓ ReceiveBuffer=
+✓ SendBuffer=
+✓ IPTOS=
+✓ IPTTL=
+✓ Mark=
+✓ PipeSize=
+✓ FreeBind=
+✓ Transparent=
+✓ Broadcast=
+✓ PassCredentials=
+✓ PassSecurity=
+✓ TCPCongestion=
+✓ ReusePort=
+✓ MessageQueueMaxMessages=
+✓ MessageQueueMessageSize=
+✓ RemoveOnStop=
+✓ Symlinks=
+✓ FileDescriptorName=
   Service=
-  TriggerLimitIntervalSec=
-  TriggerLimitBurst=
-  SmackLabel=
-  SmackLabelIPIn=
-  SmackLabelIPOut=
-  SELinuxContextFromNet=
+✓ TriggerLimitIntervalSec=
+✓ TriggerLimitBurst=
+✓ SmackLabel=
+✓ SmackLabelIPIn=
+✓ SmackLabelIPOut=
+✓ SELinuxContextFromNet=
 ```
 
 ## Swap Unit Settings

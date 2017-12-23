@@ -179,7 +179,7 @@ int main(int argc, char* argv[]) {
                 goto finish;
         }
 
-        if (strv_length(final_env) <= 0) {
+        if (strv_isempty(final_env)) {
                 r = 0;
                 goto finish;
         }

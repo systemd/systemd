@@ -1036,6 +1036,121 @@ int bus_property_get_exec_command_list(
         return sd_bus_message_close_container(reply);
 }
 
+int bus_exec_command_set_transient_property(
+                Unit *u,
+                const char *name,
+                ExecCommand **exec_command,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+        unsigned n = 0;
+        int r;
+
+        r = sd_bus_message_enter_container(message, 'a', "(sasb)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_enter_container(message, 'r', "sasb")) > 0) {
+                _cleanup_strv_free_ char **argv = NULL;
+                const char *path;
+                int b;
+
+                r = sd_bus_message_read(message, "s", &path);
+                if (r < 0)
+                        return r;
+
+                if (!path_is_absolute(path))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
+
+                r = sd_bus_message_read_strv(message, &argv);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        ExecCommand *c;
+
+                        c = new0(ExecCommand, 1);
+                        if (!c)
+                                return -ENOMEM;
+
+                        c->path = strdup(path);
+                        if (!c->path) {
+                                free(c);
+                                return -ENOMEM;
+                        }
+
+                        c->argv = argv;
+                        argv = NULL;
+
+                        c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
+
+                        path_kill_slashes(c->path);
+                        exec_command_append_list(exec_command, c);
+                }
+
+                n++;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                _cleanup_free_ char *buf = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
+                ExecCommand *c;
+                size_t size = 0;
+
+                if (n == 0)
+                        *exec_command = exec_command_free_list(*exec_command);
+
+                f = open_memstream(&buf, &size);
+                if (!f)
+                        return -ENOMEM;
+
+                (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+                fputs("ExecStart=\n", f);
+
+                LIST_FOREACH(command, c, *exec_command) {
+                        _cleanup_free_ char *a = NULL, *t = NULL;
+                        const char *p;
+
+                        p = unit_escape_setting(c->path, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS, &t);
+                        if (!p)
+                                return -ENOMEM;
+
+                        a = unit_concat_strv(c->argv, UNIT_ESCAPE_C|UNIT_ESCAPE_SPECIFIERS);
+                        if (!a)
+                                return -ENOMEM;
+
+                        fprintf(f, "%s=%s@%s %s\n",
+                                name,
+                                c->flags & EXEC_COMMAND_IGNORE_FAILURE ? "-" : "",
+                                p,
+                                a);
+                }
+
+                r = fflush_and_check(f);
+                if (r < 0)
+                        return r;
+
+                unit_write_setting(u, flags, name, buf);
+        }
+
+        return 1;
+}
+
 int bus_exec_context_set_transient_property(
                 Unit *u,
                 ExecContext *c,
@@ -1054,7 +1169,7 @@ int bus_exec_context_set_transient_property(
 
         flags |= UNIT_PRIVATE;
 
-        if (streq(name, "User")) {
+        if (STR_IN_SET(name, "User", "Group")) {
                 const char *uu;
 
                 r = sd_bus_message_read(message, "s", &uu);
@@ -1062,36 +1177,18 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!isempty(uu) && !valid_user_group_name_or_id(uu))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid user name: %s", uu);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s: %s", name, uu);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
-                        r = free_and_strdup(&c->user, empty_to_null(uu));
+                        if (streq(name, "User"))
+                                r = free_and_strdup(&c->user, empty_to_null(uu));
+                        else /* "Group" */
+                                r = free_and_strdup(&c->group, empty_to_null(uu));
                         if (r < 0)
                                 return r;
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "User=%s", uu);
-                }
-
-                return 1;
-
-        } else if (streq(name, "Group")) {
-                const char *gg;
-
-                r = sd_bus_message_read(message, "s", &gg);
-                if (r < 0)
-                        return r;
-
-                if (!isempty(gg) && !valid_user_group_name_or_id(gg))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid group name: %s", gg);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-
-                        r = free_and_strdup(&c->group, empty_to_null(gg));
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "Group=%s", gg);
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, uu);
                 }
 
                 return 1;
@@ -1139,10 +1236,9 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
-                        if (isempty(id))
-                                c->syslog_identifier = mfree(c->syslog_identifier);
-                        else if (free_and_strdup(&c->syslog_identifier, id) < 0)
-                                return -ENOMEM;
+                        r = free_and_strdup(&c->syslog_identifier, empty_to_null(id));
+                        if (r < 0)
+                                return r;
 
                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "SyslogIdentifier=%s", id);
                 }
@@ -1361,59 +1457,42 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *joined = NULL;
+                        bool invert = !whitelist;
+                        char **s;
 
                         if (strv_isempty(l)) {
                                 c->syscall_whitelist = false;
                                 c->syscall_filter = hashmap_free(c->syscall_filter);
-                        } else {
-                                char **s;
+
+                                unit_write_settingf(u, flags, name, "SystemCallFilter=");
+                                return 1;
+                        }
+
+                        if (!c->syscall_filter) {
+                                c->syscall_filter = hashmap_new(NULL);
+                                if (!c->syscall_filter)
+                                        return log_oom();
 
                                 c->syscall_whitelist = whitelist;
 
-                                r = hashmap_ensure_allocated(&c->syscall_filter, NULL);
+                                if (c->syscall_whitelist) {
+                                        r = seccomp_parse_syscall_filter(invert, "@default", -1, c->syscall_filter, true);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+
+                        STRV_FOREACH(s, l) {
+                                _cleanup_free_ char *n = NULL;
+                                int e;
+
+                                r = parse_syscall_and_errno(*s, &n, &e);
                                 if (r < 0)
                                         return r;
 
-                                STRV_FOREACH(s, l) {
-                                        _cleanup_free_ char *n = NULL;
-                                        int e;
-
-                                        r = parse_syscall_and_errno(*s, &n, &e);
-                                        if (r < 0)
-                                                return r;
-
-                                        if (*n == '@') {
-                                                const SyscallFilterSet *set;
-                                                const char *i;
-
-                                                set = syscall_filter_set_find(n);
-                                                if (!set)
-                                                        return -EINVAL;
-
-                                                NULSTR_FOREACH(i, set->value) {
-                                                        int id;
-
-                                                        id = seccomp_syscall_resolve_name(i);
-                                                        if (id == __NR_SCMP_ERROR)
-                                                                return -EINVAL;
-
-                                                        r = hashmap_put(c->syscall_filter, INT_TO_PTR(id + 1), INT_TO_PTR(e));
-                                                        if (r < 0)
-                                                                return r;
-                                                }
-
-                                        } else {
-                                                int id;
-
-                                                id = seccomp_syscall_resolve_name(n);
-                                                if (id == __NR_SCMP_ERROR)
-                                                        return -EINVAL;
-
-                                                r = hashmap_put(c->syscall_filter, INT_TO_PTR(id + 1), INT_TO_PTR(e));
-                                                if (r < 0)
-                                                        return r;
-                                        }
-                                }
+                                r = seccomp_parse_syscall_filter(invert, n, e, c->syscall_filter, c->syscall_whitelist);
+                                if (r < 0)
+                                        return r;
                         }
 
                         joined = strv_join(l, " ");
@@ -1507,30 +1586,38 @@ int bus_exec_context_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *joined = NULL;
+                        bool invert = !whitelist;
+                        char **s;
 
                         if (strv_isempty(l)) {
                                 c->address_families_whitelist = false;
                                 c->address_families = set_free(c->address_families);
-                        } else {
-                                char **s;
+
+                                unit_write_settingf(u, flags, name, "RestrictAddressFamilies=");
+                                return 1;
+                        }
+
+                        if (!c->address_families) {
+                                c->address_families = set_new(NULL);
+                                if (!c->address_families)
+                                        return log_oom();
 
                                 c->address_families_whitelist = whitelist;
+                        }
 
-                                r = set_ensure_allocated(&c->address_families, NULL);
-                                if (r < 0)
-                                        return r;
+                        STRV_FOREACH(s, l) {
+                                int af;
 
-                                STRV_FOREACH(s, l) {
-                                        int af;
+                                af = af_from_name(*s);
+                                if (af <= 0)
+                                        return -EINVAL;
 
-                                        af = af_from_name(*s);
-                                        if (af <= 0)
-                                                return -EINVAL;
-
+                                if (!invert == c->address_families_whitelist) {
                                         r = set_put(c->address_families, INT_TO_PTR(af));
                                         if (r < 0)
                                                 return r;
-                                }
+                                } else
+                                        (void) set_remove(c->address_families, INT_TO_PTR(af));
                         }
 
                         joined = strv_join(l, " ");
@@ -1573,7 +1660,7 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!ioprio_priority_is_valid(n))
+                if (!sched_priority_is_valid(n))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling priority");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -1717,17 +1804,17 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!path_is_absolute(s))
+                if (!isempty(s) && !path_is_absolute(s))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s takes an absolute path", name);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (streq(name, "TTYPath"))
-                                r = free_and_strdup(&c->tty_path, s);
+                                r = free_and_strdup(&c->tty_path, empty_to_null(s));
                         else if (streq(name, "RootImage"))
-                                r = free_and_strdup(&c->root_image, s);
+                                r = free_and_strdup(&c->root_image, empty_to_null(s));
                         else {
                                 assert(streq(name, "RootDirectory"));
-                                r = free_and_strdup(&c->root_directory, s);
+                                r = free_and_strdup(&c->root_directory, empty_to_null(s));
                         }
                         if (r < 0)
                                 return r;
@@ -1751,7 +1838,7 @@ int bus_exec_context_set_transient_property(
                 } else
                         missing_ok = false;
 
-                if (!streq(s, "~") && !path_is_absolute(s))
+                if (!isempty(s) && !streq(s, "~") && !path_is_absolute(s))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects an absolute path or '~'");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -1759,7 +1846,7 @@ int bus_exec_context_set_transient_property(
                                 c->working_directory = mfree(c->working_directory);
                                 c->working_directory_home = true;
                         } else {
-                                r = free_and_strdup(&c->working_directory, s);
+                                r = free_and_strdup(&c->working_directory, empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -1840,15 +1927,13 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (isempty(s))
-                        s = NULL;
-                else if (!fdname_is_valid(s))
+                if (!isempty(s) && !fdname_is_valid(s))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid file descriptor name");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
                         if (streq(name, "StandardInputFileDescriptorName")) {
-                                r = free_and_strdup(c->stdio_fdname + STDIN_FILENO, s);
+                                r = free_and_strdup(c->stdio_fdname + STDIN_FILENO, empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -1856,7 +1941,7 @@ int bus_exec_context_set_transient_property(
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardInput=fd:%s", exec_context_fdname(c, STDIN_FILENO));
 
                         } else if (streq(name, "StandardOutputFileDescriptorName")) {
-                                r = free_and_strdup(c->stdio_fdname + STDOUT_FILENO, s);
+                                r = free_and_strdup(c->stdio_fdname + STDOUT_FILENO, empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -1866,7 +1951,7 @@ int bus_exec_context_set_transient_property(
                         } else {
                                 assert(streq(name, "StandardErrorFileDescriptorName"));
 
-                                r = free_and_strdup(&c->stdio_fdname[STDERR_FILENO], s);
+                                r = free_and_strdup(&c->stdio_fdname[STDERR_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -1884,15 +1969,17 @@ int bus_exec_context_set_transient_property(
                 if (r < 0)
                         return r;
 
-                if (!path_is_absolute(s))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute", s);
-                if (!path_is_normalized(s))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", s);
+                if (!isempty(s)) {
+                        if (!path_is_absolute(s))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute", s);
+                        if (!path_is_normalized(s))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", s);
+                }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
                         if (streq(name, "StandardInputFile")) {
-                                r = free_and_strdup(&c->stdio_file[STDIN_FILENO], s);
+                                r = free_and_strdup(&c->stdio_file[STDIN_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -1900,7 +1987,7 @@ int bus_exec_context_set_transient_property(
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardInput=file:%s", s);
 
                         } else if (streq(name, "StandardOutputFile")) {
-                                r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], s);
+                                r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -1910,7 +1997,7 @@ int bus_exec_context_set_transient_property(
                         } else {
                                 assert(streq(name, "StandardErrorFile"));
 
-                                r = free_and_strdup(&c->stdio_file[STDERR_FILENO], s);
+                                r = free_and_strdup(&c->stdio_file[STDERR_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
@@ -2323,7 +2410,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l) {
-                        const char *i = *p;
+                        char *i = *p;
                         size_t offset;
 
                         if (!utf8_is_valid(i))
@@ -2333,6 +2420,8 @@ int bus_exec_context_set_transient_property(
                         offset += i[offset] == '+';
                         if (!path_is_absolute(i + offset))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
+
+                        path_kill_slashes(i + offset);
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -2527,15 +2616,16 @@ int bus_exec_context_set_transient_property(
 
         } else if (streq(name, "SELinuxContext")) {
                 const char *s;
+
                 r = sd_bus_message_read(message, "s", &s);
                 if (r < 0)
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (isempty(s))
-                                c->selinux_context = mfree(c->selinux_context);
-                        else if (free_and_strdup(&c->selinux_context, s) < 0)
-                                return -ENOMEM;
+
+                        r = free_and_strdup(&c->selinux_context, empty_to_null(s));
+                        if (r < 0)
+                                return r;
 
                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, strempty(s));
                 }
