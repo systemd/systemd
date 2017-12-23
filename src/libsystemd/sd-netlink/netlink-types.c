@@ -102,6 +102,7 @@ static const NLType rtnl_link_info_data_vxcan_types[] = {
 
 static const NLType rtnl_link_info_data_ipvlan_types[] = {
         [IFLA_IPVLAN_MODE]  = { .type = NETLINK_TYPE_U16 },
+        [IFLA_IPVLAN_FLAGS]  = { .type = NETLINK_TYPE_U16 },
 };
 
 static const NLType rtnl_link_info_data_macvlan_types[] = {
