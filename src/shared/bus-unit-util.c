@@ -42,6 +42,7 @@
 #include "rlimit-util.h"
 #include "securebits-util.h"
 #include "signal-util.h"
+#include "socket-protocol-list.h"
 #include "string-util.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
@@ -113,6 +114,7 @@ DEFINE_BUS_APPEND_PARSE("i", parse_errno)
 DEFINE_BUS_APPEND_PARSE("i", sched_policy_from_string)
 DEFINE_BUS_APPEND_PARSE("i", secure_bits_from_string)
 DEFINE_BUS_APPEND_PARSE("i", signal_from_string_try_harder)
+DEFINE_BUS_APPEND_PARSE("i", socket_protocol_from_name)
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, ioprio_parse_priority)
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, parse_nice)
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, safe_atoi)
@@ -1250,21 +1252,9 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
 
                 return bus_append_strv(m, field, eq, EXTRACT_QUOTES);
 
-        if (streq(field, "SocketProtocol")) {
+        if (streq(field, "SocketProtocol"))
 
-                if (streq(eq, "udplite"))
-                        r = sd_bus_message_append(m, "(sv)", field, "i", IPPROTO_UDPLITE);
-                else if (streq(eq, "sctp"))
-                        r = sd_bus_message_append(m, "(sv)", field, "i", IPPROTO_SCTP);
-                else {
-                        log_error("Unsupported Socket protocol: %s", eq);
-                        return -EINVAL;
-                }
-                if (r < 0)
-                        return bus_log_create_error(r);
-
-                return 1;
-        }
+                return bus_append_socket_protocol_from_name(m, field, eq);
 
         if (STR_IN_SET(field,
                        "ListenStream", "ListenDatagram", "ListenSequentialPacket", "ListenNetlink",

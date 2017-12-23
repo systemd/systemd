@@ -28,6 +28,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket.h"
+#include "socket-protocol-list.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "unit.h"
@@ -268,18 +269,23 @@ static int bus_socket_set_transient_property(
                 return 1;
 
         } else if (streq(name, "SocketProtocol")) {
+                const char *p;
                 int32_t i;
 
                 r = sd_bus_message_read(message, "i", &i);
                 if (r < 0)
                         return r;
 
-                if (!IN_SET(i, IPPROTO_UDPLITE, IPPROTO_SCTP))
+                p = socket_protocol_to_name(i);
+                if (!p)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s: %i", name, i);
+
+                if (!IN_SET(i, IPPROTO_UDPLITE, IPPROTO_SCTP))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported socket protocol: %s", p);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         s->socket_protocol = i;
-                        unit_write_settingf(u, flags, name, "%s=%s", name, i == IPPROTO_UDPLITE ? "udplite" : "sctp");
+                        unit_write_settingf(u, flags, name, "%s=%s", name, p);
                 }
 
                 return 1;
@@ -557,7 +563,7 @@ static int bus_socket_set_transient_property(
                         if (!p)
                                 return log_oom();
 
-                        p->type = socket_type_from_string(t);
+                        p->type = socket_port_type_from_string(t);
                         if (p->type < 0)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown Socket type: %s", t);
 

@@ -64,6 +64,7 @@
 #include "securebits.h"
 #include "securebits-util.h"
 #include "signal-util.h"
+#include "socket-protocol-list.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -454,6 +455,7 @@ int config_parse_socket_protocol(const char *unit,
                                  void *data,
                                  void *userdata) {
         Socket *s;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -462,14 +464,16 @@ int config_parse_socket_protocol(const char *unit,
 
         s = SOCKET(data);
 
-        if (streq(rvalue, "udplite"))
-                s->socket_protocol = IPPROTO_UDPLITE;
-        else if (streq(rvalue, "sctp"))
-                s->socket_protocol = IPPROTO_SCTP;
-        else {
+        r = socket_protocol_from_name(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid socket protocol, ignoring: %s", rvalue);
+                return 0;
+        } else if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Socket protocol not supported, ignoring: %s", rvalue);
                 return 0;
         }
+
+        s->socket_protocol = r;
 
         return 0;
 }
