@@ -2780,6 +2780,23 @@ const char* socket_port_type_to_string(SocketPort *p) {
         }
 }
 
+SocketType socket_port_type_from_string(const char *s) {
+        assert(s);
+
+        if (STR_IN_SET(t, "Stream", "Datagram", "SequentialPacket", "Netlink"))
+                return = SOCKET_SOCKET;
+        else if (streq(t, "Special"))
+                return = SOCKET_SPECIAL;
+        else if (streq(t, "MessageQueue"))
+                return = SOCKET_MQUEUE;
+        else if (streq(t, "FIFO"))
+                return = SOCKET_FIFO;
+        else if (streq(t, "USBFunction"))
+                return = SOCKET_USB_FUNCTION;
+        else
+                return _SOCKET_TYPE_INVALID;
+}
+
 _pure_ static bool socket_check_gc(Unit *u) {
         Socket *s = SOCKET(u);
 

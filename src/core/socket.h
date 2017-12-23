@@ -43,8 +43,8 @@ typedef enum SocketType {
         SOCKET_SPECIAL,
         SOCKET_MQUEUE,
         SOCKET_USB_FUNCTION,
-        _SOCKET_FIFO_MAX,
-        _SOCKET_FIFO_INVALID = -1
+        _SOCKET_TYPE_MAX,
+        _SOCKET_TYPE_INVALID = -1
 } SocketType;
 
 typedef enum SocketResult {
@@ -194,3 +194,4 @@ const char* socket_result_to_string(SocketResult i) _const_;
 SocketResult socket_result_from_string(const char *s) _pure_;
 
 const char* socket_port_type_to_string(SocketPort *p) _pure_;
+SocketType socket_port_type_from_string(const char *p) _pure_;
