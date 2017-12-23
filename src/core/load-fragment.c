@@ -434,11 +434,9 @@ int config_parse_socket_listen(const char *unit,
         p->n_auxiliary_fds = 0;
         p->socket = s;
 
-        if (s->ports) {
-                LIST_FIND_TAIL(port, s->ports, tail);
-                LIST_INSERT_AFTER(port, s->ports, tail, p);
-        } else
-                LIST_PREPEND(port, s->ports, p);
+        LIST_FIND_TAIL(port, s->ports, tail);
+        LIST_INSERT_AFTER(port, s->ports, tail, p);
+
         p = NULL;
 
         return 0;
