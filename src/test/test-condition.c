@@ -303,6 +303,7 @@ static void test_condition_test_kernel_command_line(void) {
 static void test_condition_test_kernel_version(void) {
         Condition *condition;
         struct utsname u;
+        const char *v;
 
         condition = condition_new(CONDITION_KERNEL_VERSION, "*thisreallyshouldntbeinthekernelversion*", false, false);
         assert_se(condition);
@@ -332,6 +333,90 @@ static void test_condition_test_kernel_version(void) {
         condition = condition_new(CONDITION_KERNEL_VERSION, u.release, false, false);
         assert_se(condition);
         assert_se(condition_test(condition));
+        condition_free(condition);
+
+        /* 0.1.2 would be a very very very old kernel */
+        condition = condition_new(CONDITION_KERNEL_VERSION, "> 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, ">= 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "< 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "<= 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "= 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        /* 4711.8.15 is a very very very future kernel */
+        condition = condition_new(CONDITION_KERNEL_VERSION, "< 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "<= 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "= 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "> 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, ">= 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        assert_se(uname(&u) >= 0);
+
+        v = strjoina(">=", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("=  ", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("<=", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("> ", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("<   ", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
         condition_free(condition);
 }
 

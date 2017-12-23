@@ -145,7 +145,28 @@ static int condition_test_kernel_command_line(Condition *c) {
 }
 
 static int condition_test_kernel_version(Condition *c) {
+        enum {
+                /* Listed in order of checking. Note that some comparators are prefixes of others, hence the longest
+                 * should be listed first. */
+                LOWER_OR_EQUAL,
+                GREATER_OR_EQUAL,
+                LOWER,
+                GREATER,
+                EQUAL,
+                _ORDER_MAX,
+        };
+
+        static const char *const prefix[_ORDER_MAX] = {
+                [LOWER_OR_EQUAL] = "<=",
+                [GREATER_OR_EQUAL] = ">=",
+                [LOWER] = "<",
+                [GREATER] = ">",
+                [EQUAL] = "=",
+        };
+        const char *p = NULL;
         struct utsname u;
+        size_t i;
+        int k;
 
         assert(c);
         assert(c->parameter);
@@ -153,7 +174,38 @@ static int condition_test_kernel_version(Condition *c) {
 
         assert_se(uname(&u) >= 0);
 
-        return fnmatch(c->parameter, u.release, 0) == 0;
+        for (i = 0; i < _ORDER_MAX; i++) {
+                p = startswith(c->parameter, prefix[i]);
+                if (p)
+                        break;
+        }
+
+        /* No prefix? Then treat as glob string */
+        if (!p)
+                return fnmatch(skip_leading_chars(c->parameter, NULL), u.release, 0) == 0;
+
+        k = str_verscmp(u.release, skip_leading_chars(p, NULL));
+
+        switch (i) {
+
+        case LOWER:
+                return k < 0;
+
+        case LOWER_OR_EQUAL:
+                return k <= 0;
+
+        case EQUAL:
+                return k == 0;
+
+        case GREATER_OR_EQUAL:
+                return k >= 0;
+
+        case GREATER:
+                return k > 0;
+
+        default:
+                assert_not_reached("Can't compare");
+        }
 }
 
 static int condition_test_user(Condition *c) {
