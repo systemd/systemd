@@ -84,6 +84,7 @@
 #include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "util.h"
@@ -5582,6 +5583,7 @@ static int set_property(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *n = NULL;
+        UnitType t;
         sd_bus *bus;
         int r;
 
@@ -5605,6 +5607,12 @@ static int set_property(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
+        t = unit_name_to_type(n);
+        if (t < 0) {
+                log_error("Invalid unit type: %s", n);
+                return -EINVAL;
+        }
+
         r = sd_bus_message_append(m, "sb", n, arg_runtime);
         if (r < 0)
                 return bus_log_create_error(r);
@@ -5613,7 +5621,7 @@ static int set_property(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = bus_append_unit_property_assignment_many(m, strv_skip(argv, 2));
+        r = bus_append_unit_property_assignment_many(m, t, strv_skip(argv, 2));
         if (r < 0)
                 return r;
 
