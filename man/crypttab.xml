@@ -218,16 +218,23 @@
       <varlistentry>
         <term><option>noauto</option></term>
 
-        <listitem><para>This device will not be automatically unlocked
-        on boot.</para></listitem>
+        <listitem><para>This device will not be added to <filename>cryptsetup.target</filename>.
+        This means that it will not be automatically unlocked on boot, unless something else pulls
+        it in. In particular, if the device is used for a mount point, it'll be unlocked
+        automatically during boot, unless the mount point itself is also disabled with
+        <option>noauto</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>nofail</option></term>
 
-        <listitem><para>The system will not wait for the device to
-        show up and be unlocked at boot, and not fail the boot if it
-        does not show up.</para></listitem>
+        <listitem><para>This device will not be a hard dependency of
+        <filename>cryptsetup.target</filename>. It'll be still pulled in and started, but the system
+        will not wait for the device to show up and be unlocked, and boot will not fail if this is
+        unsuccessful. Note that other units that depend on the unlocked device may still fail. In
+        particular, if the device is used for a mount point, the mount point itself is also needs to
+        have <option>noauto</option> option, or the boot will fail if the device is not unlocked
+        successfully.</para></listitem>
       </varlistentry>
 
       <varlistentry>
