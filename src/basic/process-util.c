@@ -297,6 +297,11 @@ int rename_process(const char name[]) {
         if (isempty(name))
                 return -EINVAL; /* let's not confuse users unnecessarily with an empty name */
 
+        if (!is_main_thread())
+                return -EPERM; /* Let's not allow setting the process name from other threads than the main one, as we
+                                * cache things without locking, and we make assumptions that PR_SET_NAME sets the
+                                * process name that isn't correct on any other threads */
+
         l = strlen(name);
 
         /* First step, change the comm field. */
