@@ -1,4 +1,5 @@
-#!/bin/sh -eu
+#!/bin/sh
+set -eu
 
 $1 -dM -include linux/input.h - </dev/null | awk '
         /\<(KEY_(MAX|MIN_INTERESTING))|(BTN_(MISC|MOUSE|JOYSTICK|GAMEPAD|DIGI|WHEEL|TRIGGER_HAPPY))\>/  { next }

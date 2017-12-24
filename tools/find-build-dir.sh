@@ -1,4 +1,5 @@
-#!/bin/sh -e
+#!/bin/sh
+set -e
 
 # Try to guess the build directory:
 # we look for subdirectories of the parent directory that look like ninja build dirs.

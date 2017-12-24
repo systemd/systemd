@@ -1,4 +1,5 @@
-#!/bin/sh -ex
+#!/bin/sh
+set -ex
 
 # This file is part of systemd.
 #

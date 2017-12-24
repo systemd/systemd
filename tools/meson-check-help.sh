@@ -1,4 +1,5 @@
-#!/bin/sh -eu
+#!/bin/sh
+set -eu
 
 export SYSTEMD_LOG_LEVEL=info
 
