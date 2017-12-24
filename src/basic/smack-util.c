@@ -136,7 +136,7 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
 
 int mac_smack_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
         struct stat st;
-        int r = 0;
+        int r;
 
         assert(path);
 

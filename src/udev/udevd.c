@@ -1700,9 +1700,9 @@ int main(int argc, char *argv[]) {
                 goto exit;
         }
 
-        r = mkdir("/run/udev", 0755);
-        if (r < 0 && errno != EEXIST) {
-                r = log_error_errno(errno, "could not create /run/udev: %m");
+        r = mkdir_errno_wrapper("/run/udev", 0755);
+        if (r < 0 && r != -EEXIST) {
+                log_error_errno(r, "could not create /run/udev: %m");
                 goto exit;
         }
 

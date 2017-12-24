@@ -23,6 +23,7 @@
 
 #include <sys/types.h>
 
+int mkdir_errno_wrapper(const char *pathname, mode_t mode);
 int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, bool follow_symlink);
 int mkdir_parents(const char *path, mode_t mode);
 int mkdir_p(const char *path, mode_t mode);
