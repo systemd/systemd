@@ -456,7 +456,8 @@ endforeach
 foreach ident : [
         ['memfd_create',      '''#include <sys/mman.h>'''],
         ['gettid',            '''#include <sys/types.h>'''],
-        ['pivot_root',        '''#include <stdlib.h>'''],     # no known header declares pivot_root
+        ['pivot_root',        '''#include <stdlib.h>
+                                 #include <unistd.h>'''],     # no known header declares pivot_root
         ['name_to_handle_at', '''#include <sys/types.h>
                                  #include <sys/stat.h>
                                  #include <fcntl.h>'''],
