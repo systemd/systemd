@@ -454,33 +454,32 @@ foreach ident : ['secure_getenv', '__secure_getenv']
 endforeach
 
 foreach ident : [
-        ['memfd_create',      '''#define _GNU_SOURCE
-                                 #include <sys/mman.h>'''],
-        ['gettid',            '''#include <sys/types.h>'''],
-        ['pivot_root',        '''#include <stdlib.h>'''],     # no known header declares pivot_root
-        ['name_to_handle_at', '''#define _GNU_SOURCE
-                                 #include <sys/types.h>
+        ['memfd_create',      '''#include <sys/mman.h>'''],
+        ['gettid',            '''#include <sys/types.h>
+                                 #include <unistd.h>'''],
+        ['pivot_root',        '''#include <stdlib.h>
+                                 #include <unistd.h>'''],     # no known header declares pivot_root
+        ['name_to_handle_at', '''#include <sys/types.h>
                                  #include <sys/stat.h>
                                  #include <fcntl.h>'''],
-        ['setns',             '''#define _GNU_SOURCE
-                                 #include <sched.h>'''],
-        ['renameat2',         '''#include <stdio.h>'''],
+        ['setns',             '''#include <sched.h>'''],
+        ['renameat2',         '''#include <stdio.h>
+                                 #include <fcntl.h>'''],
         ['kcmp',              '''#include <linux/kcmp.h>'''],
         ['keyctl',            '''#include <sys/types.h>
                                  #include <keyutils.h>'''],
-        ['copy_file_range',   '''#define _GNU_SOURCE
-                                 #include <sys/syscall.h>
+        ['copy_file_range',   '''#include <sys/syscall.h>
                                  #include <unistd.h>'''],
         ['bpf',               '''#include <sys/syscall.h>
                                  #include <unistd.h>'''],
         ['explicit_bzero' ,   '''#include <string.h>'''],
 ]
 
-        have = cc.has_function(ident[0], prefix : ident[1])
+        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
-if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''')
+if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''', args : '-D_GNU_SOURCE')
         conf.set10('USE_SYS_RANDOM_H', true)
         conf.set10('HAVE_GETRANDOM', true)
 else
