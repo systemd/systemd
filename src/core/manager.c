@@ -83,6 +83,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "strxcpyx.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "transaction.h"
@@ -3207,6 +3208,10 @@ static void manager_notify_finished(Manager *m) {
                 return;
 
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0) {
+                char ts[FORMAT_TIMESPAN_MAX];
+                char buf[FORMAT_TIMESPAN_MAX + STRLEN(" (firmware) + ") + FORMAT_TIMESPAN_MAX + STRLEN(" (loader) + ")];
+                char *p;
+                size_t size;
 
                 /* Note that MANAGER_TIMESTAMP_KERNEL's monotonic value is always at 0, and
                  * MANAGER_TIMESTAMP_FIRMWARE's and MANAGER_TIMESTAMP_LOADER's monotonic value should be considered
@@ -3216,6 +3221,14 @@ static void manager_notify_finished(Manager *m) {
                 loader_usec = m->timestamps[MANAGER_TIMESTAMP_LOADER].monotonic - m->timestamps[MANAGER_TIMESTAMP_KERNEL].monotonic;
                 userspace_usec = m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic - m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
                 total_usec = m->timestamps[MANAGER_TIMESTAMP_FIRMWARE].monotonic + m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic;
+
+                p = buf;
+                size = sizeof(buf);
+
+                if (firmware_usec > 0)
+                        size = strpcpyf(&p, size, "%s (firmware) + ", format_timespan(ts, sizeof(ts), firmware_usec, USEC_PER_MSEC));
+                if (loader_usec > 0)
+                        size = strpcpyf(&p, size, "%s (loader) + ", format_timespan(ts, sizeof(ts), loader_usec, USEC_PER_MSEC));
 
                 if (dual_timestamp_is_set(&m->timestamps[MANAGER_TIMESTAMP_INITRD])) {
 
@@ -3228,7 +3241,8 @@ static void manager_notify_finished(Manager *m) {
                                    "KERNEL_USEC="USEC_FMT, kernel_usec,
                                    "INITRD_USEC="USEC_FMT, initrd_usec,
                                    "USERSPACE_USEC="USEC_FMT, userspace_usec,
-                                   LOG_MESSAGE("Startup finished in %s (kernel) + %s (initrd) + %s (userspace) = %s.",
+                                   LOG_MESSAGE("Startup finished in %s%s (kernel) + %s (initrd) + %s (userspace) = %s.",
+                                               buf,
                                                format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
                                                format_timespan(initrd, sizeof(initrd), initrd_usec, USEC_PER_MSEC),
                                                format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
@@ -3244,7 +3258,8 @@ static void manager_notify_finished(Manager *m) {
                                    "MESSAGE_ID=" SD_MESSAGE_STARTUP_FINISHED_STR,
                                    "KERNEL_USEC="USEC_FMT, kernel_usec,
                                    "USERSPACE_USEC="USEC_FMT, userspace_usec,
-                                   LOG_MESSAGE("Startup finished in %s (kernel) + %s (userspace) = %s.",
+                                   LOG_MESSAGE("Startup finished in %s%s (kernel) + %s (userspace) = %s.",
+                                               buf,
                                                format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
                                                format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
                                                format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)),
