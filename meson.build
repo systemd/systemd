@@ -463,7 +463,8 @@ foreach ident : [
                                  #include <sys/stat.h>
                                  #include <fcntl.h>'''],
         ['setns',             '''#include <sched.h>'''],
-        ['renameat2',         '''#include <stdio.h>'''],
+        ['renameat2',         '''#include <stdio.h>
+                                 #include <fcntl.h>'''],
         ['kcmp',              '''#include <linux/kcmp.h>'''],
         ['keyctl',            '''#include <sys/types.h>
                                  #include <keyutils.h>'''],
