@@ -52,21 +52,29 @@ void boot_entry_free(BootEntry *entry) {
 }
 
 int boot_entry_load(const char *path, BootEntry *entry) {
+        _cleanup_(boot_entry_free) BootEntry tmp = {};
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
-        _cleanup_(boot_entry_free) BootEntry tmp = {};
+        char *b, *c;
         int r;
 
         assert(path);
         assert(entry);
 
+        c = endswith_no_case(path, ".conf");
+        if (!c) {
+                log_error("Invalid loader entry filename: %s", path);
+                return -EINVAL;
+        }
+
+        b = basename(path);
+        tmp.filename = strndup(b, c - b);
+        if (!tmp.filename)
+                return log_oom();
+
         f = fopen(path, "re");
         if (!f)
                 return log_error_errno(errno, "Failed to open \"%s\": %m", path);
-
-        tmp.filename = strdup(basename(path));
-        if (!tmp.filename)
-                return log_oom();
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
