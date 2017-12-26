@@ -574,7 +574,7 @@
         <listitem><para>Upon receiving this signal the systemd system
         manager will start the
         <filename>ctrl-alt-del.target</filename> unit. This is mostly
-        equivalent to <command>systemctl start ctl-alt-del.target
+        equivalent to <command>systemctl start ctrl-alt-del.target
         --job-mode=replace-irreversible</command>. If this signal is
         received more than 7 times per 2s, an immediate reboot is
         triggered.  Note that pressing Ctrl-Alt-Del on the console
