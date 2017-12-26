@@ -1007,12 +1007,12 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
 
         h = hashmap_new(&string_hash_ops);
         if (!h)
-                return -ENOMEM;
+                return log_oom();
 
-        for (i = 0; i < (unsigned)n; i++) {
+        for (i = 0; i < (unsigned) n; i++) {
                 r = hashmap_put(h, times[i].name, &times[i]);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to add entry to hashmap: %m");
         }
         unit_times_hashmap = h;
 
