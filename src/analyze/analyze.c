@@ -1276,13 +1276,13 @@ static int dump(int argc, char *argv[], void *userdata) {
 
         r = sd_bus_call_method(
                         bus,
-                       "org.freedesktop.systemd1",
-                       "/org/freedesktop/systemd1",
-                       "org.freedesktop.systemd1.Manager",
-                       "Dump",
-                       &error,
-                       &reply,
-                       "");
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "Dump",
+                        &error,
+                        &reply,
+                        NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed issue method call: %s", bus_error_message(&error, r));
 
