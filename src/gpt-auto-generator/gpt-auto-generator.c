@@ -28,6 +28,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"

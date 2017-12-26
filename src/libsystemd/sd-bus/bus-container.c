@@ -62,11 +62,10 @@ int bus_container_connect_socket(sd_bus *b) {
         if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                 return -errno;
 
-        child = fork();
-        if (child < 0)
-                return -errno;
-
-        if (child == 0) {
+        r = safe_fork("(sd-buscntr)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 pid_t grandchild;
 
                 pair[0] = safe_close(pair[0]);
@@ -82,11 +81,10 @@ int bus_container_connect_socket(sd_bus *b) {
                  * comes from a process from within the container, and
                  * not outside of it */
 
-                grandchild = fork();
-                if (grandchild < 0)
+                r = safe_fork("(sd-buscntr2)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &grandchild);
+                if (r < 0)
                         _exit(EXIT_FAILURE);
-
-                if (grandchild == 0) {
+                if (r == 0) {
 
                         r = connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size);
                         if (r < 0) {

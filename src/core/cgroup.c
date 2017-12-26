@@ -22,6 +22,7 @@
 #include <fnmatch.h>
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "bpf-firewall.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
@@ -307,7 +308,7 @@ static int lookup_block_device(const char *p, dev_t *dev) {
 
                 /* If this is a partition, try to get the originating
                  * block device */
-                block_get_whole_disk(*dev, dev);
+                (void) block_get_whole_disk(*dev, dev);
         } else {
                 log_warning("%s is not a block device and file system block device cannot be determined or is not local.", p);
                 return -ENODEV;

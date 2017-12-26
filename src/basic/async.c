@@ -27,6 +27,8 @@
 #include "fd-util.h"
 #include "log.h"
 #include "macro.h"
+#include "process-util.h"
+#include "signal-util.h"
 #include "util.h"
 
 int asynchronous_job(void* (*func)(void *p), void *arg) {
@@ -58,18 +60,29 @@ finish:
         return -r;
 }
 
-static void *sync_thread(void *p) {
-        sync();
-        return NULL;
-}
+int asynchronous_sync(pid_t *ret_pid) {
+        int r;
 
-int asynchronous_sync(void) {
-        log_debug("Spawning new thread for sync");
+        /* This forks off an invocation of fork() as a child process, in order to initiate synchronization to
+         * disk. Note that we implement this as helper process rather than thread as we don't want the sync() to hang our
+         * original process ever, and a thread would do that as the process can't exit with threads hanging in blocking
+         * syscalls. */
 
-        return asynchronous_job(sync_thread, NULL);
+        r = safe_fork("(sd-sync)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, ret_pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child process */
+                (void) sync();
+                _exit(EXIT_SUCCESS);
+        }
+
+        return 0;
 }
 
 static void *close_thread(void *p) {
+        (void) pthread_setname_np(pthread_self(), "close");
+
         assert_se(close_nointr(PTR_TO_FD(p)) != -EBADF);
         return NULL;
 }

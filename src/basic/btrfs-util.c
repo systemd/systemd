@@ -38,6 +38,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "btrfs-ctree.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"

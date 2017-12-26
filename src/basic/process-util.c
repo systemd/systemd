@@ -56,6 +56,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -296,10 +297,17 @@ int rename_process(const char name[]) {
         if (isempty(name))
                 return -EINVAL; /* let's not confuse users unnecessarily with an empty name */
 
+        if (!is_main_thread())
+                return -EPERM; /* Let's not allow setting the process name from other threads than the main one, as we
+                                * cache things without locking, and we make assumptions that PR_SET_NAME sets the
+                                * process name that isn't correct on any other threads */
+
         l = strlen(name);
 
-        /* First step, change the comm field. */
-        (void) prctl(PR_SET_NAME, name);
+        /* First step, change the comm field. The main thread's comm is identical to the process comm. This means we
+         * can use PR_SET_NAME, which sets the thread name for the calling thread. */
+        if (prctl(PR_SET_NAME, name) < 0)
+                log_debug_errno(errno, "PR_SET_NAME failed: %m");
         if (l > 15) /* Linux process names can be 15 chars at max */
                 truncated = true;
 
@@ -1132,6 +1140,213 @@ int must_be_root(void) {
 
         log_error("Need to be root.");
         return -EPERM;
+}
+
+int safe_fork_full(
+                const char *name,
+                const int except_fds[],
+                size_t n_except_fds,
+                ForkFlags flags,
+                pid_t *ret_pid) {
+
+        pid_t original_pid, pid;
+        sigset_t saved_ss;
+        bool block_signals;
+        int r;
+
+        /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
+         * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
+
+        original_pid = getpid_cached();
+
+        block_signals = flags & (FORK_RESET_SIGNALS|FORK_DEATHSIG);
+
+        if (block_signals) {
+                sigset_t ss;
+
+                /* We temporarily block all signals, so that the new child has them blocked initially. This way, we can be sure
+                 * that SIGTERMs are not lost we might send to the child. */
+                if (sigfillset(&ss) < 0)
+                        return log_debug_errno(errno, "Failed to reset signal set: %m");
+
+                if (sigprocmask(SIG_SETMASK, &ss, &saved_ss) < 0)
+                        return log_debug_errno(errno, "Failed to reset signal mask: %m");
+        }
+
+        pid = fork();
+        if (pid < 0) {
+                r = -errno;
+
+                if (block_signals) /* undo what we did above */
+                        (void) sigprocmask(SIG_SETMASK, &saved_ss, NULL);
+
+                return log_debug_errno(r, "Failed to fork: %m");
+        }
+        if (pid > 0) {
+                /* We are in the parent process */
+
+                if (block_signals) /* undo what we did above */
+                        (void) sigprocmask(SIG_SETMASK, &saved_ss, NULL);
+
+                log_debug("Sucessfully forked off '%s' as PID " PID_FMT ".", strna(name), pid);
+
+                if (ret_pid)
+                        *ret_pid = pid;
+
+                return 1;
+        }
+
+        /* We are in the child process */
+
+        if (flags & FORK_REOPEN_LOG) {
+                /* Close the logs if requested, before we log anything. And make sure we reopen it if needed. */
+                log_close();
+                log_set_open_when_needed(true);
+        }
+
+        if (name) {
+                r = rename_process(name);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to rename process, ignoring: %m");
+        }
+
+        if (flags & FORK_DEATHSIG)
+                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0) {
+                        log_debug_errno(errno, "Failed to set death signal: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+        if (flags & FORK_RESET_SIGNALS) {
+                r = reset_all_signal_handlers();
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to reset signal handlers: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                /* This implicitly undoes the signal mask stuff we did before the fork()ing above */
+                r = reset_signal_mask();
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to reset signal mask: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        } else if (block_signals) { /* undo what we did above */
+                if (sigprocmask(SIG_SETMASK, &saved_ss, NULL) < 0) {
+                        log_debug_errno(errno, "Failed to restore signal mask: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        if (flags & FORK_DEATHSIG) {
+                /* Let's see if the parent PID is still the one we started from? If not, then the parent
+                 * already died by the time we set PR_SET_PDEATHSIG, hence let's emulate the effect */
+
+                if (getppid() != original_pid) {
+                        log_debug("Parent died early, raising SIGTERM.");
+                        (void) raise(SIGTERM);
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        if (flags & FORK_CLOSE_ALL_FDS) {
+                /* Close the logs here in case it got reopened above, as close_all_fds() would close them for us */
+                log_close();
+
+                r = close_all_fds(except_fds, n_except_fds);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to close all file descriptors: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        /* When we were asked to reopen the logs, do so again now */
+        if (flags & FORK_REOPEN_LOG) {
+                log_open();
+                log_set_open_when_needed(false);
+        }
+
+        if (flags & FORK_NULL_STDIO) {
+                r = make_null_stdio();
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to connect stdin/stdout to /dev/null: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        if (ret_pid)
+                *ret_pid = getpid_cached();
+
+        return 0;
+}
+
+int fork_agent(const char *name, const int except[], unsigned n_except, pid_t *ret_pid, const char *path, ...) {
+        bool stdout_is_tty, stderr_is_tty;
+        unsigned n, i;
+        va_list ap;
+        char **l;
+        int r;
+
+        assert(path);
+
+        /* Spawns a temporary TTY agent, making sure it goes away when we go away */
+
+        r = safe_fork_full(name, except, n_except, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS, ret_pid);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 0;
+
+        /* In the child: */
+
+        stdout_is_tty = isatty(STDOUT_FILENO);
+        stderr_is_tty = isatty(STDERR_FILENO);
+
+        if (!stdout_is_tty || !stderr_is_tty) {
+                int fd;
+
+                /* Detach from stdout/stderr. and reopen
+                 * /dev/tty for them. This is important to
+                 * ensure that when systemctl is started via
+                 * popen() or a similar call that expects to
+                 * read EOF we actually do generate EOF and
+                 * not delay this indefinitely by because we
+                 * keep an unused copy of stdin around. */
+                fd = open("/dev/tty", O_WRONLY);
+                if (fd < 0) {
+                        log_error_errno(errno, "Failed to open /dev/tty: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (!stdout_is_tty && dup2(fd, STDOUT_FILENO) < 0) {
+                        log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (!stderr_is_tty && dup2(fd, STDERR_FILENO) < 0) {
+                        log_error_errno(errno, "Failed to dup2 /dev/tty: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (fd > STDERR_FILENO)
+                        close(fd);
+        }
+
+        /* Count arguments */
+        va_start(ap, path);
+        for (n = 0; va_arg(ap, char*); n++)
+                ;
+        va_end(ap);
+
+        /* Allocate strv */
+        l = alloca(sizeof(char *) * (n + 1));
+
+        /* Fill in arguments */
+        va_start(ap, path);
+        for (i = 0; i <= n; i++)
+                l[i] = va_arg(ap, char*);
+        va_end(ap);
+
+        execv(path, l);
+        _exit(EXIT_FAILURE);
 }
 
 static const char *const ioprio_class_table[] = {

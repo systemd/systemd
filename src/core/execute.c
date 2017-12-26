@@ -1207,27 +1207,19 @@ static int setup_pam(
 
         parent_pid = getpid_cached();
 
-        pam_pid = fork();
-        if (pam_pid < 0) {
-                r = -errno;
+        r = safe_fork("(sd-pam)", 0, &pam_pid);
+        if (r < 0)
                 goto fail;
-        }
-
-        if (pam_pid == 0) {
+        if (r == 0) {
                 int sig, ret = EXIT_PAM;
 
                 /* The child's job is to reset the PAM session on
                  * termination */
                 barrier_set_role(&barrier, BARRIER_CHILD);
 
-                /* This string must fit in 10 chars (i.e. the length
-                 * of "/sbin/init"), to look pretty in /bin/ps */
-                rename_process("(sd-pam)");
-
-                /* Make sure we don't keep open the passed fds in this
-                child. We assume that otherwise only those fds are
-                open here that have been opened by PAM. */
-                close_many(fds, n_fds);
+                /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only those fds
+                 * are open here that have been opened by PAM. */
+                (void) close_many(fds, n_fds);
 
                 /* Drop privileges - we don't need any to pam_close_session
                  * and this will make PR_SET_PDEATHSIG work in most cases.
@@ -1879,11 +1871,10 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         if (pipe2(errno_pipe, O_CLOEXEC) < 0)
                 return -errno;
 
-        pid = fork();
-        if (pid < 0)
-                return -errno;
-
-        if (pid == 0) {
+        r = safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 _cleanup_close_ int fd = -1;
                 const char *a;
                 pid_t ppid;

@@ -928,19 +928,15 @@ static int run_gdb(sd_journal *j) {
         /* Don't interfere with gdb and its handling of SIGINT. */
         (void) ignore_signals(SIGINT, -1);
 
-        pid = fork();
-        if (pid < 0) {
-                r = log_error_errno(errno, "Failed to fork(): %m");
+        r = safe_fork("(gdb)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS, &pid);
+        if (r < 0) {
+                log_error_errno(r, "Failed to fork(): %m");
                 goto finish;
         }
-        if (pid == 0) {
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
+        if (r == 0) {
                 execlp("gdb", "gdb", exe, path, NULL);
-
                 log_error_errno(errno, "Failed to invoke gdb: %m");
-                _exit(1);
+                _exit(EXIT_FAILURE);
         }
 
         r = wait_for_terminate(pid, &st);

@@ -75,10 +75,10 @@ int bus_image_method_remove(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        child = fork();
-        if (child < 0)
-                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-        if (child == 0) {
+        r = safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+        if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
                 r = image_remove(image);
@@ -187,10 +187,10 @@ int bus_image_method_clone(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        child = fork();
-        if (child < 0)
-                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-        if (child == 0) {
+        r = safe_fork("(imgclone)", FORK_RESET_SIGNALS, &child);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+        if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
                 r = image_clone(image, new_name, read_only);

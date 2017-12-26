@@ -250,11 +250,10 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return -errno;
 
-                child = fork();
-                if (child < 0)
-                        return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-
-                if (child == 0) {
+                r = safe_fork("(sd-addr)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+                if (r == 0) {
                         _cleanup_free_ struct local_address *addresses = NULL;
                         struct local_address *a;
                         int i, n;
@@ -390,11 +389,10 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return -errno;
 
-                child = fork();
-                if (child < 0)
-                        return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-
-                if (child == 0) {
+                r = safe_fork("(sd-osrel)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+                if (r == 0) {
                         int fd = -1;
 
                         pair[0] = safe_close(pair[0]);
@@ -997,13 +995,12 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 goto finish;
         }
 
-        child = fork();
-        if (child < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
+        r = safe_fork("(sd-bindmnt)", FORK_RESET_SIGNALS, &child);
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
                 goto finish;
         }
-
-        if (child == 0) {
+        if (r == 0) {
                 const char *mount_inside;
                 int mntfd;
                 const char *q;
@@ -1172,11 +1169,10 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        child = fork();
-        if (child < 0)
-                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-
-        if (child == 0) {
+        r = safe_fork("(sd-copy)", FORK_RESET_SIGNALS, &child);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+        if (r == 0) {
                 int containerfd;
                 const char *q;
                 int mntfd;
@@ -1282,11 +1278,10 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
                 if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                         return -errno;
 
-                child = fork();
-                if (child < 0)
-                        return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-
-                if (child == 0) {
+                r = safe_fork("(sd-openroot)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+                if (r == 0) {
                         _cleanup_close_ int dfd = -1;
 
                         pair[0] = safe_close(pair[0]);

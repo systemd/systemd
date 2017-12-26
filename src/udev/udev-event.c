@@ -774,10 +774,12 @@ int udev_event_spawn(struct udev_event *event,
                 }
         }
 
-        pid = fork();
-        switch(pid) {
-        case 0:
-        {
+        err = safe_fork("(spawn)", FORK_RESET_SIGNALS, &pid);
+        if (err < 0) {
+                log_error_errno(err, "fork of '%s' failed: %m", cmd);
+                goto out;
+        }
+        if (err == 0) {
                 char arg[UTIL_PATH_SIZE];
                 char *argv[128];
                 char program[UTIL_PATH_SIZE];
@@ -802,23 +804,18 @@ int udev_event_spawn(struct udev_event *event,
 
                 _exit(2);
         }
-        case -1:
-                log_error_errno(errno, "fork of '%s' failed: %m", cmd);
-                err = -1;
-                goto out;
-        default:
-                /* parent closed child's ends of pipes */
-                outpipe[WRITE_END] = safe_close(outpipe[WRITE_END]);
-                errpipe[WRITE_END] = safe_close(errpipe[WRITE_END]);
 
-                spawn_read(event,
-                           timeout_usec,
-                           cmd,
-                           outpipe[READ_END], errpipe[READ_END],
-                           result, ressize);
+        /* parent closed child's ends of pipes */
+        outpipe[WRITE_END] = safe_close(outpipe[WRITE_END]);
+        errpipe[WRITE_END] = safe_close(errpipe[WRITE_END]);
 
-                err = spawn_wait(event, timeout_usec, timeout_warn_usec, cmd, pid, accept_failure);
-        }
+        spawn_read(event,
+                   timeout_usec,
+                   cmd,
+                   outpipe[READ_END], errpipe[READ_END],
+                   result, ressize);
+
+        err = spawn_wait(event, timeout_usec, timeout_warn_usec, cmd, pid, accept_failure);
 
 out:
         if (outpipe[READ_END] >= 0)

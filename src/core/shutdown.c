@@ -31,10 +31,11 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "async.h"
 #include "cgroup-util.h"
-#include "fd-util.h"
 #include "def.h"
 #include "exec-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "killall.h"
 #include "log.h"
@@ -211,26 +212,20 @@ static bool sync_making_progress(unsigned long long *prev_dirty) {
 }
 
 static void sync_with_progress(void) {
+        unsigned long long dirty = ULONG_LONG_MAX;
         unsigned checks;
         pid_t pid;
         int r;
-        unsigned long long dirty = ULONG_LONG_MAX;
 
         BLOCK_SIGNALS(SIGCHLD);
 
-        /* Due to the possiblity of the sync operation hanging, we fork
-         * a child process and monitor the progress. If the timeout
-         * lapses, the assumption is that that particular sync stalled. */
-        pid = fork();
-        if (pid < 0) {
-                log_error_errno(errno, "Failed to fork: %m");
-                return;
-        }
+        /* Due to the possiblity of the sync operation hanging, we fork a child process and monitor the progress. If
+         * the timeout lapses, the assumption is that that particular sync stalled. */
 
-        if (pid == 0) {
-                /* Start the sync operation here in the child */
-                sync();
-                _exit(EXIT_SUCCESS);
+        r = asynchronous_sync(&pid);
+        if (r < 0) {
+                log_error_errno(r, "Failed to fork sync(): %m");
+                return;
         }
 
         log_info("Syncing filesystems and block devices.");
@@ -492,10 +487,10 @@ int main(int argc, char *argv[]) {
 
                         log_info("Rebooting with kexec.");
 
-                        pid = fork();
-                        if (pid < 0)
-                                log_error_errno(errno, "Failed to fork: %m");
-                        else if (pid == 0) {
+                        r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to fork: %m");
+                        if (r == 0) {
 
                                 const char * const args[] = {
                                         KEXEC, "-e", NULL
@@ -505,8 +500,9 @@ int main(int argc, char *argv[]) {
 
                                 execv(args[0], (char * const *) args);
                                 _exit(EXIT_FAILURE);
-                        } else
-                                wait_for_terminate_and_warn("kexec", pid, true);
+                        }
+
+                        (void) wait_for_terminate_and_warn("kexec", pid, true);
                 }
 
                 cmd = RB_AUTOBOOT;
@@ -548,7 +544,7 @@ int main(int argc, char *argv[]) {
                  * CAP_SYS_BOOT just exit, this will kill our
                  * container for good. */
                 log_info("Exiting container.");
-                exit(0);
+                exit(EXIT_SUCCESS);
         }
 
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");

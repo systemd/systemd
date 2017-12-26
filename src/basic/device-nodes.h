@@ -29,11 +29,6 @@
 int encode_devnode_name(const char *str, char *str_enc, size_t len);
 int whitelisted_char_for_devnode(char c, const char *additional);
 
-#define SYS_BLOCK_PATH_MAX(suffix)                                      \
-        (STRLEN("/sys/dev/block/") + DECIMAL_STR_MAX(dev_t) + 1 + DECIMAL_STR_MAX(dev_t) + strlen_ptr(suffix))
-#define xsprintf_sys_block_path(buf, suffix, devno)                     \
-        xsprintf(buf, "/sys/dev/block/%u:%u%s", major(devno), minor(devno), strempty(suffix))
-
 #define DEV_NUM_PATH_MAX                                                \
         (STRLEN("/dev/block/") + DECIMAL_STR_MAX(dev_t) + 1 + DECIMAL_STR_MAX(dev_t))
 #define xsprintf_dev_num_path(buf, type, devno)                         \

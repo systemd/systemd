@@ -319,7 +319,7 @@ int main(int argc, char *argv[]) {
                         break;
                 }
 
-                _exit(0);
+                _exit(EXIT_SUCCESS);
         }
 
         CPU_ZERO(&cpuset);

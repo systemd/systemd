@@ -192,9 +192,9 @@ int fd_cloexec(int fd, bool cloexec) {
 }
 
 void stdio_unset_cloexec(void) {
-        fd_cloexec(STDIN_FILENO, false);
-        fd_cloexec(STDOUT_FILENO, false);
-        fd_cloexec(STDERR_FILENO, false);
+        (void) fd_cloexec(STDIN_FILENO, false);
+        (void) fd_cloexec(STDOUT_FILENO, false);
+        (void) fd_cloexec(STDERR_FILENO, false);
 }
 
 _pure_ static bool fd_in_set(int fd, const int fdset[], unsigned n_fdset) {
@@ -227,20 +227,21 @@ int close_all_fds(const int except[], unsigned n_except) {
 
                 assert_se(getrlimit(RLIMIT_NOFILE, &rl) >= 0);
                 for (fd = 3; fd < (int) rl.rlim_max; fd ++) {
+                        int q;
 
                         if (fd_in_set(fd, except, n_except))
                                 continue;
 
-                        if (close_nointr(fd) < 0)
-                                if (errno != EBADF && r == 0)
-                                        r = -errno;
+                        q = close_nointr(fd);
+                        if (q < 0 && q != -EBADF && r >= 0)
+                                r = q;
                 }
 
                 return r;
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
-                int fd = -1;
+                int fd = -1, q;
 
                 if (safe_atoi(de->d_name, &fd) < 0)
                         /* Let's better ignore this, just in case */
@@ -255,11 +256,9 @@ int close_all_fds(const int except[], unsigned n_except) {
                 if (fd_in_set(fd, except, n_except))
                         continue;
 
-                if (close_nointr(fd) < 0) {
-                        /* Valgrind has its own FD and doesn't want to have it closed */
-                        if (errno != EBADF && r == 0)
-                                r = -errno;
-                }
+                q = close_nointr(fd);
+                if (q < 0 && q != -EBADF && r >= 0) /* Valgrind has its own FD and doesn't want to have it closed */
+                        r = q;
         }
 
         return r;

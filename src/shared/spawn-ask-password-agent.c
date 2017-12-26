@@ -40,8 +40,9 @@ int ask_password_agent_open(void) {
         if (!isatty(STDIN_FILENO))
                 return 0;
 
-        r = fork_agent(&agent_pid,
+        r = fork_agent("(sd-askpwagent)",
                        NULL, 0,
+                       &agent_pid,
                        SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH,
                        SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, "--watch", NULL);
         if (r < 0)
@@ -56,8 +57,7 @@ void ask_password_agent_close(void) {
                 return;
 
         /* Inform agent that we are done */
-        (void) kill(agent_pid, SIGTERM);
-        (void) kill(agent_pid, SIGCONT);
+        (void) kill_and_sigcont(agent_pid, SIGTERM);
         (void) wait_for_terminate(agent_pid, NULL);
         agent_pid = 0;
 }

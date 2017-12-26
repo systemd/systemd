@@ -48,19 +48,18 @@ assert_cc(EAGAIN == EWOULDBLOCK);
 static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
 
         pid_t _pid;
+        int r;
 
         if (null_or_empty_path(path)) {
                 log_debug("%s is empty (a mask).", path);
                 return 0;
         }
 
-        _pid = fork();
-        if (_pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-        if (_pid == 0) {
+        r = safe_fork("(direxec)", FORK_DEATHSIG, &_pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork: %m");
+        if (r == 0) {
                 char *_argv[2];
-
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
                 if (stdout_fd >= 0) {
                         /* If the fd happens to be in the right place, go along with that */
@@ -106,11 +105,6 @@ static int do_execute(
          *
          * If callbacks is nonnull, execution is serial. Otherwise, we default to parallel.
          */
-
-        (void) reset_all_signal_handlers();
-        (void) reset_signal_mask();
-
-        assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
         r = conf_files_list_strv(&paths, NULL, NULL, CONF_FILES_EXECUTABLE, (const char* const*) directories);
         if (r < 0)
@@ -222,11 +216,10 @@ int execute_directories(
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        executor_pid = fork();
-        if (executor_pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-
-        if (executor_pid == 0) {
+        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &executor_pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork: %m");
+        if (r == 0) {
                 r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv);
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }

@@ -62,7 +62,7 @@ static bool stderr_redirected = false;
 int pager_open(bool no_pager, bool jump_to_end) {
         _cleanup_close_pair_ int fd[2] = { -1, -1 };
         const char *pager;
-        pid_t parent_pid;
+        int r;
 
         if (no_pager)
                 return 0;
@@ -89,18 +89,13 @@ int pager_open(bool no_pager, bool jump_to_end) {
         if (pipe2(fd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
-        parent_pid = getpid_cached();
-
-        pager_pid = fork();
-        if (pager_pid < 0)
-                return log_error_errno(errno, "Failed to fork pager: %m");
-
-        /* In the child start the pager */
-        if (pager_pid == 0) {
+        r = safe_fork("(pager)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pager_pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork pager: %m");
+        if (r == 0) {
                 const char* less_opts, *less_charset;
 
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
+                /* In the child start the pager */
 
                 (void) dup2(fd[0], STDIN_FILENO);
                 safe_close_pair(fd);
@@ -123,15 +118,6 @@ int pager_open(bool no_pager, bool jump_to_end) {
                 if (less_charset &&
                     setenv("LESSCHARSET", less_charset, 1) < 0)
                         _exit(EXIT_FAILURE);
-
-                /* Make sure the pager goes away when the parent dies */
-                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
-                        _exit(EXIT_FAILURE);
-
-                /* Check whether our parent died before we were able
-                 * to set the death signal */
-                if (getppid() != parent_pid)
-                        _exit(EXIT_SUCCESS);
 
                 if (pager) {
                         execlp(pager, pager, NULL);
@@ -222,24 +208,11 @@ int show_man_page(const char *desc, bool null_stdio) {
         } else
                 args[1] = desc;
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-
-        if (pid == 0) {
+        r = safe_fork("(man)", FORK_RESET_SIGNALS|FORK_DEATHSIG|(null_stdio ? FORK_NULL_STDIO : 0), &pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork: %m");
+        if (r == 0) {
                 /* Child */
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
-                if (null_stdio) {
-                        r = make_null_stdio();
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to kill stdio: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-                }
-
                 execvp(args[0], (char**) args);
                 log_error_errno(errno, "Failed to execute man: %m");
                 _exit(EXIT_FAILURE);

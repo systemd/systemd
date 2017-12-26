@@ -1078,11 +1078,10 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
                 return -errno;
 
         /* This might be a slow operation, run it asynchronously in a background process */
-        child = fork();
-        if (child < 0)
-                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-
-        if (child == 0) {
+        r = safe_fork("(sd-clean)", FORK_RESET_SIGNALS, &child);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+        if (r == 0) {
                 _cleanup_(image_hashmap_freep) Hashmap *images = NULL;
                 bool success = true;
                 Image *image;

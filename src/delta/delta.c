@@ -161,8 +161,8 @@ static int notify_override_unchanged(const char *f) {
 
 static int found_override(const char *top, const char *bottom) {
         _cleanup_free_ char *dest = NULL;
-        int k;
         pid_t pid;
+        int r;
 
         assert(top);
         assert(bottom);
@@ -170,31 +170,26 @@ static int found_override(const char *top, const char *bottom) {
         if (null_or_empty_path(top) > 0)
                 return notify_override_masked(top, bottom);
 
-        k = readlink_malloc(top, &dest);
-        if (k >= 0) {
+        r = readlink_malloc(top, &dest);
+        if (r >= 0) {
                 if (equivalent(dest, bottom) > 0)
                         return notify_override_equivalent(top, bottom);
                 else
                         return notify_override_redirected(top, bottom);
         }
 
-        k = notify_override_overridden(top, bottom);
+        r = notify_override_overridden(top, bottom);
         if (!arg_diff)
-                return k;
+                return r;
 
         putchar('\n');
 
         fflush(stdout);
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork off diff: %m");
-        else if (pid == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
+        r = safe_fork("(diff)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS, &pid);
+        if (r < 0)
+                return log_error_errno(pid, "Failed to fork off diff: %m");
+        if (r == 0) {
                 execlp("diff", "diff", "-us", "--", bottom, top, NULL);
                 log_error_errno(errno, "Failed to execute diff: %m");
                 _exit(EXIT_FAILURE);
@@ -203,7 +198,7 @@ static int found_override(const char *top, const char *bottom) {
         wait_for_terminate_and_warn("diff", pid, false);
         putchar('\n');
 
-        return k;
+        return r;
 }
 
 static int enumerate_dir_d(

@@ -25,6 +25,7 @@
 #include "architecture.h"
 #include "ask-password-api.h"
 #include "blkid-util.h"
+#include "blockdev-util.h"
 #include "copy.h"
 #include "crypt-util.h"
 #include "def.h"

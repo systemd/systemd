@@ -886,8 +886,8 @@ typedef struct ParseTimestampResult {
 int parse_timestamp(const char *t, usec_t *usec) {
         char *last_space, *tz = NULL;
         ParseTimestampResult *shared, tmp;
-        int r;
         pid_t pid;
+        int r;
 
         last_space = strrchr(t, ' ');
         if (last_space != NULL && timezone_is_valid(last_space + 1))
@@ -900,15 +900,12 @@ int parse_timestamp(const char *t, usec_t *usec) {
         if (shared == MAP_FAILED)
                 return negative_errno();
 
-        pid = fork();
-
-        if (pid == -1) {
-                int fork_errno = errno;
+        r = safe_fork("(sd-timestamp)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG, &pid);
+        if (r < 0) {
                 (void) munmap(shared, sizeof *shared);
-                return -fork_errno;
+                return r;
         }
-
-        if (pid == 0) {
+        if (r == 0) {
                 bool with_tz = true;
 
                 if (setenv("TZ", tz, 1) != 0) {

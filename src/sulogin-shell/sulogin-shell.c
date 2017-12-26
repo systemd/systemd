@@ -81,18 +81,13 @@ static int start_default_target(sd_bus *bus) {
 
 static int fork_wait(const char* const cmdline[]) {
         pid_t pid;
+        int r;
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "fork(): %m");
-        if (pid == 0) {
-
+        r = safe_fork("(sulogin)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        if (r < 0)
+                return log_error_errno(r, "fork(): %m");
+        if (r == 0) {
                 /* Child */
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
                 execv(cmdline[0], (char**) cmdline);
                 log_error_errno(errno, "Failed to execute %s: %m", cmdline[0]);
                 _exit(EXIT_FAILURE); /* Operational error */

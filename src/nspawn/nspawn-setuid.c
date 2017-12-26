@@ -33,7 +33,7 @@
 #include "util.h"
 
 static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
-        int pipe_fds[2];
+        int pipe_fds[2], r;
         pid_t pid;
 
         assert(database);
@@ -43,10 +43,10 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
         if (pipe2(pipe_fds, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork getent child: %m");
-        else if (pid == 0) {
+        r = safe_fork("(getent)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork getent child: %m");
+        if (r == 0) {
                 int nullfd;
                 char *empty_env = NULL;
 
@@ -71,8 +71,6 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                 if (nullfd > 2)
                         safe_close(nullfd);
 
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
                 close_all_fds(NULL, 0);
 
                 execle("/usr/bin/getent", "getent", database, key, NULL, &empty_env);

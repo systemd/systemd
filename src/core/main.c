@@ -1457,7 +1457,7 @@ static void redirect_telinit(int argc, char *argv[]) {
 
         execv(SYSTEMCTL_BINARY_PATH, argv);
         log_error_errno(errno, "Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
-        exit(1);
+        exit(EXIT_FAILURE);
 #endif
 }
 

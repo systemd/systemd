@@ -80,7 +80,7 @@ static void fork_test(void (*test_func)(void)) {
         assert_se(pid >= 0);
         if (pid == 0) {
                 test_func();
-                exit(0);
+                exit(EXIT_SUCCESS);
         } else if (pid > 0) {
                 int status;
 

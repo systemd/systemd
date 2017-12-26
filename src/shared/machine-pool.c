@@ -123,19 +123,14 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
                 goto fail;
         }
 
-        pid = fork();
-        if (pid < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to fork mkfs.btrfs: %m");
+        r = safe_fork("(mkfs)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, r, "Failed to fork mkfs.btrfs: %m");
                 goto fail;
         }
-
-        if (pid == 0) {
+        if (r == 0) {
 
                 /* Child */
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
                 fd = safe_close(fd);
 
