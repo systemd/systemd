@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -38,10 +39,11 @@
 #include "selinux-util.h"
 #include "set.h"
 #include "smack-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "virt.h"
-#include "util.h"
 #include "user-util.h"
+#include "util.h"
+#include "virt.h"
 
 static void test_condition_test_path(void) {
         Condition *condition;
@@ -293,6 +295,126 @@ static void test_condition_test_kernel_command_line(void) {
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "andthis=neither", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+}
+
+static void test_condition_test_kernel_version(void) {
+        Condition *condition;
+        struct utsname u;
+        const char *v;
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "*thisreallyshouldntbeinthekernelversion*", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "*", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        assert_se(uname(&u) >= 0);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, u.release, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        strshorten(u.release, 4);
+        strcpy(strchr(u.release, 0), "*");
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, u.release, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        /* 0.1.2 would be a very very very old kernel */
+        condition = condition_new(CONDITION_KERNEL_VERSION, "> 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, ">= 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "< 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "<= 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "= 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        /* 4711.8.15 is a very very very future kernel */
+        condition = condition_new(CONDITION_KERNEL_VERSION, "< 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "<= 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "= 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "> 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, ">= 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        assert_se(uname(&u) >= 0);
+
+        v = strjoina(">=", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("=  ", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("<=", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("> ", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("<   ", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
         assert_se(condition);
         assert_se(!condition_test(condition));
         condition_free(condition);
@@ -556,6 +678,7 @@ int main(int argc, char *argv[]) {
         test_condition_test_host();
         test_condition_test_architecture();
         test_condition_test_kernel_command_line();
+        test_condition_test_kernel_version();
         test_condition_test_null();
         test_condition_test_security();
         test_condition_test_virtualization();

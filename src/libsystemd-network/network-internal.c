@@ -116,7 +116,8 @@ bool net_match_config(const struct ether_addr *match_mac,
                       char * const *match_names,
                       Condition *match_host,
                       Condition *match_virt,
-                      Condition *match_kernel,
+                      Condition *match_kernel_cmdline,
+                      Condition *match_kernel_version,
                       Condition *match_arch,
                       const struct ether_addr *dev_mac,
                       const char *dev_path,
@@ -131,7 +132,10 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_virt && condition_test(match_virt) <= 0)
                 return false;
 
-        if (match_kernel && condition_test(match_kernel) <= 0)
+        if (match_kernel_cmdline && condition_test(match_kernel_cmdline) <= 0)
+                return false;
+
+        if (match_kernel_version && condition_test(match_kernel_version) <= 0)
                 return false;
 
         if (match_arch && condition_test(match_arch) <= 0)

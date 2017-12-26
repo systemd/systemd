@@ -203,67 +203,8 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
         return 0;
 }
 
-/* This is a direct translation of str_verscmp from boot.c */
-static bool is_digit(int c) {
-        return c >= '0' && c <= '9';
-}
-
-static int c_order(int c) {
-        if (c == '\0')
-                return 0;
-        if (is_digit(c))
-                return 0;
-        else if ((c >= 'a') && (c <= 'z'))
-                return c;
-        else
-                return c + 0x10000;
-}
-
-static int str_verscmp(const char *s1, const char *s2) {
-        const char *os1 = s1;
-        const char *os2 = s2;
-
-        while (*s1 || *s2) {
-                int first;
-
-                while ((*s1 && !is_digit(*s1)) || (*s2 && !is_digit(*s2))) {
-                        int order;
-
-                        order = c_order(*s1) - c_order(*s2);
-                        if (order)
-                                return order;
-                        s1++;
-                        s2++;
-                }
-
-                while (*s1 == '0')
-                        s1++;
-                while (*s2 == '0')
-                        s2++;
-
-                first = 0;
-                while (is_digit(*s1) && is_digit(*s2)) {
-                        if (first == 0)
-                                first = *s1 - *s2;
-                        s1++;
-                        s2++;
-                }
-
-                if (is_digit(*s1))
-                        return 1;
-                if (is_digit(*s2))
-                        return -1;
-
-                if (first != 0)
-                        return first;
-        }
-
-        return strcmp(os1, os2);
-}
-
 static int boot_entry_compare(const void *a, const void *b) {
-        const BootEntry *aa = a;
-        const BootEntry *bb = b;
+        const BootEntry *aa = a, *bb = b;
 
         return str_verscmp(aa->filename, bb->filename);
 }
