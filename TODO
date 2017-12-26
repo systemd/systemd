@@ -319,7 +319,7 @@ Features:
 * Rework systemctl's GetAll property parsing to use the generic bus_map_all_properties() API
 
 * Port various tools to make use of verbs.[ch], where applicable: busctl,
-  coredumpctl, hostnamectl, localectl, systemd-analyze, timedatectl
+  coredumpctl, hostnamectl, localectl, timedatectl
 
 * hostnamectl: show root image uuid
 
