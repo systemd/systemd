@@ -306,17 +306,13 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
                         return 0;
 
         if (port > 0) {
-                if (sockaddr.sa.sa_family == AF_INET) {
-                        if (l < sizeof(struct sockaddr_in))
-                                return -EINVAL;
+                unsigned sa_port;
 
-                        return htobe16(port) == sockaddr.in.sin_port;
-                } else {
-                        if (l < sizeof(struct sockaddr_in6))
-                                return -EINVAL;
+                r = sockaddr_port(&sockaddr.sa, &sa_port);
+                if (r < 0)
+                        return r;
 
-                        return htobe16(port) == sockaddr.in6.sin6_port;
-                }
+                return port == sa_port;
         }
 
         return 1;
