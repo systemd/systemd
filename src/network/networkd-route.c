@@ -636,6 +636,18 @@ int route_configure(
                         return log_error_errno(r, "Could not append RTAX_MTU attribute: %m");
         }
 
+        if (route->initcwnd) {
+                r = sd_netlink_message_append_u32(req, RTAX_INITCWND, route->initcwnd);
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTAX_INITCWND attribute: %m");
+        }
+
+        if (route->initrwnd) {
+                r = sd_netlink_message_append_u32(req, RTAX_INITRWND, route->initrwnd);
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTAX_INITRWND attribute: %m");
+        }
+
         r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_METRICS attribute: %m");
@@ -1062,6 +1074,52 @@ int config_parse_route_type(const char *unit,
                 n->type = RTN_PROHIBIT;
         else {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Could not parse route type \"%s\", ignoring assignment: %m", rvalue);
+                return 0;
+        }
+
+        n = NULL;
+
+        return 0;
+}
+
+int config_parse_tcp_window(const char *unit,
+                             const char *filename,
+                             unsigned line,
+                             const char *section,
+                             unsigned section_line,
+                             const char *lvalue,
+                             int ltype,
+                             const char *rvalue,
+                             void *data,
+                             void *userdata) {
+        Network *network = userdata;
+        _cleanup_route_free_ Route *n = NULL;
+        uint32_t k;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Could not parse TCP %s \"%s\", ignoring assignment: %m", rvalue, lvalue);
+                return 0;
+        }
+
+        if (streq(lvalue, "InitialCongestionWindow"))
+                n->initcwnd = k;
+        else if (streq(lvalue, "InitialAdvertisedReceiveWindow"))
+                n->initrwnd = k;
+        else {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse TCP %s: %s", lvalue, rvalue);
                 return 0;
         }
 
