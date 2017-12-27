@@ -37,6 +37,7 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "missing.h"
 #include "mkdir.h"
@@ -1004,6 +1005,9 @@ static int bus_init_private(Manager *m) {
         r = listen(fd, SOMAXCONN);
         if (r < 0)
                 return log_error_errno(errno, "Failed to make private socket listening: %m");
+
+        /* Generate an inotify event in case somebody waits for this socket to appear using inotify() */
+        (void) touch(sa.un.sun_path);
 
         r = sd_event_add_io(m->event, &s, fd, EPOLLIN, bus_on_connection, m);
         if (r < 0)

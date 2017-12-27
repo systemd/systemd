@@ -142,6 +142,11 @@ int socket_address_listen(
                 if (listen(fd, backlog) < 0)
                         return -errno;
 
+        /* Let's trigger an inotify event on the socket node, so that anyone waiting for this socket to be connectable
+         * gets notified */
+        if (p)
+                (void) touch(p);
+
         r = fd;
         fd = -1;
 
