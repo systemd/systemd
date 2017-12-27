@@ -55,7 +55,7 @@ static int makefs(const char *type, const char *device) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_warn(mkfs, pid, true);
+        return wait_for_terminate_and_check(mkfs, pid, WAIT_LOG);
 }
 
 int main(int argc, char *argv[]) {

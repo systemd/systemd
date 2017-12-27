@@ -161,7 +161,7 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_warn(KBD_LOADKEYS, pid, true);
+        return wait_for_terminate_and_check(KBD_LOADKEYS, pid, WAIT_LOG);
 }
 
 static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
@@ -201,7 +201,7 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_warn(KBD_SETFONT, pid, true);
+        return wait_for_terminate_and_check(KBD_SETFONT, pid, WAIT_LOG);
 }
 
 /*

@@ -1554,7 +1554,7 @@ static int socket_address_listen_in_cgroup(
         fd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_warn("listen-cgroup-helper", pid, false);
+        r = wait_for_terminate_and_check("listen-cgroup-helper", pid, WAIT_LOG_ABNORMAL);
         if (r < 0) {
                 safe_close(fd);
                 return r;
@@ -2898,7 +2898,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         cfd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_warn("accept-cgroup-helper", pid, false);
+        r = wait_for_terminate_and_check("accept-cgroup-helper", pid, WAIT_LOG_ABNORMAL);
         if (r < 0) {
                 safe_close(cfd);
                 return r;

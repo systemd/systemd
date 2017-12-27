@@ -93,7 +93,7 @@ static int fork_wait(const char* const cmdline[]) {
                 _exit(EXIT_FAILURE); /* Operational error */
         }
 
-        return wait_for_terminate_and_warn(cmdline[0], pid, false);
+        return wait_for_terminate_and_check(cmdline[0], pid, WAIT_LOG_ABNORMAL);
 }
 
 static void print_mode(const char* mode) {

@@ -147,7 +147,7 @@ static int do_execute(
                                 return log_oom();
                         t = NULL;
                 } else {
-                        r = wait_for_terminate_and_warn(t, pid, true);
+                        r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
                         if (r < 0)
                                 continue;
 
@@ -177,7 +177,7 @@ static int do_execute(
                 t = hashmap_remove(pids, PID_TO_PTR(pid));
                 assert(t);
 
-                wait_for_terminate_and_warn(t, pid, true);
+                (void) wait_for_terminate_and_check(t, pid, WAIT_LOG);
         }
 
         return 0;
@@ -224,14 +224,11 @@ int execute_directories(
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
-        r = wait_for_terminate_and_warn(name, executor_pid, true);
+        r = wait_for_terminate_and_check(name, executor_pid, WAIT_LOG);
         if (r < 0)
-                return log_error_errno(r, "Execution failed: %m");
-        if (r > 0) {
-                /* non-zero return code from child */
-                log_error("Forker process failed.");
+                return r;
+        if (r > 0) /* non-zero return code from child */
                 return -EREMOTEIO;
-        }
 
         if (!callbacks)
                 return 0;

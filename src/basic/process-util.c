@@ -687,32 +687,43 @@ int wait_for_terminate(pid_t pid, siginfo_t *status) {
  * A warning is emitted if the process terminates abnormally,
  * and also if it returns non-zero unless check_exit_code is true.
  */
-int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code) {
-        int r;
+int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
+        _cleanup_free_ char *buffer = NULL;
         siginfo_t status;
+        int r, prio;
 
-        assert(name);
         assert(pid > 1);
+
+        if (!name) {
+                r = get_process_comm(pid, &buffer);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to acquire process name of " PID_FMT ", ignoring: %m", pid);
+                else
+                        name = buffer;
+        }
+
+        prio = flags & WAIT_LOG_ABNORMAL ? LOG_ERR : LOG_DEBUG;
 
         r = wait_for_terminate(pid, &status);
         if (r < 0)
-                return log_warning_errno(r, "Failed to wait for %s: %m", name);
+                return log_full_errno(prio, r, "Failed to wait for %s: %m", strna(name));
 
         if (status.si_code == CLD_EXITED) {
-                if (status.si_status != 0)
-                        log_full(check_exit_code ? LOG_WARNING : LOG_DEBUG,
-                                 "%s failed with error code %i.", name, status.si_status);
+                if (status.si_status != EXIT_SUCCESS)
+                        log_full(flags & WAIT_LOG_NON_ZERO_EXIT_STATUS ? LOG_ERR : LOG_DEBUG,
+                                 "%s failed with exit status %i.", strna(name), status.si_status);
                 else
                         log_debug("%s succeeded.", name);
 
                 return status.si_status;
+
         } else if (IN_SET(status.si_code, CLD_KILLED, CLD_DUMPED)) {
 
-                log_warning("%s terminated by signal %s.", name, signal_to_string(status.si_status));
+                log_full(prio, "%s terminated by signal %s.", strna(name), signal_to_string(status.si_status));
                 return -EPROTO;
         }
 
-        log_warning("%s failed due to unknown reason.", name);
+        log_full(prio, "%s failed due to unknown reason.", strna(name));
         return -EPROTO;
 }
 

@@ -61,7 +61,16 @@ int get_process_environ(pid_t pid, char **environ);
 int get_process_ppid(pid_t pid, pid_t *ppid);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
-int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code);
+
+typedef enum WaitFlags {
+        WAIT_LOG_ABNORMAL             = 1U << 0,
+        WAIT_LOG_NON_ZERO_EXIT_STATUS = 1U << 1,
+
+        /* A shortcut for requesting the most complete logging */
+        WAIT_LOG = WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS,
+} WaitFlags;
+
+int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags);
 int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout);
 
 void sigkill_wait(pid_t pid);

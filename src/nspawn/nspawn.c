@@ -3516,7 +3516,7 @@ static int run(int master,
         }
 
         /* Wait for the outer child. */
-        r = wait_for_terminate_and_warn("namespace helper", *pid, NULL);
+        r = wait_for_terminate_and_check("namespace helper", *pid, WAIT_LOG_ABNORMAL);
         if (r != 0)
                 return r < 0 ? r : -EIO;
 

@@ -3556,7 +3556,7 @@ static int load_kexec_kernel(void) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_warn("kexec", pid, true);
+        return wait_for_terminate_and_check("kexec", pid, WAIT_LOG);
 }
 
 static int set_exit_code(uint8_t code) {
@@ -7057,9 +7057,9 @@ static int run_editor(char **paths) {
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_warn("editor", pid, true);
+        r = wait_for_terminate_and_check("editor", pid, WAIT_LOG);
         if (r < 0)
-                return log_error_errno(r, "Failed to wait for child: %m");
+                return r;
 
         return 0;
 }

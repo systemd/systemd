@@ -195,7 +195,7 @@ static int found_override(const char *top, const char *bottom) {
                 _exit(EXIT_FAILURE);
         }
 
-        wait_for_terminate_and_warn("diff", pid, false);
+        (void) wait_for_terminate_and_check("diff", pid, WAIT_LOG_ABNORMAL);
         putchar('\n');
 
         return r;

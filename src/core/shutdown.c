@@ -500,7 +500,7 @@ int main(int argc, char *argv[]) {
                                 _exit(EXIT_FAILURE);
                         }
 
-                        (void) wait_for_terminate_and_warn("kexec", pid, true);
+                        (void) wait_for_terminate_and_check("kexec", pid, WAIT_LOG);
                 }
 
                 cmd = RB_AUTOBOOT;

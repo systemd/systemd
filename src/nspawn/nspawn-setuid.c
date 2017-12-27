@@ -133,7 +133,7 @@ int change_uid_gid(const char *user, char **_home) {
 
         truncate_nl(line);
 
-        wait_for_terminate_and_warn("getent passwd", pid, true);
+        (void) wait_for_terminate_and_check("getent passwd", pid, WAIT_LOG);
 
         x = strchr(line, ':');
         if (!x) {
@@ -216,7 +216,7 @@ int change_uid_gid(const char *user, char **_home) {
 
         truncate_nl(line);
 
-        wait_for_terminate_and_warn("getent initgroups", pid, true);
+        (void) wait_for_terminate_and_check("getent initgroups", pid, WAIT_LOG);
 
         /* Skip over the username and subsequent separator whitespace */
         x = line;

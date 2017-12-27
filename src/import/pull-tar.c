@@ -333,7 +333,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 goto finish;
 
         if (i->tar_pid > 0) {
-                r = wait_for_terminate_and_warn("tar", i->tar_pid, true);
+                r = wait_for_terminate_and_check("tar", i->tar_pid, WAIT_LOG);
                 i->tar_pid = 0;
                 if (r < 0)
                         goto finish;
