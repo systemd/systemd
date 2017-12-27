@@ -47,6 +47,7 @@
 evdev:input:b0003v05ACp021B*
 # Macbook4,1
 evdev:input:b0003v05ACp0229*
+evdev:input:b0003v05ACp022A*
  EVDEV_ABS_00=256:1471:12
  EVDEV_ABS_01=256:831:12
 
