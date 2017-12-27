@@ -3539,9 +3539,9 @@ static int load_kexec_kernel(void) {
         if (arg_dry_run)
                 return 0;
 
-        r = safe_fork("(kexec)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(kexec)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
 
                 const char* const args[] = {
@@ -6119,9 +6119,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!arg_quiet)
                         log_info("Executing: %s", l);
 
-                j = safe_fork("(sysv)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+                j = safe_fork("(sysv)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
                 if (j < 0)
-                        return log_error_errno(j, "Failed to fork: %m");
+                        return j;
                 if (j == 0) {
                         /* Child */
                         execv(argv[0], (char**) argv);
@@ -6992,9 +6992,9 @@ static int run_editor(char **paths) {
 
         assert(paths);
 
-        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
                 const char **args;
                 char *editor, **editor_args = NULL;

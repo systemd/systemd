@@ -89,9 +89,9 @@ int pager_open(bool no_pager, bool jump_to_end) {
         if (pipe2(fd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
-        r = safe_fork("(pager)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pager_pid);
+        r = safe_fork("(pager)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pager_pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork pager: %m");
+                return r;
         if (r == 0) {
                 const char* less_opts, *less_charset;
 
@@ -208,9 +208,9 @@ int show_man_page(const char *desc, bool null_stdio) {
         } else
                 args[1] = desc;
 
-        r = safe_fork("(man)", FORK_RESET_SIGNALS|FORK_DEATHSIG|(null_stdio ? FORK_NULL_STDIO : 0), &pid);
+        r = safe_fork("(man)", FORK_RESET_SIGNALS|FORK_DEATHSIG|(null_stdio ? FORK_NULL_STDIO : 0)|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
                 /* Child */
                 execvp(args[0], (char**) args);

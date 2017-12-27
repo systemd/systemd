@@ -55,9 +55,9 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                 return 0;
         }
 
-        r = safe_fork("(direxec)", FORK_DEATHSIG, &_pid);
+        r = safe_fork("(direxec)", FORK_DEATHSIG|FORK_LOG, &_pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
                 char *_argv[2];
 
@@ -216,9 +216,9 @@ int execute_directories(
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &executor_pid);
+        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &executor_pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
                 r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv);
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);

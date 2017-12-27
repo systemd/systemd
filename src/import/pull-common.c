@@ -463,9 +463,9 @@ int pull_verify(PullJob *main_job,
 
         gpg_home_created = true;
 
-        r = safe_fork("(gpg)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(gpg)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork off gpg: %m");
+                return r;
         if (r == 0) {
                 const char *cmd[] = {
                         "gpg",

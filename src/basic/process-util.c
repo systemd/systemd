@@ -1152,10 +1152,12 @@ int safe_fork_full(
         pid_t original_pid, pid;
         sigset_t saved_ss;
         bool block_signals;
-        int r;
+        int prio, r;
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always
          * returns the child's PID in *ret_pid. Returns == 0 in the child, and > 0 in the parent. */
+
+        prio = flags & FORK_LOG ? LOG_ERR : LOG_DEBUG;
 
         original_pid = getpid_cached();
 
@@ -1167,10 +1169,10 @@ int safe_fork_full(
                 /* We temporarily block all signals, so that the new child has them blocked initially. This way, we can be sure
                  * that SIGTERMs are not lost we might send to the child. */
                 if (sigfillset(&ss) < 0)
-                        return log_debug_errno(errno, "Failed to reset signal set: %m");
+                        return log_full_errno(prio, errno, "Failed to reset signal set: %m");
 
                 if (sigprocmask(SIG_SETMASK, &ss, &saved_ss) < 0)
-                        return log_debug_errno(errno, "Failed to reset signal mask: %m");
+                        return log_full_errno(prio, errno, "Failed to reset signal mask: %m");
         }
 
         pid = fork();
@@ -1180,7 +1182,7 @@ int safe_fork_full(
                 if (block_signals) /* undo what we did above */
                         (void) sigprocmask(SIG_SETMASK, &saved_ss, NULL);
 
-                return log_debug_errno(r, "Failed to fork: %m");
+                return log_full_errno(prio, r, "Failed to fork: %m");
         }
         if (pid > 0) {
                 /* We are in the parent process */
@@ -1207,31 +1209,32 @@ int safe_fork_full(
         if (name) {
                 r = rename_process(name);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to rename process, ignoring: %m");
+                        log_full_errno(flags & FORK_LOG ? LOG_WARNING : LOG_DEBUG,
+                                       r, "Failed to rename process, ignoring: %m");
         }
 
         if (flags & FORK_DEATHSIG)
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0) {
-                        log_debug_errno(errno, "Failed to set death signal: %m");
+                        log_full_errno(prio, errno, "Failed to set death signal: %m");
                         _exit(EXIT_FAILURE);
                 }
 
         if (flags & FORK_RESET_SIGNALS) {
                 r = reset_all_signal_handlers();
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to reset signal handlers: %m");
+                        log_full_errno(prio, r, "Failed to reset signal handlers: %m");
                         _exit(EXIT_FAILURE);
                 }
 
                 /* This implicitly undoes the signal mask stuff we did before the fork()ing above */
                 r = reset_signal_mask();
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to reset signal mask: %m");
+                        log_full_errno(prio, r, "Failed to reset signal mask: %m");
                         _exit(EXIT_FAILURE);
                 }
         } else if (block_signals) { /* undo what we did above */
                 if (sigprocmask(SIG_SETMASK, &saved_ss, NULL) < 0) {
-                        log_debug_errno(errno, "Failed to restore signal mask: %m");
+                        log_full_errno(prio, errno, "Failed to restore signal mask: %m");
                         _exit(EXIT_FAILURE);
                 }
         }
@@ -1257,7 +1260,7 @@ int safe_fork_full(
 
                 r = close_all_fds(except_fds, n_except_fds);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to close all file descriptors: %m");
+                        log_full_errno(prio, r, "Failed to close all file descriptors: %m");
                         _exit(EXIT_FAILURE);
                 }
         }
@@ -1271,7 +1274,7 @@ int safe_fork_full(
         if (flags & FORK_NULL_STDIO) {
                 r = make_null_stdio();
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to connect stdin/stdout to /dev/null: %m");
+                        log_full_errno(prio, r, "Failed to connect stdin/stdout to /dev/null: %m");
                         _exit(EXIT_FAILURE);
                 }
         }

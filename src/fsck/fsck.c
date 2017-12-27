@@ -392,11 +392,9 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
-        if (r < 0) {
-                log_error_errno(r, "fork(): %m");
+        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        if (r < 0)
                 goto finish;
-        }
         if (r == 0) {
                 char dash_c[STRLEN("-C") + DECIMAL_STR_MAX(int) + 1];
                 int progress_socket = -1;

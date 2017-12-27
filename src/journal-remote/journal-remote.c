@@ -87,10 +87,10 @@ static int spawn_child(const char* child, char** argv) {
         if (pipe(fd) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
-        r = safe_fork("(remote)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child_pid);
+        r = safe_fork("(remote)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &child_pid);
         if (r < 0) {
                 safe_close_pair(fd);
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         }
 
         /* In the child */

@@ -487,9 +487,7 @@ int main(int argc, char *argv[]) {
 
                         log_info("Rebooting with kexec.");
 
-                        r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
-                        if (r < 0)
-                                log_error_errno(r, "Failed to fork: %m");
+                        r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
                         if (r == 0) {
 
                                 const char * const args[] = {

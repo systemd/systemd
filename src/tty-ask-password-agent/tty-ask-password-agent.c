@@ -709,9 +709,9 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, int argc, char *
         sig.sa_handler = SIG_DFL;
         assert_se(sigaction(SIGHUP, &sig, NULL) >= 0);
 
-        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS, &pid);
+        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork process: %m");
+                return r;
         if (r == 0) {
                 int ac;
 
