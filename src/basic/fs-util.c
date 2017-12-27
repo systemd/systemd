@@ -315,43 +315,60 @@ int fd_warn_permissions(const char *path, int fd) {
 }
 
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode) {
-        _cleanup_close_ int fd;
-        int r;
+        char fdpath[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_close_ int fd = -1;
+        int r, ret = 0;
 
         assert(path);
 
+        /* Note that touch_file() does not follow symlinks: if invoked on an existing symlink, then it is the symlink
+         * itself which is updated, not its target
+         *
+         * Returns the first error we encounter, but tries to apply as much as possible. */
+
         if (parents)
-                mkdir_parents(path, 0755);
+                (void) mkdir_parents(path, 0755);
 
-        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
-                  IN_SET(mode, 0, MODE_INVALID) ? 0644 : mode);
-        if (fd < 0)
-                return -errno;
+        /* Initially, we try to open the node with O_PATH, so that we get a reference to the node. This is useful in
+         * case the path refers to an existing device or socket node, as we can open it successfully in all cases, and
+         * won't trigger any driver magic or so. */
+        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        if (fd < 0) {
+                if (errno != ENOENT)
+                        return -errno;
 
-        if (mode != MODE_INVALID) {
-                r = fchmod(fd, mode);
-                if (r < 0)
+                /* if the node doesn't exist yet, we create it, but with O_EXCL, so that we only create a regular file
+                 * here, and nothing else */
+                fd = open(path, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, IN_SET(mode, 0, MODE_INVALID) ? 0644 : mode);
+                if (fd < 0)
                         return -errno;
         }
 
-        if (uid != UID_INVALID || gid != GID_INVALID) {
-                r = fchown(fd, uid, gid);
-                if (r < 0)
-                        return -errno;
-        }
+        /* Let's make a path from the fd, and operate on that. With this logic, we can adjust the access mode,
+         * ownership and time of the file node in all cases, even if the fd refers to an O_PATH object — which is
+         * something fchown(), fchmod(), futimensat() don't allow. */
+        xsprintf(fdpath, "/proc/self/fd/%i", fd);
+
+        if (mode != MODE_INVALID)
+                if (chmod(fdpath, mode) < 0)
+                        ret = -errno;
+
+        if (uid_is_valid(uid) || gid_is_valid(gid))
+                if (chown(fdpath, uid, gid) < 0 && ret >= 0)
+                        ret = -errno;
 
         if (stamp != USEC_INFINITY) {
                 struct timespec ts[2];
 
                 timespec_store(&ts[0], stamp);
                 ts[1] = ts[0];
-                r = futimens(fd, ts);
+                r = utimensat(AT_FDCWD, fdpath, ts, 0);
         } else
-                r = futimens(fd, NULL);
-        if (r < 0)
+                r = utimensat(AT_FDCWD, fdpath, NULL, 0);
+        if (r < 0 && ret >= 0)
                 return -errno;
 
-        return 0;
+        return ret;
 }
 
 int touch(const char *path) {
