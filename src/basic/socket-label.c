@@ -124,10 +124,13 @@ int socket_address_listen(
                         r = mac_selinux_bind(fd, &a->sockaddr.sa, a->size);
                         if (r == -EADDRINUSE) {
                                 /* Unlink and try again */
-                                (void) unlink(p);
-                                if (bind(fd, &a->sockaddr.sa, a->size) < 0)
-                                        return -errno;
-                        } else if (r < 0)
+
+                                if (unlink(p) < 0)
+                                        return r; /* didn't work, return original error */
+
+                                r = mac_selinux_bind(fd, &a->sockaddr.sa, a->size);
+                        }
+                        if (r < 0)
                                 return r;
                 }
         } else {
