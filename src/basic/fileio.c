@@ -65,6 +65,9 @@ int write_string_stream_ts(
         assert(f);
         assert(line);
 
+        if (ferror(f))
+                return -EIO;
+
         if (fputs(line, f) == EOF)
                 return -errno;
 
