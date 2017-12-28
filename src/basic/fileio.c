@@ -65,9 +65,12 @@ int write_string_stream_ts(
         assert(f);
         assert(line);
 
-        fputs(line, f);
+        if (fputs(line, f) == EOF)
+                return -errno;
+
         if (!(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n"))
-                fputc('\n', f);
+                if (fputc('\n', f) == EOF)
+                        return -errno;
 
         if (ts) {
                 struct timespec twice[2] = {*ts, *ts};
