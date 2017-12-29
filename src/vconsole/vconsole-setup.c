@@ -452,8 +452,8 @@ int main(int argc, char **argv) {
                         log_warning_errno(r, "Failed to read /proc/cmdline: %m");
         }
 
-        toggle_utf8_sysfs(utf8);
-        toggle_utf8(vc, fd, utf8);
+        (void) toggle_utf8_sysfs(utf8);
+        (void) toggle_utf8(vc, fd, utf8);
 
         r = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap);
         keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) == 0;
