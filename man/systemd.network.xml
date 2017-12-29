@@ -1067,6 +1067,25 @@
             </para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>InitialCongestionWindow=</varname></term>
+          <listitem>
+            <para>The TCP initial congestion window or <literal>InitialCongestionWindow</literal>  is used during the start
+            of a TCP connection. During the start of a TCP session, when a client requests for a resource, the server's initial congestion window
+            determines how many data packets will be sent during the initial burst of data. Takes a number between between 1 and 4294967295 (2^32 - 1).
+            Defaults to unset.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>InitialAdvertisedReceiveWindow=</varname></term>
+          <listitem>
+            <para>The TCP receive window size or <literal>InitialAdvertisedReceiveWindow</literal> is the amount of receive data (in bytes)
+            that can be buffered at one time on a connection. The sending host can send only that amount of data before waiting for
+            an acknowledgment and window update from the receiving host. Takes a number between 1 and 4294967295 (2^32 - 1). Defaults to unset.
+            </para>
+          </listitem>
+        </varlistentry>
 
       </variablelist>
   </refsect1>
