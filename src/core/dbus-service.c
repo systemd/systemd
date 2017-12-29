@@ -240,7 +240,7 @@ static int bus_service_set_transient_property(
                 return 1;
 
         } else if ((ci = service_exec_command_from_string(name)) >= 0)
-                return bus_exec_command_set_transient_property(UNIT(s), name, &s->exec_command[ci], message, flags, error);
+                return bus_set_transient_exec_command(UNIT(s), name, &s->exec_command[ci], message, flags, error);
 
         return 0;
 }

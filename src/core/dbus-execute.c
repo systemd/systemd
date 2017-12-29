@@ -1036,7 +1036,7 @@ int bus_property_get_exec_command_list(
         return sd_bus_message_close_container(reply);
 }
 
-int bus_exec_command_set_transient_property(
+int bus_set_transient_exec_command(
                 Unit *u,
                 const char *name,
                 ExecCommand **exec_command,
