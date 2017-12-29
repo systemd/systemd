@@ -55,3 +55,10 @@ static inline void block_signals_reset(sigset_t *ss) {
 static inline bool SIGNAL_VALID(int signo) {
         return signo > 0 && signo < _NSIG;
 }
+
+static inline const char* signal_to_string_with_check(int n) {
+        if (!SIGNAL_VALID(n))
+                return NULL;
+
+        return signal_to_string(n);
+}

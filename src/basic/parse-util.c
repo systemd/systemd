@@ -283,7 +283,8 @@ int parse_errno(const char *t) {
         if (r < 0)
                 return r;
 
-        if (e < 0 || e > ERRNO_MAX)
+        /* 0 is also allowed here */
+        if (!errno_is_valid(e) && e != 0)
                 return -ERANGE;
 
         return e;
