@@ -885,7 +885,6 @@ static int run_gdb(sd_journal *j) {
         _cleanup_free_ char *exe = NULL, *path = NULL;
         bool unlink_path = false;
         const char *data;
-        siginfo_t st;
         size_t len;
         pid_t pid;
         int r;
@@ -937,13 +936,7 @@ static int run_gdb(sd_journal *j) {
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate(pid, &st);
-        if (r < 0) {
-                log_error_errno(r, "Failed to wait for gdb: %m");
-                goto finish;
-        }
-
-        r = st.si_code == CLD_EXITED ? st.si_status : 255;
+        r = wait_for_terminate_and_check("gdb", pid, WAIT_LOG_ABNORMAL);
 
 finish:
         (void) default_signals(SIGINT, -1);

@@ -190,7 +190,6 @@ int show_man_page(const char *desc, bool null_stdio) {
         pid_t pid;
         size_t k;
         int r;
-        siginfo_t status;
 
         k = strlen(desc);
 
@@ -218,10 +217,5 @@ int show_man_page(const char *desc, bool null_stdio) {
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate(pid, &status);
-        if (r < 0)
-                return r;
-
-        log_debug("Exit code %i status %i", status.si_code, status.si_status);
-        return status.si_status;
+        return wait_for_terminate_and_check(NULL, pid, 0);
 }
