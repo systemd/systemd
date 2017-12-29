@@ -6132,7 +6132,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (j < 0)
                         return j;
                 if (streq(verb, "is-enabled")) {
-                        if (j == 0) {
+                        if (j == EXIT_SUCCESS) {
                                 if (!arg_quiet)
                                         puts("enabled");
                                 r = 1;
@@ -6141,7 +6141,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                                         puts("disabled");
                         }
 
-                } else if (j != 0)
+                } else if (j != EXIT_SUCCESS)
                         return -EBADE; /* We don't warn here, under the assumption the script already showed an explanation */
 
                 if (found_native)

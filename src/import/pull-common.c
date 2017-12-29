@@ -546,7 +546,7 @@ int pull_verify(PullJob *main_job,
         pid = 0;
         if (r < 0)
                 goto finish;
-        if (r > 0) {
+        if (r != EXIT_SUCCESS) {
                 log_error("DOWNLOAD INVALID: Signature verification failed.");
                 r = -EBADMSG;
         } else {

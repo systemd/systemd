@@ -337,7 +337,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 i->tar_pid = 0;
                 if (r < 0)
                         goto finish;
-                if (r > 0) {
+                if (r != EXIT_SUCCESS) {
                         r = -EIO;
                         goto finish;
                 }
