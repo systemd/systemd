@@ -147,6 +147,7 @@ static inline int sched_policy_to_string_alloc_with_check(int n, char **s) {
 int ioprio_parse_priority(const char *s, int *ret);
 
 pid_t getpid_cached(void);
+void reset_cached_pid(void);
 
 int must_be_root(void);
 

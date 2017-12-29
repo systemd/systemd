@@ -1083,7 +1083,7 @@ int ioprio_parse_priority(const char *s, int *ret) {
 
 static pid_t cached_pid = CACHED_PID_UNSET;
 
-static void reset_cached_pid(void) {
+void reset_cached_pid(void) {
         /* Invoked in the child after a fork(), i.e. at the first moment the PID changed */
         cached_pid = CACHED_PID_UNSET;
 }
