@@ -889,6 +889,14 @@
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>AllowLocalRemote=</varname></term>
+        <listitem>
+          <para>A boolean. When true allows tunnel traffic on <varname>ip6tnl</varname> devices where the remote endpoint is a local host address.
+          Defaults to unset.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>

@@ -37,6 +37,7 @@
 
 #define DEFAULT_TNL_HOP_LIMIT   64
 #define IP6_FLOWINFO_FLOWLABEL  htobe32(0x000FFFFF)
+#define IP6_TNL_F_ALLOW_LOCAL_REMOTE 0x40
 
 static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
         [NETDEV_IP6_TNL_MODE_IP6IP6] = "ip6ip6",
@@ -335,6 +336,9 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
 
         if (t->copy_dscp)
                 t->flags |= IP6_TNL_F_RCV_DSCP_COPY;
+
+        if (t->allow_localremote != -1)
+                SET_FLAG(t->flags, IP6_TNL_F_ALLOW_LOCAL_REMOTE, t->allow_localremote);
 
         if (t->encap_limit != IPV6_DEFAULT_TNL_ENCAP_LIMIT) {
                 r = sd_netlink_message_append_u8(m, IFLA_IPTUN_ENCAP_LIMIT, t->encap_limit);
@@ -682,6 +686,7 @@ static void ip6tnl_init(NetDev *n) {
         t->encap_limit = IPV6_DEFAULT_TNL_ENCAP_LIMIT;
         t->ip6tnl_mode = _NETDEV_IP6_TNL_MODE_INVALID;
         t->ipv6_flowlabel = _NETDEV_IPV6_FLOWLABEL_INVALID;
+        t->allow_localremote = -1;
 }
 
 const NetDevVTable ipip_vtable = {
