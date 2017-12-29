@@ -3955,6 +3955,8 @@ int config_parse_job_mode_isolate(
                 return 0;
         }
 
+        log_notice("%s is deprecated. Please use OnFailureJobMode= instead", lvalue);
+
         *m = r ? JOB_ISOLATE : JOB_REPLACE;
         return 0;
 }
