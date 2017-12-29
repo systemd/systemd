@@ -539,22 +539,25 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd) {
         return socket_address_equal(a, &b);
 }
 
-int sockaddr_port(const struct sockaddr *_sa, unsigned *port) {
+int sockaddr_port(const struct sockaddr *_sa, unsigned *ret_port) {
         union sockaddr_union *sa = (union sockaddr_union*) _sa;
+
+        /* Note, this returns the port as 'unsigned' rather than 'uint16_t', as AF_VSOCK knows larger ports */
 
         assert(sa);
 
         switch (sa->sa.sa_family) {
+
         case AF_INET:
-                *port = be16toh(sa->in.sin_port);
+                *ret_port = be16toh(sa->in.sin_port);
                 return 0;
 
         case AF_INET6:
-                *port = be16toh(sa->in6.sin6_port);
+                *ret_port = be16toh(sa->in6.sin6_port);
                 return 0;
 
         case AF_VSOCK:
-                *port = sa->vm.svm_port;
+                *ret_port = sa->vm.svm_port;
                 return 0;
 
         default:
