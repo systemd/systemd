@@ -1199,7 +1199,10 @@ int safe_fork_full(
                 if (sigprocmask(SIG_SETMASK, &ss, &saved_ss) < 0)
                         return log_full_errno(prio, errno, "Failed to set signal mask: %m");
 
-        pid = fork();
+        if (flags & FORK_NEW_MOUNTNS)
+                pid = raw_clone(SIGCHLD|CLONE_NEWNS);
+        else
+                pid = fork();
         if (pid < 0) {
                 r = -errno;
 

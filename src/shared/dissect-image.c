@@ -1259,18 +1259,10 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         if (r < 0)
                 goto finish;
 
-        child = raw_clone(SIGCHLD|CLONE_NEWNS);
-        if (child < 0) {
-                r = -errno;
+        r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_NEW_MOUNTNS, &child);
+        if (r < 0)
                 goto finish;
-        }
-
-        if (child == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
+        if (r == 0) {
                 /* Make sure we never propagate to the host */
                 if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
                         _exit(EXIT_FAILURE);
