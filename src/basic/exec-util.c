@@ -82,7 +82,6 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                 _exit(EXIT_FAILURE);
         }
 
-        log_debug("Spawned %s as " PID_FMT ".", path, _pid);
         *pid = _pid;
         return 1;
 }
