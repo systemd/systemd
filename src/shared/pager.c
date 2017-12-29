@@ -42,6 +42,11 @@
 
 static pid_t pager_pid = 0;
 
+static int stored_stdout = -1;
+static int stored_stderr = -1;
+static bool stdout_redirected = false;
+static bool stderr_redirected = false;
+
 noreturn static void pager_fallback(void) {
         int r;
 
@@ -53,11 +58,6 @@ noreturn static void pager_fallback(void) {
 
         _exit(EXIT_SUCCESS);
 }
-
-static int stored_stdout = -1;
-static int stored_stderr = -1;
-static bool stdout_redirected = false;
-static bool stderr_redirected = false;
 
 int pager_open(bool no_pager, bool jump_to_end) {
         _cleanup_close_pair_ int fd[2] = { -1, -1 };
