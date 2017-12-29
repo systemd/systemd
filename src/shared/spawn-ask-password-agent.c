@@ -40,6 +40,9 @@ int ask_password_agent_open(void) {
         if (!isatty(STDIN_FILENO))
                 return 0;
 
+        if (!is_main_thread())
+                return -EPERM;
+
         r = fork_agent("(sd-askpwagent)",
                        NULL, 0,
                        &agent_pid,

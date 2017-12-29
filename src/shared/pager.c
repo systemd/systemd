@@ -73,6 +73,9 @@ int pager_open(bool no_pager, bool jump_to_end) {
         if (terminal_is_dumb())
                 return 0;
 
+        if (!is_main_thread())
+                return -EPERM;
+
         pager = getenv("SYSTEMD_PAGER");
         if (!pager)
                 pager = getenv("PAGER");
