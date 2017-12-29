@@ -189,10 +189,9 @@ int execute_directories(
                 void* const callback_args[_STDOUT_CONSUME_MAX],
                 char *argv[]) {
 
-        pid_t executor_pid;
-        char *name;
         char **dirs = (char**) directories;
         _cleanup_close_ int fd = -1;
+        char *name;
         int r;
 
         assert(!strv_isempty(dirs));
@@ -215,19 +214,13 @@ int execute_directories(
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &executor_pid);
+        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
                 r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv);
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
-
-        r = wait_for_terminate_and_check(name, executor_pid, WAIT_LOG);
-        if (r < 0)
-                return r;
-        if (r > 0) /* non-zero return code from child */
-                return -EREMOTEIO;
 
         if (!callbacks)
                 return 0;

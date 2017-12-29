@@ -6987,12 +6987,11 @@ static int unit_file_create_copy(
 }
 
 static int run_editor(char **paths) {
-        pid_t pid;
         int r;
 
         assert(paths);
 
-        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -7056,10 +7055,6 @@ static int run_editor(char **paths) {
                 log_error("Cannot edit unit(s), no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
                 _exit(EXIT_FAILURE);
         }
-
-        r = wait_for_terminate_and_check("editor", pid, WAIT_LOG);
-        if (r < 0)
-                return r;
 
         return 0;
 }

@@ -1161,7 +1161,7 @@ int safe_fork_full(
                 pid_t *ret_pid) {
 
         pid_t original_pid, pid;
-        sigset_t saved_ss;
+        sigset_t saved_ss, ss;
         bool block_signals;
         int prio, r;
 
@@ -1172,19 +1172,32 @@ int safe_fork_full(
 
         original_pid = getpid_cached();
 
-        block_signals = flags & (FORK_RESET_SIGNALS|FORK_DEATHSIG);
+        if (flags & (FORK_RESET_SIGNALS|FORK_DEATHSIG)) {
 
-        if (block_signals) {
-                sigset_t ss;
+                /* We temporarily block all signals, so that the new child has them blocked initially. This way, we can
+                 * be sure that SIGTERMs are not lost we might send to the child. */
 
-                /* We temporarily block all signals, so that the new child has them blocked initially. This way, we can be sure
-                 * that SIGTERMs are not lost we might send to the child. */
                 if (sigfillset(&ss) < 0)
                         return log_full_errno(prio, errno, "Failed to reset signal set: %m");
 
-                if (sigprocmask(SIG_SETMASK, &ss, &saved_ss) < 0)
-                        return log_full_errno(prio, errno, "Failed to reset signal mask: %m");
+                block_signals = true;
+
+        } else if (flags & FORK_WAIT) {
+
+                /* Let's block SIGCHLD at least, so that we can safely watch for the child process */
+
+                if (sigemptyset(&ss) < 0)
+                        return log_full_errno(prio, errno, "Failed to clear signal set: %m");
+
+                if (sigaddset(&ss, SIGCHLD) < 0)
+                        return log_full_errno(prio, errno, "Failed to add SIGCHLD to signal set: %m");
+
+                block_signals = true;
         }
+
+        if (block_signals)
+                if (sigprocmask(SIG_SETMASK, &ss, &saved_ss) < 0)
+                        return log_full_errno(prio, errno, "Failed to set signal mask: %m");
 
         pid = fork();
         if (pid < 0) {
@@ -1198,10 +1211,18 @@ int safe_fork_full(
         if (pid > 0) {
                 /* We are in the parent process */
 
+                log_debug("Successfully forked off '%s' as PID " PID_FMT ".", strna(name), pid);
+
+                if (flags & FORK_WAIT) {
+                        r = wait_for_terminate_and_check(name, pid, (flags & FORK_LOG ? WAIT_LOG : 0));
+                        if (r < 0)
+                                return r;
+                        if (r != EXIT_SUCCESS) /* exit status > 0 should be treated as failure, too */
+                                return -EPROTO;
+                }
+
                 if (block_signals) /* undo what we did above */
                         (void) sigprocmask(SIG_SETMASK, &saved_ss, NULL);
-
-                log_debug("Sucessfully forked off '%s' as PID " PID_FMT ".", strna(name), pid);
 
                 if (ret_pid)
                         *ret_pid = pid;
