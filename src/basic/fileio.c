@@ -926,14 +926,16 @@ int write_env_file(const char *fname, char **l) {
 }
 
 int executable_is_script(const char *path, char **interpreter) {
-        int r;
         _cleanup_free_ char *line = NULL;
-        int len;
+        size_t len;
         char *ans;
+        int r;
 
         assert(path);
 
         r = read_one_line_file(path, &line);
+        if (r == -ENOBUFS) /* First line overly long? if so, then it's not a script */
+                return 0;
         if (r < 0)
                 return r;
 
