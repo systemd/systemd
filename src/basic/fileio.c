@@ -62,16 +62,28 @@ int write_string_stream_ts(
                 WriteStringFileFlags flags,
                 struct timespec *ts) {
 
+        bool needs_nl;
+
         assert(f);
         assert(line);
 
         if (ferror(f))
                 return -EIO;
 
+        needs_nl = !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n");
+
+        if (needs_nl && (flags & WRITE_STRING_FILE_DISABLE_BUFFER)) {
+                /* If STDIO buffering was disabled, then let's append the newline character to the string itself, so
+                 * that the write goes out in one go, instead of two */
+
+                line = strjoina(line, "\n");
+                needs_nl = false;
+        }
+
         if (fputs(line, f) == EOF)
                 return -errno;
 
-        if (!(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n"))
+        if (needs_nl)
                 if (fputc('\n', f) == EOF)
                         return -errno;
 
