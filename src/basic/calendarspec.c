@@ -156,6 +156,11 @@ static void fix_year(CalendarComponent *c) {
 int calendar_spec_normalize(CalendarSpec *c) {
         assert(c);
 
+        if (streq_ptr(c->timezone, "UTC")) {
+                c->utc = true;
+                c->timezone = mfree(c->timezone);
+        }
+
         if (c->weekdays_bits <= 0 || c->weekdays_bits >= BITS_WEEKDAYS)
                 c->weekdays_bits = -1;
 
