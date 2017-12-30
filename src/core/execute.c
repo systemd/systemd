@@ -1776,7 +1776,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
 static bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
-                ExecRuntime *runtime) {
+                const ExecRuntime *runtime) {
 
         assert(context);
         assert(params);
