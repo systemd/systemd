@@ -78,8 +78,7 @@ static int detect_vm_cpuid(void) {
                 unsigned j;
 
                 /* There is a hypervisor, see what it is */
-                if (__get_cpuid(0x40000000U, &eax, &ebx, &ecx, &edx) == 0)
-                        return VIRTUALIZATION_NONE;
+                __cpuid(0x40000000U, eax, ebx, ecx, edx);
 
                 sig.sig32[0] = ebx;
                 sig.sig32[1] = ecx;
