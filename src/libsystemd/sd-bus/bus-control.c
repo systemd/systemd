@@ -571,17 +571,17 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
                 return -ENOMEM;
 
         if (bus->ucred_valid) {
-                if (bus->ucred.pid > 0) {
+                if (pid_is_valid(bus->ucred.pid)) {
                         pid = c->pid = bus->ucred.pid;
                         c->mask |= SD_BUS_CREDS_PID & mask;
                 }
 
-                if (bus->ucred.uid != UID_INVALID) {
+                if (uid_is_valid(bus->ucred.uid)) {
                         c->euid = bus->ucred.uid;
                         c->mask |= SD_BUS_CREDS_EUID & mask;
                 }
 
-                if (bus->ucred.gid != GID_INVALID) {
+                if (gid_is_valid(bus->ucred.gid)) {
                         c->egid = bus->ucred.gid;
                         c->mask |= SD_BUS_CREDS_EGID & mask;
                 }
