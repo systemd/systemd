@@ -1019,6 +1019,39 @@ int getpeersec(int fd, char **ret) {
         return 0;
 }
 
+int getpeergroups(int fd, gid_t **ret) {
+        socklen_t n = sizeof(gid_t) * 64;
+        _cleanup_free_ gid_t *d = NULL;
+
+        assert(fd);
+        assert(ret);
+
+        for (;;) {
+                d = malloc(n);
+                if (!d)
+                        return -ENOMEM;
+
+                if (getsockopt(fd, SOL_SOCKET, SO_PEERGROUPS, d, &n) >= 0)
+                        break;
+
+                if (errno != ERANGE)
+                        return -errno;
+
+                d = mfree(d);
+        }
+
+        assert_se(n % sizeof(gid_t) == 0);
+        n /= sizeof(gid_t);
+
+        if ((socklen_t) (int) n != n)
+                return -E2BIG;
+
+        *ret = d;
+        d = NULL;
+
+        return (int) n;
+}
+
 int send_one_fd_sa(
                 int transport_fd,
                 int fd,
