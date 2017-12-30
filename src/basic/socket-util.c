@@ -979,41 +979,32 @@ int getpeercred(int fd, struct ucred *ucred) {
 }
 
 int getpeersec(int fd, char **ret) {
+        _cleanup_free_ char *s = NULL;
         socklen_t n = 64;
-        char *s;
-        int r;
 
         assert(fd >= 0);
         assert(ret);
 
-        s = new0(char, n);
-        if (!s)
-                return -ENOMEM;
+        for (;;) {
+                s = new0(char, n+1);
+                if (!s)
+                        return -ENOMEM;
 
-        r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
-        if (r < 0) {
-                free(s);
+                if (getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n) >= 0)
+                        break;
 
                 if (errno != ERANGE)
                         return -errno;
 
-                s = new0(char, n);
-                if (!s)
-                        return -ENOMEM;
-
-                r = getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n);
-                if (r < 0) {
-                        free(s);
-                        return -errno;
-                }
+                s = mfree(s);
         }
 
-        if (isempty(s)) {
-                free(s);
+        if (isempty(s))
                 return -EOPNOTSUPP;
-        }
 
         *ret = s;
+        s = NULL;
+
         return 0;
 }
 
