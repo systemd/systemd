@@ -261,6 +261,8 @@ struct sd_bus {
 
         struct ucred ucred;
         char *label;
+        gid_t *groups;
+        size_t n_groups;
 
         uint64_t creds_mask;
 

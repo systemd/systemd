@@ -134,6 +134,7 @@ static void bus_free(sd_bus *b) {
         bus_close_fds(b);
 
         free(b->label);
+        free(b->groups);
         free(b->rbuffer);
         free(b->unique_name);
         free(b->auth_buffer);
@@ -185,6 +186,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
         r->hello_flags |= KDBUS_HELLO_ACCEPT_FD;
         r->attach_flags |= KDBUS_ATTACH_NAMES;
         r->original_pid = getpid_cached();
+        r->n_groups = (size_t) -1;
 
         assert_se(pthread_mutex_init(&r->memfd_cache_mutex, NULL) == 0);
 
