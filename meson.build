@@ -503,8 +503,7 @@ splash_bmp = files('test/splash.bmp')
 
 # if -Dxxx-path option is found, use that. Otherwise, check in $PATH,
 # /usr/sbin, /sbin, and fall back to the default from middle column.
-progs = [['telinit',    '/lib/sysvinit/telinit'],
-         ['quotaon',    '/usr/sbin/quotaon'    ],
+progs = [['quotaon',    '/usr/sbin/quotaon'    ],
          ['quotacheck', '/usr/sbin/quotacheck' ],
          ['kill',       '/usr/bin/kill'        ],
          ['kmod',       '/usr/bin/kmod'        ],
@@ -530,6 +529,8 @@ foreach prog : progs
         conf.set_quoted(name, path)
         substs.set(name, path)
 endforeach
+
+conf.set_quoted('TELINIT', get_option('telinit-path'))
 
 if run_command('ln', '--relative', '--help').returncode() != 0
         error('ln does not support --relative')
