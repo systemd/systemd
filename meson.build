@@ -260,10 +260,12 @@ cc = meson.get_compiler('c')
 pkgconfig = import('pkgconfig')
 check_compilation_sh = find_program('tools/meson-check-compilation.sh')
 
-cxx = find_program('c++', required : false)
-if cxx.found()
-        #  Used only for tests
-        add_languages('cpp')
+if get_option('tests') != 'false'
+	cxx = find_program('c++', required : false)
+	if cxx.found()
+            #  Used only for tests
+            add_languages('cpp')
+    endif
 endif
 
 foreach arg : ['-Wextra',
@@ -2390,48 +2392,51 @@ executable('systemd-sulogin-shell',
            install_dir : rootlibexecdir)
 
 ############################################################
+if want_tests == 'false'
+        message('Not compiling because tests is set to false')
+else
+        foreach tuple : tests
+                sources = tuple[0]
+                link_with = tuple[1].length() > 0 ? tuple[1] : [libshared]
+                dependencies = tuple[2]
+                condition = tuple.length() >= 4 ? tuple[3] : ''
+                type = tuple.length() >= 5 ? tuple[4] : ''
+                defs = tuple.length() >= 6 ? tuple[5] : []
+                incs = tuple.length() >= 7 ? tuple[6] : includes
+                timeout = 30
 
-foreach tuple : tests
-        sources = tuple[0]
-        link_with = tuple[1].length() > 0 ? tuple[1] : [libshared]
-        dependencies = tuple[2]
-        condition = tuple.length() >= 4 ? tuple[3] : ''
-        type = tuple.length() >= 5 ? tuple[4] : ''
-        defs = tuple.length() >= 6 ? tuple[5] : []
-        incs = tuple.length() >= 7 ? tuple[6] : includes
-        timeout = 30
-
-        name = sources[0].split('/')[-1].split('.')[0]
-        if type.startswith('timeout=')
-                timeout = type.split('=')[1].to_int()
-                type = ''
-        endif
-
-        if condition == '' or conf.get(condition) == 1
-                exe = executable(
-                        name,
-                        sources,
-                        include_directories : incs,
-                        link_with : link_with,
-                        dependencies : dependencies,
-                        c_args : defs,
-                        install_rpath : rootlibexecdir,
-                        install : install_tests,
-                        install_dir : join_paths(testsdir, type))
-
-                if type == 'manual'
-                        message('@0@ is a manual test'.format(name))
-                elif type == 'unsafe' and want_tests != 'unsafe'
-                        message('@0@ is an unsafe test'.format(name))
-                else
-                        test(name, exe,
-                             env : test_env,
-                             timeout : timeout)
+                name = sources[0].split('/')[-1].split('.')[0]
+                if type.startswith('timeout=')
+                        timeout = type.split('=')[1].to_int()
+                        type = ''
                 endif
-        else
-                message('Not compiling @0@ because @1@ is not true'.format(name, condition))
-        endif
-endforeach
+
+                if condition == '' or conf.get(condition) == 1
+                        exe = executable(
+                                name,
+                                sources,
+                                include_directories : incs,
+                                link_with : link_with,
+                                dependencies : dependencies,
+                                c_args : defs,
+                                install_rpath : rootlibexecdir,
+                                install : install_tests,
+                                install_dir : join_paths(testsdir, type))
+
+                        if type == 'manual'
+                                message('@0@ is a manual test'.format(name))
+                        elif type == 'unsafe' and want_tests != 'unsafe'
+                                message('@0@ is an unsafe test'.format(name))
+                        else
+                                test(name, exe,
+                                     env : test_env,
+                                     timeout : timeout)
+                        endif
+                else
+                        message('Not compiling @0@ because @1@ is not true'.format(name, condition))
+                endif
+        endforeach
+endif
 
 test_libsystemd_sym = executable(
         'test-libsystemd-sym',
