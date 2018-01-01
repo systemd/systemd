@@ -24,6 +24,7 @@
 #include "bus-util.h"
 #include "cap-list.h"
 #include "cgroup-util.h"
+#include "condition.h"
 #include "cpu-set-util.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -681,6 +682,23 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
         return 0;
 }
 
+static int bus_append_automount_property(sd_bus_message *m, const char *field, const char *eq) {
+
+        if (streq(field, "Where"))
+
+                return bus_append_string(m, field, eq);
+
+        if (streq(field, "DirectoryMode"))
+
+                return bus_append_parse_mode(m, field, eq);
+
+        if (streq(field, "TimeoutIdleSec"))
+
+                return bus_append_parse_sec_rename(m, field, eq);
+
+        return 0;
+}
+
 static int bus_append_execute_property(sd_bus_message *m, const char *field, const char *eq) {
         int r, rl;
 
@@ -1137,13 +1155,29 @@ static int bus_append_kill_property(sd_bus_message *m, const char *field, const 
         return 0;
 }
 
-static int bus_append_path_property(sd_bus_message *m, const char *field, const char *eq) {
+static int bus_append_mount_property(sd_bus_message *m, const char *field, const char *eq) {
 
-        if (STR_IN_SET(field,
-                       "PathExists", "PathExistsGlob", "PathChanged",
-                       "PathModified", "DirectoryNotEmpty"))
+        if (STR_IN_SET(field, "What", "Where", "Options", "Type"))
 
                 return bus_append_string(m, field, eq);
+
+        if (streq(field, "TimeoutSec"))
+
+                return bus_append_parse_sec_rename(m, field, eq);
+
+        if (streq(field, "DirectoryMode"))
+
+                return bus_append_parse_mode(m, field, eq);
+
+        if (STR_IN_SET(field, "SloppyOptions", "LazyUnmount", "ForceUnmount"))
+
+                return bus_append_parse_boolean(m, field, eq);
+
+        return 0;
+}
+
+static int bus_append_path_property(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
 
         if (streq(field, "MakeDirectory"))
 
@@ -1153,22 +1187,48 @@ static int bus_append_path_property(sd_bus_message *m, const char *field, const 
 
                 return bus_append_parse_mode(m, field, eq);
 
+        if (STR_IN_SET(field,
+                       "PathExists", "PathExistsGlob", "PathChanged",
+                       "PathModified", "DirectoryNotEmpty")) {
+
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", "Paths", "a(ss)", 0);
+                else
+                        r = sd_bus_message_append(m, "(sv)", "Paths", "a(ss)", 1, field, eq);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         return 0;
 }
 
 static int bus_append_service_property(sd_bus_message *m, const char *field, const char *eq) {
+        int r;
 
-        if (STR_IN_SET(field, "Type", "Restart", "NotifyAccess"))
+        if (STR_IN_SET(field,
+                       "PIDFile", "Type", "Restart", "BusName", "NotifyAccess",
+                       "USBFunctionDescriptors", "USBFunctionStrings"))
 
                 return bus_append_string(m, field, eq);
 
-        if (streq(field, "RemainAfterExit"))
+        if (STR_IN_SET(field, "PermissionsStartOnly", "RootDirectoryStartOnly", "RemainAfterExit", "GuessMainPID"))
 
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (streq(field, "RuntimeMaxSec"))
+        if (STR_IN_SET(field, "RestartSec", "TimeoutStartSec", "TimeoutStopSec", "RuntimeMaxSec", "WatchdogSec"))
 
                 return bus_append_parse_sec_rename(m, field, eq);
+
+        if (streq(field, "TimeoutSec")) {
+
+                r = bus_append_parse_sec_rename(m, "TimeoutStartSec", eq);
+                if (r < 0)
+                        return r;
+
+                return bus_append_parse_sec_rename(m, "TimeoutStopSec", eq);
+        }
 
         if (streq(field, "FileDescriptorStoreMax"))
 
@@ -1179,6 +1239,82 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                        "ExecReload", "ExecStop", "ExecStopPost"))
 
                 return bus_append_exec_command(m, field, eq);
+
+        if (STR_IN_SET(field, "RestartPreventExitStatus", "RestartForceExitStatus", "SuccessExitStatus")) {
+                _cleanup_free_ int *status = NULL, *signal = NULL;
+                size_t sz_status = 0, sz_signal = 0;
+                const char *p;
+
+                for (p = eq;;) {
+                        _cleanup_free_ char *word = NULL;
+                        int val;
+
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        if (r == 0)
+                                break;
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid syntax in %s: %s", field, eq);
+
+                        r = safe_atoi(word, &val);
+                        if (r < 0) {
+                                val = signal_from_string_try_harder(word);
+                                if (val < 0)
+                                        return log_error_errno(r, "Invalid status or signal %s in %s: %m", word, field);
+
+                                signal = realloc_multiply(signal, sizeof(int), sz_signal + 1);
+                                if (!signal)
+                                        return log_oom();
+
+                                signal[sz_signal++] = val;
+                        } else {
+                                status = realloc_multiply(status, sizeof(int), sz_status + 1);
+                                if (!status)
+                                        return log_oom();
+
+                                status[sz_status++] = val;
+                        }
+                }
+
+                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'v', "(aiai)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'r', "aiai");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_array(m, 'i', status, sz_status);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_array(m, 'i', signal, sz_signal);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
 
         return 0;
 }
@@ -1243,7 +1379,10 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                        "ListenStream", "ListenDatagram", "ListenSequentialPacket", "ListenNetlink",
                        "ListenSpecial", "ListenMessageQueue", "ListenFIFO", "ListenUSBFunction")) {
 
-                r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 1, field + strlen("Listen"), eq);
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 0);
+                else
+                        r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 1, field + strlen("Listen"), eq);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1253,41 +1392,111 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
         return 0;
 }
 static int bus_append_timer_property(sd_bus_message *m, const char *field, const char *eq) {
-
-        if (streq(field, "OnCalendar"))
-
-                return bus_append_string(m, field, eq);
+        int r;
 
         if (STR_IN_SET(field, "WakeSystem", "RemainAfterElapse", "Persistent"))
 
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (STR_IN_SET(field,
-                       "OnActiveSec", "OnBootSec", "OnStartupSec",
-                       "OnUnitActiveSec","OnUnitInactiveSec"))
-
-                return bus_append_parse_sec(m, field, eq);
-
         if (STR_IN_SET(field, "AccuracySec", "RandomizedDelaySec"))
 
                 return bus_append_parse_sec_rename(m, field, eq);
+
+        if (STR_IN_SET(field,
+                       "OnActiveSec", "OnBootSec", "OnStartupSec",
+                       "OnUnitActiveSec","OnUnitInactiveSec")) {
+
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", "TimersMonotonic", "a(st)", 0);
+                else {
+                        usec_t t;
+                        r = parse_sec(eq, &t);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);
+
+                        r = sd_bus_message_append(m, "(sv)", "TimersMonotonic", "a(st)", 1, field, t);
+                }
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
+        if (streq(field, "OnCalendar")) {
+
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", "TimersCalendar", "a(ss)", 0);
+                else
+                        r = sd_bus_message_append(m, "(sv)", "TimersCalendar", "a(ss)", 1, field, eq);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
 
         return 0;
 }
 
 static int bus_append_unit_property(sd_bus_message *m, const char *field, const char *eq) {
+        ConditionType t = _CONDITION_TYPE_INVALID;
+        bool is_condition = false;
+        int r;
 
-        if (STR_IN_SET(field, "Description", "CollectMode", "FailureAction", "SuccessAction"))
+        if (STR_IN_SET(field,
+                       "Description", "SourcePath", "OnFailureJobMode",
+                       "JobTimeoutAction", "JobTimeoutRebootArgument",
+                       "StartLimitAction", "FailureAction", "SuccessAction",
+                       "RebootArgument", "CollectMode"))
 
                 return bus_append_string(m, field, eq);
 
-        if (streq(field, "DefaultDependencies"))
+        if (STR_IN_SET(field,
+                       "StopWhenUnneeded", "RefuseManualStart", "RefuseManualStop",
+                       "AllowIsolate", "IgnoreOnIsolate", "DefaultDependencies"))
 
                 return bus_append_parse_boolean(m, field, eq);
 
-        if (unit_dependency_from_string(field) >= 0)
+        if (STR_IN_SET(field, "JobTimeoutSec", "JobRunningTimeoutSec", "StartLimitIntervalSec"))
+
+                return bus_append_parse_sec_rename(m, field, eq);
+
+        if (streq(field, "StartLimitBurst"))
+
+                return bus_append_safe_atou(m, field, eq);
+
+        if (unit_dependency_from_string(field) >= 0 ||
+            STR_IN_SET(field, "Documentation", "RequiresMountsFor"))
 
                 return bus_append_strv(m, field, eq, EXTRACT_QUOTES);
+
+        t = condition_type_from_string(field);
+        if (t >= 0)
+                is_condition = true;
+        else
+                t = assert_type_from_string(field);
+        if (t >= 0) {
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", is_condition ? "Conditions" : "Asserts", "a(sbbs)", 0);
+                else {
+                        const char *p = eq;
+                        int trigger, negate;
+
+                        trigger = *p == '|';
+                        if (trigger)
+                                p++;
+
+                        negate = *p == '!';
+                        if (negate)
+                                p++;
+
+                        r = sd_bus_message_append(m, "(sv)", is_condition ? "Conditions" : "Asserts", "a(sbbs)", 1,
+                                                  field, trigger, negate, p);
+                }
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
 
         return 0;
 }
@@ -1364,6 +1573,10 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
                 break;
 
         case UNIT_SCOPE:
+
+                if (streq(field, "TimeoutStopSec"))
+                        return bus_append_parse_sec_rename(m, field, eq);
+
                 r = bus_append_cgroup_property(m, field, eq);
                 if (r != 0)
                         return r;
@@ -1374,7 +1587,29 @@ int bus_append_unit_property_assignment(sd_bus_message *m, UnitType t, const cha
                 break;
 
         case UNIT_MOUNT:
+                r = bus_append_cgroup_property(m, field, eq);
+                if (r != 0)
+                        return r;
+
+                r = bus_append_execute_property(m, field, eq);
+                if (r != 0)
+                        return r;
+
+                r = bus_append_kill_property(m, field, eq);
+                if (r != 0)
+                        return r;
+
+                r = bus_append_mount_property(m, field, eq);
+                if (r != 0)
+                        return r;
+
+                break;
+
         case UNIT_AUTOMOUNT:
+                r = bus_append_automount_property(m, field, eq);
+                if (r != 0)
+                        return r;
+
                 break;
 
         case UNIT_TARGET:
