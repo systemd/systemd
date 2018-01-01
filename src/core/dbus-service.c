@@ -22,15 +22,20 @@
 
 #include "alloc-util.h"
 #include "async.h"
+#include "bus-internal.h"
 #include "bus-util.h"
 #include "dbus-cgroup.h"
 #include "dbus-execute.h"
 #include "dbus-kill.h"
 #include "dbus-service.h"
+#include "dbus-util.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "service.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unit.h"
@@ -88,6 +93,117 @@ const sd_bus_vtable bus_service_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+static int bus_set_transient_exit_status(
+                Unit *u,
+                const char *name,
+                ExitStatusSet *status_set,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+
+        const int *status, *signal;
+        size_t sz_status, sz_signal, i;
+        int r;
+
+        r = sd_bus_message_enter_container(message, 'r', "aiai");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_array(message, 'i', (const void **) &status, &sz_status);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_array(message, 'i', (const void **) &signal, &sz_signal);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        if (sz_status == 0 && sz_signal == 0 && !UNIT_WRITE_FLAGS_NOOP(flags)) {
+                exit_status_set_free(status_set);
+                unit_write_settingf(u, flags, name, "%s=", name);
+                return 1;
+        }
+
+        for (i = 0; i < sz_status; i++) {
+                if (status[i] < 0 || status[i] > 255)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid status code in %s: %i", name, status[i]);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        r = set_ensure_allocated(&status_set->status, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = set_put(status_set->status, INT_TO_PTR(status[i]));
+                        if (r < 0)
+                                return r;
+
+                        unit_write_settingf(u, flags, name, "%s=%i", name, status[i]);
+                }
+        }
+
+        for (i = 0; i < sz_signal; i++) {
+                const char *str;
+
+                str = signal_to_string(signal[i]);
+                if (!str)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal in %s: %i", name, signal[i]);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        r = set_ensure_allocated(&status_set->signal, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = set_put(status_set->signal, INT_TO_PTR(signal[i]));
+                        if (r < 0)
+                                return r;
+
+                        unit_write_settingf(u, flags, name, "%s=%s", name, str);
+                }
+        }
+
+        return 1;
+}
+
+static int bus_set_transient_std_fd(
+                Unit *u,
+                const char *name,
+                int *p,
+                bool *b,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+
+        int fd, r;
+
+        assert(p);
+        assert(b);
+
+        r = sd_bus_message_read(message, "h", &fd);
+        if (r < 0)
+                return r;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                int copy;
+
+                copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (copy < 0)
+                        return -errno;
+
+                asynchronous_close(*p);
+                *p = copy;
+                *b = true;
+        }
+
+        return 1;
+}
+static BUS_DEFINE_SET_TRANSIENT_PARSE(notify_access, NotifyAccess, notify_access_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(service_type, ServiceType, service_type_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(service_restart, ServiceRestart, service_restart_from_string);
+static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(bus_name, service_name_is_valid);
+
 static int bus_service_set_transient_property(
                 Service *s,
                 const char *name,
@@ -95,6 +211,7 @@ static int bus_service_set_transient_property(
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
+        Unit *u = UNIT(s);
         ServiceExecCommand ci;
         int r;
 
@@ -104,143 +221,82 @@ static int bus_service_set_transient_property(
 
         flags |= UNIT_PRIVATE;
 
-        if (streq(name, "RemainAfterExit")) {
-                int b;
+        if (streq(name, "PermissionsStartOnly"))
+                return bus_set_transient_bool(u, name, &s->permissions_start_only, message, flags, error);
 
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
+        if (streq(name, "RootDirectoryStartOnly"))
+                return bus_set_transient_bool(u, name, &s->root_directory_start_only, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        s->remain_after_exit = b;
-                        unit_write_settingf(UNIT(s), flags, name, "RemainAfterExit=%s", yes_no(b));
-                }
+        if (streq(name, "RemainAfterExit"))
+                return bus_set_transient_bool(u, name, &s->remain_after_exit, message, flags, error);
 
-                return 1;
+        if (streq(name, "GuessMainPID"))
+                return bus_set_transient_bool(u, name, &s->guess_main_pid, message, flags, error);
 
-        } else if (streq(name, "Type")) {
-                const char *t;
-                ServiceType k;
+        if (streq(name, "Type"))
+                return bus_set_transient_service_type(u, name, &s->type, message, flags, error);
 
-                r = sd_bus_message_read(message, "s", &t);
-                if (r < 0)
-                        return r;
+        if (streq(name, "RestartUSec"))
+                return bus_set_transient_usec(u, name, &s->restart_usec, message, flags, error);
 
-                k = service_type_from_string(t);
-                if (k < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid service type %s", t);
+        if (streq(name, "TimeoutStartUSec")) {
+                r = bus_set_transient_usec(u, name, &s->timeout_start_usec, message, flags, error);
+                if (r >= 0 && !UNIT_WRITE_FLAGS_NOOP(flags))
+                        s->start_timeout_defined = true;
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        s->type = k;
-                        unit_write_settingf(UNIT(s), flags, name, "Type=%s", service_type_to_string(s->type));
-                }
+                return r;
+        }
 
-                return 1;
-        } else if (streq(name, "RuntimeMaxUSec")) {
-                usec_t u;
+        if (streq(name, "TimeoutStopUSec"))
+                return bus_set_transient_usec(u, name, &s->timeout_stop_usec, message, flags, error);
 
-                r = sd_bus_message_read(message, "t", &u);
-                if (r < 0)
-                        return r;
+        if (streq(name, "RuntimeMaxUSec"))
+                return bus_set_transient_usec(u, name, &s->runtime_max_usec, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        s->runtime_max_usec = u;
-                        unit_write_settingf(UNIT(s), flags, name, "RuntimeMaxSec=" USEC_FMT "us", u);
-                }
+        if (streq(name, "WatchdogUSec"))
+                return bus_set_transient_usec(u, name, &s->watchdog_usec, message, flags, error);
 
-                return 1;
+        if (streq(name, "FileDescriptorStoreMax"))
+                return bus_set_transient_unsigned(u, name, &s->n_fd_store_max, message, flags, error);
 
-        } else if (streq(name, "Restart")) {
-                ServiceRestart sr;
-                const char *v;
+        if (streq(name, "NotifyAccess"))
+                return bus_set_transient_notify_access(u, name, &s->notify_access, message, flags, error);
 
-                r = sd_bus_message_read(message, "s", &v);
-                if (r < 0)
-                        return r;
+        if (streq(name, "PIDFile"))
+                return bus_set_transient_path(u, name, &s->pid_file, message, flags, error);
 
-                if (isempty(v))
-                        sr = SERVICE_RESTART_NO;
-                else {
-                        sr = service_restart_from_string(v);
-                        if (sr < 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid restart setting: %s", v);
-                }
+        if (streq(name, "USBFunctionDescriptors"))
+                return bus_set_transient_path(u, name, &s->usb_function_descriptors, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        s->restart = sr;
-                        unit_write_settingf(UNIT(s), flags, name, "Restart=%s", service_restart_to_string(sr));
-                }
+        if (streq(name, "USBFunctionStrings"))
+                return bus_set_transient_path(u, name, &s->usb_function_strings, message, flags, error);
 
-                return 1;
+        if (streq(name, "BusName"))
+                return bus_set_transient_bus_name(u, name, &s->bus_name, message, flags, error);
 
-        } else if (STR_IN_SET(name,
-                              "StandardInputFileDescriptor",
-                              "StandardOutputFileDescriptor",
-                              "StandardErrorFileDescriptor")) {
-                int fd;
+        if (streq(name, "Restart"))
+                return bus_set_transient_service_restart(u, name, &s->restart, message, flags, error);
 
-                r = sd_bus_message_read(message, "h", &fd);
-                if (r < 0)
-                        return r;
+        if (streq(name, "RestartPreventExitStatus"))
+                return bus_set_transient_exit_status(u, name, &s->restart_prevent_status, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        int copy;
+        if (streq(name, "RestartForceExitStatus"))
+                return bus_set_transient_exit_status(u, name, &s->restart_force_status, message, flags, error);
 
-                        copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
-                        if (copy < 0)
-                                return -errno;
+        if (streq(name, "SuccessExitStatus"))
+                return bus_set_transient_exit_status(u, name, &s->success_status, message, flags, error);
 
-                        if (streq(name, "StandardInputFileDescriptor")) {
-                                asynchronous_close(s->stdin_fd);
-                                s->stdin_fd = copy;
-                        } else if (streq(name, "StandardOutputFileDescriptor")) {
-                                asynchronous_close(s->stdout_fd);
-                                s->stdout_fd = copy;
-                        } else {
-                                asynchronous_close(s->stderr_fd);
-                                s->stderr_fd = copy;
-                        }
+        if ((ci = service_exec_command_from_string(name)) >= 0)
+                return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, error);
 
-                        s->exec_context.stdio_as_fds = true;
-                }
+        if (streq(name, "StandardInputFileDescriptor"))
+                return bus_set_transient_std_fd(u, name, &s->stdin_fd, &s->exec_context.stdio_as_fds, message, flags, error);
 
-                return 1;
+        if (streq(name, "StandardOutputFileDescriptor"))
+                return bus_set_transient_std_fd(u, name, &s->stdout_fd, &s->exec_context.stdio_as_fds, message, flags, error);
 
-        } else if (streq(name, "FileDescriptorStoreMax")) {
-                uint32_t u;
-
-                r = sd_bus_message_read(message, "u", &u);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        s->n_fd_store_max = (unsigned) u;
-                        unit_write_settingf(UNIT(s), flags, name, "FileDescriptorStoreMax=%" PRIu32, u);
-                }
-
-                return 1;
-
-        } else if (streq(name, "NotifyAccess")) {
-                const char *t;
-                NotifyAccess k;
-
-                r = sd_bus_message_read(message, "s", &t);
-                if (r < 0)
-                        return r;
-
-                k = notify_access_from_string(t);
-                if (k < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid notify access setting %s", t);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        s->notify_access = k;
-                        unit_write_settingf(UNIT(s), flags, name, "NotifyAccess=%s", notify_access_to_string(s->notify_access));
-                }
-
-                return 1;
-
-        } else if ((ci = service_exec_command_from_string(name)) >= 0)
-                return bus_set_transient_exec_command(UNIT(s), name, &s->exec_command[ci], message, flags, error);
+        if (streq(name, "StandardErrorFileDescriptor"))
+                return bus_set_transient_std_fd(u, name, &s->stderr_fd, &s->exec_context.stdio_as_fds, message, flags, error);
 
         return 0;
 }
