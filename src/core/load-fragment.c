@@ -4365,7 +4365,7 @@ int config_parse_protect_home(
                 void *userdata) {
 
         ExecContext *c = data;
-        int k;
+        ProtectHome h;
 
         assert(filename);
         assert(lvalue);
@@ -4375,22 +4375,13 @@ int config_parse_protect_home(
         /* Our enum shall be a superset of booleans, hence first try
          * to parse as boolean, and then as enum */
 
-        k = parse_boolean(rvalue);
-        if (k > 0)
-                c->protect_home = PROTECT_HOME_YES;
-        else if (k == 0)
-                c->protect_home = PROTECT_HOME_NO;
-        else {
-                ProtectHome h;
-
-                h = protect_home_from_string(rvalue);
-                if (h < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect home value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                c->protect_home = h;
+        h = parse_protect_home_or_bool(rvalue);
+        if (h < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect home value, ignoring: %s", rvalue);
+                return 0;
         }
+
+        c->protect_home = h;
 
         return 0;
 }
