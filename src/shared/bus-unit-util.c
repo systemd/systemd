@@ -72,62 +72,71 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
                         &u->job_path);
 }
 
-#define DEFINE_BUS_APPEND_PARSE_PTR(bus_type, cast_type, type, parse_func)                           \
-        static int bus_append_##parse_func(sd_bus_message *m, const char *field, const char *eq) {   \
-                type val;                                                                            \
-                int r;                                                                               \
-                                                                                                     \
-                r = parse_func(eq, &val);                                                            \
-                if (r < 0)                                                                           \
-                        return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq);           \
-                                                                                                     \
-                r = sd_bus_message_append(m, "(sv)", field, bus_type, (cast_type) val);              \
-                if (r < 0)                                                                           \
-                        return bus_log_create_error(r);                                              \
-                                                                                                     \
-                return 1;                                                                            \
-        }
+#define DEFINE_BUS_APPEND_PARSE_PTR(bus_type, cast_type, type, parse_func) \
+        static int bus_append_##parse_func(                             \
+                        sd_bus_message *m,                              \
+                        const char *field,                              \
+                        const char *eq) {                               \
+                type val;                                               \
+                int r;                                                  \
+                                                                        \
+                r = parse_func(eq, &val);                               \
+                if (r < 0)                                              \
+                        return log_error_errno(r, "Failed to parse %s=%s: %m", field, eq); \
+                                                                        \
+                r = sd_bus_message_append(m, "(sv)", field,             \
+                                          bus_type, (cast_type) val);   \
+                if (r < 0)                                              \
+                        return bus_log_create_error(r);                 \
+                                                                        \
+                return 1;                                               \
+        }                                                               \
+        struct __useless_struct_to_allow_trailing_semicolon__
 
-#define DEFINE_BUS_APPEND_PARSE(bus_type, parse_func)                                                \
-        static int bus_append_##parse_func(sd_bus_message *m, const char *field, const char *eq) {   \
-                int r;                                                                               \
-                                                                                                     \
-                r = parse_func(eq);                                                                  \
-                if (r < 0) {                                                                         \
-                        log_error("Failed to parse %s: %s", field, eq);                              \
-                        return -EINVAL;                                                              \
-                }                                                                                    \
-                                                                                                     \
-                r = sd_bus_message_append(m, "(sv)", field, bus_type, (int32_t) r);                  \
-                if (r < 0)                                                                           \
-                        return bus_log_create_error(r);                                              \
-                                                                                                     \
-                return 1;                                                                            \
-        }
+#define DEFINE_BUS_APPEND_PARSE(bus_type, parse_func)                   \
+        static int bus_append_##parse_func(                             \
+                        sd_bus_message *m,                              \
+                        const char *field,                              \
+                        const char *eq) {                               \
+                int r;                                                  \
+                                                                        \
+                r = parse_func(eq);                                     \
+                if (r < 0) {                                            \
+                        log_error("Failed to parse %s: %s", field, eq); \
+                        return -EINVAL;                                 \
+                }                                                       \
+                                                                        \
+                r = sd_bus_message_append(m, "(sv)", field,             \
+                                          bus_type, (int32_t) r);       \
+                if (r < 0)                                              \
+                        return bus_log_create_error(r);                 \
+                                                                        \
+                return 1;                                               \
+        }                                                               \
+        struct __useless_struct_to_allow_trailing_semicolon__
 
-DEFINE_BUS_APPEND_PARSE("b", parse_boolean)
-DEFINE_BUS_APPEND_PARSE("i", ioprio_class_from_string)
-DEFINE_BUS_APPEND_PARSE("i", ip_tos_from_string)
-DEFINE_BUS_APPEND_PARSE("i", log_facility_unshifted_from_string)
-DEFINE_BUS_APPEND_PARSE("i", log_level_from_string)
-DEFINE_BUS_APPEND_PARSE("i", parse_errno)
-DEFINE_BUS_APPEND_PARSE("i", sched_policy_from_string)
-DEFINE_BUS_APPEND_PARSE("i", secure_bits_from_string)
-DEFINE_BUS_APPEND_PARSE("i", signal_from_string_try_harder)
-DEFINE_BUS_APPEND_PARSE("i", socket_protocol_from_name)
-DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, ioprio_parse_priority)
-DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, parse_nice)
-DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, safe_atoi)
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, nsec_t, parse_nsec)
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_blkio_weight_parse)
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_shares_parse)
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_weight_parse)
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, unsigned long, mount_propagation_flags_from_string)
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, usec_t, parse_sec)
-DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, safe_atou64)
-DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, mode_t, parse_mode)
-DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, unsigned, safe_atou)
-DEFINE_BUS_APPEND_PARSE_PTR("x", int64_t, int64_t, safe_atoi64)
+DEFINE_BUS_APPEND_PARSE("b", parse_boolean);
+DEFINE_BUS_APPEND_PARSE("i", ioprio_class_from_string);
+DEFINE_BUS_APPEND_PARSE("i", ip_tos_from_string);
+DEFINE_BUS_APPEND_PARSE("i", log_facility_unshifted_from_string);
+DEFINE_BUS_APPEND_PARSE("i", log_level_from_string);
+DEFINE_BUS_APPEND_PARSE("i", parse_errno);
+DEFINE_BUS_APPEND_PARSE("i", sched_policy_from_string);
+DEFINE_BUS_APPEND_PARSE("i", secure_bits_from_string);
+DEFINE_BUS_APPEND_PARSE("i", signal_from_string_try_harder);
+DEFINE_BUS_APPEND_PARSE("i", socket_protocol_from_name);
+DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, ioprio_parse_priority);
+DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, parse_nice);
+DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, safe_atoi);
+DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, nsec_t, parse_nsec);
+DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_blkio_weight_parse);
+DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_cpu_shares_parse);
+DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, cg_weight_parse);
+DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, unsigned long, mount_propagation_flags_from_string);
+DEFINE_BUS_APPEND_PARSE_PTR("t", uint64_t, uint64_t, safe_atou64);
+DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, mode_t, parse_mode);
+DEFINE_BUS_APPEND_PARSE_PTR("u", uint32_t, unsigned, safe_atou);
+DEFINE_BUS_APPEND_PARSE_PTR("x", int64_t, int64_t, safe_atoi64);
 
 static inline int bus_append_string(sd_bus_message *m, const char *field, const char *eq) {
         int r;
