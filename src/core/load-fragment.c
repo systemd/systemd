@@ -497,19 +497,13 @@ int config_parse_socket_bind(const char *unit,
 
         s = SOCKET(data);
 
-        b = socket_address_bind_ipv6_only_from_string(rvalue);
+        b = parse_socket_address_bind_ipv6_only_or_bool(rvalue);
         if (b < 0) {
-                int r;
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse bind IPv6 only value, ignoring: %s", rvalue);
+                return 0;
+        }
 
-                r = parse_boolean(rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse bind IPv6 only value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                s->bind_ipv6_only = r ? SOCKET_ADDRESS_IPV6_ONLY : SOCKET_ADDRESS_BOTH;
-        } else
-                s->bind_ipv6_only = b;
+        s->bind_ipv6_only = b;
 
         return 0;
 }
