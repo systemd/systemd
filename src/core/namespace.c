@@ -1471,6 +1471,18 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(protect_system, ProtectSystem);
 
+ProtectSystem parse_protect_system_or_bool(const char *s) {
+        int r;
+
+        r = parse_boolean(s);
+        if (r > 0)
+                return PROTECT_SYSTEM_YES;
+        if (r == 0)
+                return PROTECT_SYSTEM_NO;
+
+        return protect_system_from_string(s);
+}
+
 static const char* const namespace_type_table[] = {
         [NAMESPACE_MOUNT] = "mnt",
         [NAMESPACE_CGROUP] = "cgroup",

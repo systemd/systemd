@@ -4399,7 +4399,7 @@ int config_parse_protect_system(
                 void *userdata) {
 
         ExecContext *c = data;
-        int k;
+        ProtectSystem s;
 
         assert(filename);
         assert(lvalue);
@@ -4409,22 +4409,13 @@ int config_parse_protect_system(
         /* Our enum shall be a superset of booleans, hence first try
          * to parse as boolean, and then as enum */
 
-        k = parse_boolean(rvalue);
-        if (k > 0)
-                c->protect_system = PROTECT_SYSTEM_YES;
-        else if (k == 0)
-                c->protect_system = PROTECT_SYSTEM_NO;
-        else {
-                ProtectSystem s;
-
-                s = protect_system_from_string(rvalue);
-                if (s < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect system value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                c->protect_system = s;
+        s = parse_protect_system_or_bool(rvalue);
+        if (s < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect system value, ignoring: %s", rvalue);
+                return 0;
         }
+
+        c->protect_system = s;
 
         return 0;
 }
