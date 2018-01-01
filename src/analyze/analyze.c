@@ -1449,7 +1449,7 @@ static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
 }
 
 #else
-static int dump_syscall_filters(char** names) {
+static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         log_error("Not compiled with syscall filters, sorry.");
         return -EOPNOTSUPP;
 }
