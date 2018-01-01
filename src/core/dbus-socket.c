@@ -24,6 +24,7 @@
 #include "dbus-execute.h"
 #include "dbus-kill.h"
 #include "dbus-socket.h"
+#include "dbus-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -32,8 +33,6 @@
 #include "socket-util.h"
 #include "string-util.h"
 #include "unit.h"
-#include "user-util.h"
-#include "utf8.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, socket_result, SocketResult);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
@@ -171,6 +170,26 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
+static inline bool check_size_t_truncation(uint64_t t) {
+        return (size_t) t == t;
+}
+
+static inline const char* socket_protocol_to_name_supported(int32_t i) {
+        if (!IN_SET(i, IPPROTO_UDPLITE, IPPROTO_SCTP))
+                return NULL;
+
+        return socket_protocol_to_name(i);
+}
+
+static BUS_DEFINE_SET_TRANSIENT(int, "i", int32_t, int, "%" PRIi32);
+static BUS_DEFINE_SET_TRANSIENT(message_queue, "x", int64_t, long, "%" PRIi64);
+static BUS_DEFINE_SET_TRANSIENT_IS_VALID(size_t_check_truncation, "t", uint64_t, size_t, "%" PRIu64, check_size_t_truncation);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(bind_ipv6_only, SocketAddressBindIPv6Only, parse_socket_address_bind_ipv6_only_or_bool);
+static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(fdname, fdname_is_valid);
+static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(ifname, ifname_valid);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(ip_tos, "i", int32_t, int, "%" PRIi32, ip_tos_to_string_alloc);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING(socket_protocol, "i", int32_t, int, "%" PRIi32, socket_protocol_to_name_supported);
+
 static int bus_socket_set_transient_property(
                 Socket *s,
                 const char *name,
@@ -188,333 +207,139 @@ static int bus_socket_set_transient_property(
 
         flags |= UNIT_PRIVATE;
 
-        if (STR_IN_SET(name,
-                       "Accept", "Writable", "KeepAlive", "NoDelay", "FreeBind", "Transparent", "Broadcast",
-                       "PassCredentials", "PassSecurity", "ReusePort", "RemoveOnStop", "SELinuxContextFromNet")) {
-                int b;
-
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(name, "Accept"))
-                                s->accept = b;
-                        else if (streq(name, "Writable"))
-                                s->writable = b;
-                        else if (streq(name, "KeepAlive"))
-                                s->keep_alive = b;
-                        else if (streq(name, "NoDelay"))
-                                s->no_delay = b;
-                        else if (streq(name, "FreeBind"))
-                                s->free_bind = b;
-                        else if (streq(name, "Transparent"))
-                                s->transparent = b;
-                        else if (streq(name, "Broadcast"))
-                                s->broadcast = b;
-                        else if (streq(name, "PassCredentials"))
-                                s->pass_cred = b;
-                        else if (streq(name, "PassSecurity"))
-                                s->pass_sec = b;
-                        else if (streq(name, "ReusePort"))
-                                s->reuse_port = b;
-                        else if (streq(name, "RemoveOnStop"))
-                                s->remove_on_stop = b;
-                        else /* "SELinuxContextFromNet" */
-                                s->selinux_context_from_net = b;
-
-                        unit_write_settingf(u, flags, name, "%s=%s", name, yes_no(b));
-                }
-
-                return 1;
-
-        } else if (STR_IN_SET(name, "Priority", "IPTTL", "Mark")) {
-                int32_t i;
-
-                r = sd_bus_message_read(message, "i", &i);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(name, "Priority"))
-                                s->priority = i;
-                        else if (streq(name, "IPTTL"))
-                                s->ip_ttl = i;
-                        else /* "Mark" */
-                                s->mark = i;
-
-                        unit_write_settingf(u, flags, name, "%s=%i", name, i);
-                }
-
-                return 1;
-
-        } else if (streq(name, "IPTOS")) {
-                _cleanup_free_ char *str = NULL;
-                int32_t i;
-
-                r = sd_bus_message_read(message, "i", &i);
-                if (r < 0)
-                        return r;
-
-                r = ip_tos_to_string_alloc(i, &str);
-                if (r < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s: %i", name, i);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        s->ip_tos = i;
-
-                        unit_write_settingf(u, flags, name, "%s=%s", name, str);
-                }
-
-                return 1;
-
-        } else if (streq(name, "SocketProtocol")) {
-                const char *p;
-                int32_t i;
-
-                r = sd_bus_message_read(message, "i", &i);
-                if (r < 0)
-                        return r;
-
-                p = socket_protocol_to_name(i);
-                if (!p)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s: %i", name, i);
-
-                if (!IN_SET(i, IPPROTO_UDPLITE, IPPROTO_SCTP))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported socket protocol: %s", p);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        s->socket_protocol = i;
-                        unit_write_settingf(u, flags, name, "%s=%s", name, p);
-                }
-
-                return 1;
-
-        } else if (STR_IN_SET(name, "Backlog", "MaxConnections", "MaxConnectionsPerSource", "KeepAliveProbes", "TriggerLimitBurst")) {
-                uint32_t n;
-
-                r = sd_bus_message_read(message, "u", &n);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(name, "Backlog"))
-                                s->backlog = n;
-                        else if (streq(name, "MaxConnections"))
-                                s->max_connections = n;
-                        else if (streq(name, "MaxConnectionsPerSource"))
-                                s->max_connections_per_source = n;
-                        else if (streq(name, "KeepAliveProbes"))
-                                s->keep_alive_cnt = n;
-                        else /* "TriggerLimitBurst" */
-                                s->trigger_limit.burst = n;
+        if (streq(name, "Accept"))
+                return bus_set_transient_bool(u, name, &s->accept, message, flags, error);
 
-                        unit_write_settingf(u, flags, name, "%s=%u", name, n);
-                }
-
-                return 1;
-
-        } else if (STR_IN_SET(name, "SocketMode", "DirectoryMode")) {
-                mode_t m;
-
-                r = sd_bus_message_read(message, "u", &m);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(name, "SocketMode"))
-                                s->socket_mode = m;
-                        else /* "DirectoryMode" */
-                                s->directory_mode = m;
-
-                        unit_write_settingf(u, flags, name, "%s=%040o", name, m);
-                }
-
-                return 1;
-
-        } else if (STR_IN_SET(name, "MessageQueueMaxMessages", "MessageQueueMessageSize")) {
-                int64_t n;
-
-                r = sd_bus_message_read(message, "x", &n);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(name, "MessageQueueMaxMessages"))
-                                s->mq_maxmsg = (long) n;
-                        else /* "MessageQueueMessageSize" */
-                                s->mq_msgsize = (long) n;
+        if (streq(name, "Writable"))
+                return bus_set_transient_bool(u, name, &s->writable, message, flags, error);
 
-                        unit_write_settingf(u, flags, name, "%s=%" PRIi64, name, n);
-                }
+        if (streq(name, "KeepAlive"))
+                return bus_set_transient_bool(u, name, &s->keep_alive, message, flags, error);
 
-                return 1;
-
-        } else if (STR_IN_SET(name, "TimeoutUSec", "KeepAliveTimeUSec", "KeepAliveIntervalUSec", "DeferAcceptUSec", "TriggerLimitIntervalUSec")) {
-                usec_t t;
+        if (streq(name, "NoDelay"))
+                return bus_set_transient_bool(u, name, &s->no_delay, message, flags, error);
 
-                r = sd_bus_message_read(message, "t", &t);
-                if (r < 0)
-                        return r;
+        if (streq(name, "FreeBind"))
+                return bus_set_transient_bool(u, name, &s->free_bind, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(name, "TimeoutUSec"))
-                                s->timeout_usec = t ?: USEC_INFINITY;
-                        else if (streq(name, "KeepAliveTimeUSec"))
-                                s->keep_alive_time = t;
-                        else if (streq(name, "KeepAliveIntervalUSec"))
-                                s->keep_alive_interval = t;
-                        else if (streq(name, "DeferAcceptUSec"))
-                                s->defer_accept = t;
-                        else /* "TriggerLimitIntervalUSec" */
-                                s->trigger_limit.interval = t;
+        if (streq(name, "Transparent"))
+                return bus_set_transient_bool(u, name, &s->transparent, message, flags, error);
 
-                        unit_write_settingf(u, flags, name, "%s=" USEC_FMT, name, t);
-                }
+        if (streq(name, "Broadcast"))
+                return bus_set_transient_bool(u, name, &s->broadcast, message, flags, error);
 
-                return 1;
+        if (streq(name, "PassCredentials"))
+                return bus_set_transient_bool(u, name, &s->pass_cred, message, flags, error);
 
-        } else if (STR_IN_SET(name, "ReceiveBuffer", "SendBuffer", "PipeSize")) {
-                uint64_t t;
+        if (streq(name, "PassSecurity"))
+                return bus_set_transient_bool(u, name, &s->pass_sec, message, flags, error);
 
-                r = sd_bus_message_read(message, "t", &t);
-                if (r < 0)
-                        return r;
+        if (streq(name, "ReusePort"))
+                return bus_set_transient_bool(u, name, &s->reuse_port, message, flags, error);
 
-                if ((uint64_t) (size_t) t != t)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s: %" PRIu64, name, t);
+        if (streq(name, "RemoveOnStop"))
+                return bus_set_transient_bool(u, name, &s->remove_on_stop, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(name, "ReceiveBuffer"))
-                                s->receive_buffer = t;
-                        else if (streq(name, "SendBuffer"))
-                                s->send_buffer = t;
-                        else /* "PipeSize" */
-                                s->pipe_size = t;
+        if (streq(name, "SELinuxContextFromNet"))
+                return bus_set_transient_bool(u, name, &s->selinux_context_from_net, message, flags, error);
 
-                        unit_write_settingf(u, flags, name, "%s=%" PRIu64, name, t);
-                }
+        if (streq(name, "Priority"))
+                return bus_set_transient_int(u, name, &s->priority, message, flags, error);
 
-                return 1;
+        if (streq(name, "IPTTL"))
+                return bus_set_transient_int(u, name, &s->ip_ttl, message, flags, error);
 
-        } else if (STR_IN_SET(name, "SmackLabel", "SmackLabelIPIn", "SmackLabelIPOut", "TCPCongestion")) {
-                const char *n;
+        if (streq(name, "Mark"))
+                return bus_set_transient_int(u, name, &s->mark, message, flags, error);
 
-                r = sd_bus_message_read(message, "s", &n);
-                if (r < 0)
-                        return r;
+        if (streq(name, "Backlog"))
+                return bus_set_transient_unsigned(u, name, &s->backlog, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+        if (streq(name, "MaxConnections"))
+                return bus_set_transient_unsigned(u, name, &s->max_connections, message, flags, error);
 
-                        if (streq(name, "SmackLabel"))
-                                r = free_and_strdup(&s->smack, empty_to_null(n));
-                        else if (streq(name, "SmackLabelIPin"))
-                                r = free_and_strdup(&s->smack_ip_in, empty_to_null(n));
-                        else if (streq(name, "SmackLabelIPOut"))
-                                r = free_and_strdup(&s->smack_ip_out, empty_to_null(n));
-                        else /* "TCPCongestion" */
-                                r = free_and_strdup(&s->tcp_congestion, empty_to_null(n));
-                        if (r < 0)
-                                return r;
+        if (streq(name, "MaxConnectionsPerSource"))
+                return bus_set_transient_unsigned(u, name, &s->max_connections_per_source, message, flags, error);
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, strempty(n));
-                }
+        if (streq(name, "KeepAliveProbes"))
+                return bus_set_transient_unsigned(u, name, &s->keep_alive_cnt, message, flags, error);
 
-                return 1;
+        if (streq(name, "TriggerLimitBurst"))
+                return bus_set_transient_unsigned(u, name, &s->trigger_limit.burst, message, flags, error);
 
-        } else if (streq(name, "BindToDevice")) {
-                const char *n;
+        if (streq(name, "SocketMode"))
+                return bus_set_transient_mode_t(u, name, &s->socket_mode, message, flags, error);
 
-                r = sd_bus_message_read(message, "s", &n);
-                if (r < 0)
-                        return r;
+        if (streq(name, "DirectoryMode"))
+                return bus_set_transient_mode_t(u, name, &s->directory_mode, message, flags, error);
 
-                if (n[0] && !streq(n, "*")) {
-                        if (!ifname_valid(n))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid interface name for %s: %s", name, n);
-                } else
-                        n = NULL;
+        if (streq(name, "MessageQueueMaxMessages"))
+                return bus_set_transient_message_queue(u, name, &s->mq_maxmsg, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+        if (streq(name, "MessageQueueMessageSize"))
+                return bus_set_transient_message_queue(u, name, &s->mq_msgsize, message, flags, error);
 
-                        r = free_and_strdup(&s->bind_to_device, empty_to_null(n));
-                        if (r < 0)
-                                return r;
+        if (streq(name, "TimeoutUSec"))
+                return bus_set_transient_usec_fix_0(u, name, &s->timeout_usec, message, flags, error);
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, strempty(n));
-                }
+        if (streq(name, "KeepAliveTimeUSec"))
+                return bus_set_transient_usec(u, name, &s->keep_alive_time, message, flags, error);
 
-                return 1;
+        if (streq(name, "KeepAliveIntervalUSec"))
+                return bus_set_transient_usec(u, name, &s->keep_alive_interval, message, flags, error);
 
-        } else if (streq(name, "BindIPv6Only")) {
-                SocketAddressBindIPv6Only b;
-                const char *n;
+        if (streq(name, "DeferAcceptUSec"))
+                return bus_set_transient_usec(u, name, &s->defer_accept, message, flags, error);
 
-                r = sd_bus_message_read(message, "s", &n);
-                if (r < 0)
-                        return r;
+        if (streq(name, "TriggerLimitIntervalUSec"))
+                return bus_set_transient_usec(u, name, &s->trigger_limit.interval, message, flags, error);
 
-                b = socket_address_bind_ipv6_only_from_string(n);
-                if (b < 0) {
-                        r = parse_boolean(n);
-                        if (r < 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s: %s", name, n);
+        if (streq(name, "SmackLabel"))
+                return bus_set_transient_string(u, name, &s->smack, message, flags, error);
 
-                        b = r ? SOCKET_ADDRESS_IPV6_ONLY : SOCKET_ADDRESS_BOTH;
-                }
+        if (streq(name, "SmackLabelIPin"))
+                return bus_set_transient_string(u, name, &s->smack_ip_in, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        s->bind_ipv6_only = b;
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, n);
-                }
+        if (streq(name, "SmackLabelIPOut"))
+                return bus_set_transient_string(u, name, &s->smack_ip_out, message, flags, error);
 
-                return 1;
+        if (streq(name, "TCPCongestion"))
+                return bus_set_transient_string(u, name, &s->tcp_congestion, message, flags, error);
 
-        } else if (streq(name, "FileDescriptorName")) {
-                const char *n;
+        if (streq(name, "FileDescriptorName"))
+                return bus_set_transient_fdname(u, name, &s->fdname, message, flags, error);
 
-                r = sd_bus_message_read(message, "s", &n);
-                if (r < 0)
-                        return r;
+        if (streq(name, "SocketUser"))
+                return bus_set_transient_user(u, name, &s->user, message, flags, error);
 
-                if (!isempty(n) && !fdname_is_valid(n))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s: %s", name, n);
+        if (streq(name, "SocketGroup"))
+                return bus_set_transient_user(u, name, &s->group, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        r = free_and_strdup(&s->fdname, empty_to_null(n));
-                        if (r < 0)
-                                return r;
+        if (streq(name, "BindIPv6Only"))
+                return bus_set_transient_bind_ipv6_only(u, name, &s->bind_ipv6_only, message, flags, error);
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, strempty(n));
-                }
+        if (streq(name, "ReceiveBuffer"))
+                return bus_set_transient_size_t_check_truncation(u, name, &s->receive_buffer, message, flags, error);
 
-                return 1;
+        if (streq(name, "SendBuffer"))
+                return bus_set_transient_size_t_check_truncation(u, name, &s->send_buffer, message, flags, error);
 
-        } else if (STR_IN_SET(name, "SocketUser", "SocketGroup")) {
-                const char *n;
+        if (streq(name, "PipeSize"))
+                return bus_set_transient_size_t_check_truncation(u, name, &s->pipe_size, message, flags, error);
 
-                r = sd_bus_message_read(message, "s", &n);
-                if (r < 0)
-                        return r;
+        if (streq(name, "BindToDevice"))
+                return bus_set_transient_ifname(u, name, &s->bind_to_device, message, flags, error);
 
-                if (!isempty(n) && !valid_user_group_name_or_id(n))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s: %s", name, n);
+        if (streq(name, "IPTOS"))
+                return bus_set_transient_ip_tos(u, name, &s->ip_tos, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+        if (streq(name, "SocketProtocol"))
+                return bus_set_transient_socket_protocol(u, name, &s->socket_protocol, message, flags, error);
 
-                        if (streq(name, "SocketUser"))
-                                r = free_and_strdup(&s->user, empty_to_null(n));
-                        else /* "SocketGroup" */
-                                r = free_and_strdup(&s->user, empty_to_null(n));
-                        if (r < 0)
-                                return r;
+        if ((ci = socket_exec_command_from_string(name)) >= 0)
+                return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, error);
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, strempty(n));
-                }
-
-                return 1;
-
-        } else if (streq(name, "Symlinks")) {
+        if (streq(name, "Symlinks")) {
                 _cleanup_strv_free_ char **l = NULL;
                 char **p;
 
@@ -523,9 +348,6 @@ static int bus_socket_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l) {
-                        if (!utf8_is_valid(*p))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "String is not UTF-8 clean, ignoring assignment: %s", *p);
-
                         if (!path_is_absolute(*p))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Symlink path is not absolute: %s", *p);
                 }
@@ -623,9 +445,7 @@ static int bus_socket_set_transient_property(
                 }
 
                 return 1;
-
-        } else if ((ci = socket_exec_command_from_string(name)) >= 0)
-                return bus_set_transient_exec_command(UNIT(s), name, &s->exec_command[ci], message, flags, error);
+        }
 
         return 0;
 }
