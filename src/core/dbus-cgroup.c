@@ -691,7 +691,7 @@ int bus_cgroup_set_property(
                                                 free(a);
                                                 return -ENOMEM;
                                         }
-                                        LIST_PREPEND(device_weights,c->io_device_weights, a);
+                                        LIST_PREPEND(device_weights, c->io_device_weights, a);
                                 }
 
                                 a->weight = weight;
@@ -918,7 +918,7 @@ int bus_cgroup_set_property(
                                                 free(a);
                                                 return -ENOMEM;
                                         }
-                                        LIST_PREPEND(device_weights,c->blockio_device_weights, a);
+                                        LIST_PREPEND(device_weights, c->blockio_device_weights, a);
                                 }
 
                                 a->weight = weight;
