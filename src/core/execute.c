@@ -1810,8 +1810,7 @@ static bool exec_needs_mount_namespace(
                 return true;
 
         if (context->dynamic_user &&
-            (!strv_isempty(context->directories[EXEC_DIRECTORY_RUNTIME].paths) ||
-             !strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
+            (!strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
              !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
              !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths)))
                 return true;
