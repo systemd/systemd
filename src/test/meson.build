@@ -67,7 +67,7 @@ tests += [
           'src/test/test-helper.c'],
          [libcore,
           libudev,
-          libsystemd_internal],
+          libshared],
          [threads,
           librt,
           libseccomp,
@@ -119,6 +119,7 @@ tests += [
 
         [['src/test/test-dns-domain.c'],
          [libcore,
+          libshared,
           libsystemd_network],
          []],
 
@@ -167,7 +168,7 @@ tests += [
          []],
 
         [['src/test/test-copy.c'],
-         [libshared_static],
+         [],
          []],
 
         [['src/test/test-sigbus.c'],
@@ -410,7 +411,7 @@ tests += [
          [libcore,
           libjournal_core,
           libudev_core,
-          libudev_internal,
+          libudev_static,
           libsystemd_network,
           libshared],
          [threads,
@@ -610,7 +611,7 @@ tests += [
 
         [['src/test/test-udev.c'],
          [libudev_core,
-          libudev_internal,
+          libudev_static,
           libsystemd_network,
           libshared],
          [threads,
@@ -772,7 +773,7 @@ tests += [
 
         [['src/libsystemd/sd-bus/test-bus-error.c'],
          [libshared_static,
-          libsystemd_internal],
+          libsystemd_static],
          []],
 
         [['src/libsystemd/sd-bus/test-bus-track.c'],

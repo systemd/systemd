@@ -151,7 +151,7 @@ if conf.get('ENABLE_NETWORKD') == 1
 
     [['src/network/test-network.c'],
      [libnetworkd_core,
-      libudev_internal,
+      libudev_static,
       libsystemd_network,
       libshared],
      [threads]],
@@ -166,7 +166,7 @@ if conf.get('ENABLE_NETWORKD') == 1
       'src/network/test-network-tables.c',
       test_tables_h],
      [libnetworkd_core,
-      libudev_internal,
+      libudev_static,
       libudev_core,
       libsystemd_network,
       libshared],
