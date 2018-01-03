@@ -1789,12 +1789,7 @@ static bool exec_needs_mount_namespace(
             !strv_isempty(context->inaccessible_paths))
                 return true;
 
-        if (context->n_bind_mounts > 0 ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_RUNTIME].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_CONFIGURATION].paths))
+        if (context->n_bind_mounts > 0)
                 return true;
 
         if (context->mount_flags != 0)
@@ -1812,6 +1807,13 @@ static bool exec_needs_mount_namespace(
                 return true;
 
         if (context->mount_apivfs && (context->root_image || context->root_directory))
+                return true;
+
+        if (context->dynamic_user &&
+            (!strv_isempty(context->directories[EXEC_DIRECTORY_RUNTIME].paths) ||
+             !strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
+             !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
+             !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths)))
                 return true;
 
         return false;
