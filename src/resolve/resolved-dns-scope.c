@@ -958,7 +958,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
 }
 
 void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
-        unsigned i;
+        DnsResourceRecord *rr;
         int r;
 
         assert(scope);
@@ -989,25 +989,24 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
 
         log_debug("Checking for conflicts...");
 
-        for (i = 0; i < p->answer->n_rrs; i++) {
-
+        DNS_ANSWER_FOREACH(rr, p->answer) {
                 /* No conflict if it is DNS-SD RR used for service enumeration. */
-                if (dns_resource_key_is_dnssd_ptr(p->answer->items[i].rr->key))
+                if (dns_resource_key_is_dnssd_ptr(rr->key))
                         continue;
 
                 /* Check for conflicts against the local zone. If we
                  * found one, we won't check any further */
-                r = dns_zone_check_conflicts(&scope->zone, p->answer->items[i].rr);
+                r = dns_zone_check_conflicts(&scope->zone, rr);
                 if (r != 0)
                         continue;
 
                 /* Check for conflicts against the local cache. If so,
                  * send out an advisory query, to inform everybody */
-                r = dns_cache_check_conflicts(&scope->cache, p->answer->items[i].rr, p->family, &p->sender);
+                r = dns_cache_check_conflicts(&scope->cache, rr, p->family, &p->sender);
                 if (r <= 0)
                         continue;
 
-                dns_scope_notify_conflict(scope, p->answer->items[i].rr);
+                dns_scope_notify_conflict(scope, rr);
         }
 }
 
