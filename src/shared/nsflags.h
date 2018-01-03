@@ -42,6 +42,13 @@ unsigned long namespace_flag_from_string(const char *name);
 int namespace_flag_from_string_many(const char *name, unsigned long *ret);
 int namespace_flag_to_string_many(unsigned long flags, char **ret);
 
+static inline int namespace_flag_to_string_many_with_check(unsigned long n, char **s) {
+        if ((n & NAMESPACE_FLAGS_ALL) != n)
+                return -EINVAL;
+
+        return namespace_flag_to_string_many(n, s);
+}
+
 struct namespace_flag_map {
         unsigned long flag;
         const char *name;

@@ -1450,6 +1450,18 @@ static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(protect_home, ProtectHome);
 
+ProtectHome parse_protect_home_or_bool(const char *s) {
+        int r;
+
+        r = parse_boolean(s);
+        if (r > 0)
+                return PROTECT_HOME_YES;
+        if (r == 0)
+                return PROTECT_HOME_NO;
+
+        return protect_home_from_string(s);
+}
+
 static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
         [PROTECT_SYSTEM_NO] = "no",
         [PROTECT_SYSTEM_YES] = "yes",
@@ -1458,6 +1470,18 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(protect_system, ProtectSystem);
+
+ProtectSystem parse_protect_system_or_bool(const char *s) {
+        int r;
+
+        r = parse_boolean(s);
+        if (r > 0)
+                return PROTECT_SYSTEM_YES;
+        if (r == 0)
+                return PROTECT_SYSTEM_NO;
+
+        return protect_system_from_string(s);
+}
 
 static const char* const namespace_type_table[] = {
         [NAMESPACE_MOUNT] = "mnt",
