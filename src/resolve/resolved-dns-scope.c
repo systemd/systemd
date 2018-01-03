@@ -885,12 +885,16 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
         scope->conflict_event_source = sd_event_source_unref(scope->conflict_event_source);
 
         for (;;) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
 
-                rr = ordered_hashmap_steal_first(scope->conflict_queue);
-                if (!rr)
+                key = ordered_hashmap_first_key(scope->conflict_queue);
+                if (!key)
                         break;
+
+                rr = ordered_hashmap_remove(scope->conflict_queue, key);
+                assert(rr);
 
                 r = dns_scope_make_conflict_packet(scope, rr, &p);
                 if (r < 0) {
@@ -930,6 +934,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to queue conflicting RR: %m");
 
+        dns_resource_key_ref(rr->key);
         dns_resource_record_ref(rr);
 
         if (scope->conflict_event_source)
