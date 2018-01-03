@@ -104,6 +104,7 @@ typedef struct NetDev {
         struct ether_addr *mac;
         size_t mtu;
         int ifindex;
+        bool vtable_allocated;
 
         LIST_HEAD(netdev_join_callback, callbacks);
 } NetDev;

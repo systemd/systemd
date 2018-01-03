@@ -111,7 +111,7 @@ static void netdev_cancel_callbacks(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         netdev_join_callback *callback;
 
-        if (!netdev)
+        if (!netdev || !netdev->callbacks)
                 return;
 
         rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
@@ -153,7 +153,8 @@ static void netdev_free(NetDev *netdev) {
         condition_free_list(netdev->match_kernel_version);
         condition_free_list(netdev->match_arch);
 
-        if (NETDEV_VTABLE(netdev) &&
+        if (netdev->vtable_allocated &&
+            NETDEV_VTABLE(netdev) &&
             NETDEV_VTABLE(netdev)->done)
                 NETDEV_VTABLE(netdev)->done(netdev);
 
@@ -667,6 +668,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return log_oom();
 
         netdev->n_ref = 1;
+        netdev->vtable_allocated = true;
         netdev->manager = manager;
         netdev->kind = netdev_raw->kind;
         netdev->state = _NETDEV_STATE_INVALID;
