@@ -991,6 +991,10 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
 
         for (i = 0; i < p->answer->n_rrs; i++) {
 
+                /* No conflict if it is DNS-SD RR used for service enumeration. */
+                if (dns_resource_key_is_dnssd_ptr(p->answer->items[i].rr->key))
+                        continue;
+
                 /* Check for conflicts against the local zone. If we
                  * found one, we won't check any further */
                 r = dns_zone_check_conflicts(&scope->zone, p->answer->items[i].rr);
