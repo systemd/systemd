@@ -82,6 +82,7 @@ int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
 
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia) {
         uint16_t len;
+        be32_t *iaid;
         uint8_t *ia_hdr;
         size_t ia_buflen, ia_addrlen = 0;
         DHCP6Address *addr;
@@ -92,10 +93,12 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia) {
         switch (ia->type) {
         case SD_DHCP6_OPTION_IA_NA:
                 len = DHCP6_OPTION_IA_NA_LEN;
+                iaid = &ia->ia_na.id;
                 break;
 
         case SD_DHCP6_OPTION_IA_TA:
                 len = DHCP6_OPTION_IA_TA_LEN;
+                iaid = &ia->ia_ta.id;
                 break;
 
         default:
@@ -111,7 +114,7 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia) {
         *buf += sizeof(DHCP6Option);
         *buflen -= sizeof(DHCP6Option);
 
-        memcpy(*buf, &ia->id, len);
+        memcpy(*buf, iaid, len);
 
         *buf += len;
         *buflen -= len;
@@ -232,10 +235,10 @@ int dhcp6_option_parse_ia(uint8_t **buf, size_t *buflen, uint16_t iatype,
                 }
 
                 iaaddr_offset = DHCP6_OPTION_IA_NA_LEN;
-                memcpy(&ia->id, *buf, iaaddr_offset);
+                memcpy(&ia->ia_na, *buf, sizeof(ia->ia_na));
 
-                lt_t1 = be32toh(ia->lifetime_t1);
-                lt_t2 = be32toh(ia->lifetime_t2);
+                lt_t1 = be32toh(ia->ia_na.lifetime_t1);
+                lt_t2 = be32toh(ia->ia_na.lifetime_t2);
 
                 if (lt_t1 && lt_t2 && lt_t1 > lt_t2) {
                         log_dhcp6_client(client, "IA T1 %ds > T2 %ds",
@@ -254,10 +257,7 @@ int dhcp6_option_parse_ia(uint8_t **buf, size_t *buflen, uint16_t iatype,
                 }
 
                 iaaddr_offset = DHCP6_OPTION_IA_TA_LEN;
-                memcpy(&ia->id, *buf, iaaddr_offset);
-
-                ia->lifetime_t1 = 0;
-                ia->lifetime_t2 = 0;
+                memcpy(&ia->ia_ta.id, *buf, sizeof(ia->ia_ta));
 
                 break;
 
@@ -327,18 +327,18 @@ int dhcp6_option_parse_ia(uint8_t **buf, size_t *buflen, uint16_t iatype,
         if (r == -ENOMSG)
                 r = 0;
 
-        if (!ia->lifetime_t1 && !ia->lifetime_t2) {
+        if (*buflen)
+                r = -ENOMSG;
+
+        if (!ia->ia_na.lifetime_t1 && !ia->ia_na.lifetime_t2) {
                 lt_t1 = lt_min / 2;
                 lt_t2 = lt_min / 10 * 8;
-                ia->lifetime_t1 = htobe32(lt_t1);
-                ia->lifetime_t2 = htobe32(lt_t2);
+                ia->ia_na.lifetime_t1 = htobe32(lt_t1);
+                ia->ia_na.lifetime_t2 = htobe32(lt_t2);
 
                 log_dhcp6_client(client, "Computed IA T1 %ds and T2 %ds as both were zero",
                                  lt_t1, lt_t2);
         }
-
-        if (*buflen)
-                r = -ENOMSG;
 
 error:
         *buf += *buflen;

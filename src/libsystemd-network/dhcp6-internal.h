@@ -41,13 +41,24 @@ struct DHCP6Address {
         } iaaddr _packed_;
 };
 
+/* Non-temporary Address option */
+struct ia_na {
+        be32_t id;
+        be32_t lifetime_t1;
+        be32_t lifetime_t2;
+} _packed_;
+
+/* Temporary Address option */
+struct ia_ta {
+        be32_t id;
+} _packed_;
+
 struct DHCP6IA {
         uint16_t type;
-        struct {
-                be32_t id;
-                be32_t lifetime_t1;
-                be32_t lifetime_t2;
-        } _packed_;
+        union {
+                struct ia_na ia_na;
+                struct ia_ta ia_ta;
+        };
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
 
