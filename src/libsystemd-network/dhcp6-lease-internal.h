@@ -36,6 +36,7 @@ struct sd_dhcp6_lease {
         bool rapid_commit;
 
         DHCP6IA ia;
+        DHCP6IA pd;
 
         DHCP6Address *addr_iter;
 

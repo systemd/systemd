@@ -43,16 +43,34 @@ struct iaaddr {
         be32_t lifetime_valid;
 } _packed_;
 
+/* Prefix Delegation Prefix option */
+struct iapdprefix {
+        be32_t lifetime_preferred;
+        be32_t lifetime_valid;
+        uint8_t prefixlen;
+        struct in6_addr address;
+} _packed_;
+
 typedef struct DHCP6Address DHCP6Address;
 
 struct DHCP6Address {
         LIST_FIELDS(DHCP6Address, addresses);
 
-        struct iaaddr iaaddr;
+        union {
+                struct iaaddr iaaddr;
+                struct iapdprefix iapdprefix;
+        };
 };
 
 /* Non-temporary Address option */
 struct ia_na {
+        be32_t id;
+        be32_t lifetime_t1;
+        be32_t lifetime_t2;
+} _packed_;
+
+/* Prefix Delegation option */
+struct ia_pd {
         be32_t id;
         be32_t lifetime_t1;
         be32_t lifetime_t2;
@@ -67,6 +85,7 @@ struct DHCP6IA {
         uint16_t type;
         union {
                 struct ia_na ia_na;
+                struct ia_pd ia_pd;
                 struct ia_ta ia_ta;
         };
         sd_event_source *timeout_t1;
