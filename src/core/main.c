@@ -2182,7 +2182,7 @@ static int initialize_security(
 
         dual_timestamp_get(security_start_timestamp);
 
-        r = mac_selinux_setup(loaded_policy) < 0;
+        r = mac_selinux_setup(loaded_policy);
         if (r < 0) {
                 *ret_error_message = "Failed to load SELinux policy";
                 return r;
