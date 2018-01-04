@@ -1237,10 +1237,14 @@ int safe_fork_full(
         }
 
         if (flags & FORK_DEATHSIG) {
+                pid_t ppid;
                 /* Let's see if the parent PID is still the one we started from? If not, then the parent
                  * already died by the time we set PR_SET_PDEATHSIG, hence let's emulate the effect */
 
-                if (getppid() != original_pid) {
+                ppid = getppid();
+                if (ppid == 0)
+                        /* Parent is in a differn't PID namespace. */;
+                else if (ppid != original_pid) {
                         log_debug("Parent died early, raising SIGTERM.");
                         (void) raise(SIGTERM);
                         _exit(EXIT_FAILURE);
