@@ -632,6 +632,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
         assert(path);
 
+        /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
+        if ((flags & (CHASE_NONEXISTENT|CHASE_OPEN)) == (CHASE_NONEXISTENT|CHASE_OPEN))
+                return -EINVAL;
+
         /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows following
          * symlinks relative to a root directory, instead of the root of the host.
          *
@@ -879,6 +883,19 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if (ret) {
                 *ret = done;
                 done = NULL;
+        }
+
+        if (flags & CHASE_OPEN) {
+                int q;
+
+                /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a proper fd by
+                 * opening /proc/self/fd/xyz. */
+
+                assert(fd >= 0);
+                q = fd;
+                fd = -1;
+
+                return q;
         }
 
         return exists;

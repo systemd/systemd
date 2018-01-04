@@ -85,6 +85,7 @@ enum {
         CHASE_NONEXISTENT = 1U << 1,   /* If set, it's OK if the path doesn't actually exist. */
         CHASE_NO_AUTOFS   = 1U << 2,   /* If set, return -EREMOTE if autofs mount point found */
         CHASE_SAFE        = 1U << 3,   /* If set, return EPERM if we ever traverse from unprivileged to privileged files or directories */
+        CHASE_OPEN        = 1U << 4,   /* If set, return an O_PATH object to the final component */
 };
 
 int chase_symlinks(const char *path_with_prefix, const char *root, unsigned flags, char **ret);
