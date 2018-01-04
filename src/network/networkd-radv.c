@@ -502,7 +502,7 @@ int radv_configure(Link *link) {
                    RADV_PREFIX_DELEGATION_STATIC,
                    RADV_PREFIX_DELEGATION_BOTH)) {
                 LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
-                        r = sd_radv_add_prefix(link->radv, p->radv_prefix);
+                        r = sd_radv_add_prefix(link->radv, p->radv_prefix, false);
                         if (r != -EEXIST && r < 0)
                                 return r;
                 }

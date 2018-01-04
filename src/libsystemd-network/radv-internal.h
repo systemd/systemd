@@ -93,6 +93,9 @@ struct sd_radv_prefix {
         } _packed_ opt;
 
         LIST_FIELDS(struct sd_radv_prefix, prefix);
+
+        usec_t valid_until;
+        usec_t preferred_until;
 };
 
 #define log_radv_full(level, error, fmt, ...) log_internal(level, error, __FILE__, __LINE__, __func__, "RADV: " fmt, ##__VA_ARGS__)
