@@ -217,14 +217,13 @@ static uint8_t fqdn_wire[16] = {
 static int test_advertise_option(sd_event *e) {
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
         DHCP6Message *advertise = (DHCP6Message *)msg_advertise;
-        uint8_t *optval, *opt = msg_advertise + sizeof(DHCP6Message);
-        uint16_t optcode;
-        size_t optlen, len = sizeof(msg_advertise) - sizeof(DHCP6Message);
+        size_t len = sizeof(msg_advertise) - sizeof(DHCP6Message), pos = 0;
         be32_t val;
         uint8_t preference = 255;
         struct in6_addr addr;
         uint32_t lt_pref, lt_valid;
         int r;
+        uint8_t *opt;
         bool opt_clientid = false;
         struct in6_addr *addrs;
         char **domains;
@@ -232,14 +231,19 @@ static int test_advertise_option(sd_event *e) {
         if (verbose)
                 printf("* %s\n", __FUNCTION__);
 
+        assert_se(len >= sizeof(DHCP6Message));
+
         assert_se(dhcp6_lease_new(&lease) >= 0);
 
         assert_se(advertise->type == DHCP6_ADVERTISE);
         assert_se((be32toh(advertise->transaction_id) & 0x00ffffff) ==
                   0x0fb4e5);
 
-        while ((r = dhcp6_option_parse(&opt, &len, &optcode, &optlen,
-                                       &optval)) >= 0) {
+        while (pos < len) {
+                DHCP6Option *option = (DHCP6Option *)&advertise->options[pos];
+                const uint16_t optcode = be16toh(option->code);
+                const uint16_t optlen = be16toh(option->len);
+                uint8_t *optval = option->data;
 
                 switch(optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
@@ -261,9 +265,7 @@ static int test_advertise_option(sd_event *e) {
                         val = htobe32(120);
                         assert_se(!memcmp(optval + 8, &val, sizeof(val)));
 
-                        assert_se(dhcp6_option_parse_ia(&optval, &optlen,
-                                                        optcode,
-                                                        &lease->ia) >= 0);
+                        assert_se(dhcp6_option_parse_ia(option, &lease->ia) >= 0);
 
                         break;
 
@@ -309,11 +311,11 @@ static int test_advertise_option(sd_event *e) {
                 default:
                         break;
                 }
+
+                pos += sizeof(*option) + optlen;
         }
 
-
-        assert_se(r == -ENOMSG);
-
+        assert_se(pos == len);
         assert_se(opt_clientid);
 
         sd_dhcp6_lease_reset_address_iter(lease);
@@ -415,15 +417,11 @@ static int test_client_send_reply(DHCP6Message *request) {
         return 0;
 }
 
-static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
-                                      size_t len) {
+static int test_client_verify_request(DHCP6Message *request, size_t len) {
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
-        uint8_t *optval;
-        uint16_t optcode;
-        size_t optlen;
+        size_t pos = 0;
         bool found_clientid = false, found_iana = false, found_serverid = false,
                 found_elapsed_time = false, found_fqdn = false;
-        int r;
         struct in6_addr addr;
         be32_t val;
         uint32_t lt_pref, lt_valid;
@@ -432,8 +430,14 @@ static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
 
         assert_se(dhcp6_lease_new(&lease) >= 0);
 
-        while ((r = dhcp6_option_parse(&option, &len,
-                                       &optcode, &optlen, &optval)) >= 0) {
+        len -= sizeof(DHCP6Message);
+
+        while (pos < len) {
+                DHCP6Option *option = (DHCP6Option *)&request->options[pos];
+                uint16_t optcode = be16toh(option->code);
+                uint16_t optlen = be16toh(option->len);
+                uint8_t *optval = option->data;
+
                 switch(optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
                         assert_se(!found_clientid);
@@ -458,8 +462,7 @@ static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
                         val = htobe32(120);
                         assert_se(!memcmp(optval + 8, &val, sizeof(val)));
 
-                        assert_se(!dhcp6_option_parse_ia(&optval, &optlen,
-                                                         optcode, &lease->ia));
+                        assert_se(!dhcp6_option_parse_ia(option, &lease->ia));
 
                         break;
 
@@ -489,9 +492,10 @@ static int test_client_verify_request(DHCP6Message *request, uint8_t *option,
                         assert_se(!memcmp(optval + 1, fqdn_wire, sizeof(fqdn_wire)));
                         break;
                 }
+
+                pos += sizeof(*option) + optlen;
         }
 
-        assert_se(r == -ENOMSG);
         assert_se(found_clientid && found_iana && found_serverid &&
                   found_elapsed_time);
 
@@ -526,19 +530,21 @@ static int test_client_send_advertise(DHCP6Message *solicit) {
         return 0;
 }
 
-static int test_client_verify_solicit(DHCP6Message *solicit, uint8_t *option,
-                                      size_t len) {
-        uint8_t *optval;
-        uint16_t optcode;
-        size_t optlen;
+static int test_client_verify_solicit(DHCP6Message *solicit, size_t len) {
         bool found_clientid = false, found_iana = false,
                 found_elapsed_time = false, found_fqdn = false;
-        int r;
+        size_t pos = 0;
 
         assert_se(solicit->type == DHCP6_SOLICIT);
 
-        while ((r = dhcp6_option_parse(&option, &len,
-                                       &optcode, &optlen, &optval)) >= 0) {
+        len -= sizeof(DHCP6Message);
+
+        while (pos < len) {
+                DHCP6Option *option = (DHCP6Option *)&solicit->options[pos];
+                uint16_t optcode = be16toh(option->code);
+                uint16_t optlen = be16toh(option->len);
+                uint8_t *optval = option->data;
+
                 switch(optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
                         assert_se(!found_clientid);
@@ -578,9 +584,11 @@ static int test_client_verify_solicit(DHCP6Message *solicit, uint8_t *option,
 
                         break;
                 }
+
+                pos += sizeof(*option) + optlen;
         }
 
-        assert_se(r == -ENOMSG);
+        assert_se(pos == len);
         assert_se(found_clientid && found_iana && found_elapsed_time);
 
         return 0;
@@ -623,17 +631,15 @@ static void test_client_information_cb(sd_dhcp6_client *client, int event,
         assert_se(sd_dhcp6_client_set_local_address(client, &address) >= 0);
 
         assert_se(sd_dhcp6_client_start(client) >= 0);
+
 }
 
 static int test_client_verify_information_request(DHCP6Message *information_request,
-                                                  uint8_t *option, size_t len) {
+                                                  size_t len) {
 
         _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
-        uint8_t *optval;
-        uint16_t optcode;
-        size_t optlen;
+        size_t pos = 0;
         bool found_clientid = false, found_elapsed_time = false;
-        int r;
         struct in6_addr addr;
         uint32_t lt_pref, lt_valid;
 
@@ -641,8 +647,14 @@ static int test_client_verify_information_request(DHCP6Message *information_requ
 
         assert_se(dhcp6_lease_new(&lease) >= 0);
 
-        while ((r = dhcp6_option_parse(&option, &len,
-                                       &optcode, &optlen, &optval)) >= 0) {
+        len -= sizeof(DHCP6Message);
+
+        while (pos < len) {
+                DHCP6Option *option = (DHCP6Option *)&information_request->options[pos];
+                uint16_t optcode = be16toh(option->code);
+                uint16_t optlen = be16toh(option->len);
+                uint8_t *optval = option->data;
+
                 switch(optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
                         assert_se(!found_clientid);
@@ -671,9 +683,11 @@ static int test_client_verify_information_request(DHCP6Message *information_requ
 
                         break;
                 }
+
+                pos += sizeof(*option) + optlen;
         }
 
-        assert_se(r == -ENOMSG);
+        assert_se(pos == len);
         assert_se(found_clientid && found_elapsed_time);
 
         sd_dhcp6_lease_reset_address_iter(lease);
@@ -689,7 +703,6 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
         struct in6_addr mcast =
                 IN6ADDR_ALL_DHCP6_RELAY_AGENTS_AND_SERVERS_INIT;
         DHCP6Message *message;
-        uint8_t *option;
 
         assert_se(s == test_dhcp_fd[0]);
         assert_se(server_address);
@@ -699,21 +712,19 @@ int dhcp6_network_send_udp_socket(int s, struct in6_addr *server_address,
         assert_se(IN6_ARE_ADDR_EQUAL(server_address, &mcast));
 
         message = (DHCP6Message *)packet;
-        option = (uint8_t *)(message + 1);
-        len -= sizeof(DHCP6Message);
 
         assert_se(message->transaction_id & 0x00ffffff);
 
         if (test_client_message_num == 0) {
-                test_client_verify_information_request(message, option, len);
+                test_client_verify_information_request(message, len);
                 test_client_send_reply(message);
                 test_client_message_num++;
         } else if (test_client_message_num == 1) {
-                test_client_verify_solicit(message, option, len);
+                test_client_verify_solicit(message, len);
                 test_client_send_advertise(message);
                 test_client_message_num++;
         } else if (test_client_message_num == 2) {
-                test_client_verify_request(message, option, len);
+                test_client_verify_request(message, len);
                 test_client_send_reply(message);
                 test_client_message_num++;
         }

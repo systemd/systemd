@@ -725,23 +725,32 @@ static int client_parse_message(
                 DHCP6Message *message,
                 size_t len,
                 sd_dhcp6_lease *lease) {
+        size_t pos = 0;
         int r;
-        uint8_t *optval, *option, *id = NULL;
-        uint16_t optcode, status;
-        size_t optlen, id_len;
         bool clientid = false;
-        be32_t iaid_lease;
+        uint8_t *id = NULL;
+        size_t id_len;
 
         assert(client);
         assert(message);
         assert(len >= sizeof(DHCP6Message));
         assert(lease);
 
-        option = (uint8_t *)message + sizeof(DHCP6Message);
         len -= sizeof(DHCP6Message);
 
-        while ((r = dhcp6_option_parse(&option, &len, &optcode, &optlen,
-                                       &optval)) >= 0) {
+        while (pos < len) {
+                DHCP6Option *option = (DHCP6Option *)&message->options[pos];
+                uint16_t optcode, optlen, status;
+                uint8_t *optval;
+                be32_t iaid_lease;
+
+                if (len < sizeof(DHCP6Option) || len < sizeof(DHCP6Option) + be16toh(option->len))
+                        return -ENOBUFS;
+
+                optcode = be16toh(option->code);
+                optlen = be16toh(option->len);
+                optval = option->data;
+
                 switch (optcode) {
                 case SD_DHCP6_OPTION_CLIENTID:
                         if (clientid) {
@@ -779,7 +788,7 @@ static int client_parse_message(
                         if (optlen != 1)
                                 return -EINVAL;
 
-                        r = dhcp6_lease_set_preference(lease, *optval);
+                        r = dhcp6_lease_set_preference(lease, optval[0]);
                         if (r < 0)
                                 return r;
 
@@ -806,8 +815,7 @@ static int client_parse_message(
                                 break;
                         }
 
-                        r = dhcp6_option_parse_ia(&optval, &optlen, optcode,
-                                                  &lease->ia);
+                        r = dhcp6_option_parse_ia(option, &lease->ia);
                         if (r < 0 && r != -ENOMSG)
                                 return r;
 
@@ -859,10 +867,8 @@ static int client_parse_message(
                         break;
                 }
 
+                pos += sizeof(*option) + optlen;
         }
-
-        if (r == -ENOMSG)
-                r = 0;
 
         if (r < 0 || !clientid) {
                 log_dhcp6_client(client, "%s has incomplete options",
