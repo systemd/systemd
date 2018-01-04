@@ -28,6 +28,43 @@
 #include "sd-radv.h"
 #include "string-util.h"
 
+int config_parse_router_prefix_delegation(const char *unit,
+                                          const char *filename,
+                                          unsigned line,
+                                          const char *section,
+                                          unsigned section_line,
+                                         const char *lvalue,
+                                          int ltype,
+                                          const char *rvalue,
+                                          void *data,
+                                          void *userdata) {
+        Network *network = userdata;
+        int d;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "static"))
+                network->router_prefix_delegation = RADV_PREFIX_DELEGATION_STATIC;
+        else if (streq(rvalue, "dhcpv6"))
+                network->router_prefix_delegation = RADV_PREFIX_DELEGATION_DHCP6;
+        else {
+                d = parse_boolean(rvalue);
+                if (d > 0)
+                        network->router_prefix_delegation = RADV_PREFIX_DELEGATION_BOTH;
+                else
+                        network->router_prefix_delegation = RADV_PREFIX_DELEGATION_NONE;
+
+                if (d < 0)
+                        log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Router prefix delegation '%s' is invalid, ignoring assignment: %m", rvalue);
+        }
+
+        return 0;
+}
+
 int config_parse_router_preference(const char *unit,
                                    const char *filename,
                                    unsigned line,
@@ -461,10 +498,14 @@ int radv_configure(Link *link) {
                         return r;
         }
 
-        LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
-                r = sd_radv_add_prefix(link->radv, p->radv_prefix);
-                if (r != -EEXIST && r < 0)
-                        return r;
+        if (IN_SET(link->network->router_prefix_delegation,
+                   RADV_PREFIX_DELEGATION_STATIC,
+                   RADV_PREFIX_DELEGATION_BOTH)) {
+                LIST_FOREACH(prefixes, p, link->network->static_prefixes) {
+                        r = sd_radv_add_prefix(link->radv, p->radv_prefix);
+                        if (r != -EEXIST && r < 0)
+                                return r;
+                }
         }
 
         return radv_emit_dns(link);

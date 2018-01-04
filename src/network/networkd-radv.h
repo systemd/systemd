@@ -42,6 +42,7 @@ int prefix_new_static(Network *network, const char *filename, unsigned section,
 DEFINE_TRIVIAL_CLEANUP_FUNC(Prefix*, prefix_free);
 #define _cleanup_prefix_free_ _cleanup_(prefix_freep)
 
+int config_parse_router_prefix_delegation(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_router_preference(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_prefix(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_prefix_flags(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

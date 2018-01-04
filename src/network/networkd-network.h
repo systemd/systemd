@@ -86,6 +86,13 @@ typedef struct DUID {
         uint8_t raw_data[MAX_DUID_LEN];
 } DUID;
 
+typedef enum RADVPrefixDelegation {
+        RADV_PREFIX_DELEGATION_NONE,
+        RADV_PREFIX_DELEGATION_STATIC,
+        RADV_PREFIX_DELEGATION_DHCP6,
+        RADV_PREFIX_DELEGATION_BOTH,
+} RADVPrefixDelegation;
+
 typedef struct NetworkConfigSection {
         unsigned line;
         char filename[];
@@ -165,7 +172,7 @@ struct Network {
         bool ipv4ll_route;
 
         /* IPv6 prefix delegation support */
-        bool router_prefix_delegation;
+        RADVPrefixDelegation router_prefix_delegation;
         usec_t router_lifetime_usec;
         uint8_t router_preference;
         bool router_managed;
