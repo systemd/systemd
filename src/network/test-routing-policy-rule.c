@@ -41,13 +41,15 @@ static void test_rule_serialization(const char *title, const char *ruleset, cons
         log_info("========== %s ==========", title);
         log_info("put:\n%s\n", ruleset);
 
-        assert_se((fd = mkostemp_safe(pattern)) >= 0);
+        fd = mkostemp_safe(pattern);
+        assert_se(fd >= 0);
         assert_se(f = fdopen(fd, "a+e"));
         assert_se(write_string_stream(f, ruleset, 0) == 0);
 
         assert_se(routing_policy_load_rules(pattern, &rules) == 0);
 
-        assert_se((fd2 = mkostemp_safe(pattern2)) >= 0);
+        fd2 = mkostemp_safe(pattern2);
+        assert_se(fd2 >= 0);
         assert_se(f2 = fdopen(fd2, "a+e"));
 
         assert_se(routing_policy_serialize_rules(rules, f2) == 0);
@@ -57,7 +59,8 @@ static void test_rule_serialization(const char *title, const char *ruleset, cons
 
         log_info("got:\n%s", buf);
 
-        assert_se((fd3 = mkostemp_safe(pattern3)) >= 0);
+        fd3 = mkostemp_safe(pattern3);
+        assert_se(fd3 >= 0);
         assert_se(f3 = fdopen(fd3, "we"));
         assert_se(write_string_stream(f3, expected ?: ruleset, 0) == 0);
 
