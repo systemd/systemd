@@ -464,9 +464,6 @@ _public_ int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu) {
         assert_return(ra, -EINVAL);
         assert_return(mtu >= 1280, -EINVAL);
 
-        if (ra->state != SD_RADV_STATE_IDLE)
-                return -EBUSY;
-
         ra->mtu = mtu;
 
         return 0;
