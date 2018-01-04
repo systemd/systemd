@@ -1234,6 +1234,77 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
         return 1;
 }
 
+Link *manager_dhcp6_prefix_get(Manager *m, struct in6_addr *addr) {
+        assert_return(m, NULL);
+        assert_return(m->dhcp6_prefixes, NULL);
+        assert_return(addr, NULL);
+
+        return hashmap_get(m->dhcp6_prefixes, addr);
+}
+
+int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
+        assert_return(m, -EINVAL);
+        assert_return(m->dhcp6_prefixes, -ENODATA);
+        assert_return(addr, -EINVAL);
+
+        return hashmap_put(m->dhcp6_prefixes, addr, link);
+}
+
+int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
+        Link *l;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->dhcp6_prefixes, -ENODATA);
+        assert_return(addr, -EINVAL);
+
+        l = hashmap_remove(m->dhcp6_prefixes, addr);
+        if (!l)
+                return -EINVAL;
+
+        (void) sd_radv_remove_prefix(l->radv, addr, 64);
+
+        return 0;
+}
+
+int manager_dhcp6_prefix_remove_all(Manager *m, Link *link) {
+        Iterator i;
+        Link *l;
+        struct in6_addr *addr;
+
+        assert_return(m, -EINVAL);
+        assert_return(l, -EINVAL);
+
+        HASHMAP_FOREACH_KEY(l, addr, m->dhcp6_prefixes, i) {
+                if (l != link)
+                        continue;
+
+                (void) sd_radv_remove_prefix(l->radv, addr, 64);
+
+                hashmap_remove(m->dhcp6_prefixes, addr);
+        }
+
+        return 0;
+}
+
+static void dhcp6_prefixes_hash_func(const void *p, struct siphash *state) {
+        const struct in6_addr *addr = p;
+
+        assert(p);
+
+        siphash24_compress(addr, sizeof(*addr), state);
+}
+
+static int dhcp6_prefixes_compare_func(const void *_a, const void *_b) {
+        const struct in6_addr *a = _a, *b = _b;
+
+        return memcmp(&a, &b, sizeof(*a));
+}
+
+static const struct hash_ops dhcp6_prefixes_hash_ops = {
+        .hash = dhcp6_prefixes_hash_func,
+        .compare = dhcp6_prefixes_compare_func,
+};
+
 int manager_new(Manager **ret, sd_event *event) {
         _cleanup_manager_free_ Manager *m = NULL;
         int r;
@@ -1270,6 +1341,10 @@ int manager_new(Manager **ret, sd_event *event) {
         if (r < 0)
                 return r;
 
+        m->dhcp6_prefixes = hashmap_new(&dhcp6_prefixes_hash_ops);
+        if (!m->dhcp6_prefixes)
+                return -ENOMEM;
+
         m->duid.type = DUID_TYPE_EN;
 
         (void) routing_policy_load_rules(m->state_file, &m->rules_saved);
@@ -1293,6 +1368,10 @@ void manager_free(Manager *m) {
 
         while ((network = m->networks))
                 network_free(network);
+
+        while ((link = hashmap_first(m->dhcp6_prefixes)))
+                link_unref(link);
+        hashmap_free(m->dhcp6_prefixes);
 
         while ((link = hashmap_first(m->links)))
                 link_unref(link);
