@@ -1897,9 +1897,10 @@ static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, const 
         else if (DEBUG_LOGGING) {
                 _cleanup_free_ char *x = NULL, *y = NULL;
 
-                x = cescape(buf);
+                x = ellipsize(buf, 20, 90);
                 if (x)
-                        y = ellipsize(x, 20, 90);
+                        y = cescape(x);
+
                 log_unit_debug(u, "Got notification message \"%s\", ignoring.", strnull(y));
         }
 }
