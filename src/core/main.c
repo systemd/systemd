@@ -2554,14 +2554,14 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = invoke_main_loop(m,
-                             &reexecute,
-                             &retval,
-                             &shutdown_verb,
-                             &fds,
-                             &switch_root_dir,
-                             &switch_root_init,
-                             &error_message);
+        (void) invoke_main_loop(m,
+                                &reexecute,
+                                &retval,
+                                &shutdown_verb,
+                                &fds,
+                                &switch_root_dir,
+                                &switch_root_init,
+                                &error_message);
 
 finish:
         pager_close();
