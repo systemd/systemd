@@ -471,6 +471,7 @@ static int lease_parse_routes(
                 struct sd_dhcp_route *route = *routes + *routes_size;
                 int r;
 
+                route->option = SD_DHCP_OPTION_STATIC_ROUTE;
                 r = in4_addr_default_prefixlen((struct in_addr*) option, &route->dst_prefixlen);
                 if (r < 0) {
                         log_debug("Failed to determine destination prefix length from class based IP, ignoring");
@@ -514,6 +515,7 @@ static int lease_parse_classless_routes(
                         return -ENOMEM;
 
                 route = *routes + *routes_size;
+                route->option = SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE;
 
                 dst_octets = (*option == 0 ? 0 : ((*option - 1) / 8) + 1);
                 route->dst_prefixlen = *option;
