@@ -194,6 +194,30 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link, Iterator *i,
                         return r;
         }
 
+        if (n_used < n_prefixes) {
+                Route *route;
+                int n = n_used;
+
+                r = route_new(&route);
+                if (r < 0)
+                        return r;
+
+                while (n < n_prefixes) {
+                        route_update(route, &prefix, pd_prefix_len, NULL, NULL,
+                                     0, 0, RTN_UNREACHABLE);
+
+                        r = route_configure(route, link, NULL);
+                        if (r < 0) {
+                                route_free(route);
+                                return r;
+                        }
+
+                        r = in_addr_prefix_next(AF_INET6, &prefix, pd_prefix_len);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         return n_used;
 }
 
