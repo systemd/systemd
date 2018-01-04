@@ -709,15 +709,19 @@ error:
 
 static int client_ensure_iaid(sd_dhcp6_client *client) {
         int r;
+        be32_t iaid;
 
         assert(client);
 
         if (client->ia_na.ia_na.id)
                 return 0;
 
-        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len, &client->ia_na.ia_na.id);
+        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr, client->mac_addr_len, &iaid);
         if (r < 0)
                 return r;
+
+        client->ia_na.ia_na.id = iaid;
+        client->ia_pd.ia_pd.id = iaid;
 
         return 0;
 }
