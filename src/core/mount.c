@@ -1486,7 +1486,7 @@ static int mount_setup_existing_unit(
 
         flags->just_changed = r1 > 0 || r2 > 0 || r3 > 0;
         flags->is_mounted = true;
-        flags->just_mounted = !MOUNT(u)->from_proc_self_mountinfo;
+        flags->just_mounted = !MOUNT(u)->from_proc_self_mountinfo || MOUNT(u)->just_mounted;
 
         MOUNT(u)->from_proc_self_mountinfo = true;
 
