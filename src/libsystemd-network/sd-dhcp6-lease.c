@@ -382,6 +382,7 @@ sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease) {
 
         free(lease->serverid);
         dhcp6_lease_free_ia(&lease->ia);
+        dhcp6_lease_free_ia(&lease->pd);
 
         free(lease->dns);
 

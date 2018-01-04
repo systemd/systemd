@@ -54,6 +54,7 @@ struct sd_dhcp6_client {
         size_t mac_addr_len;
         uint16_t arp_type;
         DHCP6IA ia_na;
+        DHCP6IA ia_pd;
         be32_t transaction_id;
         usec_t transaction_start;
         struct sd_dhcp6_lease *lease;
@@ -231,6 +232,7 @@ int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
 
         client->ia_na.ia_na.id = htobe32(iaid);
+        client->ia_pd.ia_pd.id = htobe32(iaid);
 
         return 0;
 }
@@ -802,6 +804,7 @@ static int client_parse_message(
                                                  dhcp6_message_type_to_string(message->type),
                                                  dhcp6_message_status_to_string(status));
                                 dhcp6_lease_free_ia(&lease->ia);
+                                dhcp6_lease_free_ia(&lease->pd);
 
                                 return -EINVAL;
                         }
@@ -824,7 +827,30 @@ static int client_parse_message(
                                 return r;
 
                         if (client->ia_na.ia_na.id != iaid_lease) {
-                                log_dhcp6_client(client, "%s has wrong IAID",
+                                log_dhcp6_client(client, "%s has wrong IAID for IA NA",
+                                                 dhcp6_message_type_to_string(message->type));
+                                return -EINVAL;
+                        }
+
+                        break;
+
+                case SD_DHCP6_OPTION_IA_PD:
+                        if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
+                                log_dhcp6_client(client, "Information request ignoring IA PD option");
+
+                                break;
+                        }
+
+                        r = dhcp6_option_parse_ia(option, &lease->pd);
+                        if (r < 0 && r != -ENOMSG)
+                                return r;
+
+                        r = dhcp6_lease_get_iaid(lease, &iaid_lease);
+                        if (r < 0)
+                                return r;
+
+                        if (client->ia_pd.ia_pd.id != iaid_lease) {
+                                log_dhcp6_client(client, "%s has wrong IAID for IA PD",
                                                  dhcp6_message_type_to_string(message->type));
                                 return -EINVAL;
                         }
@@ -1360,6 +1386,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
 
         client->n_ref = 1;
         client->ia_na.type = SD_DHCP6_OPTION_IA_NA;
+        client->ia_pd.type = SD_DHCP6_OPTION_IA_PD;
         client->ifindex = -1;
         client->fd = -1;
 
