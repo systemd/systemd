@@ -39,6 +39,7 @@ struct sd_dhcp6_lease {
         DHCP6IA pd;
 
         DHCP6Address *addr_iter;
+        DHCP6Address *prefix_iter;
 
         struct in6_addr *dns;
         size_t dns_count;
