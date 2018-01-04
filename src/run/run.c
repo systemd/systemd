@@ -120,7 +120,7 @@ static void help(void) {
 }
 
 static int add_timer_property(const char *name, const char *val) {
-        _cleanup_free_ char *p = NULL;
+        char *p;
 
         assert(name);
         assert(val);
@@ -131,8 +131,6 @@ static int add_timer_property(const char *name, const char *val) {
 
         if (strv_consume(&arg_timer_property, p) < 0)
                 return log_oom();
-
-        p = NULL;
 
         return 0;
 }
