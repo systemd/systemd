@@ -373,10 +373,8 @@ static int bus_timer_set_transient_property(
                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, str);
 
                         v = new0(TimerValue, 1);
-                        if (!v) {
-                                calendar_spec_free(c);
+                        if (!v)
                                 return -ENOMEM;
-                        }
 
                         v->base = TIMER_CALENDAR;
                         v->calendar_spec = c;
