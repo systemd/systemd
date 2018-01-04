@@ -156,6 +156,83 @@ static int test_option(sd_event *e) {
         return 0;
 }
 
+static int test_option_status(sd_event *e) {
+        uint8_t option1[] = {
+                /* IA NA */
+                0x00, 0x03, 0x00, 0x12, 0x1a, 0x1d, 0x1a, 0x1d,
+                0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x02,
+                /* status option */
+                0x00, 0x0d, 0x00, 0x02, 0x00, 0x01,
+        };
+        static const uint8_t option2[] = {
+                /* IA NA */
+                0x00, 0x03, 0x00, 0x2e, 0x1a, 0x1d, 0x1a, 0x1d,
+                0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x02,
+                /* IA Addr */
+                0x00, 0x05, 0x00, 0x1e,
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+                0x01, 0x02, 0x03, 0x04, 0x0a, 0x0b, 0x0c, 0x0d,
+                /* status option */
+                0x00, 0x0d, 0x00, 0x02, 0x00, 0x01,
+        };
+        static const uint8_t option3[] = {
+                /* IA NA */
+                0x00, 0x03, 0x00, 0x34, 0x1a, 0x1d, 0x1a, 0x1d,
+                0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x02,
+                /* IA Addr */
+                0x00, 0x05, 0x00, 0x24,
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10,
+                0x01, 0x02, 0x03, 0x04, 0x0a, 0x0b, 0x0c, 0x0d,
+                /* status option */
+                0x00, 0x0d, 0x00, 0x08, 0x00, 0x00, 'f',  'o',
+                'o',  'b',  'a',  'r',
+        };
+        DHCP6Option *option;
+        DHCP6IA ia;
+        int r = 0;
+
+        if (verbose)
+                printf("* %s\n", __FUNCTION__);
+
+        zero(ia);
+        option = (DHCP6Option *)option1;
+        assert_se(sizeof(option1) == sizeof(DHCP6Option) + be16toh(option->len));
+
+        r = dhcp6_option_parse_ia(option, &ia);
+        assert_se(r == -EINVAL);
+        assert_se(ia.addresses == NULL);
+
+        option->len = htobe16(17);
+        r = dhcp6_option_parse_ia(option, &ia);
+        assert_se(r == -ENOBUFS);
+        assert_se(ia.addresses == NULL);
+
+        option->len = htobe16(sizeof(DHCP6Option));
+        r = dhcp6_option_parse_ia(option, &ia);
+        assert_se(r == -ENOBUFS);
+        assert_se(ia.addresses == NULL);
+
+        zero(ia);
+        option = (DHCP6Option *)option2;
+        assert_se(sizeof(option2) == sizeof(DHCP6Option) + be16toh(option->len));
+
+        r = dhcp6_option_parse_ia(option, &ia);
+        assert_se(r >= 0);
+        assert_se(ia.addresses == NULL);
+
+        zero(ia);
+        option = (DHCP6Option *)option3;
+        assert_se(sizeof(option3) == sizeof(DHCP6Option) + be16toh(option->len));
+
+        r = dhcp6_option_parse_ia(option, &ia);
+        assert_se(r >= 0);
+        assert_se(ia.addresses != NULL);
+
+        return 0;
+}
+
 static uint8_t msg_advertise[198] = {
         0x02, 0x0f, 0xb4, 0xe5, 0x00, 0x01, 0x00, 0x0e,
         0x00, 0x01, 0x00, 0x01, 0x1a, 0x6b, 0xf3, 0x30,
@@ -800,6 +877,7 @@ int main(int argc, char *argv[]) {
 
         test_client_basic(e);
         test_option(e);
+        test_option_status(e);
         test_advertise_option(e);
         test_client_solicit(e);
 
