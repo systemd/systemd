@@ -36,16 +36,19 @@ typedef struct DHCP6Option {
         uint8_t data[];
 } _packed_ DHCP6Option;
 
+/* Address option */
+struct iaaddr {
+        struct in6_addr address;
+        be32_t lifetime_preferred;
+        be32_t lifetime_valid;
+} _packed_;
+
 typedef struct DHCP6Address DHCP6Address;
 
 struct DHCP6Address {
         LIST_FIELDS(DHCP6Address, addresses);
 
-        struct {
-                struct in6_addr address;
-                be32_t lifetime_preferred;
-                be32_t lifetime_valid;
-        } iaaddr _packed_;
+        struct iaaddr iaaddr;
 };
 
 /* Non-temporary Address option */

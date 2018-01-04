@@ -40,6 +40,12 @@ typedef struct DHCP6StatusOption {
         char msg[];
 } _packed_ DHCP6StatusOption;
 
+typedef struct DHCP6AddressOption {
+        struct DHCP6Option option;
+        struct iaaddr iaaddr;
+        uint8_t options[];
+} _packed_ DHCP6AddressOption;
+
 #define DHCP6_OPTION_IA_NA_LEN                  12
 #define DHCP6_OPTION_IA_TA_LEN                  4
 
@@ -223,14 +229,53 @@ int dhcp6_option_parse_status(DHCP6Option *option) {
         return be16toh(statusopt->status);
 }
 
+static int dhcp6_option_parse_address(DHCP6Option *option, DHCP6IA *ia,
+                                      uint32_t *lifetime_valid) {
+        DHCP6AddressOption *addr_option = (DHCP6AddressOption *)option;
+        DHCP6Address *addr;
+        uint32_t lt_valid, lt_pref;
+        int r;
+
+        if (be16toh(option->len) + sizeof(DHCP6Option) < sizeof(*addr_option))
+                return -ENOBUFS;
+
+        lt_valid = be32toh(addr_option->iaaddr.lifetime_valid);
+        lt_pref = be32toh(addr_option->iaaddr.lifetime_preferred);
+
+        if (lt_valid == 0 || lt_pref > lt_valid) {
+                log_dhcp6_client(client, "Valid lifetime of an IA address is zero or preferred lifetime %d > valid lifetime %d",
+                                 lt_pref, lt_valid);
+
+                return 0;
+        }
+
+        if (be16toh(option->len) + sizeof(DHCP6Option) > sizeof(*addr_option)) {
+                r = dhcp6_option_parse_status((DHCP6Option *)addr_option->options);
+                if (r != 0)
+                        return r < 0 ? r: 0;
+        }
+
+        addr = new0(DHCP6Address, 1);
+        if (!addr)
+                return -ENOMEM;
+
+        LIST_INIT(addresses, addr);
+        memcpy(&addr->iaaddr, option->data, sizeof(addr->iaaddr));
+
+        LIST_PREPEND(addresses, ia->addresses, addr);
+
+        *lifetime_valid = be32toh(addr->iaaddr.lifetime_valid);
+
+        return 0;
+}
+
 int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
         uint16_t iatype, optlen;
         size_t i, len;
         int r = 0, status;
         uint16_t opt;
         size_t iaaddr_offset;
-        DHCP6Address *addr;
-        uint32_t lt_t1, lt_t2, lt_valid, lt_pref, lt_min = ~0;
+        uint32_t lt_t1, lt_t2, lt_valid, lt_min = ~0;
 
         assert_return(ia, -EINVAL);
         assert_return(!ia->addresses, -EINVAL);
@@ -293,27 +338,13 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
 
                 switch (opt) {
                 case SD_DHCP6_OPTION_IAADDR:
-                        addr = new0(DHCP6Address, 1);
-                        if (!addr) {
-                                r = -ENOMEM;
+
+                        r = dhcp6_option_parse_address(option, ia, &lt_valid);
+                        if (r < 0)
                                 goto error;
-                        }
 
-                        LIST_INIT(addresses, addr);
-                        memcpy(&addr->iaaddr, option->data, sizeof(addr->iaaddr));
-
-                        lt_valid = be32toh(addr->iaaddr.lifetime_valid);
-                        lt_pref = be32toh(addr->iaaddr.lifetime_valid);
-
-                        if (!lt_valid || lt_pref > lt_valid) {
-                                log_dhcp6_client(client, "IA preferred %ds > valid %ds",
-                                                 lt_pref, lt_valid);
-                                free(addr);
-                        } else {
-                                LIST_PREPEND(addresses, ia->addresses, addr);
-                                if (lt_valid < lt_min)
-                                        lt_min = lt_valid;
-                        }
+                        if (lt_valid < lt_min)
+                                lt_min = lt_valid;
 
                         break;
 
