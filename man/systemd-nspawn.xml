@@ -1114,7 +1114,7 @@
     <example>
       <title>Spawn a shell in a container of a minimal Debian unstable distribution</title>
 
-      <programlisting># debootstrap --arch=amd64 unstable ~/debian-tree/
+      <programlisting># debootstrap unstable ~/debian-tree/
 # systemd-nspawn -D ~/debian-tree/</programlisting>
 
       <para>This installs a minimal Debian unstable distribution into

@@ -62,6 +62,7 @@ int main(void) {
         info(usec_t);
         info(__time_t);
         info(pid_t);
+        info(uid_t);
         info(gid_t);
 
         info(enum Enum);
