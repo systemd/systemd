@@ -34,6 +34,7 @@
 #include "networkd-fdb.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-ipv6-proxy-ndp.h"
+#include "networkd-radv.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
