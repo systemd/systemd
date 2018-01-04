@@ -621,6 +621,32 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, bool dynamic) {
         return 0;
 }
 
+_public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
+                                               struct in6_addr *prefix,
+                                               uint8_t prefixlen) {
+        sd_radv_prefix *cur, *next;
+
+        assert_return(ra, NULL);
+        assert_return(prefix, NULL);
+
+        LIST_FOREACH_SAFE(prefix, cur, next, ra->prefixes) {
+                if (prefixlen != cur->opt.prefixlen)
+                        continue;
+
+                if (!in_addr_equal(AF_INET6,
+                                   (union in_addr_union *)prefix,
+                                   (union in_addr_union *)&cur->opt.in6_addr))
+                        continue;
+
+                LIST_REMOVE(prefix, ra->prefixes, cur);
+                ra->n_prefixes--;
+
+                break;
+        }
+
+        return cur;
+}
+
 _public_ int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
                                const struct in6_addr *dns, size_t n_dns) {
         _cleanup_free_ struct sd_radv_opt_dns *opt_rdnss = NULL;
