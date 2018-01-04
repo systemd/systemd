@@ -64,6 +64,8 @@ enum {
 
         SD_DHCP6_OPTION_DNS_SERVERS                = 23,  /* RFC 3646 */
         SD_DHCP6_OPTION_DOMAIN_LIST                = 24,  /* RFC 3646 */
+        SD_DHCP6_OPTION_IA_PD                      = 25,  /* RFC 3633, prefix delegation */
+        SD_DHCP6_OPTION_IA_PD_PREFIX               = 26,  /* RFC 3633, prefix delegation */
 
         SD_DHCP6_OPTION_SNTP_SERVERS               = 31,  /* RFC 4075, deprecated */
 
