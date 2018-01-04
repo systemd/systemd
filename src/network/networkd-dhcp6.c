@@ -30,6 +30,45 @@
 
 static int dhcp6_lease_address_acquired(sd_dhcp6_client *client, Link *link);
 
+static bool dhcp6_verify_link(Link *link) {
+        if (!link->network) {
+                log_link_info(link, "Link is not managed by us");
+                return false;
+        }
+
+        if (!IN_SET(link->network->router_prefix_delegation,
+                            RADV_PREFIX_DELEGATION_DHCP6,
+                            RADV_PREFIX_DELEGATION_BOTH)) {
+                log_link_debug(link, "Link does not request DHCPv6 prefix delegation");
+                return false;
+        }
+
+        return true;
+}
+
+static bool dhcp6_enable_prefix_delegation(Link *dhcp6_link) {
+        Manager *manager;
+        Link *l;
+        Iterator i;
+
+        assert(dhcp6_link);
+
+        manager = dhcp6_link->manager;
+        assert(manager);
+
+        HASHMAP_FOREACH(l, manager->links, i) {
+                if (l == dhcp6_link)
+                        continue;
+
+                if (!dhcp6_verify_link(l))
+                        continue;
+
+                return true;
+        }
+
+        return false;
+}
+
 static int dhcp6_lease_information_acquired(sd_dhcp6_client *client,
                                         Link *link) {
         return 0;
@@ -282,6 +321,12 @@ int dhcp6_configure(Link *link) {
         r = sd_dhcp6_client_set_callback(client, dhcp6_handler, link);
         if (r < 0)
                 goto error;
+
+        if (dhcp6_enable_prefix_delegation(link)) {
+                r = sd_dhcp6_client_set_prefix_delegation(client, true);
+                if (r < 0)
+                        goto error;
+        }
 
         link->dhcp6_client = client;
 
