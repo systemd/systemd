@@ -1823,7 +1823,6 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         _cleanup_close_ int unshare_ready_fd = -1;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         uint64_t c = 1;
-        siginfo_t si;
         ssize_t n;
         int r;
 
@@ -1963,13 +1962,11 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         if (n != 0) /* on success we should have read 0 bytes */
                 return -EIO;
 
-        r = wait_for_terminate(pid, &si);
+        r = wait_for_terminate_and_check("(sd-userns)", pid, 0);
+        pid = 0;
         if (r < 0)
                 return r;
-        pid = 0;
-
-        /* If something strange happened with the child, let's consider this fatal, too */
-        if (si.si_code != CLD_EXITED || si.si_status != 0)
+        if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
                 return -EIO;
 
         return 0;

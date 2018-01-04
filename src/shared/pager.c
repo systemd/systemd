@@ -42,6 +42,11 @@
 
 static pid_t pager_pid = 0;
 
+static int stored_stdout = -1;
+static int stored_stderr = -1;
+static bool stdout_redirected = false;
+static bool stderr_redirected = false;
+
 noreturn static void pager_fallback(void) {
         int r;
 
@@ -53,11 +58,6 @@ noreturn static void pager_fallback(void) {
 
         _exit(EXIT_SUCCESS);
 }
-
-static int stored_stdout = -1;
-static int stored_stderr = -1;
-static bool stdout_redirected = false;
-static bool stderr_redirected = false;
 
 int pager_open(bool no_pager, bool jump_to_end) {
         _cleanup_close_pair_ int fd[2] = { -1, -1 };
@@ -72,6 +72,9 @@ int pager_open(bool no_pager, bool jump_to_end) {
 
         if (terminal_is_dumb())
                 return 0;
+
+        if (!is_main_thread())
+                return -EPERM;
 
         pager = getenv("SYSTEMD_PAGER");
         if (!pager)
@@ -89,9 +92,9 @@ int pager_open(bool no_pager, bool jump_to_end) {
         if (pipe2(fd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
-        r = safe_fork("(pager)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pager_pid);
+        r = safe_fork("(pager)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pager_pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork pager: %m");
+                return r;
         if (r == 0) {
                 const char* less_opts, *less_charset;
 
@@ -190,7 +193,6 @@ int show_man_page(const char *desc, bool null_stdio) {
         pid_t pid;
         size_t k;
         int r;
-        siginfo_t status;
 
         k = strlen(desc);
 
@@ -208,9 +210,9 @@ int show_man_page(const char *desc, bool null_stdio) {
         } else
                 args[1] = desc;
 
-        r = safe_fork("(man)", FORK_RESET_SIGNALS|FORK_DEATHSIG|(null_stdio ? FORK_NULL_STDIO : 0), &pid);
+        r = safe_fork("(man)", FORK_RESET_SIGNALS|FORK_DEATHSIG|(null_stdio ? FORK_NULL_STDIO : 0)|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
                 /* Child */
                 execvp(args[0], (char**) args);
@@ -218,10 +220,5 @@ int show_man_page(const char *desc, bool null_stdio) {
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate(pid, &status);
-        if (r < 0)
-                return r;
-
-        log_debug("Exit code %i status %i", status.si_code, status.si_status);
-        return status.si_status;
+        return wait_for_terminate_and_check(NULL, pid, 0);
 }

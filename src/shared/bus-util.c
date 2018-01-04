@@ -560,8 +560,7 @@ void bus_verify_polkit_async_registry_free(Hashmap *registry) {
 
 int bus_check_peercred(sd_bus *c) {
         struct ucred ucred;
-        socklen_t l;
-        int fd;
+        int fd, r;
 
         assert(c);
 
@@ -569,12 +568,9 @@ int bus_check_peercred(sd_bus *c) {
         if (fd < 0)
                 return fd;
 
-        l = sizeof(struct ucred);
-        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l) < 0)
-                return -errno;
-
-        if (l != sizeof(struct ucred))
-                return -E2BIG;
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return r;
 
         if (ucred.uid != 0 && ucred.uid != geteuid())
                 return -EPERM;

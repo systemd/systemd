@@ -247,11 +247,25 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
         if (wait) /* Without using a thread if waiting. */
                 journal_file_set_offline_internal(f);
         else {
+                sigset_t ss, saved_ss;
+                int k;
+
+                if (sigfillset(&ss) < 0)
+                        return -errno;
+
+                r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
+                if (r > 0)
+                        return -r;
+
                 r = pthread_create(&f->offline_thread, NULL, journal_file_set_offline_thread, f);
+
+                k = pthread_sigmask(SIG_SETMASK, &saved_ss, NULL);
                 if (r > 0) {
                         f->offline_state = OFFLINE_JOINED;
                         return -r;
                 }
+                if (k > 0)
+                        return -k;
         }
 
         return 0;

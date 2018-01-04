@@ -358,8 +358,9 @@ char* gid_to_name(gid_t gid) {
 }
 
 int in_gid(gid_t gid) {
+        long ngroups_max;
         gid_t *gids;
-        int ngroups_max, r, i;
+        int r, i;
 
         if (getgid() == gid)
                 return 1;
@@ -373,7 +374,7 @@ int in_gid(gid_t gid) {
         ngroups_max = sysconf(_SC_NGROUPS_MAX);
         assert(ngroups_max > 0);
 
-        gids = alloca(sizeof(gid_t) * ngroups_max);
+        gids = newa(gid_t, ngroups_max);
 
         r = getgroups(ngroups_max, gids);
         if (r < 0)

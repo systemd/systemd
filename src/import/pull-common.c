@@ -463,9 +463,9 @@ int pull_verify(PullJob *main_job,
 
         gpg_home_created = true;
 
-        r = safe_fork("(gpg)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(gpg)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork off gpg: %m");
+                return r;
         if (r == 0) {
                 const char *cmd[] = {
                         "gpg",
@@ -542,11 +542,11 @@ int pull_verify(PullJob *main_job,
 
         gpg_pipe[1] = safe_close(gpg_pipe[1]);
 
-        r = wait_for_terminate_and_warn("gpg", pid, true);
+        r = wait_for_terminate_and_check("gpg", pid, WAIT_LOG_ABNORMAL);
         pid = 0;
         if (r < 0)
                 goto finish;
-        if (r > 0) {
+        if (r != EXIT_SUCCESS) {
                 log_error("DOWNLOAD INVALID: Signature verification failed.");
                 r = -EBADMSG;
         } else {

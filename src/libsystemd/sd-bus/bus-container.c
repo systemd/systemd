@@ -31,9 +31,8 @@
 int bus_container_connect_socket(sd_bus *b) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
-        pid_t child;
-        siginfo_t si;
         int r, error_buf = 0;
+        pid_t child;
         ssize_t n;
 
         assert(b);
@@ -97,21 +96,20 @@ int bus_container_connect_socket(sd_bus *b) {
                         _exit(EXIT_SUCCESS);
                 }
 
-                r = wait_for_terminate(grandchild, &si);
+                r = wait_for_terminate_and_check("(sd-buscntr2)", grandchild, 0);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
-                if (si.si_code != CLD_EXITED)
-                        _exit(EXIT_FAILURE);
-
-                _exit(si.si_status);
+                _exit(r);
         }
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-buscntr)", child, 0);
         if (r < 0)
                 return r;
+        if (r != EXIT_SUCCESS)
+                return -EPROTO;
 
         n = read(pair[0], &error_buf, sizeof(error_buf));
         if (n < 0)
@@ -130,12 +128,6 @@ int bus_container_connect_socket(sd_bus *b) {
                 if (error_buf > 0)
                         return -error_buf;
         }
-
-        if (si.si_code != CLD_EXITED)
-                return -EIO;
-
-        if (si.si_status != EXIT_SUCCESS)
-                return -EIO;
 
         return bus_socket_start_auth(b);
 }

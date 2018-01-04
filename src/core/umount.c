@@ -389,9 +389,9 @@ static int remount_with_timeout(MountPoint *m, char *options, int *n_failed) {
          * fork a child process and set a timeout. If the timeout
          * lapses, the assumption is that that particular remount
          * failed. */
-        r = safe_fork("(sd-remount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+        r = safe_fork("(sd-remount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
                 log_info("Remounting '%s' read-only in with options '%s'.", m->path, options);
 
@@ -423,9 +423,9 @@ static int umount_with_timeout(MountPoint *m, bool *changed) {
          * fork a child process and set a timeout. If the timeout
          * lapses, the assumption is that that particular umount
          * failed. */
-        r = safe_fork("(sd-umount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+        r = safe_fork("(sd-umount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
                 log_info("Unmounting '%s'.", m->path);
 

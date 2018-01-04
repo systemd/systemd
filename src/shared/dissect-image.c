@@ -1244,7 +1244,6 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         _cleanup_free_ char *hostname = NULL;
         unsigned n_meta_initialized = 0, k;
         int fds[2 * _META_MAX], r;
-        siginfo_t si;
 
         BLOCK_SIGNALS(SIGCHLD);
 
@@ -1260,18 +1259,10 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         if (r < 0)
                 goto finish;
 
-        child = raw_clone(SIGCHLD|CLONE_NEWNS);
-        if (child < 0) {
-                r = -errno;
+        r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_NEW_MOUNTNS, &child);
+        if (r < 0)
                 goto finish;
-        }
-
-        if (child == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
+        if (r == 0) {
                 /* Make sure we never propagate to the host */
                 if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
                         _exit(EXIT_FAILURE);
@@ -1366,15 +1357,12 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 }
         }
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
+        child = 0;
         if (r < 0)
                 goto finish;
-        child = 0;
-
-        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS) {
-                r = -EPROTO;
-                goto finish;
-        }
+        if (r != EXIT_SUCCESS)
+                return -EPROTO;
 
         free_and_replace(m->hostname, hostname);
         m->machine_id = machine_id;

@@ -3516,9 +3516,11 @@ static int run(int master,
         }
 
         /* Wait for the outer child. */
-        r = wait_for_terminate_and_warn("namespace helper", *pid, NULL);
-        if (r != 0)
-                return r < 0 ? r : -EIO;
+        r = wait_for_terminate_and_check("(sd-namespace)", *pid, WAIT_LOG_ABNORMAL);
+        if (r < 0)
+                return r;
+        if (r != EXIT_SUCCESS)
+                return -EIO;
 
         /* And now retrieve the PID of the inner child. */
         l = recv(pid_socket_pair[0], pid, sizeof *pid, 0);

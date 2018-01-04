@@ -621,6 +621,10 @@ struct btrfs_ioctl_quota_ctl_args {
 #  define SO_REUSEPORT 15
 #endif
 
+#ifndef SO_PEERGROUPS
+#  define SO_PEERGROUPS 59
+#endif
+
 #ifndef EVIOCREVOKE
 #  define EVIOCREVOKE _IOW('E', 0x91, int)
 #endif

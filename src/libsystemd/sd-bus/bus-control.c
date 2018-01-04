@@ -555,15 +555,16 @@ _public_ int sd_bus_get_name_creds(
 static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         pid_t pid = 0;
-        bool do_label;
+        bool do_label, do_groups;
         int r;
 
         assert(bus);
 
         do_label = bus->label && (mask & SD_BUS_CREDS_SELINUX_CONTEXT);
+        do_groups = bus->n_groups != (size_t) -1 && (mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS);
 
         /* Avoid allocating anything if we have no chance of returning useful data */
-        if (!bus->ucred_valid && !do_label)
+        if (!bus->ucred_valid && !do_label && !do_groups)
                 return -ENODATA;
 
         c = bus_creds_new();
@@ -571,17 +572,17 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
                 return -ENOMEM;
 
         if (bus->ucred_valid) {
-                if (bus->ucred.pid > 0) {
+                if (pid_is_valid(bus->ucred.pid)) {
                         pid = c->pid = bus->ucred.pid;
                         c->mask |= SD_BUS_CREDS_PID & mask;
                 }
 
-                if (bus->ucred.uid != UID_INVALID) {
+                if (uid_is_valid(bus->ucred.uid)) {
                         c->euid = bus->ucred.uid;
                         c->mask |= SD_BUS_CREDS_EUID & mask;
                 }
 
-                if (bus->ucred.gid != GID_INVALID) {
+                if (gid_is_valid(bus->ucred.gid)) {
                         c->egid = bus->ucred.gid;
                         c->mask |= SD_BUS_CREDS_EGID & mask;
                 }
@@ -593,6 +594,16 @@ static int bus_get_owner_creds_dbus1(sd_bus *bus, uint64_t mask, sd_bus_creds **
                         return -ENOMEM;
 
                 c->mask |= SD_BUS_CREDS_SELINUX_CONTEXT;
+        }
+
+        if (do_groups) {
+                c->supplementary_gids = newdup(gid_t, bus->groups, bus->n_groups);
+                if (!c->supplementary_gids)
+                        return -ENOMEM;
+
+                c->n_supplementary_gids = bus->n_groups;
+
+                c->mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
         }
 
         r = bus_creds_add_more(c, mask, pid, 0);

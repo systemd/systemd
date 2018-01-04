@@ -79,7 +79,6 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
         _cleanup_close_ int fd = -1;
         struct statvfs ss;
         pid_t pid = 0;
-        siginfo_t si;
         int r;
 
         /* We want to be able to make use of btrfs-specific file
@@ -141,24 +140,19 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate(pid, &si);
+        r = wait_for_terminate_and_check("mkfs", pid, 0);
+        pid = 0;
+
         if (r < 0) {
                 sd_bus_error_set_errnof(error, r, "Failed to wait for mkfs.btrfs: %m");
                 goto fail;
         }
-
-        pid = 0;
-
-        if (si.si_code != CLD_EXITED) {
-                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "mkfs.btrfs died abnormally.");
-                goto fail;
-        }
-        if (si.si_status == 99) {
+        if (r == 99) {
                 r = sd_bus_error_set_errnof(error, ENOENT, "Cannot set up /var/lib/machines, mkfs.btrfs is missing");
                 goto fail;
         }
-        if (si.si_status != 0) {
-                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "mkfs.btrfs failed with error code %i", si.si_status);
+        if (r != EXIT_SUCCESS) {
+                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "mkfs.btrfs failed with error code %i", r);
                 goto fail;
         }
 

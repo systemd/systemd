@@ -3539,9 +3539,9 @@ static int load_kexec_kernel(void) {
         if (arg_dry_run)
                 return 0;
 
-        r = safe_fork("(kexec)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(kexec)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
 
                 const char* const args[] = {
@@ -3556,7 +3556,7 @@ static int load_kexec_kernel(void) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_warn("kexec", pid, true);
+        return wait_for_terminate_and_check("kexec", pid, WAIT_LOG);
 }
 
 static int set_exit_code(uint8_t code) {
@@ -6065,7 +6065,6 @@ static int enable_sysv_units(const char *verb, char **args) {
 
                 _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
                 bool found_native = false, found_sysv;
-                siginfo_t status;
                 const char *name;
                 unsigned c = 1;
                 pid_t pid;
@@ -6119,9 +6118,9 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!arg_quiet)
                         log_info("Executing: %s", l);
 
-                j = safe_fork("(sysv)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+                j = safe_fork("(sysv-install)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
                 if (j < 0)
-                        return log_error_errno(j, "Failed to fork: %m");
+                        return j;
                 if (j == 0) {
                         /* Child */
                         execv(argv[0], (char**) argv);
@@ -6129,27 +6128,21 @@ static int enable_sysv_units(const char *verb, char **args) {
                         _exit(EXIT_FAILURE);
                 }
 
-                j = wait_for_terminate(pid, &status);
+                j = wait_for_terminate_and_check("sysv-install", pid, WAIT_LOG_ABNORMAL);
                 if (j < 0)
-                        return log_error_errno(j, "Failed to wait for child: %m");
+                        return j;
+                if (streq(verb, "is-enabled")) {
+                        if (j == EXIT_SUCCESS) {
+                                if (!arg_quiet)
+                                        puts("enabled");
+                                r = 1;
+                        } else {
+                                if (!arg_quiet)
+                                        puts("disabled");
+                        }
 
-                if (status.si_code == CLD_EXITED) {
-                        if (streq(verb, "is-enabled")) {
-                                if (status.si_status == 0) {
-                                        if (!arg_quiet)
-                                                puts("enabled");
-                                        r = 1;
-                                } else {
-                                        if (!arg_quiet)
-                                                puts("disabled");
-                                }
-
-                        } else if (status.si_status != 0)
-                                return -EBADE; /* We don't warn here, under the assumption the script already showed an explanation */
-                } else {
-                        log_error("Unexpected waitid() result.");
-                        return -EPROTO;
-                }
+                } else if (j != EXIT_SUCCESS)
+                        return -EBADE; /* We don't warn here, under the assumption the script already showed an explanation */
 
                 if (found_native)
                         continue;
@@ -6987,14 +6980,13 @@ static int unit_file_create_copy(
 }
 
 static int run_editor(char **paths) {
-        pid_t pid;
         int r;
 
         assert(paths);
 
-        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
                 const char **args;
                 char *editor, **editor_args = NULL;
@@ -7056,10 +7048,6 @@ static int run_editor(char **paths) {
                 log_error("Cannot edit unit(s), no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
                 _exit(EXIT_FAILURE);
         }
-
-        r = wait_for_terminate_and_warn("editor", pid, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to wait for child: %m");
 
         return 0;
 }

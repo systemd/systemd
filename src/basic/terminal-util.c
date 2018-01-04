@@ -1093,7 +1093,6 @@ int ptsname_namespace(int pty, char **ret) {
 int openpt_in_namespace(pid_t pid, int flags) {
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        siginfo_t si;
         pid_t child;
         int r;
 
@@ -1133,10 +1132,10 @@ int openpt_in_namespace(pid_t pid, int flags) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-openpt)", child, 0);
         if (r < 0)
                 return r;
-        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+        if (r != EXIT_SUCCESS)
                 return -EIO;
 
         return receive_one_fd(pair[0], 0);
@@ -1145,7 +1144,6 @@ int openpt_in_namespace(pid_t pid, int flags) {
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        siginfo_t si;
         pid_t child;
         int r;
 
@@ -1180,10 +1178,10 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-terminal)", child, 0);
         if (r < 0)
                 return r;
-        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+        if (r != EXIT_SUCCESS)
                 return -EIO;
 
         return receive_one_fd(pair[0], 0);

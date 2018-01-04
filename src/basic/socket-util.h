@@ -138,6 +138,7 @@ bool address_label_valid(const char *p);
 
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
+int getpeergroups(int fd, gid_t **ret);
 
 int send_one_fd_sa(int transport_fd,
                    int fd,

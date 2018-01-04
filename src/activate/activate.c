@@ -274,9 +274,9 @@ static int fork_and_exec_process(const char* child, char** argv, char **env, int
         if (!joined)
                 return log_oom();
 
-        r = safe_fork("(activate)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child_pid);
+        r = safe_fork("(activate)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &child_pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
                 /* In the child */
                 exec_process(child, argv, env, fd, 1);

@@ -55,9 +55,9 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                 return 0;
         }
 
-        r = safe_fork("(direxec)", FORK_DEATHSIG, &_pid);
+        r = safe_fork("(direxec)", FORK_DEATHSIG|FORK_LOG, &_pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
                 char *_argv[2];
 
@@ -82,7 +82,6 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                 _exit(EXIT_FAILURE);
         }
 
-        log_debug("Spawned %s as " PID_FMT ".", path, _pid);
         *pid = _pid;
         return 1;
 }
@@ -147,7 +146,7 @@ static int do_execute(
                                 return log_oom();
                         t = NULL;
                 } else {
-                        r = wait_for_terminate_and_warn(t, pid, true);
+                        r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
                         if (r < 0)
                                 continue;
 
@@ -177,7 +176,7 @@ static int do_execute(
                 t = hashmap_remove(pids, PID_TO_PTR(pid));
                 assert(t);
 
-                wait_for_terminate_and_warn(t, pid, true);
+                (void) wait_for_terminate_and_check(t, pid, WAIT_LOG);
         }
 
         return 0;
@@ -190,10 +189,9 @@ int execute_directories(
                 void* const callback_args[_STDOUT_CONSUME_MAX],
                 char *argv[]) {
 
-        pid_t executor_pid;
-        char *name;
         char **dirs = (char**) directories;
         _cleanup_close_ int fd = -1;
+        char *name;
         int r;
 
         assert(!strv_isempty(dirs));
@@ -216,21 +214,12 @@ int execute_directories(
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &executor_pid);
+        r = safe_fork("(sd-executor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork: %m");
+                return r;
         if (r == 0) {
                 r = do_execute(dirs, timeout, callbacks, callback_args, fd, argv);
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
-        }
-
-        r = wait_for_terminate_and_warn(name, executor_pid, true);
-        if (r < 0)
-                return log_error_errno(r, "Execution failed: %m");
-        if (r > 0) {
-                /* non-zero return code from child */
-                log_error("Forker process failed.");
-                return -EREMOTEIO;
         }
 
         if (!callbacks)

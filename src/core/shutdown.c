@@ -483,15 +483,10 @@ int main(int argc, char *argv[]) {
 
                 if (!in_container) {
                         /* We cheat and exec kexec to avoid doing all its work */
-                        pid_t pid;
-
                         log_info("Rebooting with kexec.");
 
-                        r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
-                        if (r < 0)
-                                log_error_errno(r, "Failed to fork: %m");
+                        r = safe_fork("(sd-kexec)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
                         if (r == 0) {
-
                                 const char * const args[] = {
                                         KEXEC, "-e", NULL
                                 };
@@ -502,7 +497,7 @@ int main(int argc, char *argv[]) {
                                 _exit(EXIT_FAILURE);
                         }
 
-                        (void) wait_for_terminate_and_warn("kexec", pid, true);
+                        /* If we are still running, then the kexec can't have worked, let's fall through */
                 }
 
                 cmd = RB_AUTOBOOT;

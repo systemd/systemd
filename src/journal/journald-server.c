@@ -241,6 +241,13 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
                               NULL);
 }
 
+static bool uid_for_system_journal(uid_t uid) {
+
+        /* Returns true if the specified UID shall get its data stored in the system journal*/
+
+        return uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY;
+}
+
 static void server_add_acls(JournalFile *f, uid_t uid) {
 #if HAVE_ACL
         int r;
@@ -248,7 +255,7 @@ static void server_add_acls(JournalFile *f, uid_t uid) {
         assert(f);
 
 #if HAVE_ACL
-        if (uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY)
+        if (uid_for_system_journal(uid))
                 return;
 
         r = add_acls_for_user(f->fd, uid);
@@ -406,7 +413,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (s->runtime_journal)
                 return s->runtime_journal;
 
-        if (uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY)
+        if (uid_for_system_journal(uid))
                 return s->system_journal;
 
         r = sd_id128_get_machine(&machine);
