@@ -26,12 +26,19 @@
 
 #include "alloc-util.h"
 #include "dhcp6-internal.h"
+#include "dhcp6-lease-internal.h"
 #include "dhcp6-protocol.h"
 #include "dns-domain.h"
 #include "sparse-endian.h"
 #include "strv.h"
 #include "unaligned.h"
 #include "util.h"
+
+typedef struct DHCP6StatusOption {
+        struct DHCP6Option option;
+        be16_t status;
+        char msg[];
+} _packed_ DHCP6StatusOption;
 
 #define DHCP6_OPTION_IA_NA_LEN                  12
 #define DHCP6_OPTION_IA_TA_LEN                  4
@@ -207,6 +214,15 @@ int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
         return 0;
 }
 
+int dhcp6_option_parse_status(DHCP6Option *option) {
+        DHCP6StatusOption *statusopt = (DHCP6StatusOption *)option;
+
+        if (be16toh(option->len) + sizeof(DHCP6Option) < sizeof(*statusopt))
+                return -ENOBUFS;
+
+        return be16toh(statusopt->status);
+}
+
 int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
         uint16_t iatype, optlen;
         size_t i, len;
@@ -302,15 +318,14 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
                         break;
 
                 case SD_DHCP6_OPTION_STATUS_CODE:
-                        if (optlen < sizeof(status)) {
-                                r = -ENOMSG;
-                                goto error;
-                        }
 
-                        status = option->data[0] << 8 | option->data[1];
+                        status = dhcp6_option_parse_status(option);
                         if (status) {
                                 log_dhcp6_client(client, "IA status %d",
                                                  status);
+
+                                dhcp6_lease_free_ia(ia);
+
                                 r = -EINVAL;
                                 goto error;
                         }

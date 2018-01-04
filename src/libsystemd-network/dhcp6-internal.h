@@ -83,6 +83,7 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia);
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
 int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
                        size_t *optlen, uint8_t **optvalue);
+int dhcp6_option_parse_status(DHCP6Option *option);
 int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia);
 int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
                                 struct in6_addr **addrs, size_t count,

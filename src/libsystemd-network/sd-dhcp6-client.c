@@ -740,7 +740,8 @@ static int client_parse_message(
 
         while (pos < len) {
                 DHCP6Option *option = (DHCP6Option *)&message->options[pos];
-                uint16_t optcode, optlen, status;
+                uint16_t optcode, optlen;
+                int status;
                 uint8_t *optval;
                 be32_t iaid_lease;
 
@@ -795,14 +796,13 @@ static int client_parse_message(
                         break;
 
                 case SD_DHCP6_OPTION_STATUS_CODE:
-                        if (optlen < 2)
-                                return -EINVAL;
-
-                        status = optval[0] << 8 | optval[1];
+                        status = dhcp6_option_parse_status(option);
                         if (status) {
                                 log_dhcp6_client(client, "%s Status %s",
                                                  dhcp6_message_type_to_string(message->type),
                                                  dhcp6_message_status_to_string(status));
+                                dhcp6_lease_free_ia(&lease->ia);
+
                                 return -EINVAL;
                         }
 
