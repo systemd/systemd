@@ -23,6 +23,7 @@
 
 #include <inttypes.h>
 #include <net/ethernet.h>
+#include <stdbool.h>
 #include <sys/types.h>
 
 #include "sd-dhcp6-lease.h"
@@ -118,6 +119,8 @@ int sd_dhcp6_client_get_information_request(
 int sd_dhcp6_client_set_request_option(
                 sd_dhcp6_client *client,
                 uint16_t option);
+int sd_dhcp6_client_set_prefix_delegation(sd_dhcp6_client *client,
+                                          bool delegation);
 
 int sd_dhcp6_client_get_lease(
                 sd_dhcp6_client *client,

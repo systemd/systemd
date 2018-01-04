@@ -55,6 +55,7 @@ struct sd_dhcp6_client {
         uint16_t arp_type;
         DHCP6IA ia_na;
         DHCP6IA ia_pd;
+        bool prefix_delegation;
         be32_t transaction_id;
         usec_t transaction_start;
         struct sd_dhcp6_lease *lease;
@@ -300,6 +301,14 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         return 0;
 }
 
+int sd_dhcp6_client_set_prefix_delegation(sd_dhcp6_client *client, bool delegation) {
+        assert_return(client, -EINVAL);
+
+        client->prefix_delegation = delegation;
+
+        return 0;
+}
+
 int sd_dhcp6_client_get_lease(sd_dhcp6_client *client, sd_dhcp6_lease **ret) {
         assert_return(client, -EINVAL);
 
@@ -413,6 +422,15 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
+                if (client->prefix_delegation) {
+                        r = dhcp6_option_append_pd(opt, optlen, &client->ia_pd);
+                        if (r < 0)
+                                return r;
+
+                        opt += r;
+                        optlen -= r;
+                }
+
                 break;
 
         case DHCP6_STATE_REQUEST:
@@ -439,6 +457,15 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                                 return r;
                 }
 
+                if (client->prefix_delegation) {
+                        r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd);
+                        if (r < 0)
+                                return r;
+
+                        opt += r;
+                        optlen -= r;
+                }
+
                 break;
 
         case DHCP6_STATE_REBIND:
@@ -452,6 +479,15 @@ static int client_send_message(sd_dhcp6_client *client, usec_t time_now) {
                         r = dhcp6_option_append_fqdn(&opt, &optlen, client->fqdn);
                         if (r < 0)
                                 return r;
+                }
+
+                if (client->prefix_delegation) {
+                        r = dhcp6_option_append_pd(opt, optlen, &client->lease->pd);
+                        if (r < 0)
+                                return r;
+
+                        opt += r;
+                        optlen -= r;
                 }
 
                 break;
