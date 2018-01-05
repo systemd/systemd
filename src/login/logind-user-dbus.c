@@ -288,13 +288,13 @@ int user_object_find(sd_bus *bus, const char *path, const char *interface, void 
                         return 0;
 
                 r = parse_uid(p, &uid);
-        }
-        if (r < 0)
-                return 0;
+                if (r < 0)
+                        return 0;
 
-        user = hashmap_get(m->users, UID_TO_PTR(uid));
-        if (!user)
-                return 0;
+                user = hashmap_get(m->users, UID_TO_PTR(uid));
+                if (!user)
+                        return 0;
+        }
 
         *found = user;
         return 1;

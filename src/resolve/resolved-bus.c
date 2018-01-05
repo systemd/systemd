@@ -1844,18 +1844,6 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
-static int on_bus_retry(sd_event_source *s, usec_t usec, void *userdata) {
-        Manager *m = userdata;
-
-        assert(s);
-        assert(m);
-
-        m->bus_retry_event_source = sd_event_source_unref(m->bus_retry_event_source);
-
-        manager_connect_bus(m);
-        return 0;
-}
-
 static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *m = userdata;
         int b, r;
@@ -1886,20 +1874,9 @@ int manager_connect_bus(Manager *m) {
         if (m->bus)
                 return 0;
 
-        r = sd_bus_default_system(&m->bus);
-        if (r < 0) {
-                /* We failed to connect? Yuck, we must be in early
-                 * boot. Let's try in 5s again. */
-
-                log_debug_errno(r, "Failed to connect to bus, trying again in 5s: %m");
-
-                r = sd_event_add_time(m->event, &m->bus_retry_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 5*USEC_PER_SEC, 0, on_bus_retry, m);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to install bus reconnect time event: %m");
-
-                (void) sd_event_source_set_description(m->bus_retry_event_source, "bus-retry");
-                return 0;
-        }
+        r = bus_open_system_watch_bind(&m->bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to system bus: %m");
 
         r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/resolve1", "org.freedesktop.resolve1.Manager", resolve_vtable, m);
         if (r < 0)
@@ -1921,24 +1898,26 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register dnssd enumerator: %m");
 
-        r = sd_bus_request_name(m->bus, "org.freedesktop.resolve1", 0);
+        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.resolve1", 0, NULL, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to register name: %m");
+                return log_error_errno(r, "Failed to request name: %m");
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
-                             "type='signal',"
-                             "sender='org.freedesktop.login1',"
-                             "interface='org.freedesktop.login1.Manager',"
-                             "member='PrepareForSleep',"
-                             "path='/org/freedesktop/login1'",
-                             match_prepare_for_sleep,
-                             m);
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        &m->prepare_for_sleep_slot,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "PrepareForSleep",
+                        match_prepare_for_sleep,
+                        NULL,
+                        m);
         if (r < 0)
-                log_error_errno(r, "Failed to add match for PrepareForSleep: %m");
+                log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
 
         return 0;
 }

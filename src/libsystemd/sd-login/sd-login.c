@@ -1061,10 +1061,15 @@ _public_ sd_login_monitor* sd_login_monitor_unref(sd_login_monitor *m) {
 }
 
 _public_ int sd_login_monitor_flush(sd_login_monitor *m) {
+        int r;
 
         assert_return(m, -EINVAL);
 
-        return flush_fd(MONITOR_TO_FD(m));
+        r = flush_fd(MONITOR_TO_FD(m));
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 _public_ int sd_login_monitor_get_fd(sd_login_monitor *m) {

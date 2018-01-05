@@ -153,7 +153,15 @@ static void netdev_free(NetDev *netdev) {
         condition_free_list(netdev->match_kernel_version);
         condition_free_list(netdev->match_arch);
 
-        if (NETDEV_VTABLE(netdev) &&
+        /* Invoke the per-kind done() destructor, but only if the state field is initialized. We conditionalize that
+         * because we parse .netdev files twice: once to determine the kind (with a short, minimal NetDev structure
+         * allocation, with no room for per-kind fields), and once to read the kind's properties (with a full,
+         * comprehensive NetDev structure allocation with enough space for whatever the specific kind needs). Now, in
+         * the first case we shouldn't try to destruct the per-kind NetDev fields on destruction, in the second case we
+         * should. We use the state field to discern the two cases: it's _NETDEV_STATE_INVALID on the first "raw"
+         * call. */
+        if (netdev->state != _NETDEV_STATE_INVALID &&
+            NETDEV_VTABLE(netdev) &&
             NETDEV_VTABLE(netdev)->done)
                 NETDEV_VTABLE(netdev)->done(netdev);
 
@@ -615,8 +623,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         if (!file) {
                 if (errno == ENOENT)
                         return 0;
-                else
-                        return -errno;
+
+                return -errno;
         }
 
         if (null_or_empty_fd(fileno(file))) {
@@ -630,7 +638,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
         netdev_raw->n_ref = 1;
         netdev_raw->kind = _NETDEV_KIND_INVALID;
-        netdev_raw->state = _NETDEV_STATE_INVALID;
+        netdev_raw->state = _NETDEV_STATE_INVALID; /* an invalid state means done() of the implementation won't be called on destruction */
 
         dropin_dirname = strjoina(basename(filename), ".d");
         r = config_parse_many(filename, network_dirs, dropin_dirname,
@@ -669,7 +677,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->n_ref = 1;
         netdev->manager = manager;
         netdev->kind = netdev_raw->kind;
-        netdev->state = _NETDEV_STATE_INVALID;
+        netdev->state = NETDEV_STATE_LOADING; /* we initialize the state here for the first time, so that done() will be called on destruction */
 
         if (NETDEV_VTABLE(netdev)->init)
                 NETDEV_VTABLE(netdev)->init(netdev);

@@ -3622,14 +3622,16 @@ static int run(int master,
                  * case PID 1 will send us a friendly RequestStop signal, when it is asked to terminate the
                  * scope. Let's hook into that, and cleanly shut down the container, and print a friendly message. */
 
-                r = sd_bus_add_match(bus, NULL,
-                                     "type='signal',"
-                                     "sender='org.freedesktop.systemd1',"
-                                     "interface='org.freedesktop.systemd1.Scope',"
-                                     "member='RequestStop'",
-                                     on_request_stop, PID_TO_PTR(*pid));
+                r = sd_bus_match_signal_async(
+                                bus,
+                                NULL,
+                                "org.freedesktop.systemd1",
+                                NULL,
+                                "org.freedesktop.systemd1.Scope",
+                                "RequestStop",
+                                on_request_stop, NULL, PID_TO_PTR(*pid));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to install request stop match: %m");
+                        return log_error_errno(r, "Failed to request RequestStop match: %m");
         }
 
         if (arg_register) {

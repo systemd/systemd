@@ -263,7 +263,7 @@ static int manager_dispatch_ask_password_fd(sd_event_source *source,
 
         assert(m);
 
-        flush_fd(fd);
+        (void) flush_fd(fd);
 
         m->have_ask_password = have_ask_password();
         if (m->have_ask_password < 0)

@@ -35,6 +35,9 @@ Features:
 
 * add bpf-based implementation of devices cgroup controller logic for compat with cgroupsv2 as supported by newest kernel
 
+* sd-bus: add vtable flag, that may be used to request client creds implicitly
+  and asynchronously before dispatching the operation
+
 * implement transient socket unit.
 
 * make systemd-run create transient path and socket unit.
@@ -55,8 +58,6 @@ Features:
 * add a new RuntimeDirectoryPreserve= mode that defines a similar lifecycle for
   the runtime dir as we maintain for the fdstore: i.e. keep it around as long
   as the unit is running or has a job queued.
-
-* add async version of sd_bus_add_match and make use of that
 
 * support projid-based quota in machinectl for containers, and then drop
   implicit btrfs loopback magic in machined
@@ -495,14 +496,12 @@ Features:
   - see if we can introduce a new sd_bus_get_owner_machine_id() call to retrieve the machine ID of the machine of the bus itself
   - see if we can drop more message validation on the sending side
   - add API to clone sd_bus_message objects
-  - make AddMatch calls on dbus1 transports async?
   - longer term: priority inheritance
   - dbus spec updates:
        - NameLost/NameAcquired obsolete
        - GVariant
        - path escaping
   - update systemd.special(7) to mention that dbus.socket is only about the compatibility socket now
-  - test bloom filter generation indexes
 
 * sd-event
   - allow multiple signal handlers per signal?

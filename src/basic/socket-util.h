@@ -36,16 +36,26 @@
 #include "util.h"
 
 union sockaddr_union {
+        /* The minimal, abstract version */
         struct sockaddr sa;
+
+        /* The libc provided version that allocates "enough room" for every protocol */
+        struct sockaddr_storage storage;
+
+        /* Protoctol-specific implementations */
         struct sockaddr_in in;
         struct sockaddr_in6 in6;
         struct sockaddr_un un;
         struct sockaddr_nl nl;
-        struct sockaddr_storage storage;
         struct sockaddr_ll ll;
         struct sockaddr_vm vm;
+
         /* Ensure there is enough space to store Infiniband addresses */
         uint8_t ll_buffer[offsetof(struct sockaddr_ll, sll_addr) + CONST_MAX(ETH_ALEN, INFINIBAND_ALEN)];
+
+        /* Ensure there is enough space after the AF_UNIX sun_path for one more NUL byte, just to be sure that the path
+         * component is always followed by at least one NUL byte. */
+        uint8_t un_buffer[sizeof(struct sockaddr_un) + 1];
 };
 
 typedef struct SocketAddress {

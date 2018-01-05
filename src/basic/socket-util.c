@@ -68,7 +68,6 @@ DEFINE_STRING_TABLE_LOOKUP(socket_address_type, int);
 
 int socket_address_parse(SocketAddress *a, const char *s) {
         char *e, *n;
-        unsigned u;
         int r;
 
         assert(a);
@@ -78,6 +77,8 @@ int socket_address_parse(SocketAddress *a, const char *s) {
         a->type = SOCK_STREAM;
 
         if (*s == '[') {
+                uint16_t port;
+
                 /* IPv6 in [x:.....:z]:p notation */
 
                 e = strchr(s+1, ']');
@@ -95,15 +96,12 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                         return -EINVAL;
 
                 e++;
-                r = safe_atou(e, &u);
+                r = parse_ip_port(e, &port);
                 if (r < 0)
                         return r;
 
-                if (u <= 0 || u > 0xFFFF)
-                        return -EINVAL;
-
                 a->sockaddr.in6.sin6_family = AF_INET6;
-                a->sockaddr.in6.sin6_port = htobe16((uint16_t)u);
+                a->sockaddr.in6.sin6_port = htobe16(port);
                 a->size = sizeof(struct sockaddr_in6);
 
         } else if (*s == '/') {
@@ -134,12 +132,13 @@ int socket_address_parse(SocketAddress *a, const char *s) {
         } else if (startswith(s, "vsock:")) {
                 /* AF_VSOCK socket in vsock:cid:port notation */
                 const char *cid_start = s + STRLEN("vsock:");
+                unsigned port;
 
                 e = strchr(cid_start, ':');
                 if (!e)
                         return -EINVAL;
 
-                r = safe_atou(e+1, &u);
+                r = safe_atou(e+1, &port);
                 if (r < 0)
                         return r;
 
@@ -152,18 +151,17 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                         a->sockaddr.vm.svm_cid = VMADDR_CID_ANY;
 
                 a->sockaddr.vm.svm_family = AF_VSOCK;
-                a->sockaddr.vm.svm_port = u;
+                a->sockaddr.vm.svm_port = port;
                 a->size = sizeof(struct sockaddr_vm);
 
         } else {
+                uint16_t port;
+
                 e = strchr(s, ':');
                 if (e) {
-                        r = safe_atou(e+1, &u);
+                        r = parse_ip_port(e + 1, &port);
                         if (r < 0)
                                 return r;
-
-                        if (u <= 0 || u > 0xFFFF)
-                                return -EINVAL;
 
                         n = strndupa(s, e-s);
 
@@ -175,7 +173,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                         if (r > 0) {
                                 /* Gotcha, it's a traditional IPv4 address */
                                 a->sockaddr.in.sin_family = AF_INET;
-                                a->sockaddr.in.sin_port = htobe16((uint16_t)u);
+                                a->sockaddr.in.sin_port = htobe16(port);
                                 a->size = sizeof(struct sockaddr_in);
                         } else {
                                 unsigned idx;
@@ -189,7 +187,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                                         return -EINVAL;
 
                                 a->sockaddr.in6.sin6_family = AF_INET6;
-                                a->sockaddr.in6.sin6_port = htobe16((uint16_t)u);
+                                a->sockaddr.in6.sin6_port = htobe16(port);
                                 a->sockaddr.in6.sin6_scope_id = idx;
                                 a->sockaddr.in6.sin6_addr = in6addr_any;
                                 a->size = sizeof(struct sockaddr_in6);
@@ -197,21 +195,18 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 } else {
 
                         /* Just a port */
-                        r = safe_atou(s, &u);
+                        r = parse_ip_port(s, &port);
                         if (r < 0)
                                 return r;
 
-                        if (u <= 0 || u > 0xFFFF)
-                                return -EINVAL;
-
                         if (socket_ipv6_is_supported()) {
                                 a->sockaddr.in6.sin6_family = AF_INET6;
-                                a->sockaddr.in6.sin6_port = htobe16((uint16_t)u);
+                                a->sockaddr.in6.sin6_port = htobe16(port);
                                 a->sockaddr.in6.sin6_addr = in6addr_any;
                                 a->size = sizeof(struct sockaddr_in6);
                         } else {
                                 a->sockaddr.in.sin_family = AF_INET;
-                                a->sockaddr.in.sin_port = htobe16((uint16_t)u);
+                                a->sockaddr.in.sin_port = htobe16(port);
                                 a->sockaddr.in.sin_addr.s_addr = INADDR_ANY;
                                 a->size = sizeof(struct sockaddr_in);
                         }

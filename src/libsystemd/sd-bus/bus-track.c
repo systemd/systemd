@@ -48,25 +48,13 @@ struct sd_bus_track {
         LIST_FIELDS(sd_bus_track, tracks);
 };
 
-#define MATCH_PREFIX                                        \
-        "type='signal',"                                    \
-        "sender='org.freedesktop.DBus',"                    \
-        "path='/org/freedesktop/DBus',"                     \
-        "interface='org.freedesktop.DBus',"                 \
-        "member='NameOwnerChanged',"                        \
-        "arg0='"
-
-#define MATCH_SUFFIX \
-        "'"
-
-#define MATCH_FOR_NAME(name)                                            \
-        ({                                                              \
-                char *_x;                                               \
-                size_t _l = strlen(name);                               \
-                _x = alloca(STRLEN(MATCH_PREFIX)+_l+STRLEN(MATCH_SUFFIX)+1); \
-                strcpy(stpcpy(stpcpy(_x, MATCH_PREFIX), name), MATCH_SUFFIX); \
-                _x;                                                     \
-        })
+#define MATCH_FOR_NAME(name)                            \
+        strjoina("type='signal',"                       \
+                 "sender='org.freedesktop.DBus',"       \
+                 "path='/org/freedesktop/DBus',"        \
+                 "interface='org.freedesktop.DBus',"    \
+                 "member='NameOwnerChanged',"           \
+                 "arg0='", name, "'")
 
 static struct track_item* track_item_free(struct track_item *i) {
 
@@ -259,9 +247,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
 
         bus_track_remove_from_queue(track); /* don't dispatch this while we work in it */
 
-        track->n_adding++; /* make sure we aren't dispatched while we synchronously add this match */
-        r = sd_bus_add_match(track->bus, &n->slot, match, on_name_owner_changed, track);
-        track->n_adding--;
+        r = sd_bus_add_match_async(track->bus, &n->slot, match, on_name_owner_changed, NULL, track);
         if (r < 0) {
                 bus_track_add_to_queue(track);
                 return r;

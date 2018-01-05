@@ -2905,7 +2905,6 @@ static int start_unit_one(
 
         if (wait_context) {
                 _cleanup_free_ char *unit_path = NULL;
-                const char* mt;
 
                 log_debug("Watching for property changes of %s", name);
                 r = sd_bus_call_method(
@@ -2928,13 +2927,15 @@ static int start_unit_one(
                 if (r < 0)
                         return log_error_errno(r, "Failed to add unit path %s to set: %m", unit_path);
 
-                mt = strjoina("type='signal',"
-                              "interface='org.freedesktop.DBus.Properties',"
-                              "path='", unit_path, "',"
-                              "member='PropertiesChanged'");
-                r = sd_bus_add_match(bus, &wait_context->match, mt, on_properties_changed, wait_context);
+                r = sd_bus_match_signal_async(bus,
+                                              &wait_context->match,
+                                              NULL,
+                                              unit_path,
+                                              "org.freedesktop.DBus.Properties",
+                                              "PropertiesChanged",
+                                              on_properties_changed, NULL, wait_context);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add match for PropertiesChanged signal: %m");
+                        return log_error_errno(r, "Failed to request match for PropertiesChanged signal: %m");
         }
 
         log_debug("%s manager for %s on %s, %s",
@@ -3150,22 +3151,21 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_wait) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-
                 wait_context.unit_paths = set_new(&string_hash_ops);
                 if (!wait_context.unit_paths)
                         return log_oom();
 
-                r = sd_bus_call_method(
+                r = sd_bus_call_method_async(
                                 bus,
+                                NULL,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "Subscribe",
-                                &error,
-                                NULL, NULL);
+                                NULL, NULL,
+                                NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to enable subscription: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to enable subscription: %m");
                 r = sd_event_default(&wait_context.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate event loop: %m");
