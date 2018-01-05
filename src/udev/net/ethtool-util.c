@@ -401,7 +401,7 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
                 return -errno;
 
         if (ecmd.req.link_mode_masks_nwords >= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         ecmd.req.link_mode_masks_nwords = -ecmd.req.link_mode_masks_nwords;
 
@@ -412,7 +412,7 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
                 return -errno;
 
         if (ecmd.req.link_mode_masks_nwords <= 0 || ecmd.req.cmd != ETHTOOL_GLINKSETTINGS)
-                return -ENOTSUP;
+                return -EOPNOTSUPP;
 
         u = new0(struct ethtool_link_usettings , 1);
         if (!u)
