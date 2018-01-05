@@ -557,7 +557,6 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
 
         r = get_glinksettings(fd, &ifr, &u);
         if (r < 0) {
-
                 r = get_gset(fd, &ifr, &u);
                 if (r < 0)
                         return log_warning_errno(r, "link_config: Cannot get device settings for %s : %m", ifname);
@@ -570,7 +569,7 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
                 u->base.duplex = link->duplex;
 
         if (link->port != _NET_DEV_PORT_INVALID)
-              u->base.port = link->port;
+                u->base.port = link->port;
 
         u->base.autoneg = link->autonegotiation;
 
@@ -578,7 +577,6 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
                 r = set_slinksettings(fd, &ifr, u);
         else
                 r = set_sset(fd, &ifr, u);
-
         if (r < 0)
                 return log_warning_errno(r, "link_config: Cannot set device settings for %s : %m", ifname);
 
