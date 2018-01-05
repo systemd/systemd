@@ -60,6 +60,7 @@ typedef enum NetDevKind {
         NETDEV_KIND_VCAN,
         NETDEV_KIND_GENEVE,
         NETDEV_KIND_VXCAN,
+        NETDEV_KIND_WIREGUARD,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;
@@ -104,6 +105,7 @@ typedef struct NetDev {
         struct ether_addr *mac;
         size_t mtu;
         int ifindex;
+        bool vtable_allocated;
 
         LIST_HEAD(netdev_join_callback, callbacks);
 } NetDev;

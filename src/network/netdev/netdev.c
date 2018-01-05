@@ -49,6 +49,7 @@
 #include "netdev/vrf.h"
 #include "netdev/vcan.h"
 #include "netdev/vxcan.h"
+#include "netdev/wireguard.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
@@ -75,6 +76,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VCAN] = &vcan_vtable,
         [NETDEV_KIND_GENEVE] = &geneve_vtable,
         [NETDEV_KIND_VXCAN] = &vxcan_vtable,
+        [NETDEV_KIND_WIREGUARD] = &wireguard_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -102,6 +104,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VCAN] = "vcan",
         [NETDEV_KIND_GENEVE] = "geneve",
         [NETDEV_KIND_VXCAN] = "vxcan",
+        [NETDEV_KIND_WIREGUARD] = "wireguard",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -111,10 +114,10 @@ static void netdev_cancel_callbacks(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         netdev_join_callback *callback;
 
-        if (!netdev)
+        if (!netdev || !netdev->callbacks)
                 return;
 
-        rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
+        rtnl_message_new_synthetic_error(netdev->manager->rtnl, -ENODEV, 0, &m);
 
         while ((callback = netdev->callbacks)) {
                 if (m) {
@@ -153,7 +156,8 @@ static void netdev_free(NetDev *netdev) {
         condition_free_list(netdev->match_kernel_version);
         condition_free_list(netdev->match_arch);
 
-        if (NETDEV_VTABLE(netdev) &&
+        if (netdev->vtable_allocated &&
+            NETDEV_VTABLE(netdev) &&
             NETDEV_VTABLE(netdev)->done)
                 NETDEV_VTABLE(netdev)->done(netdev);
 
@@ -322,7 +326,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t call
         } else if (IN_SET(netdev->state, NETDEV_STATE_LINGER, NETDEV_STATE_FAILED)) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
-                r = rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
+                r = rtnl_message_new_synthetic_error(netdev->manager->rtnl, -ENODEV, 0, &m);
                 if (r >= 0)
                         callback(netdev->manager->rtnl, m, link);
         } else {
@@ -667,6 +671,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
                 return log_oom();
 
         netdev->n_ref = 1;
+        netdev->vtable_allocated = true;
         netdev->manager = manager;
         netdev->kind = netdev_raw->kind;
         netdev->state = _NETDEV_STATE_INVALID;
