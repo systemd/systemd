@@ -1886,7 +1886,7 @@ static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, const 
         assert(u);
         assert(buf);
 
-        tags = strv_split(buf, "\n\r");
+        tags = strv_split(buf, NEWLINE);
         if (!tags) {
                 log_oom();
                 return;
