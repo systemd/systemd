@@ -1977,7 +1977,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 }
         }
 
-        if (!ucred || ucred->pid <= 0) {
+        if (!ucred || !pid_is_valid(ucred->pid)) {
                 log_warning("Received notify message without valid credentials. Ignoring.");
                 return 0;
         }
