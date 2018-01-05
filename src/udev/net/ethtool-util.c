@@ -417,7 +417,7 @@ static int get_glinksettings(int *fd, struct ifreq *ifr, struct ethtool_link_use
         if (!u)
                 return -ENOMEM;
 
-        memcpy(&u->base, &ecmd.req, sizeof(struct ethtool_link_settings));
+        ecmd.req = u->base;
 
         offset = 0;
         memcpy(u->link_modes.supported, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
@@ -480,7 +480,7 @@ static int set_slinksettings(int *fd, struct ifreq *ifr, const struct ethtool_li
         if (u->base.cmd != ETHTOOL_GLINKSETTINGS || u->base.link_mode_masks_nwords <= 0)
                 return -EINVAL;
 
-        memcpy(&ecmd.req, &u->base, sizeof(ecmd.req));
+        ecmd.req = u->base;
         ecmd.req.cmd = ETHTOOL_SLINKSETTINGS;
         offset = 0;
         memcpy(&ecmd.link_mode_data[offset], u->link_modes.supported, 4 * ecmd.req.link_mode_masks_nwords);
