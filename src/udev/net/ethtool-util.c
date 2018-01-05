@@ -25,13 +25,13 @@
 
 #include "conf-parser.h"
 #include "ethtool-util.h"
-#include "log.h"
 #include "link-config.h"
+#include "log.h"
+#include "missing.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "strxcpyx.h"
 #include "util.h"
-#include "missing.h"
 
 static const char* const duplex_table[_DUP_MAX] = {
         [DUP_FULL] = "full",
