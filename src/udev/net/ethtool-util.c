@@ -473,15 +473,15 @@ static int set_slinksettings(int *fd, struct ifreq *ifr, const struct ethtool_li
         struct {
                 struct ethtool_link_settings req;
                 __u32 link_mode_data[3 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
-        } ecmd = {
-                .req.cmd = ETHTOOL_SLINKSETTINGS,
-        };
+        } ecmd = {};
         unsigned int offset;
         int r;
 
         if (u->base.cmd != ETHTOOL_GLINKSETTINGS || u->base.link_mode_masks_nwords <= 0)
                 return -EINVAL;
 
+        memcpy(&ecmd.req, &u->base, sizeof(ecmd.req));
+        ecmd.req.cmd = ETHTOOL_SLINKSETTINGS;
         offset = 0;
         memcpy(&ecmd.link_mode_data[offset], u->link_modes.supported, 4 * ecmd.req.link_mode_masks_nwords);
 
