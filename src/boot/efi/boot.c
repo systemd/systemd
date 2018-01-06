@@ -1458,8 +1458,28 @@ static BOOLEAN config_entry_add_loader_auto(Config *config, EFI_HANDLE *device, 
                 return FALSE;
 
         /* do not add an entry for ourselves */
-        if (loaded_image_path && StriCmp(loader, loaded_image_path) == 0)
-                return FALSE;
+        if (loaded_image_path) {
+                UINTN len;
+                CHAR8 *content;
+
+                if (StriCmp(loader, loaded_image_path) == 0)
+                        return FALSE;
+
+                /* look for systemd-boot magic string */
+                err = file_read(root_dir, loader, 0, 100*1024, &content, &len);
+                if (!EFI_ERROR(err)) {
+                        CHAR8 *start = content;
+                        CHAR8 *last = content + len - sizeof(magic) - 1;
+
+                        for (; start <= last; start++)
+                                if (start[0] == magic[0] && CompareMem(start, magic, sizeof(magic) - 1) == 0) {
+                                        FreePool(content);
+                                        return FALSE;
+                                }
+
+                        FreePool(content);
+                }
+        }
 
         /* check existence */
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, loader, EFI_FILE_MODE_READ, 0ULL);
@@ -1785,9 +1805,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         config_sort_entries(&config);
 
         /* if we find some well-known loaders, add them to the end of the list */
-        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
+        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
                                      L"auto-windows", 'w', L"Windows Boot Manager", L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
-        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
+        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
                                      L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\Boot\\boot" EFI_MACHINE_TYPE_NAME ".efi");
