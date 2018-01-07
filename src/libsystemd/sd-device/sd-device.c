@@ -175,6 +175,29 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                         return r;
                 }
 
+                if (!path_startswith(syspath, "/sys")) {
+                        _cleanup_free_ char *real_sys = NULL, *new_syspath = NULL;
+                        char *p;
+
+                        /* /sys is a symlink to somewhere sysfs is mounted on? In that case, we convert the path to real sysfs to "/sys". */
+                        r = chase_symlinks("/sys", NULL, 0, &real_sys);
+                        if (r < 0)
+                                return log_debug_errno(r, "sd-device: could not chase symlink /sys: %m");
+
+                        p = path_startswith(syspath, real_sys);
+                        if (!p) {
+                                log_debug("sd-device: canonicalized path '%s' does not starts with sysfs mount point '%s'", syspath, real_sys);
+                                return -ENODEV;
+                        }
+
+                        new_syspath = strjoin("/sys/", p);
+                        if (!new_syspath)
+                                return log_oom();
+
+                        free_and_replace(syspath, new_syspath);
+                        path_kill_slashes(syspath);
+                }
+
                 if (path_startswith(syspath,  "/sys/devices/")) {
                         char *path;
 
