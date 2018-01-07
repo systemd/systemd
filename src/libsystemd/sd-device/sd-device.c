@@ -166,21 +166,11 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         }
 
         if (verify) {
-                r = readlink_and_canonicalize(_syspath, NULL, &syspath);
+                r = chase_symlinks(_syspath, NULL, 0, &syspath);
                 if (r == -ENOENT)
                         /* the device does not exist (any more?) */
                         return -ENODEV;
-                else if (r == -EINVAL) {
-                        /* not a symlink */
-                        syspath = canonicalize_file_name(_syspath);
-                        if (!syspath) {
-                                if (errno == ENOENT)
-                                        /* the device does not exist (any more?) */
-                                        return -ENODEV;
-
-                                return log_debug_errno(errno, "sd-device: could not canonicalize '%s': %m", _syspath);
-                        }
-                } else if (r < 0) {
+                else if (r < 0) {
                         log_debug_errno(r, "sd-device: could not get target of '%s': %m", _syspath);
                         return r;
                 }
