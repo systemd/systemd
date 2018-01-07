@@ -1142,11 +1142,10 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
 static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         CHAR8 *content = NULL;
         UINTN sec;
-        UINTN len;
         EFI_STATUS err;
 
-        len = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content);
-        if (len > 0)
+        err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
+        if (!EFI_ERROR(err))
                 config_defaults_load_from_file(config, content);
         FreePool(content);
 
@@ -1190,8 +1189,8 @@ static VOID config_load_entries(Config *config, EFI_HANDLE *device, EFI_FILE *ro
                         if (StrnCmp(f->FileName, L"auto-", 5) == 0)
                                 continue;
 
-                        len = file_read(entries_dir, f->FileName, 0, 0, &content);
-                        if (len > 0)
+                        err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
+                        if (!EFI_ERROR(err))
                                 config_entry_add_from_file(config, device, f->FileName, content, loaded_image_path);
                         FreePool(content);
                 }
@@ -1526,8 +1525,8 @@ static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_ima
                         if (EFI_ERROR(err))
                                 continue;
 
-                        len = file_read(linux_dir, f->FileName, offs[0], szs[0], &content);
-                        if (len <= 0)
+                        err = file_read(linux_dir, f->FileName, offs[0], szs[0], &content, NULL);
+                        if (EFI_ERROR(err))
                                 continue;
 
                         /* read properties from the embedded os-release file */
@@ -1568,9 +1567,10 @@ static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_ima
                                 entry = config_entry_add_loader(config, loaded_image->DeviceHandle, LOADER_LINUX, conf, 'l', os_name, path);
 
                                 FreePool(content);
+                                content = NULL;
                                 /* read the embedded cmdline file */
-                                len = file_read(linux_dir, f->FileName, offs[1], szs[1] - 1 , &content);
-                                if (len > 0) {
+                                err = file_read(linux_dir, f->FileName, offs[1], szs[1] - 1, &content, NULL);
+                                if (!EFI_ERROR(err)) {
                                         cmdline = stra_to_str(content);
                                         entry->options = cmdline;
                                         cmdline = NULL;
