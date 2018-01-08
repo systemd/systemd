@@ -271,7 +271,8 @@
         main process of the daemon after start-up of the service.
         systemd will not write to the file configured here, although
         it will remove the file after the service has shut down if it
-        still exists.
+        still exists. This option is respected only when
+        <option>Type=forking</option> is set.
         </para>
         </listitem>
       </varlistentry>
