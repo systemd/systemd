@@ -947,6 +947,19 @@ static void service_search_main_pid(Service *s) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" from: %m", pid);
 }
 
+bool service_exited_release_console(Unit *u){
+        Service *s;
+
+        s = SERVICE(u);
+        if (!s)
+            return false;
+        /* For remain_after_exit services, let's see if we can "release" the
+         * hold on the console, since unit_notify() only does that in case of
+         * change of state */
+        return s->state == SERVICE_EXITED && s->remain_after_exit &&
+            UNIT(s)->manager->n_on_console > 0
+}
+
 static void service_set_state(Service *s, ServiceState state) {
         ServiceState old_state;
         const UnitActiveState *table;
@@ -1001,31 +1014,6 @@ static void service_set_state(Service *s, ServiceState state) {
 
         if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
                 service_stop_watchdog(s);
-
-        /* For the inactive states unit_notify() will trim the cgroup,
-         * but for exit we have to do that ourselves... */
-        if (state == SERVICE_EXITED && !MANAGER_IS_RELOADING(UNIT(s)->manager))
-                unit_prune_cgroup(UNIT(s));
-
-        /* For remain_after_exit services, let's see if we can "release" the
-         * hold on the console, since unit_notify() only does that in case of
-         * change of state */
-        if (state == SERVICE_EXITED &&
-            s->remain_after_exit &&
-            UNIT(s)->manager->n_on_console > 0) {
-
-                ExecContext *ec;
-
-                ec = unit_get_exec_context(UNIT(s));
-                if (ec && exec_context_may_touch_console(ec)) {
-                        Manager *m = UNIT(s)->manager;
-
-                        m->n_on_console--;
-                        if (m->n_on_console == 0)
-                                /* unset no_console_output flag, since the console is free */
-                                m->no_console_output = false;
-                }
-        }
 
         if (old_state != state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));

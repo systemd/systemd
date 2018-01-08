@@ -2308,6 +2308,7 @@ finish:
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
         Manager *m;
         bool unexpected;
+        bool special;
 
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
@@ -2319,6 +2320,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
          * behavior here. For example: if a mount point is remounted
          * this function will be called too! */
 
+        special = service_exited_release_console(u);
         m = u->manager;
 
         /* Update timestamps for state changes */
@@ -2348,12 +2350,12 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         /* Note that this doesn't apply to RemainAfterExit services exiting
          * successfully, since there's no change of state in that case. Which is
          * why it is handled in service_set_state() */
-        if (UNIT_IS_INACTIVE_OR_FAILED(os) != UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+        if (UNIT_IS_INACTIVE_OR_FAILED(os) != UNIT_IS_INACTIVE_OR_FAILED(ns) || special) {
                 ExecContext *ec;
 
                 ec = unit_get_exec_context(u);
                 if (ec && exec_context_may_touch_console(ec)) {
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
+                        if (UNIT_IS_INACTIVE_OR_FAILED(ns) || special) {
                                 m->n_on_console--;
 
                                 if (m->n_on_console == 0)
