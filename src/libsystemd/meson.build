@@ -18,8 +18,6 @@
 sd_login_c = files('sd-login/sd-login.c')
 
 libsystemd_sources = files('''
-        sd-bus/bus-bloom.c
-        sd-bus/bus-bloom.h
         sd-bus/bus-common-errors.c
         sd-bus/bus-common-errors.h
         sd-bus/bus-container.c
