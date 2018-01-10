@@ -30,7 +30,7 @@
 
 /* After how much time to repeat classic DNS requests */
 #define DNS_TIMEOUT_MIN_USEC (750 * USEC_PER_MSEC)
-#define DNS_TIMEOUT_MAX_USEC (5 * USEC_PER_SEC)
+#define DNS_TIMEOUT_MAX_USEC (SD_RESOLVED_QUERY_TIMEOUT_USEC / DNS_TRANSACTION_ATTEMPTS_MAX)
 
 /* The amount of time to wait before retrying with a full feature set */
 #define DNS_SERVER_FEATURE_GRACE_PERIOD_MAX_USEC (6 * USEC_PER_HOUR)
