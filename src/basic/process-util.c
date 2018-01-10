@@ -796,6 +796,8 @@ void sigkill_wait(pid_t pid) {
 }
 
 void sigkill_waitp(pid_t *pid) {
+        PROTECT_ERRNO;
+
         if (!pid)
                 return;
         if (*pid <= 1)

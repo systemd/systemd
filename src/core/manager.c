@@ -513,23 +513,31 @@ static int manager_setup_signals(Manager *m) {
         return 0;
 }
 
-static void manager_clean_environment(Manager *m) {
+static void manager_sanitize_environment(Manager *m) {
         assert(m);
 
-        /* Let's remove some environment variables that we
-         * need ourselves to communicate with our clients */
+        /* Let's remove some environment variables that we need ourselves to communicate with our clients */
         strv_env_unset_many(
                         m->environment,
-                        "NOTIFY_SOCKET",
+                        "EXIT_CODE",
+                        "EXIT_STATUS",
+                        "INVOCATION_ID",
+                        "JOURNAL_STREAM",
+                        "LISTEN_FDNAMES",
+                        "LISTEN_FDS",
+                        "LISTEN_PID",
                         "MAINPID",
                         "MANAGERPID",
-                        "LISTEN_PID",
-                        "LISTEN_FDS",
-                        "LISTEN_FDNAMES",
+                        "NOTIFY_SOCKET",
+                        "REMOTE_ADDR",
+                        "REMOTE_PORT",
+                        "SERVICE_RESULT",
                         "WATCHDOG_PID",
                         "WATCHDOG_USEC",
-                        "INVOCATION_ID",
                         NULL);
+
+        /* Let's order the environment alphabetically, just to make it pretty */
+        strv_sort(m->environment);
 }
 
 static int manager_default_environment(Manager *m) {
@@ -556,8 +564,7 @@ static int manager_default_environment(Manager *m) {
         if (!m->environment)
                 return -ENOMEM;
 
-        manager_clean_environment(m);
-        strv_sort(m->environment);
+        manager_sanitize_environment(m);
 
         return 0;
 }
@@ -3308,8 +3315,7 @@ int manager_environment_add(Manager *m, char **minus, char **plus) {
                 strv_free(b);
 
         m->environment = l;
-        manager_clean_environment(m);
-        strv_sort(m->environment);
+        manager_sanitize_environment(m);
 
         return 0;
 }
