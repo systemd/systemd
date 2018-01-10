@@ -618,7 +618,13 @@ int str_verscmp(const char *s1, const char *s2) {
 }
 
 /* Turn off core dumps but only if we're running outside of a container. */
-void disable_core_dumps(void) {
-        if (detect_container() <= 0)
-                (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
+void disable_coredumps(void) {
+        int r;
+
+        if (detect_container() > 0)
+                return;
+
+        r = write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
+        if (r < 0)
+                log_debug_errno(r, "Failed to turn off coredumps, ignoring: %m");
 }

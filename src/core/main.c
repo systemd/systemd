@@ -1604,7 +1604,7 @@ static void initialize_coredump(bool skip_setup) {
         /* But at the same time, turn off the core_pattern logic by default, so that no coredumps are stored
          * until the systemd-coredump tool is enabled via sysctl. */
         if (!skip_setup)
-                disable_core_dumps();
+                disable_coredumps();
 }
 
 static void do_reexecute(
