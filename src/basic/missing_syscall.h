@@ -330,10 +330,14 @@ static inline ssize_t copy_file_range(int fd_in, loff_t *off_in,
 #      define __NR_bpf 321
 #    elif defined __aarch64__
 #      define __NR_bpf 280
+#    elif defined __arm__
+#      define __NR_bpf 386
 #    elif defined __sparc__
 #      define __NR_bpf 349
 #    elif defined __s390__
 #      define __NR_bpf 351
+#    elif defined __tilegx__
+#      define __NR_bpf 280
 #    else
 #      warning "__NR_bpf not defined for your architecture"
 #    endif
