@@ -91,6 +91,7 @@
 #include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+#include "util.h"
 #include "virt.h"
 #include "watchdog.h"
 
@@ -1603,7 +1604,7 @@ static void initialize_coredump(bool skip_setup) {
         /* But at the same time, turn off the core_pattern logic by default, so that no coredumps are stored
          * until the systemd-coredump tool is enabled via sysctl. */
         if (!skip_setup)
-                (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
+                disable_core_dumps();
 }
 
 static void do_reexecute(
