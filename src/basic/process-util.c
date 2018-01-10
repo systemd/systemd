@@ -1162,7 +1162,7 @@ int safe_fork_full(
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
-        bool block_signals;
+        bool block_signals = false;
         int prio, r;
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always

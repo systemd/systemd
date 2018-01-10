@@ -67,7 +67,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                             dup2(stdout_fd, STDOUT_FILENO) < 0)
                                 return -errno;
 
-                        fd_cloexec(STDOUT_FILENO, false);
+                        (void) fd_cloexec(STDOUT_FILENO, false);
                 }
 
                 if (!argv) {
