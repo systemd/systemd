@@ -70,9 +70,6 @@ jobs:
               #   via the "travis encrypt" command using the project repo's public key
               - secure: "UNQLspT89GYWuVKFqW5W5RyqqnYg5RvX20IrNraOddhpdV9nhKBtozrfmhGXDGZwfHGWHt6g7YROlD/NIMvDvThVJIEYvSQiXCoo2zRrwkl2siET5MjPfRG8numiLq0KX47KGmyBJISJZCgDUdNGqqGwgf7AhDN78I3XtgqjFT1z0mGl8n0wiFpKPi7i3nECvF4Mk7xCCHqwByaq0z5G9NkVlOvP1EyCxwv3B6I5Umfch7ibp7iH44YnVXILK+yEry5dMuctYwYkDouR80ChEPQQ5fhhpO4++HJmFuSpfMTeCHpucAd2xwSUijejYeN/GNQ177GxSSk/8hRBGcuSK8T/WJ+KiuJPhZObV8mw+a6+qdQssWY4F9jya5ZKbZ/yTbxjtQ0m4AgtL28P9bEze8pLh16zFMX+hIEuoFSNmJqmtNttfbD5TKyYVZml59s9wvhlvMnlNpRSQva88OAOjXtiA41g+XtTxxpfW9mgd7HYhzSBs1efNiK7PfkANgve7KIYMAmCAqasgb1IIAyX7stOlJH06QOFXNH55PmJLkkKyL3SMQzgryMDWegU+XbS8t43r0x14WLuE7sc9JtnOr/G8hthFaMRp8xLy9aCBwyEIkEsyWa50VMoZDa3Spdb4r1CKBwcGdCbyE4rCehwEIznbfrsSovhwiUds7bbhBU="
           script:
-                # Apply systemd patches
-              - $CI_SCRIPT_DIR/autopatch-systemd.sh "$TRAVIS_BUILD_DIR"
-
                 # Copy content of CI_DIR into WORKDIR
               - find $CI_DIR -maxdepth 1 -type f -exec cp -t . {} +
                 # Build container for current user
@@ -92,9 +89,6 @@ jobs:
               - $CI_TOOL_DIR/get-coverity.sh
               - TOOL_DIR="$(find $TOOL_BASE -type d -name 'cov-analysis*')"
 
-                # Apply coverity patches
-              - $CI_SCRIPT_DIR/autopatch-coverity.sh "$TOOL_DIR"
-
                 # Export env variables for Coverity scan
               - env | grep -E "TRAVIS|COV|TOOL|URL" > .cov-env
               - |
@@ -102,19 +96,23 @@ jobs:
                   -v ${TOOL_BASE}:${TOOL_BASE}:ro \
                   --name travis_coverity_scan ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT} bash
                 # Make sure Coverity script is executable
-              - docker cp $CI_SCRIPT_DIR/coverity.sh travis_coverity_scan:/usr/local/bin
+              - docker cp scripts/coverity.sh travis_coverity_scan:/usr/local/bin
                 # Preconfigure with meson to prevent Coverity from capturing meson metadata
-              - docker exec -it travis_coverity_scan meson cov-build
+                # Set compiler flag to prevent emit failure
+              - docker exec -it travis_coverity_scan sh -c "CFLAGS='-D_Float128=long\ double' meson cov-build -Dman=false"
                 # Run Coverity Analysis
-              - docker exec -it travis_coverity_scan coverity.sh
+              - docker exec -it travis_coverity_scan coverity.sh build
+              - docker exec -it travis_coverity_scan coverity.sh upload
 
         - stage: clean docker
           language: python
-          python:
-              - "3.6"
+          # python:
+              # - "3.6"  Probably broken ATM
           env:
-            - SIZE_LIMIT="3000" # Limit in MBs
-            - TAG_LIMIT="3" # Number of tags to be kept at the time
+              - SIZE_LIMIT="3000" # Limit in MBs
+              - TAG_LIMIT="3" # Number of tags to be kept at the time
+          before-script:
+              - sudo apt-get -y install python3
           script:
                 # Get docker-remote tool and setup venv
               - sudo $CI_TOOL_DIR/get-docker-remote.sh
@@ -168,7 +166,6 @@ env:
 
         - CI_DIR="$TRAVIS_BUILD_DIR/travis-ci"
         - CI_TOOL_DIR="$CI_DIR/tools"
-        - CI_PATCH_DIR="$CI_DIR/patches"
         - CI_SCRIPT_DIR="$CI_DIR/scripts"
 
 notifications:

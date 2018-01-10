@@ -13,7 +13,7 @@ ARG DOCKER_USER_GID
 COPY requirements.txt /tmp/
 
 # Install the requirements
-RUN dnf -y update
+# RUN dnf -y update FIXME
 RUN dnf -y install $(cat '/tmp/requirements.txt')
 # clean step to prevent cache and metadata corruption
 RUN dnf clean all
