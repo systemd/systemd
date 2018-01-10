@@ -398,6 +398,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-S</option></term>
         <term><option>--slice=</option></term>
 
         <listitem><para>Make the container part of the specified slice, instead of the default
