@@ -58,6 +58,7 @@
 
 static char* arg_verb;
 static uint8_t arg_exit_code;
+static usec_t arg_timeout = DEFAULT_TIMEOUT_USEC;
 
 static int parse_argv(int argc, char *argv[]) {
         enum {
@@ -66,6 +67,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOG_COLOR,
                 ARG_LOG_LOCATION,
                 ARG_EXIT_CODE,
+                ARG_TIMEOUT,
         };
 
         static const struct option options[] = {
@@ -74,6 +76,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "log-color",     optional_argument, NULL, ARG_LOG_COLOR    },
                 { "log-location",  optional_argument, NULL, ARG_LOG_LOCATION },
                 { "exit-code",     required_argument, NULL, ARG_EXIT_CODE    },
+                { "timeout",       required_argument, NULL, ARG_TIMEOUT      },
                 {}
         };
 
@@ -126,6 +129,13 @@ static int parse_argv(int argc, char *argv[]) {
                         r = safe_atou8(optarg, &arg_exit_code);
                         if (r < 0)
                                 log_error("Failed to parse exit code %s, ignoring", optarg);
+
+                        break;
+
+                case ARG_TIMEOUT:
+                        r = parse_sec(optarg, &arg_timeout);
+                        if (r < 0)
+                                log_error("Failed to parse shutdown timeout %s, ignoring", optarg);
 
                         break;
 
@@ -327,10 +337,10 @@ int main(int argc, char *argv[]) {
         disable_core_dumps();
 
         log_info("Sending SIGTERM to remaining processes...");
-        broadcast_signal(SIGTERM, true, true);
+        broadcast_signal(SIGTERM, true, true, arg_timeout);
 
         log_info("Sending SIGKILL to remaining processes...");
-        broadcast_signal(SIGKILL, true, false);
+        broadcast_signal(SIGKILL, true, false, arg_timeout);
 
         need_umount = !in_container;
         need_swapoff = !in_container;
