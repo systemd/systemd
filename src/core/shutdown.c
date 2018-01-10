@@ -323,6 +323,9 @@ int main(int argc, char *argv[]) {
         if (!in_container)
                 sync_with_progress();
 
+        /* Prevent coredumps */
+        disable_core_dumps();
+
         log_info("Sending SIGTERM to remaining processes...");
         broadcast_signal(SIGTERM, true, true);
 
