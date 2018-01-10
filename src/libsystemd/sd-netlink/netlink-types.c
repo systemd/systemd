@@ -18,26 +18,22 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <netinet/in.h>
 #include <stdint.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#include <linux/genetlink.h>
+#include <linux/ip.h>
+#include <linux/if.h>
 #include <linux/can/netlink.h>
 #include <linux/fib_rules.h>
-#include <linux/in6.h>
-#include <linux/veth.h>
-#include <linux/if_bridge.h>
 #include <linux/if_addr.h>
 #include <linux/if_addrlabel.h>
-#include <linux/if.h>
-#include <linux/ip.h>
-#include <linux/if_addr.h>
 #include <linux/if_bridge.h>
 #include <linux/if_link.h>
 #include <linux/if_tunnel.h>
-#include <linux/fib_rules.h>
-#include <linux/genetlink.h>
-
+#include <linux/veth.h>
 #if HAVE_VXCAN_INFO_PEER
 #include <linux/can/vxcan.h>
 #endif
@@ -45,10 +41,10 @@
 #include "macro.h"
 #include "missing.h"
 #include "netlink-types.h"
+#include "sd-netlink.h"
 #include "string-table.h"
 #include "util.h"
 #include "wireguard-netlink.h"
-#include "sd-netlink.h"
 
 /* Maximum ARP IP target defined in kernel */
 #define BOND_MAX_ARP_TARGETS    16
