@@ -199,12 +199,12 @@ static const Specifier specifier_table[] = {
 static int specifier_machine_id_safe(char specifier, void *data, void *userdata, char **ret) {
         int r;
 
-        /* If /etc/machine_id is missing (e.g. in a chroot environment), returns
-         * a recognizable error so that the caller can skip the rule
+        /* If /etc/machine_id is missing or empty (e.g. in a chroot environment)
+         * return a recognizable error so that the caller can skip the rule
          * gracefully. */
 
         r = specifier_machine_id(specifier, data, userdata, ret);
-        if (r == -ENOENT)
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
                 return -ENXIO;
 
         return r;
