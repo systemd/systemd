@@ -140,20 +140,19 @@ _systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-uni
 _systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-units "*$PREFIX*$SUFFIX*" )"}%% *} )}
 
 _systemctl_startable_units(){
-    _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
-                          _filter_units_by_property CanStart yes $(
-                          __systemctl $mode list-unit-files --state enabled,disabled,static "*$PREFIX*$SUFFIX*" | \
-                               { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; }
-                          __systemctl $mode list-units --state inactive,failed "*$PREFIX*$SUFFIX*" | \
-                               { while read -r a b; do echo -E - " $a"; done; } )) ) )
+  _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
+    _filter_units_by_property CanStart yes ${${${(f)"$(
+      __systemctl $mode list-unit-files --state enabled,disabled,static "*$PREFIX*$SUFFIX*"
+      __systemctl $mode list-units --state inactive,failed "*$PREFIX*$SUFFIX*"
+    )"}:#*@.*}%%[[:space:]]*}
+  )) )
 }
 
 _systemctl_restartable_units(){
-    _sys_restartable_units=( $(_filter_units_by_property CanStart yes $(
-                          __systemctl $mode list-unit-files --state enabled,disabled,static "*$PREFIX*$SUFFIX*" | \
-                               { while read -r a b; do [[ $a =~ @\. ]] || echo -E - " $a"; done; }
-                          __systemctl $mode list-units "*$PREFIX*$SUFFIX*" | \
-                               { while read -r a b; do echo -E - " $a"; done; } )) )
+  _sys_restartable_units=( $( _filter_units_by_property CanStart yes ${${${(f)"$(
+    __systemctl $mode list-unit-files --state enabled,disabled,static "*$PREFIX*$SUFFIX*"
+    __systemctl $mode list-units "*$PREFIX*$SUFFIX*"
+  )"}:#*@.*}%%[[:space:]]*} ) )
 }
 
 _systemctl_failed_units()  {_sys_failed_units=( ${${(f)"$(__systemctl list-units --state=failed "*$PREFIX*$SUFFIX*" )"}%% *} ) }
