@@ -18,6 +18,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+
 #include "alloc-util.h"
 #include "hexdecoct.h"
 #include "macro.h"

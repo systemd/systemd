@@ -22,6 +22,8 @@
 
 #include <stdbool.h>
 
+#include "sd-id128.h"
+
 #include "macro.h"
 
 typedef struct DissectedImage DissectedImage;

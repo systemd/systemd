@@ -22,6 +22,8 @@
 #include <sys/prctl.h>
 #include <sys/wait.h>
 
+#include "sd-id128.h"
+
 #include "architecture.h"
 #include "ask-password-api.h"
 #include "blkid-util.h"

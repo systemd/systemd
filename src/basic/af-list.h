@@ -20,6 +20,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/socket.h>
+
 #include "string-util.h"
 
 const char *af_to_name(int id);

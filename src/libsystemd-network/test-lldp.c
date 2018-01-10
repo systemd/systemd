@@ -20,6 +20,7 @@
 ***/
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <net/ethernet.h>
 #include <stdio.h>
 #include <string.h>

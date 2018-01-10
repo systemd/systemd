@@ -23,6 +23,8 @@
 #include <shadow.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "copy.h"

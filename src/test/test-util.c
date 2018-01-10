@@ -28,6 +28,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "raw-clone.h"
 #include "rm-rf.h"
 #include "string-util.h"

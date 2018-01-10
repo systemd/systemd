@@ -33,6 +33,7 @@
 #include "bus-message.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"

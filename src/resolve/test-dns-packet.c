@@ -21,6 +21,8 @@
 #include <net/if.h>
 #include <glob.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
 #include "fileio.h"
 #include "glob-util.h"

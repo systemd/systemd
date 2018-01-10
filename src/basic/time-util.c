@@ -38,6 +38,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"

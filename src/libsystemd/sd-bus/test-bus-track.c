@@ -18,6 +18,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+#include <sys/socket.h>
+
 #include "sd-bus.h"
 
 #include "macro.h"

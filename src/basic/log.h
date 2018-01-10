@@ -20,18 +20,16 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <sys/signalfd.h>
-#include <sys/socket.h>
 #include <syslog.h>
 
-#include "sd-id128.h"
-
 #include "macro.h"
-#include "process-util.h"
+
+/* Some structures we reference but don't want to pull in headers for */
+struct iovec;
+struct signalfd_siginfo;
 
 typedef enum LogRealm {
         LOG_REALM_SYSTEMD,
@@ -194,7 +192,7 @@ int log_struct_iovec_internal(
                 const char *file,
                 int line,
                 const char *func,
-                const struct iovec input_iovec[],
+                const struct iovec *input_iovec,
                 size_t n_input_iovec);
 
 /* This modifies the buffer passed! */
@@ -252,13 +250,15 @@ void log_assert_failed_return_realm(
 
 #define log_full(level, ...) log_full_errno((level), 0, __VA_ARGS__)
 
+int log_emergency_level(void);
+
 /* Normal logging */
 #define log_debug(...)     log_full(LOG_DEBUG,   __VA_ARGS__)
 #define log_info(...)      log_full(LOG_INFO,    __VA_ARGS__)
 #define log_notice(...)    log_full(LOG_NOTICE,  __VA_ARGS__)
 #define log_warning(...)   log_full(LOG_WARNING, __VA_ARGS__)
 #define log_error(...)     log_full(LOG_ERR,     __VA_ARGS__)
-#define log_emergency(...) log_full(getpid_cached() == 1 ? LOG_EMERG : LOG_ERR, __VA_ARGS__)
+#define log_emergency(...) log_full(log_emergency_level(), __VA_ARGS__)
 
 /* Logging triggered by an errno-like error */
 #define log_debug_errno(error, ...)     log_full_errno(LOG_DEBUG,   error, __VA_ARGS__)
@@ -266,7 +266,7 @@ void log_assert_failed_return_realm(
 #define log_notice_errno(error, ...)    log_full_errno(LOG_NOTICE,  error, __VA_ARGS__)
 #define log_warning_errno(error, ...)   log_full_errno(LOG_WARNING, error, __VA_ARGS__)
 #define log_error_errno(error, ...)     log_full_errno(LOG_ERR,     error, __VA_ARGS__)
-#define log_emergency_errno(error, ...) log_full_errno(getpid_cached() == 1 ? LOG_EMERG : LOG_ERR, error, __VA_ARGS__)
+#define log_emergency_errno(error, ...) log_full_errno(log_emergency_level(), error, __VA_ARGS__)
 
 #ifdef LOG_TRACE
 #  define log_trace(...) log_debug(__VA_ARGS__)

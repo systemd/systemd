@@ -19,6 +19,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <string.h>
+
 #include "hash-funcs.h"
 
 void string_hash_func(const void *p, struct siphash *state) {

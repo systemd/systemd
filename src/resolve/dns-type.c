@@ -19,6 +19,7 @@
 ***/
 
 #include <sys/socket.h>
+#include <errno.h>
 
 #include "dns-type.h"
 #include "parse-util.h"

@@ -38,6 +38,7 @@
 #include "macro.h"
 #include "missing.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "stdio-util.h"

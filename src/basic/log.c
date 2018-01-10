@@ -1239,7 +1239,6 @@ void log_received_signal(int level, const struct signalfd_siginfo *si) {
                 log_full(level,
                          "Received SIG%s.",
                          signal_to_string(si->ssi_signo));
-
 }
 
 int log_syntax_internal(
@@ -1299,4 +1298,11 @@ void log_set_always_reopen_console(bool b) {
 
 void log_set_open_when_needed(bool b) {
         open_when_needed = b;
+}
+
+int log_emergency_level(void) {
+        /* Returns the log level to use for log_emergency() logging. We use LOG_EMERG only when we are PID 1, as only
+         * then the system of the whole system is obviously affected. */
+
+        return getpid_cached() == 1 ? LOG_EMERG : LOG_ERR;
 }

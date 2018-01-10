@@ -41,6 +41,7 @@
 #include "log.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "process-util.h"
 #include "selinux-access.h"
 #include "special.h"
 #include "string-util.h"
