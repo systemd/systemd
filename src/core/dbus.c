@@ -859,27 +859,21 @@ static int bus_init_api(Manager *m) {
                         r = sd_bus_open_system(&bus);
                 else
                         r = sd_bus_open_user(&bus);
-                if (r < 0) {
-                        log_debug("Failed to connect to API bus, retrying later...");
-                        return 0;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to API bus: %m");
 
                 r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to attach API bus to event loop: %m");
-                        return 0;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach API bus to event loop: %m");
 
                 r = bus_setup_disconnected_match(m, bus);
                 if (r < 0)
-                        return 0;
+                        return r;
         }
 
         r = bus_setup_api(m, bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set up API bus: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up API bus: %m");
 
         m->api_bus = bus;
         bus = NULL;
@@ -925,26 +919,20 @@ static int bus_init_system(Manager *m) {
         }
 
         r = sd_bus_open_system(&bus);
-        if (r < 0) {
-                log_debug("Failed to connect to system bus, retrying later...");
-                return 0;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to system bus: %m");
 
         r = bus_setup_disconnected_match(m, bus);
         if (r < 0)
-                return 0;
+                return r;
 
         r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to attach system bus to event loop: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach system bus to event loop: %m");
 
         r = bus_setup_system(m, bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set up system bus: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up system bus: %m");
 
         m->system_bus = bus;
         bus = NULL;
@@ -1030,16 +1018,16 @@ int bus_init(Manager *m, bool try_bus_connect) {
         if (try_bus_connect) {
                 r = bus_init_system(m);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to initialize D-Bus connection: %m");
 
                 r = bus_init_api(m);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Error occured during D-Bus APIs initialization: %m");
         }
 
         r = bus_init_private(m);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create private D-Bus server: %m");
 
         return 0;
 }
