@@ -34,8 +34,7 @@ void kill_context_init(KillContext *c) {
 void kill_context_dump(KillContext *c, FILE *f, const char *prefix) {
         assert(c);
 
-        if (!prefix)
-                prefix = "";
+        prefix = strempty(prefix);
 
         fprintf(f,
                 "%sKillMode: %s\n"

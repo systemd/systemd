@@ -653,8 +653,7 @@ void condition_dump(Condition *c, FILE *f, const char *prefix, const char *(*to_
         assert(c);
         assert(f);
 
-        if (!prefix)
-                prefix = "";
+        prefix = strempty(prefix);
 
         fprintf(f,
                 "%s\t%s: %s%s%s %s\n",

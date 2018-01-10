@@ -1225,8 +1225,7 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
         if (!filename_is_valid(fn))
                 return -EINVAL;
 
-        if (!extra)
-                extra = "";
+        extra = strempty(extra);
 
         t = new(char, strlen(p) + 2 + strlen(extra) + 6 + 1);
         if (!t)
@@ -1259,8 +1258,7 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
         if (!filename_is_valid(fn))
                 return -EINVAL;
 
-        if (!extra)
-                extra = "";
+        extra = strempty(extra);
 
         t = new(char, strlen(p) + 2 + strlen(extra) + 16 + 1);
         if (!t)
@@ -1300,8 +1298,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
                         return r;
         }
 
-        if (!extra)
-                extra = "";
+        extra = strempty(extra);
 
         t = new(char, strlen(p) + 3 + strlen(extra) + 16 + 1);
         if (!t)
