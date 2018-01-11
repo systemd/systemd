@@ -54,6 +54,7 @@
 #include "syslog-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "utf8.h"
 #include "util.h"
 
 #define SNDBUF_SIZE (8*1024*1024)
@@ -1288,6 +1289,27 @@ int log_syntax_internal(
                         LOG_MESSAGE("%s:%u: %s", config_file, config_line, buffer),
                         unit_fmt, unit,
                         NULL);
+}
+
+int log_syntax_invalid_utf8_internal(
+                const char *unit,
+                int level,
+                const char *config_file,
+                unsigned config_line,
+                const char *file,
+                int line,
+                const char *func,
+                const char *rvalue) {
+
+        _cleanup_free_ char *p = NULL;
+
+        if (rvalue)
+                p = utf8_escape_invalid(rvalue);
+
+        log_syntax_internal(unit, level, config_file, config_line, 0, file, line, func,
+                            "String is not UTF-8 clean, ignoring assignment: %s", strna(p));
+
+        return -EINVAL;
 }
 
 void log_set_upgrade_syslog_to_journal(bool b) {

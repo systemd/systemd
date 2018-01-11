@@ -317,6 +317,16 @@ int log_syntax_internal(
                 const char *func,
                 const char *format, ...) _printf_(9, 10);
 
+int log_syntax_invalid_utf8_internal(
+                const char *unit,
+                int level,
+                const char *config_file,
+                unsigned config_line,
+                const char *file,
+                int line,
+                const char *func,
+                const char *rvalue);
+
 #define log_syntax(unit, level, config_file, config_line, error, ...)   \
         ({                                                              \
                 int _level = (level), _e = (error);                     \
@@ -328,12 +338,9 @@ int log_syntax_internal(
 #define log_syntax_invalid_utf8(unit, level, config_file, config_line, rvalue) \
         ({                                                              \
                 int _level = (level);                                   \
-                if (log_get_max_level() >= LOG_PRI(_level)) {           \
-                        _cleanup_free_ char *_p = NULL;                 \
-                        _p = utf8_escape_invalid(rvalue);               \
-                        log_syntax_internal(unit, _level, config_file, config_line, 0, __FILE__, __LINE__, __func__, \
-                                            "String is not UTF-8 clean, ignoring assignment: %s", strna(_p)); \
-                }                                                       \
+                (log_get_max_level() >= LOG_PRI(_level))                \
+                        ? log_syntax_invalid_utf8_internal(unit, _level, config_file, config_line, __FILE__, __LINE__, __func__, rvalue) \
+                        : -EINVAL;                                      \
         })
 
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
