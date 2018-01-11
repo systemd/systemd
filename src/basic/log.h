@@ -238,9 +238,9 @@ void log_assert_failed_return_realm(
 /* Logging with level */
 #define log_full_errno_realm(realm, level, error, ...)                  \
         ({                                                              \
-                int _level = (level), _e = (error);                     \
-                (log_get_max_level_realm((realm)) >= LOG_PRI(_level))   \
-                        ? log_internal_realm(LOG_REALM_PLUS_LEVEL((realm), _level), _e, \
+                int _level = (level), _e = (error), _realm = (realm);   \
+                (log_get_max_level_realm(_realm) >= LOG_PRI(_level))   \
+                        ? log_internal_realm(LOG_REALM_PLUS_LEVEL(_realm, _level), _e, \
                                              __FILE__, __LINE__, __func__, __VA_ARGS__) \
                         : -abs(_e);                                     \
         })
