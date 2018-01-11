@@ -2183,7 +2183,7 @@ Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
         if (pid <= 0)
                 return NULL;
 
-        if (pid == 1)
+        if (pid == getpid_cached())
                 return hashmap_get(m->units, SPECIAL_INIT_SCOPE);
 
         u = hashmap_get(m->watch_pids1, PID_TO_PTR(pid));
