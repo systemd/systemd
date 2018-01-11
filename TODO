@@ -24,6 +24,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* rework pid watching logic, allow any number of units watch the same pid
+
 * be stricter with fds we receive for the fdstore: close them asynchronously
 
 * be stricter with pid file and notify pids: don't allow them to be outside of cgroup, except if sender is privileged
