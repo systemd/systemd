@@ -294,7 +294,7 @@ static int status_entries(const char *esp_path, sd_id128_t partition) {
                                        esp_path);
 
         if (config.default_entry < 0)
-                printf("%zu entries, no entry suitable as default.\n", config.n_entries);
+                printf("%zu entries, no entry suitable as default\n", config.n_entries);
         else {
                 const BootEntry *e = &config.entries[config.default_entry];
 
