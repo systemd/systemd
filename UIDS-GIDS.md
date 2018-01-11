@@ -26,13 +26,13 @@ i.e. 0…4294967295. However, four UIDs are special on Linux:
    call the `nobody` group `nogroup`. I wish they didn't.)
 
 3. 4294967295, aka "32bit `(uid_t) -1`" → This UID is not a valid user ID, as
-   setresuid(), chown() and friends treat -1 as a special request to not change
-   the UID of the process/file. This UID is hence not available for assignment
-   to users in the user database.
+   `setresuid()`, `chown()` and friends treat -1 as a special request to not
+   change the UID of the process/file. This UID is hence not available for
+   assignment to users in the user database.
 
-4. 65535, aka "16bit `(uid_t) -1`" → Once upon a time `uid_t` used to be 16bit, and
-   programs compiled for that would hence assume that `(uid_t) -1` is 65535. This
-   UID is hence not usable either.
+4. 65535, aka "16bit `(uid_t) -1`" → Before Linux kernel 2.4 `uid_t` used to be
+   16bit, and programs compiled for that would hence assume that `(uid_t) -1`
+   is 65535. This UID is hence not usable either.
 
 The `nss-systemd` glibc NSS module will synthesize user database records for
 the UIDs 0 and 65534 if the system user database doesn't list them. This means
