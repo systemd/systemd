@@ -1174,7 +1174,9 @@ static const char* mount_propagation_flags_to_string_with_check(unsigned long n)
 
 static BUS_DEFINE_SET_TRANSIENT(nsec, "t", uint64_t, nsec_t, NSEC_FMT);
 static BUS_DEFINE_SET_TRANSIENT_IS_VALID(log_level, "i", int32_t, int, "%" PRIi32, log_level_is_valid);
+#if HAVE_SECCOMP
 static BUS_DEFINE_SET_TRANSIENT_IS_VALID(errno, "i", int32_t, int, "%" PRIi32, errno_is_valid);
+#endif
 static BUS_DEFINE_SET_TRANSIENT_IS_VALID(sched_priority, "i", int32_t, int, "%" PRIi32, sched_priority_is_valid);
 static BUS_DEFINE_SET_TRANSIENT_IS_VALID(nice, "i", int32_t, int, "%" PRIi32, nice_is_valid);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(std_input, ExecInput, exec_input_from_string);
