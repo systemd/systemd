@@ -949,6 +949,17 @@ noreturn void freeze(void) {
 
         sync();
 
+        /* Let's not freeze right away, but keep reaping zombies. */
+        for (;;) {
+                int r;
+                siginfo_t si = {};
+
+                r = waitid(P_ALL, 0, &si, WEXITED);
+                if (r < 0 && errno != EINTR)
+                        break;
+        }
+
+        /* waitid() failed with an unexpected error, things are really borked. Freeze now! */
         for (;;)
                 pause();
 }
