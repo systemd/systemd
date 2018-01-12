@@ -83,6 +83,7 @@
 
 #if HAVE_PCRE2
 DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, pcre2_match_data_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, pcre2_code_free);
 
 static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
         int errorcode, r;
@@ -159,7 +160,9 @@ static usec_t arg_vacuum_time = 0;
 static char **arg_output_fields = NULL;
 
 #if HAVE_PCRE2
-static pcre2_code *arg_pattern = NULL;
+static const char *arg_pattern = NULL;
+static pcre2_code *arg_compiled_pattern = NULL;
+static int arg_case_sensitive = -1; /* -1 means be smart */
 #endif
 
 static enum {
@@ -316,68 +319,69 @@ static void help(void) {
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
                "Query the journal.\n\n"
                "Options:\n"
-               "     --system              Show the system journal\n"
-               "     --user                Show the user journal for the current user\n"
-               "  -M --machine=CONTAINER   Operate on local container\n"
-               "  -S --since=DATE          Show entries not older than the specified date\n"
-               "  -U --until=DATE          Show entries not newer than the specified date\n"
-               "  -c --cursor=CURSOR       Show entries starting at the specified cursor\n"
-               "     --after-cursor=CURSOR Show entries after the specified cursor\n"
-               "     --show-cursor         Print the cursor after all the entries\n"
-               "  -b --boot[=ID]           Show current boot or the specified boot\n"
-               "     --list-boots          Show terse information about recorded boots\n"
-               "  -k --dmesg               Show kernel message log from the current boot\n"
-               "  -u --unit=UNIT           Show logs from the specified unit\n"
-               "     --user-unit=UNIT      Show logs from the specified user unit\n"
-               "  -t --identifier=STRING   Show entries with the specified syslog identifier\n"
-               "  -p --priority=RANGE      Show entries with the specified priority\n"
-               "  -g --grep=PATTERN        Show entries with MESSSAGE matching PATTERN\n"
-               "  -e --pager-end           Immediately jump to the end in the pager\n"
-               "  -f --follow              Follow the journal\n"
-               "  -n --lines[=INTEGER]     Number of journal entries to show\n"
-               "     --no-tail             Show all lines, even in follow mode\n"
-               "  -r --reverse             Show the newest entries first\n"
-               "  -o --output=STRING       Change journal output mode (short, short-precise,\n"
-               "                             short-iso, short-iso-precise, short-full,\n"
-               "                             short-monotonic, short-unix, verbose, export,\n"
-               "                             json, json-pretty, json-sse, cat)\n"
-               "     --output-fields=LIST  Select fields to print in verbose/export/json modes\n"
-               "     --utc                 Express time in Coordinated Universal Time (UTC)\n"
-               "  -x --catalog             Add message explanations where available\n"
-               "     --no-full             Ellipsize fields\n"
-               "  -a --all                 Show all fields, including long and unprintable\n"
-               "  -q --quiet               Do not show info messages and privilege warning\n"
-               "     --no-pager            Do not pipe output into a pager\n"
-               "     --no-hostname         Suppress output of hostname field\n"
-               "  -m --merge               Show entries from all available journals\n"
-               "  -D --directory=PATH      Show journal files from directory\n"
-               "     --file=PATH           Show journal file\n"
-               "     --root=ROOT           Operate on files below a root directory\n"
+               "     --system                Show the system journal\n"
+               "     --user                  Show the user journal for the current user\n"
+               "  -M --machine=CONTAINER     Operate on local container\n"
+               "  -S --since=DATE            Show entries not older than the specified date\n"
+               "  -U --until=DATE            Show entries not newer than the specified date\n"
+               "  -c --cursor=CURSOR         Show entries starting at the specified cursor\n"
+               "     --after-cursor=CURSOR   Show entries after the specified cursor\n"
+               "     --show-cursor           Print the cursor after all the entries\n"
+               "  -b --boot[=ID]             Show current boot or the specified boot\n"
+               "     --list-boots            Show terse information about recorded boots\n"
+               "  -k --dmesg                 Show kernel message log from the current boot\n"
+               "  -u --unit=UNIT             Show logs from the specified unit\n"
+               "     --user-unit=UNIT        Show logs from the specified user unit\n"
+               "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
+               "  -p --priority=RANGE        Show entries with the specified priority\n"
+               "  -g --grep=PATTERN          Show entries with MESSSAGE matching PATTERN\n"
+               "     --case-sensitive[=BOOL] Force case sensitive or insenstive matching\n"
+               "  -e --pager-end             Immediately jump to the end in the pager\n"
+               "  -f --follow                Follow the journal\n"
+               "  -n --lines[=INTEGER]       Number of journal entries to show\n"
+               "     --no-tail               Show all lines, even in follow mode\n"
+               "  -r --reverse               Show the newest entries first\n"
+               "  -o --output=STRING         Change journal output mode (short, short-precise,\n"
+               "                               short-iso, short-iso-precise, short-full,\n"
+               "                               short-monotonic, short-unix, verbose, export,\n"
+               "                               json, json-pretty, json-sse, cat)\n"
+               "     --output-fields=LIST    Select fields to print in verbose/export/json modes\n"
+               "     --utc                   Express time in Coordinated Universal Time (UTC)\n"
+               "  -x --catalog               Add message explanations where available\n"
+               "     --no-full               Ellipsize fields\n"
+               "  -a --all                   Show all fields, including long and unprintable\n"
+               "  -q --quiet                 Do not show info messages and privilege warning\n"
+               "     --no-pager              Do not pipe output into a pager\n"
+               "     --no-hostname           Suppress output of hostname field\n"
+               "  -m --merge                 Show entries from all available journals\n"
+               "  -D --directory=PATH        Show journal files from directory\n"
+               "     --file=PATH             Show journal file\n"
+               "     --root=ROOT             Operate on files below a root directory\n"
 #if HAVE_GCRYPT
-               "     --interval=TIME       Time interval for changing the FSS sealing key\n"
-               "     --verify-key=KEY      Specify FSS verification key\n"
-               "     --force               Override of the FSS key pair with --setup-keys\n"
+               "     --interval=TIME         Time interval for changing the FSS sealing key\n"
+               "     --verify-key=KEY        Specify FSS verification key\n"
+               "     --force                 Override of the FSS key pair with --setup-keys\n"
 #endif
                "\nCommands:\n"
-               "  -h --help                Show this help text\n"
-               "     --version             Show package version\n"
-               "  -N --fields              List all field names currently used\n"
-               "  -F --field=FIELD         List all values that a specified field takes\n"
-               "     --disk-usage          Show total disk usage of all journal files\n"
-               "     --vacuum-size=BYTES   Reduce disk usage below specified size\n"
-               "     --vacuum-files=INT    Leave only the specified number of journal files\n"
-               "     --vacuum-time=TIME    Remove journal files older than specified time\n"
-               "     --verify              Verify journal file consistency\n"
-               "     --sync                Synchronize unwritten journal messages to disk\n"
-               "     --flush               Flush all journal data from /run into /var\n"
-               "     --rotate              Request immediate rotation of the journal files\n"
-               "     --header              Show journal header information\n"
-               "     --list-catalog        Show all message IDs in the catalog\n"
-               "     --dump-catalog        Show entries in the message catalog\n"
-               "     --update-catalog      Update the message catalog database\n"
-               "     --new-id128           Generate a new 128-bit ID\n"
+               "  -h --help                  Show this help text\n"
+               "     --version               Show package version\n"
+               "  -N --fields                List all field names currently used\n"
+               "  -F --field=FIELD           List all values that a specified field takes\n"
+               "     --disk-usage            Show total disk usage of all journal files\n"
+               "     --vacuum-size=BYTES     Reduce disk usage below specified size\n"
+               "     --vacuum-files=INT      Leave only the specified number of journal files\n"
+               "     --vacuum-time=TIME      Remove journal files older than specified time\n"
+               "     --verify                Verify journal file consistency\n"
+               "     --sync                  Synchronize unwritten journal messages to disk\n"
+               "     --flush                 Flush all journal data from /run into /var\n"
+               "     --rotate                Request immediate rotation of the journal files\n"
+               "     --header                Show journal header information\n"
+               "     --list-catalog          Show all message IDs in the catalog\n"
+               "     --dump-catalog          Show entries in the message catalog\n"
+               "     --update-catalog        Update the message catalog database\n"
+               "     --new-id128             Generate a new 128-bit ID\n"
 #if HAVE_GCRYPT
-               "     --setup-keys          Generate a new FSS key pair\n"
+               "     --setup-keys            Generate a new FSS key pair\n"
 #endif
                , program_invocation_short_name);
 }
@@ -409,6 +413,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DUMP_CATALOG,
                 ARG_UPDATE_CATALOG,
                 ARG_FORCE,
+                ARG_CASE_SENSITIVE,
                 ARG_UTC,
                 ARG_SYNC,
                 ARG_FLUSH,
@@ -449,6 +454,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "identifier",     required_argument, NULL, 't'                },
                 { "priority",       required_argument, NULL, 'p'                },
                 { "grep",           required_argument, NULL, 'g'                },
+                { "case-sensitive", optional_argument, NULL, ARG_CASE_SENSITIVE },
                 { "setup-keys",     no_argument,       NULL, ARG_SETUP_KEYS     },
                 { "interval",       required_argument, NULL, ARG_INTERVAL       },
                 { "verify",         no_argument,       NULL, ARG_VERIFY         },
@@ -801,20 +807,23 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
 #if HAVE_PCRE2
-                case 'g': {
-                        if (arg_pattern) {
-                                pcre2_code_free(arg_pattern);
-                                arg_pattern = NULL;
-                        }
-                        r = pattern_compile(optarg, 0, &arg_pattern);
-                        if (r < 0)
-                                return r;
+                case 'g':
+                        arg_pattern = optarg;
+                        break;
+
+                case ARG_CASE_SENSITIVE:
+                        if (optarg) {
+                                r = parse_boolean(optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Bad --case-sensitive= argument \"%s\": %m", optarg);
+                                arg_case_sensitive = r;
+                        } else
+                                arg_case_sensitive = true;
 
                         break;
-                }
-
 #else
                 case 'g':
+                case ARG_CASE_SENSITIVE:
                         return log_error("Compiled without pattern matching support");
 #endif
 
@@ -972,6 +981,42 @@ static int parse_argv(int argc, char *argv[]) {
 
                 arg_system_units = strv_free(arg_system_units);
         }
+
+
+#if HAVE_PCRE2
+        if (arg_pattern) {
+                unsigned flags;
+
+                if (arg_case_sensitive >= 0)
+                        flags = !arg_case_sensitive * PCRE2_CASELESS;
+                else {
+                        _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
+                        bool has_case;
+                        _cleanup_(pcre2_code_freep) pcre2_code *cs = NULL;
+
+                        md = pcre2_match_data_create(1, NULL);
+                        if (!md)
+                                return log_oom();
+
+                        r = pattern_compile("[[:upper:]]", 0, &cs);
+                        if (r < 0)
+                                return r;
+
+                        r = pcre2_match(cs, (PCRE2_SPTR8) arg_pattern, PCRE2_ZERO_TERMINATED, 0, 0, md, NULL);
+                        has_case = r >= 0;
+
+                        flags = !has_case * PCRE2_CASELESS;
+                }
+
+                log_debug("Doing case %s matching based on %s",
+                          flags & PCRE2_CASELESS ? "insensitive" : "sensitive",
+                          arg_case_sensitive >= 0 ? "request" : "pattern casing");
+
+                r = pattern_compile(arg_pattern, flags, &arg_compiled_pattern);
+                if (r < 0)
+                        return r;
+        }
+#endif
 
         return 1;
 }
@@ -2525,7 +2570,7 @@ int main(int argc, char *argv[]) {
                         }
 
 #if HAVE_PCRE2
-                        if (arg_pattern) {
+                        if (arg_compiled_pattern) {
                                 _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
                                 const void *message;
                                 size_t len;
@@ -2547,7 +2592,7 @@ int main(int argc, char *argv[]) {
 
                                 assert_se(message = startswith(message, "MESSAGE="));
 
-                                r = pcre2_match(arg_pattern,
+                                r = pcre2_match(arg_compiled_pattern,
                                                 message,
                                                 len - strlen("MESSAGE="),
                                                 0,      /* start at offset 0 in the subject */
@@ -2631,8 +2676,8 @@ finish:
         free(arg_verify_key);
 
 #if HAVE_PCRE2
-        if (arg_pattern)
-                pcre2_code_free(arg_pattern);
+        if (arg_compiled_pattern)
+                pcre2_code_free(arg_compiled_pattern);
 #endif
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
