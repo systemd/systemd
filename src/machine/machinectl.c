@@ -3166,6 +3166,8 @@ int main(int argc, char*argv[]) {
         r = machinectl_main(argc, argv, bus);
 
 finish:
+        /* make sure we terminate the bus connection first, and then close the
+         * pager, see issue #3543 for the details. */
         sd_bus_flush_close_unref(bus);
         pager_close();
         polkit_agent_close();
