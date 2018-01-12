@@ -3015,6 +3015,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 }
 
 static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+        bool notify_dbus = true;
         Service *s = SERVICE(u);
         ServiceResult f;
 
@@ -3293,10 +3294,12 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 assert_not_reached("Uh, control process died at wrong time.");
                         }
                 }
-        }
+        } else /* Neither control nor main PID? If so, don't notify about anything */
+                notify_dbus = false;
 
         /* Notify clients about changed exit status */
-        unit_add_to_dbus_queue(u);
+        if (notify_dbus)
+                unit_add_to_dbus_queue(u);
 
         /* We got one SIGCHLD for the service, let's watch all
          * processes that are now running of the service, and watch
