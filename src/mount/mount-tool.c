@@ -1563,7 +1563,7 @@ finish:
 }
 
 int main(int argc, char* argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();
