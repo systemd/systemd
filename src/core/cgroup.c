@@ -2186,40 +2186,46 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
 
 Unit *manager_get_unit_by_pid_cgroup(Manager *m, pid_t pid) {
         _cleanup_free_ char *cgroup = NULL;
-        int r;
 
         assert(m);
 
-        if (pid <= 0)
+        if (!pid_is_valid(pid))
                 return NULL;
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
-        if (r < 0)
+        if (cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup) < 0)
                 return NULL;
 
         return manager_get_unit_by_cgroup(m, cgroup);
 }
 
 Unit *manager_get_unit_by_pid(Manager *m, pid_t pid) {
-        Unit *u;
+        Unit *u, **array;
 
         assert(m);
 
-        if (pid <= 0)
+        /* Note that a process might be owned by multiple units, we return only one here, which is good enough for most
+         * cases, though not strictly correct. We prefer the one reported by cgroup membership, as that's the most
+         * relevant one as children of the process will be assigned to that one, too, before all else. */
+
+        if (!pid_is_valid(pid))
                 return NULL;
 
         if (pid == getpid_cached())
                 return hashmap_get(m->units, SPECIAL_INIT_SCOPE);
 
-        u = hashmap_get(m->watch_pids1, PID_TO_PTR(pid));
+        u = manager_get_unit_by_pid_cgroup(m, pid);
         if (u)
                 return u;
 
-        u = hashmap_get(m->watch_pids2, PID_TO_PTR(pid));
+        u = hashmap_get(m->watch_pids, PID_TO_PTR(pid));
         if (u)
                 return u;
 
-        return manager_get_unit_by_pid_cgroup(m, pid);
+        array = hashmap_get(m->watch_pids, PID_TO_PTR(-pid));
+        if (array)
+                return array[0];
+
+        return NULL;
 }
 
 int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {

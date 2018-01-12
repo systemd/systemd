@@ -2534,44 +2534,97 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 }
 
 int unit_watch_pid(Unit *u, pid_t pid) {
-        int q, r;
+        int r;
 
         assert(u);
-        assert(pid >= 1);
+        assert(pid_is_valid(pid));
 
-        /* Watch a specific PID. We only support one or two units
-         * watching each PID for now, not more. */
+        /* Watch a specific PID */
 
         r = set_ensure_allocated(&u->pids, NULL);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&u->manager->watch_pids1, NULL);
+        r = hashmap_ensure_allocated(&u->manager->watch_pids, NULL);
         if (r < 0)
                 return r;
 
-        r = hashmap_put(u->manager->watch_pids1, PID_TO_PTR(pid), u);
-        if (r == -EEXIST) {
-                r = hashmap_ensure_allocated(&u->manager->watch_pids2, NULL);
-                if (r < 0)
-                        return r;
+        /* First try, let's add the unit keyed by "pid". */
+        r = hashmap_put(u->manager->watch_pids, PID_TO_PTR(pid), u);
+        if (r == -EEXIST)  {
+                Unit **array;
+                bool found = false;
+                size_t n = 0;
 
-                r = hashmap_put(u->manager->watch_pids2, PID_TO_PTR(pid), u);
-        }
+                /* OK, the "pid" key is already assigned to a different unit. Let's see if the "-pid" key (which points
+                 * to an array of Units rather than just a Unit), lists us already. */
 
-        q = set_put(u->pids, PID_TO_PTR(pid));
-        if (q < 0)
-                return q;
+                array = hashmap_get(u->manager->watch_pids, PID_TO_PTR(-pid));
+                if (array)
+                        for (; array[n]; n++)
+                                if (array[n] == u)
+                                        found = true;
 
-        return r;
+                if (found) /* Found it already? if so, do nothing */
+                        r = 0;
+                else {
+                        Unit **new_array;
+
+                        /* Allocate a new array */
+                        new_array = new(Unit*, n + 2);
+                        if (!new_array)
+                                return -ENOMEM;
+
+                        memcpy_safe(new_array, array, sizeof(Unit*) * n);
+                        new_array[n] = u;
+                        new_array[n+1] = NULL;
+
+                        /* Add or replace the old array */
+                        r = hashmap_replace(u->manager->watch_pids, PID_TO_PTR(-pid), new_array);
+                        if (r < 0) {
+                                free(new_array);
+                                return r;
+                        }
+
+                        free(array);
+                }
+        } else if (r < 0)
+                return r;
+
+        r = set_put(u->pids, PID_TO_PTR(pid));
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 void unit_unwatch_pid(Unit *u, pid_t pid) {
-        assert(u);
-        assert(pid >= 1);
+        Unit **array;
 
-        (void) hashmap_remove_value(u->manager->watch_pids1, PID_TO_PTR(pid), u);
-        (void) hashmap_remove_value(u->manager->watch_pids2, PID_TO_PTR(pid), u);
+        assert(u);
+        assert(pid_is_valid(pid));
+
+        /* First let's drop the unit in case it's keyed as "pid". */
+        (void) hashmap_remove_value(u->manager->watch_pids, PID_TO_PTR(pid), u);
+
+        /* Then, let's also drop the unit, in case it's in the array keyed by -pid */
+        array = hashmap_get(u->manager->watch_pids, PID_TO_PTR(-pid));
+        if (array) {
+                size_t n, m = 0;
+
+                /* Let's iterate through the array, dropping our own entry */
+                for (n = 0; array[n]; n++)
+                        if (array[n] != u)
+                                array[m++] = array[n];
+                array[m] = NULL;
+
+                if (m == 0) {
+                        /* The array is now empty, remove the entire entry */
+                        assert(hashmap_remove(u->manager->watch_pids, PID_TO_PTR(-pid)) == array);
+                        free(array);
+                }
+        }
+
         (void) set_remove(u->pids, PID_TO_PTR(pid));
 }
 

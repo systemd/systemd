@@ -1205,8 +1205,7 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->units);
         hashmap_free(m->units_by_invocation_id);
         hashmap_free(m->jobs);
-        hashmap_free(m->watch_pids1);
-        hashmap_free(m->watch_pids2);
+        hashmap_free(m->watch_pids);
         hashmap_free(m->watch_bus);
 
         set_free(m->startup_units);
@@ -1915,22 +1914,27 @@ static void manager_invoke_notify_message(
                 const char *buf,
                 FDSet *fds) {
 
-        _cleanup_strv_free_ char **tags = NULL;
-
         assert(m);
         assert(u);
         assert(ucred);
         assert(buf);
 
-        tags = strv_split(buf, NEWLINE);
-        if (!tags) {
-                log_oom();
+        if (u->notifygen == m->notifygen) /* Already invoked on this same unit in this same iteration? */
                 return;
-        }
+        u->notifygen = m->notifygen;
 
-        if (UNIT_VTABLE(u)->notify_message)
+        if (UNIT_VTABLE(u)->notify_message) {
+                _cleanup_strv_free_ char **tags = NULL;
+
+                tags = strv_split(buf, NEWLINE);
+                if (!tags) {
+                        log_oom();
+                        return;
+                }
+
                 UNIT_VTABLE(u)->notify_message(u, ucred, tags, fds);
-        else if (DEBUG_LOGGING) {
+
+        } else if (DEBUG_LOGGING) {
                 _cleanup_free_ char *x = NULL, *y = NULL;
 
                 x = ellipsize(buf, 20, 90);
@@ -1964,9 +1968,11 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 
         struct cmsghdr *cmsg;
         struct ucred *ucred = NULL;
-        Unit *u1, *u2, *u3;
+        _cleanup_free_ Unit **array_copy = NULL;
+        Unit *u1, *u2, **array;
         int r, *fd_array = NULL;
         unsigned n_fds = 0;
+        bool found = false;
         ssize_t n;
 
         assert(m);
@@ -2033,22 +2039,41 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         /* Make sure it's NUL-terminated. */
         buf[n] = 0;
 
-        /* Notify every unit that might be interested, but try
-         * to avoid notifying the same one multiple times. */
+        /* Increase the generation counter used for filtering out duplicate unit invocations. */
+        m->notifygen++;
+
+        /* Notify every unit that might be interested, which might be multiple. */
         u1 = manager_get_unit_by_pid_cgroup(m, ucred->pid);
-        if (u1)
+        u2 = hashmap_get(m->watch_pids, PID_TO_PTR(ucred->pid));
+        array = hashmap_get(m->watch_pids, PID_TO_PTR(-ucred->pid));
+        if (array) {
+                size_t k = 0;
+
+                while (array[k])
+                        k++;
+
+                array_copy = newdup(Unit*, array, k+1);
+                if (!array_copy)
+                        log_oom();
+        }
+        /* And now invoke the per-unit callbacks. Note that manager_invoke_notify_message() will handle duplicate units
+         * make sure we only invoke each unit's handler once. */
+        if (u1) {
                 manager_invoke_notify_message(m, u1, ucred, buf, fds);
-
-        u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(ucred->pid));
-        if (u2 && u2 != u1)
+                found = true;
+        }
+        if (u2) {
                 manager_invoke_notify_message(m, u2, ucred, buf, fds);
+                found = true;
+        }
+        if (array_copy)
+                for (size_t i = 0; array_copy[i]; i++) {
+                        manager_invoke_notify_message(m, array_copy[i], ucred, buf, fds);
+                        found = true;
+                }
 
-        u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(ucred->pid));
-        if (u3 && u3 != u2 && u3 != u1)
-                manager_invoke_notify_message(m, u3, ucred, buf, fds);
-
-        if (!u1 && !u2 && !u3)
-                log_warning("Cannot find unit for notify message of PID "PID_FMT".", ucred->pid);
+        if (!found)
+                log_warning("Cannot find unit for notify message of PID "PID_FMT", ignoring.", ucred->pid);
 
         if (fdset_size(fds) > 0)
                 log_warning("Got extra auxiliary fds with notification message, closing them.");
@@ -2056,29 +2081,25 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         return 0;
 }
 
-static void invoke_sigchld_event(Manager *m, Unit *u, const siginfo_t *si) {
-        uint64_t iteration;
+static void manager_invoke_sigchld_event(
+                Manager *m,
+                Unit *u,
+                const siginfo_t *si) {
 
         assert(m);
         assert(u);
         assert(si);
 
-        sd_event_get_iteration(m->event, &iteration);
+        /* Already invoked the handler of this unit in this iteration? Then don't process this again */
+        if (u->sigchldgen == m->sigchldgen)
+                return;
+        u->sigchldgen = m->sigchldgen;
 
-        log_unit_debug(u, "Child "PID_FMT" belongs to %s", si->si_pid, u->id);
-
+        log_unit_debug(u, "Child "PID_FMT" belongs to %s.", si->si_pid, u->id);
         unit_unwatch_pid(u, si->si_pid);
 
-        if (UNIT_VTABLE(u)->sigchld_event) {
-                if (set_size(u->pids) <= 1 ||
-                    iteration != u->sigchldgen ||
-                    unit_main_pid(u) == si->si_pid ||
-                    unit_control_pid(u) == si->si_pid) {
-                        UNIT_VTABLE(u)->sigchld_event(u, si->si_pid, si->si_code, si->si_status);
-                        u->sigchldgen = iteration;
-                } else
-                        log_debug("%s already issued a sigchld this iteration %" PRIu64 ", skipping. Pids still being watched %d", u->id, iteration, set_size(u->pids));
-         }
+        if (UNIT_VTABLE(u)->sigchld_event)
+                UNIT_VTABLE(u)->sigchld_event(u, si->si_pid, si->si_code, si->si_status);
 }
 
 static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
@@ -2105,8 +2126,9 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
                 goto turn_off;
 
         if (IN_SET(si.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED)) {
+                _cleanup_free_ Unit **array_copy = NULL;
                 _cleanup_free_ char *name = NULL;
-                Unit *u1, *u2, *u3;
+                Unit *u1, *u2, **array;
 
                 (void) get_process_comm(si.si_pid, &name);
 
@@ -2118,17 +2140,36 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
                                 ? exit_status_to_string(si.si_status, EXIT_STATUS_FULL)
                                 : signal_to_string(si.si_status)));
 
-                /* And now figure out the unit this belongs
-                 * to, it might be multiple... */
+                /* Increase the generation counter used for filtering out duplicate unit invocations */
+                m->sigchldgen++;
+
+                /* And now figure out the unit this belongs to, it might be multiple... */
                 u1 = manager_get_unit_by_pid_cgroup(m, si.si_pid);
+                u2 = hashmap_get(m->watch_pids, PID_TO_PTR(si.si_pid));
+                array = hashmap_get(m->watch_pids, PID_TO_PTR(-si.si_pid));
+                if (array) {
+                        size_t n = 0;
+
+                        /* Cound how many entries the array has */
+                        while (array[n])
+                                n++;
+
+                        /* Make a copy of the array so that we don't trip up on the array changing beneath us */
+                        array_copy = newdup(Unit*, array, n+1);
+                        if (!array_copy)
+                                log_oom();
+                }
+
+                /* Finally, execute them all. Note that u1, u2 and the array might contain duplicates, but
+                 * that's fine, manager_invoke_sigchld_event() will ensure we only invoke the handlers once for
+                 * each iteration. */
                 if (u1)
-                        invoke_sigchld_event(m, u1, &si);
-                u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(si.si_pid));
-                if (u2 && u2 != u1)
-                        invoke_sigchld_event(m, u2, &si);
-                u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(si.si_pid));
-                if (u3 && u3 != u2 && u3 != u1)
-                        invoke_sigchld_event(m, u3, &si);
+                        manager_invoke_sigchld_event(m, u1, &si);
+                if (u2)
+                        manager_invoke_sigchld_event(m, u2, &si);
+                if (array_copy)
+                        for (size_t i = 0; array_copy[i]; i++)
+                                manager_invoke_sigchld_event(m, array_copy[i], &si);
         }
 
         /* And now, we actually reap the zombie. */

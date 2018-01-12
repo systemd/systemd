@@ -236,8 +236,10 @@ struct Unit {
          * process SIGCHLD for */
         Set *pids;
 
-        /* Used in sigchld event invocation to avoid repeat events being invoked */
-        uint64_t sigchldgen;
+        /* Used in SIGCHLD and sd_notify() message event invocation logic to avoid that we dispatch the same event
+         * multiple times on the same unit. */
+        unsigned sigchldgen;
+        unsigned notifygen;
 
         /* Used during GC sweeps */
         unsigned gc_marker;
