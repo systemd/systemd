@@ -579,6 +579,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-g</option></term>
+        <term><option>--grep=</option></term>
+
+        <listitem><para>Filter output to entries where the <varname>MESSAGE=</varname>
+        field matches the specified regular expression. PERL-compatible regular expressions
+        are used, see
+        <citerefentry><refentrytitle>pcre2pattern</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for a detailed description of the syntax.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-c</option></term>
         <term><option>--cursor=</option></term>
 

@@ -34,6 +34,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#if HAVE_PCRE2
+#  define PCRE2_CODE_UNIT_WIDTH 8
+#  include <pcre2.h>
+#endif
+
 #include "sd-bus.h"
 #include "sd-journal.h"
 
@@ -75,6 +80,33 @@
 #include "user-util.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
+
+#if HAVE_PCRE2
+DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, pcre2_match_data_free);
+
+static int pattern_compile(const char *pattern, unsigned flags, pcre2_code **out) {
+        int errorcode, r;
+        PCRE2_SIZE erroroffset;
+        pcre2_code *p;
+
+        p = pcre2_compile((PCRE2_SPTR8) pattern,
+                          PCRE2_ZERO_TERMINATED, flags, &errorcode, &erroroffset, NULL);
+        if (!p) {
+                unsigned char buf[LINE_MAX];
+
+                r = pcre2_get_error_message(errorcode, buf, sizeof buf);
+
+                log_error("Bad pattern \"%s\": %s",
+                          pattern,
+                          r < 0 ? "unknown error" : (char*) buf);
+                return -EINVAL;
+        }
+
+        *out = p;
+        return 0;
+}
+
+#endif
 
 enum {
         /* Special values for arg_lines */
@@ -125,6 +157,10 @@ static uint64_t arg_vacuum_size = 0;
 static uint64_t arg_vacuum_n_files = 0;
 static usec_t arg_vacuum_time = 0;
 static char **arg_output_fields = NULL;
+
+#if HAVE_PCRE2
+static pcre2_code *arg_pattern = NULL;
+#endif
 
 static enum {
         ACTION_SHOW,
@@ -295,6 +331,7 @@ static void help(void) {
                "     --user-unit=UNIT      Show logs from the specified user unit\n"
                "  -t --identifier=STRING   Show entries with the specified syslog identifier\n"
                "  -p --priority=RANGE      Show entries with the specified priority\n"
+               "  -g --grep=PATTERN        Show entries with MESSSAGE matching PATTERN\n"
                "  -e --pager-end           Immediately jump to the end in the pager\n"
                "  -f --follow              Follow the journal\n"
                "  -n --lines[=INTEGER]     Number of journal entries to show\n"
@@ -411,6 +448,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "header",         no_argument,       NULL, ARG_HEADER         },
                 { "identifier",     required_argument, NULL, 't'                },
                 { "priority",       required_argument, NULL, 'p'                },
+                { "grep",           required_argument, NULL, 'g'                },
                 { "setup-keys",     no_argument,       NULL, ARG_SETUP_KEYS     },
                 { "interval",       required_argument, NULL, ARG_INTERVAL       },
                 { "verify",         no_argument,       NULL, ARG_VERIFY         },
@@ -761,6 +799,24 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+#if HAVE_PCRE2
+                case 'g': {
+                        if (arg_pattern) {
+                                pcre2_code_free(arg_pattern);
+                                arg_pattern = NULL;
+                        }
+                        r = pattern_compile(optarg, 0, &arg_pattern);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+
+#else
+                case 'g':
+                        return log_error("Compiled without pattern matching support");
+#endif
 
                 case 'S':
                         r = parse_timestamp(optarg, &arg_since);
@@ -2468,6 +2524,53 @@ int main(int argc, char *argv[]) {
                                 }
                         }
 
+#if HAVE_PCRE2
+                        if (arg_pattern) {
+                                _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
+                                const void *message;
+                                size_t len;
+
+                                md = pcre2_match_data_create(1, NULL);
+                                if (!md)
+                                        return log_oom();
+
+                                r = sd_journal_get_data(j, "MESSAGE", &message, &len);
+                                if (r < 0) {
+                                        if (r == -ENOENT) {
+                                                need_seek = true;
+                                                continue;
+                                        }
+
+                                        log_error_errno(r, "Failed to get MESSAGE field: %m");
+                                        goto finish;
+                                }
+
+                                assert_se(message = startswith(message, "MESSAGE="));
+
+                                r = pcre2_match(arg_pattern,
+                                                message,
+                                                len - strlen("MESSAGE="),
+                                                0,      /* start at offset 0 in the subject */
+                                                0,      /* default options */
+                                                md,
+                                                NULL);
+                                if (r == PCRE2_ERROR_NOMATCH) {
+                                        need_seek = true;
+                                        continue;
+                                }
+                                if (r < 0) {
+                                        unsigned char buf[LINE_MAX];
+                                        int r2;
+
+                                        r2 = pcre2_get_error_message(r, buf, sizeof buf);
+                                        log_error("Pattern matching failed: %s",
+                                                  r2 < 0 ? "unknown error" : (char*) buf);
+                                        r = -EINVAL;
+                                        goto finish;
+                                }
+                        }
+#endif
+
                         flags =
                                 arg_all * OUTPUT_SHOW_ALL |
                                 arg_full * OUTPUT_FULL_WIDTH |
@@ -2526,6 +2629,11 @@ finish:
 
         free(arg_root);
         free(arg_verify_key);
+
+#if HAVE_PCRE2
+        if (arg_pattern)
+                pcre2_code_free(arg_pattern);
+#endif
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
