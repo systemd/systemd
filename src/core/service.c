@@ -3301,18 +3301,14 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         if (notify_dbus)
                 unit_add_to_dbus_queue(u);
 
-        /* We got one SIGCHLD for the service, let's watch all
-         * processes that are now running of the service, and watch
-         * that. Among the PIDs we then watch will be children
-         * reassigned to us, which hopefully allows us to identify
-         * when all children are gone */
+        /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others to watch,
+         * under the assumption that we'll sooner or later get a SIGCHLD for them, as the original process we watched
+         * was probably the parent of them, and they are hence now our children. */
         unit_tidy_watch_pids(u, s->main_pid, s->control_pid);
         unit_watch_all_pids(u);
 
-        /* If the PID set is empty now, then let's finish this off
-           (On unified we use proper notifications) */
-        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) == 0 && set_isempty(u->pids))
-                unit_add_to_cgroup_empty_queue(u);
+        /* If the PID set is empty now, then let's check if the cgroup is empty too and finish off the unit. */
+        unit_synthesize_cgroup_empty_event(u);
 }
 
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
