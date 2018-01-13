@@ -1309,7 +1309,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case MOUNT_UNMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGTERM:
 
-                if (m->from_proc_self_mountinfo) {
+                if (f == MOUNT_SUCCESS && m->from_proc_self_mountinfo) {
 
                         /* Still a mount point? If so, let's try again. Most likely there were multiple mount points
                          * stacked on top of each other. Note that due to the io event priority logic we can be sure
@@ -1324,7 +1324,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 mount_enter_mounted(m, f);
                         }
                 } else
-                        mount_enter_dead(m, f);
+                        mount_enter_dead_or_mounted(m, f);
 
                 break;
 
