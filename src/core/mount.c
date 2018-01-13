@@ -164,6 +164,10 @@ static void mount_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         m->timeout_usec = u->manager->default_timeout_start_usec;
+
+        m->exec_context.std_output = u->manager->default_std_output;
+        m->exec_context.std_error = u->manager->default_std_error;
+
         m->directory_mode = 0755;
 
         /* We need to make sure that /usr/bin/mount is always called
