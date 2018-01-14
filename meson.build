@@ -268,6 +268,11 @@ if get_option('tests') != 'false'
         endif
 endif
 
+ossfuzz = get_option('oss-fuzz')
+if ossfuzz
+        fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
+endif
+
 foreach arg : ['-Wextra',
                '-Werror=undef',
                '-Wlogical-op',
@@ -302,13 +307,20 @@ foreach arg : ['-Wextra',
                '-fvisibility=hidden',
                '-fstack-protector',
                '-fstack-protector-strong',
-               '-fPIE',
                '--param=ssp-buffer-size=4',
               ]
         if cc.has_argument(arg)
                 add_project_arguments(arg, language : 'c')
         endif
 endforeach
+
+# the oss-fuzz fuzzers are not built with -fPIE, so don't
+# enable it when we are linking against them
+if not ossfuzz
+        if cc.has_argument('-fPIE')
+              add_project_arguments('-fPIE', language : 'c')
+        endif
+endif
 
 # "negative" arguments: gcc on purpose does not return an error for "-Wno-"
 # arguments, just emits a warnings. So test for the "positive" version instead.
@@ -360,7 +372,7 @@ foreach arg : ['-Wl,-z,relro',
                            cc.cmd_array(), '-x', 'c', arg,
                            '-include', link_test_c).returncode() == 0
         message('Linking with @0@ supported: @1@'.format(arg, have ? 'yes' : 'no'))
-        if have
+        if have and (arg != '-pie' or not ossfuzz)
                 add_project_link_arguments(arg, language : 'c')
         endif
 endforeach
@@ -1178,6 +1190,7 @@ endforeach
 want_tests = get_option('tests')
 install_tests = get_option('install-tests')
 tests = []
+fuzzers = []
 
 conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', get_option('slow-tests'))
 
@@ -1303,6 +1316,7 @@ subdir('src/vconsole')
 subdir('src/boot/efi')
 
 subdir('src/test')
+subdir('src/fuzz')
 subdir('rules')
 subdir('test')
 
@@ -2454,6 +2468,39 @@ test_libudev_sym = executable(
         install_dir : testsdir)
 test('test-libudev-sym',
      test_libudev_sym)
+
+############################################################
+
+fuzzer_exes = []
+
+foreach tuple : fuzzers
+        sources = tuple[0]
+        link_with = tuple[1].length() > 0 ? tuple[1] : [libshared]
+        dependencies = tuple[2]
+        defs = tuple.length() >= 4 ? tuple[3] : []
+        incs = tuple.length() >= 5 ? tuple[4] : includes
+
+        if ossfuzz
+                dependencies += fuzzing_engine
+        else
+                sources += 'src/fuzz/fuzz-main.c'
+        endif
+
+        name = sources[0].split('/')[-1].split('.')[0]
+
+        fuzzer_exes += executable(
+                name,
+                sources,
+                include_directories : [incs, include_directories('src/fuzz')],
+                link_with : link_with,
+                dependencies : dependencies,
+                c_args : defs,
+                install : false)
+endforeach
+
+run_target('fuzzers',
+        depends : fuzzer_exes,
+        command : ['true'])
 
 ############################################################
 
