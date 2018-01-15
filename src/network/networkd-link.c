@@ -129,7 +129,7 @@ static bool link_radv_enabled(Link *link) {
         if (!link_ipv6ll_enabled(link))
                 return false;
 
-        return (link->network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE);
+        return link->network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE;
 }
 
 static bool link_lldp_rx_enabled(Link *link) {
