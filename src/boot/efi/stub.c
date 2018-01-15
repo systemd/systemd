@@ -124,6 +124,9 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 FreePool(loader_firmware_type);
         }
 
+        /* add StubInfo */
+        if (efivar_get_raw(&global_guid, L"StubInfo", &b, &size) != EFI_SUCCESS)
+                efivar_set(L"StubInfo", L"systemd-stub " PACKAGE_VERSION, FALSE);
 
         if (szs[3] > 0)
                 graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);
