@@ -261,7 +261,7 @@
 
           <para>Of these two rules the first rule is probably the more
           important one and breaks the second one sometimes. Hence,
-          when deciding whether to user argv[1], argv[2], or argv[3],
+          when deciding whether to use argv[1], argv[2], or argv[3],
           your default choice should probably be argv[1].</para>
         </listitem>
 
