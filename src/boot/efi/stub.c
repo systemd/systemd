@@ -104,6 +104,13 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
                 efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
 
+        /* if LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from UEFI */
+        if (efivar_get_raw(&global_guid, L"LoaderImageIdentifier", &b, &size) != EFI_SUCCESS) {
+                CHAR16 *loaded_image_path = DevicePathToStr(loaded_image->FilePath);
+                efivar_set(L"LoaderImageIdentifier", loaded_image_path, FALSE);
+                FreePool(loaded_image_path);
+        }
+
         if (szs[3] > 0)
                 graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);
 
