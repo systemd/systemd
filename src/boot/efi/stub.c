@@ -111,6 +111,20 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 FreePool(loaded_image_path);
         }
 
+        /* if LoaderFirmwareInfo is not set, let's set it */
+        if (efivar_get_raw(&global_guid, L"LoaderFirmwareInfo", &b, &size) != EFI_SUCCESS) {
+                CHAR16 *loader_firmware_info = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                efivar_set(L"LoaderFirmwareInfo", loader_firmware_info, FALSE);
+                FreePool(loader_firmware_info);
+        }
+        /* ditto for LoaderFirmwareType */
+        if (efivar_get_raw(&global_guid, L"LoaderFirmwareType", &b, &size) != EFI_SUCCESS) {
+                CHAR16 *loader_firmware_type = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+                efivar_set(L"LoaderFirmwareType", loader_firmware_type, FALSE);
+                FreePool(loader_firmware_type);
+        }
+
+
         if (szs[3] > 0)
                 graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);
 
