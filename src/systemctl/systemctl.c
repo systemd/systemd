@@ -8409,7 +8409,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "isolate",               2,        2,        VERB_ONLINE_ONLY, start_unit           },
                 { "kill",                  2,        VERB_ANY, VERB_ONLINE_ONLY, kill_unit            },
                 { "is-active",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    },
-                { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    },
+                { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    }, /* deprecated alias of is-active */
                 { "is-failed",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_failed    },
                 { "show",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                 },
                 { "cat",                   2,        VERB_ANY, VERB_ONLINE_ONLY, cat                  },

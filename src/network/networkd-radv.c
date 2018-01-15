@@ -28,16 +28,18 @@
 #include "sd-radv.h"
 #include "string-util.h"
 
-int config_parse_router_prefix_delegation(const char *unit,
-                                          const char *filename,
-                                          unsigned line,
-                                          const char *section,
-                                          unsigned section_line,
-                                         const char *lvalue,
-                                          int ltype,
-                                          const char *rvalue,
-                                          void *data,
-                                          void *userdata) {
+int config_parse_router_prefix_delegation(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         int d;
 

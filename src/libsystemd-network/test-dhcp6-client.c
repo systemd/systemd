@@ -262,6 +262,7 @@ static int test_option_status(sd_event *e) {
         r = dhcp6_option_parse_ia(option, &ia);
         assert_se(r >= 0);
         assert_se(ia.addresses != NULL);
+        dhcp6_lease_free_ia(&ia);
 
         zero(pd);
         option = (DHCP6Option *)option4;
@@ -273,6 +274,7 @@ static int test_option_status(sd_event *e) {
         assert_se(memcmp(&pd.ia_pd.id, &option4[4], 4) == 0);
         assert_se(memcmp(&pd.ia_pd.lifetime_t1, &option4[8], 4) == 0);
         assert_se(memcmp(&pd.ia_pd.lifetime_t2, &option4[12], 4) == 0);
+        dhcp6_lease_free_ia(&pd);
 
         zero(pd);
         option = (DHCP6Option *)option5;
@@ -281,6 +283,7 @@ static int test_option_status(sd_event *e) {
         r = dhcp6_option_parse_ia(option, &pd);
         assert_se(r == 0);
         assert_se(pd.addresses != NULL);
+        dhcp6_lease_free_ia(&pd);
 
         return 0;
 }
