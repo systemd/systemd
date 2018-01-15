@@ -40,6 +40,7 @@
 #include "missing.h"
 #include "socket-util.h"
 #include "util.h"
+#include "process-util.h"
 
 #define WORKERS_MIN 1U
 #define WORKERS_MAX 16U

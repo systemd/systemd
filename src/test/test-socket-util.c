@@ -28,6 +28,7 @@
 #include "in-addr-util.h"
 #include "log.h"
 #include "macro.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "util.h"

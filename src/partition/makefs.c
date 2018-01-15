@@ -28,6 +28,7 @@
 
 #include "alloc-util.h"
 #include "dissect-image.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 

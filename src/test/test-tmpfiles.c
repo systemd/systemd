@@ -29,6 +29,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "util.h"
 

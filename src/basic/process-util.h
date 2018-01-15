@@ -21,6 +21,7 @@
 ***/
 
 #include <alloca.h>
+#include <errno.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdbool.h>

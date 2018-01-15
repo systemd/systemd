@@ -18,6 +18,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
+
+#include "sd-bus.h"
+
 #include "bus-type.h"
 
 bool bus_type_is_valid(char c) {

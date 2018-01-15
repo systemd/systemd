@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno.h"
 #include "fd-util.h"
 #include "mkdir.h"
 #include "nspawn-setuid.h"

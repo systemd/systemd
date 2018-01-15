@@ -21,11 +21,12 @@
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <sys/time.h>
 #include <linux/random.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
 
 #if HAVE_SYS_AUXV_H
 #  include <sys/auxv.h>

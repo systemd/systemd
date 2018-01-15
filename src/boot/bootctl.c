@@ -36,6 +36,8 @@
 #include <sys/statfs.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
 #include "blkid-util.h"
 #include "bootspec.h"
