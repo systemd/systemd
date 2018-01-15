@@ -866,9 +866,45 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         cgroup_context_dump(&s->cgroup_context, f, prefix);
 }
 
+static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
+        Unit *owner;
+
+        assert(s);
+        assert(pid_is_valid(pid));
+
+        /* Checks whether the specified PID is suitable as main PID for this service. returns negative if not, 0 if the
+         * PID is questionnable but should be accepted if the source of configuration is trusted. > 0 if the PID is
+         * good */
+
+        if (pid == getpid_cached() || pid == 1) {
+                log_unit_full(UNIT(s), prio, 0, "New main PID "PID_FMT" is the manager, refusing.", pid);
+                return -EPERM;
+        }
+
+        if (pid == s->control_pid) {
+                log_unit_full(UNIT(s), prio, 0, "New main PID "PID_FMT" is the control process, refusing.", pid);
+                return -EPERM;
+        }
+
+        if (!pid_is_alive(pid)) {
+                log_unit_full(UNIT(s), prio, 0, "New main PID "PID_FMT" does not exist or is a zombie.", pid);
+                return -ESRCH;
+        }
+
+        owner = manager_get_unit_by_pid(UNIT(s)->manager, pid);
+        if (owner == UNIT(s)) {
+                log_unit_debug(UNIT(s), "New main PID "PID_FMT" belongs to service, we are happy.", pid);
+                return 1; /* Yay, it's definitely a good PID */
+        }
+
+        return 0; /* Hmm it's a suspicious PID, let's accept it if configuration source is trusted */
+}
+
 static int service_load_pid_file(Service *s, bool may_warn) {
+        char procfs[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *k = NULL;
-        int r;
+        _cleanup_close_ int fd = -1;
+        int r, prio;
         pid_t pid;
 
         assert(s);
@@ -876,30 +912,47 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (!s->pid_file)
                 return -ENOENT;
 
-        r = read_one_line_file(s->pid_file, &k);
-        if (r < 0) {
-                if (may_warn)
-                        log_unit_info_errno(UNIT(s), r, "PID file %s not readable (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
-                return r;
-        }
+        prio = may_warn ? LOG_INFO : LOG_DEBUG;
+
+        fd = chase_symlinks(s->pid_file, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
+        if (fd == -EPERM)
+                return log_unit_full(UNIT(s), prio, fd, "Permission denied while opening PID file or unsafe symlink chain: %s", s->pid_file);
+        if (fd < 0)
+                return log_unit_full(UNIT(s), prio, fd, "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
+
+        /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd chase_symlinks() returned us into a proper fd first. */
+        xsprintf(procfs, "/proc/self/fd/%i", fd);
+        r = read_one_line_file(procfs, &k);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Can't convert PID files %s O_PATH file descriptor to proper file descriptor: %m", s->pid_file);
 
         r = parse_pid(k, &pid);
-        if (r < 0) {
-                if (may_warn)
-                        log_unit_info_errno(UNIT(s), r, "Failed to read PID from file %s: %m", s->pid_file);
-                return r;
-        }
+        if (r < 0)
+                return log_unit_full(UNIT(s), prio, r, "Failed to parse PID from file %s: %m", s->pid_file);
 
-        if (!pid_is_alive(pid)) {
-                if (may_warn)
-                        log_unit_info(UNIT(s), "PID "PID_FMT" read from file %s does not exist or is a zombie.", pid, s->pid_file);
-                return -ESRCH;
+        if (s->main_pid_known && pid == s->main_pid)
+                return 0;
+
+        r = service_is_suitable_main_pid(s, pid, prio);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                struct stat st;
+
+                /* Hmm, it's not clear if the new main PID is safe. Let's allow this if the PID file is owned by root */
+
+                if (fstat(fd, &st) < 0)
+                        return log_unit_error_errno(UNIT(s), errno, "Failed to fstat() PID file O_PATH fd: %m");
+
+                if (st.st_uid != 0) {
+                        log_unit_error(UNIT(s), "New main PID "PID_FMT" does not belong to service, and PID file is not owned by root. Refusing.", pid);
+                        return -EPERM;
+                }
+
+                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, but we'll accept it since PID file is owned by root.", pid);
         }
 
         if (s->main_pid_known) {
-                if (pid == s->main_pid)
-                        return 0;
-
                 log_unit_debug(UNIT(s), "Main PID changing: "PID_FMT" -> "PID_FMT, s->main_pid, pid);
 
                 service_unwatch_main_pid(s);
@@ -915,7 +968,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (r < 0) /* FIXME: we need to do something here */
                 return log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" for service: %m", pid);
 
-        return 0;
+        return 1;
 }
 
 static void service_search_main_pid(Service *s) {
@@ -2983,7 +3036,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* Forking services may occasionally move to a new PID.
                  * As long as they update the PID file before exiting the old
                  * PID, they're fine. */
-                if (service_load_pid_file(s, false) == 0)
+                if (service_load_pid_file(s, false) > 0)
                         return;
 
                 s->main_pid = 0;
@@ -3408,37 +3461,55 @@ static bool service_notify_message_authorized(Service *s, pid_t pid, char **tags
         return true;
 }
 
-static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) {
+static void service_notify_message(
+                Unit *u,
+                const struct ucred *ucred,
+                char **tags,
+                FDSet *fds) {
+
         Service *s = SERVICE(u);
         bool notify_dbus = false;
         const char *e;
         char **i;
+        int r;
 
         assert(u);
+        assert(ucred);
 
-        if (!service_notify_message_authorized(SERVICE(u), pid, tags, fds))
+        if (!service_notify_message_authorized(SERVICE(u), ucred->pid, tags, fds))
                 return;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *cc = NULL;
 
                 cc = strv_join(tags, ", ");
-                log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", pid, isempty(cc) ? "n/a" : cc);
+                log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", ucred->pid, isempty(cc) ? "n/a" : cc);
         }
 
         /* Interpret MAINPID= */
         e = strv_find_startswith(tags, "MAINPID=");
         if (e && IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD)) {
-                if (parse_pid(e, &pid) < 0)
-                        log_unit_warning(u, "Failed to parse MAINPID= field in notification message: %s", e);
-                else if (pid == s->control_pid)
-                        log_unit_warning(u, "A control process cannot also be the main process");
-                else if (pid == getpid_cached() || pid == 1)
-                        log_unit_warning(u, "Service manager can't be main process, ignoring sd_notify() MAINPID= field");
-                else if (pid != s->main_pid) {
-                        service_set_main_pid(s, pid);
-                        unit_watch_pid(UNIT(s), pid);
-                        notify_dbus = true;
+                pid_t new_main_pid;
+
+                if (parse_pid(e, &new_main_pid) < 0)
+                        log_unit_warning(u, "Failed to parse MAINPID= field in notification message, ignoring: %s", e);
+                else if (!s->main_pid_known || new_main_pid != s->main_pid) {
+
+                        r = service_is_suitable_main_pid(s, new_main_pid, LOG_WARNING);
+                        if (r == 0) {
+                                /* The new main PID is a bit suspicous, which is OK if the sender is privileged. */
+
+                                if (ucred->uid == 0) {
+                                        log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, but we'll accept it as the request to change it came from a privileged process.", new_main_pid);
+                                        r = 1;
+                                } else
+                                        log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid);
+                        }
+                        if (r > 0) {
+                                service_set_main_pid(s, new_main_pid);
+                                unit_watch_pid(UNIT(s), new_main_pid);
+                                notify_dbus = true;
+                        }
                 }
         }
 

@@ -123,6 +123,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--uid=</option><replaceable>USER</replaceable></term>
+
+        <listitem><para>Set the user ID to send the notification from. Takes a UNIX user name or numeric UID. When
+        specified the notification message will be sent with the specified UID as sender, in place of the user the
+        command was invoked as. This option requires sufficient privileges in order to be able manipulate the user
+        identity of the process.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--status=</option></term>
 
         <listitem><para>Send a free-form status string for the daemon

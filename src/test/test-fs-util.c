@@ -22,21 +22,25 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "id128-util.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static void test_chase_symlinks(void) {
         _cleanup_free_ char *result = NULL;
         char temp[] = "/tmp/test-chase.XXXXXX";
         const char *top, *p, *pslash, *q, *qslash;
-        int r;
+        int r, pfd;
 
         assert_se(mkdtemp(temp));
 
@@ -234,6 +238,55 @@ static void test_chase_symlinks(void) {
         p = strjoina(temp, "/target/idontexist");
         r = chase_symlinks(p, NULL, 0, &result);
         assert_se(r == -ENOENT);
+
+        if (geteuid() == 0) {
+                p = strjoina(temp, "/priv1");
+                assert_se(mkdir(p, 0755) >= 0);
+
+                q = strjoina(p, "/priv2");
+                assert_se(mkdir(q, 0755) >= 0);
+
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) >= 0);
+
+                assert_se(chown(q, UID_NOBODY, GID_NOBODY) >= 0);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) >= 0);
+
+                assert_se(chown(p, UID_NOBODY, GID_NOBODY) >= 0);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) >= 0);
+
+                assert_se(chown(q, 0, 0) >= 0);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) == -EPERM);
+
+                assert_se(rmdir(q) >= 0);
+                assert_se(symlink("/etc/passwd", q) >= 0);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) == -EPERM);
+
+                assert_se(chown(p, 0, 0) >= 0);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) >= 0);
+        }
+
+        p = strjoina(temp, "/machine-id-test");
+        assert_se(symlink("/usr/../etc/./machine-id", p) >= 0);
+
+        pfd = chase_symlinks(p, NULL, CHASE_OPEN, NULL);
+        if (pfd != -ENOENT) {
+                char procfs[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(pfd) + 1];
+                _cleanup_close_ int fd = -1;
+                sd_id128_t a, b;
+
+                assert_se(pfd >= 0);
+
+                xsprintf(procfs, "/proc/self/fd/%i", pfd);
+
+                fd = open(procfs, O_RDONLY|O_CLOEXEC);
+                assert_se(fd >= 0);
+
+                safe_close(pfd);
+
+                assert_se(id128_read_fd(fd, ID128_PLAIN, &a) >= 0);
+                assert_se(sd_id128_get_machine(&b) >= 0);
+                assert_se(sd_id128_equal(a, b));
+        }
 
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
