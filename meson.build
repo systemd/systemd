@@ -262,7 +262,7 @@ check_compilation_sh = find_program('tools/meson-check-compilation.sh')
 
 if get_option('tests') != 'false'
         cxx = find_program('c++', required : false)
-	    if cxx.found()
+        if cxx.found()
                 #  Used only for tests
                 add_languages('cpp')
         endif
@@ -2390,6 +2390,7 @@ executable('systemd-sulogin-shell',
            install_dir : rootlibexecdir)
 
 ############################################################
+
 foreach tuple : tests
         sources = tuple[0]
         link_with = tuple[1].length() > 0 ? tuple[1] : [libshared]
