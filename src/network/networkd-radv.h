@@ -20,7 +20,33 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "networkd-address.h"
 #include "networkd-link.h"
+
+typedef struct Prefix Prefix;
+
+struct Prefix {
+        Network *network;
+        NetworkConfigSection *section;
+
+        sd_radv_prefix *radv_prefix;
+
+        LIST_FIELDS(Prefix, prefixes);
+};
+
+int prefix_new(Prefix **ret);
+void prefix_free(Prefix *prefix);
+int prefix_new_static(Network *network, const char *filename, unsigned section,
+                      Prefix **ret);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Prefix*, prefix_free);
+#define _cleanup_prefix_free_ _cleanup_(prefix_freep)
+
+int config_parse_router_prefix_delegation(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_router_preference(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_prefix(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_prefix_flags(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_prefix_lifetime(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 int radv_emit_dns(Link *link);
 int radv_configure(Link *link);

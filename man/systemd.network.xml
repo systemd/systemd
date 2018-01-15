@@ -667,8 +667,16 @@
         <varlistentry>
           <term><varname>IPv6PrefixDelegation=</varname></term>
           <listitem><para>Whether to enable or disable Router Advertisement sending on a link.
-          Defaults to <literal>false</literal>. See the <literal>[IPv6PrefixDelegation]</literal>
-          and the <literal>[IPv6Prefix]</literal> sections for configuration options.
+          Allowed values are <literal>static</literal> which distributes prefixes as defined in
+          the <literal>[IPv6PrefixDelegation]</literal> and any <literal>[IPv6Prefix]</literal>
+          sections, <literal>dhcpv6</literal> which requests prefixes using a DHCPv6 client
+          configured for another link and any values configured in the
+          <literal>[IPv6PrefixDelegation]</literal> section while ignoring all static prefix
+          configuration sections, <literal>yes</literal> which uses both static configuration
+          and DHCPv6, and <literal>false</literal> which turns off IPv6 prefix delegation
+          altogether. Defaults to <literal>false</literal>. See the
+          <literal>[IPv6PrefixDelegation]</literal> and the <literal>[IPv6Prefix]</literal>
+          sections for more configuration options.
           </para></listitem>
         </varlistentry>
         <varlistentry>

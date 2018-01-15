@@ -1249,6 +1249,145 @@ static int manager_dirty_handler(sd_event_source *s, void *userdata) {
         return 1;
 }
 
+Link *manager_dhcp6_prefix_get(Manager *m, struct in6_addr *addr) {
+        assert_return(m, NULL);
+        assert_return(m->dhcp6_prefixes, NULL);
+        assert_return(addr, NULL);
+
+        return hashmap_get(m->dhcp6_prefixes, addr);
+}
+
+static int dhcp6_route_add_callback(sd_netlink *nl, sd_netlink_message *m,
+                                       void *userdata) {
+        Link *l = userdata;
+        int r;
+        union in_addr_union prefix;
+        _cleanup_free_ char *buf = NULL;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r != 0) {
+                log_link_debug_errno(l, r, "Received error adding DHCPv6 Prefix Delegation route: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_in6_addr(m, RTA_DST, &prefix.in6);
+        if (r < 0) {
+                log_link_debug_errno(l, r, "Could not read IPv6 address from DHCPv6 Prefix Delegation while adding route: %m");
+                return 0;
+        }
+
+        (void) in_addr_to_string(AF_INET6, &prefix, &buf);
+        log_link_debug(l, "Added DHCPv6 Prefix Deleagtion route %s/64",
+                       strnull(buf));
+
+        return 0;
+}
+
+int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link) {
+        int r;
+        Route *route;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->dhcp6_prefixes, -ENODATA);
+        assert_return(addr, -EINVAL);
+
+        r = route_add(link, AF_INET6, (union in_addr_union *) addr, 64,
+                      0, 0, 0, &route);
+        if (r < 0)
+                return r;
+
+        r = route_configure(route, link, dhcp6_route_add_callback);
+        if (r < 0)
+                return r;
+
+        return hashmap_put(m->dhcp6_prefixes, addr, link);
+}
+
+static int dhcp6_route_remove_callback(sd_netlink *nl, sd_netlink_message *m,
+                                       void *userdata) {
+        Link *l = userdata;
+        int r;
+        union in_addr_union prefix;
+        _cleanup_free_ char *buf = NULL;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r != 0) {
+                log_link_debug_errno(l, r, "Received error on DHCPv6 Prefix Delegation route removal: %m");
+                return 0;
+        }
+
+        r = sd_netlink_message_read_in6_addr(m, RTA_DST, &prefix.in6);
+        if (r < 0) {
+                log_link_debug_errno(l, r, "Could not read IPv6 address from DHCPv6 Prefix Delegation while removing route: %m");
+                return 0;
+        }
+
+        (void) in_addr_to_string(AF_INET6, &prefix, &buf);
+        log_link_debug(l, "Removed DHCPv6 Prefix Delegation route %s/64",
+                       strnull(buf));
+
+        return 0;
+}
+
+int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr) {
+        Link *l;
+        int r;
+        Route *route;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->dhcp6_prefixes, -ENODATA);
+        assert_return(addr, -EINVAL);
+
+        l = hashmap_remove(m->dhcp6_prefixes, addr);
+        if (!l)
+                return -EINVAL;
+
+        (void) sd_radv_remove_prefix(l->radv, addr, 64);
+        r = route_get(l, AF_INET6, (union in_addr_union *) addr, 64,
+                      0, 0, 0, &route);
+        if (r >= 0)
+                (void) route_remove(route, l, dhcp6_route_remove_callback);
+
+        return 0;
+}
+
+int manager_dhcp6_prefix_remove_all(Manager *m, Link *link) {
+        Iterator i;
+        Link *l;
+        struct in6_addr *addr;
+
+        assert_return(m, -EINVAL);
+        assert_return(l, -EINVAL);
+
+        HASHMAP_FOREACH_KEY(l, addr, m->dhcp6_prefixes, i) {
+                if (l != link)
+                        continue;
+
+                (void) manager_dhcp6_prefix_remove(m, addr);
+        }
+
+        return 0;
+}
+
+static void dhcp6_prefixes_hash_func(const void *p, struct siphash *state) {
+        const struct in6_addr *addr = p;
+
+        assert(p);
+
+        siphash24_compress(addr, sizeof(*addr), state);
+}
+
+static int dhcp6_prefixes_compare_func(const void *_a, const void *_b) {
+        const struct in6_addr *a = _a, *b = _b;
+
+        return memcmp(&a, &b, sizeof(*a));
+}
+
+static const struct hash_ops dhcp6_prefixes_hash_ops = {
+        .hash = dhcp6_prefixes_hash_func,
+        .compare = dhcp6_prefixes_compare_func,
+};
+
 int manager_new(Manager **ret, sd_event *event) {
         _cleanup_manager_free_ Manager *m = NULL;
         int r;
@@ -1297,6 +1436,10 @@ int manager_new(Manager **ret, sd_event *event) {
         if (r < 0)
                 return r;
 
+        m->dhcp6_prefixes = hashmap_new(&dhcp6_prefixes_hash_ops);
+        if (!m->dhcp6_prefixes)
+                return -ENOMEM;
+
         m->duid.type = DUID_TYPE_EN;
 
         (void) routing_policy_load_rules(m->state_file, &m->rules_saved);
@@ -1320,6 +1463,10 @@ void manager_free(Manager *m) {
 
         while ((network = m->networks))
                 network_free(network);
+
+        while ((link = hashmap_first(m->dhcp6_prefixes)))
+                link_unref(link);
+        hashmap_free(m->dhcp6_prefixes);
 
         while ((link = hashmap_first(m->links)))
                 link_unref(link);
