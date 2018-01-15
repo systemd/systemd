@@ -20,7 +20,7 @@ set -ex
 
 export LC_CTYPE=C.UTF-8
 
-meson $WORK -Doss-fuzz=true -Db_lundef=false -Dseccomp=false -Dlz4=false -Dlibiptc=false -Dlibidn=false
+meson $WORK -Doss-fuzz=true -Db_lundef=false
 ninja -C $WORK fuzzers
 
 # get DNS packet corpus

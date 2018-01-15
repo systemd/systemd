@@ -779,10 +779,11 @@ if not libcap.found()
 endif
 
 libmount = dependency('mount',
-                      version : '>= 2.30')
+                      version : '>= 2.30',
+                      required : not ossfuzz)
 
 want_seccomp = get_option('seccomp')
-if want_seccomp != 'false'
+if want_seccomp != 'false' and not ossfuzz
         libseccomp = dependency('libseccomp',
                                 version : '>= 2.3.1',
                                 required : want_seccomp == 'true')
@@ -795,7 +796,7 @@ conf.set10('HAVE_SECCOMP', have)
 m4_defines += have ? ['-DHAVE_SECCOMP'] : []
 
 want_selinux = get_option('selinux')
-if want_selinux != 'false'
+if want_selinux != 'false' and not ossfuzz
         libselinux = dependency('libselinux',
                                 version : '>= 2.1.9',
                                 required : want_selinux == 'true')
@@ -808,7 +809,7 @@ conf.set10('HAVE_SELINUX', have)
 m4_defines += have ? ['-DHAVE_SELINUX'] : []
 
 want_apparmor = get_option('apparmor')
-if want_apparmor != 'false'
+if want_apparmor != 'false' and not ossfuzz
         libapparmor = dependency('libapparmor',
                                  required : want_apparmor == 'true')
         have = libapparmor.found()
@@ -828,7 +829,7 @@ endif
 want_polkit = get_option('polkit')
 install_polkit = false
 install_polkit_pkla = false
-if want_polkit != 'false'
+if want_polkit != 'false' and not ossfuzz
         install_polkit = true
 
         libpolkit = dependency('polkit-gobject-1',
@@ -841,7 +842,7 @@ endif
 conf.set10('ENABLE_POLKIT', install_polkit)
 
 want_acl = get_option('acl')
-if want_acl != 'false'
+if want_acl != 'false' and not ossfuzz
         libacl = cc.find_library('acl', required : want_acl == 'true')
         have = libacl.found()
 else
@@ -852,7 +853,7 @@ conf.set10('HAVE_ACL', have)
 m4_defines += have ? ['-DHAVE_ACL'] : []
 
 want_audit = get_option('audit')
-if want_audit != 'false'
+if want_audit != 'false' and not ossfuzz
         libaudit = dependency('audit', required : want_audit == 'true')
         have = libaudit.found()
 else
@@ -862,7 +863,7 @@ endif
 conf.set10('HAVE_AUDIT', have)
 
 want_blkid = get_option('blkid')
-if want_blkid != 'false'
+if want_blkid != 'false' and not ossfuzz
         libblkid = dependency('blkid', required : want_blkid == 'true')
         have = libblkid.found()
 else
@@ -872,7 +873,7 @@ endif
 conf.set10('HAVE_BLKID', have)
 
 want_kmod = get_option('kmod')
-if want_kmod != 'false'
+if want_kmod != 'false' and not ossfuzz
         libkmod = dependency('libkmod',
                              version : '>= 15',
                              required : want_kmod == 'true')
@@ -884,7 +885,7 @@ endif
 conf.set10('HAVE_KMOD', have)
 
 want_pam = get_option('pam')
-if want_pam != 'false'
+if want_pam != 'false' and not ossfuzz
         libpam = cc.find_library('pam', required : want_pam == 'true')
         libpam_misc = cc.find_library('pam_misc', required : want_pam == 'true')
         have = libpam.found() and libpam_misc.found()
@@ -897,7 +898,7 @@ conf.set10('HAVE_PAM', have)
 m4_defines += have ? ['-DHAVE_PAM'] : []
 
 want_microhttpd = get_option('microhttpd')
-if want_microhttpd != 'false'
+if want_microhttpd != 'false' and not ossfuzz
         libmicrohttpd = dependency('libmicrohttpd',
                                    version : '>= 0.9.33',
                                    required : want_microhttpd == 'true')
@@ -910,7 +911,7 @@ conf.set10('HAVE_MICROHTTPD', have)
 m4_defines += have ? ['-DHAVE_MICROHTTPD'] : []
 
 want_libcryptsetup = get_option('libcryptsetup')
-if want_libcryptsetup != 'false'
+if want_libcryptsetup != 'false' and not ossfuzz
         libcryptsetup = dependency('libcryptsetup',
                                    version : '>= 1.6.0',
                                    required : want_libcryptsetup == 'true')
@@ -922,7 +923,7 @@ endif
 conf.set10('HAVE_LIBCRYPTSETUP', have)
 
 want_libcurl = get_option('libcurl')
-if want_libcurl != 'false'
+if want_libcurl != 'false' and not ossfuzz
         libcurl = dependency('libcurl',
                              version : '>= 7.32.0',
                              required : want_libcurl == 'true')
@@ -940,7 +941,7 @@ if want_libidn == 'true' and want_libidn2 == 'true'
         error('libidn and libidn2 cannot be requested simultaneously')
 endif
 
-if want_libidn != 'false' and want_libidn2 != 'true'
+if want_libidn != 'false' and want_libidn2 != 'true' and not ossfuzz
         libidn = dependency('libidn',
                             required : want_libidn == 'true')
         have = libidn.found()
@@ -950,7 +951,7 @@ else
 endif
 conf.set10('HAVE_LIBIDN', have)
 m4_defines += have ? ['-DHAVE_LIBIDN'] : []
-if not have and want_libidn2 != 'false'
+if not have and want_libidn2 != 'false' and not ossfuzz
         # libidn is used for both libidn and libidn2 objects
         libidn = dependency('libidn2',
                             required : want_libidn2 == 'true')
@@ -962,7 +963,7 @@ conf.set10('HAVE_LIBIDN2', have)
 m4_defines += have ? ['-DHAVE_LIBIDN2'] : []
 
 want_libiptc = get_option('libiptc')
-if want_libiptc != 'false'
+if want_libiptc != 'false' and not ossfuzz
         libiptc = dependency('libiptc',
                              required : want_libiptc == 'true')
         have = libiptc.found()
@@ -974,7 +975,7 @@ conf.set10('HAVE_LIBIPTC', have)
 m4_defines += have ? ['-DHAVE_LIBIPTC'] : []
 
 want_qrencode = get_option('qrencode')
-if want_qrencode != 'false'
+if want_qrencode != 'false' and not ossfuzz
         libqrencode = dependency('libqrencode',
                                  required : want_qrencode == 'true')
         have = libqrencode.found()
@@ -985,7 +986,7 @@ endif
 conf.set10('HAVE_QRENCODE', have)
 
 want_gcrypt = get_option('gcrypt')
-if want_gcrypt != 'false'
+if want_gcrypt != 'false' and not ossfuzz
         libgcrypt = cc.find_library('gcrypt', required : want_gcrypt == 'true')
         libgpg_error = cc.find_library('gpg-error', required : want_gcrypt == 'true')
         have = libgcrypt.found() and libgpg_error.found()
@@ -1000,7 +1001,7 @@ endif
 conf.set10('HAVE_GCRYPT', have)
 
 want_gnutls = get_option('gnutls')
-if want_gnutls != 'false'
+if want_gnutls != 'false' and not ossfuzz
         libgnutls = dependency('gnutls',
                                version : '>= 3.1.4',
                                required : want_gnutls == 'true')
@@ -1012,7 +1013,7 @@ endif
 conf.set10('HAVE_GNUTLS', have)
 
 want_elfutils = get_option('elfutils')
-if want_elfutils != 'false'
+if want_elfutils != 'false' and not ossfuzz
         libdw = dependency('libdw',
                            required : want_elfutils == 'true')
         have = libdw.found()
@@ -1023,7 +1024,7 @@ endif
 conf.set10('HAVE_ELFUTILS', have)
 
 want_zlib = get_option('zlib')
-if want_zlib != 'false'
+if want_zlib != 'false' and not ossfuzz
         libz = dependency('zlib',
                           required : want_zlib == 'true')
         have = libz.found()
@@ -1034,7 +1035,7 @@ endif
 conf.set10('HAVE_ZLIB', have)
 
 want_bzip2 = get_option('bzip2')
-if want_bzip2 != 'false'
+if want_bzip2 != 'false' and not ossfuzz
         libbzip2 = cc.find_library('bz2',
                                    required : want_bzip2 == 'true')
         have = libbzip2.found()
@@ -1045,7 +1046,7 @@ endif
 conf.set10('HAVE_BZIP2', have)
 
 want_xz = get_option('xz')
-if want_xz != 'false'
+if want_xz != 'false' and not ossfuzz
         libxz = dependency('liblzma',
                            required : want_xz == 'true')
         have = libxz.found()
@@ -1056,7 +1057,7 @@ endif
 conf.set10('HAVE_XZ', have)
 
 want_lz4 = get_option('lz4')
-if want_lz4 != 'false'
+if want_lz4 != 'false' and not ossfuzz
         liblz4 = dependency('liblz4',
                             required : want_lz4 == 'true')
         have = liblz4.found()
@@ -1067,7 +1068,7 @@ endif
 conf.set10('HAVE_LZ4', have)
 
 want_xkbcommon = get_option('xkbcommon')
-if want_xkbcommon != 'false'
+if want_xkbcommon != 'false' and not ossfuzz
         libxkbcommon = dependency('xkbcommon',
                                   version : '>= 0.3.0',
                                   required : want_xkbcommon == 'true')
@@ -1079,7 +1080,7 @@ endif
 conf.set10('HAVE_XKBCOMMON', have)
 
 want_glib = get_option('glib')
-if want_glib != 'false'
+if want_glib != 'false' and not ossfuzz
         libglib =    dependency('glib-2.0',
                                 version : '>= 2.22.0',
                                 required : want_glib == 'true')
@@ -1098,7 +1099,7 @@ endif
 conf.set10('HAVE_GLIB', have)
 
 want_dbus = get_option('dbus')
-if want_dbus != 'false'
+if want_dbus != 'false' and not ossfuzz
         libdbus = dependency('dbus-1',
                              version : '>= 1.3.2',
                              required : want_dbus == 'true')
@@ -1110,6 +1111,9 @@ endif
 conf.set10('HAVE_DBUS', have)
 
 default_dnssec = get_option('default-dnssec')
+if ossfuzz
+        default_dnssec = 'no'
+endif
 if default_dnssec != 'no' and conf.get('HAVE_GCRYPT') == 0
         message('default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.')
         default_dnssec = 'no'
