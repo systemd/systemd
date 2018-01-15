@@ -609,7 +609,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
         sd_bus *container_bus = NULL;
         _cleanup_close_ int master = -1, slave = -1;
-        _cleanup_strv_free_ char **env = NULL, **args = NULL;
+        _cleanup_strv_free_ char **env = NULL, **args_wire = NULL, **args = NULL;
         Machine *m = userdata;
         const char *p, *unit, *user, *path, *description, *utmp_id;
         int r;
@@ -621,22 +621,41 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
         user = empty_to_null(user);
-        if (isempty(path))
-                path = "/bin/sh";
-        if (!path_is_absolute(path))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
-
-        r = sd_bus_message_read_strv(message, &args);
+        r = sd_bus_message_read_strv(message, &args_wire);
         if (r < 0)
                 return r;
-        if (strv_isempty(args)) {
-                args = strv_free(args);
+        if (isempty(path)) {
+                path = "/bin/sh";
 
-                args = strv_new(path, NULL);
+                args = new0(char*, 3 + 1);
                 if (!args)
                         return -ENOMEM;
+                args[0] = strdup("sh");
+                if (!args[0])
+                        return -ENOMEM;
+                args[1] = strdup("-c");
+                if (!args[1])
+                        return -ENOMEM;
+                r = asprintf(&args[2],
+                             "shell=$(getent passwd %s 2>/dev/null | { IFS=: read _ _ _ _ _ _ x; echo \"$x\"; })\n"\
+                             "exec \"${shell:-/bin/sh}\" -l", /* -l is means --login */
+                             isempty(user) ? "root" : user);
+                if (r < 0) {
+                        args[2] = NULL;
+                        return -ENOMEM;
+                }
+        } else {
+                if (!path_is_absolute(path))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
+                args = args_wire;
+                args_wire = NULL;
+                if (strv_isempty(args)) {
+                        args = strv_free(args);
 
-                args[0][0] = '-'; /* Tell /bin/sh that this shall be a login shell */
+                        args = strv_new(path, NULL);
+                        if (!args)
+                                return -ENOMEM;
+                }
         }
 
         r = sd_bus_message_read_strv(message, &env);
