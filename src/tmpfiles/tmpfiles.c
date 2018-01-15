@@ -199,12 +199,12 @@ static const Specifier specifier_table[] = {
 static int specifier_machine_id_safe(char specifier, void *data, void *userdata, char **ret) {
         int r;
 
-        /* If /etc/machine_id is missing (e.g. in a chroot environment), returns
-         * a recognizable error so that the caller can skip the rule
+        /* If /etc/machine_id is missing or empty (e.g. in a chroot environment)
+         * return a recognizable error so that the caller can skip the rule
          * gracefully. */
 
         r = specifier_machine_id(specifier, data, userdata, ret);
-        if (r == -ENOENT)
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
                 return -ENXIO;
 
         return r;
@@ -375,34 +375,46 @@ static struct Item* find_glob(OrderedHashmap *h, const char *match) {
 
 static void load_unix_sockets(void) {
         _cleanup_fclose_ FILE *f = NULL;
-        char line[LINE_MAX];
+        int r;
 
         if (unix_sockets)
                 return;
 
-        /* We maintain a cache of the sockets we found in
-         * /proc/net/unix to speed things up a little. */
+        /* We maintain a cache of the sockets we found in /proc/net/unix to speed things up a little. */
 
         unix_sockets = set_new(&string_hash_ops);
         if (!unix_sockets)
                 return;
 
         f = fopen("/proc/net/unix", "re");
-        if (!f)
-                return;
+        if (!f) {
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to open /proc/net/unix, ignoring: %m");
+                goto fail;
+        }
 
         /* Skip header */
-        if (!fgets(line, sizeof(line), f))
+        r = read_line(f, LONG_LINE_MAX, NULL);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to skip /proc/net/unix header line: %m");
                 goto fail;
+        }
+        if (r == 0) {
+                log_warning("Premature end of file reading /proc/net/unix.");
+                goto fail;
+        }
 
         for (;;) {
+                _cleanup_free_ char *line = NULL;
                 char *p, *s;
-                int k;
 
-                if (!fgets(line, sizeof(line), f))
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read /proc/net/unix line, ignoring: %m");
+                        goto fail;
+                }
+                if (r == 0) /* EOF */
                         break;
-
-                truncate_nl(line);
 
                 p = strchr(line, ':');
                 if (!p)
@@ -420,21 +432,24 @@ static void load_unix_sockets(void) {
                         continue;
 
                 s = strdup(p);
-                if (!s)
+                if (!s) {
+                        log_oom();
                         goto fail;
+                }
 
                 path_kill_slashes(s);
 
-                k = set_consume(unix_sockets, s);
-                if (k < 0 && k != -EEXIST)
+                r = set_consume(unix_sockets, s);
+                if (r < 0 && r != -EEXIST) {
+                        log_warning_errno(r, "Failed to add AF_UNIX socket to set, ignoring: %m");
                         goto fail;
+                }
         }
 
         return;
 
 fail:
-        set_free_free(unix_sockets);
-        unix_sockets = NULL;
+        unix_sockets = set_free_free(unix_sockets);
 }
 
 static bool unix_socket_alive(const char *fn) {

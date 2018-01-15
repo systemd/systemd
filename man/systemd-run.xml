@@ -170,6 +170,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-r</option></term>
         <term><option>--remain-after-exit</option></term>
 
         <listitem><para>After the service process has terminated, keep the service around until it is explicitly

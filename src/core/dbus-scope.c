@@ -26,6 +26,7 @@
 #include "dbus-kill.h"
 #include "dbus-scope.h"
 #include "dbus-unit.h"
+#include "dbus-util.h"
 #include "dbus.h"
 #include "scope.h"
 #include "selinux-access.h"
@@ -84,6 +85,9 @@ static int bus_scope_set_transient_property(
 
         flags |= UNIT_PRIVATE;
 
+        if (streq(name, "TimeoutStopUSec"))
+                return bus_set_transient_usec(UNIT(s), name, &s->timeout_stop_usec, message, flags, error);
+
         if (streq(name, "PIDs")) {
                 unsigned n = 0;
                 uint32_t pid;
@@ -136,21 +140,6 @@ static int bus_scope_set_transient_property(
                         r = free_and_strdup(&s->controller, empty_to_null(controller));
                         if (r < 0)
                                 return r;
-                }
-
-                return 1;
-
-        } else if (streq(name, "TimeoutStopUSec")) {
-                uint64_t t;
-
-                r = sd_bus_message_read(message, "t", &t);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        s->timeout_stop_usec = t;
-
-                        unit_write_settingf(UNIT(s), flags, name, "TimeoutStopSec=" USEC_FMT "us", t);
                 }
 
                 return 1;

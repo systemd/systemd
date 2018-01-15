@@ -18,8 +18,9 @@
     along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <net/if.h>
+#include <errno.h>
 #include <linux/veth.h>
+#include <net/if.h>
 
 #include "sd-netlink.h"
 

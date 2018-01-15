@@ -497,19 +497,13 @@ int config_parse_socket_bind(const char *unit,
 
         s = SOCKET(data);
 
-        b = socket_address_bind_ipv6_only_from_string(rvalue);
+        b = parse_socket_address_bind_ipv6_only_or_bool(rvalue);
         if (b < 0) {
-                int r;
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse bind IPv6 only value, ignoring: %s", rvalue);
+                return 0;
+        }
 
-                r = parse_boolean(rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse bind IPv6 only value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                s->bind_ipv6_only = r ? SOCKET_ADDRESS_IPV6_ONLY : SOCKET_ADDRESS_BOTH;
-        } else
-                s->bind_ipv6_only = b;
+        s->bind_ipv6_only = b;
 
         return 0;
 }
@@ -3955,6 +3949,8 @@ int config_parse_job_mode_isolate(
                 return 0;
         }
 
+        log_notice("%s is deprecated. Please use OnFailureJobMode= instead", lvalue);
+
         *m = r ? JOB_ISOLATE : JOB_REPLACE;
         return 0;
 }
@@ -4365,7 +4361,7 @@ int config_parse_protect_home(
                 void *userdata) {
 
         ExecContext *c = data;
-        int k;
+        ProtectHome h;
 
         assert(filename);
         assert(lvalue);
@@ -4375,22 +4371,13 @@ int config_parse_protect_home(
         /* Our enum shall be a superset of booleans, hence first try
          * to parse as boolean, and then as enum */
 
-        k = parse_boolean(rvalue);
-        if (k > 0)
-                c->protect_home = PROTECT_HOME_YES;
-        else if (k == 0)
-                c->protect_home = PROTECT_HOME_NO;
-        else {
-                ProtectHome h;
-
-                h = protect_home_from_string(rvalue);
-                if (h < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect home value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                c->protect_home = h;
+        h = parse_protect_home_or_bool(rvalue);
+        if (h < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect home value, ignoring: %s", rvalue);
+                return 0;
         }
+
+        c->protect_home = h;
 
         return 0;
 }
@@ -4408,7 +4395,7 @@ int config_parse_protect_system(
                 void *userdata) {
 
         ExecContext *c = data;
-        int k;
+        ProtectSystem s;
 
         assert(filename);
         assert(lvalue);
@@ -4418,22 +4405,13 @@ int config_parse_protect_system(
         /* Our enum shall be a superset of booleans, hence first try
          * to parse as boolean, and then as enum */
 
-        k = parse_boolean(rvalue);
-        if (k > 0)
-                c->protect_system = PROTECT_SYSTEM_YES;
-        else if (k == 0)
-                c->protect_system = PROTECT_SYSTEM_NO;
-        else {
-                ProtectSystem s;
-
-                s = protect_system_from_string(rvalue);
-                if (s < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect system value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                c->protect_system = s;
+        s = parse_protect_system_or_bool(rvalue);
+        if (s < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect system value, ignoring: %s", rvalue);
+                return 0;
         }
+
+        c->protect_system = s;
 
         return 0;
 }

@@ -53,9 +53,10 @@
         "/usr/lib/kbd/keymaps/\0"
 #endif
 
-#define UNIX_SYSTEM_BUS_ADDRESS "unix:path=/var/run/dbus/system_bus_socket"
-#define DEFAULT_SYSTEM_BUS_ADDRESS UNIX_SYSTEM_BUS_ADDRESS
-#define UNIX_USER_BUS_ADDRESS_FMT "unix:path=%s/bus"
+/* Note that we use the new /run prefix here (instead of /var/run) since we require them to be aliases and that way we
+ * become independent of /var being mounted */
+#define DEFAULT_SYSTEM_BUS_ADDRESS "unix:path=/run/dbus/system_bus_socket"
+#define DEFAULT_USER_BUS_ADDRESS_FMT "unix:path=%s/bus"
 
 #define PLYMOUTH_SOCKET {                                       \
                 .un.sun_family = AF_UNIX,                       \

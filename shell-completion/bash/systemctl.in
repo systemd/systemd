@@ -126,10 +126,10 @@ _systemctl () {
         local -A OPTS=(
                [STANDALONE]='--all -a --reverse --after --before --defaults --force -f --full -l --global
                              --help -h --no-ask-password --no-block --no-legend --no-pager --no-reload --no-wall --now
-                             --quiet -q --privileged -P --system --user --version --runtime --recursive -r --firmware-setup
-                             --show-types -i --ignore-inhibitors --plain --failed'
+                             --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
+                             --show-types -i --ignore-inhibitors --plain --failed --value --fail --dry-run --wait'
                       [ARG]='--host -H --kill-who --property -p --signal -s --type -t --state --job-mode --root
-                             --preset-mode -n --lines -o --output -M --machine'
+                             --preset-mode -n --lines -o --output -M --machine --message'
         )
 
         if __contains_word "--user" ${COMP_WORDS[*]}; then
@@ -203,14 +203,15 @@ _systemctl () {
          [TARGET_AND_UNITS]='add-wants add-requires'
              [MASKED_UNITS]='unmask'
                      [JOBS]='cancel'
-                     [ENVS]='set-environment unset-environment'
+                     [ENVS]='set-environment unset-environment import-environment'
                [STANDALONE]='daemon-reexec daemon-reload default
                              emergency exit halt hibernate hybrid-sleep kexec list-jobs
                              list-sockets list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
-                             is-system-running'
+                             is-system-running preset-all'
                      [FILE]='link switch-root'
                   [TARGETS]='set-default'
+                 [MACHINES]='list-machines'
         )
 
         for ((i=0; i < COMP_CWORD; i++)); do
@@ -294,12 +295,13 @@ _systemctl () {
 
         elif __contains_word "$verb" ${VERBS[ENVS]}; then
                 comps=$( __systemctl $mode show-environment \
-                    | while read -r line; do echo " ${line%%=*}=";done )
+                    | while read -r line; do echo " ${line%%=*}="; done )
                 compopt -o nospace
 
         elif __contains_word "$verb" ${VERBS[FILE]}; then
                 comps=$( compgen -A file -- "$cur" )
                 compopt -o filenames
+
         elif __contains_word "$verb" ${VERBS[TARGETS]}; then
                 comps=$( __systemctl $mode list-unit-files --type target --full --all \
                         | { while read -r a b; do echo " $a"; done; } )

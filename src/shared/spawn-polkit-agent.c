@@ -52,6 +52,9 @@ int polkit_agent_open(void) {
         if (!isatty(STDIN_FILENO))
                 return 0;
 
+        if (!is_main_thread())
+                return -EPERM;
+
         if (pipe2(pipe_fd, 0) < 0)
                 return -errno;
 

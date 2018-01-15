@@ -881,7 +881,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>cancel-transfers</command> <replaceable>ID</replaceable>…</term>
+        <term><command>cancel-transfer</command> <replaceable>ID</replaceable>…</term>
 
         <listitem><para>Aborts a download, import or export of the
         container or VM image with the specified ID. To list ongoing

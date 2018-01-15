@@ -284,9 +284,8 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         const char *device, *type;
         bool root_directory;
-        siginfo_t status;
         struct stat st;
-        int r;
+        int r, exit_status;
         pid_t pid;
 
         if (argc > 2) {
@@ -392,11 +391,9 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
-        if (r < 0) {
-                log_error_errno(r, "fork(): %m");
+        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        if (r < 0)
                 goto finish;
-        }
         if (r == 0) {
                 char dash_c[STRLEN("-C") + DECIMAL_STR_MAX(int) + 1];
                 int progress_socket = -1;
@@ -451,38 +448,30 @@ int main(int argc, char *argv[]) {
         (void) process_progress(progress_pipe[0]);
         progress_pipe[0] = -1;
 
-        r = wait_for_terminate(pid, &status);
-        if (r < 0) {
-                log_error_errno(r, "waitid(): %m");
+        exit_status = wait_for_terminate_and_check("fsck", pid, WAIT_LOG_ABNORMAL);
+        if (exit_status < 0) {
+                r = exit_status;
                 goto finish;
         }
+        if (exit_status & ~1) {
+                log_error("fsck failed with exit status %i.", exit_status);
 
-        if (status.si_code != CLD_EXITED || (status.si_status & ~1)) {
-
-                if (IN_SET(status.si_code, CLD_KILLED, CLD_DUMPED))
-                        log_error("fsck terminated by signal %s.", signal_to_string(status.si_status));
-                else if (status.si_code == CLD_EXITED)
-                        log_error("fsck failed with error code %i.", status.si_status);
-                else
-                        log_error("fsck failed due to unknown reason.");
-
-                r = -EINVAL;
-
-                if (status.si_code == CLD_EXITED && (status.si_status & FSCK_SYSTEM_SHOULD_REBOOT) && root_directory)
+                if ((exit_status & FSCK_SYSTEM_SHOULD_REBOOT) && root_directory) {
                         /* System should be rebooted. */
                         start_target(SPECIAL_REBOOT_TARGET, "replace-irreversibly");
-                else if (status.si_code == CLD_EXITED && (status.si_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED)))
+                        r = -EINVAL;
+                } else if (exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED)) {
                         /* Some other problem */
                         start_target(SPECIAL_EMERGENCY_TARGET, "replace");
-                else {
+                        r = -EINVAL;
+                } else {
                         log_warning("Ignoring error.");
                         r = 0;
                 }
-
         } else
                 r = 0;
 
-        if (status.si_code == CLD_EXITED && (status.si_status & FSCK_ERROR_CORRECTED))
+        if (exit_status & FSCK_ERROR_CORRECTED)
                 (void) touch("/run/systemd/quotacheck");
 
 finish:

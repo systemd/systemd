@@ -336,8 +336,6 @@ static int client_reset(sd_dhcp6_client *client) {
         client->receive_message =
                 sd_event_source_unref(client->receive_message);
 
-        client->fd = safe_close(client->fd);
-
         client->transaction_id = 0;
         client->transaction_start = 0;
 
@@ -1092,6 +1090,24 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
         if (r < 0)
                 return r;
 
+        if (!client->receive_message) {
+                r = sd_event_add_io(client->event, &client->receive_message,
+                                    client->fd, EPOLLIN, client_receive_message,
+                                    client);
+                if (r < 0)
+                        goto error;
+
+                r = sd_event_source_set_priority(client->receive_message,
+                                                 client->event_priority);
+                if (r < 0)
+                        goto error;
+
+                r = sd_event_source_set_description(client->receive_message,
+                                                    "dhcp6-receive-message");
+                if (r < 0)
+                        goto error;
+        }
+
         switch (state) {
         case DHCP6_STATE_STOPPED:
                 if (client->state == DHCP6_STATE_INFORMATION_REQUEST) {
@@ -1138,16 +1154,16 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                                       10 * USEC_PER_SEC, client_timeout_t1,
                                       client);
                 if (r < 0)
-                        return r;
+                        goto error;
 
                 r = sd_event_source_set_priority(client->lease->ia.timeout_t1,
                                                  client->event_priority);
                 if (r < 0)
-                        return r;
+                        goto error;
 
                 r = sd_event_source_set_description(client->lease->ia.timeout_t1, "dhcp6-t1-timeout");
                 if (r < 0)
-                        return r;
+                        goto error;
 
                 timeout = client_timeout_compute_random(be32toh(client->lease->ia.lifetime_t2) * USEC_PER_SEC);
 
@@ -1160,16 +1176,16 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                                       10 * USEC_PER_SEC, client_timeout_t2,
                                       client);
                 if (r < 0)
-                        return r;
+                        goto error;
 
                 r = sd_event_source_set_priority(client->lease->ia.timeout_t2,
                                                  client->event_priority);
                 if (r < 0)
-                        return r;
+                        goto error;
 
                 r = sd_event_source_set_description(client->lease->ia.timeout_t2, "dhcp6-t2-timeout");
                 if (r < 0)
-                        return r;
+                        goto error;
 
                 client->state = state;
 
@@ -1183,24 +1199,30 @@ static int client_start(sd_dhcp6_client *client, enum DHCP6State state) {
                               clock_boottime_or_monotonic(), 0, 0, client_timeout_resend,
                               client);
         if (r < 0)
-                return r;
+                goto error;
 
         r = sd_event_source_set_priority(client->timeout_resend,
                                          client->event_priority);
         if (r < 0)
-                return r;
+                goto error;
 
         r = sd_event_source_set_description(client->timeout_resend, "dhcp6-resend-timeout");
         if (r < 0)
-                return r;
+                goto error;
 
         return 0;
+
+ error:
+        client_reset(client);
+        return r;
 }
 
 int sd_dhcp6_client_stop(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
 
         client_stop(client, SD_DHCP6_CLIENT_EVENT_STOP);
+
+        client->fd = safe_close(client->fd);
 
         return 0;
 }
@@ -1246,22 +1268,6 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
 
         client->fd = r;
 
-        r = sd_event_add_io(client->event, &client->receive_message,
-                            client->fd, EPOLLIN, client_receive_message,
-                            client);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_priority(client->receive_message,
-                                         client->event_priority);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_description(client->receive_message,
-                                            "dhcp6-receive-message");
-        if (r < 0)
-                goto error;
-
         if (client->information_request)
                 state = DHCP6_STATE_INFORMATION_REQUEST;
 
@@ -1270,10 +1276,6 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
                          "Managed");
 
         return client_start(client, state);
-
-error:
-        client_reset(client);
-        return r;
 }
 
 int sd_dhcp6_client_attach_event(sd_dhcp6_client *client, sd_event *event, int64_t priority) {

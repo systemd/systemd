@@ -29,6 +29,7 @@
 #include <unistd.h>
 
 #include "time-util.h"
+#include "util.h"
 
 int unlink_noerrno(const char *path);
 
@@ -80,22 +81,25 @@ union inotify_event_buffer {
 int inotify_add_watch_fd(int fd, int what, uint32_t mask);
 
 enum {
-        CHASE_PREFIX_ROOT = 1,   /* If set, the specified path will be prefixed by the specified root before beginning the iteration */
-        CHASE_NONEXISTENT = 2,   /* If set, it's OK if the path doesn't actually exist. */
-        CHASE_NO_AUTOFS = 4,     /* If set, return -EREMOTE if autofs mount point found */
+        CHASE_PREFIX_ROOT = 1U << 0,   /* If set, the specified path will be prefixed by the specified root before beginning the iteration */
+        CHASE_NONEXISTENT = 1U << 1,   /* If set, it's OK if the path doesn't actually exist. */
+        CHASE_NO_AUTOFS   = 1U << 2,   /* If set, return -EREMOTE if autofs mount point found */
+        CHASE_SAFE        = 1U << 3,   /* If set, return EPERM if we ever traverse from unprivileged to privileged files or directories */
+        CHASE_OPEN        = 1U << 4,   /* If set, return an O_PATH object to the final component */
 };
 
 int chase_symlinks(const char *path_with_prefix, const char *root, unsigned flags, char **ret);
 
 /* Useful for usage with _cleanup_(), removes a directory and frees the pointer */
 static inline void rmdir_and_free(char *p) {
+        PROTECT_ERRNO;
         (void) rmdir(p);
         free(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rmdir_and_free);
 
 static inline void unlink_and_free(char *p) {
-        (void) unlink(p);
+        (void) unlink_noerrno(p);
         free(p);
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, unlink_and_free);

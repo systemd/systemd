@@ -31,21 +31,8 @@ libudev_sources = files('''
 
 ############################################################
 
-libudev_sym = 'libudev.sym'
-libudev_sym_path = '@0@/@1@'.format(meson.current_source_dir(), libudev_sym)
-libudev = shared_library(
-        'udev',
-        libudev_sources,
-        version : libudev_version,
-        include_directories : includes,
-        link_args : ['-shared',
-                     '-Wl,--version-script=' + libudev_sym_path],
-        link_with : [libbasic,
-                     libsystemd_internal],
-        dependencies : [threads],
-        link_depends : libudev_sym,
-        install : true,
-        install_dir : rootlibdir)
+libudev_sym = files('libudev.sym')
+libudev_sym_path = meson.current_source_dir() + '/libudev.sym'
 
 install_headers('libudev.h')
 libudev_h_path = '@0@/libudev.h'.format(meson.current_source_dir())

@@ -49,6 +49,7 @@
 #include "netdev/vrf.h"
 #include "netdev/vcan.h"
 #include "netdev/vxcan.h"
+#include "netdev/wireguard.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
@@ -75,6 +76,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VCAN] = &vcan_vtable,
         [NETDEV_KIND_GENEVE] = &geneve_vtable,
         [NETDEV_KIND_VXCAN] = &vxcan_vtable,
+        [NETDEV_KIND_WIREGUARD] = &wireguard_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -102,6 +104,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VCAN] = "vcan",
         [NETDEV_KIND_GENEVE] = "geneve",
         [NETDEV_KIND_VXCAN] = "vxcan",
+        [NETDEV_KIND_WIREGUARD] = "wireguard",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -111,10 +114,10 @@ static void netdev_cancel_callbacks(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         netdev_join_callback *callback;
 
-        if (!netdev)
+        if (!netdev || !netdev->manager)
                 return;
 
-        rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
+        rtnl_message_new_synthetic_error(netdev->manager->rtnl, -ENODEV, 0, &m);
 
         while ((callback = netdev->callbacks)) {
                 if (m) {
@@ -153,7 +156,15 @@ static void netdev_free(NetDev *netdev) {
         condition_free_list(netdev->match_kernel_version);
         condition_free_list(netdev->match_arch);
 
-        if (NETDEV_VTABLE(netdev) &&
+        /* Invoke the per-kind done() destructor, but only if the state field is initialized. We conditionalize that
+         * because we parse .netdev files twice: once to determine the kind (with a short, minimal NetDev structure
+         * allocation, with no room for per-kind fields), and once to read the kind's properties (with a full,
+         * comprehensive NetDev structure allocation with enough space for whatever the specific kind needs). Now, in
+         * the first case we shouldn't try to destruct the per-kind NetDev fields on destruction, in the second case we
+         * should. We use the state field to discern the two cases: it's _NETDEV_STATE_INVALID on the first "raw"
+         * call. */
+        if (netdev->state != _NETDEV_STATE_INVALID &&
+            NETDEV_VTABLE(netdev) &&
             NETDEV_VTABLE(netdev)->done)
                 NETDEV_VTABLE(netdev)->done(netdev);
 
@@ -322,7 +333,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t call
         } else if (IN_SET(netdev->state, NETDEV_STATE_LINGER, NETDEV_STATE_FAILED)) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
-                r = rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
+                r = rtnl_message_new_synthetic_error(netdev->manager->rtnl, -ENODEV, 0, &m);
                 if (r >= 0)
                         callback(netdev->manager->rtnl, m, link);
         } else {
@@ -615,8 +626,8 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         if (!file) {
                 if (errno == ENOENT)
                         return 0;
-                else
-                        return -errno;
+
+                return -errno;
         }
 
         if (null_or_empty_fd(fileno(file))) {
@@ -630,13 +641,13 @@ static int netdev_load_one(Manager *manager, const char *filename) {
 
         netdev_raw->n_ref = 1;
         netdev_raw->kind = _NETDEV_KIND_INVALID;
-        netdev_raw->state = _NETDEV_STATE_INVALID;
+        netdev_raw->state = _NETDEV_STATE_INVALID; /* an invalid state means done() of the implementation won't be called on destruction */
 
         dropin_dirname = strjoina(basename(filename), ".d");
         r = config_parse_many(filename, network_dirs, dropin_dirname,
                               "Match\0NetDev\0",
                               config_item_perf_lookup, network_netdev_gperf_lookup,
-                              CONFIG_PARSE_WARN, netdev_raw);
+                              CONFIG_PARSE_WARN|CONFIG_PARSE_RELAXED, netdev_raw);
         if (r < 0)
                 return r;
 
@@ -669,7 +680,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         netdev->n_ref = 1;
         netdev->manager = manager;
         netdev->kind = netdev_raw->kind;
-        netdev->state = _NETDEV_STATE_INVALID;
+        netdev->state = NETDEV_STATE_LOADING; /* we initialize the state here for the first time, so that done() will be called on destruction */
 
         if (NETDEV_VTABLE(netdev)->init)
                 NETDEV_VTABLE(netdev)->init(netdev);

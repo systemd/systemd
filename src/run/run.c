@@ -120,7 +120,7 @@ static void help(void) {
 }
 
 static int add_timer_property(const char *name, const char *val) {
-        _cleanup_free_ char *p = NULL;
+        char *p;
 
         assert(name);
         assert(val);
@@ -131,8 +131,6 @@ static int add_timer_property(const char *name, const char *val) {
 
         if (strv_consume(&arg_timer_property, p) < 0)
                 return log_oom();
-
-        p = NULL;
 
         return 0;
 }
@@ -1061,7 +1059,6 @@ static int start_transient_service(
                         .inactive_enter_usec = USEC_INFINITY,
                 };
                 _cleanup_free_ char *path = NULL;
-                const char *mt;
 
                 c.bus = sd_bus_ref(bus);
 
@@ -1091,18 +1088,20 @@ static int start_transient_service(
                 if (!path)
                         return log_oom();
 
-                mt = strjoina("type='signal',"
-                              "sender='org.freedesktop.systemd1',"
-                              "path='", path, "',"
-                              "interface='org.freedesktop.DBus.Properties',"
-                              "member='PropertiesChanged'");
-                r = sd_bus_add_match(bus, &c.match, mt, on_properties_changed, &c);
+                r = sd_bus_match_signal_async(
+                                bus,
+                                &c.match,
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.DBus.Properties",
+                                "PropertiesChanged",
+                                on_properties_changed, NULL, &c);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add properties changed signal.");
+                        return log_error_errno(r, "Failed to request properties changed signal match: %m");
 
                 r = sd_bus_attach_event(bus, c.event, SD_EVENT_PRIORITY_NORMAL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to attach bus to event loop.");
+                        return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
                 r = run_context_update(&c, path);
                 if (r < 0)

@@ -23,6 +23,7 @@
 #include "dbus-execute.h"
 #include "dbus-kill.h"
 #include "dbus-mount.h"
+#include "dbus-util.h"
 #include "mount.h"
 #include "string-util.h"
 #include "unit.h"
@@ -129,9 +130,7 @@ static int bus_mount_set_transient_property(
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
-        const char *new_property;
-        char **property;
-        int r;
+        Unit *u = UNIT(m);
 
         assert(m);
         assert(name);
@@ -139,29 +138,34 @@ static int bus_mount_set_transient_property(
 
         flags |= UNIT_PRIVATE;
 
+        if (streq(name, "Where"))
+                return bus_set_transient_path(u, name, &m->where, message, flags, error);
+
         if (streq(name, "What"))
-                property = &m->parameters_fragment.what;
-        else if (streq(name, "Options"))
-                property = &m->parameters_fragment.options;
-        else if (streq(name, "Type"))
-                property = &m->parameters_fragment.fstype;
-        else
-                return 0;
+                return bus_set_transient_string(u, name, &m->parameters_fragment.what, message, flags, error);
 
-        r = sd_bus_message_read(message, "s", &new_property);
-        if (r < 0)
-                return r;
+        if (streq(name, "Options"))
+                return bus_set_transient_string(u, name, &m->parameters_fragment.options, message, flags, error);
 
-        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+        if (streq(name, "Type"))
+                return bus_set_transient_string(u, name, &m->parameters_fragment.fstype, message, flags, error);
 
-                r = free_and_strdup(property, new_property);
-                if (r < 0)
-                        return r;
+        if (streq(name, "TimeoutUSec"))
+                return bus_set_transient_usec_fix_0(u, name, &m->timeout_usec, message, flags, error);
 
-                unit_write_settingf(UNIT(m), flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, new_property);
-        }
+        if (streq(name, "DirectoryMode"))
+                return bus_set_transient_mode_t(u, name, &m->directory_mode, message, flags, error);
 
-        return 1;
+        if (streq(name, "SloppyOptions"))
+                return bus_set_transient_bool(u, name, &m->sloppy_options, message, flags, error);
+
+        if (streq(name, "LazyUnmount"))
+                return bus_set_transient_bool(u, name, &m->lazy_unmount, message, flags, error);
+
+        if (streq(name, "ForceUnmount"))
+                return bus_set_transient_bool(u, name, &m->force_unmount, message, flags, error);
+
+        return 0;
 }
 
 int bus_mount_set_property(

@@ -23,6 +23,7 @@
 
 #include "macro.h"
 #include "signal-util.h"
+#include "process-util.h"
 
 static void test_block_signals(void) {
         sigset_t ss;

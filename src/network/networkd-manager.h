@@ -25,6 +25,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-netlink.h"
+#include "sd-resolve.h"
 #include "udev.h"
 
 #include "dhcp-identifier.h"
@@ -39,10 +40,14 @@ extern const char* const network_dirs[];
 
 struct Manager {
         sd_netlink *rtnl;
+        /* lazy initialized */
+        sd_netlink *genl;
         sd_event *event;
+        sd_resolve *resolve;
         sd_event_source *bus_retry_event_source;
         sd_bus *bus;
         sd_bus_slot *prepare_for_sleep_slot;
+        sd_bus_slot *connected_slot;
         struct udev *udev;
         struct udev_monitor *udev_monitor;
         sd_event_source *udev_event_source;

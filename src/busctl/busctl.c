@@ -62,6 +62,7 @@ static bool arg_expect_reply = true;
 static bool arg_auto_start = true;
 static bool arg_allow_interactive_authorization = true;
 static bool arg_augment_creds = true;
+static bool arg_watch_bind = false;
 static usec_t arg_timeout = 0;
 
 #define NAME_IS_ACQUIRED INT_TO_PTR(1)
@@ -1735,7 +1736,9 @@ static int help(void) {
                "     --allow-interactive-authorization=BOOL\n"
                "                          Allow interactive authorization for operation\n"
                "     --timeout=SECS       Maximum time to wait for method call completion\n"
-               "     --augment-creds=BOOL Extend credential data with data read from /proc/$PID\n\n"
+               "     --augment-creds=BOOL Extend credential data with data read from /proc/$PID\n"
+               "     --watch-bind=BOOL    Wait for bus AF_UNIX socket to be bound in the file\n"
+               "                          system\n\n"
                "Commands:\n"
                "  list                    List bus names\n"
                "  status [SERVICE]        Show bus service, process or bus owner credentials\n"
@@ -1777,6 +1780,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ALLOW_INTERACTIVE_AUTHORIZATION,
                 ARG_TIMEOUT,
                 ARG_AUGMENT_CREDS,
+                ARG_WATCH_BIND,
         };
 
         static const struct option options[] = {
@@ -1803,6 +1807,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "allow-interactive-authorization", required_argument, NULL, ARG_ALLOW_INTERACTIVE_AUTHORIZATION },
                 { "timeout",      required_argument, NULL, ARG_TIMEOUT      },
                 { "augment-creds",required_argument, NULL, ARG_AUGMENT_CREDS},
+                { "watch-bind",   required_argument, NULL, ARG_WATCH_BIND   },
                 {},
         };
 
@@ -1953,6 +1958,16 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_augment_creds = !!r;
                         break;
 
+                case ARG_WATCH_BIND:
+                        r = parse_boolean(optarg);
+                        if (r < 0) {
+                                log_error("Failed to parse --watch-bind= parameter.");
+                                return r;
+                        }
+
+                        arg_watch_bind = !!r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2002,7 +2017,7 @@ static int busctl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();
@@ -2051,6 +2066,12 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        r = sd_bus_set_watch_bind(bus, arg_watch_bind);
+        if (r < 0) {
+                log_error_errno(r, "Failed to set watch-bind setting to '%s': %m", yes_no(arg_watch_bind));
+                goto finish;
+        }
+
         if (arg_address)
                 r = sd_bus_set_address(bus, arg_address);
         else {
@@ -2092,6 +2113,9 @@ int main(int argc, char *argv[]) {
         r = busctl_main(bus, argc, argv);
 
 finish:
+        /* make sure we terminate the bus connection first, and then close the
+         * pager, see issue #3543 for the details. */
+        sd_bus_flush_close_unref(bus);
         pager_close();
 
         strv_free(arg_matches);

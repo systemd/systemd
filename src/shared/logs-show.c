@@ -1256,7 +1256,6 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
         pid_t pid, child;
-        siginfo_t si;
         char buf[37];
         ssize_t k;
         int r;
@@ -1308,9 +1307,11 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate(child, &si);
-        if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                return r < 0 ? r : -EIO;
+        r = wait_for_terminate_and_check("(sd-bootid)", child, 0);
+        if (r < 0)
+                return r;
+        if (r != EXIT_SUCCESS)
+                return -EIO;
 
         k = recv(pair[0], buf, 36, 0);
         if (k != 36)

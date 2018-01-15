@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "errno.h"
 #include "fd-util.h"
 #include "mkdir.h"
 #include "nspawn-setuid.h"
@@ -43,9 +44,9 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
         if (pipe2(pipe_fds, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
-        r = safe_fork("(getent)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(getent)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork getent child: %m");
+                return r;
         if (r == 0) {
                 int nullfd;
                 char *empty_env = NULL;
@@ -133,7 +134,7 @@ int change_uid_gid(const char *user, char **_home) {
 
         truncate_nl(line);
 
-        wait_for_terminate_and_warn("getent passwd", pid, true);
+        (void) wait_for_terminate_and_check("getent passwd", pid, WAIT_LOG);
 
         x = strchr(line, ':');
         if (!x) {
@@ -216,7 +217,7 @@ int change_uid_gid(const char *user, char **_home) {
 
         truncate_nl(line);
 
-        wait_for_terminate_and_warn("getent initgroups", pid, true);
+        (void) wait_for_terminate_and_check("getent initgroups", pid, WAIT_LOG);
 
         /* Skip over the username and subsequent separator whitespace */
         x = line;

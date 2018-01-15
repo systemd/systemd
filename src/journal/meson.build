@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-journal_internal_sources = files('''
+journal_client_sources = files('''
         audit-type.c
         audit-type.h
         catalog.c
@@ -38,14 +38,12 @@ journal_internal_sources = files('''
 '''.split())
 
 if conf.get('HAVE_GCRYPT') == 1
-        journal_internal_sources += files('''
+        journal_client_sources += files('''
                 journal-authenticate.c
                 journal-authenticate.h
                 fsprg.c
                 fsprg.h
         '''.split())
-
-        journal_internal_sources += gcrypt_util_sources
 endif
 
 ############################################################
@@ -71,7 +69,13 @@ audit_type_to_name = custom_target(
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-journal_internal_sources += [audit_type_to_name]
+journal_client_sources += [audit_type_to_name]
+
+libjournal_client = static_library(
+        'journal-client',
+        journal_client_sources,
+        include_directories : includes,
+        c_args : ['-fvisibility=default'])
 
 ############################################################
 

@@ -32,6 +32,7 @@
 #include "capability-util.h"
 #include "cpu-set-util.h"
 #include "dbus-execute.h"
+#include "dbus-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "escape.h"
@@ -1036,7 +1037,7 @@ int bus_property_get_exec_command_list(
         return sd_bus_message_close_container(reply);
 }
 
-int bus_exec_command_set_transient_property(
+int bus_set_transient_exec_command(
                 Unit *u,
                 const char *name,
                 ExecCommand **exec_command,
@@ -1151,6 +1152,47 @@ int bus_exec_command_set_transient_property(
         return 1;
 }
 
+static int parse_personality(const char *s, unsigned long *p) {
+        unsigned long v;
+
+        assert(p);
+
+        v = personality_from_string(s);
+        if (v == PERSONALITY_INVALID)
+                return -EINVAL;
+
+        *p = v;
+        return 0;
+}
+
+static const char* mount_propagation_flags_to_string_with_check(unsigned long n) {
+        if (!IN_SET(n, 0, MS_SHARED, MS_PRIVATE, MS_SLAVE))
+                return NULL;
+
+        return mount_propagation_flags_to_string(n);
+}
+
+static BUS_DEFINE_SET_TRANSIENT(nsec, "t", uint64_t, nsec_t, NSEC_FMT);
+static BUS_DEFINE_SET_TRANSIENT_IS_VALID(log_level, "i", int32_t, int, "%" PRIi32, log_level_is_valid);
+#if HAVE_SECCOMP
+static BUS_DEFINE_SET_TRANSIENT_IS_VALID(errno, "i", int32_t, int, "%" PRIi32, errno_is_valid);
+#endif
+static BUS_DEFINE_SET_TRANSIENT_IS_VALID(sched_priority, "i", int32_t, int, "%" PRIi32, sched_priority_is_valid);
+static BUS_DEFINE_SET_TRANSIENT_IS_VALID(nice, "i", int32_t, int, "%" PRIi32, nice_is_valid);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(std_input, ExecInput, exec_input_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(std_output, ExecOutput, exec_output_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(utmp_mode, ExecUtmpMode, exec_utmp_mode_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_system, ProtectSystem, parse_protect_system_or_bool);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_home, ProtectHome, parse_protect_home_or_bool);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(keyring_mode, ExecKeyringMode, exec_keyring_mode_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(preserve_mode, ExecPreserveMode, exec_preserve_mode_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(personality, unsigned long, parse_personality);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(secure_bits, "i", int32_t, int, "%" PRIi32, secure_bits_to_string_alloc_with_check);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(capability, "t", uint64_t, uint64_t, "%" PRIu64, capability_set_to_string_alloc);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(sched_policy, "i", int32_t, int, "%" PRIi32, sched_policy_to_string_alloc_with_check);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(namespace_flag, "t", uint64_t, unsigned long, "%" PRIu64, namespace_flag_to_string_many_with_check);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING(mount_flags, "t", uint64_t, unsigned long, "%" PRIu64, mount_propagation_flags_to_string_with_check);
+
 int bus_exec_context_set_transient_property(
                 Unit *u,
                 ExecContext *c,
@@ -1169,31 +1211,172 @@ int bus_exec_context_set_transient_property(
 
         flags |= UNIT_PRIVATE;
 
-        if (STR_IN_SET(name, "User", "Group")) {
-                const char *uu;
+        if (streq(name, "User"))
+                return bus_set_transient_user(u, name, &c->user, message, flags, error);
 
-                r = sd_bus_message_read(message, "s", &uu);
-                if (r < 0)
-                        return r;
+        if (streq(name, "Group"))
+                return bus_set_transient_user(u, name, &c->group, message, flags, error);
 
-                if (!isempty(uu) && !valid_user_group_name_or_id(uu))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s: %s", name, uu);
+        if (streq(name, "TTYPath"))
+                return bus_set_transient_path(u, name, &c->tty_path, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+        if (streq(name, "RootImage"))
+                return bus_set_transient_path(u, name, &c->root_image, message, flags, error);
 
-                        if (streq(name, "User"))
-                                r = free_and_strdup(&c->user, empty_to_null(uu));
-                        else /* "Group" */
-                                r = free_and_strdup(&c->group, empty_to_null(uu));
-                        if (r < 0)
-                                return r;
+        if (streq(name, "RootDirectory"))
+                return bus_set_transient_path(u, name, &c->root_directory, message, flags, error);
 
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, uu);
-                }
+        if (streq(name, "SyslogIdentifier"))
+                return bus_set_transient_string(u, name, &c->syslog_identifier, message, flags, error);
 
-                return 1;
+        if (streq(name, "LogLevelMax"))
+                return bus_set_transient_log_level(u, name, &c->log_level_max, message, flags, error);
 
-        } else if (streq(name, "SupplementaryGroups")) {
+        if (streq(name, "CPUSchedulingPriority"))
+                return bus_set_transient_sched_priority(u, name, &c->cpu_sched_priority, message, flags, error);
+
+        if (streq(name, "Personality"))
+                return bus_set_transient_personality(u, name, &c->personality, message, flags, error);
+
+        if (streq(name, "Nice"))
+                return bus_set_transient_nice(u, name, &c->nice, message, flags, error);
+
+        if (streq(name, "StandardInput"))
+                return bus_set_transient_std_input(u, name, &c->std_input, message, flags, error);
+
+        if (streq(name, "StandardOutput"))
+                return bus_set_transient_std_output(u, name, &c->std_output, message, flags, error);
+
+        if (streq(name, "StandardError"))
+                return bus_set_transient_std_output(u, name, &c->std_error, message, flags, error);
+
+        if (streq(name, "IgnoreSIGPIPE"))
+                return bus_set_transient_bool(u, name, &c->ignore_sigpipe, message, flags, error);
+
+        if (streq(name, "TTYVHangup"))
+                return bus_set_transient_bool(u, name, &c->tty_vhangup, message, flags, error);
+
+        if (streq(name, "TTYReset"))
+                return bus_set_transient_bool(u, name, &c->tty_reset, message, flags, error);
+
+        if (streq(name, "TTYVTDisallocate"))
+                return bus_set_transient_bool(u, name, &c->tty_vt_disallocate, message, flags, error);
+
+        if (streq(name, "PrivateTmp"))
+                return bus_set_transient_bool(u, name, &c->private_tmp, message, flags, error);
+
+        if (streq(name, "PrivateDevices"))
+                return bus_set_transient_bool(u, name, &c->private_devices, message, flags, error);
+
+        if (streq(name, "PrivateNetwork"))
+                return bus_set_transient_bool(u, name, &c->private_network, message, flags, error);
+
+        if (streq(name, "PrivateUsers"))
+                return bus_set_transient_bool(u, name, &c->private_users, message, flags, error);
+
+        if (streq(name, "NoNewPrivileges"))
+                return bus_set_transient_bool(u, name, &c->no_new_privileges, message, flags, error);
+
+        if (streq(name, "SyslogLevelPrefix"))
+                return bus_set_transient_bool(u, name, &c->syslog_level_prefix, message, flags, error);
+
+        if (streq(name, "MemoryDenyWriteExecute"))
+                return bus_set_transient_bool(u, name, &c->memory_deny_write_execute, message, flags, error);
+
+        if (streq(name, "RestrictRealtime"))
+                return bus_set_transient_bool(u, name, &c->restrict_realtime, message, flags, error);
+
+        if (streq(name, "DynamicUser"))
+                return bus_set_transient_bool(u, name, &c->dynamic_user, message, flags, error);
+
+        if (streq(name, "RemoveIPC"))
+                return bus_set_transient_bool(u, name, &c->remove_ipc, message, flags, error);
+
+        if (streq(name, "ProtectKernelTunables"))
+                return bus_set_transient_bool(u, name, &c->protect_kernel_tunables, message, flags, error);
+
+        if (streq(name, "ProtectKernelModules"))
+                return bus_set_transient_bool(u, name, &c->protect_kernel_modules, message, flags, error);
+
+        if (streq(name, "ProtectControlGroups"))
+                return bus_set_transient_bool(u, name, &c->protect_control_groups, message, flags, error);
+
+        if (streq(name, "MountAPIVFS"))
+                return bus_set_transient_bool(u, name, &c->mount_apivfs, message, flags, error);
+
+        if (streq(name, "CPUSchedulingResetOnFork"))
+                return bus_set_transient_bool(u, name, &c->cpu_sched_reset_on_fork, message, flags, error);
+
+        if (streq(name, "NonBlocking"))
+                return bus_set_transient_bool(u, name, &c->non_blocking, message, flags, error);
+
+        if (streq(name, "LockPersonality"))
+                return bus_set_transient_bool(u, name, &c->lock_personality, message, flags, error);
+
+        if (streq(name, "UtmpIdentifier"))
+                return bus_set_transient_string(u, name, &c->utmp_id, message, flags, error);
+
+        if (streq(name, "UtmpMode"))
+                return bus_set_transient_utmp_mode(u, name, &c->utmp_mode, message, flags, error);
+
+        if (streq(name, "PAMName"))
+                return bus_set_transient_string(u, name, &c->pam_name, message, flags, error);
+
+        if (streq(name, "TimerSlackNSec"))
+                return bus_set_transient_nsec(u, name, &c->timer_slack_nsec, message, flags, error);
+
+        if (streq(name, "ProtectSystem"))
+                return bus_set_transient_protect_system(u, name, &c->protect_system, message, flags, error);
+
+        if (streq(name, "ProtectHome"))
+                return bus_set_transient_protect_home(u, name, &c->protect_home, message, flags, error);
+
+        if (streq(name, "KeyringMode"))
+                return bus_set_transient_keyring_mode(u, name, &c->keyring_mode, message, flags, error);
+
+        if (streq(name, "RuntimeDirectoryPreserve"))
+                return bus_set_transient_preserve_mode(u, name, &c->runtime_directory_preserve_mode, message, flags, error);
+
+        if (streq(name, "UMask"))
+                return bus_set_transient_mode_t(u, name, &c->umask, message, flags, error);
+
+        if (streq(name, "RuntimeDirectoryMode"))
+                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_RUNTIME].mode, message, flags, error);
+
+        if (streq(name, "StateDirectoryMode"))
+                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_STATE].mode, message, flags, error);
+
+        if (streq(name, "CacheDirectoryMode"))
+                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_CACHE].mode, message, flags, error);
+
+        if (streq(name, "LogsDirectoryMode"))
+                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_LOGS].mode, message, flags, error);
+
+        if (streq(name, "ConfigurationDirectoryMode"))
+                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_CONFIGURATION].mode, message, flags, error);
+
+        if (streq(name, "SELinuxContext"))
+                return bus_set_transient_string(u, name, &c->selinux_context, message, flags, error);
+
+        if (streq(name, "SecureBits"))
+                return bus_set_transient_secure_bits(u, name, &c->secure_bits, message, flags, error);
+
+        if (streq(name, "CapabilityBoundingSet"))
+                return bus_set_transient_capability(u, name, &c->capability_bounding_set, message, flags, error);
+
+        if (streq(name, "AmbientCapabilities"))
+                return bus_set_transient_capability(u, name, &c->capability_ambient_set, message, flags, error);
+
+        if (streq(name, "CPUSchedulingPolicy"))
+                return bus_set_transient_sched_policy(u, name, &c->cpu_sched_policy, message, flags, error);
+
+        if (streq(name, "RestrictNamespaces"))
+                return bus_set_transient_namespace_flag(u, name, &c->restrict_namespaces, message, flags, error);
+
+        if (streq(name, "MountFlags"))
+                return bus_set_transient_mount_flags(u, name, &c->mount_flags, message, flags, error);
+
+        if (streq(name, "SupplementaryGroups")) {
                 _cleanup_strv_free_ char **l = NULL;
                 char **p;
 
@@ -1227,23 +1410,6 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "SyslogIdentifier")) {
-                const char *id;
-
-                r = sd_bus_message_read(message, "s", &id);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-
-                        r = free_and_strdup(&c->syslog_identifier, empty_to_null(id));
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "SyslogIdentifier=%s", id);
-                }
-
-                return 1;
         } else if (streq(name, "SyslogLevel")) {
                 int32_t level;
 
@@ -1260,6 +1426,7 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+
         } else if (streq(name, "SyslogFacility")) {
                 int32_t facility;
 
@@ -1273,23 +1440,6 @@ int bus_exec_context_set_transient_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->syslog_priority = (facility << 3) | LOG_PRI(c->syslog_priority);
                         unit_write_settingf(u, flags, name, "SyslogFacility=%i", facility);
-                }
-
-                return 1;
-
-        } else if (streq(name, "LogLevelMax")) {
-                int32_t level;
-
-                r = sd_bus_message_read(message, "i", &level);
-                if (r < 0)
-                        return r;
-
-                if (!log_level_is_valid(level))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Maximum log level value out of range");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->log_level_max = level;
-                        unit_write_settingf(u, flags, name, "LogLevelMax=%i", level);
                 }
 
                 return 1;
@@ -1367,75 +1517,14 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
-
-        } else if (streq(name, "SecureBits")) {
-                int n;
-
-                r = sd_bus_message_read(message, "i", &n);
-                if (r < 0)
-                        return r;
-
-                if (!secure_bits_is_valid(n))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid secure bits");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_free_ char *str = NULL;
-
-                        c->secure_bits = n;
-                        r = secure_bits_to_string_alloc(n, &str);
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags, name, "SecureBits=%s", str);
-                }
-
-                return 1;
-        } else if (STR_IN_SET(name, "CapabilityBoundingSet", "AmbientCapabilities")) {
-                uint64_t n;
-
-                r = sd_bus_message_read(message, "t", &n);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_free_ char *str = NULL;
-
-                        if (streq(name, "CapabilityBoundingSet"))
-                                c->capability_bounding_set = n;
-                        else /* "AmbientCapabilities" */
-                                c->capability_ambient_set = n;
-
-                        r = capability_set_to_string_alloc(n, &str);
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags, name, "%s=%s", name, str);
-                }
-
-                return 1;
-
-        } else if (streq(name, "Personality")) {
-                const char *s;
-                unsigned long p;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                p = personality_from_string(s);
-                if (p == PERSONALITY_INVALID)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid personality");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->personality = p;
-                        unit_write_settingf(u, flags, name, "%s=%s", name, s);
-                }
-
-                return 1;
+        }
 
 #if HAVE_SECCOMP
 
-        } else if (streq(name, "SystemCallFilter")) {
+        if (streq(name, "SystemCallErrorNumber"))
+                return bus_set_transient_errno(u, name, &c->syscall_errno, message, flags, error);
+
+        if (streq(name, "SystemCallFilter")) {
                 int whitelist;
                 _cleanup_strv_free_ char **l = NULL;
 
@@ -1546,24 +1635,6 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "SystemCallErrorNumber")) {
-                int32_t n;
-
-                r = sd_bus_message_read(message, "i", &n);
-                if (r < 0)
-                        return r;
-
-                if (n <= 0 || n > ERRNO_MAX)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid SystemCallErrorNumber");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->syscall_errno = n;
-
-                        unit_write_settingf(u, flags, name, "SystemCallErrorNumber=%d", n);
-                }
-
-                return 1;
-
         } else if (streq(name, "RestrictAddressFamilies")) {
                 int whitelist;
                 _cleanup_strv_free_ char **l = NULL;
@@ -1628,49 +1699,9 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
+        }
 #endif
-
-        } else if (streq(name, "CPUSchedulingPolicy")) {
-                int32_t n;
-
-                r = sd_bus_message_read(message, "i", &n);
-                if (r < 0)
-                        return r;
-
-                if (!sched_policy_is_valid(n))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling policy");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_free_ char *str = NULL;
-
-                        c->cpu_sched_policy = n;
-                        r = sched_policy_to_string_alloc(n, &str);
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags, name, "CPUSchedulingPolicy=%s", str);
-                }
-
-                return 1;
-
-        } else if (streq(name, "CPUSchedulingPriority")) {
-                int32_t n;
-
-                r = sd_bus_message_read(message, "i", &n);
-                if (r < 0)
-                        return r;
-
-                if (!sched_priority_is_valid(n))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling priority");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->cpu_sched_priority = n;
-                        unit_write_settingf(u, flags, name, "CPUSchedulingPriority=%i", n);
-                }
-
-                return 1;
-
-        } else if (streq(name, "CPUAffinity")) {
+        if (streq(name, "CPUAffinity")) {
                 const void *a;
                 size_t n = 0;
 
@@ -1736,22 +1767,6 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
-        } else if (streq(name, "Nice")) {
-                int32_t n;
-
-                r = sd_bus_message_read(message, "i", &n);
-                if (r < 0)
-                        return r;
-
-                if (!nice_is_valid(n))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Nice value out of range");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->nice = n;
-                        unit_write_settingf(u, flags, name, "Nice=%i", n);
-                }
-
-                return 1;
 
         } else if (streq(name, "IOSchedulingClass")) {
                 int32_t q;
@@ -1797,33 +1812,6 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name, "TTYPath", "RootDirectory", "RootImage")) {
-                const char *s;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                if (!isempty(s) && !path_is_absolute(s))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s takes an absolute path", name);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(name, "TTYPath"))
-                                r = free_and_strdup(&c->tty_path, empty_to_null(s));
-                        else if (streq(name, "RootImage"))
-                                r = free_and_strdup(&c->root_image, empty_to_null(s));
-                        else {
-                                assert(streq(name, "RootDirectory"));
-                                r = free_and_strdup(&c->root_directory, empty_to_null(s));
-                        }
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, s);
-                }
-
-                return 1;
-
         } else if (streq(name, "WorkingDirectory")) {
                 const char *s;
                 bool missing_ok;
@@ -1855,66 +1843,6 @@ int bus_exec_context_set_transient_property(
 
                         c->working_directory_missing_ok = missing_ok;
                         unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "WorkingDirectory=%s%s", missing_ok ? "-" : "", s);
-                }
-
-                return 1;
-
-        } else if (streq(name, "StandardInput")) {
-                const char *s;
-                ExecInput p;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                p = exec_input_from_string(s);
-                if (p < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid standard input name");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->std_input = p;
-
-                        unit_write_settingf(u, flags, name, "StandardInput=%s", exec_input_to_string(p));
-                }
-
-                return 1;
-
-        } else if (streq(name, "StandardOutput")) {
-                const char *s;
-                ExecOutput p;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                p = exec_output_from_string(s);
-                if (p < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid standard output name");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->std_output = p;
-
-                        unit_write_settingf(u, flags, name, "StandardOutput=%s", exec_output_to_string(p));
-                }
-
-                return 1;
-
-        } else if (streq(name, "StandardError")) {
-                const char *s;
-                ExecOutput p;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                p = exec_output_from_string(s);
-                if (p < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid standard error name");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->std_error = p;
-
-                        unit_write_settingf(u, flags, name, "StandardError=%s", exec_output_to_string(p));
                 }
 
                 return 1;
@@ -2051,124 +1979,6 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name,
-                              "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "TTYVTDisallocate",
-                              "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
-                              "NoNewPrivileges", "SyslogLevelPrefix", "MemoryDenyWriteExecute",
-                              "RestrictRealtime", "DynamicUser", "RemoveIPC", "ProtectKernelTunables",
-                              "ProtectKernelModules", "ProtectControlGroups", "MountAPIVFS",
-                              "CPUSchedulingResetOnFork", "NonBlocking", "LockPersonality")) {
-                int b;
-
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(name, "IgnoreSIGPIPE"))
-                                c->ignore_sigpipe = b;
-                        else if (streq(name, "TTYVHangup"))
-                                c->tty_vhangup = b;
-                        else if (streq(name, "TTYReset"))
-                                c->tty_reset = b;
-                        else if (streq(name, "TTYVTDisallocate"))
-                                c->tty_vt_disallocate = b;
-                        else if (streq(name, "PrivateTmp"))
-                                c->private_tmp = b;
-                        else if (streq(name, "PrivateDevices"))
-                                c->private_devices = b;
-                        else if (streq(name, "PrivateNetwork"))
-                                c->private_network = b;
-                        else if (streq(name, "PrivateUsers"))
-                                c->private_users = b;
-                        else if (streq(name, "NoNewPrivileges"))
-                                c->no_new_privileges = b;
-                        else if (streq(name, "SyslogLevelPrefix"))
-                                c->syslog_level_prefix = b;
-                        else if (streq(name, "MemoryDenyWriteExecute"))
-                                c->memory_deny_write_execute = b;
-                        else if (streq(name, "RestrictRealtime"))
-                                c->restrict_realtime = b;
-                        else if (streq(name, "DynamicUser"))
-                                c->dynamic_user = b;
-                        else if (streq(name, "RemoveIPC"))
-                                c->remove_ipc = b;
-                        else if (streq(name, "ProtectKernelTunables"))
-                                c->protect_kernel_tunables = b;
-                        else if (streq(name, "ProtectKernelModules"))
-                                c->protect_kernel_modules = b;
-                        else if (streq(name, "ProtectControlGroups"))
-                                c->protect_control_groups = b;
-                        else if (streq(name, "MountAPIVFS"))
-                                c->mount_apivfs = b;
-                        else if (streq(name, "CPUSchedulingResetOnFork"))
-                                c->cpu_sched_reset_on_fork = b;
-                        else if (streq(name, "NonBlocking"))
-                                c->non_blocking = b;
-                        else if (streq(name, "LockPersonality"))
-                                c->lock_personality = b;
-
-                        unit_write_settingf(u, flags, name, "%s=%s", name, yes_no(b));
-                }
-
-                return 1;
-
-        } else if (streq(name, "UtmpIdentifier")) {
-                const char *id;
-
-                r = sd_bus_message_read(message, "s", &id);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-
-                        r = free_and_strdup(&c->utmp_id, empty_to_null(id));
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "UtmpIdentifier=%s", strempty(id));
-                }
-
-                return 1;
-
-        } else if (streq(name, "UtmpMode")) {
-                const char *s;
-                ExecUtmpMode m;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                m = exec_utmp_mode_from_string(s);
-                if (m < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid utmp mode");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->utmp_mode = m;
-
-                        unit_write_settingf(u, flags, name, "UtmpMode=%s", exec_utmp_mode_to_string(m));
-                }
-
-                return 1;
-
-        } else if (streq(name, "PAMName")) {
-                const char *n;
-
-                r = sd_bus_message_read(message, "s", &n);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-
-                        r = free_and_strdup(&c->pam_name, empty_to_null(n));
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "PAMName=%s", strempty(n));
-                }
-
-                return 1;
-
         } else if (streq(name, "Environment")) {
 
                 _cleanup_strv_free_ char **l = NULL;
@@ -2237,21 +2047,6 @@ int bus_exec_context_set_transient_property(
 
                                 unit_write_settingf(u, flags, name, "UnsetEnvironment=%s", joined);
                         }
-                }
-
-                return 1;
-
-        } else if (streq(name, "TimerSlackNSec")) {
-
-                nsec_t n;
-
-                r = sd_bus_message_read(message, "t", &n);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->timer_slack_nsec = n;
-                        unit_write_settingf(u, flags, name, "TimerSlackNSec=" NSEC_FMT, n);
                 }
 
                 return 1;
@@ -2413,9 +2208,6 @@ int bus_exec_context_set_transient_property(
                         char *i = *p;
                         size_t offset;
 
-                        if (!utf8_is_valid(i))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
-
                         offset = i[0] == '-';
                         offset += i[offset] == '+';
                         if (!path_is_absolute(i + offset))
@@ -2448,123 +2240,6 @@ int bus_exec_context_set_transient_property(
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, joined);
                         }
-                }
-
-                return 1;
-
-        } else if (streq(name, "ProtectSystem")) {
-                const char *s;
-                ProtectSystem ps;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                r = parse_boolean(s);
-                if (r > 0)
-                        ps = PROTECT_SYSTEM_YES;
-                else if (r == 0)
-                        ps = PROTECT_SYSTEM_NO;
-                else {
-                        ps = protect_system_from_string(s);
-                        if (ps < 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse protect system value");
-                }
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->protect_system = ps;
-                        unit_write_settingf(u, flags, name, "%s=%s", name, s);
-                }
-
-                return 1;
-
-        } else if (streq(name, "ProtectHome")) {
-                const char *s;
-                ProtectHome ph;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                r = parse_boolean(s);
-                if (r > 0)
-                        ph = PROTECT_HOME_YES;
-                else if (r == 0)
-                        ph = PROTECT_HOME_NO;
-                else {
-                        ph = protect_home_from_string(s);
-                        if (ph < 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse protect home value");
-                }
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->protect_home = ph;
-                        unit_write_settingf(u, flags, name, "%s=%s", name, s);
-                }
-
-                return 1;
-
-        } else if (streq(name, "KeyringMode")) {
-
-                const char *s;
-                ExecKeyringMode m;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                m = exec_keyring_mode_from_string(s);
-                if (m < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid keyring mode");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->keyring_mode = m;
-
-                        unit_write_settingf(u, flags, name, "KeyringMode=%s", exec_keyring_mode_to_string(m));
-                }
-
-                return 1;
-
-        } else if (streq(name, "RuntimeDirectoryPreserve")) {
-                const char *s;
-                ExecPreserveMode m;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                m = exec_preserve_mode_from_string(s);
-                if (m < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid preserve mode");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->runtime_directory_preserve_mode = m;
-
-                        unit_write_settingf(u, flags, name, "RuntimeDirectoryPreserve=%s", exec_preserve_mode_to_string(m));
-                }
-
-                return 1;
-
-        } else if (STR_IN_SET(name, "RuntimeDirectoryMode", "StateDirectoryMode", "CacheDirectoryMode", "LogsDirectoryMode", "ConfigurationDirectoryMode", "UMask")) {
-                mode_t m;
-
-                r = sd_bus_message_read(message, "u", &m);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        ExecDirectoryType i;
-
-                        if (streq(name, "UMask"))
-                                c->umask = m;
-                        else
-                                for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
-                                        if (startswith(name, exec_directory_type_to_string(i))) {
-                                                c->directories[i].mode = m;
-                                                break;
-                                        }
-
-                        unit_write_settingf(u, flags, name, "%s=%040o", name, m);
                 }
 
                 return 1;
@@ -2614,24 +2289,6 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "SELinuxContext")) {
-                const char *s;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-
-                        r = free_and_strdup(&c->selinux_context, empty_to_null(s));
-                        if (r < 0)
-                                return r;
-
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "%s=%s", name, strempty(s));
-                }
-
-                return 1;
-
         } else if (STR_IN_SET(name, "AppArmorProfile", "SmackProcessLabel")) {
                 int ignore;
                 const char *s;
@@ -2670,43 +2327,6 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (streq(name, "RestrictNamespaces")) {
-                uint64_t rf;
-
-                r = sd_bus_message_read(message, "t", &rf);
-                if (r < 0)
-                        return r;
-                if ((rf & NAMESPACE_FLAGS_ALL) != rf)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown namespace types");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_free_ char *s = NULL;
-
-                        r = namespace_flag_to_string_many(rf, &s);
-                        if (r < 0)
-                                return r;
-
-                        c->restrict_namespaces = rf;
-                        unit_write_settingf(u, flags, name, "%s=%s", name, s);
-                }
-
-                return 1;
-        } else if (streq(name, "MountFlags")) {
-                uint64_t fl;
-
-                r = sd_bus_message_read(message, "t", &fl);
-                if (r < 0)
-                        return r;
-                if (!IN_SET(fl, 0, MS_SHARED, MS_PRIVATE, MS_SLAVE))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mount propagation flags");
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->mount_flags = fl;
-
-                        unit_write_settingf(u, flags, name, "%s=%s", name, mount_propagation_flags_to_string(fl));
-                }
-
-                return 1;
         } else if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
                 unsigned empty = true;
 

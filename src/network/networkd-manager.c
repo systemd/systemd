@@ -82,19 +82,6 @@ static int setup_default_address_pool(Manager *m) {
         return 0;
 }
 
-static int on_bus_retry(sd_event_source *s, usec_t usec, void *userdata) {
-        Manager *m = userdata;
-
-        assert(s);
-        assert(m);
-
-        m->bus_retry_event_source = sd_event_source_unref(m->bus_retry_event_source);
-
-        manager_connect_bus(m);
-
-        return 0;
-}
-
 static int manager_reset_all(Manager *m) {
         Link *link;
         Iterator i;
@@ -116,6 +103,7 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
         int b, r;
 
         assert(message);
+        assert(m);
 
         r = sd_bus_message_read(message, "b", &b);
         if (r < 0) {
@@ -133,35 +121,32 @@ static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_b
         return 0;
 }
 
+static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
+        Manager *m = userdata;
+
+        assert(message);
+        assert(m);
+
+        /* Did we get a timezone or transient hostname from DHCP while D-Bus wasn't up yet? */
+        if (m->dynamic_hostname)
+                (void) manager_set_hostname(m, m->dynamic_hostname);
+        if (m->dynamic_timezone)
+                (void) manager_set_timezone(m, m->dynamic_timezone);
+
+        return 0;
+}
+
 int manager_connect_bus(Manager *m) {
         int r;
 
         assert(m);
 
-        r = sd_bus_default_system(&m->bus);
-        if (r < 0) {
-                /* We failed to connect? Yuck, we must be in early
-                 * boot. Let's try in 5s again. */
-
-                log_debug_errno(r, "Failed to connect to bus, trying again in 5s: %m");
-
-                r = sd_event_add_time(m->event, &m->bus_retry_event_source, CLOCK_MONOTONIC, now(CLOCK_MONOTONIC) + 5*USEC_PER_SEC, 0, on_bus_retry, m);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to install bus reconnect time event: %m");
-
+        if (m->bus)
                 return 0;
-        }
 
-        r = sd_bus_add_match(m->bus, &m->prepare_for_sleep_slot,
-                             "type='signal',"
-                             "sender='org.freedesktop.login1',"
-                             "interface='org.freedesktop.login1.Manager',"
-                             "member='PrepareForSleep',"
-                             "path='/org/freedesktop/login1'",
-                             match_prepare_for_sleep,
-                             m);
+        r = bus_open_system_watch_bind(&m->bus);
         if (r < 0)
-                return log_error_errno(r, "Failed to add match for PrepareForSleep: %m");
+                return log_error_errno(r, "Failed to connect to bus: %m");
 
         r = sd_bus_add_object_vtable(m->bus, NULL, "/org/freedesktop/network1", "org.freedesktop.network1.Manager", manager_vtable, m);
         if (r < 0)
@@ -183,25 +168,35 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add network enumerator: %m");
 
-        r = sd_bus_request_name(m->bus, "org.freedesktop.network1", 0);
+        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.network1", 0, NULL, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to register name: %m");
+                return log_error_errno(r, "Failed to request name: %m");
 
         r = sd_bus_attach_event(m->bus, m->event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-       /* Did we get a timezone or transient hostname from DHCP while D-Bus wasn't up yet? */
-        if (m->dynamic_hostname) {
-                r = manager_set_hostname(m, m->dynamic_hostname);
-                if (r < 0)
-                        return r;
-        }
-        if (m->dynamic_timezone) {
-                r = manager_set_timezone(m, m->dynamic_timezone);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        &m->connected_slot,
+                        "org.freedesktop.DBus.Local",
+                        NULL,
+                        "org.freedesktop.DBus.Local",
+                        "Connected",
+                        on_connected, NULL, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to request match on Connected signal: %m");
+
+        r = sd_bus_match_signal_async(
+                        m->bus,
+                        &m->prepare_for_sleep_slot,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "PrepareForSleep",
+                        match_prepare_for_sleep, NULL, m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
 
         return 0;
 }
@@ -912,6 +907,26 @@ static int systemd_netlink_fd(void) {
         return rtnl_fd;
 }
 
+static int manager_connect_genl(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = sd_genl_socket_open(&m->genl);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_inc_rcvbuf(m->genl, RCVBUF_SIZE);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_attach_event(m->genl, m->event, 0);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int manager_connect_rtnl(Manager *m) {
         int fd, r;
 
@@ -1256,6 +1271,10 @@ int manager_new(Manager **ret, sd_event *event) {
         if (r < 0)
                 return r;
 
+        r = manager_connect_genl(m);
+        if (r < 0)
+                return r;
+
         r = manager_connect_udev(m);
         if (r < 0)
                 return r;
@@ -1265,6 +1284,14 @@ int manager_new(Manager **ret, sd_event *event) {
                 return -ENOMEM;
 
         LIST_HEAD_INIT(m->networks);
+
+        r = sd_resolve_default(&m->resolve);
+        if (r < 0)
+                return r;
+
+        r = sd_resolve_attach_event(m->resolve, m->event, 0);
+        if (r < 0)
+                return r;
 
         r = setup_default_address_pool(m);
         if (r < 0)
@@ -1315,12 +1342,15 @@ void manager_free(Manager *m) {
         sd_netlink_unref(m->rtnl);
         sd_event_unref(m->event);
 
+        sd_resolve_unref(m->resolve);
+
         sd_event_source_unref(m->udev_event_source);
         udev_monitor_unref(m->udev_monitor);
         udev_unref(m->udev);
 
         sd_bus_unref(m->bus);
         sd_bus_slot_unref(m->prepare_for_sleep_slot);
+        sd_bus_slot_unref(m->connected_slot);
         sd_event_source_unref(m->bus_retry_event_source);
 
         free(m->dynamic_timezone);
@@ -1595,12 +1625,12 @@ int manager_set_hostname(Manager *m, const char *hostname) {
         int r;
 
         log_debug("Setting transient hostname: '%s'", strna(hostname));
+
         if (free_and_strdup(&m->dynamic_hostname, hostname) < 0)
                 return log_oom();
 
-        if (!m->bus) {
-                /* TODO: replace by assert when we can rely on kdbus */
-                log_info("Not connected to system bus, ignoring transient hostname.");
+        if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
+                log_info("Not connected to system bus, not setting hostname.");
                 return 0;
         }
 
@@ -1647,8 +1677,8 @@ int manager_set_timezone(Manager *m, const char *tz) {
         if (free_and_strdup(&m->dynamic_timezone, tz) < 0)
                 return log_oom();
 
-        if (!m->bus) {
-                log_info("Not connected to system bus, ignoring timezone.");
+        if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
+                log_info("Not connected to system bus, not setting hostname.");
                 return 0;
         }
 

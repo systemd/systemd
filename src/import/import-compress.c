@@ -70,7 +70,7 @@ int import_uncompress_detect(ImportCompress *c, const void *data, size_t size) {
         if (memcmp(data, xz_signature, sizeof(xz_signature)) == 0) {
                 lzma_ret xzr;
 
-                xzr = lzma_stream_decoder(&c->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK);
+                xzr = lzma_stream_decoder(&c->xz, UINT64_MAX, LZMA_TELL_UNSUPPORTED_CHECK | LZMA_CONCATENATED);
                 if (xzr != LZMA_OK)
                         return -EIO;
 

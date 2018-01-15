@@ -21,6 +21,7 @@
 #include <getopt.h>
 
 #include "sd-event.h"
+#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"

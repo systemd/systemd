@@ -1568,9 +1568,9 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                          "member='MachineRemoved',"
                          "arg0='", machine, "'");
 
-        r = sd_bus_add_match(bus, &slot, match, on_machine_removed, &forward);
+        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, NULL, &forward);
         if (r < 0)
-                return log_error_errno(r, "Failed to add machine removal match: %m");
+                return log_error_errno(r, "Failed to request machine removal match: %m");
 
         r = sd_bus_call_method(
                         bus,
@@ -1643,9 +1643,9 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
                          "member='MachineRemoved',"
                          "arg0='", machine, "'");
 
-        r = sd_bus_add_match(bus, &slot, match, on_machine_removed, &forward);
+        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, NULL, &forward);
         if (r < 0)
-                return log_error_errno(r, "Failed to add machine removal match: %m");
+                return log_error_errno(r, "Failed to request machine removal match: %m");
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -2087,28 +2087,27 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = sd_bus_add_match(
+        r = sd_bus_match_signal_async(
                         bus,
                         &slot_job_removed,
-                        "type='signal',"
-                        "sender='org.freedesktop.import1',"
-                        "interface='org.freedesktop.import1.Manager',"
-                        "member='TransferRemoved',"
-                        "path='/org/freedesktop/import1'",
-                        match_transfer_removed, &path);
+                        "org.freedesktop.import1",
+                        "/org/freedesktop/import1",
+                        "org.freedesktop.import1.Manager",
+                        "TransferRemoved",
+                        match_transfer_removed, NULL, &path);
         if (r < 0)
-                return log_error_errno(r, "Failed to install match: %m");
+                return log_error_errno(r, "Failed to request match: %m");
 
-        r = sd_bus_add_match(
+        r = sd_bus_match_signal_async(
                         bus,
                         &slot_log_message,
-                        "type='signal',"
-                        "sender='org.freedesktop.import1',"
-                        "interface='org.freedesktop.import1.Transfer',"
-                        "member='LogMessage'",
-                        match_log_message, &path);
+                        "org.freedesktop.import1",
+                        NULL,
+                        "org.freedesktop.import1.Transfer",
+                        "LogMessage",
+                        match_log_message, NULL, &path);
         if (r < 0)
-                return log_error_errno(r, "Failed to install match: %m");
+                return log_error_errno(r, "Failed to request match: %m");
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
@@ -3144,7 +3143,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
 }
 
 int main(int argc, char*argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -3167,6 +3166,9 @@ int main(int argc, char*argv[]) {
         r = machinectl_main(argc, argv, bus);
 
 finish:
+        /* make sure we terminate the bus connection first, and then close the
+         * pager, see issue #3543 for the details. */
+        sd_bus_flush_close_unref(bus);
         pager_close();
         polkit_agent_close();
 

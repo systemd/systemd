@@ -636,13 +636,13 @@ int route_configure(
                         return log_error_errno(r, "Could not append RTAX_MTU attribute: %m");
         }
 
-        if (route->initcwnd) {
+        if (route->initcwnd > 0) {
                 r = sd_netlink_message_append_u32(req, RTAX_INITCWND, route->initcwnd);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTAX_INITCWND attribute: %m");
         }
 
-        if (route->initrwnd) {
+        if (route->initrwnd > 0) {
                 r = sd_netlink_message_append_u32(req, RTAX_INITRWND, route->initrwnd);
                 if (r < 0)
                         return log_error_errno(r, "Could not append RTAX_INITRWND attribute: %m");
@@ -1092,9 +1092,9 @@ int config_parse_tcp_window(const char *unit,
                              const char *rvalue,
                              void *data,
                              void *userdata) {
-        Network *network = userdata;
         _cleanup_route_free_ Route *n = NULL;
-        uint32_t k;
+        Network *network = userdata;
+        uint64_t k;
         int r;
 
         assert(filename);
@@ -1107,10 +1107,10 @@ int config_parse_tcp_window(const char *unit,
         if (r < 0)
                 return r;
 
-        r = safe_atou32(rvalue, &k);
-        if (r < 0) {
+        r = parse_size(rvalue, 1024, &k);
+        if (r < 0 || k > UINT32_MAX)  {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Could not parse TCP %s \"%s\", ignoring assignment: %m", rvalue, lvalue);
+                           "Could not parse TCP %s \"%s\" bytes, ignoring assignment: %m", rvalue, lvalue);
                 return 0;
         }
 

@@ -22,8 +22,6 @@
 
 #include <stdbool.h>
 
-#include "sd-bus.h"
-
 #include "macro.h"
 
 bool bus_type_is_valid(char c) _const_;

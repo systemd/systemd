@@ -38,6 +38,7 @@
 #include "log.h"
 #include "special.h"
 #include "util.h"
+#include "process-util.h"
 
 #define SERVER_FD_MAX 16
 #define TIMEOUT_MSEC ((int) (DEFAULT_EXIT_USEC/USEC_PER_MSEC))

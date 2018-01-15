@@ -263,7 +263,7 @@ static int manager_dispatch_ask_password_fd(sd_event_source *source,
 
         assert(m);
 
-        flush_fd(fd);
+        (void) flush_fd(fd);
 
         m->have_ask_password = have_ask_password();
         if (m->have_ask_password < 0)
@@ -513,23 +513,31 @@ static int manager_setup_signals(Manager *m) {
         return 0;
 }
 
-static void manager_clean_environment(Manager *m) {
+static void manager_sanitize_environment(Manager *m) {
         assert(m);
 
-        /* Let's remove some environment variables that we
-         * need ourselves to communicate with our clients */
+        /* Let's remove some environment variables that we need ourselves to communicate with our clients */
         strv_env_unset_many(
                         m->environment,
-                        "NOTIFY_SOCKET",
+                        "EXIT_CODE",
+                        "EXIT_STATUS",
+                        "INVOCATION_ID",
+                        "JOURNAL_STREAM",
+                        "LISTEN_FDNAMES",
+                        "LISTEN_FDS",
+                        "LISTEN_PID",
                         "MAINPID",
                         "MANAGERPID",
-                        "LISTEN_PID",
-                        "LISTEN_FDS",
-                        "LISTEN_FDNAMES",
+                        "NOTIFY_SOCKET",
+                        "REMOTE_ADDR",
+                        "REMOTE_PORT",
+                        "SERVICE_RESULT",
                         "WATCHDOG_PID",
                         "WATCHDOG_USEC",
-                        "INVOCATION_ID",
                         NULL);
+
+        /* Let's order the environment alphabetically, just to make it pretty */
+        strv_sort(m->environment);
 }
 
 static int manager_default_environment(Manager *m) {
@@ -556,8 +564,7 @@ static int manager_default_environment(Manager *m) {
         if (!m->environment)
                 return -ENOMEM;
 
-        manager_clean_environment(m);
-        strv_sort(m->environment);
+        manager_sanitize_environment(m);
 
         return 0;
 }
@@ -1872,27 +1879,35 @@ static int manager_dispatch_cgroups_agent_fd(sd_event_source *source, int fd, ui
         return 0;
 }
 
-static void manager_invoke_notify_message(Manager *m, Unit *u, pid_t pid, const char *buf, FDSet *fds) {
+static void manager_invoke_notify_message(
+                Manager *m,
+                Unit *u,
+                const struct ucred *ucred,
+                const char *buf,
+                FDSet *fds) {
+
         _cleanup_strv_free_ char **tags = NULL;
 
         assert(m);
         assert(u);
+        assert(ucred);
         assert(buf);
 
-        tags = strv_split(buf, "\n\r");
+        tags = strv_split(buf, NEWLINE);
         if (!tags) {
                 log_oom();
                 return;
         }
 
         if (UNIT_VTABLE(u)->notify_message)
-                UNIT_VTABLE(u)->notify_message(u, pid, tags, fds);
+                UNIT_VTABLE(u)->notify_message(u, ucred, tags, fds);
         else if (DEBUG_LOGGING) {
                 _cleanup_free_ char *x = NULL, *y = NULL;
 
-                x = cescape(buf);
+                x = ellipsize(buf, 20, 90);
                 if (x)
-                        y = ellipsize(x, 20, 90);
+                        y = cescape(x);
+
                 log_unit_debug(u, "Got notification message \"%s\", ignoring.", strnull(y));
         }
 }
@@ -1969,7 +1984,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 }
         }
 
-        if (!ucred || ucred->pid <= 0) {
+        if (!ucred || !pid_is_valid(ucred->pid)) {
                 log_warning("Received notify message without valid credentials. Ignoring.");
                 return 0;
         }
@@ -1993,15 +2008,15 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
          * to avoid notifying the same one multiple times. */
         u1 = manager_get_unit_by_pid_cgroup(m, ucred->pid);
         if (u1)
-                manager_invoke_notify_message(m, u1, ucred->pid, buf, fds);
+                manager_invoke_notify_message(m, u1, ucred, buf, fds);
 
         u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(ucred->pid));
         if (u2 && u2 != u1)
-                manager_invoke_notify_message(m, u2, ucred->pid, buf, fds);
+                manager_invoke_notify_message(m, u2, ucred, buf, fds);
 
         u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(ucred->pid));
         if (u3 && u3 != u2 && u3 != u1)
-                manager_invoke_notify_message(m, u3, ucred->pid, buf, fds);
+                manager_invoke_notify_message(m, u3, ucred, buf, fds);
 
         if (!u1 && !u2 && !u3)
                 log_warning("Cannot find unit for notify message of PID "PID_FMT".", ucred->pid);
@@ -3308,8 +3323,7 @@ int manager_environment_add(Manager *m, char **minus, char **plus) {
                 strv_free(b);
 
         m->environment = l;
-        manager_clean_environment(m);
-        strv_sort(m->environment);
+        manager_sanitize_environment(m);
 
         return 0;
 }

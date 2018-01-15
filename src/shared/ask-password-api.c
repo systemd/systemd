@@ -316,7 +316,7 @@ int ask_password_tty(
                 }
 
                 if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
-                        flush_fd(notify);
+                        (void) flush_fd(notify);
 
                 if (pollfd[POLL_TTY].revents == 0)
                         continue;

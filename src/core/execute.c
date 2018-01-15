@@ -1776,7 +1776,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
 static bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
-                ExecRuntime *runtime) {
+                const ExecRuntime *runtime) {
 
         assert(context);
         assert(params);
@@ -1789,12 +1789,7 @@ static bool exec_needs_mount_namespace(
             !strv_isempty(context->inaccessible_paths))
                 return true;
 
-        if (context->n_bind_mounts > 0 ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_RUNTIME].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_CONFIGURATION].paths))
+        if (context->n_bind_mounts > 0)
                 return true;
 
         if (context->mount_flags != 0)
@@ -1814,6 +1809,12 @@ static bool exec_needs_mount_namespace(
         if (context->mount_apivfs && (context->root_image || context->root_directory))
                 return true;
 
+        if (context->dynamic_user &&
+            (!strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
+             !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
+             !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths)))
+                return true;
+
         return false;
 }
 
@@ -1823,7 +1824,6 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         _cleanup_close_ int unshare_ready_fd = -1;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         uint64_t c = 1;
-        siginfo_t si;
         ssize_t n;
         int r;
 
@@ -1963,13 +1963,11 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         if (n != 0) /* on success we should have read 0 bytes */
                 return -EIO;
 
-        r = wait_for_terminate(pid, &si);
+        r = wait_for_terminate_and_check("(sd-userns)", pid, 0);
+        pid = 0;
         if (r < 0)
                 return r;
-        pid = 0;
-
-        /* If something strange happened with the child, let's consider this fatal, too */
-        if (si.si_code != CLD_EXITED || si.si_status != 0)
+        if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
                 return -EIO;
 
         return 0;

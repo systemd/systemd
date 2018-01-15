@@ -87,11 +87,9 @@ int main(int argc, char *argv[]) {
 
                 log_debug("Remounting %s", me->mnt_dir);
 
-                r = safe_fork("(remount)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to fork: %m");
+                r = safe_fork("(remount)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+                if (r < 0)
                         goto finish;
-                }
                 if (r == 0) {
                         /* Child */
 

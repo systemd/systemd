@@ -164,6 +164,10 @@ static void mount_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         m->timeout_usec = u->manager->default_timeout_start_usec;
+
+        m->exec_context.std_output = u->manager->default_std_output;
+        m->exec_context.std_error = u->manager->default_std_error;
+
         m->directory_mode = 0755;
 
         /* We need to make sure that /usr/bin/mount is always called
@@ -1305,7 +1309,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         case MOUNT_UNMOUNTING_SIGKILL:
         case MOUNT_UNMOUNTING_SIGTERM:
 
-                if (m->from_proc_self_mountinfo) {
+                if (f == MOUNT_SUCCESS && m->from_proc_self_mountinfo) {
 
                         /* Still a mount point? If so, let's try again. Most likely there were multiple mount points
                          * stacked on top of each other. Note that due to the io event priority logic we can be sure
@@ -1320,7 +1324,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 mount_enter_mounted(m, f);
                         }
                 } else
-                        mount_enter_dead(m, f);
+                        mount_enter_dead_or_mounted(m, f);
 
                 break;
 
@@ -1486,7 +1490,7 @@ static int mount_setup_existing_unit(
 
         flags->just_changed = r1 > 0 || r2 > 0 || r3 > 0;
         flags->is_mounted = true;
-        flags->just_mounted = !MOUNT(u)->from_proc_self_mountinfo;
+        flags->just_mounted = !MOUNT(u)->from_proc_self_mountinfo || MOUNT(u)->just_mounted;
 
         MOUNT(u)->from_proc_self_mountinfo = true;
 

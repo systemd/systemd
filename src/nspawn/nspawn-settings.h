@@ -22,6 +22,8 @@
 
 #include <stdio.h>
 
+#include "sd-id128.h"
+
 #include "macro.h"
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"

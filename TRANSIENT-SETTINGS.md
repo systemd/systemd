@@ -10,12 +10,12 @@ ones currently available in transient units are prefixed with `✓`.
 
 ## Generic Unit Settings
 
-Only the most important generic unit settings are available for transient units.
+Most generic unit settings are available for transient units.
 
 ```
 ✓ Description=
-  Documentation=
-  SourcePath=
+✓ Documentation=
+✓ SourcePath=
 ✓ Requires=
 ✓ Requisite=
 ✓ Wants=
@@ -27,69 +27,70 @@ Only the most important generic unit settings are available for transient units.
 ✓ PropagatesReloadTo=
 ✓ ReloadPropagatedFrom=
 ✓ PartOf=
-  JoinsNamespaceOf=
-  RequiresMountsFor=
-  StopWhenUnneeded=
-  RefuseManualStart=
-  RefuseManualStop=
-  AllowIsolate=
+✓ JoinsNamespaceOf=
+✓ RequiresMountsFor=
+✓ StopWhenUnneeded=
+✓ RefuseManualStart=
+✓ RefuseManualStop=
+✓ AllowIsolate=
 ✓ DefaultDependencies=
-  OnFailureJobMode=
-  OnFailureIsolate=
-  IgnoreOnIsolate=
-  JobTimeoutSec=
-  JobRunningTimeoutSec=
-  JobTimeoutAction=
-  JobTimeoutRebootArgument=
-  StartLimitIntervalSec=SECONDS
-  StartLimitBurst=UNSIGNED
-  StartLimitAction=ACTION
+✓ OnFailureJobMode=
+✓ IgnoreOnIsolate=
+✓ JobTimeoutSec=
+✓ JobRunningTimeoutSec=
+✓ JobTimeoutAction=
+✓ JobTimeoutRebootArgument=
+✓ StartLimitIntervalSec=SECONDS
+✓ StartLimitBurst=UNSIGNED
+✓ StartLimitAction=ACTION
 ✓ FailureAction=
 ✓ SuccessAction=
 ✓ AddRef=
-  RebootArgument=STRING
-  ConditionPathExists=
-  ConditionPathExistsGlob=
-  ConditionPathIsDirectory=
-  ConditionPathIsSymbolicLink=
-  ConditionPathIsMountPoint=
-  ConditionPathIsReadWrite=
-  ConditionDirectoryNotEmpty=
-  ConditionFileNotEmpty=
-  ConditionFileIsExecutable=
-  ConditionNeedsUpdate=
-  ConditionFirstBoot=
-  ConditionKernelCommandLine=
-  ConditionArchitecture=
-  ConditionVirtualization=
-  ConditionSecurity=
-  ConditionCapability=
-  ConditionHost=
-  ConditionACPower=
-  ConditionUser=
-  ConditionGroup=
-  ConditionControlGroupController=
-  AssertPathExists=
-  AssertPathExistsGlob=
-  AssertPathIsDirectory=
-  AssertPathIsSymbolicLink=
-  AssertPathIsMountPoint=
-  AssertPathIsReadWrite=
-  AssertDirectoryNotEmpty=
-  AssertFileNotEmpty=
-  AssertFileIsExecutable=
-  AssertNeedsUpdate=
-  AssertFirstBoot=
-  AssertKernelCommandLine=
-  AssertArchitecture=
-  AssertVirtualization=
-  AssertSecurity=
-  AssertCapability=
-  AssertHost=
-  AssertACPower=
-  AssertUser=
-  AssertGroup=
-  AssertControlGroupController=
+✓ RebootArgument=STRING
+✓ ConditionPathExists=
+✓ ConditionPathExistsGlob=
+✓ ConditionPathIsDirectory=
+✓ ConditionPathIsSymbolicLink=
+✓ ConditionPathIsMountPoint=
+✓ ConditionPathIsReadWrite=
+✓ ConditionDirectoryNotEmpty=
+✓ ConditionFileNotEmpty=
+✓ ConditionFileIsExecutable=
+✓ ConditionNeedsUpdate=
+✓ ConditionFirstBoot=
+✓ ConditionKernelCommandLine=
+✓ ConditionKernelVersion=
+✓ ConditionArchitecture=
+✓ ConditionVirtualization=
+✓ ConditionSecurity=
+✓ ConditionCapability=
+✓ ConditionHost=
+✓ ConditionACPower=
+✓ ConditionUser=
+✓ ConditionGroup=
+✓ ConditionControlGroupController=
+✓ AssertPathExists=
+✓ AssertPathExistsGlob=
+✓ AssertPathIsDirectory=
+✓ AssertPathIsSymbolicLink=
+✓ AssertPathIsMountPoint=
+✓ AssertPathIsReadWrite=
+✓ AssertDirectoryNotEmpty=
+✓ AssertFileNotEmpty=
+✓ AssertFileIsExecutable=
+✓ AssertNeedsUpdate=
+✓ AssertFirstBoot=
+✓ AssertKernelCommandLine=
+✓ AssertKernelVersion=
+✓ AssertArchitecture=
+✓ AssertVirtualization=
+✓ AssertSecurity=
+✓ AssertCapability=
+✓ AssertHost=
+✓ AssertACPower=
+✓ AssertUser=
+✓ AssertGroup=
+✓ AssertControlGroupController=
 ✓ CollectMode=
 ```
 
@@ -256,63 +257,63 @@ All process killing settings are available for transient units:
 
 ## Service Unit Settings
 
-Only the most important service settings are available for transient units.
+Most service unit settings are available for transient units.
 
 ```
-  PIDFile=
+✓ PIDFile=
 ✓ ExecStartPre=
 ✓ ExecStart=
 ✓ ExecStartPost=
 ✓ ExecReload=
 ✓ ExecStop=
 ✓ ExecStopPost=
-  RestartSec=
-  TimeoutStartSec=
-  TimeoutStopSec=
-  TimeoutSec=
+✓ RestartSec=
+✓ TimeoutStartSec=
+✓ TimeoutStopSec=
+✓ TimeoutSec=
 ✓ RuntimeMaxSec=
-  WatchdogSec=
+✓ WatchdogSec=
 ✓ Type=
 ✓ Restart=
-  PermissionsStartOnly=
-  RootDirectoryStartOnly=
+✓ PermissionsStartOnly=
+✓ RootDirectoryStartOnly=
 ✓ RemainAfterExit=
-  GuessMainPID=
-  RestartPreventExitStatus=
-  RestartForceExitStatus=
-  SuccessExitStatus=
+✓ GuessMainPID=
+✓ RestartPreventExitStatus=
+✓ RestartForceExitStatus=
+✓ SuccessExitStatus=
 ✓ NonBlocking=
-  BusName=
+✓ BusName=
 ✓ FileDescriptorStoreMax=
 ✓ NotifyAccess=
   Sockets=
-  USBFunctionDescriptors=
-  USBFunctionStrings=
+✓ USBFunctionDescriptors=
+✓ USBFunctionStrings=
 ```
 
 ## Mount Unit Settings
 
-Only the most important mount unit settings are currently available to transient units:
+All mount unit settings are available to transient units:
 
 ```
 ✓ What=
-  Where=
+✓ Where=
 ✓ Options=
 ✓ Type=
-  TimeoutSec=
-  DirectoryMode=
-  SloppyOptions=
-  LazyUnmount=
-  ForceUnmount=
+✓ TimeoutSec=
+✓ DirectoryMode=
+✓ SloppyOptions=
+✓ LazyUnmount=
+✓ ForceUnmount=
 ```
 
 ## Automount Unit Settings
 
-Only one automount unit setting is currently available to transient units:
+All automount unit setting is available to transient units:
 
 ```
-  Where=
-  DirectoryMode=
+✓ Where=
+✓ DirectoryMode=
 ✓ TimeoutIdleSec=
 ```
 
@@ -343,8 +344,11 @@ of their own beyond the generic unit and resource control settings.
 ## Scope Unit Settings
 
 Scope units are fully supported as transient units (in fact they only exist as
-such), but they have no settings of their own beyond the generic unit,
-resource control, and process killing settings.
+such).
+
+```
+✓ TimeoutStopSec=
+```
 
 ## Socket Unit Settings
 

@@ -37,6 +37,7 @@
 #include "log.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "sigbus.h"
 #include "signal-util.h"
 #include "string-util.h"

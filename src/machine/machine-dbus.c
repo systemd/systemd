@@ -228,7 +228,6 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                 _cleanup_free_ char *us = NULL, *them = NULL;
                 _cleanup_close_ int netns_fd = -1;
                 const char *p;
-                siginfo_t si;
                 pid_t child;
 
                 r = readlink_malloc("/proc/self/ns/net", &us);
@@ -337,10 +336,10 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                                 return r;
                 }
 
-                r = wait_for_terminate(child, &si);
+                r = wait_for_terminate_and_check("(sd-addr)", child, 0);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
-                if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                if (r != EXIT_SUCCESS)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
                 break;
         }
@@ -379,7 +378,6 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 _cleanup_close_ int mntns_fd = -1, root_fd = -1;
                 _cleanup_close_pair_ int pair[2] = { -1, -1 };
                 _cleanup_fclose_ FILE *f = NULL;
-                siginfo_t si;
                 pid_t child;
 
                 r = namespace_open(m->leader, NULL, &mntns_fd, NULL, NULL, &root_fd);
@@ -429,12 +427,12 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 if (r < 0)
                         return r;
 
-                r = wait_for_terminate(child, &si);
+                r = wait_for_terminate_and_check("(sd-osrel)", child, 0);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
-                if (si.si_code == CLD_EXITED && si.si_status == EXIT_NOT_FOUND)
+                if (r == EXIT_NOT_FOUND)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Machine does not contain OS release information");
-                if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                if (r != EXIT_SUCCESS)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
 
                 break;
@@ -840,7 +838,6 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         const char *dest, *src;
         Machine *m = userdata;
         struct stat st;
-        siginfo_t si;
         pid_t child;
         uid_t uid;
         int r;
@@ -1046,17 +1043,12 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-bindmnt)", child, 0);
         if (r < 0) {
                 r = sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 goto finish;
         }
-        if (si.si_code != CLD_EXITED) {
-                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
-                goto finish;
-        }
-        if (si.si_status != EXIT_SUCCESS) {
-
+        if (r != EXIT_SUCCESS) {
                 if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
                         r = sd_bus_error_set_errnof(error, r, "Failed to mount: %m");
                 else
@@ -1268,7 +1260,6 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
         case MACHINE_CONTAINER: {
                 _cleanup_close_ int mntns_fd = -1, root_fd = -1;
                 _cleanup_close_pair_ int pair[2] = { -1, -1 };
-                siginfo_t si;
                 pid_t child;
 
                 r = namespace_open(m->leader, NULL, &mntns_fd, NULL, NULL, &root_fd);
@@ -1304,10 +1295,10 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
 
                 pair[1] = safe_close(pair[1]);
 
-                r = wait_for_terminate(child, &si);
+                r = wait_for_terminate_and_check("(sd-openroot)", child, 0);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
-                if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                if (r != EXIT_SUCCESS)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
 
                 fd = receive_one_fd(pair[0], MSG_DONTWAIT);

@@ -885,12 +885,16 @@ static int on_conflict_dispatch(sd_event_source *es, usec_t usec, void *userdata
         scope->conflict_event_source = sd_event_source_unref(scope->conflict_event_source);
 
         for (;;) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
                 _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
 
-                rr = ordered_hashmap_steal_first(scope->conflict_queue);
-                if (!rr)
+                key = ordered_hashmap_first_key(scope->conflict_queue);
+                if (!key)
                         break;
+
+                rr = ordered_hashmap_remove(scope->conflict_queue, key);
+                assert(rr);
 
                 r = dns_scope_make_conflict_packet(scope, rr, &p);
                 if (r < 0) {
@@ -930,6 +934,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to queue conflicting RR: %m");
 
+        dns_resource_key_ref(rr->key);
         dns_resource_record_ref(rr);
 
         if (scope->conflict_event_source)
@@ -953,7 +958,7 @@ int dns_scope_notify_conflict(DnsScope *scope, DnsResourceRecord *rr) {
 }
 
 void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
-        unsigned i;
+        DnsResourceRecord *rr;
         int r;
 
         assert(scope);
@@ -984,21 +989,24 @@ void dns_scope_check_conflicts(DnsScope *scope, DnsPacket *p) {
 
         log_debug("Checking for conflicts...");
 
-        for (i = 0; i < p->answer->n_rrs; i++) {
+        DNS_ANSWER_FOREACH(rr, p->answer) {
+                /* No conflict if it is DNS-SD RR used for service enumeration. */
+                if (dns_resource_key_is_dnssd_ptr(rr->key))
+                        continue;
 
                 /* Check for conflicts against the local zone. If we
                  * found one, we won't check any further */
-                r = dns_zone_check_conflicts(&scope->zone, p->answer->items[i].rr);
+                r = dns_zone_check_conflicts(&scope->zone, rr);
                 if (r != 0)
                         continue;
 
                 /* Check for conflicts against the local cache. If so,
                  * send out an advisory query, to inform everybody */
-                r = dns_cache_check_conflicts(&scope->cache, p->answer->items[i].rr, p->family, &p->sender);
+                r = dns_cache_check_conflicts(&scope->cache, rr, p->family, &p->sender);
                 if (r <= 0)
                         continue;
 
-                dns_scope_notify_conflict(scope, p->answer->items[i].rr);
+                dns_scope_notify_conflict(scope, rr);
         }
 }
 

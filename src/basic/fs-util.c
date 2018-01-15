@@ -39,6 +39,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -315,43 +316,60 @@ int fd_warn_permissions(const char *path, int fd) {
 }
 
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode) {
-        _cleanup_close_ int fd;
-        int r;
+        char fdpath[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_close_ int fd = -1;
+        int r, ret = 0;
 
         assert(path);
 
+        /* Note that touch_file() does not follow symlinks: if invoked on an existing symlink, then it is the symlink
+         * itself which is updated, not its target
+         *
+         * Returns the first error we encounter, but tries to apply as much as possible. */
+
         if (parents)
-                mkdir_parents(path, 0755);
+                (void) mkdir_parents(path, 0755);
 
-        fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
-                  IN_SET(mode, 0, MODE_INVALID) ? 0644 : mode);
-        if (fd < 0)
-                return -errno;
+        /* Initially, we try to open the node with O_PATH, so that we get a reference to the node. This is useful in
+         * case the path refers to an existing device or socket node, as we can open it successfully in all cases, and
+         * won't trigger any driver magic or so. */
+        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW);
+        if (fd < 0) {
+                if (errno != ENOENT)
+                        return -errno;
 
-        if (mode != MODE_INVALID) {
-                r = fchmod(fd, mode);
-                if (r < 0)
+                /* if the node doesn't exist yet, we create it, but with O_EXCL, so that we only create a regular file
+                 * here, and nothing else */
+                fd = open(path, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, IN_SET(mode, 0, MODE_INVALID) ? 0644 : mode);
+                if (fd < 0)
                         return -errno;
         }
 
-        if (uid != UID_INVALID || gid != GID_INVALID) {
-                r = fchown(fd, uid, gid);
-                if (r < 0)
-                        return -errno;
-        }
+        /* Let's make a path from the fd, and operate on that. With this logic, we can adjust the access mode,
+         * ownership and time of the file node in all cases, even if the fd refers to an O_PATH object — which is
+         * something fchown(), fchmod(), futimensat() don't allow. */
+        xsprintf(fdpath, "/proc/self/fd/%i", fd);
+
+        if (mode != MODE_INVALID)
+                if (chmod(fdpath, mode) < 0)
+                        ret = -errno;
+
+        if (uid_is_valid(uid) || gid_is_valid(gid))
+                if (chown(fdpath, uid, gid) < 0 && ret >= 0)
+                        ret = -errno;
 
         if (stamp != USEC_INFINITY) {
                 struct timespec ts[2];
 
                 timespec_store(&ts[0], stamp);
                 ts[1] = ts[0];
-                r = futimens(fd, ts);
+                r = utimensat(AT_FDCWD, fdpath, ts, 0);
         } else
-                r = futimens(fd, NULL);
-        if (r < 0)
+                r = utimensat(AT_FDCWD, fdpath, NULL, 0);
+        if (r < 0 && ret >= 0)
                 return -errno;
 
-        return 0;
+        return ret;
 }
 
 int touch(const char *path) {
@@ -593,15 +611,31 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
         return r;
 }
 
+static bool safe_transition(const struct stat *a, const struct stat *b) {
+        /* Returns true if the transition from a to b is safe, i.e. that we never transition from unprivileged to
+         * privileged files or directories. Why bother? So that unprivileged code can't symlink to privileged files
+         * making us believe we read something safe even though it isn't safe in the specific context we open it in. */
+
+        if (a->st_uid == 0) /* Transitioning from privileged to unprivileged is always fine */
+                return true;
+
+        return a->st_uid == b->st_uid; /* Otherwise we need to stay within the same UID */
+}
+
 int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret) {
         _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
         _cleanup_close_ int fd = -1;
         unsigned max_follow = 32; /* how many symlinks to follow before giving up and returning ELOOP */
+        struct stat previous_stat;
         bool exists = true;
         char *todo;
         int r;
 
         assert(path);
+
+        /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
+        if ((flags & (CHASE_NONEXISTENT|CHASE_OPEN)) == (CHASE_NONEXISTENT|CHASE_OPEN))
+                return -EINVAL;
 
         /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows following
          * symlinks relative to a root directory, instead of the root of the host.
@@ -639,6 +673,11 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         fd = open("/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
         if (fd < 0)
                 return -errno;
+
+        if (flags & CHASE_SAFE) {
+                if (fstat(fd, &previous_stat) < 0)
+                        return -errno;
+        }
 
         todo = buffer;
         for (;;) {
@@ -701,6 +740,16 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         if (fd_parent < 0)
                                 return -errno;
 
+                        if (flags & CHASE_SAFE) {
+                                if (fstat(fd_parent, &st) < 0)
+                                        return -errno;
+
+                                if (!safe_transition(&previous_stat, &st))
+                                        return -EPERM;
+
+                                previous_stat = st;
+                        }
+
                         safe_close(fd);
                         fd = fd_parent;
 
@@ -735,6 +784,12 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                 if (fstat(child, &st) < 0)
                         return -errno;
+                if ((flags & CHASE_SAFE) &&
+                    !safe_transition(&previous_stat, &st))
+                        return -EPERM;
+
+                previous_stat = st;
+
                 if ((flags & CHASE_NO_AUTOFS) &&
                     fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
                         return -EREMOTE;
@@ -766,6 +821,16 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                         return -errno;
 
                                 free(done);
+
+                                if (flags & CHASE_SAFE) {
+                                        if (fstat(fd, &st) < 0)
+                                                return -errno;
+
+                                        if (!safe_transition(&previous_stat, &st))
+                                                return -EPERM;
+
+                                        previous_stat = st;
+                                }
 
                                 /* Note that we do not revalidate the root, we take it as is. */
                                 if (isempty(root))
@@ -819,6 +884,19 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if (ret) {
                 *ret = done;
                 done = NULL;
+        }
+
+        if (flags & CHASE_OPEN) {
+                int q;
+
+                /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a proper fd by
+                 * opening /proc/self/fd/xyz. */
+
+                assert(fd >= 0);
+                q = fd;
+                fd = -1;
+
+                return q;
         }
 
         return exists;

@@ -774,11 +774,9 @@ int udev_event_spawn(struct udev_event *event,
                 }
         }
 
-        err = safe_fork("(spawn)", FORK_RESET_SIGNALS, &pid);
-        if (err < 0) {
-                log_error_errno(err, "fork of '%s' failed: %m", cmd);
+        err = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
+        if (err < 0)
                 goto out;
-        }
         if (err == 0) {
                 char arg[UTIL_PATH_SIZE];
                 char *argv[128];

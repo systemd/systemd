@@ -100,8 +100,6 @@
       late system shutdown should disable
       <varname>DefaultDependencies=</varname> option.</para></listitem>
     </itemizedlist>
-
-    <para></para>
   </refsect1>
 
   <refsect1>

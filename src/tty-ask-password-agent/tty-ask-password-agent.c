@@ -159,7 +159,7 @@ static int ask_password_plymouth(
                 }
 
                 if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
-                        flush_fd(notify);
+                        (void) flush_fd(notify);
 
                 if (pollfd[POLL_SOCKET].revents == 0)
                         continue;
@@ -417,8 +417,8 @@ static int wall_tty_block(void) {
         if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)
                 return log_oom();
 
-        mkdir_parents_label(p, 0700);
-        mkfifo(p, 0600);
+        (void) mkdir_parents_label(p, 0700);
+        (void) mkfifo(p, 0600);
 
         fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
@@ -709,9 +709,9 @@ static int ask_on_this_console(const char *tty, pid_t *ret_pid, int argc, char *
         sig.sa_handler = SIG_DFL;
         assert_se(sigaction(SIGHUP, &sig, NULL) >= 0);
 
-        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS, &pid);
+        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork process: %m");
+                return r;
         if (r == 0) {
                 int ac;
 

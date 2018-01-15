@@ -505,8 +505,7 @@ splash_bmp = files('test/splash.bmp')
 
 # if -Dxxx-path option is found, use that. Otherwise, check in $PATH,
 # /usr/sbin, /sbin, and fall back to the default from middle column.
-progs = [['telinit',    '/lib/sysvinit/telinit'],
-         ['quotaon',    '/usr/sbin/quotaon'    ],
+progs = [['quotaon',    '/usr/sbin/quotaon'    ],
          ['quotacheck', '/usr/sbin/quotacheck' ],
          ['kill',       '/usr/bin/kill'        ],
          ['kmod',       '/usr/bin/kmod'        ],
@@ -532,6 +531,8 @@ foreach prog : progs
         conf.set_quoted(name, path)
         substs.set(name, path)
 endforeach
+
+conf.set_quoted('TELINIT', get_option('telinit-path'))
 
 if run_command('ln', '--relative', '--help').returncode() != 0
         error('ln does not support --relative')
@@ -1234,13 +1235,9 @@ includes = include_directories('src/basic',
                                'src/libsystemd/sd-netlink',
                                'src/libsystemd/sd-network',
                                'src/libsystemd-network',
-                               '.',
-                              )
+                               '.')
 
 add_project_arguments('-include', 'config.h', language : 'c')
-
-gcrypt_util_sources = files('src/shared/gcrypt-util.h',
-                            'src/shared/gcrypt-util.c')
 
 subdir('po')
 subdir('catalog')
@@ -1261,15 +1258,16 @@ libjournal_core = static_library(
 libsystemd_sym_path = '@0@/@1@'.format(meson.current_source_dir(), libsystemd_sym)
 libsystemd = shared_library(
         'systemd',
-        libsystemd_internal_sources,
-        journal_internal_sources,
+        'src/systemd/sd-id128.h', # pick a header file at random to work around old meson bug
         version : libsystemd_version,
         include_directories : includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic],
+        link_with : [libbasic,
+                     libbasic_gcrypt],
+        link_whole : [libsystemd_static,
+                      libjournal_client],
         dependencies : [threads,
-                        libgcrypt,
                         librt,
                         libxz,
                         liblz4],
@@ -1341,7 +1339,7 @@ foreach tuple : [['myhostname', 'ENABLE_MYHOSTNAME'],
                                      '-shared',
                                      '-Wl,--version-script=' + version_script_arg,
                                      '-Wl,--undefined'],
-                        link_with : [libsystemd_internal,
+                        link_with : [libsystemd_static,
                                      libbasic],
                         dependencies : [threads,
                                         librt],
@@ -1510,11 +1508,11 @@ endif
 if conf.get('ENABLE_RESOLVE') == 1
         executable('systemd-resolved',
                    systemd_resolved_sources,
-                   gcrypt_util_sources,
                    include_directories : includes,
-                   link_with : [libshared],
+                   link_with : [libshared,
+                                libbasic_gcrypt,
+                                libsystemd_resolve_core],
                    dependencies : [threads,
-                                   libgcrypt,
                                    libgpg_error,
                                    libm,
                                    libidn],
@@ -1524,11 +1522,11 @@ if conf.get('ENABLE_RESOLVE') == 1
 
         exe = executable('systemd-resolve',
                          systemd_resolve_sources,
-                         gcrypt_util_sources,
                          include_directories : includes,
-                         link_with : [libshared],
+                         link_with : [libshared,
+                                      libbasic_gcrypt,
+                                      libsystemd_resolve_core],
                          dependencies : [threads,
-                                         libgcrypt,
                                          libgpg_error,
                                          libm,
                                          libidn],
@@ -1579,7 +1577,7 @@ if conf.get('ENABLE_LOGIND') == 1
                         include_directories : includes,
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + version_script_arg],
-                        link_with : [libsystemd_internal,
+                        link_with : [libsystemd_static,
                                      libshared_static],
                         dependencies : [threads,
                                         libpam,
@@ -2232,7 +2230,7 @@ if conf.get('ENABLE_HWDB') == 1
                          'src/hwdb/hwdb.c',
                          'src/libsystemd/sd-hwdb/hwdb-internal.h',
                          include_directories : includes,
-                         link_with : [libudev_internal],
+                         link_with : [libudev_static],
                          install_rpath : udev_rpath,
                          install : true,
                          install_dir : rootbindir)
@@ -2265,7 +2263,7 @@ exe = executable('systemd-udevd',
                  c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
                  link_with : [libudev_core,
                               libsystemd_network,
-                              libudev_internal],
+                              libudev_static],
                  dependencies : [threads,
                                  libkmod,
                                  libidn,
@@ -2282,7 +2280,7 @@ exe = executable('udevadm',
                  include_directories : includes,
                  link_with : [libudev_core,
                               libsystemd_network,
-                              libudev_internal],
+                              libudev_static],
                  dependencies : [threads,
                                  libkmod,
                                  libidn,
@@ -2356,7 +2354,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                    include_directories : includes,
                    link_with : [libnetworkd_core,
                                 libsystemd_network,
-                                libudev_internal,
+                                libudev_static,
                                 libshared],
                    dependencies : [threads],
                    install_rpath : rootlibexecdir,
@@ -2560,6 +2558,14 @@ if git.found()
                            '--prefix', 'systemd-@0@/'.format(git_head),
                            'HEAD'])
 endif
+
+############################################################
+
+meson_check_api_docs_sh = find_program('tools/meson-check-api-docs.sh')
+run_target(
+        'check-api-docs',
+        depends : [man, libsystemd, libudev],
+        command : [meson_check_api_docs_sh, libsystemd.full_path(), libudev.full_path()])
 
 ############################################################
 

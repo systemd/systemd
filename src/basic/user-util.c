@@ -137,7 +137,8 @@ int get_user_creds(
                 return 0;
         }
 
-        if (STR_IN_SET(*username, NOBODY_USER_NAME, "65534")) {
+        if (synthesize_nobody() &&
+            STR_IN_SET(*username, NOBODY_USER_NAME, "65534")) {
                 *username = NOBODY_USER_NAME;
 
                 if (uid)
@@ -243,7 +244,8 @@ int get_group_creds(const char **groupname, gid_t *gid) {
                 return 0;
         }
 
-        if (STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534")) {
+        if (synthesize_nobody() &&
+            STR_IN_SET(*groupname, NOBODY_GROUP_NAME, "65534")) {
                 *groupname = NOBODY_GROUP_NAME;
 
                 if (gid)
@@ -283,7 +285,8 @@ char* uid_to_name(uid_t uid) {
         /* Shortcut things to avoid NSS lookups */
         if (uid == 0)
                 return strdup("root");
-        if (uid == UID_NOBODY)
+        if (synthesize_nobody() &&
+            uid == UID_NOBODY)
                 return strdup(NOBODY_USER_NAME);
 
         if (uid_is_valid(uid)) {
@@ -323,7 +326,8 @@ char* gid_to_name(gid_t gid) {
 
         if (gid == 0)
                 return strdup("root");
-        if (gid == GID_NOBODY)
+        if (synthesize_nobody() &&
+            gid == GID_NOBODY)
                 return strdup(NOBODY_GROUP_NAME);
 
         if (gid_is_valid(gid)) {
@@ -358,8 +362,9 @@ char* gid_to_name(gid_t gid) {
 }
 
 int in_gid(gid_t gid) {
+        long ngroups_max;
         gid_t *gids;
-        int ngroups_max, r, i;
+        int r, i;
 
         if (getgid() == gid)
                 return 1;
@@ -373,7 +378,7 @@ int in_gid(gid_t gid) {
         ngroups_max = sysconf(_SC_NGROUPS_MAX);
         assert(ngroups_max > 0);
 
-        gids = alloca(sizeof(gid_t) * ngroups_max);
+        gids = newa(gid_t, ngroups_max);
 
         r = getgroups(ngroups_max, gids);
         if (r < 0)
@@ -426,7 +431,8 @@ int get_home_dir(char **_h) {
                 *_h = h;
                 return 0;
         }
-        if (u == UID_NOBODY) {
+        if (synthesize_nobody() &&
+            u == UID_NOBODY) {
                 h = strdup("/");
                 if (!h)
                         return -ENOMEM;
@@ -481,7 +487,8 @@ int get_shell(char **_s) {
                 *_s = s;
                 return 0;
         }
-        if (u == UID_NOBODY) {
+        if (synthesize_nobody() &&
+            u == UID_NOBODY) {
                 s = strdup("/sbin/nologin");
                 if (!s)
                         return -ENOMEM;
@@ -688,4 +695,25 @@ int maybe_setgroups(size_t size, const gid_t *list) {
                 return -errno;
 
         return 0;
+}
+
+bool synthesize_nobody(void) {
+
+#ifdef NOLEGACY
+        return true;
+#else
+        /* Returns true when we shall synthesize the "nobody" user (which we do by default). This can be turned off by
+         * touching /etc/systemd/dont-synthesize-nobody in order to provide upgrade compatibility with legacy systems
+         * that used the "nobody" user name and group name for other UIDs/GIDs than 65534.
+         *
+         * Note that we do not employ any kind of synchronization on the following caching variable. If the variable is
+         * accessed in multi-threaded programs in the worst case it might happen that we initialize twice, but that
+         * shouldn't matter as each initialization should come to the same result. */
+        static int cache = -1;
+
+        if (cache < 0)
+                cache = access("/etc/systemd/dont-synthesize-nobody", F_OK) < 0;
+
+        return cache;
+#endif
 }

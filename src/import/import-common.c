@@ -27,6 +27,7 @@
 #include "capability-util.h"
 #include "fd-util.h"
 #include "import-common.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "util.h"
 
@@ -82,9 +83,9 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
-        r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork off tar: %m");
+                return r;
         if (r == 0) {
                 int null_fd;
                 uint64_t retain =
@@ -151,9 +152,9 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
-        r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork off tar: %m");
+                return r;
         if (r == 0) {
                 int null_fd;
                 uint64_t retain = (1ULL << CAP_DAC_OVERRIDE);

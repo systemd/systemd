@@ -47,6 +47,7 @@
 evdev:input:b0003v05ACp021B*
 # Macbook4,1
 evdev:input:b0003v05ACp0229*
+evdev:input:b0003v05ACp022A*
  EVDEV_ABS_00=256:1471:12
  EVDEV_ABS_01=256:831:12
 
@@ -93,6 +94,11 @@ evdev:input:b0003v05ACp025B*
 #########################################
 # ASUS
 #########################################
+
+# Asus F3Sg
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnASUSTeKComputerInc.:pnF3Sg:*
+ EVDEV_ABS_00=0:6143:136
+ EVDEV_ABS_01=1103:5856:61
 
 # Asus VivoBook E402SA
 evdev:name:Elan Touchpad:dmi:*svnASUSTeKCOMPUTERINC.:pnE402SA*

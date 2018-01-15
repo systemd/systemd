@@ -127,7 +127,6 @@ static void message_free(sd_bus_message *m) {
         if (m->iovec != m->iovec_fixed)
                 free(m->iovec);
 
-        m->destination_ptr = mfree(m->destination_ptr);
         message_reset_containers(m);
         free(m->root_container.signature);
         free(m->root_container.offsets);
@@ -5486,6 +5485,15 @@ _public_ int sd_bus_message_set_destination(sd_bus_message *m, const char *desti
         assert_return(!m->destination, -EEXIST);
 
         return message_append_field_string(m, BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, destination, &m->destination);
+}
+
+_public_ int sd_bus_message_set_sender(sd_bus_message *m, const char *sender) {
+        assert_return(m, -EINVAL);
+        assert_return(sender, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(!m->sender, -EEXIST);
+
+        return message_append_field_string(m, BUS_MESSAGE_HEADER_SENDER, SD_BUS_TYPE_STRING, sender, &m->sender);
 }
 
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {

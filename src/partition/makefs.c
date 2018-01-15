@@ -28,6 +28,7 @@
 
 #include "alloc-util.h"
 #include "dissect-image.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 
@@ -43,9 +44,9 @@ static int makefs(const char *type, const char *device) {
         if (access(mkfs, X_OK) != 0)
                 return log_error_errno(errno, "%s is not executable: %m", mkfs);
 
-        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
         if (r < 0)
-                return log_error_errno(r, "fork(): %m");
+                return r;
         if (r == 0) {
                 const char *cmdline[3] = { mkfs, device, NULL };
 
@@ -55,7 +56,7 @@ static int makefs(const char *type, const char *device) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_warn(mkfs, pid, true);
+        return wait_for_terminate_and_check(mkfs, pid, WAIT_LOG);
 }
 
 int main(int argc, char *argv[]) {

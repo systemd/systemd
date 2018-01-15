@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef const char* (*lookup_t)(int);
 typedef int (*reverse_t)(const char*);

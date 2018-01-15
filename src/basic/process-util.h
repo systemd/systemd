@@ -21,6 +21,7 @@
 ***/
 
 #include <alloca.h>
+#include <errno.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -61,7 +62,16 @@ int get_process_environ(pid_t pid, char **environ);
 int get_process_ppid(pid_t pid, pid_t *ppid);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
-int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code);
+
+typedef enum WaitFlags {
+        WAIT_LOG_ABNORMAL             = 1U << 0,
+        WAIT_LOG_NON_ZERO_EXIT_STATUS = 1U << 1,
+
+        /* A shortcut for requesting the most complete logging */
+        WAIT_LOG = WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS,
+} WaitFlags;
+
+int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags);
 int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout);
 
 void sigkill_wait(pid_t pid);
@@ -137,9 +147,17 @@ static inline bool pid_is_valid(pid_t p) {
         return p > 0;
 }
 
+static inline int sched_policy_to_string_alloc_with_check(int n, char **s) {
+        if (!sched_policy_is_valid(n))
+                return -EINVAL;
+
+        return sched_policy_to_string_alloc(n, s);
+}
+
 int ioprio_parse_priority(const char *s, int *ret);
 
 pid_t getpid_cached(void);
+void reset_cached_pid(void);
 
 int must_be_root(void);
 
@@ -149,6 +167,9 @@ typedef enum ForkFlags {
         FORK_DEATHSIG      = 1U << 2,
         FORK_NULL_STDIO    = 1U << 3,
         FORK_REOPEN_LOG    = 1U << 4,
+        FORK_LOG           = 1U << 5,
+        FORK_WAIT          = 1U << 6,
+        FORK_NEW_MOUNTNS   = 1U << 7,
 } ForkFlags;
 
 int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid);

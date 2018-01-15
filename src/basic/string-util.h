@@ -52,15 +52,15 @@ static inline bool streq_ptr(const char *a, const char *b) {
 }
 
 static inline const char* strempty(const char *s) {
-        return s ? s : "";
+        return s ?: "";
 }
 
 static inline const char* strnull(const char *s) {
-        return s ? s : "(null)";
+        return s ?: "(null)";
 }
 
 static inline const char *strna(const char *s) {
-        return s ? s : "n/a";
+        return s ?: "n/a";
 }
 
 static inline bool isempty(const char *p) {

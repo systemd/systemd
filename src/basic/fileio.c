@@ -62,16 +62,28 @@ int write_string_stream_ts(
                 WriteStringFileFlags flags,
                 struct timespec *ts) {
 
+        bool needs_nl;
+
         assert(f);
         assert(line);
 
         if (ferror(f))
                 return -EIO;
 
+        needs_nl = !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n");
+
+        if (needs_nl && (flags & WRITE_STRING_FILE_DISABLE_BUFFER)) {
+                /* If STDIO buffering was disabled, then let's append the newline character to the string itself, so
+                 * that the write goes out in one go, instead of two */
+
+                line = strjoina(line, "\n");
+                needs_nl = false;
+        }
+
         if (fputs(line, f) == EOF)
                 return -errno;
 
-        if (!(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n"))
+        if (needs_nl)
                 if (fputc('\n', f) == EOF)
                         return -errno;
 
@@ -914,14 +926,16 @@ int write_env_file(const char *fname, char **l) {
 }
 
 int executable_is_script(const char *path, char **interpreter) {
-        int r;
         _cleanup_free_ char *line = NULL;
-        int len;
+        size_t len;
         char *ans;
+        int r;
 
         assert(path);
 
         r = read_one_line_file(path, &line);
+        if (r == -ENOBUFS) /* First line overly long? if so, then it's not a script */
+                return 0;
         if (r < 0)
                 return r;
 
@@ -1211,8 +1225,7 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
         if (!filename_is_valid(fn))
                 return -EINVAL;
 
-        if (!extra)
-                extra = "";
+        extra = strempty(extra);
 
         t = new(char, strlen(p) + 2 + strlen(extra) + 6 + 1);
         if (!t)
@@ -1245,8 +1258,7 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
         if (!filename_is_valid(fn))
                 return -EINVAL;
 
-        if (!extra)
-                extra = "";
+        extra = strempty(extra);
 
         t = new(char, strlen(p) + 2 + strlen(extra) + 16 + 1);
         if (!t)
@@ -1286,8 +1298,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
                         return r;
         }
 
-        if (!extra)
-                extra = "";
+        extra = strempty(extra);
 
         t = new(char, strlen(p) + 3 + strlen(extra) + 16 + 1);
         if (!t)

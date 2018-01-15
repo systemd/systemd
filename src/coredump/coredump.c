@@ -1126,7 +1126,7 @@ static int gather_pid_metadata(
                 /* If this is PID 1 disable coredump collection, we'll unlikely be able to process it later on. */
                 if (is_pid1_crash((const char**) context)) {
                         log_notice("Due to PID 1 having crashed coredump collection will now be turned off.");
-                        (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
+                        disable_coredumps();
                 }
 
                 set_iovec_field(iovec, n_iovec, "COREDUMP_UNIT=", context[CONTEXT_UNIT]);

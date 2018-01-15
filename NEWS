@@ -2074,6 +2074,13 @@ CHANGES WITH 229:
 
                   d /run/lock/lockdev 0775 root lock -
 
+        * The settings StartLimitBurst=, StartLimitInterval=, StartLimitAction=
+          and RebootArgument= have been moved from the [Service] section of
+          unit files to [Unit], and they are now supported on all unit types,
+          not just service units. Of course, systemd will continue to
+          understand these settings also at the old location, in order to
+          maintain compatibility.
+
         Contributions from: Abdo Roig-Maranges, Alban Crequy, Aleksander
         Adamowski, Alexander Kuleshov, Andreas Pokorny, Andrei Borzenkov,
         Andrew Wilcox, Arthur Clement, Beniamino Galvani, Casey Schaufler,
