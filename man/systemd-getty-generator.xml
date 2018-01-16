@@ -75,7 +75,7 @@
     sufficient to redirect the kernel console with a kernel command
     line argument such as <varname>console=</varname> to get both
     kernel messages and a getty prompt on a serial TTY. See <ulink
-    url="https://www.kernel.org/doc/Documentation/kernel-parameters.txt"><filename>kernel-parameters.txt</filename></ulink>
+    url="https://www.kernel.org/doc/Documentation/admin-guide/kernel-parameters.txt"><filename>kernel-parameters.txt</filename></ulink>
     for more information on the <varname>console=</varname> kernel
     parameter.</para>
 
