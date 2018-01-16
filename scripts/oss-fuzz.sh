@@ -20,17 +20,24 @@ set -ex
 
 export LC_CTYPE=C.UTF-8
 
-meson $WORK -Doss-fuzz=true -Db_lundef=false
-ninja -C $WORK fuzzers
+if [ -z "$WORK" ]; then
+         echo '$WORK must be set'
+         exit 1
+fi
+build=$WORK/build
+rm -rf $build
+mkdir -p $build
+
+meson $build -Doss-fuzz=true -Db_lundef=false
+ninja -C $build fuzzers
 
 # get DNS packet corpus
-df=$WORK/dns-fuzzing
-rm -rf $df
+df=$build/dns-fuzzing
 git clone --depth 1 https://github.com/CZ-NIC/dns-fuzzing $df
 zip -jqr $OUT/fuzz-dns-packet_seed_corpus.zip $df/packet
 
 mkdir -p $OUT/src/shared
-mv $WORK/src/shared/libsystemd-shared-*.so $OUT/src/shared
+mv $build/src/shared/libsystemd-shared-*.so $OUT/src/shared
 
-find $WORK -maxdepth 1 -type f -executable -name "fuzz-*" -exec mv {} $OUT \;
-mv $WORK/*.so src/fuzz/*.options $OUT
+find $build -maxdepth 1 -type f -executable -name "fuzz-*" -exec mv {} $OUT \;
+mv $build/*.so src/fuzz/*.options $OUT
