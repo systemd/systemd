@@ -222,6 +222,8 @@ static int detect_vm_xen_dom0(void) {
         if (r == 0) {
                 unsigned long features;
 
+                /* Here, we need to use sscanf() instead of safe_atoul()
+                 * as the string lacks the leading "0x". */
                 r = sscanf(domcap, "%lx", &features);
                 if (r == 1) {
                         r = !!(features & (1U << XENFEAT_dom0));
