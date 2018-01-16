@@ -496,14 +496,12 @@ static void drop_outside_root(const char *root_directory, MountEntry *m, unsigne
         *n = t - m;
 }
 
-static int clone_device_node(const char *d, const char *temporary_mount)
-{
+static int clone_device_node(const char *d, const char *temporary_mount) {
         _cleanup_free_ char *dn = NULL;
         struct stat st;
         int r;
 
-        r = stat(d, &st);
-        if (r < 0) {
+        if (stat(d, &st) < 0) {
                 if (errno == ENOENT)
                         return 0;
                 return -errno;
@@ -542,6 +540,7 @@ static int mount_private_dev(MountEntry *m) {
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
         const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         _cleanup_umask_ mode_t u;
+        struct stat st;
         int r;
 
         assert(m);
@@ -565,10 +564,26 @@ static int mount_private_dev(MountEntry *m) {
                 goto fail;
         }
 
-        devptmx = strjoina(temporary_mount, "/dev/ptmx");
-        if (symlink("pts/ptmx", devptmx) < 0) {
+        /* /dev/ptmx can either be a device node or a symlink to /dev/pts/ptmx
+         * when /dev/ptmx a device node, /dev/pts/ptmx has 000 permissions making it inaccessible
+         * thus, in that case make a clone
+         *
+         * in nspawn and other containers it will be a symlink, in that case make it a symlink
+         */
+        if (lstat("/dev/ptmx", &st) < 0) {
                 r = -errno;
                 goto fail;
+        }
+        if (S_ISLNK(st.st_mode)) {
+                devptmx = strjoina(temporary_mount, "/dev/ptmx");
+                if (symlink("pts/ptmx", devptmx) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+        } else {
+                r = clone_device_node("/dev/ptmx", temporary_mount);
+                if (r < 0)
+                        goto fail;
         }
 
         devshm = strjoina(temporary_mount, "/dev/shm");
