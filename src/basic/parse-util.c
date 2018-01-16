@@ -84,7 +84,7 @@ int parse_mode(const char *s, mode_t *ret) {
         l = strtol(s, &x, 8);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if (l < 0 || l  > 07777)
                 return -ERANGE;
@@ -392,7 +392,7 @@ int safe_atou(const char *s, unsigned *ret_u) {
         l = strtoul(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if (s[0] == '-')
                 return -ERANGE;
@@ -414,7 +414,7 @@ int safe_atoi(const char *s, int *ret_i) {
         l = strtol(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if ((long) (int) l != l)
                 return -ERANGE;
@@ -436,7 +436,7 @@ int safe_atollu(const char *s, long long unsigned *ret_llu) {
         l = strtoull(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if (*s == '-')
                 return -ERANGE;
@@ -456,7 +456,7 @@ int safe_atolli(const char *s, long long int *ret_lli) {
         l = strtoll(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
 
         *ret_lli = l;
@@ -476,7 +476,7 @@ int safe_atou8(const char *s, uint8_t *ret) {
         l = strtoul(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if (s[0] == '-')
                 return -ERANGE;
@@ -500,7 +500,7 @@ int safe_atou16(const char *s, uint16_t *ret) {
         l = strtoul(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if (s[0] == '-')
                 return -ERANGE;
@@ -522,7 +522,7 @@ int safe_atoi16(const char *s, int16_t *ret) {
         l = strtol(s, &x, 0);
         if (errno > 0)
                 return -errno;
-        if (!x || x == s || *x)
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
         if ((long) (int16_t) l != l)
                 return -ERANGE;
