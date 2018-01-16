@@ -112,6 +112,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev.h"
@@ -233,15 +234,15 @@ static bool is_pci_multifunction(struct udev_device *dev) {
 
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         struct udev *udev = udev_device_get_udev(names->pcidev);
-        unsigned domain, bus, slot, func, dev_port = 0;
+        unsigned domain, bus, slot, func, dev_port = 0, hotplug_slot = 0;
         size_t l;
         char *s;
         const char *attr, *port_name;
         _cleanup_udev_device_unref_ struct udev_device *pci = NULL;
+        struct udev_device *hotplug_slot_dev;
         char slots[PATH_MAX];
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
-        int hotplug_slot = 0;
 
         if (sscanf(udev_device_get_sysname(names->pcidev), "%x:%x:%x.%u", &domain, &bus, &slot, &func) != 4)
                 return -ENOENT;
@@ -281,27 +282,33 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         if (!dir)
                 return -errno;
 
-        FOREACH_DIRENT_ALL(dent, dir, break) {
-                int i;
-                char *rest, str[PATH_MAX];
-                _cleanup_free_ char *address = NULL;
+        hotplug_slot_dev = names->pcidev;
+        while (hotplug_slot_dev) {
+                FOREACH_DIRENT_ALL(dent, dir, break) {
+                        unsigned i;
+                        int r;
+                        char str[PATH_MAX];
+                        _cleanup_free_ char *address = NULL;
 
-                if (dent->d_name[0] == '.')
-                        continue;
-                i = strtol(dent->d_name, &rest, 10);
-                if (rest[0] != '\0')
-                        continue;
-                if (i < 1)
-                        continue;
+                        if (dent->d_name[0] == '.')
+                                continue;
+                        r = safe_atou_full(dent->d_name, 10, &i);
+                        if (i < 1 || r < 0)
+                                continue;
 
-                if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
-                    read_one_line_file(str, &address) >= 0)
-                        /* match slot address with device by stripping the function */
-                        if (startswith(udev_device_get_sysname(names->pcidev), address))
-                                hotplug_slot = i;
+                        if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
+                            read_one_line_file(str, &address) >= 0)
+                                /* match slot address with device by stripping the function */
+                                if (startswith(udev_device_get_sysname(hotplug_slot_dev), address))
+                                        hotplug_slot = i;
 
+                        if (hotplug_slot > 0)
+                                break;
+                }
                 if (hotplug_slot > 0)
                         break;
+                rewinddir(dir);
+                hotplug_slot_dev = udev_device_get_parent_with_subsystem_devtype(hotplug_slot_dev, "pci", NULL);
         }
 
         if (hotplug_slot > 0) {
