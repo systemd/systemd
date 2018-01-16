@@ -1357,7 +1357,7 @@ int manager_dhcp6_prefix_remove_all(Manager *m, Link *link) {
         struct in6_addr *addr;
 
         assert_return(m, -EINVAL);
-        assert_return(l, -EINVAL);
+        assert_return(link, -EINVAL);
 
         HASHMAP_FOREACH_KEY(l, addr, m->dhcp6_prefixes, i) {
                 if (l != link)
