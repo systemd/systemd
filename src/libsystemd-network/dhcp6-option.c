@@ -358,7 +358,7 @@ int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia) {
         int r = 0, status;
         uint16_t opt;
         size_t iaaddr_offset;
-        uint32_t lt_t1, lt_t2, lt_valid, lt_min = ~0;
+        uint32_t lt_t1, lt_t2, lt_valid = 0, lt_min = UINT32_MAX;
 
         assert_return(ia, -EINVAL);
         assert_return(!ia->addresses, -EINVAL);
