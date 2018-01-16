@@ -96,9 +96,8 @@ int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
 
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia) {
         uint16_t len;
-        be32_t *iaid;
         uint8_t *ia_hdr;
-        size_t ia_buflen, ia_addrlen = 0;
+        size_t iaid_offset, ia_buflen, ia_addrlen = 0;
         DHCP6Address *addr;
         int r;
 
@@ -107,12 +106,12 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia) {
         switch (ia->type) {
         case SD_DHCP6_OPTION_IA_NA:
                 len = DHCP6_OPTION_IA_NA_LEN;
-                iaid = &ia->ia_na.id;
+                iaid_offset = offsetof(DHCP6IA, ia_na);
                 break;
 
         case SD_DHCP6_OPTION_IA_TA:
                 len = DHCP6_OPTION_IA_TA_LEN;
-                iaid = &ia->ia_ta.id;
+                iaid_offset = offsetof(DHCP6IA, ia_ta);
                 break;
 
         default:
@@ -128,7 +127,7 @@ int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia) {
         *buf += sizeof(DHCP6Option);
         *buflen -= sizeof(DHCP6Option);
 
-        memcpy(*buf, iaid, len);
+        memcpy(*buf, (char*) ia + iaid_offset, len);
 
         *buf += len;
         *buflen -= len;
