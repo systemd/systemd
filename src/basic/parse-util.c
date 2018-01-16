@@ -28,6 +28,7 @@
 #include "alloc-util.h"
 #include "errno-list.h"
 #include "extract-word.h"
+#include "locale-util.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -531,9 +532,9 @@ int safe_atoi16(const char *s, int16_t *ret) {
 }
 
 int safe_atod(const char *s, double *ret_d) {
+        _cleanup_(freelocalep) locale_t loc = (locale_t) 0;
         char *x = NULL;
         double d = 0;
-        locale_t loc;
 
         assert(s);
         assert(ret_d);
@@ -544,16 +545,11 @@ int safe_atod(const char *s, double *ret_d) {
 
         errno = 0;
         d = strtod_l(s, &x, loc);
-        if (errno > 0) {
-                freelocale(loc);
+        if (errno > 0)
                 return -errno;
-        }
-        if (!x || x == s || *x) {
-                freelocale(loc);
+        if (!x || x == s || *x != 0)
                 return -EINVAL;
-        }
 
-        freelocale(loc);
         *ret_d = (double) d;
         return 0;
 }
