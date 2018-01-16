@@ -294,3 +294,5 @@ option('install-tests', type : 'boolean', value : 'false',
 
 option('oss-fuzz', type : 'boolean', value : 'false',
        description : 'build against oss-fuzz')
+option('llvm-fuzz', type : 'boolean', value : 'false',
+       description : 'build against LLVM libFuzzer')

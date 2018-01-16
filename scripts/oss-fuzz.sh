@@ -20,15 +20,27 @@ set -ex
 
 export LC_CTYPE=C.UTF-8
 
-if [ -z "$WORK" ]; then
-         echo '$WORK must be set'
-         exit 1
-fi
+SANITIZER=${SANITIZER:-address -fsanitize-address-use-after-scope}
+flags="-O1 -fno-omit-frame-pointer -gline-tables-only -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION -fsanitize=$SANITIZER -fsanitize-coverage=trace-pc-guard,trace-cmp"
+
+export CFLAGS=${CFLAGS:-$flags}
+export CXXFLAGS=${CXXFLAGS:-$flags}
+export CC=${CC:-clang}
+export CXX=${CXX:-clang++}
+export WORK=${WORK:-$(pwd)}
+export OUT=${OUT:-$(pwd)/out}
+mkdir -p $OUT
+
 build=$WORK/build
 rm -rf $build
 mkdir -p $build
 
-meson $build -Doss-fuzz=true -Db_lundef=false
+fuzzflag="oss-fuzz=true"
+if [ -z "$FUZZING_ENGINE" ]; then
+        fuzzflag="llvm-fuzz=true"
+fi
+
+meson $build -D$fuzzflag -Db_lundef=false
 ninja -C $build fuzzers
 
 # get DNS packet corpus
@@ -40,4 +52,4 @@ mkdir -p $OUT/src/shared
 mv $build/src/shared/libsystemd-shared-*.so $OUT/src/shared
 
 find $build -maxdepth 1 -type f -executable -name "fuzz-*" -exec mv {} $OUT \;
-mv $build/*.so src/fuzz/*.options $OUT
+cp src/fuzz/*.options $OUT
