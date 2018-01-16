@@ -74,6 +74,7 @@ int route_new(Route **ret) {
         route->type = RTN_UNICAST;
         route->table = RT_TABLE_MAIN;
         route->lifetime = USEC_INFINITY;
+        route->quickack = -1;
 
         *ret = route;
         route = NULL;
@@ -648,6 +649,12 @@ int route_configure(
                         return log_error_errno(r, "Could not append RTAX_INITRWND attribute: %m");
         }
 
+        if (route->quickack != -1) {
+                r = sd_netlink_message_append_u32(req, RTAX_QUICKACK, route->quickack);
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTAX_QUICKACK attribute: %m");
+        }
+
         r = sd_netlink_message_close_container(req);
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_METRICS attribute: %m");
@@ -1123,6 +1130,42 @@ int config_parse_tcp_window(const char *unit,
                 return 0;
         }
 
+        n = NULL;
+
+        return 0;
+}
+
+int config_parse_quickack(const char *unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
+        _cleanup_route_free_ Route *n = NULL;
+        Network *network = userdata;
+        int k, r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        k = parse_boolean(rvalue);
+        if (k < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, k, "Failed to parse TCP quickack, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        n->quickack = !!k;
         n = NULL;
 
         return 0;
