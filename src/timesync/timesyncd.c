@@ -66,6 +66,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                         if (r < 0)
                                 return log_error_errno(errno, "Failed to change file access mode: %m");
                         r = fchown(fd, uid, gid);
+                        if (r < 0)
                                 return log_error_errno(errno, "Failed to change file owner: %m");
                 }
 
