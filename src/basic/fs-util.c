@@ -637,6 +637,9 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if ((flags & (CHASE_NONEXISTENT|CHASE_OPEN)) == (CHASE_NONEXISTENT|CHASE_OPEN))
                 return -EINVAL;
 
+        if (isempty(path))
+                return -EINVAL;
+
         /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows following
          * symlinks relative to a root directory, instead of the root of the host.
          *
