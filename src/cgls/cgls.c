@@ -277,9 +277,9 @@ int main(int argc, char *argv[]) {
                 if (!arg_machine)  {
                         _cleanup_free_ char *cwd = NULL;
 
-                        cwd = get_current_dir_name();
-                        if (!cwd) {
-                                r = log_error_errno(errno, "Cannot determine current working directory: %m");
+                        r = safe_getcwd(&cwd);
+                        if (r < 0) {
+                                log_error_errno(r, "Cannot determine current working directory: %m");
                                 goto finish;
                         }
 

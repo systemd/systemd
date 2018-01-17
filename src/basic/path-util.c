@@ -110,6 +110,7 @@ int safe_getcwd(char **ret) {
 
 int path_make_absolute_cwd(const char *p, char **ret) {
         char *c;
+        int r;
 
         assert(p);
         assert(ret);
@@ -122,9 +123,9 @@ int path_make_absolute_cwd(const char *p, char **ret) {
         else {
                 _cleanup_free_ char *cwd = NULL;
 
-                cwd = get_current_dir_name();
-                if (!cwd)
-                        return negative_errno();
+                r = safe_getcwd(&cwd);
+                if (r < 0)
+                        return r;
 
                 c = strjoin(cwd, "/", p);
         }
