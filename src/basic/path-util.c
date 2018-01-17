@@ -81,7 +81,7 @@ char *path_make_absolute(const char *p, const char *prefix) {
         /* Makes every item in the list an absolute path by prepending
          * the prefix, if specified and necessary */
 
-        if (path_is_absolute(p) || !prefix)
+        if (path_is_absolute(p) || isempty(prefix))
                 return strdup(p);
 
         return strjoin(prefix, "/", p);
