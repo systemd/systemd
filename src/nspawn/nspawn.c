@@ -2163,8 +2163,11 @@ static int determine_names(void) {
 
                         if (!arg_ephemeral)
                                 arg_read_only = arg_read_only || i->read_only;
-                } else
-                        arg_directory = get_current_dir_name();
+                } else {
+                        r = safe_getcwd(&arg_directory);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine current directory: %m");
+                }
 
                 if (!arg_directory && !arg_image) {
                         log_error("Failed to determine path, please use -D or -i.");

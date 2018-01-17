@@ -326,7 +326,7 @@ static void test_readlink_and_make_absolute(void) {
         free(r);
         assert_se(unlink(name_alias) >= 0);
 
-        assert_se(pwd = get_current_dir_name());
+        assert_se(safe_getcwd(&pwd) >= 0);
 
         assert_se(chdir(tempdir) >= 0);
         assert_se(symlink(name2, name_alias) >= 0);

@@ -81,14 +81,36 @@ char *path_make_absolute(const char *p, const char *prefix) {
         /* Makes every item in the list an absolute path by prepending
          * the prefix, if specified and necessary */
 
-        if (path_is_absolute(p) || !prefix)
+        if (path_is_absolute(p) || isempty(prefix))
                 return strdup(p);
 
-        return strjoin(prefix, "/", p);
+        if (endswith(prefix, "/"))
+                return strjoin(prefix, p);
+        else
+                return strjoin(prefix, "/", p);
+}
+
+int safe_getcwd(char **ret) {
+        char *cwd;
+
+        cwd = get_current_dir_name();
+        if (!cwd)
+                return negative_errno();
+
+        /* Let's make sure the directory is really absolute, to protect us from the logic behind
+         * CVE-2018-1000001 */
+        if (cwd[0] != '/') {
+                free(cwd);
+                return -ENOMEDIUM;
+        }
+
+        *ret = cwd;
+        return 0;
 }
 
 int path_make_absolute_cwd(const char *p, char **ret) {
         char *c;
+        int r;
 
         assert(p);
         assert(ret);
@@ -101,11 +123,14 @@ int path_make_absolute_cwd(const char *p, char **ret) {
         else {
                 _cleanup_free_ char *cwd = NULL;
 
-                cwd = get_current_dir_name();
-                if (!cwd)
-                        return negative_errno();
+                r = safe_getcwd(&cwd);
+                if (r < 0)
+                        return r;
 
-                c = strjoin(cwd, "/", p);
+                if (endswith(cwd, "/"))
+                        c = strjoin(cwd, p);
+                else
+                        c = strjoin(cwd, "/", p);
         }
         if (!c)
                 return -ENOMEM;
