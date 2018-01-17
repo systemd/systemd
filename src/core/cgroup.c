@@ -39,6 +39,18 @@
 
 #define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
 
+bool unit_has_root_cgroup(Unit *u) {
+        assert(u);
+
+        /* Returns whether this unit manages the root cgroup. Note that this is different from being named "-.slice",
+         * as inside of containers the root slice won't be identical to the root cgroup. */
+
+        if (!u->cgroup_path)
+                return false;
+
+        return isempty(u->cgroup_path) || path_equal(u->cgroup_path, "/");
+}
+
 static void cgroup_compat_warn(void) {
         static bool cgroup_compat_warned = false;
 
@@ -708,21 +720,17 @@ static void cgroup_context_apply(
 
         assert(u);
 
-        c = unit_get_cgroup_context(u);
-        path = u->cgroup_path;
-
-        assert(c);
-        assert(path);
-
         /* Nothing to do? Exit early! */
         if (apply_mask == 0 && !apply_bpf)
                 return;
 
-        /* Some cgroup attributes are not supported on the root cgroup,
-         * hence silently ignore */
-        is_root = isempty(path) || path_equal(path, "/");
-        if (is_root)
-                /* Make sure we don't try to display messages with an empty path. */
+        /* Some cgroup attributes are not supported on the root cgroup, hence silently ignore */
+        is_root = unit_has_root_cgroup(u);
+
+        assert_se(c = unit_get_cgroup_context(u));
+        assert_se(path = u->cgroup_path);
+
+        if (is_root) /* Make sure we don't try to display messages with an empty path. */
                 path = "/";
 
         /* We generally ignore errors caused by read-only mounted
