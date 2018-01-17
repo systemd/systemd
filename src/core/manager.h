@@ -267,6 +267,9 @@ struct Manager {
         /* Have we already printed the taint line if necessary? */
         bool taint_logged:1;
 
+        /* Have we ever changed the "kernel.pid_max" sysctl? */
+        bool sysctl_pid_max_changed:1;
+
         unsigned test_run_flags:8;
 
         /* If non-zero, exit with the following value when the systemd
