@@ -525,7 +525,7 @@ static int clone_device_node(const char *d, const char *temporary_mount) {
         if (r < 0)
                 return -errno;
 
-        return 0;
+        return 1;
 }
 
 static int mount_private_dev(MountEntry *m) {
@@ -582,7 +582,7 @@ static int mount_private_dev(MountEntry *m) {
                 }
         } else {
                 r = clone_device_node("/dev/ptmx", temporary_mount);
-                if (r < 0)
+                if (r != 1)
                         goto fail;
         }
 
