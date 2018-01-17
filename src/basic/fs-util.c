@@ -673,8 +673,14 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 if (r < 0)
                         return r;
 
-                if (flags & CHASE_PREFIX_ROOT)
+                if (flags & CHASE_PREFIX_ROOT) {
+
+                        /* We don't support relative paths in combination with a root directory */
+                        if (!path_is_absolute(path))
+                                return -EINVAL;
+
                         path = prefix_roota(root, path);
+                }
         }
 
         r = path_make_absolute_cwd(path, &buffer);
