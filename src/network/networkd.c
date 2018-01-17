@@ -53,23 +53,12 @@ int main(int argc, char *argv[]) {
                 goto out;
         }
 
-        /* Always create the directories people can create inotify
-         * watches in. */
+        /* Create runtime directory. This is not necessary when networkd is
+         * started with "RuntimeDirectory=systemd/netif", or after
+         * systemd-tmpfiles-setup.service. */
         r = mkdir_safe_label("/run/systemd/netif", 0755, uid, gid, false);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory: %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/links", 0755, uid, gid, false);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'links': %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/leases", 0755, uid, gid, false);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'leases': %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, uid, gid, false);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'lldp': %m");
 
         /* Drop privileges, but only if we have been started as root. If we are not running as root we assume all
          * privileges are already dropped. */
@@ -82,6 +71,21 @@ int main(int argc, char *argv[]) {
                 if (r < 0)
                         goto out;
         }
+
+        /* Always create the directories people can create inotify watches in.
+         * It is necessary to create the following subdirectories after drop_privileges()
+         * to support old kernels not supporting AmbientCapabilities=. */
+        r = mkdir_safe_label("/run/systemd/netif/links", 0755, uid, gid, false);
+        if (r < 0)
+                log_warning_errno(r, "Could not create runtime directory 'links': %m");
+
+        r = mkdir_safe_label("/run/systemd/netif/leases", 0755, uid, gid, false);
+        if (r < 0)
+                log_warning_errno(r, "Could not create runtime directory 'leases': %m");
+
+        r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, uid, gid, false);
+        if (r < 0)
+                log_warning_errno(r, "Could not create runtime directory 'lldp': %m");
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
