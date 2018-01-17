@@ -150,6 +150,8 @@ basic_sources = files('''
         proc-cmdline.h
         process-util.c
         process-util.h
+        procfs-util.c
+        procfs-util.h
         random-util.c
         random-util.h
         ratelimit.c
