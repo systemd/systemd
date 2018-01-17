@@ -658,6 +658,14 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * specified path. */
 
         if (original_root) {
+                if (isempty(original_root)) /* What's this even supposed to mean? */
+                        return -EINVAL;
+
+                if (path_equal(original_root, "/")) /* A root directory of "/" is identical to none */
+                        original_root = NULL;
+        }
+
+        if (original_root) {
                 r = path_make_absolute_cwd(original_root, &root);
                 if (r < 0)
                         return r;
