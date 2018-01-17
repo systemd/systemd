@@ -79,7 +79,7 @@ static void ipvlan_init(NetDev *n) {
         assert(m);
 
         m->mode = _NETDEV_IPVLAN_MODE_INVALID;
-        m->mode = _NETDEV_IPVLAN_FLAGS_INVALID;
+        m->flags = _NETDEV_IPVLAN_FLAGS_INVALID;
 }
 
 const NetDevVTable ipvlan_vtable = {
