@@ -1062,7 +1062,7 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
                 mask |= CGROUP_MASK_DEVICES;
 
         if (c->tasks_accounting ||
-            c->tasks_max != (uint64_t) -1)
+            c->tasks_max != CGROUP_LIMIT_MAX)
                 mask |= CGROUP_MASK_PIDS;
 
         return mask;
