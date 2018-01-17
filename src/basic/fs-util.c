@@ -637,6 +637,9 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if ((flags & (CHASE_NONEXISTENT|CHASE_OPEN)) == (CHASE_NONEXISTENT|CHASE_OPEN))
                 return -EINVAL;
 
+        if (isempty(path))
+                return -EINVAL;
+
         /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows following
          * symlinks relative to a root directory, instead of the root of the host.
          *
@@ -658,12 +661,26 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * specified path. */
 
         if (original_root) {
+                if (isempty(original_root)) /* What's this even supposed to mean? */
+                        return -EINVAL;
+
+                if (path_equal(original_root, "/")) /* A root directory of "/" is identical to none */
+                        original_root = NULL;
+        }
+
+        if (original_root) {
                 r = path_make_absolute_cwd(original_root, &root);
                 if (r < 0)
                         return r;
 
-                if (flags & CHASE_PREFIX_ROOT)
+                if (flags & CHASE_PREFIX_ROOT) {
+
+                        /* We don't support relative paths in combination with a root directory */
+                        if (!path_is_absolute(path))
+                                return -EINVAL;
+
                         path = prefix_roota(root, path);
+                }
         }
 
         r = path_make_absolute_cwd(path, &buffer);
