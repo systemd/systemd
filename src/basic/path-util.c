@@ -90,6 +90,24 @@ char *path_make_absolute(const char *p, const char *prefix) {
                 return strjoin(prefix, "/", p);
 }
 
+int safe_getcwd(char **ret) {
+        char *cwd;
+
+        cwd = get_current_dir_name();
+        if (!cwd)
+                return negative_errno();
+
+        /* Let's make sure the directory is really absolute, to protect us from the logic behind
+         * CVE-2018-1000001 */
+        if (cwd[0] != '/') {
+                free(cwd);
+                return -ENOMEDIUM;
+        }
+
+        *ret = cwd;
+        return 0;
+}
+
 int path_make_absolute_cwd(const char *p, char **ret) {
         char *c;
 
