@@ -32,6 +32,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -2270,6 +2271,10 @@ int unit_get_tasks_current(Unit *u, uint64_t *ret) {
 
         if ((u->cgroup_realized_mask & CGROUP_MASK_PIDS) == 0)
                 return -ENODATA;
+
+        /* The root cgroup doesn't expose this information, let's get it from /proc instead */
+        if (unit_has_root_cgroup(u))
+                return procfs_tasks_get_current(ret);
 
         r = cg_get_attribute("pids", u->cgroup_path, "pids.current", &v);
         if (r == -ENOENT)
