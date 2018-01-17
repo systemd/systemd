@@ -52,6 +52,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
@@ -473,8 +474,8 @@ uint64_t physical_memory_scale(uint64_t v, uint64_t max) {
 
 uint64_t system_tasks_max(void) {
 
-        _cleanup_free_ char *value = NULL, *root = NULL;
         uint64_t a = TASKS_MAX, b = TASKS_MAX;
+        _cleanup_free_ char *root = NULL;
 
         /* Determine the maximum number of tasks that may run on this system. We check three sources to determine this
          * limit:
@@ -485,11 +486,10 @@ uint64_t system_tasks_max(void) {
          *
          * And then pick the smallest of the three */
 
-        if (read_one_line_file("/proc/sys/kernel/pid_max", &value) >= 0)
-                (void) safe_atou64(value, &a);
+        (void) procfs_tasks_get_limit(&a);
 
         if (cg_get_root_path(&root) >= 0) {
-                value = mfree(value);
+                _cleanup_free_ char *value = NULL;
 
                 if (cg_get_attribute("pids", root, "pids.max", &value) >= 0)
                         (void) safe_atou64(value, &b);
