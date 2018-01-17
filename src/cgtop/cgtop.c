@@ -41,6 +41,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
@@ -212,7 +213,7 @@ static int process(
                 if (g->n_tasks > 0)
                         g->n_tasks_valid = true;
 
-        } else if (streq(controller, "cpu") || streq(controller, "cpuacct")) {
+        } else if (STR_IN_SET(controller, "cpu", "cpuacct")) {
                 _cleanup_free_ char *p = NULL, *v = NULL;
                 uint64_t new_usage;
                 nsec_t timestamp;
