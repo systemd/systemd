@@ -473,23 +473,15 @@ uint64_t physical_memory_scale(uint64_t v, uint64_t max) {
 
 uint64_t system_tasks_max(void) {
 
-#if SIZEOF_PID_T == 4
-#define TASKS_MAX ((uint64_t) (INT32_MAX-1))
-#elif SIZEOF_PID_T == 2
-#define TASKS_MAX ((uint64_t) (INT16_MAX-1))
-#else
-#error "Unknown pid_t size"
-#endif
-
         _cleanup_free_ char *value = NULL, *root = NULL;
         uint64_t a = TASKS_MAX, b = TASKS_MAX;
 
         /* Determine the maximum number of tasks that may run on this system. We check three sources to determine this
          * limit:
          *
-         * a) the maximum value for the pid_t type
+         * a) the maximum tasks value the kernel allows on this architecture
          * b) the cgroups pids_max attribute for the system
-         * c) the kernel's configure maximum PID value
+         * c) the kernel's configured maximum PID value
          *
          * And then pick the smallest of the three */
 
