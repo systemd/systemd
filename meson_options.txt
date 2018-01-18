@@ -291,3 +291,8 @@ option('slow-tests', type : 'boolean', value : 'false',
        description : 'run the slow tests by default')
 option('install-tests', type : 'boolean', value : 'false',
        description : 'install test executables')
+
+option('oss-fuzz', type : 'boolean', value : 'false',
+       description : 'build against oss-fuzz')
+option('llvm-fuzz', type : 'boolean', value : 'false',
+       description : 'build against LLVM libFuzzer')

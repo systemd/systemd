@@ -79,3 +79,36 @@ for systemd (this example is for Fedora):
 And after that, head over to your repo on github and click "Compare & pull request"
 
 Happy hacking!
+
+
+FUZZERS
+
+systemd includes fuzzers in src/fuzz that use libFuzzer and are automatically
+run by OSS-Fuzz (https://github.com/google/oss-fuzz) with sanitizers. To add a
+fuzz target, create a new src/fuzz/fuzz-foo.c file with a LLVMFuzzerTestOneInput
+function and add it to the list in src/fuzz/meson.build.
+
+Whenever possible, a seed corpus and a dictionary should also be added with new
+fuzz targets. The dictionary should be named src/fuzz/fuzz-foo.dict and the seed
+corpus should be built and exported as $OUT/fuzz-foo_seed_corpus.zip in
+scripts/oss-fuzz.sh.
+
+The fuzzers can be built locally if you have libFuzzer installed by running
+scripts/oss-fuzz.sh. You should also confirm that the fuzzer runs in the
+OSS-Fuzz environment by checking out the OSS-Fuzz repo, modifying the git clone
+in projects/systemd/Dockerfile to point at your code (for example, a fork on
+GitHub) and then running these commands:
+
+        python infra/helper.py build_image systemd
+        python infra/helper.py build_fuzzers --sanitizer memory systemd
+        python infra/helper.py run_fuzzer systemd fuzz-foo
+
+For more details on building fuzzers and integrating with OSS-Fuzz, visit:
+
+        https://github.com/google/oss-fuzz/blob/master/docs/new_project_guide.md
+
+        https://llvm.org/docs/LibFuzzer.html
+
+        https://github.com/google/fuzzer-test-suite/blob/master/tutorial/libFuzzerTutorial.md
+
+        https://chromium.googlesource.com/chromium/src/testing/libfuzzer/+/HEAD/efficient_fuzzer.md
