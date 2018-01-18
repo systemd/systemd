@@ -523,7 +523,7 @@ static int clone_device_node(const char *d, const char *temporary_mount) {
         mac_selinux_create_file_clear();
 
         if (r < 0)
-                return -errno;
+                return log_debug_errno(errno, "mknod failed for %s: %m", d);
 
         return 0;
 }
