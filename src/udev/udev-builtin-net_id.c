@@ -299,6 +299,10 @@ static bool is_pci_multifunction(struct udev_device *dev) {
         return false;
 }
 
+static bool is_pci_ari_enabled(struct udev_device *dev) {
+        return !!udev_device_get_sysattr_value(dev, "ari_enabled");
+}
+
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         struct udev *udev = udev_device_get_udev(names->pcidev);
         unsigned domain, bus, slot, func, dev_port = 0, hotplug_slot = 0;
@@ -313,6 +317,11 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
 
         if (sscanf(udev_device_get_sysname(names->pcidev), "%x:%x:%x.%u", &domain, &bus, &slot, &func) != 4)
                 return -ENOENT;
+        if (is_pci_ari_enabled(names->pcidev))
+                /* ARI devices support up to 256 functions on a single device ("slot"), and interpret the
+                 * traditional 5-bit slot and 3-bit function number as a single 8-bit function number,
+                 * where the slot makes up the upper 5 bits. */
+                func += slot * 8;
 
         /* kernel provided port index for multiple ports on a single PCI function */
         attr = udev_device_get_sysattr_value(dev, "dev_port");
