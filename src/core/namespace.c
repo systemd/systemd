@@ -525,7 +525,7 @@ static int clone_device_node(const char *d, const char *temporary_mount) {
         if (r < 0)
                 return log_debug_errno(errno, "mknod failed for %s: %m", d);
 
-        return 0;
+        return 1;
 }
 
 static int mount_private_dev(MountEntry *m) {
@@ -582,12 +582,12 @@ static int mount_private_dev(MountEntry *m) {
                 }
         } else {
                 r = clone_device_node("/dev/ptmx", temporary_mount);
-                if (r < 0)
+                if (r != 1)
                         goto fail;
         }
 
         devshm = strjoina(temporary_mount, "/dev/shm");
-        (void) mkdir(devshm, 01777);
+        (void) mkdir(devshm, 0755);
         r = mount("/dev/shm", devshm, NULL, MS_BIND, NULL);
         if (r < 0) {
                 r = -errno;
