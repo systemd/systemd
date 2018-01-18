@@ -517,8 +517,12 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
 
                 case DNS_TYPE_OPENPGPKEY:
                 default:
-                        free(rr->generic.data);
+                        if (!rr->unparseable)
+                                free(rr->generic.data);
                 }
+
+                if (rr->unparseable)
+                        free(rr->generic.data);
 
                 free(rr->wire_format);
                 dns_resource_key_unref(rr->key);
