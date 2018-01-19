@@ -660,13 +660,9 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * function what to do when encountering a symlink with an absolute path as directory: prefix it by the
          * specified path. */
 
-        if (original_root) {
-                if (isempty(original_root)) /* What's this even supposed to mean? */
-                        return -EINVAL;
-
-                if (path_equal(original_root, "/")) /* A root directory of "/" is identical to none */
-                        original_root = NULL;
-        }
+        /* A root directory of "/" or "" is identical to none */
+        if (isempty(original_root) || path_equal(original_root, "/"))
+                original_root = NULL;
 
         if (original_root) {
                 r = path_make_absolute_cwd(original_root, &root);
