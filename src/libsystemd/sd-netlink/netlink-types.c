@@ -553,6 +553,7 @@ static const NLType rtnl_route_metrics_types[] = {
         [RTAX_FEATURES]          = { .type = NETLINK_TYPE_U32 },
         [RTAX_RTO_MIN]           = { .type = NETLINK_TYPE_U32 },
         [RTAX_INITRWND]          = { .type = NETLINK_TYPE_U32 },
+        [RTAX_QUICKACK]          = { .type = NETLINK_TYPE_U32 },
 };
 
 static const NLTypeSystem rtnl_route_metrics_type_system = {

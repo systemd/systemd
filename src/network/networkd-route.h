@@ -33,6 +33,8 @@ struct Route {
         Link *link;
 
         int family;
+        int quickack;
+
         unsigned char dst_prefixlen;
         unsigned char src_prefixlen;
         unsigned char scope;
@@ -85,3 +87,4 @@ int config_parse_ipv6_route_preference(const char *unit, const char *filename, u
 int config_parse_route_protocol(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_route_type(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_tcp_window(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_quickack(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

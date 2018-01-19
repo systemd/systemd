@@ -1095,6 +1095,13 @@
             </para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>QuickAck=</varname></term>
+          <listitem>
+            <para>Takes a boolean argument. When true enables TCP quick ack mode for the route. Defaults to unset.
+            </para>
+          </listitem>
+        </varlistentry>
 
       </variablelist>
   </refsect1>
