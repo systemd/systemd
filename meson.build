@@ -259,6 +259,7 @@ substs.set('RC_LOCAL_SCRIPT_PATH_STOP',                       get_option('halt-l
 cc = meson.get_compiler('c')
 pkgconfig = import('pkgconfig')
 check_compilation_sh = find_program('tools/meson-check-compilation.sh')
+meson_build_sh = find_program('tools/meson-build.sh')
 
 if get_option('tests') != 'false'
         cxx = find_program('c++', required : false)
@@ -382,6 +383,20 @@ foreach arg : ['-Wl,-z,relro',
         message('Linking with @0@ supported: @1@'.format(arg, have ? 'yes' : 'no'))
         if have and (arg != '-pie' or not fuzzer_build)
                 add_project_link_arguments(arg, language : 'c')
+        endif
+endforeach
+
+# Check if various sanitizers are supported
+sanitizers = []
+foreach arg : ['address']
+
+        have = run_command(check_compilation_sh,
+                           cc.cmd_array(), '-x', 'c',
+                           '-fsanitize=@0@'.format(arg),
+                           '-include', link_test_c).returncode() == 0
+        message('@0@ sanitizer supported: @1@'.format(arg, have ? 'yes' : 'no'))
+        if have
+                sanitizers += arg
         endif
 endforeach
 
@@ -517,6 +532,7 @@ awk = find_program('awk')
 m4 = find_program('m4')
 stat = find_program('stat')
 git = find_program('git', required : false)
+env = find_program('env')
 
 meson_make_symlink = meson.source_root() + '/tools/meson-make-symlink.sh'
 mkdir_p = 'mkdir -p $DESTDIR/@0@'
@@ -1201,10 +1217,11 @@ endforeach
 
 want_tests = get_option('tests')
 install_tests = get_option('install-tests')
+slow_tests = get_option('slow-tests')
 tests = []
 fuzzers = []
 
-conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', get_option('slow-tests'))
+conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 
 #####################################################################
 
@@ -2568,6 +2585,50 @@ foreach exec : public_programs
         test('check-help-' + name,
              meson_check_help,
              args : [exec.full_path()])
+endforeach
+
+############################################################
+
+prev = ''
+foreach p : fuzz_regression_tests
+        a = p.split('/')[-3]
+        b = p.split('/')[-2]
+        c = p.split('/')[-1]
+
+        if a == 'address'
+                build = sanitize_address
+        else
+                error('unknown sanitizer @0@'.format(a))
+        endif
+
+        name = '@1@:@0@'.format(a, b)
+
+        if name != prev
+                if want_tests == 'false'
+                        message('Not compiling @0@ because tests is set to false'.format(name))
+                elif not sanitizers.contains(a)
+                        message('Not compiling @0@ because @1@ sanitizer is not available'.format(name, a))
+                elif slow_tests
+                        exe = custom_target(
+                                name,
+                                output : name,
+                                depends : build,
+                                command : [env, 'ln', '-fs',
+                                           join_paths(build.full_path(), b),
+                                           '@OUTPUT@'],
+                                build_by_default : true)
+                else
+                        message('Not compiling @0@ because slow-tests is set to false'.format(name))
+                endif
+        endif
+        prev = name
+
+        if want_tests != 'false' and slow_tests
+                test(c, env, args : [exe.full_path(),
+                                     join_paths(meson.source_root(),
+                                                'test/fuzz-regressions',
+                                                p)])
+        endif
 endforeach
 
 ############################################################

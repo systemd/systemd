@@ -228,3 +228,5 @@ if conf.get('ENABLE_HWDB') == 1
              hwdb_test_sh,
              timeout : 90)
 endif
+
+subdir('fuzz-regressions')
