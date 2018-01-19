@@ -697,7 +697,7 @@ d /run/uscreens 0755 root screen 10d12h
 </programlisting>
 
       <para>Contents of <filename>/run/screens</filename> and /run/uscreens will
-      cleaned up after 10 and 10½ days, respectively.</para>
+      be cleaned up after 10 and 10½ days, respectively.</para>
     </example>
 
     <example>
