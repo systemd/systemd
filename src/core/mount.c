@@ -942,7 +942,7 @@ static void mount_enter_mounting(Mount *m) {
 
         assert(m);
 
-        r = unit_fail_if_symlink(UNIT(m), m->where);
+        r = unit_fail_if_noncanonical(UNIT(m), m->where);
         if (r < 0)
                 goto fail;
 
