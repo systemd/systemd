@@ -55,7 +55,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,
         [MOUNT_MOUNTING] = UNIT_ACTIVATING,
-        [MOUNT_MOUNTING_DONE] = UNIT_ACTIVE,
+        [MOUNT_MOUNTING_DONE] = UNIT_ACTIVATING,
         [MOUNT_MOUNTED] = UNIT_ACTIVE,
         [MOUNT_REMOUNTING] = UNIT_RELOADING,
         [MOUNT_UNMOUNTING] = UNIT_DEACTIVATING,
@@ -1135,10 +1135,6 @@ static int mount_reload(Unit *u) {
         Mount *m = MOUNT(u);
 
         assert(m);
-
-        if (m->state == MOUNT_MOUNTING_DONE) /* not yet ready to reload, try again */
-                return -EAGAIN;
-
         assert(m->state == MOUNT_MOUNTED);
 
         mount_enter_remounting(m);
