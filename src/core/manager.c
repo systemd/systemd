@@ -3209,9 +3209,10 @@ static void manager_notify_finished(Manager *m) {
 
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0) {
                 char ts[FORMAT_TIMESPAN_MAX];
-                char buf[FORMAT_TIMESPAN_MAX + STRLEN(" (firmware) + ") + FORMAT_TIMESPAN_MAX + STRLEN(" (loader) + ")];
-                char *p;
-                size_t size;
+                char buf[FORMAT_TIMESPAN_MAX + STRLEN(" (firmware) + ") + FORMAT_TIMESPAN_MAX + STRLEN(" (loader) + ")]
+                        = {};
+                char *p = buf;
+                size_t size = sizeof buf;
 
                 /* Note that MANAGER_TIMESTAMP_KERNEL's monotonic value is always at 0, and
                  * MANAGER_TIMESTAMP_FIRMWARE's and MANAGER_TIMESTAMP_LOADER's monotonic value should be considered
@@ -3221,9 +3222,6 @@ static void manager_notify_finished(Manager *m) {
                 loader_usec = m->timestamps[MANAGER_TIMESTAMP_LOADER].monotonic - m->timestamps[MANAGER_TIMESTAMP_KERNEL].monotonic;
                 userspace_usec = m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic - m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
                 total_usec = m->timestamps[MANAGER_TIMESTAMP_FIRMWARE].monotonic + m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic;
-
-                p = buf;
-                size = sizeof(buf);
 
                 if (firmware_usec > 0)
                         size = strpcpyf(&p, size, "%s (firmware) + ", format_timespan(ts, sizeof(ts), firmware_usec, USEC_PER_MSEC));
