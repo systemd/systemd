@@ -95,12 +95,11 @@ scripts/oss-fuzz.sh.
 
 The fuzzers can be built locally if you have libFuzzer installed by running
 scripts/oss-fuzz.sh. You should also confirm that the fuzzer runs in the
-OSS-Fuzz environment by checking out the OSS-Fuzz repo, modifying the git clone
-in projects/systemd/Dockerfile to point at your code (for example, a fork on
-GitHub) and then running these commands:
+OSS-Fuzz environment by checking out the OSS-Fuzz repo, and then running
+commands like this:
 
         python infra/helper.py build_image systemd
-        python infra/helper.py build_fuzzers --sanitizer memory systemd
+        python infra/helper.py build_fuzzers --sanitizer memory systemd ../systemd
         python infra/helper.py run_fuzzer systemd fuzz-foo
 
 For more details on building fuzzers and integrating with OSS-Fuzz, visit:
