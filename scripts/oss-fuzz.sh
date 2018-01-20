@@ -43,7 +43,11 @@ fi
 meson $build -D$fuzzflag -Db_lundef=false
 ninja -C $build fuzzers
 
-# get DNS packet corpus
+for d in "$(dirname "$0")/../test/fuzz-corpus/"*; do
+        zip -jqr $OUT/fuzz-$(basename "$d")_seed_corpus.zip "$d"
+done
+
+# get fuzz-dns-packet corpus
 df=$build/dns-fuzzing
 git clone --depth 1 https://github.com/CZ-NIC/dns-fuzzing $df
 zip -jqr $OUT/fuzz-dns-packet_seed_corpus.zip $df/packet
