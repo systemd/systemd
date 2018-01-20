@@ -1280,23 +1280,25 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         log_unit_full(u, f == MOUNT_SUCCESS ? LOG_DEBUG : LOG_NOTICE, 0,
                       "Mount process exited, code=%s status=%i", sigchld_code_to_string(code), status);
 
-        /* Note that mount(8) returning and the kernel sending us a mount table change event might happen
-         * out-of-order. If an operation succeed we assume the kernel will follow soon too and already change into the
-         * resulting state.  If it fails we check if the kernel still knows about the mount. and change state
-         * accordingly. */
+        /* Note that due to the io event priority logic, we can be sure the new mountinfo is loaded
+         * before we process the SIGCHLD for the mount command. */
 
         switch (m->state) {
 
         case MOUNT_MOUNTING:
-        case MOUNT_MOUNTING_DONE:
+                /* Our mount point has not appeared in mountinfo.  Something went wrong. */
 
-                if (f == MOUNT_SUCCESS || m->from_proc_self_mountinfo)
-                        /* If /bin/mount returned success, or if we see the mount point in /proc/self/mountinfo we are
-                         * happy. If we see the first condition first, we should see the second condition
-                         * immediately after – or /bin/mount lies to us and is broken. */
-                        mount_enter_mounted(m, f);
-                else
-                        mount_enter_dead(m, f);
+                if (f == MOUNT_SUCCESS) {
+                        /* Either /bin/mount has an unexpected definition of success,
+                         * or someone raced us and we lost. */
+                        log_unit_warning(UNIT(m), "Mount process finished, but there is no mount.");
+                        f = MOUNT_FAILURE_PROTOCOL;
+                }
+                mount_enter_dead(m, f);
+                break;
+
+        case MOUNT_MOUNTING_DONE:
+                mount_enter_mounted(m, f);
                 break;
 
         case MOUNT_REMOUNTING:
@@ -1312,15 +1314,14 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 if (f == MOUNT_SUCCESS && m->from_proc_self_mountinfo) {
 
                         /* Still a mount point? If so, let's try again. Most likely there were multiple mount points
-                         * stacked on top of each other. Note that due to the io event priority logic we can be sure
-                         * the new mountinfo is loaded before we process the SIGCHLD for the mount command. */
+                         * stacked on top of each other. */
 
                         if (m->n_retry_umount < RETRY_UMOUNT_MAX) {
                                 log_unit_debug(u, "Mount still present, trying again.");
                                 m->n_retry_umount++;
                                 mount_enter_unmounting(m);
                         } else {
-                                log_unit_debug(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
+                                log_unit_warning(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
                                 mount_enter_mounted(m, f);
                         }
                 } else
@@ -1951,6 +1952,7 @@ static const char* const mount_result_table[_MOUNT_RESULT_MAX] = {
         [MOUNT_FAILURE_SIGNAL] = "signal",
         [MOUNT_FAILURE_CORE_DUMP] = "core-dump",
         [MOUNT_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
+        [MOUNT_FAILURE_PROTOCOL] = "protocol",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult);
