@@ -261,7 +261,11 @@ struct Manager {
 
         bool taint_usr:1;
 
+        /* Have we already sent out the READY=1 notification? */
         bool ready_sent:1;
+
+        /* Have we already printed the taint line if necessary? */
+        bool taint_logged:1;
 
         unsigned test_run_flags:8;
 
