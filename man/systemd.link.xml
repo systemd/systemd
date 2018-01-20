@@ -453,6 +453,8 @@
               </listitem>
             </varlistentry>
           </variablelist>
+
+          <para>Defaults to <literal>off</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
