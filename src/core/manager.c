@@ -2658,6 +2658,7 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         fprintf(f, "n-failed-jobs=%u\n", m->n_failed_jobs);
         fprintf(f, "taint-usr=%s\n", yes_no(m->taint_usr));
         fprintf(f, "ready-sent=%s\n", yes_no(m->ready_sent));
+        fprintf(f, "taint-logged=%s\n", yes_no(m->taint_logged));
 
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 /* The userspace and finish timestamps only apply to the host system, hence only serialize them there */
@@ -2819,6 +2820,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse ready-sent flag %s", val);
                         else
                                 m->ready_sent = m->ready_sent || b;
+
+                } else if ((val = startswith(l, "taint-logged="))) {
+                        int b;
+
+                        b = parse_boolean(val);
+                        if (b < 0)
+                                log_notice("Failed to parse taint-logged flag %s", val);
+                        else
+                                m->taint_logged = m->taint_logged || b;
 
                 } else if (startswith(l, "env=")) {
                         r = deserialize_environment(&m->environment, l);
@@ -3077,6 +3087,27 @@ bool manager_unit_inactive_or_pending(Manager *m, const char *name) {
         return unit_inactive_or_pending(u);
 }
 
+static void log_taint_string(Manager *m) {
+        _cleanup_free_ char *taint = NULL;
+
+        assert(m);
+
+        if (MANAGER_IS_USER(m) || m->taint_logged)
+                return;
+
+        m->taint_logged = true; /* only check for taint once */
+
+        taint = manager_taint_string(m);
+        if (isempty(taint))
+                return;
+
+        log_struct(LOG_NOTICE,
+                   LOG_MESSAGE("System is tainted: %s", taint),
+                   "TAINT=%s", taint,
+                   "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR,
+                   NULL);
+}
+
 static void manager_notify_finished(Manager *m) {
         char userspace[FORMAT_TIMESPAN_MAX], initrd[FORMAT_TIMESPAN_MAX], kernel[FORMAT_TIMESPAN_MAX], sum[FORMAT_TIMESPAN_MAX];
         usec_t firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec;
@@ -3149,6 +3180,8 @@ static void manager_notify_finished(Manager *m) {
                                    "STATUS=Startup finished in %s.",
                    format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC));
         m->ready_sent = true;
+
+        log_taint_string(m);
 }
 
 void manager_check_finished(Manager *m) {
@@ -3163,16 +3196,22 @@ void manager_check_finished(Manager *m) {
         if (m->exit_code != MANAGER_OK)
                 return;
 
-        /* For user managers, send out READY=1 as soon as we reach basic.target */
-        if (MANAGER_IS_USER(m) && !m->ready_sent) {
+        if (!m->ready_sent || !m->taint_logged) {
                 Unit *u;
 
                 u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
                 if (u && !u->job) {
-                        sd_notifyf(false,
-                                   "READY=1\n"
-                                   "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
-                        m->ready_sent = true;
+                        /* Log the taint string as soon as we reach basic.target */
+                        log_taint_string(m);
+
+                        /* For user managers, send out READY=1 as soon as we reach basic.target */
+                        if (MANAGER_IS_USER(m) && !m->ready_sent) {
+                                sd_notifyf(false,
+                                           "READY=1\n"
+                                           "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
+
+                                m->ready_sent = true;
+                        }
                 }
         }
 

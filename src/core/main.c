@@ -2218,25 +2218,6 @@ static void test_summary(Manager *m) {
         manager_dump_jobs(m, stdout, "\t");
 }
 
-static void log_taint_string(Manager *m) {
-        _cleanup_free_ char *taint = NULL;
-
-        assert(m);
-
-        if (!arg_system)
-                return;
-
-        taint = manager_taint_string(m);
-        if (isempty(taint))
-                return;
-
-        log_struct(LOG_NOTICE,
-                   LOG_MESSAGE("System is tainted: %s", taint),
-                   "TAINT=%s", taint,
-                   "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR,
-                   NULL);
-}
-
 static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
         int r;
 
@@ -2549,8 +2530,6 @@ int main(int argc, char *argv[]) {
         log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
                  "Loaded units and determined initial transaction in %s.",
                  format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
-
-        log_taint_string(m);
 
         if (arg_action == ACTION_TEST) {
                 test_summary(m);
