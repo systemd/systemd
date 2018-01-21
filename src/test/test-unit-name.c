@@ -113,6 +113,7 @@ static void test_unit_name_from_path(void) {
         test_unit_name_from_path_one("///", ".mount", "-.mount", 0);
         test_unit_name_from_path_one("/foo/../bar", ".mount", NULL, -EINVAL);
         test_unit_name_from_path_one("/foo/./bar", ".mount", NULL, -EINVAL);
+        test_unit_name_from_path_one("foo", ".mount", NULL, -EINVAL);
 }
 
 static void test_unit_name_from_path_instance_one(const char *pattern, const char *path, const char *suffix, const char *expected, int ret) {
