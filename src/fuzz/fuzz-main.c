@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
                 }
                 printf("%s... ", name);
                 fflush(stdout);
-                (void)LLVMFuzzerTestOneInput((uint8_t*)buf, size);
+                (void) LLVMFuzzerTestOneInput((uint8_t*)buf, size);
                 printf("ok\n");
         }
         return EXIT_SUCCESS;
