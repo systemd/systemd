@@ -817,8 +817,8 @@ static int path_set_perms(Item *i, const char *path) {
                 }
         }
 
-        if ((i->uid != st.st_uid || i->gid != st.st_gid) &&
-            (i->uid_set || i->gid_set)) {
+        if ((i->uid_set && i->uid != st.st_uid) ||
+            (i->gid_set && i->gid != st.st_gid)) {
                 log_debug("Changing \"%s\" to owner "UID_FMT":"GID_FMT,
                           path,
                           i->uid_set ? i->uid : UID_INVALID,
