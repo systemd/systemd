@@ -49,6 +49,7 @@ _systemd_analyze() {
                 [LOG_TARGET]='set-log-target'
                 [VERIFY]='verify'
                 [SECCOMP_FILTER]='syscall-filter'
+                [SERVICE_WATCHDOGS]='service-watchdogs'
         )
 
         _init_completion || return
@@ -122,6 +123,13 @@ _systemd_analyze() {
                 else
                         comps=$( compgen -A file -- "$cur" )
                         compopt -o filenames
+                fi
+
+        elif __contains_word "$verb" ${VERBS[SERVICE_WATCHDOGS]}; then
+                if [[ $cur = -* ]]; then
+                        comps='--help --version --system --user'
+                else
+                        comps='on off'
                 fi
 
         fi
