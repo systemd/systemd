@@ -425,7 +425,7 @@ void server_process_native_file(
                  * https://github.com/systemd/systemd/issues/1822
                  */
                 if (vfs.f_flag & ST_MANDLOCK) {
-                        log_error("Received file descriptor from file system with mandatory locking enable, refusing.");
+                        log_error("Received file descriptor from file system with mandatory locking enabled, refusing.");
                         return;
                 }
 
