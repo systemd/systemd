@@ -2639,12 +2639,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 if (parse_pid(value, &pid) < 0)
                         log_unit_debug(u, "Failed to parse main-pid value: %s", value);
-                else {
-                        service_set_main_pid(s, pid);
-                        r = unit_watch_pid(UNIT(s), pid);
-                        if (r < 0)
-                                log_unit_debug_errno(u, r, "Failed to watch main PID, ignoring: %m");
-                }
+                else
+                        (void) service_set_main_pid(s, pid);
         } else if (streq(key, "main-pid-known")) {
                 int b;
 
