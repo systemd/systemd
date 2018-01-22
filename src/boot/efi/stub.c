@@ -104,6 +104,30 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         if (disk_get_part_uuid(loaded_image->DeviceHandle, uuid) == EFI_SUCCESS)
                 efivar_set(L"LoaderDevicePartUUID", uuid, FALSE);
 
+        /* if LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from UEFI */
+        if (efivar_get_raw(&global_guid, L"LoaderImageIdentifier", &b, &size) != EFI_SUCCESS) {
+                CHAR16 *loaded_image_path = DevicePathToStr(loaded_image->FilePath);
+                efivar_set(L"LoaderImageIdentifier", loaded_image_path, FALSE);
+                FreePool(loaded_image_path);
+        }
+
+        /* if LoaderFirmwareInfo is not set, let's set it */
+        if (efivar_get_raw(&global_guid, L"LoaderFirmwareInfo", &b, &size) != EFI_SUCCESS) {
+                CHAR16 *loader_firmware_info = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                efivar_set(L"LoaderFirmwareInfo", loader_firmware_info, FALSE);
+                FreePool(loader_firmware_info);
+        }
+        /* ditto for LoaderFirmwareType */
+        if (efivar_get_raw(&global_guid, L"LoaderFirmwareType", &b, &size) != EFI_SUCCESS) {
+                CHAR16 *loader_firmware_type = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+                efivar_set(L"LoaderFirmwareType", loader_firmware_type, FALSE);
+                FreePool(loader_firmware_type);
+        }
+
+        /* add StubInfo */
+        if (efivar_get_raw(&global_guid, L"StubInfo", &b, &size) != EFI_SUCCESS)
+                efivar_set(L"StubInfo", L"systemd-stub " PACKAGE_VERSION, FALSE);
+
         if (szs[3] > 0)
                 graphics_splash((UINT8 *)((UINTN)loaded_image->ImageBase + addrs[3]), szs[3], NULL);
 
