@@ -1308,13 +1308,12 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 break;
 
         case MOUNT_UNMOUNTING:
-        case MOUNT_UNMOUNTING_SIGKILL:
-        case MOUNT_UNMOUNTING_SIGTERM:
 
                 if (f == MOUNT_SUCCESS && m->from_proc_self_mountinfo) {
 
                         /* Still a mount point? If so, let's try again. Most likely there were multiple mount points
-                         * stacked on top of each other. */
+                         * stacked on top of each other. We might exceed the timeout specified by the user overall,
+                         * but we will stop as soon as any one umount times out. */
 
                         if (m->n_retry_umount < RETRY_UMOUNT_MAX) {
                                 log_unit_debug(u, "Mount still present, trying again.");
@@ -1327,6 +1326,11 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 } else
                         mount_enter_dead_or_mounted(m, f);
 
+                break;
+
+        case MOUNT_UNMOUNTING_SIGKILL:
+        case MOUNT_UNMOUNTING_SIGTERM:
+                mount_enter_dead_or_mounted(m, f);
                 break;
 
         default:
