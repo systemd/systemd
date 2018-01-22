@@ -877,11 +877,8 @@ static int path_set_xattrs(Item *i, const char *path) {
         assert(path);
 
         STRV_FOREACH_PAIR(name, value, i->xattrs) {
-                int n;
-
-                n = strlen(*value);
                 log_debug("Setting extended attribute '%s=%s' on %s.", *name, *value, path);
-                if (lsetxattr(path, *name, *value, n, 0) < 0)
+                if (lsetxattr(path, *name, *value, strlen(*value), 0) < 0)
                         return log_error_errno(errno, "Setting extended attribute %s=%s on %s failed: %m",
                                                *name, *value, path);
         }
