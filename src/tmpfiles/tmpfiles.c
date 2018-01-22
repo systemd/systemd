@@ -547,11 +547,8 @@ static int dir_cleanup(
                                 continue;
 
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        if (errno == EACCES)
-                                log_debug_errno(errno, "stat(%s/%s) failed: %m", p, dent->d_name);
-                        else
-                                log_error_errno(errno, "stat(%s/%s) failed: %m", p, dent->d_name);
-                        r = -errno;
+                        r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                           "stat(%s/%s) failed: %m", p, dent->d_name);
                         continue;
                 }
 
