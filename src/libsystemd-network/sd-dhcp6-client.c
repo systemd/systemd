@@ -949,7 +949,7 @@ static int client_parse_message(
                 pos += sizeof(*option) + optlen;
         }
 
-        if (r < 0 || !clientid) {
+        if (!clientid) {
                 log_dhcp6_client(client, "%s has incomplete options",
                                  dhcp6_message_type_to_string(message->type));
                 return -EINVAL;

@@ -89,7 +89,9 @@ int main(int argc, char *argv[]) {
         assert_se(sd_resolve_default(&resolve) >= 0);
 
         /* Test a floating resolver query */
-        sd_resolve_getaddrinfo(resolve, NULL, "redhat.com", "http", NULL, getaddrinfo_handler, NULL);
+        r = sd_resolve_getaddrinfo(resolve, NULL, "redhat.com", "http", NULL, getaddrinfo_handler, NULL);
+        if (r < 0)
+                log_error_errno(r, "sd_resolve_getaddrinfo(): %m");
 
         /* Make a name -> address query */
         r = sd_resolve_getaddrinfo(resolve, &q1, argc >= 2 ? argv[1] : "www.heise.de", NULL, &hints, getaddrinfo_handler, NULL);

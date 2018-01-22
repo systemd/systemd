@@ -730,7 +730,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 /* Two dots? Then chop off the last bit of what we already found out. */
                 if (path_equal(first, "/..")) {
                         _cleanup_free_ char *parent = NULL;
-                        int fd_parent = -1;
+                        _cleanup_close_ int fd_parent = -1;
 
                         /* If we already are at the top, then going up will not change anything. This is in-line with
                          * how the kernel handles this. */
@@ -765,6 +765,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                         safe_close(fd);
                         fd = fd_parent;
+                        fd_parent = -1;
 
                         continue;
                 }
@@ -833,8 +834,6 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                 if (fd < 0)
                                         return -errno;
 
-                                free(done);
-
                                 if (flags & CHASE_SAFE) {
                                         if (fstat(fd, &st) < 0)
                                                 return -errno;
@@ -844,6 +843,8 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                                         previous_stat = st;
                                 }
+
+                                free(done);
 
                                 /* Note that we do not revalidate the root, we take it as is. */
                                 if (isempty(root))
