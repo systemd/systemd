@@ -282,6 +282,7 @@ int sd_dhcp6_client_set_request_option(sd_dhcp6_client *client, uint16_t option)
         case SD_DHCP6_OPTION_DOMAIN_LIST:
         case SD_DHCP6_OPTION_SNTP_SERVERS:
         case SD_DHCP6_OPTION_NTP_SERVER:
+        case SD_DHCP6_OPTION_RAPID_COMMIT:
                 break;
 
         default:

@@ -148,6 +148,7 @@ struct Network {
         bool dhcp_use_mtu;
         bool dhcp_use_routes;
         bool dhcp_use_timezone;
+        bool rapid_commit;
         bool dhcp_use_hostname;
         bool dhcp_route_table_set;
         DHCPUseDomains dhcp_use_domains;
