@@ -2524,7 +2524,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = NULL;
 
                 t = strv_join(config_dirs, "\n\t");
