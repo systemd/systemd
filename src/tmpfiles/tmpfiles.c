@@ -652,10 +652,8 @@ static int dir_cleanup(
 
                         log_debug("Removing directory \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0)
-                                if (!IN_SET(errno, ENOENT, ENOTEMPTY)) {
-                                        log_error_errno(errno, "rmdir(%s): %m", sub_path);
-                                        r = -errno;
-                                }
+                                if (!IN_SET(errno, ENOENT, ENOTEMPTY))
+                                        r = log_error_errno(errno, "rmdir(%s): %m", sub_path);
 
                 } else {
                         /* Skip files for which the sticky bit is
