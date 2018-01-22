@@ -181,9 +181,6 @@ Features:
   "systemd-gdb" for attaching to the start-up of any system service in its
   natural habitat.
 
-* replace all canonicalize_file_name() invocations by chase_symlinks(), in
-  particulr those where a rootdir is relevant.
-
 * maybe introduce gpt auto discovery for /var/tmp?
 
 * maybe add gpt-partition-based user management: each user gets his own
