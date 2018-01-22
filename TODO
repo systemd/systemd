@@ -24,6 +24,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* there should be path_hash_ops and we should use it in tmpfiles' hashmap object to deal with identical but differently spelt paths
+
 * rework pid watching logic, allow any number of units watch the same pid
 
 * be stricter with fds we receive for the fdstore: close them asynchronously

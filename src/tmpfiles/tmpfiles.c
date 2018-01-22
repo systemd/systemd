@@ -547,11 +547,8 @@ static int dir_cleanup(
                                 continue;
 
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        if (errno == EACCES)
-                                log_debug_errno(errno, "stat(%s/%s) failed: %m", p, dent->d_name);
-                        else
-                                log_error_errno(errno, "stat(%s/%s) failed: %m", p, dent->d_name);
-                        r = -errno;
+                        r = log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                           "stat(%s/%s) failed: %m", p, dent->d_name);
                         continue;
                 }
 
@@ -655,10 +652,8 @@ static int dir_cleanup(
 
                         log_debug("Removing directory \"%s\".", sub_path);
                         if (unlinkat(dirfd(d), dent->d_name, AT_REMOVEDIR) < 0)
-                                if (!IN_SET(errno, ENOENT, ENOTEMPTY)) {
-                                        log_error_errno(errno, "rmdir(%s): %m", sub_path);
-                                        r = -errno;
-                                }
+                                if (!IN_SET(errno, ENOENT, ENOTEMPTY))
+                                        r = log_error_errno(errno, "rmdir(%s): %m", sub_path);
 
                 } else {
                         /* Skip files for which the sticky bit is
@@ -882,11 +877,8 @@ static int path_set_xattrs(Item *i, const char *path) {
         assert(path);
 
         STRV_FOREACH_PAIR(name, value, i->xattrs) {
-                int n;
-
-                n = strlen(*value);
                 log_debug("Setting extended attribute '%s=%s' on %s.", *name, *value, path);
-                if (lsetxattr(path, *name, *value, n, 0) < 0)
+                if (lsetxattr(path, *name, *value, strlen(*value), 0) < 0)
                         return log_error_errno(errno, "Setting extended attribute %s=%s on %s failed: %m",
                                                *name, *value, path);
         }
@@ -2269,6 +2261,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 }
         } else {
                 existing = new0(ItemArray, 1);
+                if (!existing)
+                        return log_oom();
+
                 r = ordered_hashmap_put(h, i.path, existing);
                 if (r < 0)
                         return log_oom();
@@ -2529,7 +2524,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *t = NULL;
 
                 t = strv_join(config_dirs, "\n\t");
