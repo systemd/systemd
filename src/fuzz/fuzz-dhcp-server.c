@@ -62,7 +62,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         server->bound_leases[pool_offset] = lease;
         assert_se(hashmap_put(server->leases_by_client_id, &lease->client_id, lease) >= 0);
 
-        dhcp_server_handle_message(server, (DHCPMessage*)data, size);
+        (void) dhcp_server_handle_message(server, (DHCPMessage*)data, size);
 
         return 0;
 }
