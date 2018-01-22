@@ -1,5 +1,14 @@
 systemd System and Service Manager
 
+CHANGES WITH 237 in spe:
+
+        * Some keyboards come with a zoom see-saw or rocker which until now got
+          mapped to the Linux "zoomin/out" keys in hwdb. However, these
+          keycodes are not recognized by any major desktop. They now produce
+          Up/Down key events so that they can be used for scrolling.
+
+        — Berlin, 2018-XX-XX
+
 CHANGES WITH 236:
 
         * The modprobe.d/ drop-in for the bonding.ko kernel module introduced
