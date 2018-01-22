@@ -2261,6 +2261,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 }
         } else {
                 existing = new0(ItemArray, 1);
+                if (!existing)
+                        return log_oom();
+
                 r = ordered_hashmap_put(h, i.path, existing);
                 if (r < 0)
                         return log_oom();
