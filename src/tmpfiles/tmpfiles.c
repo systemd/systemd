@@ -754,6 +754,7 @@ finish:
 }
 
 static int path_set_perms(Item *i, const char *path) {
+        char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_close_ int fd = -1;
         struct stat st;
 
@@ -784,14 +785,12 @@ static int path_set_perms(Item *i, const char *path) {
         if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
 
-        if (S_ISLNK(st.st_mode))
-                log_debug("Skipping mode and owner fix for symlink %s.", path);
-        else {
-                char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-                xsprintf(fn, "/proc/self/fd/%i", fd);
+        xsprintf(fn, "/proc/self/fd/%i", fd);
 
-                /* not using i->path directly because it may be a glob */
-                if (i->mode_set) {
+        if (i->mode_set) {
+                if (S_ISLNK(st.st_mode))
+                        log_debug("Skipping mode fix for symlink %s.", path);
+                else {
                         mode_t m = i->mode;
 
                         if (i->mask_perms) {
@@ -806,25 +805,27 @@ static int path_set_perms(Item *i, const char *path) {
                         }
 
                         if (m == (st.st_mode & 07777))
-                                log_debug("\"%s\" has right mode %o", path, st.st_mode);
+                                log_debug("\"%s\" has correct mode %o already.", path, st.st_mode);
                         else {
-                                log_debug("chmod \"%s\" to mode %o", path, m);
+                                log_debug("Changing \"%s\" to mode %o.", path, m);
+
                                 if (chmod(fn, m) < 0)
                                         return log_error_errno(errno, "chmod() of %s via %s failed: %m", path, fn);
                         }
                 }
+        }
 
-                if ((i->uid != st.st_uid || i->gid != st.st_gid) &&
-                    (i->uid_set || i->gid_set)) {
-                        log_debug("chown \"%s\" to "UID_FMT"."GID_FMT,
-                                  path,
-                                  i->uid_set ? i->uid : UID_INVALID,
-                                  i->gid_set ? i->gid : GID_INVALID);
-                        if (chown(fn,
-                                  i->uid_set ? i->uid : UID_INVALID,
-                                  i->gid_set ? i->gid : GID_INVALID) < 0)
-                                return log_error_errno(errno, "chown() of %s via %s failed: %m", path, fn);
-                }
+        if ((i->uid != st.st_uid || i->gid != st.st_gid) &&
+            (i->uid_set || i->gid_set)) {
+                log_debug("Changing \"%s\" to owner "UID_FMT":"GID_FMT,
+                          path,
+                          i->uid_set ? i->uid : UID_INVALID,
+                          i->gid_set ? i->gid : GID_INVALID);
+
+                if (chown(fn,
+                          i->uid_set ? i->uid : UID_INVALID,
+                          i->gid_set ? i->gid : GID_INVALID) < 0)
+                        return log_error_errno(errno, "chown() of %s via %s failed: %m", path, fn);
         }
 
         fd = safe_close(fd);
