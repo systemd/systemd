@@ -136,6 +136,7 @@ _public_ int sd_bus_track_new(
         sd_bus_track *t;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(track, -EINVAL);
 
         if (!bus->bus_client)
