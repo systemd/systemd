@@ -761,6 +761,9 @@ static int path_set_perms(Item *i, const char *path) {
         assert(i);
         assert(path);
 
+        if (!i->mode_set && !i->uid_set && !i->gid_set)
+                goto shortcut;
+
         /* We open the file with O_PATH here, to make the operation
          * somewhat atomic. Also there's unfortunately no fchmodat()
          * with AT_SYMLINK_NOFOLLOW, hence we emulate it here via
@@ -778,7 +781,6 @@ static int path_set_perms(Item *i, const char *path) {
                 }
 
                 log_full_errno(level, errno, "Adjusting owner and mode for %s failed: %m", path);
-
                 return r;
         }
 
@@ -830,6 +832,7 @@ static int path_set_perms(Item *i, const char *path) {
 
         fd = safe_close(fd);
 
+shortcut:
         return label_fix(path, false, false);
 }
 
