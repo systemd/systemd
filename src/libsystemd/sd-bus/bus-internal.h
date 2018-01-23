@@ -368,6 +368,8 @@ const char *bus_message_type_to_string(uint8_t u) _pure_;
 
 #define error_name_is_valid interface_name_is_valid
 
+sd_bus *bus_resolve(sd_bus *bus);
+
 int bus_ensure_running(sd_bus *bus);
 int bus_start_running(sd_bus *bus);
 int bus_next_address(sd_bus *bus);

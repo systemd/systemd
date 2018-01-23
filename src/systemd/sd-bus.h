@@ -33,6 +33,10 @@
 
 _SD_BEGIN_DECLARATIONS;
 
+#define SD_BUS_DEFAULT ((sd_bus *) 1)
+#define SD_BUS_DEFAULT_USER ((sd_bus *) 2)
+#define SD_BUS_DEFAULT_SYSTEM ((sd_bus *) 3)
+
 /* Types */
 
 typedef struct sd_bus sd_bus;

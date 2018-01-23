@@ -40,6 +40,8 @@
 
 _SD_BEGIN_DECLARATIONS;
 
+#define SD_EVENT_DEFAULT ((sd_event *) 1)
+
 typedef struct sd_event sd_event;
 typedef struct sd_event_source sd_event_source;
 

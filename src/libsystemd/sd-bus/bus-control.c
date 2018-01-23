@@ -43,6 +43,7 @@ _public_ int sd_bus_get_unique_name(sd_bus *bus, const char **unique) {
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(unique, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -105,6 +106,7 @@ _public_ int sd_bus_request_name(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -208,6 +210,7 @@ _public_ int sd_bus_request_name_async(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -261,6 +264,7 @@ _public_ int sd_bus_release_name(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -353,6 +357,7 @@ _public_ int sd_bus_release_name_async(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -379,6 +384,7 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(acquired || activatable, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -450,6 +456,7 @@ _public_ int sd_bus_get_name_creds(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
         assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
         assert_return(mask == 0 || creds, -EINVAL);
@@ -742,6 +749,7 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return((mask & ~SD_BUS_CREDS_AUGMENT) <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
         assert_return(ret, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -900,6 +908,7 @@ _public_ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(name, -EINVAL);
         assert_return(machine, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
