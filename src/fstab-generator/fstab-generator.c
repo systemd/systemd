@@ -328,11 +328,6 @@ static int add_mount(
         if (streq_ptr(fstype, "autofs"))
                 return 0;
 
-        if (!is_path(where)) {
-                log_warning("Mount point %s is not a valid path, ignoring.", where);
-                return 0;
-        }
-
         if (mount_point_is_api(where) ||
             mount_point_ignore(where))
                 return 0;
@@ -536,7 +531,7 @@ static int parse_fstab(bool initrd) {
 
         while ((me = getmntent(f))) {
                 _cleanup_free_ char *where = NULL, *what = NULL, *canonical_where = NULL;
-                bool makefs, growfs, noauto, nofail;
+                bool swap, makefs, growfs, noauto, nofail;
                 int k;
 
                 if (initrd && !mount_in_initrd(me))
@@ -555,7 +550,13 @@ static int parse_fstab(bool initrd) {
                 if (!where)
                         return log_oom();
 
-                if (is_path(where)) {
+                swap = streq(me->mnt_type, "swap");
+                if (!swap) {
+                        if (!path_is_absolute(where)) {
+                                log_warning("Mount point %s is not a valid path, ignoring.", where);
+                                continue;
+                        }
+
                         path_kill_slashes(where);
                         /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
                          * mount units, but causes problems since it historically worked to have symlinks in e.g.
@@ -587,7 +588,7 @@ static int parse_fstab(bool initrd) {
                           yes_no(makefs),
                           yes_no(noauto), yes_no(nofail));
 
-                if (streq(me->mnt_type, "swap"))
+                if (swap)
                         k = add_swap(what, me,
                                      makefs*MAKEFS | growfs*GROWFS | noauto*NOAUTO | nofail*NOFAIL);
                 else {
