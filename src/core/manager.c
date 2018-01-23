@@ -3170,7 +3170,7 @@ static void manager_notify_finished(Manager *m) {
                                    NULL);
                 }
         } else {
-                /* The container case */
+                /* The container and --user case */
                 firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;
                 total_usec = userspace_usec = m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic - m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
 
@@ -3194,6 +3194,40 @@ static void manager_notify_finished(Manager *m) {
         log_taint_string(m);
 }
 
+static void manager_send_ready(Manager *m) {
+        assert(m);
+
+        /* We send READY=1 on reaching basic.target only when running in --user mode. */
+        if (!MANAGER_IS_USER(m) || m->ready_sent)
+                return;
+
+        m->ready_sent = true;
+
+        sd_notifyf(false,
+                   "READY=1\n"
+                   "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
+}
+
+static void manager_check_basic_target(Manager *m) {
+        Unit *u;
+
+        assert(m);
+
+        /* Small shortcut */
+        if (m->ready_sent && m->taint_logged)
+                return;
+
+        u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
+        if (!u || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
+                return;
+
+        /* For user managers, send out READY=1 as soon as we reach basic.target */
+        manager_send_ready(m);
+
+        /* Log the taint string as soon as we reach basic.target */
+        log_taint_string(m);
+}
+
 void manager_check_finished(Manager *m) {
         assert(m);
 
@@ -3206,24 +3240,7 @@ void manager_check_finished(Manager *m) {
         if (m->exit_code != MANAGER_OK)
                 return;
 
-        if (!m->ready_sent || !m->taint_logged) {
-                Unit *u;
-
-                u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
-                if (u && !u->job) {
-                        /* Log the taint string as soon as we reach basic.target */
-                        log_taint_string(m);
-
-                        /* For user managers, send out READY=1 as soon as we reach basic.target */
-                        if (MANAGER_IS_USER(m) && !m->ready_sent) {
-                                sd_notifyf(false,
-                                           "READY=1\n"
-                                           "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
-
-                                m->ready_sent = true;
-                        }
-                }
-        }
+        manager_check_basic_target(m);
 
         if (hashmap_size(m->jobs) > 0) {
                 if (m->jobs_in_progress_event_source)
