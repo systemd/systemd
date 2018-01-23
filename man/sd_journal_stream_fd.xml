@@ -94,6 +94,10 @@
 
     <para>It is recommended that applications log UTF-8 messages only
     with this API, but this is not enforced.</para>
+
+    <para>Each invocation of <function>sd_journal_stream_fd()</function> allocates a new log stream file descriptor,
+    that is not shared with prior or later invocations. The file descriptor is write-only (its reading direction is
+    shut down), and <constant>O_NONBLOCK</constant> is turned off initially.</para>
   </refsect1>
 
   <refsect1>
