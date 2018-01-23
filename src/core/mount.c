@@ -1753,7 +1753,7 @@ static void mount_enumerate(Manager *m) {
                         goto fail;
                 }
 
-                r = sd_event_source_set_priority(m->mount_event_source, -10);
+                r = sd_event_source_set_priority(m->mount_event_source, SD_EVENT_PRIORITY_NORMAL-10);
                 if (r < 0) {
                         log_error_errno(r, "Failed to adjust mount watch priority: %m");
                         goto fail;
