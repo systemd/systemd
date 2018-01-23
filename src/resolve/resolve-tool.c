@@ -41,8 +41,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 
-#define DNS_CALL_TIMEOUT_USEC (90*USEC_PER_SEC)
-
 static int arg_family = AF_UNSPEC;
 static int arg_ifindex = 0;
 static uint16_t arg_type = 0;
@@ -175,7 +173,7 @@ static int resolve_host(sd_bus *bus, const char *name) {
 
         ts = now(CLOCK_MONOTONIC);
 
-        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "%s: resolve call failed: %s", name, bus_error_message(&error, r));
 
@@ -306,7 +304,7 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
 
         ts = now(CLOCK_MONOTONIC);
 
-        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
                 log_error("%s: resolve call failed: %s", pretty, bus_error_message(&error, r));
                 return r;
@@ -442,7 +440,7 @@ static int resolve_record(sd_bus *bus, const char *name, uint16_t class, uint16_
 
         ts = now(CLOCK_MONOTONIC);
 
-        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
                 if (warn_missing || r != -ENXIO)
                         log_error("%s: resolve call failed: %s", name, bus_error_message(&error, r));
@@ -685,7 +683,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
 
         ts = now(CLOCK_MONOTONIC);
 
-        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0)
                 return log_error_errno(r, "Resolve call failed: %s", bus_error_message(&error, r));
 

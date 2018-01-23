@@ -27,10 +27,9 @@
 #include "bus-common-errors.h"
 #include "dns-type.h"
 #include "random-util.h"
+#include "resolved-def.h"
 #include "string-util.h"
 #include "time-util.h"
-
-#define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
 
 static void prefix_random(const char *name, char **ret) {
         uint64_t i, u;
@@ -75,7 +74,7 @@ static void test_rr_lookup(sd_bus *bus, const char *name, uint16_t type, const c
 
         assert_se(sd_bus_message_append(req, "isqqt", 0, name, DNS_CLASS_IN, type, UINT64_C(0)) >= 0);
 
-        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
 
         if (r < 0) {
                 assert_se(result);
@@ -112,7 +111,7 @@ static void test_hostname_lookup(sd_bus *bus, const char *name, int family, cons
 
         assert_se(sd_bus_message_append(req, "isit", 0, name, family, UINT64_C(0)) >= 0);
 
-        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
 
         if (r < 0) {
                 assert_se(result);
