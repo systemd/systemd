@@ -17,13 +17,14 @@ i.e. 0…4294967295. However, four UIDs are special on Linux:
 1. 0 → The `root` super-user
 
 2. 65534 → The `nobody` UID, also called the "overflow" UID or similar. It's
-   where various subsystems map unmappable users to, for example NFS or user
-   namespacing. (The latter can be changed with a sysctl during runtime, but
-   that's not supported on `systemd`. If you do change it you void your
-   warranty.) Because Fedora is a bit confused the `nobody` user is called
-   `nfsnobody` there (and they have a different `nobody` user at UID 99). I
-   hope this will be corrected eventually though. (Also, some distributions
-   call the `nobody` group `nogroup`. I wish they didn't.)
+   where various subsystems map unmappable users to, for example file systems
+   only supporting 16bit UIDs, NFS or user namespacing. (The latter can be
+   changed with a sysctl during runtime, but that's not supported on
+   `systemd`. If you do change it you void your warranty.) Because Fedora is a
+   bit confused the `nobody` user is called `nfsnobody` there (and they have a
+   different `nobody` user at UID 99). I hope this will be corrected eventually
+   though. (Also, some distributions call the `nobody` group `nogroup`. I wish
+   they didn't.)
 
 3. 4294967295, aka "32bit `(uid_t) -1`" → This UID is not a valid user ID, as
    `setresuid()`, `chown()` and friends treat -1 as a special request to not
