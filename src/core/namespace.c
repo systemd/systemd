@@ -497,7 +497,7 @@ static void drop_outside_root(const char *root_directory, MountEntry *m, unsigne
 }
 
 static int clone_device_node(const char *d, const char *temporary_mount) {
-        _cleanup_free_ char *dn = NULL;
+        const char *dn;
         struct stat st;
         int r;
 
@@ -514,14 +514,11 @@ static int clone_device_node(const char *d, const char *temporary_mount) {
         if (st.st_rdev == 0)
                 return 0;
 
-        dn = strappend(temporary_mount, d);
-        if (!dn)
-                return -ENOMEM;
+        dn = strjoina(temporary_mount, d);
 
         mac_selinux_create_file_prepare(d, st.st_mode);
         r = mknod(dn, st.st_mode, st.st_rdev);
         mac_selinux_create_file_clear();
-
         if (r < 0)
                 return log_debug_errno(errno, "mknod failed for %s: %m", d);
 
