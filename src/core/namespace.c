@@ -578,8 +578,12 @@ static int mount_private_dev(MountEntry *m) {
                 }
         } else {
                 r = clone_device_node("/dev/ptmx", temporary_mount);
-                if (r != 1)
+                if (r < 0)
                         goto fail;
+                if (r == 0) {
+                        r = -ENXIO;
+                        goto fail;
+                }
         }
 
         devshm = strjoina(temporary_mount, "/dev/shm");
