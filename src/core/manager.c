@@ -109,6 +109,7 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
 static int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
+static int manager_dispatch_sigchld(sd_event_source *source, void *userdata);
 static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
 
@@ -634,6 +635,29 @@ static int manager_setup_run_queue(Manager *m) {
         return 0;
 }
 
+static int manager_setup_sigchld_event_source(Manager *m) {
+        int r;
+
+        assert(m);
+        assert(!m->sigchld_event_source);
+
+        r = sd_event_add_defer(m->event, &m->sigchld_event_source, manager_dispatch_sigchld, m);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(m->sigchld_event_source, SD_EVENT_PRIORITY_NORMAL-7);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_enabled(m->sigchld_event_source, SD_EVENT_OFF);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(m->sigchld_event_source, "manager-sigchld");
+
+        return 0;
+}
+
 int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         Manager *m;
         int r;
@@ -734,6 +758,10 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         if (r < 0)
                 goto fail;
 
+        r = manager_setup_sigchld_event_source(m);
+        if (r < 0)
+                goto fail;
+
         m->udev = udev_new();
         if (!m->udev) {
                 r = -ENOMEM;
@@ -817,7 +845,7 @@ static int manager_setup_notify(Manager *m) {
 
                 /* Process notification messages a bit earlier than SIGCHLD, so that we can still identify to which
                  * service an exit message belongs. */
-                r = sd_event_source_set_priority(m->notify_event_source, SD_EVENT_PRIORITY_NORMAL-7);
+                r = sd_event_source_set_priority(m->notify_event_source, SD_EVENT_PRIORITY_NORMAL-8);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of notify event source: %m");
 
@@ -946,7 +974,7 @@ static int manager_setup_user_lookup_fd(Manager *m) {
 
                 /* Process even earlier than the notify event source, so that we always know first about valid UID/GID
                  * resolutions */
-                r = sd_event_source_set_priority(m->user_lookup_event_source, SD_EVENT_PRIORITY_NORMAL-8);
+                r = sd_event_source_set_priority(m->user_lookup_event_source, SD_EVENT_PRIORITY_NORMAL-11);
                 if (r < 0)
                         return log_error_errno(errno, "Failed to set priority ot user lookup event source: %m");
 
@@ -1185,6 +1213,7 @@ Manager* manager_free(Manager *m) {
         set_free(m->failed_units);
 
         sd_event_source_unref(m->signal_event_source);
+        sd_event_source_unref(m->sigchld_event_source);
         sd_event_source_unref(m->notify_event_source);
         sd_event_source_unref(m->cgroups_agent_event_source);
         sd_event_source_unref(m->time_change_event_source);
@@ -2052,64 +2081,70 @@ static void invoke_sigchld_event(Manager *m, Unit *u, const siginfo_t *si) {
          }
 }
 
-static int manager_dispatch_sigchld(Manager *m) {
+static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
+        Manager *m = userdata;
+        siginfo_t si = {};
+        int r;
+
+        assert(source);
         assert(m);
 
-        for (;;) {
-                siginfo_t si = {};
+        /* First we call waitd() for a PID and do not reap the zombie. That way we can still access /proc/$PID for it
+         * while it is a zombie. */
 
-                /* First we call waitd() for a PID and do not reap the
-                 * zombie. That way we can still access /proc/$PID for
-                 * it while it is a zombie. */
-                if (waitid(P_ALL, 0, &si, WEXITED|WNOHANG|WNOWAIT) < 0) {
+        if (waitid(P_ALL, 0, &si, WEXITED|WNOHANG|WNOWAIT) < 0) {
 
-                        if (errno == ECHILD)
-                                break;
+                if (errno == ECHILD)
+                        goto turn_off;
 
-                        if (errno == EINTR)
-                                continue;
-
-                        return -errno;
-                }
-
-                if (si.si_pid <= 0)
-                        break;
-
-                if (IN_SET(si.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED)) {
-                        _cleanup_free_ char *name = NULL;
-                        Unit *u1, *u2, *u3;
-
-                        get_process_comm(si.si_pid, &name);
-
-                        log_debug("Child "PID_FMT" (%s) died (code=%s, status=%i/%s)",
-                                  si.si_pid, strna(name),
-                                  sigchld_code_to_string(si.si_code),
-                                  si.si_status,
-                                  strna(si.si_code == CLD_EXITED
-                                        ? exit_status_to_string(si.si_status, EXIT_STATUS_FULL)
-                                        : signal_to_string(si.si_status)));
-
-                        /* And now figure out the unit this belongs
-                         * to, it might be multiple... */
-                        u1 = manager_get_unit_by_pid_cgroup(m, si.si_pid);
-                        if (u1)
-                                invoke_sigchld_event(m, u1, &si);
-                        u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(si.si_pid));
-                        if (u2 && u2 != u1)
-                                invoke_sigchld_event(m, u2, &si);
-                        u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(si.si_pid));
-                        if (u3 && u3 != u2 && u3 != u1)
-                                invoke_sigchld_event(m, u3, &si);
-                }
-
-                /* And now, we actually reap the zombie. */
-                if (waitid(P_PID, si.si_pid, &si, WEXITED) < 0) {
-                        if (errno == EINTR)
-                                continue;
-
-                        return -errno;
-                }
+                log_error_errno(errno, "Failed to peek for child with waitid(), ignoring: %m");
+                return 0;
         }
+
+        if (si.si_pid <= 0)
+                goto turn_off;
+
+        if (IN_SET(si.si_code, CLD_EXITED, CLD_KILLED, CLD_DUMPED)) {
+                _cleanup_free_ char *name = NULL;
+                Unit *u1, *u2, *u3;
+
+                (void) get_process_comm(si.si_pid, &name);
+
+                log_debug("Child "PID_FMT" (%s) died (code=%s, status=%i/%s)",
+                          si.si_pid, strna(name),
+                          sigchld_code_to_string(si.si_code),
+                          si.si_status,
+                          strna(si.si_code == CLD_EXITED
+                                ? exit_status_to_string(si.si_status, EXIT_STATUS_FULL)
+                                : signal_to_string(si.si_status)));
+
+                /* And now figure out the unit this belongs
+                 * to, it might be multiple... */
+                u1 = manager_get_unit_by_pid_cgroup(m, si.si_pid);
+                if (u1)
+                        invoke_sigchld_event(m, u1, &si);
+                u2 = hashmap_get(m->watch_pids1, PID_TO_PTR(si.si_pid));
+                if (u2 && u2 != u1)
+                        invoke_sigchld_event(m, u2, &si);
+                u3 = hashmap_get(m->watch_pids2, PID_TO_PTR(si.si_pid));
+                if (u3 && u3 != u2 && u3 != u1)
+                        invoke_sigchld_event(m, u3, &si);
+        }
+
+        /* And now, we actually reap the zombie. */
+        if (waitid(P_PID, si.si_pid, &si, WEXITED) < 0) {
+                log_error_errno(errno, "Failed to dequeue child, ignoring: %m");
+                return 0;
+        }
+
+        return 0;
+
+turn_off:
+        /* All children processed for now, turn off event source */
+
+        r = sd_event_source_set_enabled(m->sigchld_event_source, SD_EVENT_OFF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable SIGCHLD event source: %m");
 
         return 0;
 }
@@ -2141,7 +2176,6 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         Manager *m = userdata;
         ssize_t n;
         struct signalfd_siginfo sfsi;
-        bool sigchld = false;
         int r;
 
         assert(m);
@@ -2152,195 +2186,192 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        for (;;) {
-                n = read(m->signal_fd, &sfsi, sizeof(sfsi));
-                if (n != sizeof(sfsi)) {
-                        if (n >= 0) {
-                                log_warning("Truncated read from signal fd (%zu bytes)!", n);
+        n = read(m->signal_fd, &sfsi, sizeof(sfsi));
+        if (n != sizeof(sfsi)) {
+                if (n >= 0) {
+                        log_warning("Truncated read from signal fd (%zu bytes), ignoring!", n);
+                        return 0;
+                }
+
+                if (IN_SET(errno, EINTR, EAGAIN))
+                        return 0;
+
+                /* We return an error here, which will kill this handler,
+                 * to avoid a busy loop on read error. */
+                return log_error_errno(errno, "Reading from signal fd failed: %m");
+        }
+
+        log_received_signal(sfsi.ssi_signo == SIGCHLD ||
+                            (sfsi.ssi_signo == SIGTERM && MANAGER_IS_USER(m))
+                            ? LOG_DEBUG : LOG_INFO,
+                            &sfsi);
+
+        switch (sfsi.ssi_signo) {
+
+        case SIGCHLD:
+                r = sd_event_source_set_enabled(m->sigchld_event_source, SD_EVENT_ON);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to enable SIGCHLD even source, ignoring: %m");
+
+                break;
+
+        case SIGTERM:
+                if (MANAGER_IS_SYSTEM(m)) {
+                        /* This is for compatibility with the
+                         * original sysvinit */
+                        r = verify_run_space_and_log("Refusing to reexecute");
+                        if (r >= 0)
+                                m->exit_code = MANAGER_REEXECUTE;
+                        break;
+                }
+
+                _fallthrough_;
+        case SIGINT:
+                if (MANAGER_IS_SYSTEM(m))
+                        manager_handle_ctrl_alt_del(m);
+                else
+                        manager_start_target(m, SPECIAL_EXIT_TARGET,
+                                             JOB_REPLACE_IRREVERSIBLY);
+                break;
+
+        case SIGWINCH:
+                if (MANAGER_IS_SYSTEM(m))
+                        manager_start_target(m, SPECIAL_KBREQUEST_TARGET, JOB_REPLACE);
+
+                /* This is a nop on non-init */
+                break;
+
+        case SIGPWR:
+                if (MANAGER_IS_SYSTEM(m))
+                        manager_start_target(m, SPECIAL_SIGPWR_TARGET, JOB_REPLACE);
+
+                /* This is a nop on non-init */
+                break;
+
+        case SIGUSR1: {
+                Unit *u;
+
+                u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
+
+                if (!u || UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
+                        log_info("Trying to reconnect to bus...");
+                        bus_init(m, true);
+                }
+
+                if (!u || !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u))) {
+                        log_info("Loading D-Bus service...");
+                        manager_start_target(m, SPECIAL_DBUS_SERVICE, JOB_REPLACE);
+                }
+
+                break;
+        }
+
+        case SIGUSR2: {
+                _cleanup_free_ char *dump = NULL;
+
+                r = manager_get_dump_string(m, &dump);
+                if (r < 0) {
+                        log_warning_errno(errno, "Failed to acquire manager dump: %m");
+                        break;
+                }
+
+                log_dump(LOG_INFO, dump);
+                break;
+        }
+
+        case SIGHUP:
+                r = verify_run_space_and_log("Refusing to reload");
+                if (r >= 0)
+                        m->exit_code = MANAGER_RELOAD;
+                break;
+
+        default: {
+
+                /* Starting SIGRTMIN+0 */
+                static const struct {
+                        const char *target;
+                        JobMode mode;
+                } target_table[] = {
+                        [0] = { SPECIAL_DEFAULT_TARGET,   JOB_ISOLATE },
+                        [1] = { SPECIAL_RESCUE_TARGET,    JOB_ISOLATE },
+                        [2] = { SPECIAL_EMERGENCY_TARGET, JOB_ISOLATE },
+                        [3] = { SPECIAL_HALT_TARGET,      JOB_REPLACE_IRREVERSIBLY },
+                        [4] = { SPECIAL_POWEROFF_TARGET,  JOB_REPLACE_IRREVERSIBLY },
+                        [5] = { SPECIAL_REBOOT_TARGET,    JOB_REPLACE_IRREVERSIBLY },
+                        [6] = { SPECIAL_KEXEC_TARGET,     JOB_REPLACE_IRREVERSIBLY },
+                };
+
+                /* Starting SIGRTMIN+13, so that target halt and system halt are 10 apart */
+                static const ManagerExitCode code_table[] = {
+                        [0] = MANAGER_HALT,
+                        [1] = MANAGER_POWEROFF,
+                        [2] = MANAGER_REBOOT,
+                        [3] = MANAGER_KEXEC,
+                };
+
+                if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
+                    (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(target_table)) {
+                        int idx = (int) sfsi.ssi_signo - SIGRTMIN;
+                        manager_start_target(m, target_table[idx].target,
+                                             target_table[idx].mode);
+                        break;
+                }
+
+                if ((int) sfsi.ssi_signo >= SIGRTMIN+13 &&
+                    (int) sfsi.ssi_signo < SIGRTMIN+13+(int) ELEMENTSOF(code_table)) {
+                        m->exit_code = code_table[sfsi.ssi_signo - SIGRTMIN - 13];
+                        break;
+                }
+
+                switch (sfsi.ssi_signo - SIGRTMIN) {
+
+                case 20:
+                        manager_set_show_status(m, SHOW_STATUS_YES);
+                        break;
+
+                case 21:
+                        manager_set_show_status(m, SHOW_STATUS_NO);
+                        break;
+
+                case 22:
+                        log_set_max_level(LOG_DEBUG);
+                        log_info("Setting log level to debug.");
+                        break;
+
+                case 23:
+                        log_set_max_level(LOG_INFO);
+                        log_info("Setting log level to info.");
+                        break;
+
+                case 24:
+                        if (MANAGER_IS_USER(m)) {
+                                m->exit_code = MANAGER_EXIT;
                                 return 0;
                         }
 
-                        if (IN_SET(errno, EINTR, EAGAIN))
-                                break;
+                        /* This is a nop on init */
+                        break;
 
-                        /* We return an error here, which will kill this handler,
-                         * to avoid a busy loop on read error. */
-                        return log_error_errno(errno, "Reading from signal fd failed: %m");
+                case 26:
+                case 29: /* compatibility: used to be mapped to LOG_TARGET_SYSLOG_OR_KMSG */
+                        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
+                        log_notice("Setting log target to journal-or-kmsg.");
+                        break;
+
+                case 27:
+                        log_set_target(LOG_TARGET_CONSOLE);
+                        log_notice("Setting log target to console.");
+                        break;
+
+                case 28:
+                        log_set_target(LOG_TARGET_KMSG);
+                        log_notice("Setting log target to kmsg.");
+                        break;
+
+                default:
+                        log_warning("Got unhandled signal <%s>.", signal_to_string(sfsi.ssi_signo));
                 }
-
-                log_received_signal(sfsi.ssi_signo == SIGCHLD ||
-                                    (sfsi.ssi_signo == SIGTERM && MANAGER_IS_USER(m))
-                                    ? LOG_DEBUG : LOG_INFO,
-                                    &sfsi);
-
-                switch (sfsi.ssi_signo) {
-
-                case SIGCHLD:
-                        sigchld = true;
-                        break;
-
-                case SIGTERM:
-                        if (MANAGER_IS_SYSTEM(m)) {
-                                /* This is for compatibility with the
-                                 * original sysvinit */
-                                r = verify_run_space_and_log("Refusing to reexecute");
-                                if (r >= 0)
-                                        m->exit_code = MANAGER_REEXECUTE;
-                                break;
-                        }
-
-                        _fallthrough_;
-                case SIGINT:
-                        if (MANAGER_IS_SYSTEM(m))
-                                manager_handle_ctrl_alt_del(m);
-                        else
-                                manager_start_target(m, SPECIAL_EXIT_TARGET,
-                                                        JOB_REPLACE_IRREVERSIBLY);
-                        break;
-
-                case SIGWINCH:
-                        if (MANAGER_IS_SYSTEM(m))
-                                manager_start_target(m, SPECIAL_KBREQUEST_TARGET, JOB_REPLACE);
-
-                        /* This is a nop on non-init */
-                        break;
-
-                case SIGPWR:
-                        if (MANAGER_IS_SYSTEM(m))
-                                manager_start_target(m, SPECIAL_SIGPWR_TARGET, JOB_REPLACE);
-
-                        /* This is a nop on non-init */
-                        break;
-
-                case SIGUSR1: {
-                        Unit *u;
-
-                        u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
-
-                        if (!u || UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
-                                log_info("Trying to reconnect to bus...");
-                                bus_init(m, true);
-                        }
-
-                        if (!u || !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u))) {
-                                log_info("Loading D-Bus service...");
-                                manager_start_target(m, SPECIAL_DBUS_SERVICE, JOB_REPLACE);
-                        }
-
-                        break;
-                }
-
-                case SIGUSR2: {
-                        _cleanup_free_ char *dump = NULL;
-
-                        r = manager_get_dump_string(m, &dump);
-                        if (r < 0) {
-                                log_warning_errno(errno, "Failed to acquire manager dump: %m");
-                                break;
-                        }
-
-                        log_dump(LOG_INFO, dump);
-                        break;
-                }
-
-                case SIGHUP:
-                        r = verify_run_space_and_log("Refusing to reload");
-                        if (r >= 0)
-                                m->exit_code = MANAGER_RELOAD;
-                        break;
-
-                default: {
-
-                        /* Starting SIGRTMIN+0 */
-                        static const struct {
-                                const char *target;
-                                JobMode mode;
-                        } target_table[] = {
-                                [0] = { SPECIAL_DEFAULT_TARGET,   JOB_ISOLATE },
-                                [1] = { SPECIAL_RESCUE_TARGET,    JOB_ISOLATE },
-                                [2] = { SPECIAL_EMERGENCY_TARGET, JOB_ISOLATE },
-                                [3] = { SPECIAL_HALT_TARGET,      JOB_REPLACE_IRREVERSIBLY },
-                                [4] = { SPECIAL_POWEROFF_TARGET,  JOB_REPLACE_IRREVERSIBLY },
-                                [5] = { SPECIAL_REBOOT_TARGET,    JOB_REPLACE_IRREVERSIBLY },
-                                [6] = { SPECIAL_KEXEC_TARGET,     JOB_REPLACE_IRREVERSIBLY }
-                        };
-
-                        /* Starting SIGRTMIN+13, so that target halt and system halt are 10 apart */
-                        static const ManagerExitCode code_table[] = {
-                                [0] = MANAGER_HALT,
-                                [1] = MANAGER_POWEROFF,
-                                [2] = MANAGER_REBOOT,
-                                [3] = MANAGER_KEXEC
-                        };
-
-                        if ((int) sfsi.ssi_signo >= SIGRTMIN+0 &&
-                            (int) sfsi.ssi_signo < SIGRTMIN+(int) ELEMENTSOF(target_table)) {
-                                int idx = (int) sfsi.ssi_signo - SIGRTMIN;
-                                manager_start_target(m, target_table[idx].target,
-                                                        target_table[idx].mode);
-                                break;
-                        }
-
-                        if ((int) sfsi.ssi_signo >= SIGRTMIN+13 &&
-                            (int) sfsi.ssi_signo < SIGRTMIN+13+(int) ELEMENTSOF(code_table)) {
-                                m->exit_code = code_table[sfsi.ssi_signo - SIGRTMIN - 13];
-                                break;
-                        }
-
-                        switch (sfsi.ssi_signo - SIGRTMIN) {
-
-                        case 20:
-                                manager_set_show_status(m, SHOW_STATUS_YES);
-                                break;
-
-                        case 21:
-                                manager_set_show_status(m, SHOW_STATUS_NO);
-                                break;
-
-                        case 22:
-                                log_set_max_level(LOG_DEBUG);
-                                log_info("Setting log level to debug.");
-                                break;
-
-                        case 23:
-                                log_set_max_level(LOG_INFO);
-                                log_info("Setting log level to info.");
-                                break;
-
-                        case 24:
-                                if (MANAGER_IS_USER(m)) {
-                                        m->exit_code = MANAGER_EXIT;
-                                        return 0;
-                                }
-
-                                /* This is a nop on init */
-                                break;
-
-                        case 26:
-                        case 29: /* compatibility: used to be mapped to LOG_TARGET_SYSLOG_OR_KMSG */
-                                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
-                                log_notice("Setting log target to journal-or-kmsg.");
-                                break;
-
-                        case 27:
-                                log_set_target(LOG_TARGET_CONSOLE);
-                                log_notice("Setting log target to console.");
-                                break;
-
-                        case 28:
-                                log_set_target(LOG_TARGET_KMSG);
-                                log_notice("Setting log target to kmsg.");
-                                break;
-
-                        default:
-                                log_warning("Got unhandled signal <%s>.", signal_to_string(sfsi.ssi_signo));
-                        }
-                }
-                }
-        }
-
-        if (sigchld)
-                manager_dispatch_sigchld(m);
+        }}
 
         return 0;
 }
@@ -2415,11 +2446,10 @@ int manager_loop(Manager *m) {
 
         manager_check_finished(m);
 
-        /* There might still be some zombies hanging around from
-         * before we were exec()'ed. Let's reap them. */
-        r = manager_dispatch_sigchld(m);
+        /* There might still be some zombies hanging around from before we were exec()'ed. Let's reap them. */
+        r = sd_event_source_set_enabled(m->sigchld_event_source, SD_EVENT_ON);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to enable SIGCHLD event source: %m");
 
         while (m->exit_code == MANAGER_OK) {
                 usec_t wait_usec;
@@ -3170,7 +3200,7 @@ static void manager_notify_finished(Manager *m) {
                                    NULL);
                 }
         } else {
-                /* The container case */
+                /* The container and --user case */
                 firmware_usec = loader_usec = initrd_usec = kernel_usec = 0;
                 total_usec = userspace_usec = m->timestamps[MANAGER_TIMESTAMP_FINISH].monotonic - m->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic;
 
@@ -3194,36 +3224,51 @@ static void manager_notify_finished(Manager *m) {
         log_taint_string(m);
 }
 
+static void manager_send_ready(Manager *m) {
+        assert(m);
+
+        /* We send READY=1 on reaching basic.target only when running in --user mode. */
+        if (!MANAGER_IS_USER(m) || m->ready_sent)
+                return;
+
+        m->ready_sent = true;
+
+        sd_notifyf(false,
+                   "READY=1\n"
+                   "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
+}
+
+static void manager_check_basic_target(Manager *m) {
+        Unit *u;
+
+        assert(m);
+
+        /* Small shortcut */
+        if (m->ready_sent && m->taint_logged)
+                return;
+
+        u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
+        if (!u || !UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)))
+                return;
+
+        /* For user managers, send out READY=1 as soon as we reach basic.target */
+        manager_send_ready(m);
+
+        /* Log the taint string as soon as we reach basic.target */
+        log_taint_string(m);
+}
+
 void manager_check_finished(Manager *m) {
         assert(m);
 
         if (MANAGER_IS_RELOADING(m))
                 return;
 
-        /* Verify that we are actually running currently. Initially
-         * the exit code is set to invalid, and during operation it is
-         * then set to MANAGER_OK */
-        if (m->exit_code != MANAGER_OK)
+        /* Verify that we have entered the event loop already, and not left it again. */
+        if (!MANAGER_IS_RUNNING(m))
                 return;
 
-        if (!m->ready_sent || !m->taint_logged) {
-                Unit *u;
-
-                u = manager_get_unit(m, SPECIAL_BASIC_TARGET);
-                if (u && !u->job) {
-                        /* Log the taint string as soon as we reach basic.target */
-                        log_taint_string(m);
-
-                        /* For user managers, send out READY=1 as soon as we reach basic.target */
-                        if (MANAGER_IS_USER(m) && !m->ready_sent) {
-                                sd_notifyf(false,
-                                           "READY=1\n"
-                                           "STATUS=Reached " SPECIAL_BASIC_TARGET ".");
-
-                                m->ready_sent = true;
-                        }
-                }
-        }
+        manager_check_basic_target(m);
 
         if (hashmap_size(m->jobs) > 0) {
                 if (m->jobs_in_progress_event_source)
