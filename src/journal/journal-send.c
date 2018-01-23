@@ -416,7 +416,7 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         if (shutdown(fd, SHUT_RD) < 0)
                 return -errno;
 
-        fd_inc_sndbuf(fd, SNDBUF_SIZE);
+        (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         identifier = strempty(identifier);
 
