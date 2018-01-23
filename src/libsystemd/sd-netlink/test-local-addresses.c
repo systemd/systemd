@@ -38,6 +38,10 @@ int main(int argc, char *argv[]) {
         struct local_address *a;
         int n;
 
+        log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+        log_open();
+
         a = NULL;
         n = local_addresses(NULL, 0, AF_UNSPEC, &a);
         assert_se(n >= 0);
