@@ -116,9 +116,10 @@ int sd_netlink_message_request_dump(sd_netlink_message *m, int dump) {
 }
 
 sd_netlink_message *sd_netlink_message_ref(sd_netlink_message *m) {
-        if (m)
-                assert_se(REFCNT_INC(m->n_ref) >= 2);
+        if (!m)
+                return NULL;
 
+        assert_se(REFCNT_INC(m->n_ref) >= 2);
         return m;
 }
 
@@ -567,13 +568,14 @@ static int netlink_message_read_internal(sd_netlink_message *m, unsigned short t
         assert_return(m, -EINVAL);
         assert_return(m->sealed, -EPERM);
         assert_return(data, -EINVAL);
+
         assert(m->n_containers < RTNL_CONTAINER_DEPTH);
         assert(m->containers[m->n_containers].attributes);
         assert(type < m->containers[m->n_containers].n_attributes);
 
         attribute = &m->containers[m->n_containers].attributes[type];
 
-        if (!attribute->offset)
+        if (attribute->offset == 0)
                 return -ENODATA;
 
         rta = (struct rtattr*)((uint8_t *) m->hdr + attribute->offset);
@@ -793,7 +795,7 @@ static int netlink_container_parse(sd_netlink_message *m,
                 if (type >= count)
                         continue;
 
-                if (attributes[type].offset)
+                if (attributes[type].offset != 0)
                         log_debug("rtnl: message parse - overwriting repeated attribute");
 
                 attributes[type].offset = (uint8_t *) rta - (uint8_t *) m->hdr;
