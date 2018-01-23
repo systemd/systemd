@@ -42,6 +42,7 @@
 #include "path-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -497,7 +498,7 @@ static void drop_outside_root(const char *root_directory, MountEntry *m, unsigne
 }
 
 static int clone_device_node(const char *d, const char *temporary_mount) {
-        _cleanup_free_ char *dn = NULL;
+        const char *dn;
         struct stat st;
         int r;
 
@@ -514,14 +515,11 @@ static int clone_device_node(const char *d, const char *temporary_mount) {
         if (st.st_rdev == 0)
                 return 0;
 
-        dn = strappend(temporary_mount, d);
-        if (!dn)
-                return -ENOMEM;
+        dn = strjoina(temporary_mount, d);
 
         mac_selinux_create_file_prepare(d, st.st_mode);
         r = mknod(dn, st.st_mode, st.st_rdev);
         mac_selinux_create_file_clear();
-
         if (r < 0)
                 return log_debug_errno(errno, "mknod failed for %s: %m", d);
 
@@ -540,7 +538,6 @@ static int mount_private_dev(MountEntry *m) {
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
         const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         _cleanup_umask_ mode_t u;
-        struct stat st;
         int r;
 
         assert(m);
@@ -570,11 +567,10 @@ static int mount_private_dev(MountEntry *m) {
          *
          * in nspawn and other containers it will be a symlink, in that case make it a symlink
          */
-        if (lstat("/dev/ptmx", &st) < 0) {
-                r = -errno;
+        r = is_symlink("/dev/ptmx");
+        if (r < 0)
                 goto fail;
-        }
-        if (S_ISLNK(st.st_mode)) {
+        if (r > 0) {
                 devptmx = strjoina(temporary_mount, "/dev/ptmx");
                 if (symlink("pts/ptmx", devptmx) < 0) {
                         r = -errno;
@@ -582,8 +578,12 @@ static int mount_private_dev(MountEntry *m) {
                 }
         } else {
                 r = clone_device_node("/dev/ptmx", temporary_mount);
-                if (r != 1)
+                if (r < 0)
                         goto fail;
+                if (r == 0) {
+                        r = -ENXIO;
+                        goto fail;
+                }
         }
 
         devshm = strjoina(temporary_mount, "/dev/shm");
