@@ -753,6 +753,39 @@ finish:
         return r;
 }
 
+static bool dangerous_hardlinks(void) {
+        _cleanup_free_ char *value = NULL;
+        static int cached = -1;
+        int r;
+
+        /* Check whether the fs.protected_hardlinks sysctl is on. If we can't determine it we assume its off, as that's
+         * what the upstream default is. */
+
+        if (cached >= 0)
+                return cached;
+
+        r = read_one_line_file("/proc/sys/fs/protected_hardlinks", &value);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read fs.protected_hardlinks sysctl: %m");
+                return true;
+        }
+
+        r = parse_boolean(value);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse fs.protected_hardlinks sysctl: %m");
+                return true;
+        }
+
+        cached = r == 0;
+        return cached;
+}
+
+static bool hardlink_vulnerable(struct stat *st) {
+        assert(st);
+
+        return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && dangerous_hardlinks();
+}
+
 static int path_set_perms(Item *i, const char *path) {
         char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_close_ int fd = -1;
@@ -786,6 +819,11 @@ static int path_set_perms(Item *i, const char *path) {
 
         if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
+
+        if (hardlink_vulnerable(&st)) {
+                log_error("Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
+                return -EPERM;
+        }
 
         xsprintf(fn, "/proc/self/fd/%i", fd);
 
@@ -970,6 +1008,11 @@ static int path_set_acls(Item *item, const char *path) {
 
         if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
+
+        if (hardlink_vulnerable(&st)) {
+                log_error("Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
+                return -EPERM;
+        }
 
         if (S_ISLNK(st.st_mode)) {
                 log_debug("Skipping ACL fix for symlink %s.", path);
