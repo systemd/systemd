@@ -359,6 +359,9 @@ struct Manager {
 
 #define MANAGER_IS_FINISHED(m) (dual_timestamp_is_set((m)->timestamps + MANAGER_TIMESTAMP_FINISH))
 
+/* The exit code is set to OK as soon as we enter the main loop, and set otherwise as soon as we are done with it */
+#define MANAGER_IS_RUNNING(m) ((m)->exit_code == MANAGER_OK)
+
 int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **m);
 Manager* manager_free(Manager *m);
 

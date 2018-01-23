@@ -3234,10 +3234,8 @@ void manager_check_finished(Manager *m) {
         if (MANAGER_IS_RELOADING(m))
                 return;
 
-        /* Verify that we are actually running currently. Initially
-         * the exit code is set to invalid, and during operation it is
-         * then set to MANAGER_OK */
-        if (m->exit_code != MANAGER_OK)
+        /* Verify that we have entered the event loop already, and not left it again. */
+        if (!MANAGER_IS_RUNNING(m))
                 return;
 
         manager_check_basic_target(m);
