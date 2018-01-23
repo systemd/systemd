@@ -64,6 +64,7 @@ typedef struct Item {
         uid_t uid;
 
         bool gid_set:1;
+        bool gid_existing_ok:1;
         bool uid_set:1;
 
         bool todo_user:1;
@@ -1100,6 +1101,8 @@ static int add_group(Item *i) {
                         return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
                 if (r == 0) {
                         log_debug("Suggested group ID " GID_FMT " for %s already used.", i->gid, i->name);
+                        if (i->gid_existing_ok)
+                                return 0;
                         i->gid_set = false;
                 }
         }
@@ -1551,11 +1554,18 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                                 path_kill_slashes(i->uid_path);
                         } else {
-                                r = parse_uid(resolved_id, &i->uid);
-                                if (r < 0) {
-                                        log_error("Failed to parse UID: %s", id);
-                                        return -EBADMSG;
+                                _cleanup_free_ char *uid = NULL, *gid = NULL;
+                                if (split_pair(resolved_id, ":", &uid, &gid) == 0) {
+                                        r = parse_gid(gid, &i->gid);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse GID: '%s': %m", id);
+                                        i->gid_set = true;
+                                        i->gid_existing_ok = true;
+                                        free_and_replace(resolved_id, uid);
                                 }
+                                r = parse_uid(resolved_id, &i->uid);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse UID: '%s': %m", id);
 
                                 i->uid_set = true;
                         }
@@ -1602,10 +1612,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                 path_kill_slashes(i->gid_path);
                         } else {
                                 r = parse_gid(resolved_id, &i->gid);
-                                if (r < 0) {
-                                        log_error("Failed to parse GID: %s", id);
-                                        return -EBADMSG;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse GID: '%s': %m", id);
 
                                 i->gid_set = true;
                         }
