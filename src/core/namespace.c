@@ -42,6 +42,7 @@
 #include "path-util.h"
 #include "selinux-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -537,7 +538,6 @@ static int mount_private_dev(MountEntry *m) {
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
         const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
         _cleanup_umask_ mode_t u;
-        struct stat st;
         int r;
 
         assert(m);
@@ -567,11 +567,10 @@ static int mount_private_dev(MountEntry *m) {
          *
          * in nspawn and other containers it will be a symlink, in that case make it a symlink
          */
-        if (lstat("/dev/ptmx", &st) < 0) {
-                r = -errno;
+        r = is_symlink("/dev/ptmx");
+        if (r < 0)
                 goto fail;
-        }
-        if (S_ISLNK(st.st_mode)) {
+        if (r > 0) {
                 devptmx = strjoina(temporary_mount, "/dev/ptmx");
                 if (symlink("pts/ptmx", devptmx) < 0) {
                         r = -errno;
