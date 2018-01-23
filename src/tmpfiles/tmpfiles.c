@@ -753,12 +753,49 @@ finish:
         return r;
 }
 
+static bool dangerous_hardlinks(void) {
+        _cleanup_free_ char *value = NULL;
+        static int cached = -1;
+        int r;
+
+        /* Check whether the fs.protected_hardlinks sysctl is on. If we can't determine it we assume its off, as that's
+         * what the upstream default is. */
+
+        if (cached >= 0)
+                return cached;
+
+        r = read_one_line_file("/proc/sys/fs/protected_hardlinks", &value);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read fs.protected_hardlinks sysctl: %m");
+                return true;
+        }
+
+        r = parse_boolean(value);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse fs.protected_hardlinks sysctl: %m");
+                return true;
+        }
+
+        cached = r == 0;
+        return cached;
+}
+
+static bool hardlink_vulnerable(struct stat *st) {
+        assert(st);
+
+        return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && dangerous_hardlinks();
+}
+
 static int path_set_perms(Item *i, const char *path) {
+        char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_close_ int fd = -1;
         struct stat st;
 
         assert(i);
         assert(path);
+
+        if (!i->mode_set && !i->uid_set && !i->gid_set)
+                goto shortcut;
 
         /* We open the file with O_PATH here, to make the operation
          * somewhat atomic. Also there's unfortunately no fchmodat()
@@ -777,21 +814,23 @@ static int path_set_perms(Item *i, const char *path) {
                 }
 
                 log_full_errno(level, errno, "Adjusting owner and mode for %s failed: %m", path);
-
                 return r;
         }
 
         if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
 
-        if (S_ISLNK(st.st_mode))
-                log_debug("Skipping mode and owner fix for symlink %s.", path);
-        else {
-                char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-                xsprintf(fn, "/proc/self/fd/%i", fd);
+        if (hardlink_vulnerable(&st)) {
+                log_error("Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
+                return -EPERM;
+        }
 
-                /* not using i->path directly because it may be a glob */
-                if (i->mode_set) {
+        xsprintf(fn, "/proc/self/fd/%i", fd);
+
+        if (i->mode_set) {
+                if (S_ISLNK(st.st_mode))
+                        log_debug("Skipping mode fix for symlink %s.", path);
+                else {
                         mode_t m = i->mode;
 
                         if (i->mask_perms) {
@@ -806,29 +845,32 @@ static int path_set_perms(Item *i, const char *path) {
                         }
 
                         if (m == (st.st_mode & 07777))
-                                log_debug("\"%s\" has right mode %o", path, st.st_mode);
+                                log_debug("\"%s\" has correct mode %o already.", path, st.st_mode);
                         else {
-                                log_debug("chmod \"%s\" to mode %o", path, m);
+                                log_debug("Changing \"%s\" to mode %o.", path, m);
+
                                 if (chmod(fn, m) < 0)
                                         return log_error_errno(errno, "chmod() of %s via %s failed: %m", path, fn);
                         }
                 }
+        }
 
-                if ((i->uid != st.st_uid || i->gid != st.st_gid) &&
-                    (i->uid_set || i->gid_set)) {
-                        log_debug("chown \"%s\" to "UID_FMT"."GID_FMT,
-                                  path,
-                                  i->uid_set ? i->uid : UID_INVALID,
-                                  i->gid_set ? i->gid : GID_INVALID);
-                        if (chown(fn,
-                                  i->uid_set ? i->uid : UID_INVALID,
-                                  i->gid_set ? i->gid : GID_INVALID) < 0)
-                                return log_error_errno(errno, "chown() of %s via %s failed: %m", path, fn);
-                }
+        if ((i->uid_set && i->uid != st.st_uid) ||
+            (i->gid_set && i->gid != st.st_gid)) {
+                log_debug("Changing \"%s\" to owner "UID_FMT":"GID_FMT,
+                          path,
+                          i->uid_set ? i->uid : UID_INVALID,
+                          i->gid_set ? i->gid : GID_INVALID);
+
+                if (chown(fn,
+                          i->uid_set ? i->uid : UID_INVALID,
+                          i->gid_set ? i->gid : GID_INVALID) < 0)
+                        return log_error_errno(errno, "chown() of %s via %s failed: %m", path, fn);
         }
 
         fd = safe_close(fd);
 
+shortcut:
         return label_fix(path, false, false);
 }
 
@@ -966,6 +1008,11 @@ static int path_set_acls(Item *item, const char *path) {
 
         if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
+
+        if (hardlink_vulnerable(&st)) {
+                log_error("Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
+                return -EPERM;
+        }
 
         if (S_ISLNK(st.st_mode)) {
                 log_debug("Skipping ACL fix for symlink %s.", path);
@@ -1296,14 +1343,24 @@ static int create_item(Item *i) {
 
         case CREATE_FILE:
         case TRUNCATE_FILE:
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
                 r = write_one_file(i, i->path);
                 if (r < 0)
                         return r;
                 break;
 
         case COPY_FILES: {
+
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
                 log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
-                r = copy_tree(i->argument, i->path, i->uid_set ? i->uid : UID_INVALID, i->gid_set ? i->gid : GID_INVALID, COPY_REFLINK);
+                r = copy_tree(i->argument, i->path,
+                              i->uid_set ? i->uid : UID_INVALID,
+                              i->gid_set ? i->gid : GID_INVALID,
+                              COPY_REFLINK);
 
                 if (r == -EROFS && stat(i->path, &st) == 0)
                         r = -EEXIST;
@@ -1345,7 +1402,7 @@ static int create_item(Item *i) {
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
                 RUN_WITH_UMASK(0000)
-                        mkdir_parents_label(i->path, 0755);
+                        (void) mkdir_parents_label(i->path, 0755);
 
                 if (IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA)) {
 
@@ -1427,6 +1484,8 @@ static int create_item(Item *i) {
 
         case CREATE_FIFO:
                 RUN_WITH_UMASK(0000) {
+                        (void) mkdir_parents_label(i->path, 0755);
+
                         mac_selinux_create_file_prepare(i->path, S_IFIFO);
                         r = mkfifo(i->path, i->mode);
                         mac_selinux_create_file_clear();
@@ -1469,6 +1528,9 @@ static int create_item(Item *i) {
         }
 
         case CREATE_SYMLINK: {
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
                 mac_selinux_create_file_clear();
@@ -1526,6 +1588,9 @@ static int create_item(Item *i) {
                         log_debug("We lack CAP_MKNOD, skipping creation of device node %s.", i->path);
                         return 0;
                 }
+
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
 
                 file_type = i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR;
 
