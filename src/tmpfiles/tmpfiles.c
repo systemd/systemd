@@ -1343,14 +1343,24 @@ static int create_item(Item *i) {
 
         case CREATE_FILE:
         case TRUNCATE_FILE:
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
                 r = write_one_file(i, i->path);
                 if (r < 0)
                         return r;
                 break;
 
         case COPY_FILES: {
+
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
                 log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
-                r = copy_tree(i->argument, i->path, i->uid_set ? i->uid : UID_INVALID, i->gid_set ? i->gid : GID_INVALID, COPY_REFLINK);
+                r = copy_tree(i->argument, i->path,
+                              i->uid_set ? i->uid : UID_INVALID,
+                              i->gid_set ? i->gid : GID_INVALID,
+                              COPY_REFLINK);
 
                 if (r == -EROFS && stat(i->path, &st) == 0)
                         r = -EEXIST;
@@ -1392,7 +1402,7 @@ static int create_item(Item *i) {
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
                 RUN_WITH_UMASK(0000)
-                        mkdir_parents_label(i->path, 0755);
+                        (void) mkdir_parents_label(i->path, 0755);
 
                 if (IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA)) {
 
@@ -1474,6 +1484,8 @@ static int create_item(Item *i) {
 
         case CREATE_FIFO:
                 RUN_WITH_UMASK(0000) {
+                        (void) mkdir_parents_label(i->path, 0755);
+
                         mac_selinux_create_file_prepare(i->path, S_IFIFO);
                         r = mkfifo(i->path, i->mode);
                         mac_selinux_create_file_clear();
@@ -1516,6 +1528,9 @@ static int create_item(Item *i) {
         }
 
         case CREATE_SYMLINK: {
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
                 mac_selinux_create_file_prepare(i->path, S_IFLNK);
                 r = symlink(i->argument, i->path);
                 mac_selinux_create_file_clear();
@@ -1573,6 +1588,9 @@ static int create_item(Item *i) {
                         log_debug("We lack CAP_MKNOD, skipping creation of device node %s.", i->path);
                         return 0;
                 }
+
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
 
                 file_type = i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR;
 
