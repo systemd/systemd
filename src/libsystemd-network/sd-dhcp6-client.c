@@ -1353,16 +1353,18 @@ int sd_dhcp6_client_start(sd_dhcp6_client *client) {
         if (r < 0)
                 return r;
 
-        r = dhcp6_network_bind_udp_socket(client->ifindex, &client->local_address);
-        if (r < 0) {
-                _cleanup_free_ char *p = NULL;
+        if (client->fd < 0) {
+                r = dhcp6_network_bind_udp_socket(client->ifindex, &client->local_address);
+                if (r < 0) {
+                        _cleanup_free_ char *p = NULL;
 
-                (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &client->local_address, &p);
-                return log_dhcp6_client_errno(client, r,
-                                              "Failed to bind to UDP socket at address %s: %m", strna(p));
+                        (void) in_addr_to_string(AF_INET6, (const union in_addr_union*) &client->local_address, &p);
+                        return log_dhcp6_client_errno(client, r,
+                                                      "Failed to bind to UDP socket at address %s: %m", strna(p));
+                }
+
+                client->fd = r;
         }
-
-        client->fd = r;
 
         if (client->information_request)
                 state = DHCP6_STATE_INFORMATION_REQUEST;
@@ -1430,6 +1432,8 @@ sd_dhcp6_client *sd_dhcp6_client_unref(sd_dhcp6_client *client) {
                 return NULL;
 
         client_reset(client);
+
+        client->fd = safe_close(client->fd);
 
         sd_dhcp6_client_detach_event(client);
 
