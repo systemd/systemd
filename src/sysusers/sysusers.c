@@ -1188,30 +1188,8 @@ static int process_item(Item *i) {
 
                 return add_user(i);
 
-        case ADD_GROUP: {
-                Item *j;
-
-                j = ordered_hashmap_get(users, i->name);
-                if (j) {
-                        /* There's already user to be created for this
-                         * name, let's process that in one step */
-
-                        if (i->gid_set) {
-                                j->gid = i->gid;
-                                j->gid_set = true;
-                        }
-
-                        if (i->gid_path) {
-                                r = free_and_strdup(&j->gid_path, i->gid_path);
-                                if (r < 0)
-                                        return log_oom();
-                        }
-
-                        return 0;
-                }
-
+        case ADD_GROUP:
                 return add_group(i);
-        }
 
         default:
                 assert_not_reached("Unknown item type");
