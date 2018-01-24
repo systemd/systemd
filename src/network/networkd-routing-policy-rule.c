@@ -62,9 +62,9 @@ void routing_policy_rule_free(RoutingPolicyRule *rule) {
 
         }
 
-        if (rule->m) {
-                set_remove(rule->m->rules, rule);
-                set_remove(rule->m->rules_foreign, rule);
+        if (rule->manager) {
+                set_remove(rule->manager->rules, rule);
+                set_remove(rule->manager->rules_foreign, rule);
         }
 
         free(rule->iif);
@@ -260,7 +260,7 @@ static int routing_policy_rule_add_internal(Manager *m,
         if (r < 0)
                 return r;
 
-        rule->m = m;
+        rule->manager = m;
         rule->family = family;
         rule->from = *from;
         rule->from_prefixlen = from_prefixlen;

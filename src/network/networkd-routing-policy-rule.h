@@ -36,7 +36,7 @@ typedef struct NetworkConfigSection NetworkConfigSection;
 typedef struct Manager Manager;
 
 struct RoutingPolicyRule {
-        Manager *m;
+        Manager *manager;
         Network *network;
         Link *link;
         NetworkConfigSection *section;
