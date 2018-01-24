@@ -1133,8 +1133,7 @@ static int service_coldplug(Unit *u) {
 
         if (s->main_pid > 0 &&
             pid_is_unwaited(s->main_pid) &&
-            ((s->deserialized_state == SERVICE_START && IN_SET(s->type, SERVICE_FORKING, SERVICE_DBUS, SERVICE_ONESHOT, SERVICE_NOTIFY)) ||
-             IN_SET(s->deserialized_state,
+            (IN_SET(s->deserialized_state,
                     SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING, SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
@@ -2639,12 +2638,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 if (parse_pid(value, &pid) < 0)
                         log_unit_debug(u, "Failed to parse main-pid value: %s", value);
-                else {
-                        service_set_main_pid(s, pid);
-                        r = unit_watch_pid(UNIT(s), pid);
-                        if (r < 0)
-                                log_unit_debug_errno(u, r, "Failed to watch main PID, ignoring: %m");
-                }
+                else
+                        (void) service_set_main_pid(s, pid);
         } else if (streq(key, "main-pid-known")) {
                 int b;
 
@@ -3015,6 +3010,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 }
 
 static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+        bool notify_dbus = true;
         Service *s = SERVICE(u);
         ServiceResult f;
 
@@ -3293,23 +3289,21 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 assert_not_reached("Uh, control process died at wrong time.");
                         }
                 }
-        }
+        } else /* Neither control nor main PID? If so, don't notify about anything */
+                notify_dbus = false;
 
         /* Notify clients about changed exit status */
-        unit_add_to_dbus_queue(u);
+        if (notify_dbus)
+                unit_add_to_dbus_queue(u);
 
-        /* We got one SIGCHLD for the service, let's watch all
-         * processes that are now running of the service, and watch
-         * that. Among the PIDs we then watch will be children
-         * reassigned to us, which hopefully allows us to identify
-         * when all children are gone */
+        /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others to watch,
+         * under the assumption that we'll sooner or later get a SIGCHLD for them, as the original process we watched
+         * was probably the parent of them, and they are hence now our children. */
         unit_tidy_watch_pids(u, s->main_pid, s->control_pid);
         unit_watch_all_pids(u);
 
-        /* If the PID set is empty now, then let's finish this off
-           (On unified we use proper notifications) */
-        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) == 0 && set_isempty(u->pids))
-                unit_add_to_cgroup_empty_queue(u);
+        /* If the PID set is empty now, then let's check if the cgroup is empty too and finish off the unit. */
+        unit_synthesize_cgroup_empty_event(u);
 }
 
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
