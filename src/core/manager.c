@@ -3548,10 +3548,7 @@ static bool manager_get_show_status(Manager *m, StatusType type) {
         if (type != STATUS_TYPE_EMERGENCY && manager_check_ask_password(m) > 0)
                 return false;
 
-        if (m->show_status > 0)
-                return true;
-
-        return false;
+        return m->show_status > 0;
 }
 
 const char *manager_get_confirm_spawn(Manager *m) {
