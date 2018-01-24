@@ -796,7 +796,6 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         }
 
         if (streq(action, "change"))  {
-                _cleanup_free_ char *e = NULL;
                 Unit *u;
                 Device *d, *l, *n;
 
