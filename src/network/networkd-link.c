@@ -3317,6 +3317,12 @@ int link_update(Link *link, sd_netlink_message *m) {
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Could not update MAC for Router Advertisement: %m");
                         }
+
+                        if (link->ndisc) {
+                                r = sd_ndisc_set_mac(link->ndisc, &link->mac);
+                                if (r < 0)
+                                        return log_link_warning_errno(link, r, "Could not update MAC for ndisc: %m");
+                        }
                 }
         }
 
