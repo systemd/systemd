@@ -2449,8 +2449,15 @@ static int manager_dispatch_idle_pipe_fd(sd_event_source *source, int fd, uint32
         assert(m);
         assert(m->idle_pipe[2] == fd);
 
+        /* There's at least one Type=idle child that just gave up on us waiting for the boot process to complete. Let's
+         * now turn off any further console output if there's at least one service that needs console access, so that
+         * from now on our own output should not spill into that service's output anymore. After all, we support
+         * Type=idle only to beautify console output and it generally is set on services that want to own the console
+         * exclusively without our interference. */
         m->no_console_output = m->n_on_console > 0;
 
+        /* Acknowledge the child's request, and let all all other children know too that they shouldn't wait any longer
+         * by closing the pipes towards them, which is what they are waiting for. */
         manager_close_idle_pipe(m);
 
         return 0;
