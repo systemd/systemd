@@ -2335,6 +2335,10 @@ int main(int argc, char *argv[]) {
                 /* Disable the umask logic */
                 umask(0);
 
+                /* Make sure that at least initially we do not ever log to journald/syslogd, because it might not be activated
+                 * yet (even though the log socket for it exists). */
+                log_set_prohibit_ipc(true);
+
                 /* Always reopen /dev/console when running as PID 1 or one of its pre-execve() children. This is
                  * important so that we never end up logging to any foreign stderr, for example if we have to log in a
                  * child process right before execve()'ing the actual binary, at a point in time where socket
