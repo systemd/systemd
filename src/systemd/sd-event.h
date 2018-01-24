@@ -26,6 +26,7 @@
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include <sys/types.h>
+#include <time.h>
 
 #include "_sd-common.h"
 
