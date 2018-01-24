@@ -5350,6 +5350,28 @@ void unit_warn_leftover_processes(Unit *u) {
         (void) cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, 0, 0, NULL, log_leftover, u);
 }
 
+bool unit_needs_console(Unit *u) {
+        ExecContext *ec;
+        UnitActiveState state;
+
+        assert(u);
+
+        state = unit_active_state(u);
+
+        if (UNIT_IS_INACTIVE_OR_FAILED(state))
+                return false;
+
+        if (UNIT_VTABLE(u)->needs_console)
+                return UNIT_VTABLE(u)->needs_console(u);
+
+        /* If this unit type doesn't implement this call, let's use a generic fallback implementation: */
+        ec = unit_get_exec_context(u);
+        if (!ec)
+                return false;
+
+        return exec_context_may_touch_console(ec);
+}
+
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
         [COLLECT_INACTIVE] = "inactive",
         [COLLECT_INACTIVE_OR_FAILED] = "inactive-or-failed",

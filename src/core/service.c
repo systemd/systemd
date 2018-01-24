@@ -3806,6 +3806,32 @@ static int service_control_pid(Unit *u) {
         return s->control_pid;
 }
 
+static bool service_needs_console(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+        /* We provide our own implementation of this here, instead of relying of the generic implementation
+         * unit_needs_console() provides, since we want to return false if we are in SERVICE_EXITED state. */
+
+        if (!exec_context_may_touch_console(&s->exec_context))
+                return false;
+
+        return IN_SET(s->state,
+                      SERVICE_START_PRE,
+                      SERVICE_START,
+                      SERVICE_START_POST,
+                      SERVICE_RUNNING,
+                      SERVICE_RELOAD,
+                      SERVICE_STOP,
+                      SERVICE_STOP_SIGABRT,
+                      SERVICE_STOP_SIGTERM,
+                      SERVICE_STOP_SIGKILL,
+                      SERVICE_STOP_POST,
+                      SERVICE_FINAL_SIGTERM,
+                      SERVICE_FINAL_SIGKILL);
+}
+
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO] = "no",
         [SERVICE_RESTART_ON_SUCCESS] = "on-success",
@@ -3921,6 +3947,7 @@ const UnitVTable service_vtable = {
         .bus_commit_properties = bus_service_commit_properties,
 
         .get_timeout = service_get_timeout,
+        .needs_console = service_needs_console,
         .can_transient = true,
 
         .status_message_formats = {
