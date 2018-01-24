@@ -1382,7 +1382,7 @@ static int bus_append_socket_property(sd_bus_message *m, const char *field, cons
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 0);
                 else
-                        r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 1, field + strlen("Listen"), eq);
+                        r = sd_bus_message_append(m, "(sv)", "Listen", "a(ss)", 1, field + STRLEN("Listen"), eq);
                 if (r < 0)
                         return bus_log_create_error(r);
 
