@@ -756,7 +756,7 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, in
                 static const uint8_t rfc6975[] = {
 
                         0, 5, /* OPTION_CODE: DAU */
-#if GCRYPT_VERSION_NUMBER >= 0x010600
+#if HAVE_GCRYPT && GCRYPT_VERSION_NUMBER >= 0x010600
                         0, 7, /* LIST_LENGTH */
 #else
                         0, 6, /* LIST_LENGTH */
@@ -767,7 +767,7 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, in
                         DNSSEC_ALGORITHM_RSASHA512,
                         DNSSEC_ALGORITHM_ECDSAP256SHA256,
                         DNSSEC_ALGORITHM_ECDSAP384SHA384,
-#if GCRYPT_VERSION_NUMBER >= 0x010600
+#if HAVE_GCRYPT && GCRYPT_VERSION_NUMBER >= 0x010600
                         DNSSEC_ALGORITHM_ED25519,
 #endif
 
