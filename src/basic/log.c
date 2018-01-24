@@ -1314,6 +1314,14 @@ int log_syntax_invalid_utf8_internal(
 
 void log_set_upgrade_syslog_to_journal(bool b) {
         upgrade_syslog_to_journal = b;
+
+        /* Make the change effective immediately */
+        if (b) {
+                if (log_target == LOG_TARGET_SYSLOG)
+                        log_target = LOG_TARGET_JOURNAL;
+                else if (log_target == LOG_TARGET_SYSLOG_OR_KMSG)
+                        log_target = LOG_TARGET_JOURNAL_OR_KMSG;
+        }
 }
 
 void log_set_always_reopen_console(bool b) {

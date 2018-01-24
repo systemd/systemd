@@ -302,6 +302,7 @@ LogTarget log_target_from_string(const char *s) _pure_;
 
 void log_received_signal(int level, const struct signalfd_siginfo *si);
 
+/* If turned on, any requests for a log target involving "syslog" will be implicitly upgraded to the equivalent journal target */
 void log_set_upgrade_syslog_to_journal(bool b);
 void log_set_always_reopen_console(bool b);
 void log_set_open_when_needed(bool b);

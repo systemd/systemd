@@ -2328,6 +2328,7 @@ int main(int argc, char *argv[]) {
         saved_argv = argv;
         saved_argc = argc;
 
+        /* Make sure that if the user says "syslog" we actually log to the journal. */
         log_set_upgrade_syslog_to_journal(true);
 
         if (getpid_cached() == 1) {
