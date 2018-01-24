@@ -795,6 +795,8 @@ int unit_prepare_exec(Unit *u);
 
 void unit_warn_leftover_processes(Unit *u);
 
+extern bool service_exited_release_console(Unit *u);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full(unit, level, error, ...)                          \
