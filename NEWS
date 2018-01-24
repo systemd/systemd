@@ -7,6 +7,18 @@ CHANGES WITH 237 in spe:
           keycodes are not recognized by any major desktop. They now produce
           Up/Down key events so that they can be used for scrolling.
 
+        * INCOMPATIBILITY: systemd-tmpfiles' "f" lines changed behaviour
+          slightly: previously, if an argument was specified for lines of this
+          type (i.e. the right-most column was set) this string was appended to
+          existing files each time systemd-tmpfiles was run. This behaviour was
+          different from what the documentation said, and not particularly
+          useful, as repeated systemd-tmpfiles invocations would not be
+          idempotent and grow such files without bounds. With this release
+          behaviour has been altered slightly, to match what the documentation
+          says: lines of this type only have an effect if the indicated files
+          don't exist yet, and only then the argument string is written to the
+          file.
+
         — Berlin, 2018-XX-XX
 
 CHANGES WITH 236:
