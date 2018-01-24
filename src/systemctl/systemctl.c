@@ -6247,7 +6247,6 @@ static int normalize_names(char **names, bool warn_if_path) {
 }
 
 static int unit_exists(LookupPaths *lp, const char *unit) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         static const struct bus_properties_map property_map[] = {
