@@ -355,7 +355,8 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                 /* Filter out weird MMC RPMB partitions, which cannot reasonably be read, see
                  * https://github.com/systemd/systemd/issues/5806 */
                 sysname = udev_device_get_sysname(q);
-                if (sysname && startswith(sysname, "mmcblk") && endswith(sysname, "rpmb"))
+                if (sysname && startswith(sysname, "mmcblk") &&
+                        (endswith(sysname, "rpmb") || endswith(sysname, "boot0" ) || endswith(sysname, "boot1")))
                         continue;
 
                 node = udev_device_get_devnode(q);
