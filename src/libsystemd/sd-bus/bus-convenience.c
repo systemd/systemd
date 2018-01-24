@@ -36,6 +36,7 @@ _public_ int sd_bus_emit_signal(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -73,6 +74,7 @@ _public_ int sd_bus_call_method_async(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -646,6 +648,7 @@ _public_ int sd_bus_match_signal(
         const char *expression;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!sender || service_name_is_valid(sender), -EINVAL);
         assert_return(!path || object_path_is_valid(path), -EINVAL);
@@ -671,6 +674,7 @@ _public_ int sd_bus_match_signal_async(
         const char *expression;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
         assert_return(!sender || service_name_is_valid(sender), -EINVAL);
         assert_return(!path || object_path_is_valid(path), -EINVAL);

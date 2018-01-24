@@ -13,8 +13,10 @@ Documentation=man:systemd-resolved.service(8)
 Documentation=https://www.freedesktop.org/wiki/Software/systemd/resolved
 Documentation=https://www.freedesktop.org/wiki/Software/systemd/writing-network-configuration-managers
 Documentation=https://www.freedesktop.org/wiki/Software/systemd/writing-resolver-clients
-After=systemd-networkd.service network.target
-Before=network-online.target nss-lookup.target
+DefaultDependencies=no
+After=systemd-sysusers.service systemd-networkd.service
+Before=network.target nss-lookup.target shutdown.target
+Conflicts=shutdown.target
 Wants=nss-lookup.target
 
 [Service]

@@ -78,9 +78,10 @@ _busctl() {
         local -A OPTS=(
                [STANDALONE]='-h --help --version --no-pager --no-legend --system --user
                              --show-machine --unique --acquired --activatable --list
-                             --quiet --verbose --expect-reply=no --auto-start=no
-                             --allow-interactive-authorization=yes --augment-creds=no'
-                      [ARG]='-H --host -M --machine --address --match --timeout'
+                             -q --quiet --verbose --expect-reply=no --auto-start=no
+                             --allow-interactive-authorization=no --augment-creds=no
+                             --watch-bind=yes'
+                      [ARG]='--address -H --host -M --machine --match --timeout --size'
         )
 
         if __contains_word "--user" ${COMP_WORDS[*]}; then

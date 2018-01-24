@@ -27,6 +27,7 @@
 #include "macro.h"
 #include "signal-util.h"
 #include "util.h"
+#include "process-util.h"
 
 static int prepare_handler(sd_event_source *s, void *userdata) {
         log_info("preparing %c", PTR_TO_INT(userdata));

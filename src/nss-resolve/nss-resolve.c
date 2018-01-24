@@ -30,14 +30,13 @@
 #include "in-addr-util.h"
 #include "macro.h"
 #include "nss-util.h"
+#include "resolved-def.h"
 #include "string-util.h"
 #include "util.h"
 #include "signal-util.h"
 
 NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
-
-#define DNS_CALL_TIMEOUT_USEC (45*USEC_PER_SEC)
 
 static bool bus_error_shall_fallback(sd_bus_error *e) {
         return sd_bus_error_has_name(e, SD_BUS_ERROR_SERVICE_UNKNOWN) ||
@@ -157,7 +156,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN")) {
                         *errnop = ESRCH;
@@ -335,7 +334,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN")) {
                         *errnop = ESRCH;
@@ -533,7 +532,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (r < 0)
                 goto fail;
 
-        r = sd_bus_call(bus, req, DNS_CALL_TIMEOUT_USEC, &error, &reply);
+        r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN")) {
                         *errnop = ESRCH;

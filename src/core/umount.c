@@ -38,6 +38,7 @@
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "udev-util.h"

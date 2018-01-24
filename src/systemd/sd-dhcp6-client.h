@@ -23,6 +23,7 @@
 
 #include <inttypes.h>
 #include <net/ethernet.h>
+#include <stdbool.h>
 #include <sys/types.h>
 
 #include "sd-dhcp6-lease.h"
@@ -64,6 +65,8 @@ enum {
 
         SD_DHCP6_OPTION_DNS_SERVERS                = 23,  /* RFC 3646 */
         SD_DHCP6_OPTION_DOMAIN_LIST                = 24,  /* RFC 3646 */
+        SD_DHCP6_OPTION_IA_PD                      = 25,  /* RFC 3633, prefix delegation */
+        SD_DHCP6_OPTION_IA_PD_PREFIX               = 26,  /* RFC 3633, prefix delegation */
 
         SD_DHCP6_OPTION_SNTP_SERVERS               = 31,  /* RFC 4075, deprecated */
 
@@ -116,6 +119,8 @@ int sd_dhcp6_client_get_information_request(
 int sd_dhcp6_client_set_request_option(
                 sd_dhcp6_client *client,
                 uint16_t option);
+int sd_dhcp6_client_set_prefix_delegation(sd_dhcp6_client *client,
+                                          bool delegation);
 
 int sd_dhcp6_client_get_lease(
                 sd_dhcp6_client *client,

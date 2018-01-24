@@ -236,8 +236,10 @@ struct Unit {
          * process SIGCHLD for */
         Set *pids;
 
-        /* Used in sigchld event invocation to avoid repeat events being invoked */
-        uint64_t sigchldgen;
+        /* Used in SIGCHLD and sd_notify() message event invocation logic to avoid that we dispatch the same event
+         * multiple times on the same unit. */
+        unsigned sigchldgen;
+        unsigned notifygen;
 
         /* Used during GC sweeps */
         unsigned gc_marker;
@@ -506,7 +508,7 @@ struct UnitVTable {
         void (*notify_cgroup_empty)(Unit *u);
 
         /* Called whenever a process of this unit sends us a message */
-        void (*notify_message)(Unit *u, pid_t pid, char **tags, FDSet *fds);
+        void (*notify_message)(Unit *u, const struct ucred *ucred, char **tags, FDSet *fds);
 
         /* Called whenever a name this Unit registered for comes or goes away. */
         void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);
@@ -760,7 +762,7 @@ static inline bool unit_supported(Unit *u) {
 }
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
-int unit_fail_if_symlink(Unit *u, const char* where);
+int unit_fail_if_noncanonical(Unit *u, const char* where);
 
 int unit_start_limit_test(Unit *u);
 

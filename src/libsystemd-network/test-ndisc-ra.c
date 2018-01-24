@@ -342,8 +342,8 @@ static void test_ra(void) {
                 if (prefix[i].preferred)
                         assert_se(sd_radv_prefix_set_preferred_lifetime(p, prefix[i].preferred) >= 0);
 
-                assert_se((sd_radv_add_prefix(ra, p) >= 0) == prefix[i].succesful);
-                assert_se(sd_radv_add_prefix(ra, p) < 0);
+                assert_se((sd_radv_add_prefix(ra, p, false) >= 0) == prefix[i].succesful);
+                assert_se(sd_radv_add_prefix(ra, p, false) < 0);
 
                 p = sd_radv_prefix_unref(p);
                 assert_se(!p);

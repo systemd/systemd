@@ -520,6 +520,25 @@ static void test_safe_fork(void) {
         assert_se(status.si_status == 88);
 }
 
+static void test_pid_to_ptr(void) {
+
+        assert_se(PTR_TO_PID(NULL) == 0);
+        assert_se(PID_TO_PTR(0) == NULL);
+
+        assert_se(PTR_TO_PID(PID_TO_PTR(1)) == 1);
+        assert_se(PTR_TO_PID(PID_TO_PTR(2)) == 2);
+        assert_se(PTR_TO_PID(PID_TO_PTR(-1)) == -1);
+        assert_se(PTR_TO_PID(PID_TO_PTR(-2)) == -2);
+
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT16_MAX)) == INT16_MAX);
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT16_MIN)) == INT16_MIN);
+
+#if SIZEOF_PID_T >= 4
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT32_MAX)) == INT32_MAX);
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT32_MIN)) == INT32_MIN);
+#endif
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -547,6 +566,7 @@ int main(int argc, char *argv[]) {
         test_getpid_cached();
         test_getpid_measure();
         test_safe_fork();
+        test_pid_to_ptr();
 
         return 0;
 }

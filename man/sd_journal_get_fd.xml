@@ -231,6 +231,20 @@ else {
   </refsect1>
 
   <refsect1>
+    <title>Signal safety</title>
+
+    <para>In general, <function>sd_journal_get_fd()</function>, <function>sd_journal_get_events()</function>, and
+    <function>sd_journal_get_timeout()</function> are <emphasis>not</emphasis> "async signal safe" in the meaning of
+    <citerefentry
+    project='man-pages'><refentrytitle>signal-safety</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    Nevertheless, only the first call to any of those three functions performs unsafe operations, so subsequent calls
+    <emphasis>are</emphasis> safe.</para>
+
+    <para><function>sd_journal_process()</function> and <function>sd_journal_wait()</function> are not
+    safe. <function>sd_journal_reliable_fd()</function> is safe.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Notes</title>
 
     <para>The <function>sd_journal_get_fd()</function>,

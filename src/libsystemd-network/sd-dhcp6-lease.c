@@ -49,7 +49,7 @@ int dhcp6_lease_ia_rebind_expire(const DHCP6IA *ia, uint32_t *expire) {
                         valid = t;
         }
 
-        t = be32toh(ia->lifetime_t2);
+        t = be32toh(ia->ia_na.lifetime_t2);
         if (t > valid)
                 return -EINVAL;
 
@@ -144,7 +144,7 @@ int dhcp6_lease_get_iaid(sd_dhcp6_lease *lease, be32_t *iaid) {
         assert_return(lease, -EINVAL);
         assert_return(iaid, -EINVAL);
 
-        *iaid = lease->ia.id;
+        *iaid = lease->ia.ia_na.id;
 
         return 0;
 }
@@ -174,6 +174,37 @@ int sd_dhcp6_lease_get_address(sd_dhcp6_lease *lease, struct in6_addr *addr,
 void sd_dhcp6_lease_reset_address_iter(sd_dhcp6_lease *lease) {
         if (lease)
                 lease->addr_iter = lease->ia.addresses;
+}
+
+int sd_dhcp6_lease_get_pd(sd_dhcp6_lease *lease, struct in6_addr *prefix,
+                          uint8_t *prefix_len,
+                          uint32_t *lifetime_preferred,
+                          uint32_t *lifetime_valid) {
+        assert_return(lease, -EINVAL);
+        assert_return(prefix, -EINVAL);
+        assert_return(prefix_len, -EINVAL);
+        assert_return(lifetime_preferred, -EINVAL);
+        assert_return(lifetime_valid, -EINVAL);
+
+        if (!lease->prefix_iter)
+                return -ENOMSG;
+
+        memcpy(prefix, &lease->prefix_iter->iapdprefix.address,
+               sizeof(struct in6_addr));
+        *prefix_len = lease->prefix_iter->iapdprefix.prefixlen;
+        *lifetime_preferred =
+                be32toh(lease->prefix_iter->iapdprefix.lifetime_preferred);
+        *lifetime_valid =
+                be32toh(lease->prefix_iter->iapdprefix.lifetime_valid);
+
+        lease->prefix_iter = lease->prefix_iter->addresses_next;
+
+        return 0;
+}
+
+void sd_dhcp6_lease_reset_pd_prefix_iter(sd_dhcp6_lease *lease) {
+        if (lease)
+                lease->prefix_iter = lease->pd.addresses;
 }
 
 int dhcp6_lease_set_dns(sd_dhcp6_lease *lease, uint8_t *optval, size_t optlen) {
@@ -382,6 +413,7 @@ sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease) {
 
         free(lease->serverid);
         dhcp6_lease_free_ia(&lease->ia);
+        dhcp6_lease_free_ia(&lease->pd);
 
         free(lease->dns);
 

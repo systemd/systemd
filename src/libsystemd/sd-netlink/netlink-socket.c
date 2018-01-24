@@ -269,13 +269,13 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
         };
         struct cmsghdr *cmsg;
         uint32_t group = 0;
-        int r;
+        ssize_t n;
 
         assert(fd >= 0);
         assert(iov);
 
-        r = recvmsg(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
-        if (r < 0) {
+        n = recvmsg(fd, &msg, MSG_TRUNC | (peek ? MSG_PEEK : 0));
+        if (n < 0) {
                 /* no data */
                 if (errno == ENOBUFS)
                         log_debug("rtnl: kernel receive buffer overrun");
@@ -291,8 +291,8 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
 
                 if (peek) {
                         /* drop the message */
-                        r = recvmsg(fd, &msg, 0);
-                        if (r < 0)
+                        n = recvmsg(fd, &msg, 0);
+                        if (n < 0)
                                 return IN_SET(errno, EAGAIN, EINTR) ? 0 : -errno;
                 }
 
@@ -313,7 +313,7 @@ static int socket_recv_message(int fd, struct iovec *iov, uint32_t *_group, bool
         if (_group)
                 *_group = group;
 
-        return r;
+        return (int) n;
 }
 
 /* On success, the number of bytes received is returned and *ret points to the received message
@@ -330,17 +330,20 @@ int socket_read_message(sd_netlink *rtnl) {
         size_t len;
         int r;
         unsigned i = 0;
+        const NLTypeSystem *type_system_root;
 
         assert(rtnl);
         assert(rtnl->rbuffer);
         assert(rtnl->rbuffer_allocated >= sizeof(struct nlmsghdr));
+
+        type_system_root = type_system_get_root(rtnl->protocol);
 
         /* read nothing, just get the pending message size */
         r = socket_recv_message(rtnl->fd, &iov, NULL, true);
         if (r <= 0)
                 return r;
         else
-                len = (size_t)r;
+                len = (size_t) r;
 
         /* make room for the pending message */
         if (!greedy_realloc((void **)&rtnl->rbuffer,
@@ -356,7 +359,7 @@ int socket_read_message(sd_netlink *rtnl) {
         if (r <= 0)
                 return r;
         else
-                len = (size_t)r;
+                len = (size_t) r;
 
         if (len > rtnl->rbuffer_allocated)
                 /* message did not fit in read buffer */
@@ -396,7 +399,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 }
 
                 /* check that we support this message type */
-                r = type_system_get_type(&type_system_root, &nl_type, new_msg->nlmsg_type);
+                r = type_system_get_type(type_system_root, &nl_type, new_msg->nlmsg_type);
                 if (r < 0) {
                         if (r == -EOPNOTSUPP)
                                 log_debug("sd-netlink: ignored message with unknown type: %i",
@@ -433,7 +436,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 m = NULL;
         }
 
-        if (len)
+        if (len > 0)
                 log_debug("sd-netlink: discarding %zu bytes of incoming message", len);
 
         if (!first)
@@ -459,9 +462,9 @@ int socket_read_message(sd_netlink *rtnl) {
         } else {
                 /* we only got a partial multi-part message, push it on the
                    partial read queue */
-                if (i < rtnl->rqueue_partial_size) {
+                if (i < rtnl->rqueue_partial_size)
                         rtnl->rqueue_partial[i] = first;
-                } else {
+                else {
                         r = rtnl_rqueue_partial_make_room(rtnl);
                         if (r < 0)
                                 return r;

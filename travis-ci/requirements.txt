@@ -1,0 +1,3 @@
+dnf-plugins-core
+meson
+ninja-build

@@ -36,15 +36,16 @@ _systemd_run() {
     local OPTS='-h --help --version --user --system --scope --unit --description --slice
                 -r --remain-after-exit --send-sighup -H --host -M --machine --service-type
                 --on-active --on-boot --on-startup --on-unit-active --on-unit-inactive
-                --on-calendar --timer-property -t --pty -q --quiet --no-block
-                --uid --gid --nice --setenv -p --property --no-ask-password
-                --wait'
+                --on-calendar --timer-property --path-property --socket-property -t --pty
+                -q --quiet --no-block --uid --gid --nice -E --setenv -p --property
+                --no-ask-password --wait -P --pipe -G --collect'
 
     local mode=--system
     local i
     local opts_with_values=(
         --unit --description --slice --service-type -H --host -M --machine -p --property --on-active
         --on-boot --on-startup --on-unit-active --on-unit-inactive --on-calendar --timer-property
+        --path-property --socket-property --uid --gid --nice -E --setenv
     )
     for (( i=1; i <= COMP_CWORD; i++ )); do
         if [[ ${COMP_WORDS[i]} != -* ]]; then

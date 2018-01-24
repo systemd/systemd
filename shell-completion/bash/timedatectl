@@ -25,16 +25,24 @@ __contains_word () {
         done
 }
 
+__get_machines() {
+        local a b
+        machinectl list --no-legend --no-pager | { while read a b; do echo " $a"; done; };
+}
+
 _timedatectl() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local OPTS='-h --help --version --adjust-system-clock --no-pager
-                    --no-ask-password -H --host --machine'
+                    --no-ask-password -H --host -M --machine'
 
         if __contains_word "$prev" $OPTS; then
                 case $prev in
                         --host|-H)
-                                comps=''
+                                comps=$(compgen -A hostname)
+                        ;;
+                        --machine|-M)
+                                comps=$( __get_machines )
                         ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
@@ -48,7 +56,7 @@ _timedatectl() {
 
         local -A VERBS=(
                   [BOOLEAN]='set-local-rtc set-ntp'
-               [STANDALONE]='status set-time list-timezones'
+               [STANDALONE]='status list-timezones'
                 [TIMEZONES]='set-timezone'
                      [TIME]='set-time'
         )

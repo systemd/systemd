@@ -41,6 +41,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"

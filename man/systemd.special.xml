@@ -278,17 +278,6 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><filename>getty-pre.target</filename></term>
-        <listitem>
-          <para>A special passive target unit. Users of this target
-          are expected to pull it in the boot transaction via
-          a dependency (e.g. <varname>Wants=</varname>). Order your
-          unit before this unit if you want to make use of the console
-          just before <filename>getty</filename> is started.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
         <term><filename>graphical.target</filename></term>
         <listitem>
           <para>A special target unit for setting up a graphical login
@@ -352,6 +341,29 @@
           found in <filename>/etc/fstab</filename> that have
           <option>x-initrd.mount</option> and not have
           <option>noauto</option> mount options set.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>initrd-root-device.target</filename></term>
+        <listitem>
+          <para>A special initrd target unit that is reached when the root filesystem device is available, but before
+          it has been mounted.
+          <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          and
+          <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          automatically setup the appropriate dependencies to make this happen.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>initrd-root-fs.target</filename></term>
+        <listitem>
+          <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+          automatically adds dependencies of type
+          <varname>Before=</varname> to the
+          <filename>sysroot.mount</filename> unit, which is generated
+          from the kernel command line.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -536,29 +548,6 @@
           <para>Use the <literal>systemd.unit=rescue.target</literal> kernel command line option to boot into this
           mode. A short alias for this kernel command line option is <literal>1</literal>, for compatibility with
           SysV.</para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><filename>initrd-root-device.target</filename></term>
-        <listitem>
-          <para>A special initrd target unit that is reached when the root filesystem device is available, but before
-          it has been mounted.
-          <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-          and
-          <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-          automatically setup the appropriate dependencies to make this happen.
-          </para>
-        </listitem>
-      </varlistentry>
-      <varlistentry>
-        <term><filename>initrd-root-fs.target</filename></term>
-        <listitem>
-          <para><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-          automatically adds dependencies of type
-          <varname>Before=</varname> to the
-          <filename>sysroot.mount</filename> unit, which is generated
-          from the kernel command line.
-          </para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -818,6 +807,17 @@
           particularly useful to ensure that a service is shut down
           only after all encrypted block devices are fully
           stopped.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>getty-pre.target</filename></term>
+        <listitem>
+          <para>A special passive target unit. Users of this target
+          are expected to pull it in the boot transaction via
+          a dependency (e.g. <varname>Wants=</varname>). Order your
+          unit before this unit if you want to make use of the console
+          just before <filename>getty</filename> is started.
+          </para>
         </listitem>
       </varlistentry>
       <varlistentry>

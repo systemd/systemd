@@ -205,8 +205,8 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
     <title>Thread safety</title>
     <para>All functions listed here are thread-safe and may be called in parallel from multiple threads.</para>
 
-    <para><function>sd_journal_sendv()</function> is "async signal safe" in the meaning of
-    <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    <para><function>sd_journal_sendv()</function> is "async signal safe" in the meaning of <citerefentry
+    project='man-pages'><refentrytitle>signal-safety</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
 
     <para><function>sd_journal_print</function>,

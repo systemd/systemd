@@ -533,7 +533,7 @@ int bus_cgroup_set_property(
         if (streq(name, "MemoryLimitScale"))
                 return bus_cgroup_set_memory_scale(u, name, &c->memory_limit, message, flags, error);
 
-        if (streq(name, "TasksAccountingScale"))
+        if (streq(name, "TasksAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->tasks_accounting, CGROUP_MASK_PIDS, message, flags, error);
 
         if (streq(name, "TasksMax"))

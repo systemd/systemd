@@ -191,3 +191,5 @@ int update_reboot_parameter_and_warn(const char *param);
 int version(void);
 
 int str_verscmp(const char *s1, const char *s2);
+
+void disable_coredumps(void);

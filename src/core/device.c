@@ -796,14 +796,12 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         }
 
         if (streq(action, "change"))  {
-                _cleanup_free_ char *e = NULL;
                 Unit *u;
+                Device *d, *l, *n;
 
-                r = unit_name_from_path(sysfs, ".device", &e);
-                if (r < 0)
-                        log_error_errno(r, "Failed to generate unit name from device path: %m");
-                else {
-                        u = manager_get_unit(m, e);
+                l = hashmap_get(m->devices_by_sysfs, sysfs);
+                LIST_FOREACH_SAFE(same_sysfs, d, n, l) {
+                        u = &d->meta;
                         if (u && UNIT_VTABLE(u)->active_state(u) == UNIT_ACTIVE) {
                                 r = manager_propagate_reload(m, u, JOB_REPLACE, NULL);
                                 if (r < 0)

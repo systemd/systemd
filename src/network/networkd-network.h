@@ -34,6 +34,7 @@
 #include "networkd-fdb.h"
 #include "networkd-lldp-tx.h"
 #include "networkd-ipv6-proxy-ndp.h"
+#include "networkd-radv.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
@@ -84,6 +85,13 @@ typedef struct DUID {
         uint8_t raw_data_len;
         uint8_t raw_data[MAX_DUID_LEN];
 } DUID;
+
+typedef enum RADVPrefixDelegation {
+        RADV_PREFIX_DELEGATION_NONE,
+        RADV_PREFIX_DELEGATION_STATIC,
+        RADV_PREFIX_DELEGATION_DHCP6,
+        RADV_PREFIX_DELEGATION_BOTH,
+} RADVPrefixDelegation;
 
 typedef struct NetworkConfigSection {
         unsigned line;
@@ -140,6 +148,7 @@ struct Network {
         bool dhcp_use_mtu;
         bool dhcp_use_routes;
         bool dhcp_use_timezone;
+        bool rapid_commit;
         bool dhcp_use_hostname;
         bool dhcp_route_table_set;
         DHCPUseDomains dhcp_use_domains;
@@ -164,7 +173,7 @@ struct Network {
         bool ipv4ll_route;
 
         /* IPv6 prefix delegation support */
-        bool router_prefix_delegation;
+        RADVPrefixDelegation router_prefix_delegation;
         usec_t router_lifetime_usec;
         uint8_t router_preference;
         bool router_managed;

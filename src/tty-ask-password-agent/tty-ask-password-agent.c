@@ -417,8 +417,8 @@ static int wall_tty_block(void) {
         if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)
                 return log_oom();
 
-        mkdir_parents_label(p, 0700);
-        mkfifo(p, 0600);
+        (void) mkdir_parents_label(p, 0700);
+        (void) mkfifo(p, 0600);
 
         fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)

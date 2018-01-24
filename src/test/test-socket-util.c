@@ -28,6 +28,7 @@
 #include "in-addr-util.h"
 #include "log.h"
 #include "macro.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "util.h"
@@ -487,7 +488,7 @@ static void test_getpeercred_getpeergroups(void) {
         if (r == 0) {
                 static const gid_t gids[] = { 3, 4, 5, 6, 7 };
                 gid_t *test_gids;
-                gid_t *peer_groups = NULL;
+                _cleanup_free_ gid_t *peer_groups = NULL;
                 size_t n_test_gids;
                 uid_t test_uid;
                 gid_t test_gid;

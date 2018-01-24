@@ -1563,7 +1563,7 @@ finish:
 }
 
 int main(int argc, char* argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();
@@ -1670,6 +1670,9 @@ int main(int argc, char* argv[]) {
         }
 
 finish:
+        /* make sure we terminate the bus connection first, and then close the
+         * pager, see issue #3543 for the details. */
+        bus = sd_bus_flush_close_unref(bus);
         pager_close();
 
         free(arg_mount_what);

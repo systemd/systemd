@@ -18,6 +18,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <string.h>
 #include <unistd.h>
 
 #include "env-util.h"

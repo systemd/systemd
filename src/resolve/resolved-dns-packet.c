@@ -18,6 +18,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
+#if HAVE_GCRYPT
+#include <gcrypt.h>
+#endif
+
 #include "alloc-util.h"
 #include "dns-domain.h"
 #include "resolved-dns-packet.h"
@@ -752,13 +756,20 @@ int dns_packet_append_opt(DnsPacket *p, uint16_t max_udp_size, bool edns0_do, in
                 static const uint8_t rfc6975[] = {
 
                         0, 5, /* OPTION_CODE: DAU */
+#if HAVE_GCRYPT && GCRYPT_VERSION_NUMBER >= 0x010600
+                        0, 7, /* LIST_LENGTH */
+#else
                         0, 6, /* LIST_LENGTH */
+#endif
                         DNSSEC_ALGORITHM_RSASHA1,
                         DNSSEC_ALGORITHM_RSASHA1_NSEC3_SHA1,
                         DNSSEC_ALGORITHM_RSASHA256,
                         DNSSEC_ALGORITHM_RSASHA512,
                         DNSSEC_ALGORITHM_ECDSAP256SHA256,
                         DNSSEC_ALGORITHM_ECDSAP384SHA384,
+#if HAVE_GCRYPT && GCRYPT_VERSION_NUMBER >= 0x010600
+                        DNSSEC_ALGORITHM_ED25519,
+#endif
 
                         0, 6, /* OPTION_CODE: DHU */
                         0, 3, /* LIST_LENGTH */
@@ -1837,6 +1848,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 if (r < 0)
                         return r;
 
+                if (rdlength < 4)
+                        return -EBADMSG;
+
                 r = dns_packet_read_memdup(p, rdlength - 4,
                                            &rr->ds.digest, &rr->ds.digest_size,
                                            NULL);
@@ -1858,6 +1872,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 r = dns_packet_read_uint8(p, &rr->sshfp.fptype, NULL);
                 if (r < 0)
                         return r;
+
+                if (rdlength < 2)
+                        return -EBADMSG;
 
                 r = dns_packet_read_memdup(p, rdlength - 2,
                                            &rr->sshfp.fingerprint, &rr->sshfp.fingerprint_size,
@@ -1882,6 +1899,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 r = dns_packet_read_uint8(p, &rr->dnskey.algorithm, NULL);
                 if (r < 0)
                         return r;
+
+                if (rdlength < 4)
+                        return -EBADMSG;
 
                 r = dns_packet_read_memdup(p, rdlength - 4,
                                            &rr->dnskey.key, &rr->dnskey.key_size,
@@ -1926,6 +1946,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 r = dns_packet_read_name(p, &rr->rrsig.signer, false, NULL);
                 if (r < 0)
                         return r;
+
+                if (rdlength + offset < p->rindex)
+                        return -EBADMSG;
 
                 r = dns_packet_read_memdup(p, offset + rdlength - p->rindex,
                                            &rr->rrsig.signature, &rr->rrsig.signature_size,
@@ -2016,6 +2039,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 if (r < 0)
                         return r;
 
+                if (rdlength < 3)
+                        return -EBADMSG;
+
                 r = dns_packet_read_memdup(p, rdlength - 3,
                                            &rr->tlsa.data, &rr->tlsa.data_size,
                                            NULL);
@@ -2035,6 +2061,9 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
                 r = dns_packet_read_string(p, &rr->caa.tag, NULL);
                 if (r < 0)
                         return r;
+
+                if (rdlength + offset < p->rindex)
+                        return -EBADMSG;
 
                 r = dns_packet_read_memdup(p,
                                            rdlength + offset - p->rindex,
@@ -2111,18 +2140,10 @@ static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
         return true;
 }
 
-int dns_packet_extract(DnsPacket *p) {
+static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = {};
         unsigned n, i;
         int r;
-
-        if (p->extracted)
-                return 0;
-
-        INIT_REWINDER(rewinder, p);
-        dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
 
         n = DNS_PACKET_QDCOUNT(p);
         if (n > 0) {
@@ -2150,107 +2171,146 @@ int dns_packet_extract(DnsPacket *p) {
                 }
         }
 
+        *ret_question = question;
+        question = NULL;
+        return 0;
+}
+
+static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        unsigned n, i;
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *previous = NULL;
+        bool bad_opt = false;
+        int r;
+
         n = DNS_PACKET_RRCOUNT(p);
-        if (n > 0) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *previous = NULL;
-                bool bad_opt = false;
+        if (n == 0)
+                return 0;
 
-                answer = dns_answer_new(n);
-                if (!answer)
-                        return -ENOMEM;
+        answer = dns_answer_new(n);
+        if (!answer)
+                return -ENOMEM;
 
-                for (i = 0; i < n; i++) {
-                        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-                        bool cache_flush = false;
+        for (i = 0; i < n; i++) {
+                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                bool cache_flush = false;
 
-                        r = dns_packet_read_rr(p, &rr, &cache_flush, NULL);
-                        if (r < 0)
-                                return r;
+                r = dns_packet_read_rr(p, &rr, &cache_flush, NULL);
+                if (r < 0)
+                        return r;
 
-                        /* Try to reduce memory usage a bit */
-                        if (previous)
-                                dns_resource_key_reduce(&rr->key, &previous->key);
+                /* Try to reduce memory usage a bit */
+                if (previous)
+                        dns_resource_key_reduce(&rr->key, &previous->key);
 
-                        if (rr->key->type == DNS_TYPE_OPT) {
-                                bool has_rfc6975;
+                if (rr->key->type == DNS_TYPE_OPT) {
+                        bool has_rfc6975;
 
-                                if (p->opt || bad_opt) {
-                                        /* Multiple OPT RRs? if so, let's ignore all, because there's something wrong
-                                         * with the server, and if one is valid we wouldn't know which one. */
-                                        log_debug("Multiple OPT RRs detected, ignoring all.");
-                                        bad_opt = true;
-                                        continue;
-                                }
-
-                                if (!dns_name_is_root(dns_resource_key_name(rr->key))) {
-                                        /* If the OPT RR is not owned by the root domain, then it is bad, let's ignore
-                                         * it. */
-                                        log_debug("OPT RR is not owned by root domain, ignoring.");
-                                        bad_opt = true;
-                                        continue;
-                                }
-
-                                if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
-                                        /* OPT RR is in the wrong section? Some Belkin routers do this. This is a hint
-                                         * the EDNS implementation is borked, like the Belkin one is, hence ignore
-                                         * it. */
-                                        log_debug("OPT RR in wrong section, ignoring.");
-                                        bad_opt = true;
-                                        continue;
-                                }
-
-                                if (!opt_is_good(rr, &has_rfc6975)) {
-                                        log_debug("Malformed OPT RR, ignoring.");
-                                        bad_opt = true;
-                                        continue;
-                                }
-
-                                if (DNS_PACKET_QR(p)) {
-                                        /* Additional checks for responses */
-
-                                        if (!DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(rr)) {
-                                                /* If this is a reply and we don't know the EDNS version then something
-                                                 * is weird... */
-                                                log_debug("EDNS version newer that our request, bad server.");
-                                                return -EBADMSG;
-                                        }
-
-                                        if (has_rfc6975) {
-                                                /* If the OPT RR contains RFC6975 algorithm data, then this is indication that
-                                                 * the server just copied the OPT it got from us (which contained that data)
-                                                 * back into the reply. If so, then it doesn't properly support EDNS, as
-                                                 * RFC6975 makes it very clear that the algorithm data should only be contained
-                                                 * in questions, never in replies. Crappy Belkin routers copy the OPT data for
-                                                 * example, hence let's detect this so that we downgrade early. */
-                                                log_debug("OPT RR contained RFC6975 data, ignoring.");
-                                                bad_opt = true;
-                                                continue;
-                                        }
-                                }
-
-                                p->opt = dns_resource_record_ref(rr);
-                        } else {
-
-                                /* According to RFC 4795, section 2.9. only the RRs from the Answer section shall be
-                                 * cached. Hence mark only those RRs as cacheable by default, but not the ones from the
-                                 * Additional or Authority sections. */
-
-                                r = dns_answer_add(answer, rr, p->ifindex,
-                                                   (i < DNS_PACKET_ANCOUNT(p) ? DNS_ANSWER_CACHEABLE : 0) |
-                                                   (p->protocol == DNS_PROTOCOL_MDNS && !cache_flush ? DNS_ANSWER_SHARED_OWNER : 0));
-                                if (r < 0)
-                                        return r;
+                        if (p->opt || bad_opt) {
+                                /* Multiple OPT RRs? if so, let's ignore all, because there's
+                                 * something wrong with the server, and if one is valid we wouldn't
+                                 * know which one. */
+                                log_debug("Multiple OPT RRs detected, ignoring all.");
+                                bad_opt = true;
+                                continue;
                         }
 
-                        /* Remember this RR, so that we potentically can merge it's ->key object with the next RR. Note
-                         * that we only do this if we actually decided to keep the RR around. */
-                        dns_resource_record_unref(previous);
-                        previous = dns_resource_record_ref(rr);
+                        if (!dns_name_is_root(dns_resource_key_name(rr->key))) {
+                                /* If the OPT RR is not owned by the root domain, then it is bad,
+                                 * let's ignore it. */
+                                log_debug("OPT RR is not owned by root domain, ignoring.");
+                                bad_opt = true;
+                                continue;
+                        }
+
+                        if (i < DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)) {
+                                /* OPT RR is in the wrong section? Some Belkin routers do this. This
+                                 * is a hint the EDNS implementation is borked, like the Belkin one
+                                 * is, hence ignore it. */
+                                log_debug("OPT RR in wrong section, ignoring.");
+                                bad_opt = true;
+                                continue;
+                        }
+
+                        if (!opt_is_good(rr, &has_rfc6975)) {
+                                log_debug("Malformed OPT RR, ignoring.");
+                                bad_opt = true;
+                                continue;
+                        }
+
+                        if (DNS_PACKET_QR(p)) {
+                                /* Additional checks for responses */
+
+                                if (!DNS_RESOURCE_RECORD_OPT_VERSION_SUPPORTED(rr)) {
+                                        /* If this is a reply and we don't know the EDNS version
+                                         * then something is weird... */
+                                        log_debug("EDNS version newer that our request, bad server.");
+                                        return -EBADMSG;
+                                }
+
+                                if (has_rfc6975) {
+                                        /* If the OPT RR contains RFC6975 algorithm data, then this
+                                         * is indication that the server just copied the OPT it got
+                                         * from us (which contained that data) back into the reply.
+                                         * If so, then it doesn't properly support EDNS, as RFC6975
+                                         * makes it very clear that the algorithm data should only
+                                         * be contained in questions, never in replies. Crappy
+                                         * Belkin routers copy the OPT data for example, hence let's
+                                         * detect this so that we downgrade early. */
+                                        log_debug("OPT RR contained RFC6975 data, ignoring.");
+                                        bad_opt = true;
+                                        continue;
+                                }
+                        }
+
+                        p->opt = dns_resource_record_ref(rr);
+                } else {
+                        /* According to RFC 4795, section 2.9. only the RRs from the Answer section
+                         * shall be cached. Hence mark only those RRs as cacheable by default, but
+                         * not the ones from the Additional or Authority sections. */
+                        DnsAnswerFlags flags =
+                                (i < DNS_PACKET_ANCOUNT(p) ? DNS_ANSWER_CACHEABLE : 0) |
+                                (p->protocol == DNS_PROTOCOL_MDNS && !cache_flush ? DNS_ANSWER_SHARED_OWNER : 0);
+
+                        r = dns_answer_add(answer, rr, p->ifindex, flags);
+                        if (r < 0)
+                                return r;
                 }
 
-                if (bad_opt)
-                        p->opt = dns_resource_record_unref(p->opt);
+                /* Remember this RR, so that we potentically can merge it's ->key object with the
+                 * next RR. Note that we only do this if we actually decided to keep the RR around.
+                 */
+                dns_resource_record_unref(previous);
+                previous = dns_resource_record_ref(rr);
         }
+
+        if (bad_opt)
+                p->opt = dns_resource_record_unref(p->opt);
+
+        *ret_answer = answer;
+        answer = NULL;
+        return 0;
+}
+
+int dns_packet_extract(DnsPacket *p) {
+        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_(rewind_dns_packet) DnsPacketRewinder rewinder = {};
+        int r;
+
+        if (p->extracted)
+                return 0;
+
+        INIT_REWINDER(rewinder, p);
+        dns_packet_rewind(p, DNS_PACKET_HEADER_SIZE);
+
+        r = dns_packet_extract_question(p, &question);
+        if (r < 0)
+                return r;
+
+        r = dns_packet_extract_answer(p, &answer);
+        if (r < 0)
+                return r;
 
         p->question = question;
         question = NULL;

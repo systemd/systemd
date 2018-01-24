@@ -27,6 +27,7 @@
 #include "capability-util.h"
 #include "fd-util.h"
 #include "import-common.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "util.h"
 

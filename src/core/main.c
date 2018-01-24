@@ -91,6 +91,7 @@
 #include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+#include "util.h"
 #include "virt.h"
 #include "watchdog.h"
 
@@ -111,6 +112,7 @@ static char *arg_confirm_spawn = NULL;
 static ShowStatus arg_show_status = _SHOW_STATUS_UNSET;
 static bool arg_switched_root = false;
 static bool arg_no_pager = false;
+static bool arg_service_watchdogs = true;
 static char ***arg_join_controllers = NULL;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
@@ -394,6 +396,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         free(arg_confirm_spawn);
                         arg_confirm_spawn = s;
                 }
+
+        } else if (proc_cmdline_key_streq(key, "systemd.service_watchdogs")) {
+
+                r = value ? parse_boolean(value) : true;
+                if (r < 0)
+                        log_warning("Failed to parse service watchdog switch %s. Ignoring.", value);
+                else
+                        arg_service_watchdogs = r;
 
         } else if (proc_cmdline_key_streq(key, "systemd.show_status")) {
 
@@ -854,6 +864,7 @@ static void set_manager_settings(Manager *m) {
         assert(m);
 
         m->confirm_spawn = arg_confirm_spawn;
+        m->service_watchdogs = arg_service_watchdogs;
         m->runtime_watchdog = arg_runtime_watchdog;
         m->shutdown_watchdog = arg_shutdown_watchdog;
         m->cad_burst_action = arg_cad_burst_action;
@@ -885,7 +896,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SWITCHED_ROOT,
                 ARG_DEFAULT_STD_OUTPUT,
                 ARG_DEFAULT_STD_ERROR,
-                ARG_MACHINE_ID
+                ARG_MACHINE_ID,
+                ARG_SERVICE_WATCHDOGS,
         };
 
         static const struct option options[] = {
@@ -912,6 +924,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "default-standard-output",  required_argument, NULL, ARG_DEFAULT_STD_OUTPUT,      },
                 { "default-standard-error",   required_argument, NULL, ARG_DEFAULT_STD_ERROR,       },
                 { "machine-id",               required_argument, NULL, ARG_MACHINE_ID               },
+                { "service-watchdogs",        required_argument, NULL, ARG_SERVICE_WATCHDOGS        },
                 {}
         };
 
@@ -1064,6 +1077,13 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_confirm_spawn(optarg, &arg_confirm_spawn);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse confirm spawn option: %m");
+                        break;
+
+                case ARG_SERVICE_WATCHDOGS:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse service watchdogs boolean: %s", optarg);
+                        arg_service_watchdogs = r;
                         break;
 
                 case ARG_SHOW_STATUS:
@@ -1466,17 +1486,19 @@ static int become_shutdown(
                 int retval) {
 
         char log_level[DECIMAL_STR_MAX(int) + 1],
-                exit_code[DECIMAL_STR_MAX(uint8_t) + 1];
+                exit_code[DECIMAL_STR_MAX(uint8_t) + 1],
+                timeout[DECIMAL_STR_MAX(usec_t) + 1];
 
-        const char* command_line[11] = {
+        const char* command_line[13] = {
                 SYSTEMD_SHUTDOWN_BINARY_PATH,
                 shutdown_verb,
+                "--timeout", timeout,
                 "--log-level", log_level,
                 "--log-target",
         };
 
         _cleanup_strv_free_ char **env_block = NULL;
-        size_t pos = 5;
+        size_t pos = 7;
         int r;
 
         assert(shutdown_verb);
@@ -1484,6 +1506,7 @@ static int become_shutdown(
         env_block = strv_copy(environ);
 
         xsprintf(log_level, "%d", log_get_max_level());
+        xsprintf(timeout, "%" PRI_USEC "us", arg_default_timeout_stop_usec);
 
         switch (log_get_target()) {
 
@@ -1603,7 +1626,7 @@ static void initialize_coredump(bool skip_setup) {
         /* But at the same time, turn off the core_pattern logic by default, so that no coredumps are stored
          * until the systemd-coredump tool is enabled via sysctl. */
         if (!skip_setup)
-                (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
+                disable_coredumps();
 }
 
 static void do_reexecute(
@@ -1639,7 +1662,7 @@ static void do_reexecute(
         if (switch_root_dir) {
                 /* Kill all remaining processes from the initrd, but don't wait for them, so that we can handle the
                  * SIGCHLD for them after deserializing. */
-                broadcast_signal(SIGTERM, false, true);
+                broadcast_signal(SIGTERM, false, true, arg_default_timeout_stop_usec);
 
                 /* And switch root with MS_MOVE, because we remove the old directory afterwards and detach it. */
                 r = switch_root(switch_root_dir, "/mnt", true, MS_MOVE);
@@ -2214,25 +2237,6 @@ static void test_summary(Manager *m) {
         manager_dump_jobs(m, stdout, "\t");
 }
 
-static void log_taint_string(Manager *m) {
-        _cleanup_free_ char *taint = NULL;
-
-        assert(m);
-
-        if (!arg_system)
-                return;
-
-        taint = manager_taint_string(m);
-        if (isempty(taint))
-                return;
-
-        log_struct(LOG_NOTICE,
-                   LOG_MESSAGE("System is tainted: %s", taint),
-                   "TAINT=%s", taint,
-                   "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR,
-                   NULL);
-}
-
 static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
         int r;
 
@@ -2545,8 +2549,6 @@ int main(int argc, char *argv[]) {
         log_full(arg_action == ACTION_TEST ? LOG_INFO : LOG_DEBUG,
                  "Loaded units and determined initial transaction in %s.",
                  format_timespan(timespan, sizeof(timespan), after_startup - before_startup, 100 * USEC_PER_MSEC));
-
-        log_taint_string(m);
 
         if (arg_action == ACTION_TEST) {
                 test_summary(m);

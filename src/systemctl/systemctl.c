@@ -6247,7 +6247,6 @@ static int normalize_names(char **names, bool warn_if_path) {
 }
 
 static int unit_exists(LookupPaths *lp, const char *unit) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         static const struct bus_properties_map property_map[] = {
@@ -6270,21 +6269,9 @@ static int unit_exists(LookupPaths *lp, const char *unit) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &error,
-                        &reply,
-                        "s", "");
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, property_map, &error, &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
-
-        r = bus_message_map_all_properties(reply, property_map, &error, &info);
-        if (r < 0)
-                return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
         return !streq_ptr(info.load_state, "not-found") || !streq_ptr(info.active_state, "inactive");
 }
@@ -8409,7 +8396,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "isolate",               2,        2,        VERB_ONLINE_ONLY, start_unit           },
                 { "kill",                  2,        VERB_ANY, VERB_ONLINE_ONLY, kill_unit            },
                 { "is-active",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    },
-                { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    },
+                { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    }, /* deprecated alias of is-active */
                 { "is-failed",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_failed    },
                 { "show",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                 },
                 { "cat",                   2,        VERB_ANY, VERB_ONLINE_ONLY, cat                  },

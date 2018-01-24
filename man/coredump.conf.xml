@@ -146,6 +146,9 @@
       </varlistentry>
     </variablelist>
 
+    <para>The defaults for all values are listed as comments in the
+    template <filename>/etc/systemd/coredump.conf</filename> file that
+    is installed by default.</para>
   </refsect1>
 
   <refsect1>

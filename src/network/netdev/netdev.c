@@ -49,6 +49,7 @@
 #include "netdev/vrf.h"
 #include "netdev/vcan.h"
 #include "netdev/vxcan.h"
+#include "netdev/wireguard.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
@@ -75,6 +76,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VCAN] = &vcan_vtable,
         [NETDEV_KIND_GENEVE] = &geneve_vtable,
         [NETDEV_KIND_VXCAN] = &vxcan_vtable,
+        [NETDEV_KIND_WIREGUARD] = &wireguard_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -102,6 +104,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VCAN] = "vcan",
         [NETDEV_KIND_GENEVE] = "geneve",
         [NETDEV_KIND_VXCAN] = "vxcan",
+        [NETDEV_KIND_WIREGUARD] = "wireguard",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -111,10 +114,10 @@ static void netdev_cancel_callbacks(NetDev *netdev) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         netdev_join_callback *callback;
 
-        if (!netdev)
+        if (!netdev || !netdev->manager)
                 return;
 
-        rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
+        rtnl_message_new_synthetic_error(netdev->manager->rtnl, -ENODEV, 0, &m);
 
         while ((callback = netdev->callbacks)) {
                 if (m) {
@@ -330,7 +333,7 @@ int netdev_enslave(NetDev *netdev, Link *link, sd_netlink_message_handler_t call
         } else if (IN_SET(netdev->state, NETDEV_STATE_LINGER, NETDEV_STATE_FAILED)) {
                 _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
 
-                r = rtnl_message_new_synthetic_error(-ENODEV, 0, &m);
+                r = rtnl_message_new_synthetic_error(netdev->manager->rtnl, -ENODEV, 0, &m);
                 if (r >= 0)
                         callback(netdev->manager->rtnl, m, link);
         } else {
@@ -644,7 +647,7 @@ static int netdev_load_one(Manager *manager, const char *filename) {
         r = config_parse_many(filename, network_dirs, dropin_dirname,
                               "Match\0NetDev\0",
                               config_item_perf_lookup, network_netdev_gperf_lookup,
-                              CONFIG_PARSE_WARN, netdev_raw);
+                              CONFIG_PARSE_WARN|CONFIG_PARSE_RELAXED, netdev_raw);
         if (r < 0)
                 return r;
 

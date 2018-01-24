@@ -484,6 +484,13 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       The second line in contrast to the first one would break a
       running system, and will only be executed with
       <option>--boot</option>.</para>
+
+      <para>Note that for all line types that result in creation of any kind of file node
+      (i.e. <varname>f</varname>/<varname>F</varname>,
+      <varname>d</varname>/<varname>D</varname>/<varname>v</varname>/<varname>q</varname>/<varname>Q</varname>,
+      <varname>p</varname>, <varname>L</varname>, <varname>c</varname>/<varname>b</varname> and <varname>C</varname>)
+      leading directories are implicitly created if needed, owned by root with an access mode of 0755. In order to
+      create them with different modes or ownership make sure to add appropriate <varname>d</varname> lines.</para>
     </refsect2>
 
     <refsect2>
@@ -697,7 +704,7 @@ d /run/uscreens 0755 root screen 10d12h
 </programlisting>
 
       <para>Contents of <filename>/run/screens</filename> and /run/uscreens will
-      cleaned up after 10 and 10½ days, respectively.</para>
+      be cleaned up after 10 and 10½ days, respectively.</para>
     </example>
 
     <example>

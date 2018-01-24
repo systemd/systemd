@@ -192,6 +192,8 @@ Unit* manager_get_unit_by_pid(Manager *m, pid_t pid);
 int unit_search_main_pid(Unit *u, pid_t *ret);
 int unit_watch_all_pids(Unit *u);
 
+int unit_synthesize_cgroup_empty_event(Unit *u);
+
 int unit_get_memory_current(Unit *u, uint64_t *ret);
 int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);

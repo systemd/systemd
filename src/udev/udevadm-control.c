@@ -21,6 +21,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "process-util.h"
 #include "time-util.h"
 #include "udev-util.h"
 #include "udev.h"

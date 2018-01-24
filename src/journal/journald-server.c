@@ -464,13 +464,14 @@ static int do_rotate(
                 return -EINVAL;
 
         r = journal_file_rotate(f, s->compress, seal, s->deferred_closes);
-        if (r < 0)
+        if (r < 0) {
                 if (*f)
-                        log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
+                        return log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
                 else
-                        log_error_errno(r, "Failed to create new %s journal: %m", name);
-        else
-                server_add_acls(*f, uid);
+                        return log_error_errno(r, "Failed to create new %s journal: %m", name);
+        }
+
+        server_add_acls(*f, uid);
 
         return r;
 }

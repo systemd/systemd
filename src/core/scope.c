@@ -472,19 +472,16 @@ static void scope_notify_cgroup_empty_event(Unit *u) {
 
 static void scope_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
-        /* If we get a SIGCHLD event for one of the processes we were
-           interested in, then we look for others to watch, under the
-           assumption that we'll sooner or later get a SIGCHLD for
-           them, as the original process we watched was probably the
-           parent of them, and they are hence now our children. */
+        assert(u);
 
+        /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others to
+         * watch, under the assumption that we'll sooner or later get a SIGCHLD for them, as the original
+         * process we watched was probably the parent of them, and they are hence now our children. */
         unit_tidy_watch_pids(u, 0, 0);
         unit_watch_all_pids(u);
 
-        /* If the PID set is empty now, then let's finish this off
-           (On unified we use proper notifications) */
-        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) == 0 && set_isempty(u->pids))
-                scope_notify_cgroup_empty_event(u);
+        /* If the PID set is empty now, then let's finish this off. */
+        unit_synthesize_cgroup_empty_event(u);
 }
 
 static int scope_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {

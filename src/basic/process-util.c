@@ -796,6 +796,8 @@ void sigkill_wait(pid_t pid) {
 }
 
 void sigkill_waitp(pid_t *pid) {
+        PROTECT_ERRNO;
+
         if (!pid)
                 return;
         if (*pid <= 1)
@@ -947,6 +949,17 @@ noreturn void freeze(void) {
 
         sync();
 
+        /* Let's not freeze right away, but keep reaping zombies. */
+        for (;;) {
+                int r;
+                siginfo_t si = {};
+
+                r = waitid(P_ALL, 0, &si, WEXITED);
+                if (r < 0 && errno != EINTR)
+                        break;
+        }
+
+        /* waitid() failed with an unexpected error, things are really borked. Freeze now! */
         for (;;)
                 pause();
 }
@@ -1162,7 +1175,7 @@ int safe_fork_full(
 
         pid_t original_pid, pid;
         sigset_t saved_ss, ss;
-        bool block_signals;
+        bool block_signals = false;
         int prio, r;
 
         /* A wrapper around fork(), that does a couple of important initializations in addition to mere forking. Always

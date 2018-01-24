@@ -22,6 +22,7 @@
 
 #include <libintl.h>
 #include <stdbool.h>
+#include <locale.h>
 
 #include "macro.h"
 
@@ -75,3 +76,10 @@ LocaleVariable locale_variable_from_string(const char *s) _pure_;
 
 int get_keymaps(char ***l);
 bool keymap_is_valid(const char *name);
+
+static inline void freelocalep(locale_t *p) {
+        if (*p == (locale_t) 0)
+                return;
+
+        freelocale(*p);
+}

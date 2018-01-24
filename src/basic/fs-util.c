@@ -39,6 +39,7 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -610,15 +611,34 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
         return r;
 }
 
+static bool safe_transition(const struct stat *a, const struct stat *b) {
+        /* Returns true if the transition from a to b is safe, i.e. that we never transition from unprivileged to
+         * privileged files or directories. Why bother? So that unprivileged code can't symlink to privileged files
+         * making us believe we read something safe even though it isn't safe in the specific context we open it in. */
+
+        if (a->st_uid == 0) /* Transitioning from privileged to unprivileged is always fine */
+                return true;
+
+        return a->st_uid == b->st_uid; /* Otherwise we need to stay within the same UID */
+}
+
 int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret) {
         _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
         _cleanup_close_ int fd = -1;
         unsigned max_follow = 32; /* how many symlinks to follow before giving up and returning ELOOP */
+        struct stat previous_stat;
         bool exists = true;
         char *todo;
         int r;
 
         assert(path);
+
+        /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
+        if ((flags & (CHASE_NONEXISTENT|CHASE_OPEN)) == (CHASE_NONEXISTENT|CHASE_OPEN))
+                return -EINVAL;
+
+        if (isempty(path))
+                return -EINVAL;
 
         /* This is a lot like canonicalize_file_name(), but takes an additional "root" parameter, that allows following
          * symlinks relative to a root directory, instead of the root of the host.
@@ -640,13 +660,23 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * function what to do when encountering a symlink with an absolute path as directory: prefix it by the
          * specified path. */
 
+        /* A root directory of "/" or "" is identical to none */
+        if (isempty(original_root) || path_equal(original_root, "/"))
+                original_root = NULL;
+
         if (original_root) {
                 r = path_make_absolute_cwd(original_root, &root);
                 if (r < 0)
                         return r;
 
-                if (flags & CHASE_PREFIX_ROOT)
+                if (flags & CHASE_PREFIX_ROOT) {
+
+                        /* We don't support relative paths in combination with a root directory */
+                        if (!path_is_absolute(path))
+                                return -EINVAL;
+
                         path = prefix_roota(root, path);
+                }
         }
 
         r = path_make_absolute_cwd(path, &buffer);
@@ -656,6 +686,11 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         fd = open("/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
         if (fd < 0)
                 return -errno;
+
+        if (flags & CHASE_SAFE) {
+                if (fstat(fd, &previous_stat) < 0)
+                        return -errno;
+        }
 
         todo = buffer;
         for (;;) {
@@ -695,7 +730,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 /* Two dots? Then chop off the last bit of what we already found out. */
                 if (path_equal(first, "/..")) {
                         _cleanup_free_ char *parent = NULL;
-                        int fd_parent = -1;
+                        _cleanup_close_ int fd_parent = -1;
 
                         /* If we already are at the top, then going up will not change anything. This is in-line with
                          * how the kernel handles this. */
@@ -718,8 +753,19 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         if (fd_parent < 0)
                                 return -errno;
 
+                        if (flags & CHASE_SAFE) {
+                                if (fstat(fd_parent, &st) < 0)
+                                        return -errno;
+
+                                if (!safe_transition(&previous_stat, &st))
+                                        return -EPERM;
+
+                                previous_stat = st;
+                        }
+
                         safe_close(fd);
                         fd = fd_parent;
+                        fd_parent = -1;
 
                         continue;
                 }
@@ -752,6 +798,12 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                 if (fstat(child, &st) < 0)
                         return -errno;
+                if ((flags & CHASE_SAFE) &&
+                    !safe_transition(&previous_stat, &st))
+                        return -EPERM;
+
+                previous_stat = st;
+
                 if ((flags & CHASE_NO_AUTOFS) &&
                     fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
                         return -EREMOTE;
@@ -781,6 +833,16 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                                 fd = open(root ?: "/", O_CLOEXEC|O_NOFOLLOW|O_PATH);
                                 if (fd < 0)
                                         return -errno;
+
+                                if (flags & CHASE_SAFE) {
+                                        if (fstat(fd, &st) < 0)
+                                                return -errno;
+
+                                        if (!safe_transition(&previous_stat, &st))
+                                                return -EPERM;
+
+                                        previous_stat = st;
+                                }
 
                                 free(done);
 
@@ -836,6 +898,19 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if (ret) {
                 *ret = done;
                 done = NULL;
+        }
+
+        if (flags & CHASE_OPEN) {
+                int q;
+
+                /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a proper fd by
+                 * opening /proc/self/fd/xyz. */
+
+                assert(fd >= 0);
+                q = fd;
+                fd = -1;
+
+                return q;
         }
 
         return exists;

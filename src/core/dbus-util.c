@@ -93,12 +93,12 @@ int bus_set_transient_usec_internal(
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
-        usec_t v;
+        uint64_t v;
         int r;
 
         assert(p);
 
-        r = sd_bus_message_read(message, "u", &v);
+        r = sd_bus_message_read(message, "t", &v);
         if (r < 0)
                 return r;
 
@@ -106,7 +106,7 @@ int bus_set_transient_usec_internal(
                 char *n, ts[FORMAT_TIMESPAN_MAX];
 
                 if (fix_0)
-                        *p = v ?: USEC_INFINITY;
+                        *p = v != 0 ? v: USEC_INFINITY;
                 else
                         *p = v;
 

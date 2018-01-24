@@ -129,7 +129,7 @@ static bool link_radv_enabled(Link *link) {
         if (!link_ipv6ll_enabled(link))
                 return false;
 
-        return link->network->router_prefix_delegation;
+        return link->network->router_prefix_delegation != RADV_PREFIX_DELEGATION_NONE;
 }
 
 static bool link_lldp_rx_enabled(Link *link) {
@@ -849,6 +849,8 @@ static int link_enter_set_routes(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_SETTING_ADDRESSES);
 
+        (void) link_set_routing_policy_rule(link);
+
         link_set_state(link, LINK_STATE_SETTING_ROUTES);
 
         LIST_FOREACH(routes, rt, link->network->static_routes) {
@@ -861,8 +863,6 @@ static int link_enter_set_routes(Link *link) {
 
                 link->route_messages++;
         }
-
-        (void) link_set_routing_policy_rule(link);
 
         if (link->route_messages == 0) {
                 link->static_routes_configured = true;

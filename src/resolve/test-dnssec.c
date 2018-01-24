@@ -19,7 +19,9 @@
 ***/
 
 #include <arpa/inet.h>
+#if HAVE_GCRYPT
 #include <gcrypt.h>
+#endif
 #include <netinet/in.h>
 #include <sys/socket.h>
 

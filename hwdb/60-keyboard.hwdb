@@ -561,6 +561,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*ProBook4*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHP*ProBook*4*:pvr*
 # HP ZBook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHPZBook*:pvr*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPZBook*:pvr*
  KEYBOARD_KEY_81=f20                                    # Fn+F8; Microphone mute button, should be micmute
 
 # HP Folio 1040g2
@@ -767,14 +768,14 @@ evdev:input:b0003v046DpC308*
 
 # Cordless Desktop S510
 evdev:input:b0003v046DpC50C*
- KEYBOARD_KEY_d4=zoomin
- KEYBOARD_KEY_cc=zoomout
+ KEYBOARD_KEY_d4=up                                     # zoomin
+ KEYBOARD_KEY_cc=down                                   # zoomout
 
 # Wave cordless
 evdev:input:b0003v046DpC317*
  KEYBOARD_KEY_9001c=scale                               # expo
- KEYBOARD_KEY_9001f=zoomout
- KEYBOARD_KEY_90020=zoomin
+ KEYBOARD_KEY_9001f=down                                # zoomout
+ KEYBOARD_KEY_90020=up                                  # zoomin
  KEYBOARD_KEY_9003d=prog1                               # gadget
  KEYBOARD_KEY_90005=camera
  KEYBOARD_KEY_90018=media
@@ -791,8 +792,8 @@ evdev:input:b0003v046DpC317*
 
 # Wave cordless
 evdev:input:b0003v046DpC517*
- KEYBOARD_KEY_c101f=zoomout
- KEYBOARD_KEY_c1020=zoomin
+ KEYBOARD_KEY_c101f=down                                # zoomout
+ KEYBOARD_KEY_c1020=up                                  # zoomin
  KEYBOARD_KEY_c1005=camera
  KEYBOARD_KEY_c0183=media
  KEYBOARD_KEY_c1041=wordprocessor
@@ -817,8 +818,8 @@ evdev:input:b0003v046DpC52[9B]*
  KEYBOARD_KEY_0c018a=mail
  KEYBOARD_KEY_0c0221=search
  KEYBOARD_KEY_0c00b8=ejectcd
- KEYBOARD_KEY_0c022d=zoomin
- KEYBOARD_KEY_0c022e=zoomout
+ KEYBOARD_KEY_0c022d=up                                 # zoomin
+ KEYBOARD_KEY_0c022e=down                               # zoomout
 
 # Logitech Presenter R400
 evdev:input:b0003v046DpC52D*
@@ -893,8 +894,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnMEDIONNB:pnA555*:pvr*
 
 # Microsoft Natural Ergonomic Keyboard 4000
 evdev:input:b0003v045Ep00DB*
- KEYBOARD_KEY_c022d=zoomin
- KEYBOARD_KEY_c022e=zoomout
+ KEYBOARD_KEY_c022d=up                                  # zoomin
+ KEYBOARD_KEY_c022e=down                                # zoomout
 
 ###########################################################
 # Micro Star
@@ -1186,8 +1187,8 @@ evdev:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVGN-Z21*:pvr*
  KEYBOARD_KEY_00=brightnessdown                         # Fn+F5
  KEYBOARD_KEY_10=brightnessup                           # Fn+F6
  KEYBOARD_KEY_11=switchvideomode                        # Fn+F7
- KEYBOARD_KEY_12=zoomout
- KEYBOARD_KEY_14=zoomin
+ KEYBOARD_KEY_12=down                                   # zoomout
+ KEYBOARD_KEY_14=up                                     # zoomin
  KEYBOARD_KEY_15=suspend                                # Fn+F12
  KEYBOARD_KEY_17=prog1
  KEYBOARD_KEY_20=media
@@ -1197,8 +1198,8 @@ evdev:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVGN-FW250*:pvr*
 
 evdev:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVPC*:pvr*
  KEYBOARD_KEY_05=f21                                    # Fn+F1 -> KEY_F21 (The actual touchpad toggle)
- KEYBOARD_KEY_0d=zoomout                                # Fn+F9
- KEYBOARD_KEY_0e=zoomin                                 # Fn+F10
+ KEYBOARD_KEY_0d=down                                   # Fn+F9 zoomout
+ KEYBOARD_KEY_0e=up                                     # Fn+F10 zoomin
 
 ###########################################################
 # Toshiba
@@ -1286,6 +1287,68 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnZepto:pnZnote*6615WD:*
  KEYBOARD_KEY_a0=!                                      # mute
  KEYBOARD_KEY_ae=!                                      # volume down
  KEYBOARD_KEY_b0=!                                      # volume up
+
+##########################################
+# Ideazon
+##########################################
+
+# Ideazon Zboard Merc
+evdev:input:b0003v1038p0210*
+ KEYBOARD_KEY_c0227=q
+ KEYBOARD_KEY_c0223=w
+ KEYBOARD_KEY_c0221=e
+ KEYBOARD_KEY_c0224=a
+ KEYBOARD_KEY_c0226=s
+ KEYBOARD_KEY_c0225=d
+ KEYBOARD_KEY_c0192=tab
+ KEYBOARD_KEY_c018a=leftalt
+ KEYBOARD_KEY_c022a=r
+ KEYBOARD_KEY_c0183=f10
+ KEYBOARD_KEY_70059=1
+ KEYBOARD_KEY_7005a=2
+ KEYBOARD_KEY_7005b=3
+ KEYBOARD_KEY_7005c=4
+ KEYBOARD_KEY_7005d=5
+ KEYBOARD_KEY_7005e=6
+ KEYBOARD_KEY_7005f=7
+ KEYBOARD_KEY_70060=8
+ KEYBOARD_KEY_70061=9
+ KEYBOARD_KEY_70062=0
+ KEYBOARD_KEY_70057=equal
+ KEYBOARD_KEY_70077=capslock
+ KEYBOARD_KEY_70054=leftshift
+ KEYBOARD_KEY_70063=leftctrl
+ KEYBOARD_KEY_7006b=t
+ KEYBOARD_KEY_70067=f
+ KEYBOARD_KEY_7006c=g
+ KEYBOARD_KEY_7006d=v
+ KEYBOARD_KEY_7006e=b
+ KEYBOARD_KEY_70074=p
+ KEYBOARD_KEY_7006f=c
+ KEYBOARD_KEY_70055=space
+ KEYBOARD_KEY_70076=f9
+ KEYBOARD_KEY_70046=f11
+ KEYBOARD_KEY_70079=f6
+
+# Ideazon Zboard Fang
+evdev:input:b0003v1038p0310*
+ KEYBOARD_KEY_70059=1
+ KEYBOARD_KEY_7005b=3
+ KEYBOARD_KEY_70040=equal
+ KEYBOARD_KEY_70042=l
+ KEYBOARD_KEY_7002b=tab
+ KEYBOARD_KEY_7005e=capslock
+ KEYBOARD_KEY_700e2=leftalt
+ KEYBOARD_KEY_700e1=leftshift
+ KEYBOARD_KEY_700e0=leftctrl
+ KEYBOARD_KEY_70038=z
+ KEYBOARD_KEY_7003e=t
+ KEYBOARD_KEY_70015=r
+ KEYBOARD_KEY_70010=g
+ KEYBOARD_KEY_70050=n
+ KEYBOARD_KEY_70030=f9
+ KEYBOARD_KEY_7002f=f11
+ KEYBOARD_KEY_70046=f6
 
 ###########################################################
 # Other

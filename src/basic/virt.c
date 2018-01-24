@@ -222,8 +222,10 @@ static int detect_vm_xen_dom0(void) {
         if (r == 0) {
                 unsigned long features;
 
-                r = safe_atolu(domcap, &features);
-                if (r == 0) {
+                /* Here, we need to use sscanf() instead of safe_atoul()
+                 * as the string lacks the leading "0x". */
+                r = sscanf(domcap, "%lx", &features);
+                if (r == 1) {
                         r = !!(features & (1U << XENFEAT_dom0));
                         log_debug("Virtualization XEN, found %s with value %08lx, "
                                   "XENFEAT_dom0 (indicating the 'hardware domain') is%s set.",

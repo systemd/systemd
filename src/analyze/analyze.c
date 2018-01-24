@@ -1521,6 +1521,39 @@ static int test_calendar(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
+static int service_watchdogs(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int b, r;
+
+        assert(argc == 2);
+        assert(argv);
+
+        b = parse_boolean(argv[1]);
+        if (b < 0) {
+                log_error("Failed to parse service-watchdogs argument.");
+                return -EINVAL;
+        }
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
+
+        r = sd_bus_set_property(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ServiceWatchdogs",
+                        &error,
+                        "b",
+                        b);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
 static int do_verify(int argc, char *argv[], void *userdata) {
         return verify_units(strv_skip(argv, 1),
                             arg_user ? UNIT_FILE_USER : UNIT_FILE_SYSTEM,
@@ -1563,6 +1596,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  verify FILE...           Check unit files for correctness\n"
                "  calendar SPEC...         Validate repetitive calendar time events\n"
+               "  service-watchdogs on/off Enable/disable service watchdogs\n"
                , program_invocation_short_name);
 
         /* When updating this list, including descriptions, apply
@@ -1708,20 +1742,21 @@ static int parse_argv(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "help",           VERB_ANY, VERB_ANY, 0,            help                   },
-                { "time",           VERB_ANY, 1,        VERB_DEFAULT, analyze_time           },
-                { "blame",          VERB_ANY, 1,        0,            analyze_blame          },
-                { "critical-chain", VERB_ANY, VERB_ANY, 0,            analyze_critical_chain },
-                { "plot",           VERB_ANY, 1,        0,            analyze_plot           },
-                { "dot",            VERB_ANY, VERB_ANY, 0,            dot                    },
-                { "set-log-level",  2,        2,        0,            set_log_level          },
-                { "get-log-level",  VERB_ANY, 1,        0,            get_log_level          },
-                { "set-log-target", 2,        2,        0,            set_log_target         },
-                { "get-log-target", VERB_ANY, 1,        0,            get_log_target         },
-                { "dump",           VERB_ANY, 1,        0,            dump                   },
-                { "syscall-filter", VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
-                { "verify",         2,        VERB_ANY, 0,            do_verify              },
-                { "calendar",       2,        VERB_ANY, 0,            test_calendar          },
+                { "help",              VERB_ANY, VERB_ANY, 0,            help                   },
+                { "time",              VERB_ANY, 1,        VERB_DEFAULT, analyze_time           },
+                { "blame",             VERB_ANY, 1,        0,            analyze_blame          },
+                { "critical-chain",    VERB_ANY, VERB_ANY, 0,            analyze_critical_chain },
+                { "plot",              VERB_ANY, 1,        0,            analyze_plot           },
+                { "dot",               VERB_ANY, VERB_ANY, 0,            dot                    },
+                { "set-log-level",     2,        2,        0,            set_log_level          },
+                { "get-log-level",     VERB_ANY, 1,        0,            get_log_level          },
+                { "set-log-target",    2,        2,        0,            set_log_target         },
+                { "get-log-target",    VERB_ANY, 1,        0,            get_log_target         },
+                { "dump",              VERB_ANY, 1,        0,            dump                   },
+                { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
+                { "verify",            2,        VERB_ANY, 0,            do_verify              },
+                { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
+                { "service-watchdogs", 2,        2,        0,            service_watchdogs      },
                 {}
         };
 

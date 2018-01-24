@@ -2534,44 +2534,97 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 }
 
 int unit_watch_pid(Unit *u, pid_t pid) {
-        int q, r;
+        int r;
 
         assert(u);
-        assert(pid >= 1);
+        assert(pid_is_valid(pid));
 
-        /* Watch a specific PID. We only support one or two units
-         * watching each PID for now, not more. */
+        /* Watch a specific PID */
 
         r = set_ensure_allocated(&u->pids, NULL);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&u->manager->watch_pids1, NULL);
+        r = hashmap_ensure_allocated(&u->manager->watch_pids, NULL);
         if (r < 0)
                 return r;
 
-        r = hashmap_put(u->manager->watch_pids1, PID_TO_PTR(pid), u);
-        if (r == -EEXIST) {
-                r = hashmap_ensure_allocated(&u->manager->watch_pids2, NULL);
-                if (r < 0)
-                        return r;
+        /* First try, let's add the unit keyed by "pid". */
+        r = hashmap_put(u->manager->watch_pids, PID_TO_PTR(pid), u);
+        if (r == -EEXIST)  {
+                Unit **array;
+                bool found = false;
+                size_t n = 0;
 
-                r = hashmap_put(u->manager->watch_pids2, PID_TO_PTR(pid), u);
-        }
+                /* OK, the "pid" key is already assigned to a different unit. Let's see if the "-pid" key (which points
+                 * to an array of Units rather than just a Unit), lists us already. */
 
-        q = set_put(u->pids, PID_TO_PTR(pid));
-        if (q < 0)
-                return q;
+                array = hashmap_get(u->manager->watch_pids, PID_TO_PTR(-pid));
+                if (array)
+                        for (; array[n]; n++)
+                                if (array[n] == u)
+                                        found = true;
 
-        return r;
+                if (found) /* Found it already? if so, do nothing */
+                        r = 0;
+                else {
+                        Unit **new_array;
+
+                        /* Allocate a new array */
+                        new_array = new(Unit*, n + 2);
+                        if (!new_array)
+                                return -ENOMEM;
+
+                        memcpy_safe(new_array, array, sizeof(Unit*) * n);
+                        new_array[n] = u;
+                        new_array[n+1] = NULL;
+
+                        /* Add or replace the old array */
+                        r = hashmap_replace(u->manager->watch_pids, PID_TO_PTR(-pid), new_array);
+                        if (r < 0) {
+                                free(new_array);
+                                return r;
+                        }
+
+                        free(array);
+                }
+        } else if (r < 0)
+                return r;
+
+        r = set_put(u->pids, PID_TO_PTR(pid));
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 void unit_unwatch_pid(Unit *u, pid_t pid) {
-        assert(u);
-        assert(pid >= 1);
+        Unit **array;
 
-        (void) hashmap_remove_value(u->manager->watch_pids1, PID_TO_PTR(pid), u);
-        (void) hashmap_remove_value(u->manager->watch_pids2, PID_TO_PTR(pid), u);
+        assert(u);
+        assert(pid_is_valid(pid));
+
+        /* First let's drop the unit in case it's keyed as "pid". */
+        (void) hashmap_remove_value(u->manager->watch_pids, PID_TO_PTR(pid), u);
+
+        /* Then, let's also drop the unit, in case it's in the array keyed by -pid */
+        array = hashmap_get(u->manager->watch_pids, PID_TO_PTR(-pid));
+        if (array) {
+                size_t n, m = 0;
+
+                /* Let's iterate through the array, dropping our own entry */
+                for (n = 0; array[n]; n++)
+                        if (array[n] != u)
+                                array[m++] = array[n];
+                array[m] = NULL;
+
+                if (m == 0) {
+                        /* The array is now empty, remove the entire entry */
+                        assert(hashmap_remove(u->manager->watch_pids, PID_TO_PTR(-pid)) == array);
+                        free(array);
+                }
+        }
+
         (void) set_remove(u->pids, PID_TO_PTR(pid));
 }
 
@@ -4705,25 +4758,29 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
                    NULL);
 }
 
-int unit_fail_if_symlink(Unit *u, const char* where) {
+int unit_fail_if_noncanonical(Unit *u, const char* where) {
+        _cleanup_free_ char *canonical_where;
         int r;
 
         assert(u);
         assert(where);
 
-        r = is_symlink(where);
+        r = chase_symlinks(where, NULL, CHASE_NONEXISTENT, &canonical_where);
         if (r < 0) {
-                log_unit_debug_errno(u, r, "Failed to check symlink %s, ignoring: %m", where);
+                log_unit_debug_errno(u, r, "Failed to check %s for symlinks, ignoring: %m", where);
                 return 0;
         }
-        if (r == 0)
+
+        /* We will happily ignore a trailing slash (or any redundant slashes) */
+        if (path_equal(where, canonical_where))
                 return 0;
 
+        /* No need to mention "." or "..", they would already have been rejected by unit_name_from_path() */
         log_struct(LOG_ERR,
                    "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
-                   LOG_UNIT_MESSAGE(u, "Mount on symlink %s not allowed.", where),
+                   LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
                    "WHERE=%s", where,
                    NULL);
 

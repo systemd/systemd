@@ -18,6 +18,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <net/ethernet.h>
 #include <stdio.h>
 #include <sys/types.h>

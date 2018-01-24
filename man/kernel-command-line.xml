@@ -85,6 +85,7 @@
         <term><varname>systemd.crash_shell</varname></term>
         <term><varname>systemd.crash_reboot</varname></term>
         <term><varname>systemd.confirm_spawn</varname></term>
+        <term><varname>systemd.service_watchdogs</varname></term>
         <term><varname>systemd.show_status</varname></term>
         <term><varname>systemd.log_target=</varname></term>
         <term><varname>systemd.log_level=</varname></term>

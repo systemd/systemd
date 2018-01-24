@@ -32,6 +32,7 @@
 #include "dhcp-internal.h"
 #include "fd-util.h"
 #include "socket-util.h"
+#include "unaligned.h"
 
 static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                             uint32_t xid, const uint8_t *mac_addr,
@@ -70,13 +71,13 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.xid)),    /* A <- client identifier */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, xid, 1, 0),                        /* client identifier == xid ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                          /* ignore */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe32(*((unsigned int *) eth_mac))),                     /* A <- 4 bytes of client's MAC */
+                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be32(&eth_mac->ether_addr_octet[0])),        /* A <- 4 bytes of client's MAC */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                                       /* X <- A */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr)),                 /* A <- 4 bytes of MAC from dhcp.chaddr */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                                /* A xor X */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 1, 0),                                          /* A == 0 ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                          /* ignore */
-                BPF_STMT(BPF_LD + BPF_IMM, htobe16(*((unsigned short *) (((char *) eth_mac) + 4)))),   /* A <- remainder of client's MAC */
+                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be16(&eth_mac->ether_addr_octet[4])),        /* A <- remainder of client's MAC */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                                       /* X <- A */
                 BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(DHCPPacket, dhcp.chaddr) + 4),             /* A <- remainder of MAC from dhcp.chaddr */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                                /* A xor X */

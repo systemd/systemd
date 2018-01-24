@@ -29,25 +29,65 @@
 #include "macro.h"
 #include "sparse-endian.h"
 
+/* Common option header */
+typedef struct DHCP6Option {
+        be16_t code;
+        be16_t len;
+        uint8_t data[];
+} _packed_ DHCP6Option;
+
+/* Address option */
+struct iaaddr {
+        struct in6_addr address;
+        be32_t lifetime_preferred;
+        be32_t lifetime_valid;
+} _packed_;
+
+/* Prefix Delegation Prefix option */
+struct iapdprefix {
+        be32_t lifetime_preferred;
+        be32_t lifetime_valid;
+        uint8_t prefixlen;
+        struct in6_addr address;
+} _packed_;
+
 typedef struct DHCP6Address DHCP6Address;
 
 struct DHCP6Address {
         LIST_FIELDS(DHCP6Address, addresses);
 
-        struct {
-                struct in6_addr address;
-                be32_t lifetime_preferred;
-                be32_t lifetime_valid;
-        } iaaddr _packed_;
+        union {
+                struct iaaddr iaaddr;
+                struct iapdprefix iapdprefix;
+        };
 };
+
+/* Non-temporary Address option */
+struct ia_na {
+        be32_t id;
+        be32_t lifetime_t1;
+        be32_t lifetime_t2;
+} _packed_;
+
+/* Prefix Delegation option */
+struct ia_pd {
+        be32_t id;
+        be32_t lifetime_t1;
+        be32_t lifetime_t2;
+} _packed_;
+
+/* Temporary Address option */
+struct ia_ta {
+        be32_t id;
+} _packed_;
 
 struct DHCP6IA {
         uint16_t type;
-        struct {
-                be32_t id;
-                be32_t lifetime_t1;
-                be32_t lifetime_t2;
-        } _packed_;
+        union {
+                struct ia_na ia_na;
+                struct ia_pd ia_pd;
+                struct ia_ta ia_ta;
+        };
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
 
@@ -62,11 +102,12 @@ typedef struct DHCP6IA DHCP6IA;
 int dhcp6_option_append(uint8_t **buf, size_t *buflen, uint16_t code,
                         size_t optlen, const void *optval);
 int dhcp6_option_append_ia(uint8_t **buf, size_t *buflen, DHCP6IA *ia);
+int dhcp6_option_append_pd(uint8_t *buf, size_t len, DHCP6IA *pd);
 int dhcp6_option_append_fqdn(uint8_t **buf, size_t *buflen, const char *fqdn);
 int dhcp6_option_parse(uint8_t **buf, size_t *buflen, uint16_t *optcode,
                        size_t *optlen, uint8_t **optvalue);
-int dhcp6_option_parse_ia(uint8_t **buf, size_t *buflen, uint16_t iatype,
-                          DHCP6IA *ia);
+int dhcp6_option_parse_status(DHCP6Option *option);
+int dhcp6_option_parse_ia(DHCP6Option *iaoption, DHCP6IA *ia);
 int dhcp6_option_parse_ip6addrs(uint8_t *optval, uint16_t optlen,
                                 struct in6_addr **addrs, size_t count,
                                 size_t *allocated);

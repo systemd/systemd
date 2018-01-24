@@ -28,6 +28,7 @@
 #include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
+#include "process-util.h"
 #include "sigbus.h"
 
 int main(int argc, char *argv[]) {

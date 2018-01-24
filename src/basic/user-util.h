@@ -97,3 +97,5 @@ bool valid_gecos(const char *d);
 bool valid_home(const char *p);
 
 int maybe_setgroups(size_t size, const gid_t *list);
+
+bool synthesize_nobody(void);

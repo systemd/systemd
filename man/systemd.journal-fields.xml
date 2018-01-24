@@ -339,7 +339,7 @@
       <varlistentry>
         <term><varname>_STREAM_ID=</varname></term>
         <listitem>
-          <para>Only applies to <literal>_TRANSPORT=stream</literal> records: specifies a randomized 128bit ID assigned
+          <para>Only applies to <literal>_TRANSPORT=stdout</literal> records: specifies a randomized 128bit ID assigned
           to the stream connection when it was first created. This ID is useful to reconstruct individual log streams
           from the log records: all log records carrying the same stream ID originate from the same stream.</para>
         </listitem>
@@ -347,7 +347,7 @@
       <varlistentry>
         <term><varname>_LINE_BREAK=</varname></term>
         <listitem>
-          <para>Only applies to <literal>_TRANSPORT=stream</literal> records: indicates that the log message in the
+          <para>Only applies to <literal>_TRANSPORT=stdout</literal> records: indicates that the log message in the
           standard output/error stream was not terminated with a normal newline character (<literal>\n</literal>,
           i.e. ASCII 10). Specifically, when set this field is one of <option>nul</option> (in case the line was
           terminated by a NUL byte), <option>line-max</option> (in case the maximum log line length was reached, as

@@ -661,6 +661,10 @@ static int output_export(
 
                 fputc('\n', f);
         }
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
 
         if (r < 0)
                 return r;
@@ -824,6 +828,11 @@ static int output_json(
                 }
         }
 
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
+
         if (r < 0)
                 return r;
 
@@ -964,6 +973,10 @@ static int output_cat(
         sd_journal_set_data_threshold(j, 0);
 
         r = sd_journal_get_data(j, "MESSAGE", &data, &l);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
         if (r < 0) {
                 /* An entry without MESSAGE=? */
                 if (r == -ENOENT)

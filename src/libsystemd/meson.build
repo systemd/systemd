@@ -18,8 +18,6 @@
 sd_login_c = files('sd-login/sd-login.c')
 
 libsystemd_sources = files('''
-        sd-bus/bus-bloom.c
-        sd-bus/bus-bloom.h
         sd-bus/bus-common-errors.c
         sd-bus/bus-common-errors.h
         sd-bus/bus-container.c
@@ -74,6 +72,7 @@ libsystemd_sources = files('''
         sd-id128/id128-util.c
         sd-id128/id128-util.h
         sd-id128/sd-id128.c
+        sd-netlink/generic-netlink.c
         sd-netlink/local-addresses.c
         sd-netlink/local-addresses.h
         sd-netlink/netlink-internal.h

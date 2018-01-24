@@ -69,7 +69,7 @@
 
     <para>Each file contains a list of binfmt_misc kernel binary
     format rules. Consult <ulink
-    url="https://www.kernel.org/doc/Documentation/binfmt_misc.txt">binfmt_misc.txt</ulink>
+    url="https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst">binfmt-misc.rst</ulink>
     for more information on registration of additional binary formats
     and how to write rules.</para>
 

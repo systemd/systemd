@@ -1584,7 +1584,7 @@ static int loginctl_main(int argc, char *argv[], sd_bus *bus) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -1607,6 +1607,9 @@ int main(int argc, char *argv[]) {
         r = loginctl_main(argc, argv, bus);
 
 finish:
+        /* make sure we terminate the bus connection first, and then close the
+         * pager, see issue #3543 for the details. */
+        sd_bus_flush_close_unref(bus);
         pager_close();
         polkit_agent_close();
 

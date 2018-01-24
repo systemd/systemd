@@ -1,5 +1,14 @@
 systemd System and Service Manager
 
+CHANGES WITH 237 in spe:
+
+        * Some keyboards come with a zoom see-saw or rocker which until now got
+          mapped to the Linux "zoomin/out" keys in hwdb. However, these
+          keycodes are not recognized by any major desktop. They now produce
+          Up/Down key events so that they can be used for scrolling.
+
+        — Berlin, 2018-XX-XX
+
 CHANGES WITH 236:
 
         * The modprobe.d/ drop-in for the bonding.ko kernel module introduced
@@ -5321,7 +5330,7 @@ CHANGES WITH 209:
           option as supported by Debian is added. It allows indicating
           which LUKS slot to use on disk, speeding up key loading.
 
-        * The sd_journald_sendv() API call has been checked and
+        * The sd_journal_sendv() API call has been checked and
           officially declared to be async-signal-safe so that it may
           be invoked from signal handlers for logging purposes.
 
