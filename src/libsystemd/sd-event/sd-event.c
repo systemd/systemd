@@ -122,6 +122,7 @@ struct sd_event_source {
                         uint32_t events;
                         uint32_t revents;
                         bool registered:1;
+                        bool owned:1;
                 } io;
                 struct {
                         sd_event_time_handler_t callback;
@@ -889,6 +890,10 @@ static void source_free(sd_event_source *s) {
         assert(s);
 
         source_disconnect(s);
+
+        if (s->type == SOURCE_IO && s->io.owned)
+                safe_close(s->io.fd);
+
         free(s->description);
         free(s);
 }
@@ -1491,6 +1496,21 @@ _public_ int sd_event_source_set_io_fd(sd_event_source *s, int fd) {
                 epoll_ctl(s->event->epoll_fd, EPOLL_CTL_DEL, saved_fd, NULL);
         }
 
+        return 0;
+}
+
+_public_ int sd_event_source_get_io_fd_own(sd_event_source *s) {
+        assert_return(s, -EINVAL);
+        assert_return(s->type == SOURCE_IO, -EDOM);
+
+        return s->io.owned;
+}
+
+_public_ int sd_event_source_set_io_fd_own(sd_event_source *s, int own) {
+        assert_return(s, -EINVAL);
+        assert_return(s->type == SOURCE_IO, -EDOM);
+
+        s->io.owned = own;
         return 0;
 }
 
