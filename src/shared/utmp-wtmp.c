@@ -330,7 +330,7 @@ static int write_to_terminal(const char *tty, const char *message) {
         assert(tty);
         assert(message);
 
-        fd = open(tty, O_WRONLY|O_NDELAY|O_NOCTTY|O_CLOEXEC);
+        fd = open(tty, O_WRONLY|O_NONBLOCK|O_NOCTTY|O_CLOEXEC);
         if (fd < 0 || !isatty(fd))
                 return -errno;
 

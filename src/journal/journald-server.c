@@ -1497,7 +1497,8 @@ static int server_open_hostname(Server *s) {
 
         assert(s);
 
-        s->hostname_fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY|O_NOCTTY);
+        s->hostname_fd = open("/proc/sys/kernel/hostname",
+                              O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (s->hostname_fd < 0)
                 return log_error_errno(errno, "Failed to open /proc/sys/kernel/hostname: %m");
 

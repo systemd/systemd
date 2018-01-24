@@ -488,7 +488,8 @@ static int manager_watch_hostname(Manager *m) {
 
         assert(m);
 
-        m->hostname_fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY|O_NOCTTY);
+        m->hostname_fd = open("/proc/sys/kernel/hostname",
+                              O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (m->hostname_fd < 0) {
                 log_warning_errno(errno, "Failed to watch hostname: %m");
                 return 0;
