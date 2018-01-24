@@ -75,9 +75,9 @@ static char *arg_root = NULL;
 
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("sysusers.d");
 
-static Hashmap *users = NULL, *groups = NULL;
-static Hashmap *todo_uids = NULL, *todo_gids = NULL;
-static Hashmap *members = NULL;
+static OrderedHashmap *users = NULL, *groups = NULL;
+static OrderedHashmap *todo_uids = NULL, *todo_gids = NULL;
+static OrderedHashmap *members = NULL;
 
 static Hashmap *database_uid = NULL, *database_user = NULL;
 static Hashmap *database_gid = NULL, *database_group = NULL;
@@ -257,7 +257,7 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
         assert(gr);
         assert(group);
 
-        a = hashmap_get(members, gr->gr_name);
+        a = ordered_hashmap_get(members, gr->gr_name);
         if (a) {
                 _cleanup_strv_free_ char **l = NULL;
                 bool added = false;
@@ -308,7 +308,7 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
         assert(sg);
         assert(gshadow);
 
-        a = hashmap_get(members, sg->sg_namp);
+        a = ordered_hashmap_get(members, sg->sg_namp);
         if (a) {
                 _cleanup_strv_free_ char **l = NULL;
                 bool added = false;
@@ -388,7 +388,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         Item *i;
         int r;
 
-        if (hashmap_size(todo_uids) == 0)
+        if (ordered_hashmap_size(todo_uids) == 0)
                 return 0;
 
         r = fopen_temporary_label("/etc/passwd", passwd_path, &passwd, &passwd_tmp);
@@ -406,13 +406,13 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                 errno = 0;
                 while ((pw = fgetpwent(original))) {
 
-                        i = hashmap_get(users, pw->pw_name);
+                        i = ordered_hashmap_get(users, pw->pw_name);
                         if (i && i->todo_user) {
                                 log_error("%s: User \"%s\" already exists.", passwd_path, pw->pw_name);
                                 return -EEXIST;
                         }
 
-                        if (hashmap_contains(todo_uids, UID_TO_PTR(pw->pw_uid))) {
+                        if (ordered_hashmap_contains(todo_uids, UID_TO_PTR(pw->pw_uid))) {
                                 log_error("%s: Detected collision for UID " UID_FMT ".", passwd_path, pw->pw_uid);
                                 return -EEXIST;
                         }
@@ -433,7 +433,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         return -errno;
         }
 
-        HASHMAP_FOREACH(i, todo_uids, iterator) {
+        ORDERED_HASHMAP_FOREACH(i, todo_uids, iterator) {
                 struct passwd n = {
                         .pw_name = i->name,
                         .pw_uid = i->uid,
@@ -475,7 +475,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         Item *i;
         int r;
 
-        if (hashmap_size(todo_uids) == 0)
+        if (ordered_hashmap_size(todo_uids) == 0)
                 return 0;
 
         r = fopen_temporary_label("/etc/shadow", shadow_path, &shadow, &shadow_tmp);
@@ -495,7 +495,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                 errno = 0;
                 while ((sp = fgetspent(original))) {
 
-                        i = hashmap_get(users, sp->sp_namp);
+                        i = ordered_hashmap_get(users, sp->sp_namp);
                         if (i && i->todo_user) {
                                 /* we will update the existing entry */
                                 sp->sp_lstchg = lstchg;
@@ -503,7 +503,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                                 /* only the /etc/shadow stage is left, so we can
                                  * safely remove the item from the todo set */
                                 i->todo_user = false;
-                                hashmap_remove(todo_uids, UID_TO_PTR(i->uid));
+                                ordered_hashmap_remove(todo_uids, UID_TO_PTR(i->uid));
                         }
 
                         errno = 0;
@@ -522,7 +522,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                         return -errno;
         }
 
-        HASHMAP_FOREACH(i, todo_uids, iterator) {
+        ORDERED_HASHMAP_FOREACH(i, todo_uids, iterator) {
                 struct spwd n = {
                         .sp_namp = i->name,
                         .sp_pwdp = (char*) "!!",
@@ -559,7 +559,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
         Item *i;
         int r;
 
-        if (hashmap_size(todo_gids) == 0 && hashmap_size(members) == 0)
+        if (ordered_hashmap_size(todo_gids) == 0 && ordered_hashmap_size(members) == 0)
                 return 0;
 
         r = fopen_temporary_label("/etc/group", group_path, &group, &group_tmp);
@@ -581,13 +581,13 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                          * entries anyway here, let's make an extra verification
                          * step that we don't generate duplicate entries. */
 
-                        i = hashmap_get(groups, gr->gr_name);
+                        i = ordered_hashmap_get(groups, gr->gr_name);
                         if (i && i->todo_group) {
                                 log_error("%s: Group \"%s\" already exists.", group_path, gr->gr_name);
                                 return -EEXIST;
                         }
 
-                        if (hashmap_contains(todo_gids, GID_TO_PTR(gr->gr_gid))) {
+                        if (ordered_hashmap_contains(todo_gids, GID_TO_PTR(gr->gr_gid))) {
                                 log_error("%s: Detected collision for GID " GID_FMT ".", group_path, gr->gr_gid);
                                 return  -EEXIST;
                         }
@@ -610,7 +610,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                         return -errno;
         }
 
-        HASHMAP_FOREACH(i, todo_gids, iterator) {
+        ORDERED_HASHMAP_FOREACH(i, todo_gids, iterator) {
                 struct group n = {
                         .gr_name = i->name,
                         .gr_gid = i->gid,
@@ -646,7 +646,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
         Item *i;
         int r;
 
-        if (hashmap_size(todo_gids) == 0 && hashmap_size(members) == 0)
+        if (ordered_hashmap_size(todo_gids) == 0 && ordered_hashmap_size(members) == 0)
                 return 0;
 
         r = fopen_temporary_label("/etc/gshadow", gshadow_path, &gshadow, &gshadow_tmp);
@@ -664,7 +664,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                 errno = 0;
                 while ((sg = fgetsgent(original))) {
 
-                        i = hashmap_get(groups, sg->sg_namp);
+                        i = ordered_hashmap_get(groups, sg->sg_namp);
                         if (i && i->todo_group) {
                                 log_error("%s: Group \"%s\" already exists.", gshadow_path, sg->sg_namp);
                                 return -EEXIST;
@@ -688,7 +688,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                         return -errno;
         }
 
-        HASHMAP_FOREACH(i, todo_gids, iterator) {
+        ORDERED_HASHMAP_FOREACH(i, todo_gids, iterator) {
                 struct sgrp n = {
                         .sg_namp = i->name,
                         .sg_passwd = (char*) "!!",
@@ -808,12 +808,12 @@ static int uid_is_ok(uid_t uid, const char *name) {
         Item *i;
 
         /* Let's see if we already have assigned the UID a second time */
-        if (hashmap_get(todo_uids, UID_TO_PTR(uid)))
+        if (ordered_hashmap_get(todo_uids, UID_TO_PTR(uid)))
                 return 0;
 
         /* Try to avoid using uids that are already used by a group
          * that doesn't have the same name as our new user. */
-        i = hashmap_get(todo_gids, GID_TO_PTR(uid));
+        i = ordered_hashmap_get(todo_gids, GID_TO_PTR(uid));
         if (i && !streq(i->name, name))
                 return 0;
 
@@ -1013,11 +1013,11 @@ static int add_user(Item *i) {
                 i->uid = search_uid;
         }
 
-        r = hashmap_ensure_allocated(&todo_uids, NULL);
+        r = ordered_hashmap_ensure_allocated(&todo_uids, NULL);
         if (r < 0)
                 return log_oom();
 
-        r = hashmap_put(todo_uids, UID_TO_PTR(i->uid), i);
+        r = ordered_hashmap_put(todo_uids, UID_TO_PTR(i->uid), i);
         if (r < 0)
                 return log_oom();
 
@@ -1031,11 +1031,11 @@ static int gid_is_ok(gid_t gid) {
         struct group *g;
         struct passwd *p;
 
-        if (hashmap_get(todo_gids, GID_TO_PTR(gid)))
+        if (ordered_hashmap_get(todo_gids, GID_TO_PTR(gid)))
                 return 0;
 
         /* Avoid reusing gids that are already used by a different user */
-        if (hashmap_get(todo_uids, UID_TO_PTR(gid)))
+        if (ordered_hashmap_get(todo_uids, UID_TO_PTR(gid)))
                 return 0;
 
         if (hashmap_contains(database_gid, GID_TO_PTR(gid)))
@@ -1160,11 +1160,11 @@ static int add_group(Item *i) {
                 i->gid = search_uid;
         }
 
-        r = hashmap_ensure_allocated(&todo_gids, NULL);
+        r = ordered_hashmap_ensure_allocated(&todo_gids, NULL);
         if (r < 0)
                 return log_oom();
 
-        r = hashmap_put(todo_gids, GID_TO_PTR(i->gid), i);
+        r = ordered_hashmap_put(todo_gids, GID_TO_PTR(i->gid), i);
         if (r < 0)
                 return log_oom();
 
@@ -1191,7 +1191,7 @@ static int process_item(Item *i) {
         case ADD_GROUP: {
                 Item *j;
 
-                j = hashmap_get(users, i->name);
+                j = ordered_hashmap_get(users, i->name);
                 if (j) {
                         /* There's already user to be created for this
                          * name, let's process that in one step */
@@ -1240,15 +1240,15 @@ static int add_implicit(void) {
 
         /* Implicitly create additional users and groups, if they were listed in "m" lines */
 
-        HASHMAP_FOREACH_KEY(l, g, members, iterator) {
+        ORDERED_HASHMAP_FOREACH_KEY(l, g, members, iterator) {
                 Item *i;
                 char **m;
 
-                i = hashmap_get(groups, g);
+                i = ordered_hashmap_get(groups, g);
                 if (!i) {
                         _cleanup_(item_freep) Item *j = NULL;
 
-                        r = hashmap_ensure_allocated(&groups, &string_hash_ops);
+                        r = ordered_hashmap_ensure_allocated(&groups, &string_hash_ops);
                         if (r < 0)
                                 return log_oom();
 
@@ -1261,7 +1261,7 @@ static int add_implicit(void) {
                         if (!j->name)
                                 return log_oom();
 
-                        r = hashmap_put(groups, j->name, j);
+                        r = ordered_hashmap_put(groups, j->name, j);
                         if (r < 0)
                                 return log_oom();
 
@@ -1271,11 +1271,11 @@ static int add_implicit(void) {
 
                 STRV_FOREACH(m, l) {
 
-                        i = hashmap_get(users, *m);
+                        i = ordered_hashmap_get(users, *m);
                         if (!i) {
                                 _cleanup_(item_freep) Item *j = NULL;
 
-                                r = hashmap_ensure_allocated(&users, &string_hash_ops);
+                                r = ordered_hashmap_ensure_allocated(&users, &string_hash_ops);
                                 if (r < 0)
                                         return log_oom();
 
@@ -1288,7 +1288,7 @@ static int add_implicit(void) {
                                 if (!j->name)
                                         return log_oom();
 
-                                r = hashmap_put(users, j->name, j);
+                                r = ordered_hashmap_put(users, j->name, j);
                                 if (r < 0)
                                         return log_oom();
 
@@ -1351,7 +1351,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         _cleanup_free_ char *action = NULL, *name = NULL, *id = NULL, *resolved_name = NULL, *resolved_id = NULL, *description = NULL, *home = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
-        Hashmap *h;
+        OrderedHashmap *h;
         int r;
         const char *p;
 
@@ -1497,11 +1497,11 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                r = hashmap_ensure_allocated(&members, &string_hash_ops);
+                r = ordered_hashmap_ensure_allocated(&members, &string_hash_ops);
                 if (r < 0)
                         return log_oom();
 
-                l = hashmap_get(members, resolved_id);
+                l = ordered_hashmap_get(members, resolved_id);
                 if (l) {
                         /* A list for this group name already exists, let's append to it */
                         r = strv_push(&l, resolved_name);
@@ -1510,7 +1510,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                         resolved_name = NULL;
 
-                        assert_se(hashmap_update(members, resolved_id, l) >= 0);
+                        assert_se(ordered_hashmap_update(members, resolved_id, l) >= 0);
                 } else {
                         /* No list for this group name exists yet, create one */
 
@@ -1521,7 +1521,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         l[0] = resolved_name;
                         l[1] = NULL;
 
-                        r = hashmap_put(members, resolved_id, l);
+                        r = ordered_hashmap_put(members, resolved_id, l);
                         if (r < 0) {
                                 free(l);
                                 return log_oom();
@@ -1539,7 +1539,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                r = hashmap_ensure_allocated(&users, &string_hash_ops);
+                r = ordered_hashmap_ensure_allocated(&users, &string_hash_ops);
                 if (r < 0)
                         return log_oom();
 
@@ -1596,7 +1596,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                r = hashmap_ensure_allocated(&groups, &string_hash_ops);
+                r = ordered_hashmap_ensure_allocated(&groups, &string_hash_ops);
                 if (r < 0)
                         return log_oom();
 
@@ -1630,7 +1630,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         i->name = resolved_name;
         resolved_name = NULL;
 
-        existing = hashmap_get(h, i->name);
+        existing = ordered_hashmap_get(h, i->name);
         if (existing) {
 
                 /* Two identical items are fine */
@@ -1640,7 +1640,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 return 0;
         }
 
-        r = hashmap_put(h, i->name, i);
+        r = ordered_hashmap_put(h, i->name, i);
         if (r < 0)
                 return log_oom();
 
@@ -1861,10 +1861,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        HASHMAP_FOREACH(i, groups, iterator)
+        ORDERED_HASHMAP_FOREACH(i, groups, iterator)
                 process_item(i);
 
-        HASHMAP_FOREACH(i, users, iterator)
+        ORDERED_HASHMAP_FOREACH(i, users, iterator)
                 process_item(i);
 
         r = write_files();
@@ -1872,17 +1872,17 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "Failed to write files: %m");
 
 finish:
-        hashmap_free_with_destructor(groups, item_free);
-        hashmap_free_with_destructor(users, item_free);
+        ordered_hashmap_free_with_destructor(groups, item_free);
+        ordered_hashmap_free_with_destructor(users, item_free);
 
-        while ((n = hashmap_first_key(members))) {
-                strv_free(hashmap_steal_first(members));
+        while ((n = ordered_hashmap_first_key(members))) {
+                strv_free(ordered_hashmap_steal_first(members));
                 free(n);
         }
-        hashmap_free(members);
+        ordered_hashmap_free(members);
 
-        hashmap_free(todo_uids);
-        hashmap_free(todo_gids);
+        ordered_hashmap_free(todo_uids);
+        ordered_hashmap_free(todo_gids);
 
         free_database(database_user, database_uid);
         free_database(database_group, database_gid);
