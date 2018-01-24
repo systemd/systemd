@@ -17,6 +17,12 @@ _systemd_analyze_verify() {
     _sd_unit_files
 }
 
+_systemd_analyze_service-watchdogs() {
+    local -a _states
+    _states=(on off)
+    _describe -t state 'state' _states || compadd "$@"
+}
+
 _systemd_analyze_command(){
     local -a _systemd_analyze_cmds
     # Descriptions taken from systemd-analyze --help.
@@ -31,6 +37,7 @@ _systemd_analyze_command(){
         'set-log-target:Set systemd log target'
         'get-log-level:Get systemd log threshold'
         'get-log-target:Get systemd log target'
+        'service-watchdogs:Get/set service watchdog status'
         'syscall-filter:List syscalls in seccomp filter'
         'verify:Check unit files for correctness'
     )
