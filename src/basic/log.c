@@ -251,7 +251,7 @@ int log_open(void) {
                 return 0;
         }
 
-        if (!IN_SET(log_target, LOG_TARGET_AUTO, LOG_TARGET_SAFE) ||
+        if (log_target != LOG_TARGET_AUTO ||
             getpid_cached() == 1 ||
             isatty(STDERR_FILENO) <= 0) {
 
@@ -279,7 +279,6 @@ int log_open(void) {
                 }
 
                 if (IN_SET(log_target, LOG_TARGET_AUTO,
-                                       LOG_TARGET_SAFE,
                                        LOG_TARGET_JOURNAL_OR_KMSG,
                                        LOG_TARGET_SYSLOG_OR_KMSG,
                                        LOG_TARGET_KMSG)) {
@@ -631,7 +630,6 @@ int log_dispatch_internal(
 
                 if (k <= 0 &&
                     IN_SET(log_target, LOG_TARGET_AUTO,
-                                       LOG_TARGET_SAFE,
                                        LOG_TARGET_SYSLOG_OR_KMSG,
                                        LOG_TARGET_JOURNAL_OR_KMSG,
                                        LOG_TARGET_KMSG)) {
@@ -1223,8 +1221,7 @@ static const char *const log_target_table[_LOG_TARGET_MAX] = {
         [LOG_TARGET_SYSLOG] = "syslog",
         [LOG_TARGET_SYSLOG_OR_KMSG] = "syslog-or-kmsg",
         [LOG_TARGET_AUTO] = "auto",
-        [LOG_TARGET_SAFE] = "safe",
-        [LOG_TARGET_NULL] = "null"
+        [LOG_TARGET_NULL] = "null",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
