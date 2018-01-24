@@ -4072,6 +4072,21 @@ char *manager_taint_string(Manager *m) {
         return buf;
 }
 
+void manager_ref_console(Manager *m) {
+        assert(m);
+
+        m->n_on_console++;
+}
+
+void manager_unref_console(Manager *m) {
+
+        assert(m->n_on_console > 0);
+        m->n_on_console--;
+
+        if (m->n_on_console == 0)
+                m->no_console_output = false; /* unset no_console_output flag, since the console is definitely free now */
+}
+
 static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
         [MANAGER_INITIALIZING] = "initializing",
         [MANAGER_STARTING] = "starting",
