@@ -78,7 +78,7 @@ _journalctl() {
                                 comps=${__syslog_priorities[*]}
                         ;;
                         --unit|-u)
-                                comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
+                                comps=$(systemctl list-unit-files --no-pager | cut -d ' ' -f1 | grep -P '^[a-z]' 2>/dev/null)
                         ;;
                         --user-unit)
                                 comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
