@@ -32,12 +32,25 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 
 #define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
+
+bool unit_has_root_cgroup(Unit *u) {
+        assert(u);
+
+        /* Returns whether this unit manages the root cgroup. Note that this is different from being named "-.slice",
+         * as inside of containers the root slice won't be identical to the root cgroup. */
+
+        if (!u->cgroup_path)
+                return false;
+
+        return isempty(u->cgroup_path) || path_equal(u->cgroup_path, "/");
+}
 
 static void cgroup_compat_warn(void) {
         static bool cgroup_compat_warned = false;
@@ -708,21 +721,17 @@ static void cgroup_context_apply(
 
         assert(u);
 
-        c = unit_get_cgroup_context(u);
-        path = u->cgroup_path;
-
-        assert(c);
-        assert(path);
-
         /* Nothing to do? Exit early! */
         if (apply_mask == 0 && !apply_bpf)
                 return;
 
-        /* Some cgroup attributes are not supported on the root cgroup,
-         * hence silently ignore */
-        is_root = isempty(path) || path_equal(path, "/");
-        if (is_root)
-                /* Make sure we don't try to display messages with an empty path. */
+        /* Some cgroup attributes are not supported on the root cgroup, hence silently ignore */
+        is_root = unit_has_root_cgroup(u);
+
+        assert_se(c = unit_get_cgroup_context(u));
+        assert_se(path = u->cgroup_path);
+
+        if (is_root) /* Make sure we don't try to display messages with an empty path. */
                 path = "/";
 
         /* We generally ignore errors caused by read-only mounted
@@ -1019,19 +1028,46 @@ static void cgroup_context_apply(
                 }
         }
 
-        if ((apply_mask & CGROUP_MASK_PIDS) && !is_root) {
+        if (apply_mask & CGROUP_MASK_PIDS) {
 
-                if (c->tasks_max != CGROUP_LIMIT_MAX) {
-                        char buf[DECIMAL_STR_MAX(uint64_t) + 2];
+                if (is_root) {
+                        /* So, the "pids" controller does not expose anything on the root cgroup, in order not to
+                         * replicate knobs exposed elsewhere needlessly. We abstract this away here however, and when
+                         * the knobs of the root cgroup are modified propagate this to the relevant sysctls. There's a
+                         * non-obvious asymmetry however: unlike the cgroup properties we don't really want to take
+                         * exclusive ownership of the sysctls, but we still want to honour things if the user sets
+                         * limits. Hence we employ sort of a one-way strategy: when the user sets a bounded limit
+                         * through us it counts. When the user afterwards unsets it again (i.e. sets it to unbounded)
+                         * it also counts. But if the user never set a limit through us (i.e. we are the default of
+                         * "unbounded") we leave things unmodified. For this we manage a global boolean that we turn on
+                         * the first time we set a limit. Note that this boolean is flushed out on manager reload,
+                         * which is desirable so that there's an offical way to release control of the sysctl from
+                         * systemd: set the limit to unbounded and reload. */
 
-                        sprintf(buf, "%" PRIu64 "\n", c->tasks_max);
-                        r = cg_set_attribute("pids", path, "pids.max", buf);
-                } else
-                        r = cg_set_attribute("pids", path, "pids.max", "max");
+                        if (c->tasks_max != CGROUP_LIMIT_MAX) {
+                                u->manager->sysctl_pid_max_changed = true;
+                                r = procfs_tasks_set_limit(c->tasks_max);
+                        } else if (u->manager->sysctl_pid_max_changed)
+                                r = procfs_tasks_set_limit(TASKS_MAX);
+                        else
+                                r = 0;
 
-                if (r < 0)
-                        log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
-                                      "Failed to set pids.max: %m");
+                        if (r < 0)
+                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                              "Failed to write to tasks limit sysctls: %m");
+
+                } else {
+                        if (c->tasks_max != CGROUP_LIMIT_MAX) {
+                                char buf[DECIMAL_STR_MAX(uint64_t) + 2];
+
+                                sprintf(buf, "%" PRIu64 "\n", c->tasks_max);
+                                r = cg_set_attribute("pids", path, "pids.max", buf);
+                        } else
+                                r = cg_set_attribute("pids", path, "pids.max", "max");
+                        if (r < 0)
+                                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                              "Failed to set pids.max: %m");
+                }
         }
 
         if (apply_bpf)
@@ -1062,7 +1098,7 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
                 mask |= CGROUP_MASK_DEVICES;
 
         if (c->tasks_accounting ||
-            c->tasks_max != (uint64_t) -1)
+            c->tasks_max != CGROUP_LIMIT_MAX)
                 mask |= CGROUP_MASK_PIDS;
 
         return mask;
@@ -2293,6 +2329,10 @@ int unit_get_tasks_current(Unit *u, uint64_t *ret) {
 
         if ((u->cgroup_realized_mask & CGROUP_MASK_PIDS) == 0)
                 return -ENODATA;
+
+        /* The root cgroup doesn't expose this information, let's get it from /proc instead */
+        if (unit_has_root_cgroup(u))
+                return procfs_tasks_get_current(ret);
 
         r = cg_get_attribute("pids", u->cgroup_path, "pids.current", &v);
         if (r == -ENOENT)

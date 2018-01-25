@@ -411,6 +411,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-procfs-util.c'],
+         [],
+         []],
+
         [['src/test/test-unaligned.c'],
          [],
          []],

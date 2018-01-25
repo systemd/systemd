@@ -40,7 +40,9 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "stdio-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
@@ -193,26 +195,33 @@ static int process(
                         g->n_tasks_valid = true;
 
         } else if (streq(controller, "pids") && arg_count == COUNT_PIDS) {
-                _cleanup_free_ char *p = NULL, *v = NULL;
 
-                r = cg_get_path(controller, path, "pids.current", &p);
-                if (r < 0)
-                        return r;
+                if (isempty(path) || path_equal(path, "/")) {
+                        r = procfs_tasks_get_current(&g->n_tasks);
+                        if (r < 0)
+                                return r;
+                } else {
+                        _cleanup_free_ char *p = NULL, *v = NULL;
 
-                r = read_one_line_file(p, &v);
-                if (r == -ENOENT)
-                        return 0;
-                if (r < 0)
-                        return r;
+                        r = cg_get_path(controller, path, "pids.current", &p);
+                        if (r < 0)
+                                return r;
 
-                r = safe_atou64(v, &g->n_tasks);
-                if (r < 0)
-                        return r;
+                        r = read_one_line_file(p, &v);
+                        if (r == -ENOENT)
+                                return 0;
+                        if (r < 0)
+                                return r;
+
+                        r = safe_atou64(v, &g->n_tasks);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (g->n_tasks > 0)
                         g->n_tasks_valid = true;
 
-        } else if (streq(controller, "cpu") || streq(controller, "cpuacct")) {
+        } else if (STR_IN_SET(controller, "cpu", "cpuacct")) {
                 _cleanup_free_ char *p = NULL, *v = NULL;
                 uint64_t new_usage;
                 nsec_t timestamp;

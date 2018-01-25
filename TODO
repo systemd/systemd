@@ -43,6 +43,15 @@ Features:
   sd_id128_get_machine_app_specific(). After all on long-running systems both
   IDs have similar properties.
 
+* emulate properties of the root cgroup on controllers that don't support such
+  properties natively on cpu/io/memory, the way we already do it for
+  "pids". Also, add the same logic to cgtop.
+
+* set TasksAccounting=1 on the root slice if we are running on the root cgroup,
+  and similar for the others, as soon as we emulate them properly. After all,
+  Linux keeps these system-wide stats anyway, and it costs nothing to expose
+  them.
+
 * sd-bus: add vtable flag, that may be used to request client creds implicitly
   and asynchronously before dispatching the operation
 
