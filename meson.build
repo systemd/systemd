@@ -589,7 +589,8 @@ conf.set('GPERF_LEN_TYPE', gperf_len_type,
 if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
 endif
-foreach header : ['linux/btrfs.h',
+foreach header : ['crypt.h',
+                  'linux/btrfs.h',
                   'linux/memfd.h',
                   'linux/vm_sockets.h',
                   'sys/auxv.h',
