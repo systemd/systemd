@@ -97,19 +97,27 @@ if conf.get('ENABLE_LOGIND') == 1
                 install : install_polkit,
                 install_dir : polkitpolicydir)
 
-        install_data('70-power-switch.rules',
-                     '70-uaccess.rules',
+        install_data('70-power-switch.rules', install_dir : udevrulesdir)
+
+        if conf.get('HAVE_ACL') == 1
+                install_data('70-uaccess.rules', install_dir : udevrulesdir)
+        endif
+
+        seat_rules = configure_file(
+                input : '71-seat.rules.in',
+                output : '71-seat.rules',
+                configuration : substs)
+        install_data(seat_rules,
                      install_dir : udevrulesdir)
 
-        foreach file : ['71-seat.rules',
-                        '73-seat-late.rules']
-                gen = configure_file(
-                        input : file + '.in',
-                        output : file,
-                        configuration : substs)
-                install_data(gen,
-                             install_dir : udevrulesdir)
-        endforeach
+        custom_target(
+                '73-seat-late.rules',
+                input : '73-seat-late.rules.m4',
+                output: '73-seat-late.rules',
+                command : [m4, '-P'] + m4_defines + ['@INPUT@'],
+                capture : true,
+                install : true,
+                install_dir : udevrulesdir)
 
         custom_target(
                 'systemd-user',
