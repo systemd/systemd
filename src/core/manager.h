@@ -455,6 +455,9 @@ void manager_deserialize_gid_refs_one(Manager *m, const char *value);
 
 char *manager_taint_string(Manager *m);
 
+void manager_ref_console(Manager *m);
+void manager_unref_console(Manager *m);
+
 const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;
 

@@ -340,6 +340,7 @@ struct Unit {
         bool sent_dbus_new_signal:1;
 
         bool in_audit:1;
+        bool on_console:1;
 
         bool cgroup_realized:1;
         bool cgroup_members_mask_valid:1;
@@ -540,6 +541,9 @@ struct UnitVTable {
 
         /* Returns the main PID if there is any defined, or 0. */
         pid_t (*control_pid)(Unit *u);
+
+        /* Returns true if the unit currently needs access to the console */
+        bool (*needs_console)(Unit *u);
 
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
@@ -794,6 +798,8 @@ void unit_unlink_state_files(Unit *u);
 int unit_prepare_exec(Unit *u);
 
 void unit_warn_leftover_processes(Unit *u);
+
+bool unit_needs_console(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

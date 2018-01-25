@@ -630,6 +630,9 @@ void unit_free(Unit *u) {
         if (u->in_cgroup_empty_queue)
                 LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
 
+        if (u->on_console)
+                manager_unref_console(u->manager);
+
         unit_release_cgroup(u);
 
         if (!MANAGER_IS_RELOADING(u->manager))
@@ -2305,6 +2308,23 @@ finish:
 
 }
 
+static void unit_update_on_console(Unit *u) {
+        bool b;
+
+        assert(u);
+
+        b = unit_needs_console(u);
+        if (u->on_console == b)
+                return;
+
+        u->on_console = b;
+        if (b)
+                manager_ref_console(u->manager);
+        else
+                manager_unref_console(u->manager);
+
+}
+
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
         Manager *m;
         bool unexpected;
@@ -2345,24 +2365,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 unit_unlink_state_files(u);
         }
 
-        /* Note that this doesn't apply to RemainAfterExit services exiting
-         * successfully, since there's no change of state in that case. Which is
-         * why it is handled in service_set_state() */
-        if (UNIT_IS_INACTIVE_OR_FAILED(os) != UNIT_IS_INACTIVE_OR_FAILED(ns)) {
-                ExecContext *ec;
-
-                ec = unit_get_exec_context(u);
-                if (ec && exec_context_may_touch_console(ec)) {
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
-                                m->n_on_console--;
-
-                                if (m->n_on_console == 0)
-                                        /* unset no_console_output flag, since the console is free */
-                                        m->no_console_output = false;
-                        } else
-                                m->n_on_console++;
-                }
-        }
+        unit_update_on_console(u);
 
         if (u->job) {
                 unexpected = false;
@@ -5348,6 +5351,28 @@ void unit_warn_leftover_processes(Unit *u) {
                 return;
 
         (void) cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, 0, 0, NULL, log_leftover, u);
+}
+
+bool unit_needs_console(Unit *u) {
+        ExecContext *ec;
+        UnitActiveState state;
+
+        assert(u);
+
+        state = unit_active_state(u);
+
+        if (UNIT_IS_INACTIVE_OR_FAILED(state))
+                return false;
+
+        if (UNIT_VTABLE(u)->needs_console)
+                return UNIT_VTABLE(u)->needs_console(u);
+
+        /* If this unit type doesn't implement this call, let's use a generic fallback implementation: */
+        ec = unit_get_exec_context(u);
+        if (!ec)
+                return false;
+
+        return exec_context_may_touch_console(ec);
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {

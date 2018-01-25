@@ -1060,26 +1060,6 @@ static void service_set_state(Service *s, ServiceState state) {
         if (state == SERVICE_EXITED && !MANAGER_IS_RELOADING(UNIT(s)->manager))
                 unit_prune_cgroup(UNIT(s));
 
-        /* For remain_after_exit services, let's see if we can "release" the
-         * hold on the console, since unit_notify() only does that in case of
-         * change of state */
-        if (state == SERVICE_EXITED &&
-            s->remain_after_exit &&
-            UNIT(s)->manager->n_on_console > 0) {
-
-                ExecContext *ec;
-
-                ec = unit_get_exec_context(UNIT(s));
-                if (ec && exec_context_may_touch_console(ec)) {
-                        Manager *m = UNIT(s)->manager;
-
-                        m->n_on_console--;
-                        if (m->n_on_console == 0)
-                                /* unset no_console_output flag, since the console is free */
-                                m->no_console_output = false;
-                }
-        }
-
         if (old_state != state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
 
@@ -3806,6 +3786,32 @@ static int service_control_pid(Unit *u) {
         return s->control_pid;
 }
 
+static bool service_needs_console(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+        /* We provide our own implementation of this here, instead of relying of the generic implementation
+         * unit_needs_console() provides, since we want to return false if we are in SERVICE_EXITED state. */
+
+        if (!exec_context_may_touch_console(&s->exec_context))
+                return false;
+
+        return IN_SET(s->state,
+                      SERVICE_START_PRE,
+                      SERVICE_START,
+                      SERVICE_START_POST,
+                      SERVICE_RUNNING,
+                      SERVICE_RELOAD,
+                      SERVICE_STOP,
+                      SERVICE_STOP_SIGABRT,
+                      SERVICE_STOP_SIGTERM,
+                      SERVICE_STOP_SIGKILL,
+                      SERVICE_STOP_POST,
+                      SERVICE_FINAL_SIGTERM,
+                      SERVICE_FINAL_SIGKILL);
+}
+
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO] = "no",
         [SERVICE_RESTART_ON_SUCCESS] = "on-success",
@@ -3921,6 +3927,7 @@ const UnitVTable service_vtable = {
         .bus_commit_properties = bus_service_commit_properties,
 
         .get_timeout = service_get_timeout,
+        .needs_console = service_needs_console,
         .can_transient = true,
 
         .status_message_formats = {
