@@ -19,6 +19,143 @@ CHANGES WITH 237 in spe:
           don't exist yet, and only then the argument string is written to the
           file.
 
+        * A new environment variable $SYSTEMD_OFFLINE is now understood by
+          systemctl. It takes a boolean argument. If on, systemctl assumes it
+          operates on an "offline" OS tree, and will not attempt to talk to the
+          service manager. Previously, this mode was implicitly enabled if a
+          chroot() environment was detected, and this new environment variable
+          now provides explicit control.
+
+        * .path and .socket units may now be created transiently,
+          too. Previously only service, mount, automount and timer units were
+          supported as transient units. The systemd-run tool has been updated
+          to expose this new functionality, you may hence use it now to bind
+          arbitrary commands to path or socket activation on-the-fly from the
+          command line. Moreover, for the unit types already supporting
+          transient operation most properties are now hooked up.
+
+        * The systemd-mount command gained support for a new --owner= parameter
+          which takes a user name, which is then resolved and included in uid=
+          and gid= mount options string of the file system to mount.
+
+        * A new unit condition ConditionControlGroupController= has been added
+          that checks whether a specific cgroup controller is available.
+
+        * Unit files, udev's .link files, and systemd-networkd's .netdev and
+          .network files all gained support for a new condition
+          ConditionKernelVersion= for checking against specific kernel
+          versions.
+
+        * In systemd-networkd, the [IPVLAN] section in .netdev files gained
+          support for configuring device flags in the Flags= setting In the
+          same files, the [Tunnel] section gained support for configuring
+          AllowLocalRemote=.  The [Route] section in .network files gained
+          support for configuring InitialCongestionWindow=,
+          InitialAdvertisedReceiveWindow= and QuickAck=. The [DHCP] section now
+          understands RapidCommit=.
+
+        * systemd-networkd's DHCPv6 support gained support for Prefix
+          Delegation.
+
+        * sd-bus gained support for a new "watch-bind" feature. When this
+          feature is enabled, an sd_bus connection may be set up to connect to
+          an AF_UNIX socket in the file system as soon as it is created. This
+          functionality is useful for writing early-boot services that
+          automatically connect to the system bus as soon as it is started,
+          without ugly time-based polling. systemd-networkd and
+          systemd-resolved have been updated to make use of this
+          functionality. busctl exposes this functionality in a new
+          --watch-bind= command line switch.
+
+        * sd-bus will now optionally synthesize a local "Connected" signal as
+          soon as a D-Bus connection is set up fully. This message mirrors the
+          already existing "Disconnected" signal which is synthesized when the
+          connection is terminated. This signal is generally useful but
+          particularly handy in combination with the "watch-bind" feature
+          described above. Synthesizing of this message has to be requested
+          explicitly through the new API call sd_bus_set_connected_signal(). In
+          addition a new call sd_bus_is_ready() has been added that checks
+          wether a connection is fully set up (i.e. between the "Connected" and
+          "Disconnected" signals).
+
+        * sd-bus gained two new calls sd_bus_request_name_async() and
+          sd_bus_release_name_async() for asynchronously registering bus
+          names. Similar, there is now sd_bus_add_match_async() for installing
+          a signal match asynchronously. All of systemd's own services have
+          been updated to make use of these calls. Doing these operations
+          asynchronously has two benefits: it reduces the risk of deadlocks in
+          case of cyclic dependencies between bus services, and it speeds up
+          service initialization since synchronization points for bus
+          round-trips are removed.
+
+        * sd-bus gained two new calls sd_bus_match_signal() and
+          sd_bus_match_signal_async(), which are similar to sd_bus_add_match()
+          and sd_bus_add_match_async() but instead of taking a D-Bus match
+          string take match fields as normal function parameters.
+
+        * sd-bus gained two new calls sd_bus_set_sender() and
+          sd_bus_message_set_sender() for setting the sender name of outgoing
+          messages (either for all outgoing messages or for just one specific
+          one). These calls are only useful in direct connections as on
+          brokered connections the broker fills in the sender anyway,
+          overwriting whatever the client filled in.
+
+        * sd-event gained a new pseudo-handle that may be specified on all API
+          calls where an "sd_event*" object is expected: SD_EVENT_DEFAULT. When
+          used this refers to the default event loop object of the calling
+          thread. Note however that this does not implicitly allocate one —
+          which has to be done prior by using sd_event_default(). Similar
+          sd-bus gained a three new pseudo-handles SD_BUS_DEFAULT,
+          SD_BUS_DEFAULT_USER, SD_BUS_DEFAULT_SYSTEM that may be used to refer
+          to the default bus of the specified type of the calling thread. Here
+          too this does not implicitly allocate bus connection objects, this
+          has to be done prior with sd_bus_default() and friends.
+
+        * sd-event gained a new call pair
+          sd_event_source_{get|set}_io_fd_own(). This may be used to optionally
+          automatically close the file descriptor an IO event source watches
+          when the event source is destroyed.
+
+        * systemd-networkd gained support for natively configuring WireGuard
+          connections.
+
+        * Already in previous versions systemd synthesized user records both
+          for the "nobody" (UID 65534) and "root" (UID 0) users in nss-systemd
+          and internally. In order to simplify distribution-wide renames of the
+          "nobody" user (like it is planned in Fedora: nfsnobody → nobody), a
+          new transitional flag file has been added: if
+          /etc/systemd/dont-synthesize-nobody exists synthesizing of the 65534
+          user and group record within the systemd codebase is disabled.
+
+        * systemd-notify gained a new --uid= option for selecting the source
+          user/UID to use for notification messages sent to the service
+          manager.
+
+        * There's now a "systemd-analyze service-watchdogs" command for turning
+          on or off the per-service watchdogs system-wide (i.e. the concept you
+          configure in WatchdogSec=), for debugging purposes. There's also a
+          kernel command line option systemd.service_watchdogs= for controlling
+          the same.
+
+        Contributions from: Adam Duskett, Alan Jenkins, Alexander Kuleshov,
+        Alexis Deruelle, Armin Widegreen, bleep_blop, Bruce A. Johnson, Chris
+        Down, Colin Walters, Dimitri John Ledkov, Dmitry Rozhkov, Ewout van
+        Mansom, Felipe Sateler, Franck Bui, Frantisek Sumsal, George Gaydarov,
+        Gianluca Boiano, Hans-Christian Noren Egtvedt, Hans de Goede, Henrik
+        Grindal Bakken, Jan Alexander Steffens, Jan Klötzke, jdkbx, Jérémy
+        Rosen, Jerónimo Borque, John Lin, John Paul Herold, Jonathan Rudenberg,
+        Jörg Thalheim, Ken (Bitsko) MacLeod, Larry Bernstone, Lennart
+        Poettering, Lucas Werkmeister, Maciej S. Szmigiero, Marek Čermák,
+        Martin Pitt, Mathieu Malaterre, Matthew Thode, Matthias-Christian Ott,
+        Max Harmathy, Michael Biebl, Michal Koutný, Michal Sekletar, Michał
+        Szczepański, Mike Gilbert, Nathaniel McCallum, Olaf Hering, Olivier
+        Schwander, Patrik Flykt, Paul Cercueil, Peter Hutterer, Piotr Drąg,
+        Reverend Homer, Robert Kolchmeyer, Samuel Dionne-Riel, Sergey
+        Ptashnick, Shawn Landden, Susant Sahani, Sylvain Plantefève, Thomas
+        Huth, Tomasz Bachorski, Vladislav Vishnyakov, Wieland Hoffmann, Yu
+        Watanabe, Zachary Winnerman, Zbigniew Jędrzejewski-Szmek, Дамјан
+        Георгиевски, Дилян Палаузов
+
         — Berlin, 2018-XX-XX
 
 CHANGES WITH 236:
