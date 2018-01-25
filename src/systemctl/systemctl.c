@@ -2650,55 +2650,32 @@ static int unit_find_paths(
 
 static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *active_state) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ char *buf = NULL, *path = NULL;
         UnitActiveState state;
-        const char *path;
         int r;
 
         assert(name);
         assert(active_state);
 
-        /* We don't use unit_dbus_path_from_name() directly since we don't want to load the unit unnecessarily, if it
-         * isn't loaded. */
-        r = sd_bus_call_method(
+        path = unit_dbus_path_from_name(name);
+        if (!path)
+                return log_oom();
+
+        r = sd_bus_get_property_string(
                         bus,
                         "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "GetUnit",
+                        path,
+                        "org.freedesktop.systemd1.Unit",
+                        "ActiveState",
                         &error,
-                        &reply,
-                        "s", name);
-        if (r < 0) {
-                if (!sd_bus_error_has_name(&error,  BUS_ERROR_NO_SUCH_UNIT))
-                        return log_error_errno(r, "Failed to retrieve unit: %s", bus_error_message(&error, r));
+                        &buf);
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
 
-                /* The unit is currently not loaded, hence say it's "inactive", since all units that aren't loaded are
-                 * considered inactive. */
-                state = UNIT_INACTIVE;
-
-        } else {
-                r = sd_bus_message_read(reply, "o", &path);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_get_property_string(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Unit",
-                                "ActiveState",
-                                &error,
-                                &buf);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
-
-                state = unit_active_state_from_string(buf);
-                if (state == _UNIT_ACTIVE_STATE_INVALID) {
-                        log_error("Invalid unit state '%s' for: %s", buf, name);
-                        return -EINVAL;
-                }
+        state = unit_active_state_from_string(buf);
+        if (state == _UNIT_ACTIVE_STATE_INVALID) {
+                log_error("Invalid unit state '%s' for: %s", buf, name);
+                return -EINVAL;
         }
 
         *active_state = state;
