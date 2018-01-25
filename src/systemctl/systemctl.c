@@ -8352,7 +8352,7 @@ static int talk_initctl(void) {
 
         request.runlevel = rl;
 
-        fd = open(INIT_FIFO, O_WRONLY|O_NDELAY|O_CLOEXEC|O_NOCTTY);
+        fd = open(INIT_FIFO, O_WRONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
                 if (errno == ENOENT)
                         return 0;

@@ -1189,7 +1189,7 @@ static int write_one_file(Item *i, const char *path) {
         assert(i);
         assert(path);
 
-        flags = i->type == CREATE_FILE ? O_CREAT|O_APPEND|O_NOFOLLOW :
+        flags = i->type == CREATE_FILE ? O_CREAT|O_EXCL|O_NOFOLLOW :
                 i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC|O_NOFOLLOW : 0;
 
         RUN_WITH_UMASK(0000) {
@@ -1200,8 +1200,12 @@ static int write_one_file(Item *i, const char *path) {
 
         if (fd < 0) {
                 if (i->type == WRITE_FILE && errno == ENOENT) {
-                        log_debug_errno(errno, "Not writing \"%s\": %m", path);
+                        log_debug_errno(errno, "Not writing missing file \"%s\": %m", path);
                         return 0;
+                }
+                if (i->type == CREATE_FILE && errno == EEXIST) {
+                        log_debug_errno(errno, "Not writing to pre-existing file \"%s\": %m", path);
+                        goto done;
                 }
 
                 r = -errno;
@@ -1223,6 +1227,7 @@ static int write_one_file(Item *i, const char *path) {
 
         fd = safe_close(fd);
 
+done:
         if (stat(path, &st) < 0)
                 return log_error_errno(errno, "stat(%s) failed: %m", path);
 

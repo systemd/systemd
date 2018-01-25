@@ -962,7 +962,7 @@ int session_create_fifo(Session *s) {
 
         /* Open reading side */
         if (s->fifo_fd < 0) {
-                s->fifo_fd = open(s->fifo_path, O_RDONLY|O_CLOEXEC|O_NDELAY);
+                s->fifo_fd = open(s->fifo_path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 if (s->fifo_fd < 0)
                         return -errno;
 
@@ -981,7 +981,7 @@ int session_create_fifo(Session *s) {
         }
 
         /* Open writing side */
-        r = open(s->fifo_path, O_WRONLY|O_CLOEXEC|O_NDELAY);
+        r = open(s->fifo_path, O_WRONLY|O_CLOEXEC|O_NONBLOCK);
         if (r < 0)
                 return -errno;
 
