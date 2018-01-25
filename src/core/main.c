@@ -2328,11 +2328,16 @@ int main(int argc, char *argv[]) {
         saved_argv = argv;
         saved_argc = argc;
 
+        /* Make sure that if the user says "syslog" we actually log to the journal. */
         log_set_upgrade_syslog_to_journal(true);
 
         if (getpid_cached() == 1) {
                 /* Disable the umask logic */
                 umask(0);
+
+                /* Make sure that at least initially we do not ever log to journald/syslogd, because it might not be activated
+                 * yet (even though the log socket for it exists). */
+                log_set_prohibit_ipc(true);
 
                 /* Always reopen /dev/console when running as PID 1 or one of its pre-execve() children. This is
                  * important so that we never end up logging to any foreign stderr, for example if we have to log in a

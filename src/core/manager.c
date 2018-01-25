@@ -3132,6 +3132,9 @@ int manager_reload(Manager *m) {
         manager_vacuum_uid_refs(m);
         manager_vacuum_gid_refs(m);
 
+        /* It might be safe to log to the journal now. */
+        manager_recheck_journal(m);
+
         /* Sync current state of bus names with our set of listening units */
         if (m->api_bus)
                 manager_sync_bus_names(m, m->api_bus);
@@ -3482,29 +3485,52 @@ int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
         return 0;
 }
 
-void manager_recheck_journal(Manager *m) {
+static bool manager_journal_is_running(Manager *m) {
         Unit *u;
 
         assert(m);
 
+        /* If we are the user manager we can safely assume that the journal is up */
         if (!MANAGER_IS_SYSTEM(m))
-                return;
+                return true;
 
+        /* Check that the socket is not only up, but in RUNNING state */
         u = manager_get_unit(m, SPECIAL_JOURNALD_SOCKET);
-        if (u && SOCKET(u)->state != SOCKET_RUNNING) {
-                log_close_journal();
-                return;
-        }
+        if (!u)
+                return false;
+        if (SOCKET(u)->state != SOCKET_RUNNING)
+                return false;
 
+        /* Similar, check if the daemon itself is fully up, too */
         u = manager_get_unit(m, SPECIAL_JOURNALD_SERVICE);
-        if (u && SERVICE(u)->state != SERVICE_RUNNING) {
-                log_close_journal();
-                return;
-        }
+        if (!u)
+                return false;
+        if (SERVICE(u)->state != SERVICE_RUNNING)
+                return false;
 
-        /* Hmm, OK, so the socket is fully up and the service is up
-         * too, then let's make use of the thing. */
-        log_open();
+        return true;
+}
+
+void manager_recheck_journal(Manager *m) {
+
+        assert(m);
+
+        /* Don't bother with this unless we are in the special situation of being PID 1 */
+        if (getpid_cached() != 1)
+                return;
+
+        if (manager_journal_is_running(m)) {
+
+                /* The journal is fully and entirely up? If so, let's permit logging to it, if that's configured. */
+                log_set_prohibit_ipc(false);
+                log_open();
+        } else {
+
+                /* If the journal is down, don't ever log to it, otherwise we might end up deadlocking ourselves as we
+                 * might trigger an activation ourselves we can't fulfill */
+                log_set_prohibit_ipc(true);
+                log_close_journal();
+        }
 }
 
 void manager_set_show_status(Manager *m, ShowStatus mode) {

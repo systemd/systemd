@@ -891,7 +891,8 @@ int main(int argc, char *argv[]) {
         if (argc > 3)
                 arg_dest_late = argv[3];
 
-        log_set_target(LOG_TARGET_SAFE);
+        log_set_prohibit_ipc(true);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 

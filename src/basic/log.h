@@ -50,7 +50,6 @@ typedef enum LogTarget{
         LOG_TARGET_SYSLOG,
         LOG_TARGET_SYSLOG_OR_KMSG,
         LOG_TARGET_AUTO, /* console if stderr is tty, JOURNAL_OR_KMSG otherwise */
-        LOG_TARGET_SAFE, /* console if stderr is tty, KMSG otherwise */
         LOG_TARGET_NULL,
         _LOG_TARGET_MAX,
         _LOG_TARGET_INVALID = -1
@@ -302,9 +301,19 @@ LogTarget log_target_from_string(const char *s) _pure_;
 
 void log_received_signal(int level, const struct signalfd_siginfo *si);
 
+/* If turned on, any requests for a log target involving "syslog" will be implicitly upgraded to the equivalent journal target */
 void log_set_upgrade_syslog_to_journal(bool b);
+
+/* If turned on, and log_open() is called, we'll not use STDERR_FILENO for logging ever, but rather open /dev/console */
 void log_set_always_reopen_console(bool b);
+
+/* If turned on, we'll open the log stream implicitly if needed on each individual log call. This is normally not
+ * desired as we want to reuse our logging streams. It is useful however  */
 void log_set_open_when_needed(bool b);
+
+/* If turned on, then we'll never use IPC-based logging, i.e. never log to syslog or the journal. We'll only log to
+ * stderr, the console or kmsg */
+void log_set_prohibit_ipc(bool b);
 
 int log_syntax_internal(
                 const char *unit,
