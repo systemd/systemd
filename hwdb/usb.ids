@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2017.11.27
-# Date:    2017-11-27 20:34:05
+# Version: 2018.01.04
+# Date:    2018-01-04 20:34:07
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -16161,6 +16161,35 @@
 	0002  HDReye (before firmware loads)
 1519  Comneon
 	0020  HSIC Device
+151f  Opal Kelly Incorporated
+	0020  XEM3001v1
+	0021  XEM3001v2
+	0022  XEM3010
+	0023  XEM3005
+	0028  XEM3050
+	002b  XEM5010
+	002c  XEM6001
+	002d  XEM6010-LX45
+	002e  XEM6010-LX150
+	0030  XEM6006-LX16
+	0033  XEM6002-LX9
+	0034  XEM7001-A15
+	0036  XEM7010-A50
+	0037  XEM7010-A200
+	0120  ZEM4310
+	0121  XEM6310-LX45
+	0122  XEM6310-LX150
+	0123  XEM6310MT-LX45T
+	0125  XEM7350-K70T
+	0126  XEM7350-K160T
+	0127  XEM7350-K410T
+	0128  XEM6310MT-LX150T
+	0129  ZEM5305-A2
+	012b  XEM7360-K160T
+	012c  XEM7360-K410T
+	012d  ZEM5310-A4
+	0130  XEM7310-A75
+	0131  XEM7310-A200
 1520  Bitwire Corp.
 1524  ENE Technology Inc
 	6680  UTS 6680
@@ -18673,6 +18702,19 @@
 24e1  Paratronic
 	3001  Adp-usb
 	3005  Radius
+2516  Cooler Master Co., Ltd.
+	0003  Storm Xornet
+	0004  Storm QuickFire Rapid Mechanical Keyboard
+	0006  Storm Recon
+	0007  Storm Sentinel Advance II
+	0009  Storm Quick Fire PRO
+	0011  Storm Quick Fire TK
+	0017  CM Storm Quick Fire Stealth
+	0020  QuickFire Rapid-i Keyboard
+	0027  CM Storm Coolermaster Novatouch TKL
+	002d  Alcor mouse
+	0047  MasterKeys Pro L
+	9494  Sirus Headset
 2632  TwinMOS
 	3209  7-in-1 Card Reader
 2639  Xsens
