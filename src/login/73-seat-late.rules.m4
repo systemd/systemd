@@ -13,7 +13,8 @@ ENV{ID_SEAT}=="", ENV{ID_AUTOSEAT}=="1", ENV{ID_FOR_SEAT}!="", ENV{ID_SEAT}="sea
 ENV{ID_SEAT}=="", IMPORT{parent}="ID_SEAT"
 
 ENV{ID_SEAT}!="", TAG+="$env{ID_SEAT}"
-
-TAG=="uaccess", ENV{MAJOR}!="", RUN{builtin}+="uaccess"
+m4_ifdef(`HAVE_ACL',``
+TAG=="uaccess", ENV{MAJOR}!="", RUN{builtin}+="uaccess"''
+)m4_dnl
 
 LABEL="seat_late_end"
