@@ -64,7 +64,7 @@ typedef struct Item {
         uid_t uid;
 
         bool gid_set:1;
-        bool gid_existing_ok:1;
+        bool gid_must_exist:1;
         bool uid_set:1;
 
         bool todo_user:1;
@@ -1099,10 +1099,20 @@ static int add_group(Item *i) {
                 r = gid_is_ok(i->gid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to verify gid " GID_FMT ": %m", i->gid);
+                if (i->gid_must_exist) {
+                        /* If we require the gid to already exist we can return here:
+                         * r > 0: means the gid does not exist -> fail
+                         * r == 0: means the gid exists -> nothing more to do.
+                         */
+                        if (r > 0) {
+                                log_error("Failed to create %s: please create GID %d", i->name, i->gid);
+                                return -EINVAL;
+                        }
+                        if (r == 0)
+                                return 0;
+                }
                 if (r == 0) {
                         log_debug("Suggested group ID " GID_FMT " for %s already used.", i->gid, i->name);
-                        if (i->gid_existing_ok)
-                                return 0;
                         i->gid_set = false;
                 }
         }
@@ -1538,7 +1548,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to parse GID: '%s': %m", id);
                                         i->gid_set = true;
-                                        i->gid_existing_ok = true;
+                                        i->gid_must_exist = true;
                                         free_and_replace(resolved_id, uid);
                                 }
                                 r = parse_uid(resolved_id, &i->uid);
