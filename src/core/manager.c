@@ -3550,6 +3550,7 @@ void manager_recheck_journal(Manager *m) {
                  * might trigger an activation ourselves we can't fulfill */
                 log_set_prohibit_ipc(true);
                 log_close_journal();
+                log_open();
         }
 }
 
