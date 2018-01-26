@@ -4743,7 +4743,7 @@ int unit_load_fragment(Unit *u) {
         assert(u->load_state == UNIT_STUB);
         assert(u->id);
 
-        if (u->transient) {
+        if (u->transient && u->fragment_path) {
                 u->load_state = UNIT_LOADED;
                 return 0;
         }
