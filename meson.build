@@ -2644,11 +2644,11 @@ if git.found()
         custom_target(
                 'tags',
                 output : 'tags',
-                command : ['env', 'etags', '-o', '@0@/TAGS'.format(meson.current_source_dir())] + all_files)
+                command : [env, 'etags', '-o', '@0@/TAGS'.format(meson.current_source_dir())] + all_files)
         custom_target(
                 'ctags',
                 output : 'ctags',
-                command : ['env', 'ctags', '-o', '@0@/tags'.format(meson.current_source_dir())] + all_files)
+                command : [env, 'ctags', '-o', '@0@/tags'.format(meson.current_source_dir())] + all_files)
 endif
 
 if git.found()
