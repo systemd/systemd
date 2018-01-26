@@ -47,7 +47,7 @@ CHANGES WITH 237 in spe:
           versions.
 
         * In systemd-networkd, the [IPVLAN] section in .netdev files gained
-          support for configuring device flags in the Flags= setting In the
+          support for configuring device flags in the Flags= setting. In the
           same files, the [Tunnel] section gained support for configuring
           AllowLocalRemote=.  The [Route] section in .network files gained
           support for configuring InitialCongestionWindow=,
@@ -104,24 +104,24 @@ CHANGES WITH 237 in spe:
           calls where an "sd_event*" object is expected: SD_EVENT_DEFAULT. When
           used this refers to the default event loop object of the calling
           thread. Note however that this does not implicitly allocate one —
-          which has to be done prior by using sd_event_default(). Similar
-          sd-bus gained a three new pseudo-handles SD_BUS_DEFAULT,
+          which has to be done prior by using sd_event_default(). Similarly
+          sd-bus gained three new pseudo-handles SD_BUS_DEFAULT,
           SD_BUS_DEFAULT_USER, SD_BUS_DEFAULT_SYSTEM that may be used to refer
           to the default bus of the specified type of the calling thread. Here
           too this does not implicitly allocate bus connection objects, this
           has to be done prior with sd_bus_default() and friends.
 
         * sd-event gained a new call pair
-          sd_event_source_{get|set}_io_fd_own(). This may be used to optionally
-          automatically close the file descriptor an IO event source watches
+          sd_event_source_{get|set}_io_fd_own(). This may be used to request
+          automatic closure of the file descriptor an IO event source watches
           when the event source is destroyed.
 
         * systemd-networkd gained support for natively configuring WireGuard
           connections.
 
-        * Already in previous versions systemd synthesized user records both
-          for the "nobody" (UID 65534) and "root" (UID 0) users in nss-systemd
-          and internally. In order to simplify distribution-wide renames of the
+        * In previous versions systemd synthesized user records both for the
+          "nobody" (UID 65534) and "root" (UID 0) users in nss-systemd and
+          internally. In order to simplify distribution-wide renames of the
           "nobody" user (like it is planned in Fedora: nfsnobody → nobody), a
           new transitional flag file has been added: if
           /etc/systemd/dont-synthesize-nobody exists synthesizing of the 65534
