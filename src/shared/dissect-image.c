@@ -22,9 +22,12 @@
 #include <sys/prctl.h>
 #include <sys/wait.h>
 
+#include "sd-id128.h"
+
 #include "architecture.h"
 #include "ask-password-api.h"
 #include "blkid-util.h"
+#include "blockdev-util.h"
 #include "copy.h"
 #include "crypt-util.h"
 #include "def.h"
@@ -38,6 +41,7 @@
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "linux-3.13/dm-ioctl.h"
+#include "missing.h"
 #include "mount-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -351,7 +355,8 @@ int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectI
                 /* Filter out weird MMC RPMB partitions, which cannot reasonably be read, see
                  * https://github.com/systemd/systemd/issues/5806 */
                 sysname = udev_device_get_sysname(q);
-                if (sysname && startswith(sysname, "mmcblk") && endswith(sysname, "rpmb"))
+                if (sysname && startswith(sysname, "mmcblk") &&
+                        (endswith(sysname, "rpmb") || endswith(sysname, "boot0" ) || endswith(sysname, "boot1")))
                         continue;
 
                 node = udev_device_get_devnode(q);
@@ -1186,7 +1191,7 @@ int root_hash_load(const char *image, void **ret, size_t *ret_size) {
                 if (!IN_SET(r, -ENODATA, -EOPNOTSUPP, -ENOENT))
                         return r;
 
-                fn = newa(char, strlen(image) + strlen(".roothash") + 1);
+                fn = newa(char, strlen(image) + STRLEN(".roothash") + 1);
                 n = stpcpy(fn, image);
                 e = endswith(fn, ".raw");
                 if (e)
@@ -1242,7 +1247,6 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         _cleanup_free_ char *hostname = NULL;
         unsigned n_meta_initialized = 0, k;
         int fds[2 * _META_MAX], r;
-        siginfo_t si;
 
         BLOCK_SIGNALS(SIGCHLD);
 
@@ -1258,18 +1262,10 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         if (r < 0)
                 goto finish;
 
-        child = raw_clone(SIGCHLD|CLONE_NEWNS);
-        if (child < 0) {
-                r = -errno;
+        r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_NEW_MOUNTNS, &child);
+        if (r < 0)
                 goto finish;
-        }
-
-        if (child == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
+        if (r == 0) {
                 /* Make sure we never propagate to the host */
                 if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
                         _exit(EXIT_FAILURE);
@@ -1364,15 +1360,12 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 }
         }
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
+        child = 0;
         if (r < 0)
                 goto finish;
-        child = 0;
-
-        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS) {
-                r = -EPROTO;
-                goto finish;
-        }
+        if (r != EXIT_SUCCESS)
+                return -EPROTO;
 
         free_and_replace(m->hostname, hostname);
         m->machine_id = machine_id;

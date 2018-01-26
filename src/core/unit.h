@@ -236,8 +236,10 @@ struct Unit {
          * process SIGCHLD for */
         Set *pids;
 
-        /* Used in sigchld event invocation to avoid repeat events being invoked */
-        uint64_t sigchldgen;
+        /* Used in SIGCHLD and sd_notify() message event invocation logic to avoid that we dispatch the same event
+         * multiple times on the same unit. */
+        unsigned sigchldgen;
+        unsigned notifygen;
 
         /* Used during GC sweeps */
         unsigned gc_marker;
@@ -338,6 +340,7 @@ struct Unit {
         bool sent_dbus_new_signal:1;
 
         bool in_audit:1;
+        bool on_console:1;
 
         bool cgroup_realized:1;
         bool cgroup_members_mask_valid:1;
@@ -506,7 +509,7 @@ struct UnitVTable {
         void (*notify_cgroup_empty)(Unit *u);
 
         /* Called whenever a process of this unit sends us a message */
-        void (*notify_message)(Unit *u, pid_t pid, char **tags, FDSet *fds);
+        void (*notify_message)(Unit *u, const struct ucred *ucred, char **tags, FDSet *fds);
 
         /* Called whenever a name this Unit registered for comes or goes away. */
         void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);
@@ -538,6 +541,9 @@ struct UnitVTable {
 
         /* Returns the main PID if there is any defined, or 0. */
         pid_t (*control_pid)(Unit *u);
+
+        /* Returns true if the unit currently needs access to the console */
+        bool (*needs_console)(Unit *u);
 
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
@@ -760,7 +766,7 @@ static inline bool unit_supported(Unit *u) {
 }
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
-int unit_fail_if_symlink(Unit *u, const char* where);
+int unit_fail_if_noncanonical(Unit *u, const char* where);
 
 int unit_start_limit_test(Unit *u);
 
@@ -782,7 +788,7 @@ bool unit_shall_confirm_spawn(Unit *u);
 
 void unit_set_exec_params(Unit *s, ExecParameters *p);
 
-int unit_fork_helper_process(Unit *u, pid_t *ret);
+int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret);
 
 void unit_remove_dependencies(Unit *u, UnitDependencyMask mask);
 
@@ -792,6 +798,8 @@ void unit_unlink_state_files(Unit *u);
 int unit_prepare_exec(Unit *u);
 
 void unit_warn_leftover_processes(Unit *u);
+
+bool unit_needs_console(Unit *u);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

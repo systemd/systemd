@@ -22,18 +22,53 @@
 #include <getopt.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <string.h>
 
+#include "env-util.h"
 #include "log.h"
 #include "macro.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "verbs.h"
 #include "virt.h"
+
+/* Wraps running_in_chroot() which is used in various places, but also adds an environment variable check so external
+ * processes can reliably force this on.
+ */
+bool running_in_chroot_or_offline(void) {
+        int r;
+
+        /* Added to support use cases like rpm-ostree, where from %post scripts we only want to execute "preset", but
+         * not "start"/"restart" for example.
+         *
+         * See ENVIRONMENT.md for docs.
+         */
+        r = getenv_bool("SYSTEMD_OFFLINE");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_OFFLINE: %m");
+        else if (r >= 0)
+                return r > 0;
+
+        /* We've had this condition check for a long time which basically checks for legacy chroot case like Fedora's
+         * "mock", which is used for package builds.  We don't want to try to start systemd services there, since
+         * without --new-chroot we don't even have systemd running, and even if we did, adding a concept of background
+         * daemons to builds would be an enormous change, requiring considering things like how the journal output is
+         * handled, etc.  And there's really not a use case today for a build talking to a service.
+         *
+         * Note this call itself also looks for a different variable SYSTEMD_IGNORE_CHROOT=1.
+         */
+        r = running_in_chroot();
+        if (r < 0)
+                log_debug_errno(r, "running_in_chroot(): %m");
+
+        return r > 0;
+}
 
 int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         const Verb *verb;
         const char *name;
         unsigned i;
-        int left;
+        int left, r;
 
         assert(verbs);
         assert(verbs[0].dispatch);
@@ -84,9 +119,18 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                 return -EINVAL;
         }
 
-        if ((verb->flags & VERB_NOCHROOT) && running_in_chroot() > 0) {
-                log_info("Running in chroot, ignoring request.");
+        if ((verb->flags & VERB_ONLINE_ONLY) && running_in_chroot_or_offline()) {
+                if (name)
+                        log_info("Running in chroot, ignoring request: %s", name);
+                else
+                        log_info("Running in chroot, ignoring request.");
                 return 0;
+        }
+
+        if (verb->flags & VERB_MUST_BE_ROOT) {
+                r = must_be_root();
+                if (r < 0)
+                        return r;
         }
 
         if (name)

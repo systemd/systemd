@@ -48,6 +48,7 @@
 #include "lookup3.h"
 #include "missing.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "replace-var.h"
 #include "stat-util.h"
 #include "stdio-util.h"

@@ -85,6 +85,7 @@
         <term><varname>systemd.crash_shell</varname></term>
         <term><varname>systemd.crash_reboot</varname></term>
         <term><varname>systemd.confirm_spawn</varname></term>
+        <term><varname>systemd.service_watchdogs</varname></term>
         <term><varname>systemd.show_status</varname></term>
         <term><varname>systemd.log_target=</varname></term>
         <term><varname>systemd.log_level=</varname></term>
@@ -379,6 +380,15 @@
         <listitem>
           <para>Overwrites the default start job timeout <varname>DefaultTimeoutStartSec=</varname> at boot. For details,
           see <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.watchdog_device=</varname></term>
+
+        <listitem>
+          <para>Overwrites the watchdog device path <varname>WatchdogDevice=</varname>. For details, see
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 

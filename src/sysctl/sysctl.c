@@ -106,16 +106,16 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
 
         log_debug("Parsing %s", path);
         for (;;) {
-                char l[LINE_MAX], *p, *value, *new_value, *property, *existing;
+                char *p, *value, *new_value, *property, *existing;
+                _cleanup_free_ char *l = NULL;
                 void *v;
                 int k;
+                k = read_line(f, LONG_LINE_MAX, &l);
+                if (k == 0)
+                        break;
 
-                if (!fgets(l, sizeof(l), f)) {
-                        if (feof(f))
-                                break;
-
-                        return log_error_errno(errno, "Failed to read file '%s', ignoring: %m", path);
-                }
+                if (k < 0)
+                        return log_error_errno(k, "Failed to read file '%s', ignoring: %m", path);
 
                 c++;
 

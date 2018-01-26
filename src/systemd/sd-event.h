@@ -26,6 +26,7 @@
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include <sys/types.h>
+#include <time.h>
 
 #include "_sd-common.h"
 
@@ -39,6 +40,8 @@
 */
 
 _SD_BEGIN_DECLARATIONS;
+
+#define SD_EVENT_DEFAULT ((sd_event *) 1)
 
 typedef struct sd_event sd_event;
 typedef struct sd_event_source sd_event_source;
@@ -124,6 +127,8 @@ int sd_event_source_get_enabled(sd_event_source *s, int *enabled);
 int sd_event_source_set_enabled(sd_event_source *s, int enabled);
 int sd_event_source_get_io_fd(sd_event_source *s);
 int sd_event_source_set_io_fd(sd_event_source *s, int fd);
+int sd_event_source_get_io_fd_own(sd_event_source *s);
+int sd_event_source_set_io_fd_own(sd_event_source *s, int own);
 int sd_event_source_get_io_events(sd_event_source *s, uint32_t* events);
 int sd_event_source_set_io_events(sd_event_source *s, uint32_t events);
 int sd_event_source_get_io_revents(sd_event_source *s, uint32_t* revents);

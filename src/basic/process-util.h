@@ -21,6 +21,7 @@
 ***/
 
 #include <alloca.h>
+#include <errno.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -33,6 +34,7 @@
 #include "format-util.h"
 #include "ioprio.h"
 #include "macro.h"
+#include "time-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \
         ({                                                              \
@@ -41,7 +43,7 @@
                 if (_pid_ == 0) {                                       \
                         _r_ = ("/proc/self/" field);                    \
                 } else {                                                \
-                        _r_ = alloca(strlen("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
+                        _r_ = alloca(STRLEN("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + sizeof(field)); \
                         sprintf((char*) _r_, "/proc/"PID_FMT"/" field, _pid_);                       \
                 }                                                       \
                 _r_;                                                    \
@@ -60,7 +62,17 @@ int get_process_environ(pid_t pid, char **environ);
 int get_process_ppid(pid_t pid, pid_t *ppid);
 
 int wait_for_terminate(pid_t pid, siginfo_t *status);
-int wait_for_terminate_and_warn(const char *name, pid_t pid, bool check_exit_code);
+
+typedef enum WaitFlags {
+        WAIT_LOG_ABNORMAL             = 1U << 0,
+        WAIT_LOG_NON_ZERO_EXIT_STATUS = 1U << 1,
+
+        /* A shortcut for requesting the most complete logging */
+        WAIT_LOG = WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS,
+} WaitFlags;
+
+int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags);
+int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout);
 
 void sigkill_wait(pid_t pid);
 void sigkill_waitp(pid_t *pid);
@@ -104,8 +116,13 @@ int sigchld_code_from_string(const char *s) _pure_;
 int sched_policy_to_string_alloc(int i, char **s);
 int sched_policy_from_string(const char *s);
 
-#define PTR_TO_PID(p) ((pid_t) ((uintptr_t) p))
-#define PID_TO_PTR(p) ((void*) ((uintptr_t) p))
+static inline pid_t PTR_TO_PID(const void *p) {
+        return (pid_t) ((uintptr_t) p);
+}
+
+static inline void* PID_TO_PTR(pid_t pid) {
+        return (void*) ((uintptr_t) pid);
+}
 
 void valgrind_summary_hack(void);
 
@@ -135,6 +152,54 @@ static inline bool pid_is_valid(pid_t p) {
         return p > 0;
 }
 
+static inline int sched_policy_to_string_alloc_with_check(int n, char **s) {
+        if (!sched_policy_is_valid(n))
+                return -EINVAL;
+
+        return sched_policy_to_string_alloc(n, s);
+}
+
 int ioprio_parse_priority(const char *s, int *ret);
 
 pid_t getpid_cached(void);
+void reset_cached_pid(void);
+
+int must_be_root(void);
+
+typedef enum ForkFlags {
+        FORK_RESET_SIGNALS = 1U << 0,
+        FORK_CLOSE_ALL_FDS = 1U << 1,
+        FORK_DEATHSIG      = 1U << 2,
+        FORK_NULL_STDIO    = 1U << 3,
+        FORK_REOPEN_LOG    = 1U << 4,
+        FORK_LOG           = 1U << 5,
+        FORK_WAIT          = 1U << 6,
+        FORK_NEW_MOUNTNS   = 1U << 7,
+} ForkFlags;
+
+int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid);
+
+static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
+        return safe_fork_full(name, NULL, 0, flags, ret_pid);
+}
+
+int fork_agent(const char *name, const int except[], unsigned n_except, pid_t *pid, const char *path, ...);
+
+#if SIZEOF_PID_T == 4
+/* The highest possibly (theoretic) pid_t value on this architecture. */
+#define PID_T_MAX ((pid_t) INT32_MAX)
+/* The maximum number of concurrent processes Linux allows on this architecture, as well as the highest valid PID value
+ * the kernel will potentially assign. This reflects a value compiled into the kernel (PID_MAX_LIMIT), and sets the
+ * upper boundary on what may be written to the /proc/sys/kernel/pid_max sysctl (but do note that the sysctl is off by
+ * 1, since PID 0 can never exist and there can hence only be one process less than the limit would suggest). Since
+ * these values are documented in proc(5) we feel quite confident that they are stable enough for the near future at
+ * least to define them here too. */
+#define TASKS_MAX 4194303U
+#elif SIZEOF_PID_T == 2
+#define PID_T_MAX ((pid_t) INT16_MAX)
+#define TASKS_MAX 32767U
+#else
+#error "Unknown pid_t size"
+#endif
+
+assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX)

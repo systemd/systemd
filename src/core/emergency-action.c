@@ -49,6 +49,11 @@ int emergency_action(
         if (action == EMERGENCY_ACTION_NONE)
                 return -ECANCELED;
 
+        if (!m->service_watchdogs) {
+                log_warning("Watchdog disabled! Not acting on: %s", reason);
+                return -ECANCELED;
+        }
+
         if (!MANAGER_IS_SYSTEM(m)) {
                 /* Downgrade all options to simply exiting if we run
                  * in user mode */

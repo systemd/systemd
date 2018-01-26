@@ -18,6 +18,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -96,7 +97,7 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
         assert(imp->state == IMPORTER_STATE_LINE);
         assert(imp->offset <= imp->filled);
         assert(imp->filled <= imp->size);
-        assert(imp->buf == NULL || imp->size > 0);
+        assert(!imp->buf || imp->size > 0);
         assert(imp->fd >= 0);
 
         for (;;) {
@@ -159,8 +160,8 @@ static int fill_fixed_size(JournalImporter *imp, void **data, size_t size) {
         assert(size <= DATA_SIZE_MAX);
         assert(imp->offset <= imp->filled);
         assert(imp->filled <= imp->size);
-        assert(imp->buf != NULL || imp->size == 0);
-        assert(imp->buf == NULL || imp->size > 0);
+        assert(imp->buf || imp->size == 0);
+        assert(!imp->buf || imp->size > 0);
         assert(imp->fd >= 0);
         assert(data);
 

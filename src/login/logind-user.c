@@ -22,6 +22,7 @@
 #include <string.h>
 #include <sys/mount.h>
 #include <unistd.h>
+#include <stdio_ext.h>
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
@@ -150,7 +151,8 @@ static int user_save_internal(User *u) {
         if (r < 0)
                 goto fail;
 
-        fchmod(fileno(f), 0644);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
@@ -183,18 +185,18 @@ static int user_save_internal(User *u) {
                 Session *i;
                 bool first;
 
-                fputs_unlocked("SESSIONS=", f);
+                fputs("SESSIONS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->id, f);
+                        fputs(i->id, f);
                 }
 
-                fputs_unlocked("\nSEATS=", f);
+                fputs("\nSEATS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!i->seat)
@@ -203,12 +205,12 @@ static int user_save_internal(User *u) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->seat->id, f);
+                        fputs(i->seat->id, f);
                 }
 
-                fputs_unlocked("\nACTIVE_SESSIONS=", f);
+                fputs("\nACTIVE_SESSIONS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!session_is_active(i))
@@ -217,12 +219,12 @@ static int user_save_internal(User *u) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->id, f);
+                        fputs(i->id, f);
                 }
 
-                fputs_unlocked("\nONLINE_SESSIONS=", f);
+                fputs("\nONLINE_SESSIONS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (session_get_state(i) == SESSION_CLOSING)
@@ -231,12 +233,12 @@ static int user_save_internal(User *u) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->id, f);
+                        fputs(i->id, f);
                 }
 
-                fputs_unlocked("\nACTIVE_SEATS=", f);
+                fputs("\nACTIVE_SEATS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!session_is_active(i) || !i->seat)
@@ -245,12 +247,12 @@ static int user_save_internal(User *u) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->seat->id, f);
+                        fputs(i->seat->id, f);
                 }
 
-                fputs_unlocked("\nONLINE_SEATS=", f);
+                fputs("\nONLINE_SEATS=", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (session_get_state(i) == SESSION_CLOSING || !i->seat)
@@ -259,11 +261,11 @@ static int user_save_internal(User *u) {
                         if (first)
                                 first = false;
                         else
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(i->seat->id, f);
+                        fputs(i->seat->id, f);
                 }
-                fputc_unlocked('\n', f);
+                fputc('\n', f);
         }
 
         r = fflush_and_check(f);
@@ -342,16 +344,13 @@ static int user_mkdir_runtime_path(User *u) {
         if (path_is_mount_point(u->runtime_path, NULL, 0) <= 0) {
                 _cleanup_free_ char *t = NULL;
 
-                (void) mkdir_label(u->runtime_path, 0700);
+                r = asprintf(&t, "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu%s",
+                             u->uid, u->gid, u->manager->runtime_dir_size,
+                             mac_smack_use() ? ",smackfsroot=*" : "");
+                if (r < 0)
+                        return log_oom();
 
-                if (mac_smack_use())
-                        r = asprintf(&t, "mode=0700,smackfsroot=*,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);
-                else
-                        r = asprintf(&t, "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu", u->uid, u->gid, u->manager->runtime_dir_size);
-                if (r < 0) {
-                        r = log_oom();
-                        goto fail;
-                }
+                (void) mkdir_label(u->runtime_path, 0700);
 
                 r = mount("tmpfs", u->runtime_path, "tmpfs", MS_NODEV|MS_NOSUID, t);
                 if (r < 0) {
@@ -459,7 +458,7 @@ int user_start(User *u) {
         u->stopping = false;
 
         if (!u->started) {
-                log_debug("New user %s logged in.", u->name);
+                log_debug("Starting services for new user %s.", u->name);
 
                 /* Make XDG_RUNTIME_DIR */
                 r = user_mkdir_runtime_path(u);
@@ -528,9 +527,7 @@ static int user_stop_service(User *u) {
                 return r;
         }
 
-        free(u->service_job);
-        u->service_job = job;
-
+        free_and_replace(u->service_job, job);
         return r;
 }
 

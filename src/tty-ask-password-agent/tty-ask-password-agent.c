@@ -159,7 +159,7 @@ static int ask_password_plymouth(
                 }
 
                 if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
-                        flush_fd(notify);
+                        (void) flush_fd(notify);
 
                 if (pollfd[POLL_SOCKET].revents == 0)
                         continue;
@@ -417,8 +417,8 @@ static int wall_tty_block(void) {
         if (asprintf(&p, "/run/systemd/ask-password-block/%u:%u", major(devnr), minor(devnr)) < 0)
                 return log_oom();
 
-        mkdir_parents_label(p, 0700);
-        mkfifo(p, 0600);
+        (void) mkdir_parents_label(p, 0700);
+        (void) mkfifo(p, 0600);
 
         fd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
@@ -693,11 +693,13 @@ static int parse_argv(int argc, char *argv[]) {
  * If one of the tasks does handle a password, the remaining tasks
  * will be terminated.
  */
-static int ask_on_this_console(const char *tty, pid_t *pid, int argc, char *argv[]) {
+static int ask_on_this_console(const char *tty, pid_t *ret_pid, int argc, char *argv[]) {
         struct sigaction sig = {
                 .sa_handler = nop_signal_handler,
                 .sa_flags = SA_NOCLDSTOP | SA_RESTART,
         };
+        pid_t pid;
+        int r;
 
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD, -1) >= 0);
 
@@ -707,17 +709,13 @@ static int ask_on_this_console(const char *tty, pid_t *pid, int argc, char *argv
         sig.sa_handler = SIG_DFL;
         assert_se(sigaction(SIGHUP, &sig, NULL) >= 0);
 
-        *pid = fork();
-        if (*pid < 0)
-                return log_error_errno(errno, "Failed to fork process: %m");
-
-        if (*pid == 0) {
+        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int ac;
 
                 assert_se(prctl(PR_SET_PDEATHSIG, SIGHUP) >= 0);
-
-                reset_signal_mask();
-                reset_all_signal_handlers();
 
                 for (ac = 0; ac < argc; ac++) {
                         if (streq(argv[ac], "--console")) {
@@ -731,6 +729,8 @@ static int ask_on_this_console(const char *tty, pid_t *pid, int argc, char *argv
                 execv(SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH, argv);
                 _exit(EXIT_FAILURE);
         }
+
+        *ret_pid = pid;
         return 0;
 }
 

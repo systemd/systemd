@@ -27,6 +27,7 @@
 #include "capability-util.h"
 #include "fd-util.h"
 #include "import-common.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "util.h"
 
@@ -82,11 +83,10 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork off tar: %m");
-
-        if (pid == 0) {
+        r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int null_fd;
                 uint64_t retain =
                         (1ULL << CAP_CHOWN) |
@@ -97,10 +97,6 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
                         (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
                 pipefd[1] = safe_close(pipefd[1]);
 
@@ -156,19 +152,14 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork off tar: %m");
-
-        if (pid == 0) {
+        r = safe_fork("(tar)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int null_fd;
                 uint64_t retain = (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
                 pipefd[0] = safe_close(pipefd[0]);
 

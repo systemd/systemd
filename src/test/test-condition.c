@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
@@ -28,6 +29,7 @@
 #include "apparmor-util.h"
 #include "architecture.h"
 #include "audit-util.h"
+#include "cgroup-util.h"
 #include "condition.h"
 #include "hostname-util.h"
 #include "id128-util.h"
@@ -35,11 +37,13 @@
 #include "log.h"
 #include "macro.h"
 #include "selinux-util.h"
+#include "set.h"
 #include "smack-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "virt.h"
-#include "util.h"
 #include "user-util.h"
+#include "util.h"
+#include "virt.h"
 
 static void test_condition_test_path(void) {
         Condition *condition;
@@ -123,6 +127,77 @@ static void test_condition_test_path(void) {
         assert_se(condition);
         assert_se(condition_test(condition));
         condition_free(condition);
+}
+
+static int test_condition_test_control_group_controller(void) {
+        Condition *condition;
+        CGroupMask system_mask;
+        CGroupController controller;
+        _cleanup_free_ char *controller_name = NULL;
+        int r;
+
+        r = cg_unified_flush();
+        if (r < 0) {
+                log_notice_errno(r, "Skipping ConditionControlGroupController tests: %m");
+                return EXIT_TEST_SKIP;
+        }
+
+        /* Invalid controllers are ignored */
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, true);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        assert_se(cg_mask_supported(&system_mask) >= 0);
+
+        /* Individual valid controllers one by one */
+        for (controller = 0; controller < _CGROUP_CONTROLLER_MAX; controller++) {
+                const char *local_controller_name = cgroup_controller_to_string(controller);
+                log_info("chosen controller is '%s'", local_controller_name);
+                if (system_mask & CGROUP_CONTROLLER_TO_MASK(controller)) {
+                        log_info("this controller is available");
+                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
+                        assert_se(condition);
+                        assert_se(condition_test(condition));
+                        condition_free(condition);
+
+                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
+                        assert_se(condition);
+                        assert_se(!condition_test(condition));
+                        condition_free(condition);
+                } else {
+                        log_info("this controller is unavailable");
+                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, false);
+                        assert_se(condition);
+                        assert_se(!condition_test(condition));
+                        condition_free(condition);
+
+                        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, local_controller_name, false, true);
+                        assert_se(condition);
+                        assert_se(condition_test(condition));
+                        condition_free(condition);
+                }
+        }
+
+        /* Multiple valid controllers at the same time */
+        assert_se(cg_mask_to_string(system_mask, &controller_name) >= 0);
+
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, strempty(controller_name), false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, strempty(controller_name), false, true);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        return EXIT_SUCCESS;
 }
 
 static void test_condition_test_ac_power(void) {
@@ -220,6 +295,126 @@ static void test_condition_test_kernel_command_line(void) {
         condition_free(condition);
 
         condition = condition_new(CONDITION_KERNEL_COMMAND_LINE, "andthis=neither", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+}
+
+static void test_condition_test_kernel_version(void) {
+        Condition *condition;
+        struct utsname u;
+        const char *v;
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "*thisreallyshouldntbeinthekernelversion*", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "*", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        assert_se(uname(&u) >= 0);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, u.release, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        strshorten(u.release, 4);
+        strcpy(strchr(u.release, 0), "*");
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, u.release, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        /* 0.1.2 would be a very very very old kernel */
+        condition = condition_new(CONDITION_KERNEL_VERSION, "> 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, ">= 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "< 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "<= 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "= 0.1.2", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        /* 4711.8.15 is a very very very future kernel */
+        condition = condition_new(CONDITION_KERNEL_VERSION, "< 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "<= 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "= 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, "> 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_KERNEL_VERSION, ">= 4711.8.15", false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        assert_se(uname(&u) >= 0);
+
+        v = strjoina(">=", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("=  ", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("<=", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("> ", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
+        assert_se(condition);
+        assert_se(!condition_test(condition));
+        condition_free(condition);
+
+        v = strjoina("<   ", u.release);
+        condition = condition_new(CONDITION_KERNEL_VERSION, v, false, false);
         assert_se(condition);
         assert_se(!condition_test(condition));
         condition_free(condition);
@@ -483,11 +678,13 @@ int main(int argc, char *argv[]) {
         test_condition_test_host();
         test_condition_test_architecture();
         test_condition_test_kernel_command_line();
+        test_condition_test_kernel_version();
         test_condition_test_null();
         test_condition_test_security();
         test_condition_test_virtualization();
         test_condition_test_user();
         test_condition_test_group();
+        test_condition_test_control_group_controller();
 
         return 0;
 }

@@ -37,9 +37,11 @@
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "missing.h"
 #include "mkdir.h"
+#include "process-util.h"
 #include "selinux-access.h"
 #include "special.h"
 #include "string-util.h"
@@ -603,18 +605,16 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
         assert(m);
         assert(bus);
 
-        r = sd_bus_add_match(
+        r = sd_bus_match_signal_async(
                         bus,
                         NULL,
-                        "sender='org.freedesktop.DBus.Local',"
-                        "type='signal',"
-                        "path='/org/freedesktop/DBus/Local',"
-                        "interface='org.freedesktop.DBus.Local',"
-                        "member='Disconnected'",
-                        signal_disconnected, m);
-
+                        "org.freedesktop.DBus.Local",
+                        "/org/freedesktop/DBus/Local",
+                        "org.freedesktop.DBus.Local",
+                        "Disconnected",
+                        signal_disconnected, NULL, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to register match for Disconnected message: %m");
+                return log_error_errno(r, "Failed to request match for Disconnected message: %m");
 
         return 0;
 }
@@ -680,6 +680,12 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                                    SD_BUS_CREDS_SELINUX_CONTEXT);
         if (r < 0) {
                 log_warning_errno(r, "Failed to enable credentials for new connection: %m");
+                return 0;
+        }
+
+        r = sd_bus_set_sender(bus, "org.freedesktop.systemd1");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to set direct connection sender: %m");
                 return 0;
         }
 
@@ -813,26 +819,23 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
                         log_error_errno(r, "Failed to subscribe to NameOwnerChanged signal for '%s': %m", name);
         }
 
-        r = sd_bus_add_match(
+        r = sd_bus_match_signal_async(
                         bus,
                         NULL,
-                        "type='signal',"
-                        "sender='org.freedesktop.DBus',"
-                        "path='/org/freedesktop/DBus',"
-                        "interface='org.freedesktop.systemd1.Activator',"
-                        "member='ActivationRequest'",
-                        signal_activation_request, m);
+                        "org.freedesktop.DBus",
+                        "/org/freedesktop/DBus",
+                        "org.freedesktop.systemd1.Activator",
+                        "ActivationRequest",
+                        signal_activation_request, NULL, m);
         if (r < 0)
                 log_warning_errno(r, "Failed to subscribe to activation signal: %m");
 
-        /* Allow replacing of our name, to ease implementation of
-         * reexecution, where we keep the old connection open until
-         * after the new connection is set up and the name installed
-         * to allow clients to synchronously wait for reexecution to
-         * finish */
-        r = sd_bus_request_name(bus,"org.freedesktop.systemd1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_ALLOW_REPLACEMENT);
+        /* Allow replacing of our name, to ease implementation of reexecution, where we keep the old connection open
+         * until after the new connection is set up and the name installed to allow clients to synchronously wait for
+         * reexecution to finish */
+        r = sd_bus_request_name_async(bus, NULL, "org.freedesktop.systemd1", SD_BUS_NAME_REPLACE_EXISTING|SD_BUS_NAME_ALLOW_REPLACEMENT, NULL, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to register name: %m");
+                return log_error_errno(r, "Failed to request name: %m");
 
         r = manager_sync_bus_names(m, bus);
         if (r < 0)
@@ -857,28 +860,21 @@ static int bus_init_api(Manager *m) {
                         r = sd_bus_open_system(&bus);
                 else
                         r = sd_bus_open_user(&bus);
-
-                if (r < 0) {
-                        log_debug("Failed to connect to API bus, retrying later...");
-                        return 0;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to API bus: %m");
 
                 r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to attach API bus to event loop: %m");
-                        return 0;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach API bus to event loop: %m");
 
                 r = bus_setup_disconnected_match(m, bus);
                 if (r < 0)
-                        return 0;
+                        return r;
         }
 
         r = bus_setup_api(m, bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set up API bus: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up API bus: %m");
 
         m->api_bus = bus;
         bus = NULL;
@@ -894,16 +890,16 @@ static int bus_setup_system(Manager *m, sd_bus *bus) {
 
         /* if we are a user instance we get the Released message via the system bus */
         if (MANAGER_IS_USER(m)) {
-                r = sd_bus_add_match(
+                r = sd_bus_match_signal_async(
                                 bus,
                                 NULL,
-                                "type='signal',"
-                                "interface='org.freedesktop.systemd1.Agent',"
-                                "member='Released',"
-                                "path='/org/freedesktop/systemd1/agent'",
-                                signal_agent_released, m);
+                                NULL,
+                                "/org/freedesktop/systemd1/agent",
+                                "org.freedesktop.systemd1.Agent",
+                                "Released",
+                                signal_agent_released, NULL, m);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to register Released match on system bus: %m");
+                        log_warning_errno(r, "Failed to request Released match on system bus: %m");
         }
 
         log_debug("Successfully connected to system bus.");
@@ -924,26 +920,20 @@ static int bus_init_system(Manager *m) {
         }
 
         r = sd_bus_open_system(&bus);
-        if (r < 0) {
-                log_debug("Failed to connect to system bus, retrying later...");
-                return 0;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to system bus: %m");
 
         r = bus_setup_disconnected_match(m, bus);
         if (r < 0)
-                return 0;
+                return r;
 
         r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to attach system bus to event loop: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach system bus to event loop: %m");
 
         r = bus_setup_system(m, bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set up system bus: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up system bus: %m");
 
         m->system_bus = bus;
         bus = NULL;
@@ -1005,6 +995,9 @@ static int bus_init_private(Manager *m) {
         if (r < 0)
                 return log_error_errno(errno, "Failed to make private socket listening: %m");
 
+        /* Generate an inotify event in case somebody waits for this socket to appear using inotify() */
+        (void) touch(sa.un.sun_path);
+
         r = sd_event_add_io(m->event, &s, fd, EPOLLIN, bus_on_connection, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event source: %m");
@@ -1026,16 +1019,16 @@ int bus_init(Manager *m, bool try_bus_connect) {
         if (try_bus_connect) {
                 r = bus_init_system(m);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to initialize D-Bus connection: %m");
 
                 r = bus_init_api(m);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Error occured during D-Bus APIs initialization: %m");
         }
 
         r = bus_init_private(m);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create private D-Bus server: %m");
 
         return 0;
 }

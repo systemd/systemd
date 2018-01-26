@@ -1050,7 +1050,7 @@ int device_update_db(sd_device *device) {
                         const char *devlink;
 
                         FOREACH_DEVICE_DEVLINK(device, devlink)
-                                fprintf(f, "S:%s\n", devlink + strlen("/dev/"));
+                                fprintf(f, "S:%s\n", devlink + STRLEN("/dev/"));
 
                         if (device->devlink_priority != 0)
                                 fprintf(f, "L:%i\n", device->devlink_priority);

@@ -19,6 +19,7 @@
 ***/
 
 #include <net/if.h>
+#include <stdio_ext.h>
 
 #include "sd-network.h"
 
@@ -191,9 +192,41 @@ void link_allocate_scopes(Link *l) {
 
 void link_add_rrs(Link *l, bool force_remove) {
         LinkAddress *a;
+        int r;
 
         LIST_FOREACH(addresses, a, l->addresses)
                 link_address_add_rrs(a, force_remove);
+
+        if (!force_remove &&
+            l->mdns_support == RESOLVE_SUPPORT_YES &&
+            l->manager->mdns_support == RESOLVE_SUPPORT_YES) {
+
+                if (l->mdns_ipv4_scope) {
+                        r = dns_scope_add_dnssd_services(l->mdns_ipv4_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add IPv4 DNS-SD services: %m");
+                }
+
+                if (l->mdns_ipv6_scope) {
+                        r = dns_scope_add_dnssd_services(l->mdns_ipv6_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to add IPv6 DNS-SD services: %m");
+                }
+
+        } else {
+
+                if (l->mdns_ipv4_scope) {
+                        r = dns_scope_remove_dnssd_services(l->mdns_ipv4_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to remove IPv4 DNS-SD services: %m");
+                }
+
+                if (l->mdns_ipv6_scope) {
+                        r = dns_scope_remove_dnssd_services(l->mdns_ipv6_scope);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to remove IPv6 DNS-SD services: %m");
+                }
+        }
 }
 
 int link_process_rtnl(Link *l, sd_netlink_message *m) {
@@ -1068,7 +1101,10 @@ int link_save_user(Link *l) {
         if (r < 0)
                 goto fail;
 
-        fputs_unlocked("# This is private data. Do not parse.\n", f);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) fchmod(fileno(f), 0644);
+
+        fputs("# This is private data. Do not parse.\n", f);
 
         v = resolve_support_to_string(l->llmnr_support);
         if (v)
@@ -1085,11 +1121,11 @@ int link_save_user(Link *l) {
         if (l->dns_servers) {
                 DnsServer *server;
 
-                fputs_unlocked("SERVERS=", f);
+                fputs("SERVERS=", f);
                 LIST_FOREACH(servers, server, l->dns_servers) {
 
                         if (server != l->dns_servers)
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
                         v = dns_server_string(server);
                         if (!v) {
@@ -1097,26 +1133,26 @@ int link_save_user(Link *l) {
                                 goto fail;
                         }
 
-                        fputs_unlocked(v, f);
+                        fputs(v, f);
                 }
-                fputc_unlocked('\n', f);
+                fputc('\n', f);
         }
 
         if (l->search_domains) {
                 DnsSearchDomain *domain;
 
-                fputs_unlocked("DOMAINS=", f);
+                fputs("DOMAINS=", f);
                 LIST_FOREACH(domains, domain, l->search_domains) {
 
                         if (domain != l->search_domains)
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
                         if (domain->route_only)
-                                fputc_unlocked('~', f);
+                                fputc('~', f);
 
-                        fputs_unlocked(DNS_SEARCH_DOMAIN_NAME(domain), f);
+                        fputs(DNS_SEARCH_DOMAIN_NAME(domain), f);
                 }
-                fputc_unlocked('\n', f);
+                fputc('\n', f);
         }
 
         if (!set_isempty(l->dnssec_negative_trust_anchors)) {
@@ -1124,16 +1160,16 @@ int link_save_user(Link *l) {
                 Iterator i;
                 char *nta;
 
-                fputs_unlocked("NTAS=", f);
+                fputs("NTAS=", f);
                 SET_FOREACH(nta, l->dnssec_negative_trust_anchors, i) {
 
                         if (space)
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
-                        fputs_unlocked(nta, f);
+                        fputs(nta, f);
                         space = true;
                 }
-                fputc_unlocked('\n', f);
+                fputc('\n', f);
         }
 
         r = fflush_and_check(f);

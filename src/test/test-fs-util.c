@@ -22,21 +22,25 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "id128-util.h"
 #include "macro.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "user-util.h"
 #include "util.h"
 
 static void test_chase_symlinks(void) {
         _cleanup_free_ char *result = NULL;
         char temp[] = "/tmp/test-chase.XXXXXX";
         const char *top, *p, *pslash, *q, *qslash;
-        int r;
+        int r, pfd;
 
         assert_se(mkdtemp(temp));
 
@@ -235,6 +239,55 @@ static void test_chase_symlinks(void) {
         r = chase_symlinks(p, NULL, 0, &result);
         assert_se(r == -ENOENT);
 
+        if (geteuid() == 0) {
+                p = strjoina(temp, "/priv1");
+                assert_se(mkdir(p, 0755) >= 0);
+
+                q = strjoina(p, "/priv2");
+                assert_se(mkdir(q, 0755) >= 0);
+
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) >= 0);
+
+                assert_se(chown(q, UID_NOBODY, GID_NOBODY) >= 0);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) >= 0);
+
+                assert_se(chown(p, UID_NOBODY, GID_NOBODY) >= 0);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) >= 0);
+
+                assert_se(chown(q, 0, 0) >= 0);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) == -EPERM);
+
+                assert_se(rmdir(q) >= 0);
+                assert_se(symlink("/etc/passwd", q) >= 0);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) == -EPERM);
+
+                assert_se(chown(p, 0, 0) >= 0);
+                assert_se(chase_symlinks(q, NULL, CHASE_SAFE, NULL) >= 0);
+        }
+
+        p = strjoina(temp, "/machine-id-test");
+        assert_se(symlink("/usr/../etc/./machine-id", p) >= 0);
+
+        pfd = chase_symlinks(p, NULL, CHASE_OPEN, NULL);
+        if (pfd != -ENOENT) {
+                char procfs[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(pfd) + 1];
+                _cleanup_close_ int fd = -1;
+                sd_id128_t a, b;
+
+                assert_se(pfd >= 0);
+
+                xsprintf(procfs, "/proc/self/fd/%i", pfd);
+
+                fd = open(procfs, O_RDONLY|O_CLOEXEC);
+                assert_se(fd >= 0);
+
+                safe_close(pfd);
+
+                assert_se(id128_read_fd(fd, ID128_PLAIN, &a) >= 0);
+                assert_se(sd_id128_get_machine(&b) >= 0);
+                assert_se(sd_id128_equal(a, b));
+        }
+
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
@@ -273,7 +326,7 @@ static void test_readlink_and_make_absolute(void) {
         free(r);
         assert_se(unlink(name_alias) >= 0);
 
-        assert_se(pwd = get_current_dir_name());
+        assert_se(safe_getcwd(&pwd) >= 0);
 
         assert_se(chdir(tempdir) >= 0);
         assert_se(symlink(name2, name_alias) >= 0);
@@ -388,6 +441,92 @@ static void test_access_fd(void) {
         }
 }
 
+static void test_touch_file(void) {
+        uid_t test_uid, test_gid;
+        _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
+        struct stat st;
+        const char *a;
+        usec_t test_mtime;
+
+        test_uid = geteuid() == 0 ? 65534 : getuid();
+        test_gid = geteuid() == 0 ? 65534 : getgid();
+
+        test_mtime = usec_sub_unsigned(now(CLOCK_REALTIME), USEC_PER_WEEK);
+
+        assert_se(mkdtemp_malloc("/dev/shm/touch-file-XXXXXX", &p) >= 0);
+
+        a = strjoina(p, "/regular");
+        assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
+        assert_se(lstat(a, &st) >= 0);
+        assert_se(st.st_uid == test_uid);
+        assert_se(st.st_gid == test_gid);
+        assert_se(S_ISREG(st.st_mode));
+        assert_se((st.st_mode & 0777) == 0640);
+        assert_se(timespec_load(&st.st_mtim) == test_mtime);
+
+        a = strjoina(p, "/dir");
+        assert_se(mkdir(a, 0775) >= 0);
+        assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
+        assert_se(lstat(a, &st) >= 0);
+        assert_se(st.st_uid == test_uid);
+        assert_se(st.st_gid == test_gid);
+        assert_se(S_ISDIR(st.st_mode));
+        assert_se((st.st_mode & 0777) == 0640);
+        assert_se(timespec_load(&st.st_mtim) == test_mtime);
+
+        a = strjoina(p, "/fifo");
+        assert_se(mkfifo(a, 0775) >= 0);
+        assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
+        assert_se(lstat(a, &st) >= 0);
+        assert_se(st.st_uid == test_uid);
+        assert_se(st.st_gid == test_gid);
+        assert_se(S_ISFIFO(st.st_mode));
+        assert_se((st.st_mode & 0777) == 0640);
+        assert_se(timespec_load(&st.st_mtim) == test_mtime);
+
+        a = strjoina(p, "/sock");
+        assert_se(mknod(a, 0775 | S_IFSOCK, 0) >= 0);
+        assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
+        assert_se(lstat(a, &st) >= 0);
+        assert_se(st.st_uid == test_uid);
+        assert_se(st.st_gid == test_gid);
+        assert_se(S_ISSOCK(st.st_mode));
+        assert_se((st.st_mode & 0777) == 0640);
+        assert_se(timespec_load(&st.st_mtim) == test_mtime);
+
+        if (geteuid() == 0) {
+                a = strjoina(p, "/cdev");
+                assert_se(mknod(a, 0775 | S_IFCHR, makedev(0, 0)) >= 0);
+                assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
+                assert_se(lstat(a, &st) >= 0);
+                assert_se(st.st_uid == test_uid);
+                assert_se(st.st_gid == test_gid);
+                assert_se(S_ISCHR(st.st_mode));
+                assert_se((st.st_mode & 0777) == 0640);
+                assert_se(timespec_load(&st.st_mtim) == test_mtime);
+
+                a = strjoina(p, "/bdev");
+                assert_se(mknod(a, 0775 | S_IFBLK, makedev(0, 0)) >= 0);
+                assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
+                assert_se(lstat(a, &st) >= 0);
+                assert_se(st.st_uid == test_uid);
+                assert_se(st.st_gid == test_gid);
+                assert_se(S_ISBLK(st.st_mode));
+                assert_se((st.st_mode & 0777) == 0640);
+                assert_se(timespec_load(&st.st_mtim) == test_mtime);
+        }
+
+        a = strjoina(p, "/lnk");
+        assert_se(symlink("target", a) >= 0);
+        assert_se(touch_file(a, false, test_mtime, test_uid, test_gid, 0640) >= 0);
+        assert_se(lstat(a, &st) >= 0);
+        assert_se(st.st_uid == test_uid);
+        assert_se(st.st_gid == test_gid);
+        assert_se(S_ISLNK(st.st_mode));
+        assert_se((st.st_mode & 0777) == 0640);
+        assert_se(timespec_load(&st.st_mtim) == test_mtime);
+}
+
 int main(int argc, char *argv[]) {
         test_unlink_noerrno();
         test_get_files_in_directory();
@@ -396,6 +535,7 @@ int main(int argc, char *argv[]) {
         test_chase_symlinks();
         test_dot_or_dot_dot();
         test_access_fd();
+        test_touch_file();
 
         return 0;
 }

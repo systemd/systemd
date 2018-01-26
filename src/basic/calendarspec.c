@@ -24,6 +24,7 @@
 #include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -34,6 +35,7 @@
 #include "fileio.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -155,6 +157,11 @@ static void fix_year(CalendarComponent *c) {
 int calendar_spec_normalize(CalendarSpec *c) {
         assert(c);
 
+        if (streq_ptr(c->timezone, "UTC")) {
+                c->utc = true;
+                c->timezone = mfree(c->timezone);
+        }
+
         if (c->weekdays_bits <= 0 || c->weekdays_bits >= BITS_WEEKDAYS)
                 c->weekdays_bits = -1;
 
@@ -261,19 +268,19 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
 
                         if (l < 0) {
                                 if (need_comma)
-                                        fputc_unlocked(',', f);
+                                        fputc(',', f);
                                 else
                                         need_comma = true;
 
-                                fputs_unlocked(days[x], f);
+                                fputs(days[x], f);
                                 l = x;
                         }
 
                 } else if (l >= 0) {
 
                         if (x > l + 1) {
-                                fputs_unlocked(x > l + 2 ? ".." : ",", f);
-                                fputs_unlocked(days[x-1], f);
+                                fputs(x > l + 2 ? ".." : ",", f);
+                                fputs(days[x-1], f);
                         }
 
                         l = -1;
@@ -281,8 +288,8 @@ static void format_weekdays(FILE *f, const CalendarSpec *c) {
         }
 
         if (l >= 0 && x > l + 1) {
-                fputs_unlocked(x > l + 2 ? ".." : ",", f);
-                fputs_unlocked(days[x-1], f);
+                fputs(x > l + 2 ? ".." : ",", f);
+                fputs(days[x-1], f);
         }
 }
 
@@ -292,12 +299,12 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
         assert(f);
 
         if (!c) {
-                fputc_unlocked('*', f);
+                fputc('*', f);
                 return;
         }
 
         if (usec && c->start == 0 && c->repeat == USEC_PER_SEC && !c->next) {
-                fputc_unlocked('*', f);
+                fputc('*', f);
                 return;
         }
 
@@ -318,7 +325,7 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
                 fprintf(f, ".%06i", c->repeat % d);
 
         if (c->next) {
-                fputc_unlocked(',', f);
+                fputc(',', f);
                 format_chain(f, space, c->next, usec);
         }
 }
@@ -336,28 +343,30 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
         if (!f)
                 return -ENOMEM;
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
         if (c->weekdays_bits > 0 && c->weekdays_bits <= BITS_WEEKDAYS) {
                 format_weekdays(f, c);
-                fputc_unlocked(' ', f);
+                fputc(' ', f);
         }
 
         format_chain(f, 4, c->year, false);
-        fputc_unlocked('-', f);
+        fputc('-', f);
         format_chain(f, 2, c->month, false);
-        fputc_unlocked(c->end_of_month ? '~' : '-', f);
+        fputc(c->end_of_month ? '~' : '-', f);
         format_chain(f, 2, c->day, false);
-        fputc_unlocked(' ', f);
+        fputc(' ', f);
         format_chain(f, 2, c->hour, false);
-        fputc_unlocked(':', f);
+        fputc(':', f);
         format_chain(f, 2, c->minute, false);
-        fputc_unlocked(':', f);
+        fputc(':', f);
         format_chain(f, 2, c->microsecond, true);
 
         if (c->utc)
-                fputs_unlocked(" UTC", f);
+                fputs(" UTC", f);
         else if (c->timezone != NULL) {
-                fputc_unlocked(' ', f);
-                fputs_unlocked(c->timezone, f);
+                fputc(' ', f);
+                fputs(c->timezone, f);
         } else if (IN_SET(c->dst, 0, 1)) {
 
                 /* If daylight saving is explicitly on or off, let's show the used timezone. */
@@ -365,8 +374,8 @@ int calendar_spec_to_string(const CalendarSpec *c, char **p) {
                 tzset();
 
                 if (!isempty(tzname[c->dst])) {
-                        fputc_unlocked(' ', f);
-                        fputs_unlocked(tzname[c->dst], f);
+                        fputc(' ', f);
+                        fputs(tzname[c->dst], f);
                 }
         }
 
@@ -1345,9 +1354,7 @@ typedef struct SpecNextResult {
 } SpecNextResult;
 
 int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next) {
-        pid_t pid;
-        SpecNextResult *shared;
-        SpecNextResult tmp;
+        SpecNextResult *shared, tmp;
         int r;
 
         if (isempty(spec->timezone))
@@ -1357,15 +1364,12 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next)
         if (shared == MAP_FAILED)
                 return negative_errno();
 
-        pid = fork();
-
-        if (pid == -1) {
-                int fork_errno = errno;
+        r = safe_fork("(sd-calendar)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_WAIT, NULL);
+        if (r < 0) {
                 (void) munmap(shared, sizeof *shared);
-                return -fork_errno;
+                return r;
         }
-
-        if (pid == 0) {
+        if (r == 0) {
                 if (setenv("TZ", spec->timezone, 1) != 0) {
                         shared->return_value = negative_errno();
                         _exit(EXIT_FAILURE);
@@ -1378,14 +1382,8 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *next)
                 _exit(EXIT_SUCCESS);
         }
 
-        r = wait_for_terminate(pid, NULL);
-        if (r < 0) {
-                (void) munmap(shared, sizeof *shared);
-                return r;
-        }
-
         tmp = *shared;
-        if (munmap(shared, sizeof *shared) != 0)
+        if (munmap(shared, sizeof *shared) < 0)
                 return negative_errno();
 
         if (tmp.return_value == 0)

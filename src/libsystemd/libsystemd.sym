@@ -530,3 +530,22 @@ global:
         sd_bus_message_new;
         sd_bus_message_seal;
 } LIBSYSTEMD_234;
+
+LIBSYSTEMD_237 {
+global:
+        sd_bus_set_watch_bind;
+        sd_bus_get_watch_bind;
+        sd_bus_request_name_async;
+        sd_bus_release_name_async;
+        sd_bus_add_match_async;
+        sd_bus_match_signal;
+        sd_bus_match_signal_async;
+        sd_bus_is_ready;
+        sd_bus_set_connected_signal;
+        sd_bus_get_connected_signal;
+        sd_bus_set_sender;
+        sd_bus_get_sender;
+        sd_bus_message_set_sender;
+        sd_event_source_get_io_fd_own;
+        sd_event_source_set_io_fd_own;
+} LIBSYSTEMD_236;

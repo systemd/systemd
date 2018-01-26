@@ -19,6 +19,7 @@
 ***/
 
 #include <errno.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
@@ -115,7 +116,7 @@ int name_to_handle_at_loop(
 }
 
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *mnt_id) {
-        char path[strlen("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
+        char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *fdinfo = NULL;
         _cleanup_close_ int subfd = -1;
         char *p;
@@ -336,6 +337,8 @@ int umount_recursive(const char *prefix, int flags) {
                 proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
                 if (!proc_self_mountinfo)
                         return -errno;
+
+                (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
 
                 for (;;) {
                         _cleanup_free_ char *path = NULL, *p = NULL;
@@ -582,6 +585,8 @@ int bind_remount_recursive(const char *prefix, bool ro, char **blacklist) {
         proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
         if (!proc_self_mountinfo)
                 return -errno;
+
+        (void) __fsetlocking(proc_self_mountinfo, FSETLOCKING_BYCALLER);
 
         return bind_remount_recursive_with_mountinfo(prefix, ro, blacklist, proc_self_mountinfo);
 }

@@ -2,20 +2,20 @@
 
 Our intention is to make all settings that are available as unit file settings
 also available for transient units, through the D-Bus API. At the moment, some
-unit types (socket, swap, path) are not supported at all via unit types, but
-most others are pretty well supported, with some notable omissions.
+unit types (device, swap, target) are not supported at all via unit types,
+but most others are pretty well supported, with some notable omissions.
 
 The lists below contain all settings currently available in unit files. The
 ones currently available in transient units are prefixed with `✓`.
 
 ## Generic Unit Settings
 
-Only the most important generic unit settings are available for transient units.
+Most generic unit settings are available for transient units.
 
 ```
 ✓ Description=
-  Documentation=
-  SourcePath=
+✓ Documentation=
+✓ SourcePath=
 ✓ Requires=
 ✓ Requisite=
 ✓ Wants=
@@ -27,67 +27,70 @@ Only the most important generic unit settings are available for transient units.
 ✓ PropagatesReloadTo=
 ✓ ReloadPropagatedFrom=
 ✓ PartOf=
-  JoinsNamespaceOf=
-  RequiresMountsFor=
-  StopWhenUnneeded=
-  RefuseManualStart=
-  RefuseManualStop=
-  AllowIsolate=
+✓ JoinsNamespaceOf=
+✓ RequiresMountsFor=
+✓ StopWhenUnneeded=
+✓ RefuseManualStart=
+✓ RefuseManualStop=
+✓ AllowIsolate=
 ✓ DefaultDependencies=
-  OnFailureJobMode=
-  OnFailureIsolate=
-  IgnoreOnIsolate=
-  JobTimeoutSec=
-  JobRunningTimeoutSec=
-  JobTimeoutAction=
-  JobTimeoutRebootArgument=
-  StartLimitIntervalSec=SECONDS
-  StartLimitBurst=UNSIGNED
-  StartLimitAction=ACTION
+✓ OnFailureJobMode=
+✓ IgnoreOnIsolate=
+✓ JobTimeoutSec=
+✓ JobRunningTimeoutSec=
+✓ JobTimeoutAction=
+✓ JobTimeoutRebootArgument=
+✓ StartLimitIntervalSec=SECONDS
+✓ StartLimitBurst=UNSIGNED
+✓ StartLimitAction=ACTION
 ✓ FailureAction=
 ✓ SuccessAction=
 ✓ AddRef=
-  RebootArgument=STRING
-  ConditionPathExists=
-  ConditionPathExistsGlob=
-  ConditionPathIsDirectory=
-  ConditionPathIsSymbolicLink=
-  ConditionPathIsMountPoint=
-  ConditionPathIsReadWrite=
-  ConditionDirectoryNotEmpty=
-  ConditionFileNotEmpty=
-  ConditionFileIsExecutable=
-  ConditionNeedsUpdate=
-  ConditionFirstBoot=
-  ConditionKernelCommandLine=
-  ConditionArchitecture=
-  ConditionVirtualization=
-  ConditionSecurity=
-  ConditionCapability=
-  ConditionHost=
-  ConditionACPower=
-  ConditionUser=
-  ConditionGroup=
-  AssertPathExists=
-  AssertPathExistsGlob=
-  AssertPathIsDirectory=
-  AssertPathIsSymbolicLink=
-  AssertPathIsMountPoint=
-  AssertPathIsReadWrite=
-  AssertDirectoryNotEmpty=
-  AssertFileNotEmpty=
-  AssertFileIsExecutable=
-  AssertNeedsUpdate=
-  AssertFirstBoot=
-  AssertKernelCommandLine=
-  AssertArchitecture=
-  AssertVirtualization=
-  AssertSecurity=
-  AssertCapability=
-  AssertHost=
-  AssertACPower=
-  AssertUser=
-  AssertGroup=
+✓ RebootArgument=STRING
+✓ ConditionPathExists=
+✓ ConditionPathExistsGlob=
+✓ ConditionPathIsDirectory=
+✓ ConditionPathIsSymbolicLink=
+✓ ConditionPathIsMountPoint=
+✓ ConditionPathIsReadWrite=
+✓ ConditionDirectoryNotEmpty=
+✓ ConditionFileNotEmpty=
+✓ ConditionFileIsExecutable=
+✓ ConditionNeedsUpdate=
+✓ ConditionFirstBoot=
+✓ ConditionKernelCommandLine=
+✓ ConditionKernelVersion=
+✓ ConditionArchitecture=
+✓ ConditionVirtualization=
+✓ ConditionSecurity=
+✓ ConditionCapability=
+✓ ConditionHost=
+✓ ConditionACPower=
+✓ ConditionUser=
+✓ ConditionGroup=
+✓ ConditionControlGroupController=
+✓ AssertPathExists=
+✓ AssertPathExistsGlob=
+✓ AssertPathIsDirectory=
+✓ AssertPathIsSymbolicLink=
+✓ AssertPathIsMountPoint=
+✓ AssertPathIsReadWrite=
+✓ AssertDirectoryNotEmpty=
+✓ AssertFileNotEmpty=
+✓ AssertFileIsExecutable=
+✓ AssertNeedsUpdate=
+✓ AssertFirstBoot=
+✓ AssertKernelCommandLine=
+✓ AssertKernelVersion=
+✓ AssertArchitecture=
+✓ AssertVirtualization=
+✓ AssertSecurity=
+✓ AssertCapability=
+✓ AssertHost=
+✓ AssertACPower=
+✓ AssertUser=
+✓ AssertGroup=
+✓ AssertControlGroupController=
 ✓ CollectMode=
 ```
 
@@ -254,63 +257,63 @@ All process killing settings are available for transient units:
 
 ## Service Unit Settings
 
-Only the most important service settings are available for transient units.
+Most service unit settings are available for transient units.
 
 ```
-  PIDFile=
+✓ PIDFile=
 ✓ ExecStartPre=
 ✓ ExecStart=
 ✓ ExecStartPost=
 ✓ ExecReload=
 ✓ ExecStop=
 ✓ ExecStopPost=
-  RestartSec=
-  TimeoutStartSec=
-  TimeoutStopSec=
-  TimeoutSec=
+✓ RestartSec=
+✓ TimeoutStartSec=
+✓ TimeoutStopSec=
+✓ TimeoutSec=
 ✓ RuntimeMaxSec=
-  WatchdogSec=
+✓ WatchdogSec=
 ✓ Type=
 ✓ Restart=
-  PermissionsStartOnly=
-  RootDirectoryStartOnly=
+✓ PermissionsStartOnly=
+✓ RootDirectoryStartOnly=
 ✓ RemainAfterExit=
-  GuessMainPID=
-  RestartPreventExitStatus=
-  RestartForceExitStatus=
-  SuccessExitStatus=
+✓ GuessMainPID=
+✓ RestartPreventExitStatus=
+✓ RestartForceExitStatus=
+✓ SuccessExitStatus=
 ✓ NonBlocking=
-  BusName=
+✓ BusName=
 ✓ FileDescriptorStoreMax=
 ✓ NotifyAccess=
   Sockets=
-  USBFunctionDescriptors=
-  USBFunctionStrings=
+✓ USBFunctionDescriptors=
+✓ USBFunctionStrings=
 ```
 
 ## Mount Unit Settings
 
-Only the most important mount unit settings are currently available to transient units:
+All mount unit settings are available to transient units:
 
 ```
 ✓ What=
-  Where=
+✓ Where=
 ✓ Options=
 ✓ Type=
-  TimeoutSec=
-  DirectoryMode=
-  SloppyOptions=
-  LazyUnmount=
-  ForceUnmount=
+✓ TimeoutSec=
+✓ DirectoryMode=
+✓ SloppyOptions=
+✓ LazyUnmount=
+✓ ForceUnmount=
 ```
 
 ## Automount Unit Settings
 
-Only one automount unit setting is currently available to transient units:
+All automount unit setting is available to transient units:
 
 ```
-  Where=
-  DirectoryMode=
+✓ Where=
+✓ DirectoryMode=
 ✓ TimeoutIdleSec=
 ```
 
@@ -325,7 +328,7 @@ Most timer unit settings are available to transient units.
 ✓ OnStartupSec=
 ✓ OnUnitActiveSec=
 ✓ OnUnitInactiveSec=
-  Persistent=
+✓ Persistent=
 ✓ WakeSystem=
 ✓ RemainAfterElapse=
 ✓ AccuracySec=
@@ -341,71 +344,74 @@ of their own beyond the generic unit and resource control settings.
 ## Scope Unit Settings
 
 Scope units are fully supported as transient units (in fact they only exist as
-such), but they have no settings of their own beyond the generic unit and
-resource control settings.
+such).
+
+```
+✓ TimeoutStopSec=
+```
 
 ## Socket Unit Settings
 
-Socket units are currently not available at all as transient units:
+Most socket unit settings are available to transient units.
 
 ```
-  ListenStream=
-  ListenDatagram=
-  ListenSequentialPacket=
-  ListenFIFO=
-  ListenNetlink=
-  ListenSpecial=
-  ListenMessageQueue=
-  ListenUSBFunction=
-  SocketProtocol=
-  BindIPv6Only=
-  Backlog=
-  BindToDevice=
-  ExecStartPre=
-  ExecStartPost=
-  ExecStopPre=
-  ExecStopPost=
-  TimeoutSec=
-  SocketUser=
-  SocketGroup=
-  SocketMode=
-  DirectoryMode=
-  Accept=
-  Writable=
-  MaxConnections=
-  MaxConnectionsPerSource=
-  KeepAlive=
-  KeepAliveTimeSec=
-  KeepAliveIntervalSec=
-  KeepAliveProbes=
-  DeferAcceptSec=
-  NoDelay=
-  Priority=
-  ReceiveBuffer=
-  SendBuffer=
-  IPTOS=
-  IPTTL=
-  Mark=
-  PipeSize=
-  FreeBind=
-  Transparent=
-  Broadcast=
-  PassCredentials=
-  PassSecurity=
-  TCPCongestion=
-  ReusePort=
-  MessageQueueMaxMessages=
-  MessageQueueMessageSize=
-  RemoveOnStop=
-  Symlinks=
-  FileDescriptorName=
+✓ ListenStream=
+✓ ListenDatagram=
+✓ ListenSequentialPacket=
+✓ ListenFIFO=
+✓ ListenNetlink=
+✓ ListenSpecial=
+✓ ListenMessageQueue=
+✓ ListenUSBFunction=
+✓ SocketProtocol=
+✓ BindIPv6Only=
+✓ Backlog=
+✓ BindToDevice=
+✓ ExecStartPre=
+✓ ExecStartPost=
+✓ ExecStopPre=
+✓ ExecStopPost=
+✓ TimeoutSec=
+✓ SocketUser=
+✓ SocketGroup=
+✓ SocketMode=
+✓ DirectoryMode=
+✓ Accept=
+✓ Writable=
+✓ MaxConnections=
+✓ MaxConnectionsPerSource=
+✓ KeepAlive=
+✓ KeepAliveTimeSec=
+✓ KeepAliveIntervalSec=
+✓ KeepAliveProbes=
+✓ DeferAcceptSec=
+✓ NoDelay=
+✓ Priority=
+✓ ReceiveBuffer=
+✓ SendBuffer=
+✓ IPTOS=
+✓ IPTTL=
+✓ Mark=
+✓ PipeSize=
+✓ FreeBind=
+✓ Transparent=
+✓ Broadcast=
+✓ PassCredentials=
+✓ PassSecurity=
+✓ TCPCongestion=
+✓ ReusePort=
+✓ MessageQueueMaxMessages=
+✓ MessageQueueMessageSize=
+✓ RemoveOnStop=
+✓ Symlinks=
+✓ FileDescriptorName=
   Service=
-  TriggerLimitIntervalSec=
-  TriggerLimitBurst=
-  SmackLabel=
-  SmackLabelIPIn=
-  SmackLabelIPOut=
-  SELinuxContextFromNet=
+✓ TriggerLimitIntervalSec=
+✓ TriggerLimitBurst=
+✓ SmackLabel=
+✓ SmackLabelIPIn=
+✓ SmackLabelIPOut=
+✓ SELinuxContextFromNet=
 ```
 
 ## Swap Unit Settings
@@ -421,17 +427,17 @@ Swap units are currently not available at all as transient units:
 
 ## Path Unit Settings
 
-Path units are currently not available at all as transient units:
+Most path unit settings are available to transient units.
 
 ```
-  PathExists=
-  PathExistsGlob=
-  PathChanged=
-  PathModified=
-  DirectoryNotEmpty=
+✓ PathExists=
+✓ PathExistsGlob=
+✓ PathChanged=
+✓ PathModified=
+✓ DirectoryNotEmpty=
   Unit=
-  MakeDirectory=
-  DirectoryMode=
+✓ MakeDirectory=
+✓ DirectoryMode=
 ```
 
 ## Install Section

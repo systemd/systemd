@@ -49,7 +49,7 @@
 
   <refnamediv>
     <refname>systemd.environment-generator</refname>
-    <refpurpose>Systemd environment file generators</refpurpose>
+    <refpurpose>systemd environment file generators</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

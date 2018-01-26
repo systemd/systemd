@@ -37,6 +37,7 @@
 #include "log.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "sigbus.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -248,7 +249,7 @@ int start_upload(Uploader *u,
                 easy_setopt(curl, CURLOPT_HTTPHEADER, u->header,
                             LOG_ERR, return -EXFULL);
 
-                if (_unlikely_(log_get_max_level() >= LOG_DEBUG))
+                if (DEBUG_LOGGING)
                         /* enable verbose for easier tracing */
                         easy_setopt(curl, CURLOPT_VERBOSE, 1L, LOG_WARNING, );
 

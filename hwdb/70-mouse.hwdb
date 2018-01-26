@@ -548,6 +548,10 @@ mouse:usb:v045ep07b1:name:Microsoft Microsoft® Nano Transceiver v1.0:
 mouse:bluetooth:v045ep0702:name:Microsoft  Wireless Laser Mouse 8000:
  MOUSE_DPI=1000@1000
 
+# Microsoft Sculpt Comfort Mouse
+mouse:bluetooth:v045ep07a2:name:Microsoft Sculpt Comfort Mouse:
+ MOUSE_DPI=1000@2000
+
 # Microsoft Arc Touch Mouse SE:
 mouse:bluetooth:v045ep07f3:name:Arc Touch Mouse SE:
  MOUSE_DPI=1000@2000

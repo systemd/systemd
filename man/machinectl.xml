@@ -439,9 +439,9 @@
         specified, the connection is made to the local host
         instead. This works similar to <command>login</command> but
         immediately invokes a user process. This command runs the
-        specified executable with the specified arguments, or
-        <filename>/bin/sh</filename> if none is specified. By default,
-        opens a <literal>root</literal> shell, but by using
+        specified executable with the specified arguments, or the
+        default shell for the user if none is specified, or
+        <filename>/bin/sh</filename> if no default shell is found. By default,
         <option>--uid=</option>, or by prefixing the machine name with
         a username and an <literal>@</literal> character, a different
         user may be selected. Use <option>--setenv=</option> to set
@@ -881,7 +881,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>cancel-transfers</command> <replaceable>ID</replaceable>…</term>
+        <term><command>cancel-transfer</command> <replaceable>ID</replaceable>…</term>
 
         <listitem><para>Aborts a download, import or export of the
         container or VM image with the specified ID. To list ongoing

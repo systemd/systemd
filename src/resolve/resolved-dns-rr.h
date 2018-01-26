@@ -57,6 +57,8 @@ enum {
         DNSSEC_ALGORITHM_ECC_GOST = 12,        /* RFC 5933 */
         DNSSEC_ALGORITHM_ECDSAP256SHA256 = 13, /* RFC 6605 */
         DNSSEC_ALGORITHM_ECDSAP384SHA384 = 14, /* RFC 6605 */
+        DNSSEC_ALGORITHM_ED25519 = 15,         /* RFC 8080 */
+        DNSSEC_ALGORITHM_ED448 = 16,           /* RFC 8080 */
         DNSSEC_ALGORITHM_INDIRECT = 252,
         DNSSEC_ALGORITHM_PRIVATEDNS,
         DNSSEC_ALGORITHM_PRIVATEOID,
@@ -298,6 +300,7 @@ DnsResourceKey* dns_resource_key_ref(DnsResourceKey *key);
 DnsResourceKey* dns_resource_key_unref(DnsResourceKey *key);
 const char* dns_resource_key_name(const DnsResourceKey *key);
 bool dns_resource_key_is_address(const DnsResourceKey *key);
+bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key);
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b);
 int dns_resource_key_match_rr(const DnsResourceKey *key, DnsResourceRecord *rr, const char *search_domain);
 int dns_resource_key_match_cname_or_dname(const DnsResourceKey *key, const DnsResourceKey *cname, const char *search_domain);
@@ -341,6 +344,7 @@ int dns_resource_record_clamp_ttl(DnsResourceRecord **rr, uint32_t max_ttl);
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 DnsTxtItem *dns_txt_item_copy(DnsTxtItem *i);
+int dns_txt_item_new_empty(DnsTxtItem **ret);
 
 void dns_resource_record_hash_func(const void *i, struct siphash *state);
 

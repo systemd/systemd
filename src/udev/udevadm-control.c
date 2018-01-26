@@ -21,6 +21,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "process-util.h"
 #include "time-util.h"
 #include "udev-util.h"
 #include "udev.h"
@@ -63,10 +64,8 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
                 {}
         };
 
-        if (getuid() != 0) {
-                log_error("root privileges required");
+        if (must_be_root() < 0)
                 return 1;
-        }
 
         uctrl = udev_ctrl_new(udev);
         if (uctrl == NULL)

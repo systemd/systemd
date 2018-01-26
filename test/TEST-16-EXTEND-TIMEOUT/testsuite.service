@@ -1,0 +1,18 @@
+
+[Unit]
+Description=Testsuite: Assess all other testsuite-*.services worked as expected
+
+Wants=testsuite-success-all.service
+Wants=testsuite-success-start.service
+Wants=testsuite-success-runtime.service
+Wants=testsuite-success-stop.service
+Wants=testsuite-fail-start.service
+Wants=testsuite-fail-stop.service
+Wants=testsuite-fail-runtime.service
+StopWhenUnneeded=yes
+
+[Service]
+
+Type=simple
+ExecStartPre=/assess.sh
+ExecStart=/bin/true

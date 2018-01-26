@@ -875,31 +875,30 @@ bool on_tty(void) {
 }
 
 int make_stdio(int fd) {
-        int r, s, t;
+        int r = 0;
 
         assert(fd >= 0);
 
-        r = dup2(fd, STDIN_FILENO);
-        s = dup2(fd, STDOUT_FILENO);
-        t = dup2(fd, STDERR_FILENO);
+        if (dup2(fd, STDIN_FILENO) < 0 && r >= 0)
+                r = -errno;
+        if (dup2(fd, STDOUT_FILENO) < 0 && r >= 0)
+                r = -errno;
+        if (dup2(fd, STDERR_FILENO) < 0 && r >= 0)
+                r = -errno;
 
         if (fd >= 3)
                 safe_close(fd);
 
-        if (r < 0 || s < 0 || t < 0)
-                return -errno;
-
-        /* Explicitly unset O_CLOEXEC, since if fd was < 3, then
-         * dup2() was a NOP and the bit hence possibly set. */
+        /* Explicitly unset O_CLOEXEC, since if fd was < 3, then dup2() was a NOP and the bit hence possibly set. */
         stdio_unset_cloexec();
 
-        return 0;
+        return r;
 }
 
 int make_null_stdio(void) {
         int null_fd;
 
-        null_fd = open("/dev/null", O_RDWR|O_NOCTTY);
+        null_fd = open("/dev/null", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (null_fd < 0)
                 return -errno;
 
@@ -992,7 +991,7 @@ int get_ctty_devnr(pid_t pid, dev_t *d) {
 }
 
 int get_ctty(pid_t pid, dev_t *_devnr, char **r) {
-        char fn[sizeof("/dev/char/")-1 + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *b = NULL;
+        char fn[STRLEN("/dev/char/") + 2*DECIMAL_STR_MAX(unsigned) + 1 + 1], *b = NULL;
         _cleanup_free_ char *s = NULL;
         const char *p;
         dev_t devnr;
@@ -1094,7 +1093,6 @@ int ptsname_namespace(int pty, char **ret) {
 int openpt_in_namespace(pid_t pid, int flags) {
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        siginfo_t si;
         pid_t child;
         int r;
 
@@ -1107,11 +1105,10 @@ int openpt_in_namespace(pid_t pid, int flags) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        child = fork();
-        if (child < 0)
-                return -errno;
-
-        if (child == 0) {
+        r = safe_fork("(sd-openpt)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int master;
 
                 pair[0] = safe_close(pair[0]);
@@ -1135,10 +1132,10 @@ int openpt_in_namespace(pid_t pid, int flags) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-openpt)", child, 0);
         if (r < 0)
                 return r;
-        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+        if (r != EXIT_SUCCESS)
                 return -EIO;
 
         return receive_one_fd(pair[0], 0);
@@ -1147,7 +1144,6 @@ int openpt_in_namespace(pid_t pid, int flags) {
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, usernsfd = -1, rootfd = -1;
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
-        siginfo_t si;
         pid_t child;
         int r;
 
@@ -1158,11 +1154,10 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        child = fork();
-        if (child < 0)
-                return -errno;
-
-        if (child == 0) {
+        r = safe_fork("(sd-terminal)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int master;
 
                 pair[0] = safe_close(pair[0]);
@@ -1183,10 +1178,10 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-terminal)", child, 0);
         if (r < 0)
                 return r;
-        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+        if (r != EXIT_SUCCESS)
                 return -EIO;
 
         return receive_one_fd(pair[0], 0);

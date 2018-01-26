@@ -40,6 +40,7 @@
 #include "missing.h"
 #include "socket-util.h"
 #include "util.h"
+#include "process-util.h"
 
 #define WORKERS_MIN 1U
 #define WORKERS_MAX 16U
@@ -398,14 +399,9 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
 
 static void* thread_worker(void *p) {
         sd_resolve *resolve = p;
-        sigset_t fullset;
-
-        /* No signals in this thread please */
-        assert_se(sigfillset(&fullset) == 0);
-        assert_se(pthread_sigmask(SIG_BLOCK, &fullset, NULL) == 0);
 
         /* Assign a pretty name to this thread */
-        (void) prctl(PR_SET_NAME, (unsigned long) "sd-resolve");
+        (void) pthread_setname_np(pthread_self(), "sd-resolve");
 
         while (!resolve->dead) {
                 union {
@@ -437,8 +433,18 @@ static void* thread_worker(void *p) {
 }
 
 static int start_threads(sd_resolve *resolve, unsigned extra) {
+        sigset_t ss, saved_ss;
         unsigned n;
-        int r;
+        int r, k;
+
+        if (sigfillset(&ss) < 0)
+                return -errno;
+
+        /* No signals in forked off threads please. We set the mask before forking, so that the threads never exist
+         * with a different mask than a fully blocked one */
+        r = pthread_sigmask(SIG_BLOCK, &ss, &saved_ss);
+        if (r > 0)
+                return -r;
 
         n = resolve->n_outstanding + extra;
         n = CLAMP(n, WORKERS_MIN, WORKERS_MAX);
@@ -446,13 +452,22 @@ static int start_threads(sd_resolve *resolve, unsigned extra) {
         while (resolve->n_valid_workers < n) {
 
                 r = pthread_create(&resolve->workers[resolve->n_valid_workers], NULL, thread_worker, resolve);
-                if (r != 0)
-                        return -r;
+                if (r > 0) {
+                        r = -r;
+                        goto finish;
+                }
 
                 resolve->n_valid_workers++;
         }
 
-        return 0;
+        r = 0;
+
+finish:
+        k = pthread_sigmask(SIG_SETMASK, &saved_ss, NULL);
+        if (k > 0 && r >= 0)
+                r = -k;
+
+        return r;
 }
 
 static bool resolve_pid_changed(sd_resolve *r) {

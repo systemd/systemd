@@ -22,6 +22,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -470,6 +471,7 @@ static int lease_parse_routes(
                 struct sd_dhcp_route *route = *routes + *routes_size;
                 int r;
 
+                route->option = SD_DHCP_OPTION_STATIC_ROUTE;
                 r = in4_addr_default_prefixlen((struct in_addr*) option, &route->dst_prefixlen);
                 if (r < 0) {
                         log_debug("Failed to determine destination prefix length from class based IP, ignoring");
@@ -513,6 +515,7 @@ static int lease_parse_classless_routes(
                         return -ENOMEM;
 
                 route = *routes + *routes_size;
+                route->option = SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE;
 
                 dst_octets = (*option == 0 ? 0 : ((*option - 1) / 8) + 1);
                 route->dst_prefixlen = *option;
@@ -876,7 +879,8 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r < 0)
                 goto fail;
 
-        fchmod(fileno(f), 0644);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n");
@@ -923,16 +927,16 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         r = sd_dhcp_lease_get_dns(lease, &addresses);
         if (r > 0) {
-                fputs_unlocked("DNS=", f);
+                fputs("DNS=", f);
                 serialize_in_addrs(f, addresses, r);
-                fputs_unlocked("\n", f);
+                fputs("\n", f);
         }
 
         r = sd_dhcp_lease_get_ntp(lease, &addresses);
         if (r > 0) {
-                fputs_unlocked("NTP=", f);
+                fputs("NTP=", f);
                 serialize_in_addrs(f, addresses, r);
-                fputs_unlocked("\n", f);
+                fputs("\n", f);
         }
 
         r = sd_dhcp_lease_get_domainname(lease, &string);
@@ -941,9 +945,9 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         r = sd_dhcp_lease_get_search_domains(lease, &search_domains);
         if (r > 0) {
-                fputs_unlocked("DOMAIN_SEARCH_LIST=", f);
+                fputs("DOMAIN_SEARCH_LIST=", f);
                 fputstrv(f, search_domains, NULL, NULL);
-                fputs_unlocked("\n", f);
+                fputs("\n", f);
         }
 
         r = sd_dhcp_lease_get_hostname(lease, &string);
@@ -987,7 +991,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         }
 
         LIST_FOREACH(options, option, lease->private_options) {
-                char key[strlen("OPTION_000")+1];
+                char key[STRLEN("OPTION_000")+1];
 
                 xsprintf(key, "OPTION_%" PRIu8, option->tag);
                 r = serialize_dhcp_option(f, key, option->data, option->length);

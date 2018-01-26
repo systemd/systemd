@@ -194,6 +194,17 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>KernelVersion=</varname></term>
+          <listitem>
+            <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a certain
+            expression (or if prefixed with the exclamation mark does not match it). See
+            <literal>ConditionKernelVersion=</literal> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+            details.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Architecture=</varname></term>
           <listitem>
             <para>Checks whether the system is running on a specific
@@ -656,8 +667,16 @@
         <varlistentry>
           <term><varname>IPv6PrefixDelegation=</varname></term>
           <listitem><para>Whether to enable or disable Router Advertisement sending on a link.
-          Defaults to <literal>false</literal>. See the <literal>[IPv6PrefixDelegation]</literal>
-          and the <literal>[IPv6Prefix]</literal> sections for configuration options.
+          Allowed values are <literal>static</literal> which distributes prefixes as defined in
+          the <literal>[IPv6PrefixDelegation]</literal> and any <literal>[IPv6Prefix]</literal>
+          sections, <literal>dhcpv6</literal> which requests prefixes using a DHCPv6 client
+          configured for another link and any values configured in the
+          <literal>[IPv6PrefixDelegation]</literal> section while ignoring all static prefix
+          configuration sections, <literal>yes</literal> which uses both static configuration
+          and DHCPv6, and <literal>false</literal> which turns off IPv6 prefix delegation
+          altogether. Defaults to <literal>false</literal>. See the
+          <literal>[IPv6PrefixDelegation]</literal> and the <literal>[IPv6Prefix]</literal>
+          sections for more configuration options.
           </para></listitem>
         </varlistentry>
         <varlistentry>
@@ -1056,6 +1075,33 @@
             </para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><varname>InitialCongestionWindow=</varname></term>
+          <listitem>
+            <para>The TCP initial congestion window is used during the start of a TCP connection. During the start of a TCP
+            session, when a client requests a resource, the server's initial congestion window determines how many data bytes
+            will be sent during the initial burst of data. Takes a size in bytes between 1 and 4294967295 (2^32 - 1). The usual
+            suffixes K, M, G are supported and are understood to the base of 1024. Defaults to unset.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>InitialAdvertisedReceiveWindow=</varname></term>
+          <listitem>
+            <para>The TCP initial advertised receive window is the amount of receive data (in bytes) that can initally be buffered at one time
+            on a connection. The sending host can send only that amount of data before waiting for an acknowledgment and window update
+            from the receiving host. Takes a size in bytes between 1 and 4294967295 (2^32 - 1). The usual suffixes K, M, G are supported
+            and are understood to the base of 1024. Defaults to unset.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>QuickAck=</varname></term>
+          <listitem>
+            <para>Takes a boolean argument. When true enables TCP quick ack mode for the route. Defaults to unset.
+            </para>
+          </listitem>
+        </varlistentry>
 
       </variablelist>
   </refsect1>
@@ -1266,6 +1312,20 @@
             <para>Allow setting custom port for the DHCP client to listen on.</para>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><varname>RapidCommit=</varname></term>
+          <listitem>
+            <para>A boolean. The DHCPv6 client can obtain configuration parameters from a DHCPv6 server through
+            a rapid two-message exchange (solicit and reply). When the rapid commit option is enabled by both
+            the DHCPv6 client and the DHCPv6 server, the two-message exchange is used, rather than the default
+            four-method exchange (solicit, advertise, request, and reply). The two-message exchange provides
+            faster client configuration and is beneficial in environments in which networks are under a heavy load.
+            See <ulink url="https://tools.ietf.org/html/rfc3315#section-17.2.1">RFC 3315</ulink> for details.
+            Defaults to true.</para>
+          </listitem>
+        </varlistentry>
+
       </variablelist>
     </refsect1>
 

@@ -44,7 +44,7 @@
 #if HAVE_ACL
 
 static int get_acl(int fd, const char *name, acl_type_t type, acl_t *ret) {
-        char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         acl_t acl;
 
         assert(fd >= 0);
@@ -73,7 +73,7 @@ static int get_acl(int fd, const char *name, acl_type_t type, acl_t *ret) {
 }
 
 static int set_acl(int fd, const char *name, acl_type_t type, acl_t acl) {
-        char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         int r;
 
         assert(fd >= 0);

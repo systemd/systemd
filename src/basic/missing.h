@@ -206,6 +206,32 @@ struct sockaddr_vm {
 #endif
 
 #if ! HAVE_LINUX_BTRFS_H
+#define BTRFS_IOC_QGROUP_ASSIGN _IOW(BTRFS_IOCTL_MAGIC, 41, \
+                               struct btrfs_ioctl_qgroup_assign_args)
+#define BTRFS_IOC_QGROUP_CREATE _IOW(BTRFS_IOCTL_MAGIC, 42, \
+                               struct btrfs_ioctl_qgroup_create_args)
+#define BTRFS_IOC_QUOTA_RESCAN _IOW(BTRFS_IOCTL_MAGIC, 44, \
+                               struct btrfs_ioctl_quota_rescan_args)
+#define BTRFS_IOC_QUOTA_RESCAN_STATUS _IOR(BTRFS_IOCTL_MAGIC, 45, \
+                               struct btrfs_ioctl_quota_rescan_args)
+
+struct btrfs_ioctl_quota_rescan_args {
+        __u64   flags;
+        __u64   progress;
+        __u64   reserved[6];
+};
+
+struct btrfs_ioctl_qgroup_assign_args {
+        __u64 assign;
+        __u64 src;
+        __u64 dst;
+};
+
+struct btrfs_ioctl_qgroup_create_args {
+        __u64 create;
+        __u64 qgroupid;
+};
+
 struct btrfs_ioctl_vol_args {
         int64_t fd;
         char name[BTRFS_PATH_NAME_MAX + 1];
@@ -543,6 +569,38 @@ struct btrfs_ioctl_quota_ctl_args {
 #define PR_SET_CHILD_SUBREAPER 36
 #endif
 
+#ifndef PR_SET_MM_ARG_START
+#define PR_SET_MM_ARG_START 8
+#endif
+
+#ifndef PR_SET_MM_ARG_END
+#define PR_SET_MM_ARG_END 9
+#endif
+
+#ifndef PR_SET_MM_ENV_START
+#define PR_SET_MM_ENV_START 10
+#endif
+
+#ifndef PR_SET_MM_ENV_END
+#define PR_SET_MM_ENV_END 11
+#endif
+
+#ifndef EFIVARFS_MAGIC
+#define EFIVARFS_MAGIC 0xde5e81e4
+#endif
+
+#ifndef SMACK_MAGIC
+#define SMACK_MAGIC 0x43415d53
+#endif
+
+#ifndef DM_DEFERRED_REMOVE
+#define DM_DEFERRED_REMOVE (1 << 17)
+#endif
+
+#ifndef MAX_HANDLE_SZ
+#define MAX_HANDLE_SZ 128
+#endif
+
 #if ! HAVE_SECURE_GETENV
 #  if HAVE___SECURE_GETENV
 #    define secure_getenv __secure_getenv
@@ -561,6 +619,10 @@ struct btrfs_ioctl_quota_ctl_args {
 
 #ifndef SO_REUSEPORT
 #  define SO_REUSEPORT 15
+#endif
+
+#ifndef SO_PEERGROUPS
+#  define SO_PEERGROUPS 59
 #endif
 
 #ifndef EVIOCREVOKE
@@ -653,16 +715,26 @@ struct input_mask {
 #define IFLA_MACVLAN_MAX (__IFLA_MACVLAN_MAX - 1)
 #endif
 
-#if !HAVE_IFLA_IPVLAN_MODE
+#if !HAVE_IFLA_IPVLAN_FLAGS
 #define IFLA_IPVLAN_UNSPEC 0
 #define IFLA_IPVLAN_MODE 1
-#define __IFLA_IPVLAN_MAX 2
+#define IFLA_IPVLAN_FLAGS 2
+#define __IFLA_IPVLAN_MAX 3
 
 #define IFLA_IPVLAN_MAX (__IFLA_IPVLAN_MAX - 1)
 
 #define IPVLAN_MODE_L2 0
 #define IPVLAN_MODE_L3 1
+#define IPVLAN_MODE_L3S 2
 #define IPVLAN_MAX 2
+#endif
+
+#if !HAVE_IPVLAN_F_PRIVATE
+#define IPVLAN_F_PRIVATE 0x01
+#define IPVLAN_F_VEPA    0x02
+#define __IPVLAN_F_PRIVATE_MAX 3
+
+#define HAVE_IPVLAN_F_PRIVATE_MAX (__HAVE_IPVLAN_F_PRIVATE_MAX - 1)
 #endif
 
 #if !HAVE_IFLA_VTI_REMOTE
@@ -1269,6 +1341,14 @@ struct fib_rule_uid_range {
 
 #ifndef EXT4_IOC_RESIZE_FS
 #  define EXT4_IOC_RESIZE_FS              _IOW('f', 16, __u64)
+#endif
+
+#ifndef NSFS_MAGIC
+#define NSFS_MAGIC 0x6e736673
+#endif
+
+#ifndef NS_GET_NSTYPE
+#define NS_GET_NSTYPE _IO(0xb7, 0x3)
 #endif
 
 #include "missing_syscall.h"

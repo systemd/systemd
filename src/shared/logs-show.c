@@ -506,7 +506,9 @@ static int output_verbose(
         else {
                 _cleanup_free_ char *value = NULL;
 
-                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=", strlen("_SOURCE_REALTIME_TIMESTAMP="), &value, NULL);
+                r = parse_field(data, length, "_SOURCE_REALTIME_TIMESTAMP=",
+                                STRLEN("_SOURCE_REALTIME_TIMESTAMP="), &value,
+                                NULL);
                 if (r < 0)
                         return r;
                 assert(r > 0);
@@ -658,6 +660,10 @@ static int output_export(
                 }
 
                 fputc('\n', f);
+        }
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
         }
 
         if (r < 0)
@@ -822,6 +828,11 @@ static int output_json(
                 }
         }
 
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
+
         if (r < 0)
                 return r;
 
@@ -962,6 +973,10 @@ static int output_cat(
         sd_journal_set_data_threshold(j, 0);
 
         r = sd_journal_get_data(j, "MESSAGE", &data, &l);
+        if (r == -EBADMSG) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
         if (r < 0) {
                 /* An entry without MESSAGE=? */
                 if (r == -ENOENT)
@@ -1254,7 +1269,6 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         _cleanup_close_pair_ int pair[2] = { -1, -1 };
         _cleanup_close_ int pidnsfd = -1, mntnsfd = -1, rootfd = -1;
         pid_t pid, child;
-        siginfo_t si;
         char buf[37];
         ssize_t k;
         int r;
@@ -1276,11 +1290,10 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        child = fork();
-        if (child < 0)
-                return -errno;
-
-        if (child == 0) {
+        r = safe_fork("(sd-bootid)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 int fd;
 
                 pair[0] = safe_close(pair[0]);
@@ -1307,9 +1320,11 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
 
         pair[1] = safe_close(pair[1]);
 
-        r = wait_for_terminate(child, &si);
-        if (r < 0 || si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                return r < 0 ? r : -EIO;
+        r = wait_for_terminate_and_check("(sd-bootid)", child, 0);
+        if (r < 0)
+                return r;
+        if (r != EXIT_SUCCESS)
+                return -EIO;
 
         k = recv(pair[0], buf, 36, 0);
         if (k != 36)
@@ -1390,7 +1405,7 @@ int show_journal_by_unit(
         if (r < 0)
                 return log_error_errno(r, "Failed to add unit matches: %m");
 
-        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *filter;
 
                 filter = journal_make_match_string(j);

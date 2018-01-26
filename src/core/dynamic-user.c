@@ -147,7 +147,7 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
 
 static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
 
-        char path1[strlen("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1];
+        char path1[STRLEN("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1];
         const char *path2;
         int r = 0, k;
 
@@ -175,7 +175,7 @@ static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
                         r = k;
         }
 
-        if (b && symlink(path1 + strlen("/run/systemd/dynamic-uid/direct:"), path2) < 0) {
+        if (b && symlink(path1 + STRLEN("/run/systemd/dynamic-uid/direct:"), path2) < 0) {
                 k = log_warning_errno(errno,  "Failed to symlink \"%s\": %m", path2);
                 if (r == 0)
                         r = k;
@@ -218,7 +218,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
         (void) mkdir("/run/systemd/dynamic-uid", 0755);
 
         for (;;) {
-                char lock_path[strlen("/run/systemd/dynamic-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
+                char lock_path[STRLEN("/run/systemd/dynamic-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
                 _cleanup_close_ int lock_fd = -1;
                 uid_t candidate;
                 ssize_t l;
@@ -411,7 +411,7 @@ static int dynamic_user_push(DynamicUser *d, uid_t uid, int lock_fd) {
 }
 
 static void unlink_uid_lock(int lock_fd, uid_t uid, const char *name) {
-        char lock_path[strlen("/run/systemd/dynamic-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
+        char lock_path[STRLEN("/run/systemd/dynamic-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
 
         if (lock_fd < 0)
                 return;
@@ -744,7 +744,7 @@ void dynamic_user_vacuum(Manager *m, bool close_user) {
 }
 
 int dynamic_user_lookup_uid(Manager *m, uid_t uid, char **ret) {
-        char lock_path[strlen("/run/systemd/dynamic-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
+        char lock_path[STRLEN("/run/systemd/dynamic-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
         _cleanup_free_ char *user = NULL;
         uid_t check_uid;
         int r;

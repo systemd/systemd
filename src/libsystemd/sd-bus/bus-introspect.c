@@ -18,6 +18,8 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdio_ext.h>
+
 #include "bus-internal.h"
 #include "bus-introspect.h"
 #include "bus-protocol.h"
@@ -37,8 +39,10 @@ int introspect_begin(struct introspect *i, bool trusted) {
         if (!i->f)
                 return -ENOMEM;
 
-        fputs_unlocked(BUS_INTROSPECT_DOCTYPE
-                       "<node>\n", i->f);
+        (void) __fsetlocking(i->f, FSETLOCKING_BYCALLER);
+
+        fputs(BUS_INTROSPECT_DOCTYPE
+              "<node>\n", i->f);
 
         return 0;
 }
@@ -46,12 +50,12 @@ int introspect_begin(struct introspect *i, bool trusted) {
 int introspect_write_default_interfaces(struct introspect *i, bool object_manager) {
         assert(i);
 
-        fputs_unlocked(BUS_INTROSPECT_INTERFACE_PEER
-                       BUS_INTROSPECT_INTERFACE_INTROSPECTABLE
-                       BUS_INTROSPECT_INTERFACE_PROPERTIES, i->f);
+        fputs(BUS_INTROSPECT_INTERFACE_PEER
+              BUS_INTROSPECT_INTERFACE_INTROSPECTABLE
+              BUS_INTROSPECT_INTERFACE_PROPERTIES, i->f);
 
         if (object_manager)
-                fputs_unlocked(BUS_INTROSPECT_INTERFACE_OBJECT_MANAGER, i->f);
+                fputs(BUS_INTROSPECT_INTERFACE_OBJECT_MANAGER, i->f);
 
         return 0;
 }
@@ -77,27 +81,27 @@ int introspect_write_child_nodes(struct introspect *i, Set *s, const char *prefi
 
 static void introspect_write_flags(struct introspect *i, int type, int flags) {
         if (flags & SD_BUS_VTABLE_DEPRECATED)
-                fputs_unlocked("   <annotation name=\"org.freedesktop.DBus.Deprecated\" value=\"true\"/>\n", i->f);
+                fputs("   <annotation name=\"org.freedesktop.DBus.Deprecated\" value=\"true\"/>\n", i->f);
 
         if (type == _SD_BUS_VTABLE_METHOD && (flags & SD_BUS_VTABLE_METHOD_NO_REPLY))
-                fputs_unlocked("   <annotation name=\"org.freedesktop.DBus.Method.NoReply\" value=\"true\"/>\n", i->f);
+                fputs("   <annotation name=\"org.freedesktop.DBus.Method.NoReply\" value=\"true\"/>\n", i->f);
 
         if (IN_SET(type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY)) {
                 if (flags & SD_BUS_VTABLE_PROPERTY_EXPLICIT)
-                        fputs_unlocked("   <annotation name=\"org.freedesktop.systemd1.Explicit\" value=\"true\"/>\n", i->f);
+                        fputs("   <annotation name=\"org.freedesktop.systemd1.Explicit\" value=\"true\"/>\n", i->f);
 
                 if (flags & SD_BUS_VTABLE_PROPERTY_CONST)
-                        fputs_unlocked("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"const\"/>\n", i->f);
+                        fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"const\"/>\n", i->f);
                 else if (flags & SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION)
-                        fputs_unlocked("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"invalidates\"/>\n", i->f);
+                        fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"invalidates\"/>\n", i->f);
                 else if (!(flags & SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE))
-                        fputs_unlocked("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"false\"/>\n", i->f);
+                        fputs("   <annotation name=\"org.freedesktop.DBus.Property.EmitsChangedSignal\" value=\"false\"/>\n", i->f);
         }
 
         if (!i->trusted &&
             IN_SET(type, _SD_BUS_VTABLE_METHOD, _SD_BUS_VTABLE_WRITABLE_PROPERTY) &&
             !(flags & SD_BUS_VTABLE_UNPRIVILEGED))
-                fputs_unlocked("   <annotation name=\"org.freedesktop.systemd1.Privileged\" value=\"true\"/>\n", i->f);
+                fputs("   <annotation name=\"org.freedesktop.systemd1.Privileged\" value=\"true\"/>\n", i->f);
 }
 
 static int introspect_write_arguments(struct introspect *i, const char *signature, const char *direction) {
@@ -118,7 +122,7 @@ static int introspect_write_arguments(struct introspect *i, const char *signatur
                 if (direction)
                         fprintf(i->f, " direction=\"%s\"/>\n", direction);
                 else
-                        fputs_unlocked("/>\n", i->f);
+                        fputs("/>\n", i->f);
 
                 signature += l;
         }
@@ -141,7 +145,7 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
 
                 case _SD_BUS_VTABLE_START:
                         if (v->flags & SD_BUS_VTABLE_DEPRECATED)
-                                fputs_unlocked("  <annotation name=\"org.freedesktop.DBus.Deprecated\" value=\"true\"/>\n", i->f);
+                                fputs("  <annotation name=\"org.freedesktop.DBus.Deprecated\" value=\"true\"/>\n", i->f);
                         break;
 
                 case _SD_BUS_VTABLE_METHOD:
@@ -149,7 +153,7 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
                         introspect_write_arguments(i, strempty(v->x.method.signature), "in");
                         introspect_write_arguments(i, strempty(v->x.method.result), "out");
                         introspect_write_flags(i, v->type, v->flags);
-                        fputs_unlocked("  </method>\n", i->f);
+                        fputs("  </method>\n", i->f);
                         break;
 
                 case _SD_BUS_VTABLE_PROPERTY:
@@ -159,14 +163,14 @@ int introspect_write_interface(struct introspect *i, const sd_bus_vtable *v) {
                                 v->x.property.signature,
                                 v->type == _SD_BUS_VTABLE_WRITABLE_PROPERTY ? "readwrite" : "read");
                         introspect_write_flags(i, v->type, v->flags);
-                        fputs_unlocked("  </property>\n", i->f);
+                        fputs("  </property>\n", i->f);
                         break;
 
                 case _SD_BUS_VTABLE_SIGNAL:
                         fprintf(i->f, "  <signal name=\"%s\">\n", v->x.signal.member);
                         introspect_write_arguments(i, strempty(v->x.signal.signature), NULL);
                         introspect_write_flags(i, v->type, v->flags);
-                        fputs_unlocked("  </signal>\n", i->f);
+                        fputs("  </signal>\n", i->f);
                         break;
                 }
 
@@ -183,7 +187,7 @@ int introspect_finish(struct introspect *i, sd_bus *bus, sd_bus_message *m, sd_b
         assert(m);
         assert(reply);
 
-        fputs_unlocked("</node>\n", i->f);
+        fputs("</node>\n", i->f);
 
         r = fflush_and_check(i->f);
         if (r < 0)

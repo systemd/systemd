@@ -145,14 +145,14 @@ struct Manager {
 
         sd_event *event;
 
-        /* We use two hash tables here, since the same PID might be
-         * watched by two different units: once the unit that forked
-         * it off, and possibly a different unit to which it was
-         * joined as cgroup member. Since we know that it is either
-         * one or two units for each PID we just use to hashmaps
-         * here. */
-        Hashmap *watch_pids1;  /* pid => Unit object n:1 */
-        Hashmap *watch_pids2;  /* pid => Unit object n:1 */
+        /* This maps PIDs we care about to units that are interested in. We allow multiple units to he interested in
+         * the same PID and multiple PIDs to be relevant to the same unit. Since in most cases only a single unit will
+         * be interested in the same PID we use a somewhat special encoding here: the first unit interested in a PID is
+         * stored directly in the hashmap, keyed by the PID unmodified. If there are other units interested too they'll
+         * be stored in a NULL-terminated array, and keyed by the negative PID. This is safe as pid_t is signed and
+         * negative PIDs are not used for regular processes but process groups, which we don't care about in this
+         * context, but this allows us to use the negative range for our own purposes. */
+        Hashmap *watch_pids;  /* pid => unit as well as -pid => array of units */
 
         /* A set contains all units which cgroup should be refreshed after startup */
         Set *startup_units;
@@ -171,6 +171,8 @@ struct Manager {
 
         int signal_fd;
         sd_event_source *signal_event_source;
+
+        sd_event_source *sigchld_event_source;
 
         int time_change_fd;
         sd_event_source *time_change_event_source;
@@ -261,7 +263,14 @@ struct Manager {
 
         bool taint_usr:1;
 
+        /* Have we already sent out the READY=1 notification? */
         bool ready_sent:1;
+
+        /* Have we already printed the taint line if necessary? */
+        bool taint_logged:1;
+
+        /* Have we ever changed the "kernel.pid_max" sysctl? */
+        bool sysctl_pid_max_changed:1;
 
         unsigned test_run_flags:8;
 
@@ -273,6 +282,7 @@ struct Manager {
         ShowStatus show_status;
         char *confirm_spawn;
         bool no_console_output;
+        bool service_watchdogs;
 
         ExecOutput default_std_output, default_std_error;
 
@@ -343,8 +353,13 @@ struct Manager {
 
         int first_boot; /* tri-state */
 
-        /* prefixes of e.g. RuntimeDirectory= */
+        /* Prefixes of e.g. RuntimeDirectory= */
         char *prefix[_EXEC_DIRECTORY_TYPE_MAX];
+
+        /* Used in the SIGCHLD and sd_notify() message invocation logic to avoid that we dispatch the same event
+         * multiple times on the same unit. */
+        unsigned sigchldgen;
+        unsigned notifygen;
 };
 
 #define MANAGER_IS_SYSTEM(m) ((m)->unit_file_scope == UNIT_FILE_SYSTEM)
@@ -353,6 +368,9 @@ struct Manager {
 #define MANAGER_IS_RELOADING(m) ((m)->n_reloading > 0)
 
 #define MANAGER_IS_FINISHED(m) (dual_timestamp_is_set((m)->timestamps + MANAGER_TIMESTAMP_FINISH))
+
+/* The exit code is set to OK as soon as we enter the main loop, and set otherwise as soon as we are done with it */
+#define MANAGER_IS_RUNNING(m) ((m)->exit_code == MANAGER_OK)
 
 int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **m);
 Manager* manager_free(Manager *m);
@@ -436,6 +454,9 @@ void manager_serialize_gid_refs(Manager *m, FILE *f);
 void manager_deserialize_gid_refs_one(Manager *m, const char *value);
 
 char *manager_taint_string(Manager *m);
+
+void manager_ref_console(Manager *m);
+void manager_unref_console(Manager *m);
 
 const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;

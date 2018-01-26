@@ -36,6 +36,8 @@
 #include <sys/statfs.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
 #include "blkid-util.h"
 #include "bootspec.h"
@@ -61,19 +63,33 @@ static char *arg_path = NULL;
 static bool arg_print_path = false;
 static bool arg_touch_variables = true;
 
-static int find_esp_and_warn(uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
+static int acquire_esp(
+                bool unprivileged_mode,
+                uint32_t *ret_part,
+                uint64_t *ret_pstart,
+                uint64_t *ret_psize,
+                sd_id128_t *ret_uuid) {
+
+        char *np;
         int r;
 
-        r = find_esp(&arg_path, part, pstart, psize, uuid);
-        if (r == -ENOENT)
+        /* Find the ESP, and log about errors. Note that find_esp_and_warn() will log in all error cases on its own,
+         * except for ENOKEY (which is good, we want to show our own message in that case, suggesting use of --path=)
+         * and EACCESS (only when we request unprivileged mode; in this case we simply eat up the error here, so that
+         * --list and --status work too, without noise about this). */
+
+        r = find_esp_and_warn(arg_path, unprivileged_mode, &np, ret_part, ret_pstart, ret_psize, ret_uuid);
+        if (r == -ENOKEY)
                 return log_error_errno(r,
-                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot.\n"
+                                       "Couldn't find EFI system partition. It is recommended to mount it to /boot or /efi.\n"
                                        "Alternatively, use --path= to specify path to mount point.");
-        else if (r < 0)
-                return log_error_errno(r,
-                                       "Couldn't find EFI system partition: %m");
+        if (r < 0)
+                return r;
+
+        free_and_replace(arg_path, np);
 
         log_debug("Using EFI System Partition at %s.", arg_path);
+
         return 0;
 }
 
@@ -280,7 +296,7 @@ static int status_entries(const char *esp_path, sd_id128_t partition) {
                                        esp_path);
 
         if (config.default_entry < 0)
-                printf("%zu entries, no entry suitable as default", config.n_entries);
+                printf("%zu entries, no entry suitable as default\n", config.n_entries);
         else {
                 const BootEntry *e = &config.entries[config.default_entry];
 
@@ -483,7 +499,8 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
                 char *v;
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
-                v = strjoina(esp_path, "/EFI/BOOT/BOOT", name + strlen("systemd-boot"));
+                v = strjoina(esp_path, "/EFI/BOOT/BOOT",
+                             name + STRLEN("systemd-boot"));
                 ascii_strupper(strrchr(v, '/') + 1);
 
                 k = copy_file_with_version_check(p, v, force);
@@ -911,23 +928,17 @@ static void read_loader_efi_var(const char *name, char **var) {
                 log_warning_errno(r, "Failed to read EFI variable %s: %m", name);
 }
 
-static int must_be_root(void) {
-
-        if (geteuid() == 0)
-                return 0;
-
-        log_error("Need to be root.");
-        return -EPERM;
-}
-
 static int verb_status(int argc, char *argv[], void *userdata) {
 
         sd_id128_t uuid = SD_ID128_NULL;
         int r, k;
 
-        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
+        r = acquire_esp(geteuid() != 0, NULL, NULL, NULL, &uuid);
 
         if (arg_print_path) {
+                if (r == -EACCES) /* If we couldn't acquire the ESP path, log about access errors (which is the only
+                                   * error the find_esp_and_warn() won't log on its own) */
+                        return log_error_errno(r, "Failed to determine ESP: %m");
                 if (r < 0)
                         return r;
 
@@ -935,13 +946,17 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 return 0;
         }
 
+        r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just show what we
+                * can show */
+
         if (is_efi_boot()) {
-                _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL;
+                _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
                 sd_id128_t loader_part_uuid = SD_ID128_NULL;
 
                 read_loader_efi_var("LoaderFirmwareType", &fw_type);
                 read_loader_efi_var("LoaderFirmwareInfo", &fw_info);
                 read_loader_efi_var("LoaderInfo", &loader);
+                read_loader_efi_var("StubInfo", &stub);
                 read_loader_efi_var("LoaderImageIdentifier", &loader_path);
 
                 if (loader_path)
@@ -969,6 +984,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
                 printf("Current Loader:\n");
                 printf("      Product: %s\n", strna(loader));
+                if (stub)
+                        printf("         Stub: %s\n", stub);
                 if (!sd_id128_is_null(loader_part_uuid))
                         printf("          ESP: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n",
                                SD_ID128_FORMAT_VAL(loader_part_uuid));
@@ -979,9 +996,11 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         } else
                 printf("System:\n    Not booted with EFI\n\n");
 
-        k = status_binaries(arg_path, uuid);
-        if (k < 0)
-                r = k;
+        if (arg_path) {
+                k = status_binaries(arg_path, uuid);
+                if (k < 0)
+                        r = k;
+        }
 
         if (is_efi_boot()) {
                 k = status_variables();
@@ -989,21 +1008,28 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         r = k;
         }
 
-        k = status_entries(arg_path, uuid);
-        if (k < 0)
-                r = k;
+        if (arg_path) {
+                k = status_entries(arg_path, uuid);
+                if (k < 0)
+                        r = k;
+        }
 
         return r;
 }
 
 static int verb_list(int argc, char *argv[], void *userdata) {
-        sd_id128_t uuid = SD_ID128_NULL;
-        int r;
-        unsigned n;
-
         _cleanup_(boot_config_free) BootConfig config = {};
+        sd_id128_t uuid = SD_ID128_NULL;
+        unsigned n;
+        int r;
 
-        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
+        /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two things: turn
+         * off logging about access errors and turn off potentially privileged device probing. Here we're interested in
+         * the latter but not the former, hence request the mode, and log about EACCES. */
+
+        r = acquire_esp(geteuid() != 0, NULL, NULL, NULL, &uuid);
+        if (r == -EACCES) /* We really need the ESP path for this call, hence also log about access errors */
+                return log_error_errno(r, "Failed to determine ESP: %m");
         if (r < 0)
                 return r;
 
@@ -1022,7 +1048,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                        boot_entry_title(e),
                        ansi_normal(),
                        ansi_highlight_green(),
-                       n == config.default_entry ? " (default)" : "",
+                       n == (unsigned) config.default_entry ? " (default)" : "",
                        ansi_normal());
                 if (e->version)
                         printf("      version: %s\n", e->version);
@@ -1067,11 +1093,7 @@ static int verb_install(int argc, char *argv[], void *userdata) {
         bool install;
         int r;
 
-        r = must_be_root();
-        if (r < 0)
-                return r;
-
-        r = find_esp_and_warn(&part, &pstart, &psize, &uuid);
+        r = acquire_esp(false, &part, &pstart, &psize, &uuid);
         if (r < 0)
                 return r;
 
@@ -1102,11 +1124,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         int r;
 
-        r = must_be_root();
-        if (r < 0)
-                return r;
-
-        r = find_esp_and_warn(NULL, NULL, NULL, &uuid);
+        r = acquire_esp(false, NULL, NULL, NULL, &uuid);
         if (r < 0)
                 return r;
 
@@ -1126,12 +1144,12 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 static int bootctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "help",            VERB_ANY, VERB_ANY, 0,            help         },
-                { "status",          VERB_ANY, 1,        VERB_DEFAULT, verb_status  },
-                { "list",            VERB_ANY, 1,        0,            verb_list    },
-                { "install",         VERB_ANY, 1,        0,            verb_install },
-                { "update",          VERB_ANY, 1,        0,            verb_install },
-                { "remove",          VERB_ANY, 1,        0,            verb_remove  },
+                { "help",            VERB_ANY, VERB_ANY, 0,                 help         },
+                { "status",          VERB_ANY, 1,        VERB_DEFAULT,      verb_status  },
+                { "list",            VERB_ANY, 1,        0,                 verb_list    },
+                { "install",         VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install },
+                { "update",          VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install },
+                { "remove",          VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_remove  },
                 {}
         };
 

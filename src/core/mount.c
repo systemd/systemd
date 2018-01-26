@@ -55,7 +55,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
 static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
         [MOUNT_DEAD] = UNIT_INACTIVE,
         [MOUNT_MOUNTING] = UNIT_ACTIVATING,
-        [MOUNT_MOUNTING_DONE] = UNIT_ACTIVE,
+        [MOUNT_MOUNTING_DONE] = UNIT_ACTIVATING,
         [MOUNT_MOUNTED] = UNIT_ACTIVE,
         [MOUNT_REMOUNTING] = UNIT_RELOADING,
         [MOUNT_UNMOUNTING] = UNIT_DEACTIVATING,
@@ -164,6 +164,10 @@ static void mount_init(Unit *u) {
         assert(u->load_state == UNIT_STUB);
 
         m->timeout_usec = u->manager->default_timeout_start_usec;
+
+        m->exec_context.std_output = u->manager->default_std_output;
+        m->exec_context.std_error = u->manager->default_std_error;
+
         m->directory_mode = 0755;
 
         /* We need to make sure that /usr/bin/mount is always called
@@ -938,7 +942,7 @@ static void mount_enter_mounting(Mount *m) {
 
         assert(m);
 
-        r = unit_fail_if_symlink(UNIT(m), m->where);
+        r = unit_fail_if_noncanonical(UNIT(m), m->where);
         if (r < 0)
                 goto fail;
 
@@ -1131,10 +1135,6 @@ static int mount_reload(Unit *u) {
         Mount *m = MOUNT(u);
 
         assert(m);
-
-        if (m->state == MOUNT_MOUNTING_DONE) /* not yet ready to reload, try again */
-                return -EAGAIN;
-
         assert(m->state == MOUNT_MOUNTED);
 
         mount_enter_remounting(m);
@@ -1276,23 +1276,25 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         log_unit_full(u, f == MOUNT_SUCCESS ? LOG_DEBUG : LOG_NOTICE, 0,
                       "Mount process exited, code=%s status=%i", sigchld_code_to_string(code), status);
 
-        /* Note that mount(8) returning and the kernel sending us a mount table change event might happen
-         * out-of-order. If an operation succeed we assume the kernel will follow soon too and already change into the
-         * resulting state.  If it fails we check if the kernel still knows about the mount. and change state
-         * accordingly. */
+        /* Note that due to the io event priority logic, we can be sure the new mountinfo is loaded
+         * before we process the SIGCHLD for the mount command. */
 
         switch (m->state) {
 
         case MOUNT_MOUNTING:
-        case MOUNT_MOUNTING_DONE:
+                /* Our mount point has not appeared in mountinfo.  Something went wrong. */
 
-                if (f == MOUNT_SUCCESS || m->from_proc_self_mountinfo)
-                        /* If /bin/mount returned success, or if we see the mount point in /proc/self/mountinfo we are
-                         * happy. If we see the first condition first, we should see the second condition
-                         * immediately after – or /bin/mount lies to us and is broken. */
-                        mount_enter_mounted(m, f);
-                else
-                        mount_enter_dead(m, f);
+                if (f == MOUNT_SUCCESS) {
+                        /* Either /bin/mount has an unexpected definition of success,
+                         * or someone raced us and we lost. */
+                        log_unit_warning(UNIT(m), "Mount process finished, but there is no mount.");
+                        f = MOUNT_FAILURE_PROTOCOL;
+                }
+                mount_enter_dead(m, f);
+                break;
+
+        case MOUNT_MOUNTING_DONE:
+                mount_enter_mounted(m, f);
                 break;
 
         case MOUNT_REMOUNTING:
@@ -1302,26 +1304,29 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 break;
 
         case MOUNT_UNMOUNTING:
-        case MOUNT_UNMOUNTING_SIGKILL:
-        case MOUNT_UNMOUNTING_SIGTERM:
 
-                if (m->from_proc_self_mountinfo) {
+                if (f == MOUNT_SUCCESS && m->from_proc_self_mountinfo) {
 
                         /* Still a mount point? If so, let's try again. Most likely there were multiple mount points
-                         * stacked on top of each other. Note that due to the io event priority logic we can be sure
-                         * the new mountinfo is loaded before we process the SIGCHLD for the mount command. */
+                         * stacked on top of each other. We might exceed the timeout specified by the user overall,
+                         * but we will stop as soon as any one umount times out. */
 
                         if (m->n_retry_umount < RETRY_UMOUNT_MAX) {
                                 log_unit_debug(u, "Mount still present, trying again.");
                                 m->n_retry_umount++;
                                 mount_enter_unmounting(m);
                         } else {
-                                log_unit_debug(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
+                                log_unit_warning(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
                                 mount_enter_mounted(m, f);
                         }
                 } else
-                        mount_enter_dead(m, f);
+                        mount_enter_dead_or_mounted(m, f);
 
+                break;
+
+        case MOUNT_UNMOUNTING_SIGKILL:
+        case MOUNT_UNMOUNTING_SIGTERM:
+                mount_enter_dead_or_mounted(m, f);
                 break;
 
         default:
@@ -1486,7 +1491,7 @@ static int mount_setup_existing_unit(
 
         flags->just_changed = r1 > 0 || r2 > 0 || r3 > 0;
         flags->is_mounted = true;
-        flags->just_mounted = !MOUNT(u)->from_proc_self_mountinfo;
+        flags->just_mounted = !MOUNT(u)->from_proc_self_mountinfo || MOUNT(u)->just_mounted;
 
         MOUNT(u)->from_proc_self_mountinfo = true;
 
@@ -1748,7 +1753,7 @@ static void mount_enumerate(Manager *m) {
                         goto fail;
                 }
 
-                r = sd_event_source_set_priority(m->mount_event_source, -10);
+                r = sd_event_source_set_priority(m->mount_event_source, SD_EVENT_PRIORITY_NORMAL-10);
                 if (r < 0) {
                         log_error_errno(r, "Failed to adjust mount watch priority: %m");
                         goto fail;
@@ -1947,6 +1952,7 @@ static const char* const mount_result_table[_MOUNT_RESULT_MAX] = {
         [MOUNT_FAILURE_SIGNAL] = "signal",
         [MOUNT_FAILURE_CORE_DUMP] = "core-dump",
         [MOUNT_FAILURE_START_LIMIT_HIT] = "start-limit-hit",
+        [MOUNT_FAILURE_PROTOCOL] = "protocol",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult);

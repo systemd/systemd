@@ -293,7 +293,7 @@ static int device_compare(const void *_a, const void *_b) {
                  * entire sound card completed. The kernel makes this guarantee
                  * when creating those devices, and hence we should too when
                  * enumerating them. */
-                sound_a += strlen("/sound/card");
+                sound_a += STRLEN("/sound/card");
                 sound_a = strchr(sound_a, '/');
 
                 if (sound_a) {

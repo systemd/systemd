@@ -21,7 +21,6 @@
 #include <netinet/icmp6.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <linux/in6.h>
 
 #include "sd-radv.h"
 
@@ -169,6 +168,12 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst,
                 .msg_namelen = sizeof(dst_addr),
                 .msg_iov = iov,
         };
+        usec_t time_now;
+        int r;
+
+        r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return r;
 
         if (dst && !in_addr_is_null(AF_INET6, (union in_addr_union*) dst))
                 dst_addr.sin6_addr = *dst;
@@ -198,6 +203,18 @@ static int radv_send(sd_radv *ra, const struct in6_addr *dst,
         }
 
         LIST_FOREACH(prefix, p, ra->prefixes) {
+                if (p->valid_until) {
+
+                        if (time_now > p->valid_until)
+                                p->opt.valid_lifetime = 0;
+                        else
+                                p->opt.valid_lifetime = htobe32((p->valid_until - time_now) / USEC_PER_SEC);
+
+                        if (time_now > p->preferred_until)
+                                p->opt.preferred_lifetime = 0;
+                        else
+                                p->opt.preferred_lifetime = htobe32((p->preferred_until - time_now) / USEC_PER_SEC);
+                }
                 iov[msg.msg_iovlen].iov_base = &p->opt;
                 iov[msg.msg_iovlen].iov_len = sizeof(p->opt);
                 msg.msg_iovlen++;
@@ -446,9 +463,6 @@ _public_ int sd_radv_set_mtu(sd_radv *ra, uint32_t mtu) {
         assert_return(ra, -EINVAL);
         assert_return(mtu >= 1280, -EINVAL);
 
-        if (ra->state != SD_RADV_STATE_IDLE)
-                return -EBUSY;
-
         ra->mtu = mtu;
 
         return 0;
@@ -518,9 +532,13 @@ _public_ int sd_radv_set_preference(sd_radv *ra, unsigned preference) {
         return r;
 }
 
-_public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
+_public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, bool dynamic) {
         sd_radv_prefix *cur;
+        int r;
         _cleanup_free_ char *addr_p = NULL;
+        char time_string_preferred[FORMAT_TIMESPAN_MAX];
+        char time_string_valid[FORMAT_TIMESPAN_MAX];
+        usec_t time_now, valid, preferred, valid_until, preferred_until;
 
         assert_return(ra, -EINVAL);
 
@@ -528,7 +546,6 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                 return -EINVAL;
 
         LIST_FOREACH(prefix, cur, ra->prefixes) {
-                int r;
 
                 r = in_addr_prefix_intersect(AF_INET6,
                                              (union in_addr_union*) &cur->opt.in6_addr,
@@ -539,12 +556,15 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
                         _cleanup_free_ char *addr_cur = NULL;
 
                         (void) in_addr_to_string(AF_INET6,
-                                                 (union in_addr_union*) &cur->opt.in6_addr,
-                                                 &addr_cur);
-                        (void) in_addr_to_string(AF_INET6,
                                                  (union in_addr_union*) &p->opt.in6_addr,
                                                  &addr_p);
 
+                        if (dynamic && cur->opt.prefixlen == p->opt.prefixlen)
+                                goto update;
+
+                        (void) in_addr_to_string(AF_INET6,
+                                                 (union in_addr_union*) &cur->opt.in6_addr,
+                                                 &addr_cur);
                         log_radv("IPv6 prefix %s/%u already configured, ignoring %s/%u",
                                  addr_cur, cur->opt.prefixlen,
                                  addr_p, p->opt.prefixlen);
@@ -560,9 +580,67 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p) {
         ra->n_prefixes++;
 
         (void) in_addr_to_string(AF_INET6, (union in_addr_union*) &p->opt.in6_addr, &addr_p);
-        log_radv("Added prefix %s/%d", addr_p, p->opt.prefixlen);
+
+        if (!dynamic) {
+                log_radv("Added prefix %s/%d", addr_p, p->opt.prefixlen);
+                return 0;
+        }
+
+        cur = p;
+
+ update:
+        r = sd_event_now(ra->event, clock_boottime_or_monotonic(), &time_now);
+        if (r < 0)
+                return r;
+
+        valid = be32toh(p->opt.valid_lifetime) * USEC_PER_SEC;
+        valid_until = usec_add(valid, time_now);
+        if (valid_until == USEC_INFINITY)
+                return -EOVERFLOW;
+
+        preferred = be32toh(p->opt.preferred_lifetime) * USEC_PER_SEC;
+        preferred_until = usec_add(preferred, time_now);
+        if (preferred_until == USEC_INFINITY)
+                return -EOVERFLOW;
+
+        cur->valid_until = valid_until;
+        cur->preferred_until = preferred_until;
+
+        log_radv("%s prefix %s/%u preferred %s valid %s",
+                 cur? "Updated": "Added",
+                 addr_p, p->opt.prefixlen,
+                 format_timespan(time_string_preferred, FORMAT_TIMESPAN_MAX,
+                                 preferred, USEC_PER_SEC),
+                 format_timespan(time_string_valid, FORMAT_TIMESPAN_MAX,
+                                 valid, USEC_PER_SEC));
 
         return 0;
+}
+
+_public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
+                                               struct in6_addr *prefix,
+                                               uint8_t prefixlen) {
+        sd_radv_prefix *cur, *next;
+
+        assert_return(ra, NULL);
+        assert_return(prefix, NULL);
+
+        LIST_FOREACH_SAFE(prefix, cur, next, ra->prefixes) {
+                if (prefixlen != cur->opt.prefixlen)
+                        continue;
+
+                if (!in_addr_equal(AF_INET6,
+                                   (union in_addr_union *)prefix,
+                                   (union in_addr_union *)&cur->opt.in6_addr))
+                        continue;
+
+                LIST_REMOVE(prefix, ra->prefixes, cur);
+                ra->n_prefixes--;
+
+                break;
+        }
+
+        return cur;
 }
 
 _public_ int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,

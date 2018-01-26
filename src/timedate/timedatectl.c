@@ -129,8 +129,8 @@ static void print_status_info(const StatusInfo *i) {
                "systemd-timesyncd.service active: %s\n"
                "                 RTC in local TZ: %s\n",
                strna(i->timezone), have_time && n > 0 ? a : "n/a",
-               i->ntp_capable ? yes_no(i->ntp_enabled) : "n/a",
                yes_no(i->ntp_synced),
+               i->ntp_capable ? yes_no(i->ntp_enabled) : "n/a",
                yes_no(i->rtc_local));
 
         if (i->rtc_local)
@@ -473,7 +473,7 @@ static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -493,6 +493,9 @@ int main(int argc, char *argv[]) {
         r = timedatectl_main(bus, argc, argv);
 
 finish:
+        /* make sure we terminate the bus connection first, and then close the
+         * pager, see issue #3543 for the details. */
+        sd_bus_flush_close_unref(bus);
         pager_close();
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

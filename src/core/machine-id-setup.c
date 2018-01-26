@@ -119,16 +119,15 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, sd_id128_t *ret) {
                         fd = open(etc_machine_id, O_RDONLY|O_CLOEXEC|O_NOCTTY);
                         if (fd < 0) {
                                 if (old_errno == EROFS && errno == ENOENT)
-                                        log_error_errno(errno,
+                                        return log_error_errno(errno,
                                                   "System cannot boot: Missing /etc/machine-id and /etc is mounted read-only.\n"
                                                   "Booting up is supported only when:\n"
                                                   "1) /etc/machine-id exists and is populated.\n"
                                                   "2) /etc/machine-id exists and is empty.\n"
                                                   "3) /etc/machine-id is missing and /etc is writable.\n");
                                 else
-                                        log_error_errno(errno, "Cannot open %s: %m", etc_machine_id);
-
-                                return -errno;
+                                        return log_error_errno(errno,
+                                                               "Cannot open %s: %m", etc_machine_id);
                         }
 
                         writable = false;

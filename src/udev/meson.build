@@ -113,15 +113,36 @@ if get_option('link-udev-shared')
         udev_rpath = rootlibexecdir
 else
         udev_link_with = [libshared_static,
-                          libsystemd_internal]
+                          libsystemd_static]
         udev_rpath = ''
 endif
 
-libudev_internal = static_library(
-        'udev',
+libudev_basic = static_library(
+        'udev-basic',
         libudev_sources,
         include_directories : includes,
-        link_with : udev_link_with)
+        c_args : ['-fvisibility=default'])
+
+libudev_static = static_library(
+        'udev',
+        'udev.h',
+        include_directories : includes,
+        link_with : udev_link_with,
+        link_whole : libudev_basic)
+
+libudev = shared_library(
+        'udev',
+        'udev.h', # pick a header file at random to work around old meson bug
+        version : libudev_version,
+        include_directories : includes,
+        link_args : ['-shared',
+                     '-Wl,--version-script=' + libudev_sym_path],
+        link_with : [libsystemd_static, libshared_static],
+        link_whole : libudev_basic,
+        dependencies : [threads],
+        link_depends : libudev_sym,
+        install : true,
+        install_dir : rootlibdir)
 
 libudev_core_includes = [includes, include_directories('net')]
 libudev_core = static_library(
@@ -130,6 +151,7 @@ libudev_core = static_library(
         link_config_gperf_c,
         keyboard_keys_from_name_h,
         include_directories : libudev_core_includes,
+        c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
         link_with : udev_link_with,
         dependencies : [libblkid, libkmod])
 
@@ -149,7 +171,7 @@ foreach prog : [['ata_id/ata_id.c'],
                    prog,
                    include_directories : includes,
                    c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
-                   link_with : [libudev_internal],
+                   link_with : [libudev_static],
                    install_rpath : udev_rpath,
                    install : true,
                    install_dir : udevlibexecdir)

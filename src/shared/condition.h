@@ -31,6 +31,7 @@ typedef enum ConditionType {
         CONDITION_VIRTUALIZATION,
         CONDITION_HOST,
         CONDITION_KERNEL_COMMAND_LINE,
+        CONDITION_KERNEL_VERSION,
         CONDITION_SECURITY,
         CONDITION_CAPABILITY,
         CONDITION_AC_POWER,
@@ -52,6 +53,8 @@ typedef enum ConditionType {
 
         CONDITION_USER,
         CONDITION_GROUP,
+
+        CONDITION_CONTROL_GROUP_CONTROLLER,
 
         _CONDITION_TYPE_MAX,
         _CONDITION_TYPE_INVALID = -1
@@ -96,3 +99,17 @@ ConditionType assert_type_from_string(const char *s) _pure_;
 
 const char* condition_result_to_string(ConditionResult r) _const_;
 ConditionResult condition_result_from_string(const char *s) _pure_;
+
+static inline bool condition_takes_path(ConditionType t) {
+        return IN_SET(t,
+                      CONDITION_PATH_EXISTS,
+                      CONDITION_PATH_EXISTS_GLOB,
+                      CONDITION_PATH_IS_DIRECTORY,
+                      CONDITION_PATH_IS_SYMBOLIC_LINK,
+                      CONDITION_PATH_IS_MOUNT_POINT,
+                      CONDITION_PATH_IS_READ_WRITE,
+                      CONDITION_DIRECTORY_NOT_EMPTY,
+                      CONDITION_FILE_NOT_EMPTY,
+                      CONDITION_FILE_IS_EXECUTABLE,
+                      CONDITION_NEEDS_UPDATE);
+}

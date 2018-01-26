@@ -17,9 +17,7 @@
 
 sd_login_c = files('sd-login/sd-login.c')
 
-libsystemd_internal_sources = files('''
-        sd-bus/bus-bloom.c
-        sd-bus/bus-bloom.h
+libsystemd_sources = files('''
         sd-bus/bus-common-errors.c
         sd-bus/bus-common-errors.h
         sd-bus/bus-container.c
@@ -74,6 +72,7 @@ libsystemd_internal_sources = files('''
         sd-id128/id128-util.c
         sd-id128/id128-util.h
         sd-id128/sd-id128.c
+        sd-netlink/generic-netlink.c
         sd-netlink/local-addresses.c
         sd-netlink/local-addresses.h
         sd-netlink/netlink-internal.h
@@ -93,14 +92,15 @@ libsystemd_internal_sources = files('''
         sd-utf8/sd-utf8.c
 '''.split()) + sd_login_c
 
-libsystemd_internal = static_library(
+libsystemd_static = static_library(
         'systemd',
-        libsystemd_internal_sources,
+        libsystemd_sources,
         install : false,
         include_directories : includes,
         link_with : libbasic,
         dependencies : [threads,
-                        librt])
+                        librt],
+        c_args : ['-fvisibility=default'])
 
 libsystemd_sym = 'src/libsystemd/libsystemd.sym'
 

@@ -253,6 +253,45 @@ static void service_start_watchdog(Service *s) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to install watchdog timer: %m");
 }
 
+static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
+        assert(s);
+
+        if (s->timer_event_source) {
+                uint64_t current = 0, extended = 0;
+                int r;
+
+                if (IN_SET(extend_timeout_usec, 0, USEC_INFINITY))
+                        return;
+
+                extended = usec_add(now(CLOCK_MONOTONIC), extend_timeout_usec);
+
+                r = sd_event_source_get_time(s->timer_event_source, &current);
+                if (r < 0)
+                        log_unit_error_errno(UNIT(s), r, "Failed to retrieve timeout timer: %m");
+                else if (extended > current) {
+                        r = sd_event_source_set_time(s->timer_event_source, extended);
+                        if (r < 0)
+                                log_unit_warning_errno(UNIT(s), r, "Failed to set timeout timer: %m");
+                }
+
+                if (s->watchdog_event_source) {
+                        /* extend watchdog if necessary. We've asked for an extended timeout so we
+                         * shouldn't expect a watchdog timeout in the interval in between */
+                        r = sd_event_source_get_time(s->watchdog_event_source, &current);
+                        if (r < 0) {
+                                log_unit_error_errno(UNIT(s), r, "Failed to retrieve watchdog timer: %m");
+                                return;
+                        }
+
+                        if (extended > current) {
+                                r = sd_event_source_set_time(s->watchdog_event_source, extended);
+                                if (r < 0)
+                                        log_unit_warning_errno(UNIT(s), r, "Failed to set watchdog timer: %m");
+                        }
+                }
+        }
+}
+
 static void service_reset_watchdog(Service *s) {
         assert(s);
 
@@ -827,9 +866,45 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         cgroup_context_dump(&s->cgroup_context, f, prefix);
 }
 
+static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
+        Unit *owner;
+
+        assert(s);
+        assert(pid_is_valid(pid));
+
+        /* Checks whether the specified PID is suitable as main PID for this service. returns negative if not, 0 if the
+         * PID is questionnable but should be accepted if the source of configuration is trusted. > 0 if the PID is
+         * good */
+
+        if (pid == getpid_cached() || pid == 1) {
+                log_unit_full(UNIT(s), prio, 0, "New main PID "PID_FMT" is the manager, refusing.", pid);
+                return -EPERM;
+        }
+
+        if (pid == s->control_pid) {
+                log_unit_full(UNIT(s), prio, 0, "New main PID "PID_FMT" is the control process, refusing.", pid);
+                return -EPERM;
+        }
+
+        if (!pid_is_alive(pid)) {
+                log_unit_full(UNIT(s), prio, 0, "New main PID "PID_FMT" does not exist or is a zombie.", pid);
+                return -ESRCH;
+        }
+
+        owner = manager_get_unit_by_pid(UNIT(s)->manager, pid);
+        if (owner == UNIT(s)) {
+                log_unit_debug(UNIT(s), "New main PID "PID_FMT" belongs to service, we are happy.", pid);
+                return 1; /* Yay, it's definitely a good PID */
+        }
+
+        return 0; /* Hmm it's a suspicious PID, let's accept it if configuration source is trusted */
+}
+
 static int service_load_pid_file(Service *s, bool may_warn) {
+        char procfs[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *k = NULL;
-        int r;
+        _cleanup_close_ int fd = -1;
+        int r, prio;
         pid_t pid;
 
         assert(s);
@@ -837,30 +912,47 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (!s->pid_file)
                 return -ENOENT;
 
-        r = read_one_line_file(s->pid_file, &k);
-        if (r < 0) {
-                if (may_warn)
-                        log_unit_info_errno(UNIT(s), r, "PID file %s not readable (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
-                return r;
-        }
+        prio = may_warn ? LOG_INFO : LOG_DEBUG;
+
+        fd = chase_symlinks(s->pid_file, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
+        if (fd == -EPERM)
+                return log_unit_full(UNIT(s), prio, fd, "Permission denied while opening PID file or unsafe symlink chain: %s", s->pid_file);
+        if (fd < 0)
+                return log_unit_full(UNIT(s), prio, fd, "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
+
+        /* Let's read the PID file now that we chased it down. But we need to convert the O_PATH fd chase_symlinks() returned us into a proper fd first. */
+        xsprintf(procfs, "/proc/self/fd/%i", fd);
+        r = read_one_line_file(procfs, &k);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Can't convert PID files %s O_PATH file descriptor to proper file descriptor: %m", s->pid_file);
 
         r = parse_pid(k, &pid);
-        if (r < 0) {
-                if (may_warn)
-                        log_unit_info_errno(UNIT(s), r, "Failed to read PID from file %s: %m", s->pid_file);
-                return r;
-        }
+        if (r < 0)
+                return log_unit_full(UNIT(s), prio, r, "Failed to parse PID from file %s: %m", s->pid_file);
 
-        if (!pid_is_alive(pid)) {
-                if (may_warn)
-                        log_unit_info(UNIT(s), "PID "PID_FMT" read from file %s does not exist or is a zombie.", pid, s->pid_file);
-                return -ESRCH;
+        if (s->main_pid_known && pid == s->main_pid)
+                return 0;
+
+        r = service_is_suitable_main_pid(s, pid, prio);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                struct stat st;
+
+                /* Hmm, it's not clear if the new main PID is safe. Let's allow this if the PID file is owned by root */
+
+                if (fstat(fd, &st) < 0)
+                        return log_unit_error_errno(UNIT(s), errno, "Failed to fstat() PID file O_PATH fd: %m");
+
+                if (st.st_uid != 0) {
+                        log_unit_error(UNIT(s), "New main PID "PID_FMT" does not belong to service, and PID file is not owned by root. Refusing.", pid);
+                        return -EPERM;
+                }
+
+                log_unit_debug(UNIT(s), "New main PID "PID_FMT" does not belong to service, but we'll accept it since PID file is owned by root.", pid);
         }
 
         if (s->main_pid_known) {
-                if (pid == s->main_pid)
-                        return 0;
-
                 log_unit_debug(UNIT(s), "Main PID changing: "PID_FMT" -> "PID_FMT, s->main_pid, pid);
 
                 service_unwatch_main_pid(s);
@@ -876,7 +968,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (r < 0) /* FIXME: we need to do something here */
                 return log_unit_warning_errno(UNIT(s), r, "Failed to watch PID "PID_FMT" for service: %m", pid);
 
-        return 0;
+        return 1;
 }
 
 static void service_search_main_pid(Service *s) {
@@ -968,26 +1060,6 @@ static void service_set_state(Service *s, ServiceState state) {
         if (state == SERVICE_EXITED && !MANAGER_IS_RELOADING(UNIT(s)->manager))
                 unit_prune_cgroup(UNIT(s));
 
-        /* For remain_after_exit services, let's see if we can "release" the
-         * hold on the console, since unit_notify() only does that in case of
-         * change of state */
-        if (state == SERVICE_EXITED &&
-            s->remain_after_exit &&
-            UNIT(s)->manager->n_on_console > 0) {
-
-                ExecContext *ec;
-
-                ec = unit_get_exec_context(UNIT(s));
-                if (ec && exec_context_may_touch_console(ec)) {
-                        Manager *m = UNIT(s)->manager;
-
-                        m->n_on_console--;
-                        if (m->n_on_console == 0)
-                                /* unset no_console_output flag, since the console is free */
-                                m->no_console_output = false;
-                }
-        }
-
         if (old_state != state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
 
@@ -1041,8 +1113,7 @@ static int service_coldplug(Unit *u) {
 
         if (s->main_pid > 0 &&
             pid_is_unwaited(s->main_pid) &&
-            ((s->deserialized_state == SERVICE_START && IN_SET(s->type, SERVICE_FORKING, SERVICE_DBUS, SERVICE_ONESHOT, SERVICE_NOTIFY)) ||
-             IN_SET(s->deserialized_state,
+            (IN_SET(s->deserialized_state,
                     SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING, SERVICE_RELOAD,
                     SERVICE_STOP, SERVICE_STOP_SIGABRT, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
@@ -2547,10 +2618,8 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
                 if (parse_pid(value, &pid) < 0)
                         log_unit_debug(u, "Failed to parse main-pid value: %s", value);
-                else {
-                        service_set_main_pid(s, pid);
-                        unit_watch_pid(UNIT(s), pid);
-                }
+                else
+                        (void) service_set_main_pid(s, pid);
         } else if (streq(key, "main-pid-known")) {
                 int b;
 
@@ -2921,6 +2990,7 @@ static void service_notify_cgroup_empty_event(Unit *u) {
 }
 
 static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+        bool notify_dbus = true;
         Service *s = SERVICE(u);
         ServiceResult f;
 
@@ -2942,7 +3012,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* Forking services may occasionally move to a new PID.
                  * As long as they update the PID file before exiting the old
                  * PID, they're fine. */
-                if (service_load_pid_file(s, false) == 0)
+                if (service_load_pid_file(s, false) > 0)
                         return;
 
                 s->main_pid = 0;
@@ -3199,23 +3269,21 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 assert_not_reached("Uh, control process died at wrong time.");
                         }
                 }
-        }
+        } else /* Neither control nor main PID? If so, don't notify about anything */
+                notify_dbus = false;
 
         /* Notify clients about changed exit status */
-        unit_add_to_dbus_queue(u);
+        if (notify_dbus)
+                unit_add_to_dbus_queue(u);
 
-        /* We got one SIGCHLD for the service, let's watch all
-         * processes that are now running of the service, and watch
-         * that. Among the PIDs we then watch will be children
-         * reassigned to us, which hopefully allows us to identify
-         * when all children are gone */
+        /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others to watch,
+         * under the assumption that we'll sooner or later get a SIGCHLD for them, as the original process we watched
+         * was probably the parent of them, and they are hence now our children. */
         unit_tidy_watch_pids(u, s->main_pid, s->control_pid);
         unit_watch_all_pids(u);
 
-        /* If the PID set is empty now, then let's finish this off
-           (On unified we use proper notifications) */
-        if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) == 0 && set_isempty(u->pids))
-                unit_add_to_cgroup_empty_queue(u);
+        /* If the PID set is empty now, then let's check if the cgroup is empty too and finish off the unit. */
+        unit_synthesize_cgroup_empty_event(u);
 }
 
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
@@ -3325,10 +3393,14 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
 
         watchdog_usec = service_get_watchdog_usec(s);
 
-        log_unit_error(UNIT(s), "Watchdog timeout (limit %s)!",
-                       format_timespan(t, sizeof(t), watchdog_usec, 1));
+        if (UNIT(s)->manager->service_watchdogs) {
+                log_unit_error(UNIT(s), "Watchdog timeout (limit %s)!",
+                               format_timespan(t, sizeof(t), watchdog_usec, 1));
 
-        service_enter_signal(s, SERVICE_STOP_SIGABRT, SERVICE_FAILURE_WATCHDOG);
+                service_enter_signal(s, SERVICE_STOP_SIGABRT, SERVICE_FAILURE_WATCHDOG);
+        } else
+                log_unit_warning(UNIT(s), "Watchdog disabled! Ignoring watchdog timeout (limit %s)!",
+                                 format_timespan(t, sizeof(t), watchdog_usec, 1));
 
         return 0;
 }
@@ -3367,37 +3439,55 @@ static bool service_notify_message_authorized(Service *s, pid_t pid, char **tags
         return true;
 }
 
-static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) {
+static void service_notify_message(
+                Unit *u,
+                const struct ucred *ucred,
+                char **tags,
+                FDSet *fds) {
+
         Service *s = SERVICE(u);
         bool notify_dbus = false;
         const char *e;
         char **i;
+        int r;
 
         assert(u);
+        assert(ucred);
 
-        if (!service_notify_message_authorized(SERVICE(u), pid, tags, fds))
+        if (!service_notify_message_authorized(SERVICE(u), ucred->pid, tags, fds))
                 return;
 
-        if (log_get_max_level() >= LOG_DEBUG) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *cc = NULL;
 
                 cc = strv_join(tags, ", ");
-                log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", pid, isempty(cc) ? "n/a" : cc);
+                log_unit_debug(u, "Got notification message from PID "PID_FMT" (%s)", ucred->pid, isempty(cc) ? "n/a" : cc);
         }
 
         /* Interpret MAINPID= */
         e = strv_find_startswith(tags, "MAINPID=");
         if (e && IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD)) {
-                if (parse_pid(e, &pid) < 0)
-                        log_unit_warning(u, "Failed to parse MAINPID= field in notification message: %s", e);
-                else if (pid == s->control_pid)
-                        log_unit_warning(u, "A control process cannot also be the main process");
-                else if (pid == getpid_cached() || pid == 1)
-                        log_unit_warning(u, "Service manager can't be main process, ignoring sd_notify() MAINPID= field");
-                else if (pid != s->main_pid) {
-                        service_set_main_pid(s, pid);
-                        unit_watch_pid(UNIT(s), pid);
-                        notify_dbus = true;
+                pid_t new_main_pid;
+
+                if (parse_pid(e, &new_main_pid) < 0)
+                        log_unit_warning(u, "Failed to parse MAINPID= field in notification message, ignoring: %s", e);
+                else if (!s->main_pid_known || new_main_pid != s->main_pid) {
+
+                        r = service_is_suitable_main_pid(s, new_main_pid, LOG_WARNING);
+                        if (r == 0) {
+                                /* The new main PID is a bit suspicous, which is OK if the sender is privileged. */
+
+                                if (ucred->uid == 0) {
+                                        log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, but we'll accept it as the request to change it came from a privileged process.", new_main_pid);
+                                        r = 1;
+                                } else
+                                        log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid);
+                        }
+                        if (r > 0) {
+                                service_set_main_pid(s, new_main_pid);
+                                unit_watch_pid(UNIT(s), new_main_pid);
+                                notify_dbus = true;
+                        }
                 }
         }
 
@@ -3474,6 +3564,16 @@ static void service_notify_message(Unit *u, pid_t pid, char **tags, FDSet *fds) 
                         s->status_errno = status_errno;
                         notify_dbus = true;
                 }
+        }
+
+        /* Interpret EXTEND_TIMEOUT= */
+        e = strv_find_startswith(tags, "EXTEND_TIMEOUT_USEC=");
+        if (e) {
+                usec_t extend_timeout_usec;
+                if (safe_atou64(e, &extend_timeout_usec) < 0)
+                        log_unit_warning(u, "Failed to parse EXTEND_TIMEOUT_USEC=%s", e);
+                else
+                        service_extend_timeout(s, extend_timeout_usec);
         }
 
         /* Interpret WATCHDOG= */
@@ -3686,6 +3786,32 @@ static int service_control_pid(Unit *u) {
         return s->control_pid;
 }
 
+static bool service_needs_console(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(s);
+
+        /* We provide our own implementation of this here, instead of relying of the generic implementation
+         * unit_needs_console() provides, since we want to return false if we are in SERVICE_EXITED state. */
+
+        if (!exec_context_may_touch_console(&s->exec_context))
+                return false;
+
+        return IN_SET(s->state,
+                      SERVICE_START_PRE,
+                      SERVICE_START,
+                      SERVICE_START_POST,
+                      SERVICE_RUNNING,
+                      SERVICE_RELOAD,
+                      SERVICE_STOP,
+                      SERVICE_STOP_SIGABRT,
+                      SERVICE_STOP_SIGTERM,
+                      SERVICE_STOP_SIGKILL,
+                      SERVICE_STOP_POST,
+                      SERVICE_FINAL_SIGTERM,
+                      SERVICE_FINAL_SIGKILL);
+}
+
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO] = "no",
         [SERVICE_RESTART_ON_SUCCESS] = "on-success",
@@ -3801,6 +3927,7 @@ const UnitVTable service_vtable = {
         .bus_commit_properties = bus_service_commit_properties,
 
         .get_timeout = service_get_timeout,
+        .needs_console = service_needs_console,
         .can_transient = true,
 
         .status_message_formats = {

@@ -94,6 +94,10 @@
 
     <para>It is recommended that applications log UTF-8 messages only
     with this API, but this is not enforced.</para>
+
+    <para>Each invocation of <function>sd_journal_stream_fd()</function> allocates a new log stream file descriptor,
+    that is not shared with prior or later invocations. The file descriptor is write-only (its reading direction is
+    shut down), and <constant>O_NONBLOCK</constant> is turned off initially.</para>
   </refsect1>
 
   <refsect1>
@@ -104,11 +108,18 @@
   </refsect1>
 
   <refsect1>
+    <title>Signal safety</title>
+
+    <para><function>sd_journal_stream_fd()</function> is "async signal safe" in the meaning of <citerefentry
+    project='man-pages'><refentrytitle>signal-safety</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    </para>
+  </refsect1>
+
+  <refsect1>
     <title>Notes</title>
 
     <para>Function <function>sd_journal_stream_fd()</function> is thread-safe and may be called
-    from multiple threads. All calls will return the same file descriptor, although temporarily
-    multiple file descriptors may be open.</para>
+    from multiple threads.</para>
 
     <para>The <function>sd_journal_stream_fd()</function> interface is
     available as a shared library, which can be compiled and linked to

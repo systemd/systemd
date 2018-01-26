@@ -21,6 +21,7 @@
 #include "automount.h"
 #include "bus-util.h"
 #include "dbus-automount.h"
+#include "dbus-util.h"
 #include "string-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, automount_result, AutomountResult);
@@ -41,7 +42,7 @@ static int bus_automount_set_transient_property(
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
-        int r;
+        Unit *u = UNIT(a);
 
         assert(a);
         assert(name);
@@ -49,24 +50,16 @@ static int bus_automount_set_transient_property(
 
         flags |= UNIT_PRIVATE;
 
-        if (streq(name, "TimeoutIdleUSec")) {
-                usec_t timeout_idle_usec;
+        if (streq(name, "Where"))
+                return bus_set_transient_path(u, name, &a->where, message, flags, error);
 
-                r = sd_bus_message_read(message, "t", &timeout_idle_usec);
-                if (r < 0)
-                        return r;
+        if (streq(name, "TimeoutIdleUSec"))
+                return bus_set_transient_usec_fix_0(u, name, &a->timeout_idle_usec, message, flags, error);
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        char time[FORMAT_TIMESPAN_MAX];
+        if (streq(name, "DirectoryMode"))
+                return bus_set_transient_mode_t(u, name, &a->directory_mode, message, flags, error);
 
-                        a->timeout_idle_usec = timeout_idle_usec;
-                        unit_write_settingf(UNIT(a), flags, name, "TimeoutIdleSec=%s\n",
-                                            format_timespan(time, sizeof(time), timeout_idle_usec, USEC_PER_MSEC));
-                }
-        } else
-                return 0;
-
-        return 1;
+        return 0;
 }
 
 int bus_automount_set_property(

@@ -38,6 +38,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "btrfs-ctree.h"
 #include "btrfs-util.h"
 #include "chattr-util.h"
@@ -50,7 +51,6 @@
 #include "missing.h"
 #include "path-util.h"
 #include "rm-rf.h"
-#include "selinux-util.h"
 #include "smack-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
@@ -172,24 +172,6 @@ int btrfs_subvol_make(const char *path) {
                 return -errno;
 
         return 0;
-}
-
-int btrfs_subvol_make_label(const char *path) {
-        int r;
-
-        assert(path);
-
-        r = mac_selinux_create_file_prepare(path, S_IFDIR);
-        if (r < 0)
-                return r;
-
-        r = btrfs_subvol_make(path);
-        mac_selinux_create_file_clear();
-
-        if (r < 0)
-                return r;
-
-        return mac_smack_fix(path, false, false);
 }
 
 int btrfs_subvol_set_read_only_fd(int fd, bool b) {

@@ -16,7 +16,7 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 project('systemd', 'c',
-        version : '235',
+        version : '237',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -27,8 +27,8 @@ project('systemd', 'c',
         meson_version : '>= 0.41',
        )
 
-libsystemd_version = '0.19.1'
-libudev_version = '1.6.7'
+libsystemd_version = '0.21.0'
+libudev_version = '1.6.9'
 
 # We need the same data in three different formats, ugh!
 # Also, for hysterical reasons, we use different variable
@@ -67,7 +67,7 @@ endif
 
 sysvinit_path = get_option('sysvinit-path')
 sysvrcnd_path = get_option('sysvrcnd-path')
-have = sysvinit_path != '' or sysvrcnd_path != ''
+have = sysvinit_path != '' and sysvrcnd_path != ''
 conf.set10('HAVE_SYSV_COMPAT', have,
            description : 'SysV init scripts and rcN.d links are supported')
 m4_defines += have ? ['-DHAVE_SYSV_COMPAT'] : []
@@ -260,10 +260,25 @@ cc = meson.get_compiler('c')
 pkgconfig = import('pkgconfig')
 check_compilation_sh = find_program('tools/meson-check-compilation.sh')
 
-cxx = find_program('c++', required : false)
-if cxx.found()
-        #  Used only for tests
-        add_languages('cpp')
+if get_option('tests') != 'false'
+        cxx = find_program('c++', required : false)
+        if cxx.found()
+                #  Used only for tests
+                add_languages('cpp')
+        endif
+endif
+
+want_ossfuzz = get_option('oss-fuzz')
+want_libfuzzer = get_option('llvm-fuzz')
+fuzzer_build = want_ossfuzz or want_libfuzzer
+if want_ossfuzz and want_libfuzzer
+        error('only one of oss-fuzz and llvm-fuzz can be specified')
+endif
+if want_libfuzzer
+        fuzzing_engine = meson.get_compiler('cpp').find_library('Fuzzer')
+endif
+if want_ossfuzz
+        fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
 endif
 
 foreach arg : ['-Wextra',
@@ -300,13 +315,20 @@ foreach arg : ['-Wextra',
                '-fvisibility=hidden',
                '-fstack-protector',
                '-fstack-protector-strong',
-               '-fPIE',
                '--param=ssp-buffer-size=4',
               ]
         if cc.has_argument(arg)
                 add_project_arguments(arg, language : 'c')
         endif
 endforeach
+
+# the oss-fuzz fuzzers are not built with -fPIE, so don't
+# enable it when we are linking against them
+if not fuzzer_build
+        if cc.has_argument('-fPIE')
+              add_project_arguments('-fPIE', language : 'c')
+        endif
+endif
 
 # "negative" arguments: gcc on purpose does not return an error for "-Wno-"
 # arguments, just emits a warnings. So test for the "positive" version instead.
@@ -358,7 +380,7 @@ foreach arg : ['-Wl,-z,relro',
                            cc.cmd_array(), '-x', 'c', arg,
                            '-include', link_test_c).returncode() == 0
         message('Linking with @0@ supported: @1@'.format(arg, have ? 'yes' : 'no'))
-        if have
+        if have and (arg != '-pie' or not fuzzer_build)
                 add_project_link_arguments(arg, language : 'c')
         endif
 endforeach
@@ -422,7 +444,7 @@ foreach decl : [['IFLA_INET6_ADDR_GEN_MODE',         'linux/if_link.h'],
                 ['IN6_ADDR_GEN_MODE_STABLE_PRIVACY', 'linux/if_link.h'],
                 ['IFLA_VRF_TABLE',                   'linux/if_link.h'],
                 ['IFLA_MACVLAN_FLAGS',               'linux/if_link.h'],
-                ['IFLA_IPVLAN_MODE',                 'linux/if_link.h'],
+                ['IFLA_IPVLAN_FLAGS',                'linux/if_link.h'],
                 ['IFLA_PHYS_PORT_ID',                'linux/if_link.h'],
                 ['IFLA_BOND_AD_INFO',                'linux/if_link.h'],
                 ['IFLA_VLAN_PROTOCOL',               'linux/if_link.h'],
@@ -437,6 +459,7 @@ foreach decl : [['IFLA_INET6_ADDR_GEN_MODE',         'linux/if_link.h'],
                 ['IFLA_BRPORT_PROXYARP',             'linux/if_link.h'],
                 ['IFLA_BRPORT_LEARNING_SYNC',        'linux/if_link.h'],
                 ['IFLA_BR_VLAN_DEFAULT_PVID',        'linux/if_link.h'],
+                ['IPVLAN_F_PRIVATE',                 'linux/if_link.h'],
                 ['NDA_IFINDEX',                      'linux/neighbour.h'],
                 ['IFA_FLAGS',                        'linux/if_addr.h'],
                 ['FRA_UID_RANGE',                    'linux/fib_rules.h'],
@@ -453,17 +476,17 @@ foreach ident : ['secure_getenv', '__secure_getenv']
 endforeach
 
 foreach ident : [
-        ['memfd_create',      '''#define _GNU_SOURCE
-                                 #include <sys/mman.h>'''],
-        ['gettid',            '''#include <sys/types.h>'''],
-        ['pivot_root',        '''#include <stdlib.h>'''],     # no known header declares pivot_root
-        ['name_to_handle_at', '''#define _GNU_SOURCE
-                                 #include <sys/types.h>
+        ['memfd_create',      '''#include <sys/mman.h>'''],
+        ['gettid',            '''#include <sys/types.h>
+                                 #include <unistd.h>'''],
+        ['pivot_root',        '''#include <stdlib.h>
+                                 #include <unistd.h>'''],     # no known header declares pivot_root
+        ['name_to_handle_at', '''#include <sys/types.h>
                                  #include <sys/stat.h>
                                  #include <fcntl.h>'''],
-        ['setns',             '''#define _GNU_SOURCE
-                                 #include <sched.h>'''],
-        ['renameat2',         '''#include <stdio.h>'''],
+        ['setns',             '''#include <sched.h>'''],
+        ['renameat2',         '''#include <stdio.h>
+                                 #include <fcntl.h>'''],
         ['kcmp',              '''#include <linux/kcmp.h>'''],
         ['keyctl',            '''#include <sys/types.h>
                                  #include <keyutils.h>'''],
@@ -474,11 +497,11 @@ foreach ident : [
         ['explicit_bzero' ,   '''#include <string.h>'''],
 ]
 
-        have = cc.has_function(ident[0], prefix : ident[1])
+        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
-if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''')
+if cc.has_function('getrandom', prefix : '''#include <sys/random.h>''', args : '-D_GNU_SOURCE')
         conf.set10('USE_SYS_RANDOM_H', true)
         conf.set10('HAVE_GETRANDOM', true)
 else
@@ -502,8 +525,7 @@ splash_bmp = files('test/splash.bmp')
 
 # if -Dxxx-path option is found, use that. Otherwise, check in $PATH,
 # /usr/sbin, /sbin, and fall back to the default from middle column.
-progs = [['telinit',    '/lib/sysvinit/telinit'],
-         ['quotaon',    '/usr/sbin/quotaon'    ],
+progs = [['quotaon',    '/usr/sbin/quotaon'    ],
          ['quotacheck', '/usr/sbin/quotacheck' ],
          ['kill',       '/usr/bin/kill'        ],
          ['kmod',       '/usr/bin/kmod'        ],
@@ -529,6 +551,8 @@ foreach prog : progs
         conf.set_quoted(name, path)
         substs.set(name, path)
 endforeach
+
+conf.set_quoted('TELINIT', get_option('telinit-path'))
 
 if run_command('ln', '--relative', '--help').returncode() != 0
         error('ln does not support --relative')
@@ -565,7 +589,8 @@ conf.set('GPERF_LEN_TYPE', gperf_len_type,
 if not cc.has_header('sys/capability.h')
         error('POSIX caps headers not found')
 endif
-foreach header : ['linux/btrfs.h',
+foreach header : ['crypt.h',
+                  'linux/btrfs.h',
                   'linux/memfd.h',
                   'linux/vm_sockets.h',
                   'sys/auxv.h',
@@ -763,10 +788,11 @@ if not libcap.found()
 endif
 
 libmount = dependency('mount',
-                      version : '>= 2.30')
+                      version : '>= 2.30',
+                      required : not fuzzer_build)
 
 want_seccomp = get_option('seccomp')
-if want_seccomp != 'false'
+if want_seccomp != 'false' and not fuzzer_build
         libseccomp = dependency('libseccomp',
                                 version : '>= 2.3.1',
                                 required : want_seccomp == 'true')
@@ -779,7 +805,7 @@ conf.set10('HAVE_SECCOMP', have)
 m4_defines += have ? ['-DHAVE_SECCOMP'] : []
 
 want_selinux = get_option('selinux')
-if want_selinux != 'false'
+if want_selinux != 'false' and not fuzzer_build
         libselinux = dependency('libselinux',
                                 version : '>= 2.1.9',
                                 required : want_selinux == 'true')
@@ -792,7 +818,7 @@ conf.set10('HAVE_SELINUX', have)
 m4_defines += have ? ['-DHAVE_SELINUX'] : []
 
 want_apparmor = get_option('apparmor')
-if want_apparmor != 'false'
+if want_apparmor != 'false' and not fuzzer_build
         libapparmor = dependency('libapparmor',
                                  required : want_apparmor == 'true')
         have = libapparmor.found()
@@ -812,7 +838,7 @@ endif
 want_polkit = get_option('polkit')
 install_polkit = false
 install_polkit_pkla = false
-if want_polkit != 'false'
+if want_polkit != 'false' and not fuzzer_build
         install_polkit = true
 
         libpolkit = dependency('polkit-gobject-1',
@@ -825,7 +851,7 @@ endif
 conf.set10('ENABLE_POLKIT', install_polkit)
 
 want_acl = get_option('acl')
-if want_acl != 'false'
+if want_acl != 'false' and not fuzzer_build
         libacl = cc.find_library('acl', required : want_acl == 'true')
         have = libacl.found()
 else
@@ -836,7 +862,7 @@ conf.set10('HAVE_ACL', have)
 m4_defines += have ? ['-DHAVE_ACL'] : []
 
 want_audit = get_option('audit')
-if want_audit != 'false'
+if want_audit != 'false' and not fuzzer_build
         libaudit = dependency('audit', required : want_audit == 'true')
         have = libaudit.found()
 else
@@ -846,7 +872,7 @@ endif
 conf.set10('HAVE_AUDIT', have)
 
 want_blkid = get_option('blkid')
-if want_blkid != 'false'
+if want_blkid != 'false' and not fuzzer_build
         libblkid = dependency('blkid', required : want_blkid == 'true')
         have = libblkid.found()
 else
@@ -856,7 +882,7 @@ endif
 conf.set10('HAVE_BLKID', have)
 
 want_kmod = get_option('kmod')
-if want_kmod != 'false'
+if want_kmod != 'false' and not fuzzer_build
         libkmod = dependency('libkmod',
                              version : '>= 15',
                              required : want_kmod == 'true')
@@ -868,7 +894,7 @@ endif
 conf.set10('HAVE_KMOD', have)
 
 want_pam = get_option('pam')
-if want_pam != 'false'
+if want_pam != 'false' and not fuzzer_build
         libpam = cc.find_library('pam', required : want_pam == 'true')
         libpam_misc = cc.find_library('pam_misc', required : want_pam == 'true')
         have = libpam.found() and libpam_misc.found()
@@ -881,7 +907,7 @@ conf.set10('HAVE_PAM', have)
 m4_defines += have ? ['-DHAVE_PAM'] : []
 
 want_microhttpd = get_option('microhttpd')
-if want_microhttpd != 'false'
+if want_microhttpd != 'false' and not fuzzer_build
         libmicrohttpd = dependency('libmicrohttpd',
                                    version : '>= 0.9.33',
                                    required : want_microhttpd == 'true')
@@ -894,7 +920,7 @@ conf.set10('HAVE_MICROHTTPD', have)
 m4_defines += have ? ['-DHAVE_MICROHTTPD'] : []
 
 want_libcryptsetup = get_option('libcryptsetup')
-if want_libcryptsetup != 'false'
+if want_libcryptsetup != 'false' and not fuzzer_build
         libcryptsetup = dependency('libcryptsetup',
                                    version : '>= 1.6.0',
                                    required : want_libcryptsetup == 'true')
@@ -906,7 +932,7 @@ endif
 conf.set10('HAVE_LIBCRYPTSETUP', have)
 
 want_libcurl = get_option('libcurl')
-if want_libcurl != 'false'
+if want_libcurl != 'false' and not fuzzer_build
         libcurl = dependency('libcurl',
                              version : '>= 7.32.0',
                              required : want_libcurl == 'true')
@@ -924,7 +950,7 @@ if want_libidn == 'true' and want_libidn2 == 'true'
         error('libidn and libidn2 cannot be requested simultaneously')
 endif
 
-if want_libidn != 'false' and want_libidn2 != 'true'
+if want_libidn != 'false' and want_libidn2 != 'true' and not fuzzer_build
         libidn = dependency('libidn',
                             required : want_libidn == 'true')
         have = libidn.found()
@@ -934,7 +960,7 @@ else
 endif
 conf.set10('HAVE_LIBIDN', have)
 m4_defines += have ? ['-DHAVE_LIBIDN'] : []
-if not have and want_libidn2 != 'false'
+if not have and want_libidn2 != 'false' and not fuzzer_build
         # libidn is used for both libidn and libidn2 objects
         libidn = dependency('libidn2',
                             required : want_libidn2 == 'true')
@@ -946,7 +972,7 @@ conf.set10('HAVE_LIBIDN2', have)
 m4_defines += have ? ['-DHAVE_LIBIDN2'] : []
 
 want_libiptc = get_option('libiptc')
-if want_libiptc != 'false'
+if want_libiptc != 'false' and not fuzzer_build
         libiptc = dependency('libiptc',
                              required : want_libiptc == 'true')
         have = libiptc.found()
@@ -958,7 +984,7 @@ conf.set10('HAVE_LIBIPTC', have)
 m4_defines += have ? ['-DHAVE_LIBIPTC'] : []
 
 want_qrencode = get_option('qrencode')
-if want_qrencode != 'false'
+if want_qrencode != 'false' and not fuzzer_build
         libqrencode = dependency('libqrencode',
                                  required : want_qrencode == 'true')
         have = libqrencode.found()
@@ -969,7 +995,7 @@ endif
 conf.set10('HAVE_QRENCODE', have)
 
 want_gcrypt = get_option('gcrypt')
-if want_gcrypt != 'false'
+if want_gcrypt != 'false' and not fuzzer_build
         libgcrypt = cc.find_library('gcrypt', required : want_gcrypt == 'true')
         libgpg_error = cc.find_library('gpg-error', required : want_gcrypt == 'true')
         have = libgcrypt.found() and libgpg_error.found()
@@ -984,7 +1010,7 @@ endif
 conf.set10('HAVE_GCRYPT', have)
 
 want_gnutls = get_option('gnutls')
-if want_gnutls != 'false'
+if want_gnutls != 'false' and not fuzzer_build
         libgnutls = dependency('gnutls',
                                version : '>= 3.1.4',
                                required : want_gnutls == 'true')
@@ -996,7 +1022,7 @@ endif
 conf.set10('HAVE_GNUTLS', have)
 
 want_elfutils = get_option('elfutils')
-if want_elfutils != 'false'
+if want_elfutils != 'false' and not fuzzer_build
         libdw = dependency('libdw',
                            required : want_elfutils == 'true')
         have = libdw.found()
@@ -1007,7 +1033,7 @@ endif
 conf.set10('HAVE_ELFUTILS', have)
 
 want_zlib = get_option('zlib')
-if want_zlib != 'false'
+if want_zlib != 'false' and not fuzzer_build
         libz = dependency('zlib',
                           required : want_zlib == 'true')
         have = libz.found()
@@ -1018,7 +1044,7 @@ endif
 conf.set10('HAVE_ZLIB', have)
 
 want_bzip2 = get_option('bzip2')
-if want_bzip2 != 'false'
+if want_bzip2 != 'false' and not fuzzer_build
         libbzip2 = cc.find_library('bz2',
                                    required : want_bzip2 == 'true')
         have = libbzip2.found()
@@ -1029,7 +1055,7 @@ endif
 conf.set10('HAVE_BZIP2', have)
 
 want_xz = get_option('xz')
-if want_xz != 'false'
+if want_xz != 'false' and not fuzzer_build
         libxz = dependency('liblzma',
                            required : want_xz == 'true')
         have = libxz.found()
@@ -1040,7 +1066,7 @@ endif
 conf.set10('HAVE_XZ', have)
 
 want_lz4 = get_option('lz4')
-if want_lz4 != 'false'
+if want_lz4 != 'false' and not fuzzer_build
         liblz4 = dependency('liblz4',
                             required : want_lz4 == 'true')
         have = liblz4.found()
@@ -1051,7 +1077,7 @@ endif
 conf.set10('HAVE_LZ4', have)
 
 want_xkbcommon = get_option('xkbcommon')
-if want_xkbcommon != 'false'
+if want_xkbcommon != 'false' and not fuzzer_build
         libxkbcommon = dependency('xkbcommon',
                                   version : '>= 0.3.0',
                                   required : want_xkbcommon == 'true')
@@ -1063,7 +1089,7 @@ endif
 conf.set10('HAVE_XKBCOMMON', have)
 
 want_glib = get_option('glib')
-if want_glib != 'false'
+if want_glib != 'false' and not fuzzer_build
         libglib =    dependency('glib-2.0',
                                 version : '>= 2.22.0',
                                 required : want_glib == 'true')
@@ -1082,7 +1108,7 @@ endif
 conf.set10('HAVE_GLIB', have)
 
 want_dbus = get_option('dbus')
-if want_dbus != 'false'
+if want_dbus != 'false' and not fuzzer_build
         libdbus = dependency('dbus-1',
                              version : '>= 1.3.2',
                              required : want_dbus == 'true')
@@ -1094,6 +1120,9 @@ endif
 conf.set10('HAVE_DBUS', have)
 
 default_dnssec = get_option('default-dnssec')
+if fuzzer_build
+        default_dnssec = 'no'
+endif
 if default_dnssec != 'no' and conf.get('HAVE_GCRYPT') == 0
         message('default-dnssec cannot be set to yes or allow-downgrade when gcrypt is disabled. Setting default-dnssec to no.')
         default_dnssec = 'no'
@@ -1174,6 +1203,7 @@ endforeach
 want_tests = get_option('tests')
 install_tests = get_option('install-tests')
 tests = []
+fuzzers = []
 
 conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', get_option('slow-tests'))
 
@@ -1231,13 +1261,9 @@ includes = include_directories('src/basic',
                                'src/libsystemd/sd-netlink',
                                'src/libsystemd/sd-network',
                                'src/libsystemd-network',
-                               '.',
-                              )
+                               '.')
 
 add_project_arguments('-include', 'config.h', language : 'c')
-
-gcrypt_util_sources = files('src/shared/gcrypt-util.h',
-                            'src/shared/gcrypt-util.c')
 
 subdir('po')
 subdir('catalog')
@@ -1258,15 +1284,16 @@ libjournal_core = static_library(
 libsystemd_sym_path = '@0@/@1@'.format(meson.current_source_dir(), libsystemd_sym)
 libsystemd = shared_library(
         'systemd',
-        libsystemd_internal_sources,
-        journal_internal_sources,
+        'src/systemd/sd-id128.h', # pick a header file at random to work around old meson bug
         version : libsystemd_version,
         include_directories : includes,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libsystemd_sym_path],
-        link_with : [libbasic],
+        link_with : [libbasic,
+                     libbasic_gcrypt],
+        link_whole : [libsystemd_static,
+                      libjournal_client],
         dependencies : [threads,
-                        libgcrypt,
                         librt,
                         libxz,
                         liblz4],
@@ -1299,10 +1326,10 @@ subdir('src/resolve')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/vconsole')
-subdir('src/sulogin-shell')
 subdir('src/boot/efi')
 
 subdir('src/test')
+subdir('src/fuzz')
 subdir('rules')
 subdir('test')
 
@@ -1334,10 +1361,12 @@ foreach tuple : [['myhostname', 'ENABLE_MYHOSTNAME'],
                         'src/nss-@0@/nss-@0@.c'.format(module),
                         version : '2',
                         include_directories : includes,
-                        link_args : ['-shared',
+                        # Note that we link NSS modules with '-z nodelete' so that mempools never get orphaned
+                        link_args : ['-Wl,-z,nodelete',
+                                     '-shared',
                                      '-Wl,--version-script=' + version_script_arg,
                                      '-Wl,--undefined'],
-                        link_with : [libsystemd_internal,
+                        link_with : [libsystemd_static,
                                      libbasic],
                         dependencies : [threads,
                                         librt],
@@ -1506,11 +1535,11 @@ endif
 if conf.get('ENABLE_RESOLVE') == 1
         executable('systemd-resolved',
                    systemd_resolved_sources,
-                   gcrypt_util_sources,
                    include_directories : includes,
-                   link_with : [libshared],
+                   link_with : [libshared,
+                                libbasic_gcrypt,
+                                libsystemd_resolve_core],
                    dependencies : [threads,
-                                   libgcrypt,
                                    libgpg_error,
                                    libm,
                                    libidn],
@@ -1520,11 +1549,11 @@ if conf.get('ENABLE_RESOLVE') == 1
 
         exe = executable('systemd-resolve',
                          systemd_resolve_sources,
-                         gcrypt_util_sources,
                          include_directories : includes,
-                         link_with : [libshared],
+                         link_with : [libshared,
+                                      libbasic_gcrypt,
+                                      libsystemd_resolve_core],
                          dependencies : [threads,
-                                         libgcrypt,
                                          libgpg_error,
                                          libm,
                                          libidn],
@@ -1575,7 +1604,7 @@ if conf.get('ENABLE_LOGIND') == 1
                         include_directories : includes,
                         link_args : ['-shared',
                                      '-Wl,--version-script=' + version_script_arg],
-                        link_with : [libsystemd_internal,
+                        link_with : [libsystemd_static,
                                      libshared_static],
                         dependencies : [threads,
                                         libpam,
@@ -2228,7 +2257,7 @@ if conf.get('ENABLE_HWDB') == 1
                          'src/hwdb/hwdb.c',
                          'src/libsystemd/sd-hwdb/hwdb-internal.h',
                          include_directories : includes,
-                         link_with : [libudev_internal],
+                         link_with : [libudev_static],
                          install_rpath : udev_rpath,
                          install : true,
                          install_dir : rootbindir)
@@ -2261,7 +2290,7 @@ exe = executable('systemd-udevd',
                  c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
                  link_with : [libudev_core,
                               libsystemd_network,
-                              libudev_internal],
+                              libudev_static],
                  dependencies : [threads,
                                  libkmod,
                                  libidn,
@@ -2274,10 +2303,11 @@ public_programs += [exe]
 
 exe = executable('udevadm',
                  udevadm_sources,
+                 c_args : ['-DLOG_REALM=LOG_REALM_UDEV'],
                  include_directories : includes,
                  link_with : [libudev_core,
                               libsystemd_network,
-                              libudev_internal],
+                              libudev_static],
                  dependencies : [threads,
                                  libkmod,
                                  libidn,
@@ -2351,7 +2381,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                    include_directories : includes,
                    link_with : [libnetworkd_core,
                                 libsystemd_network,
-                                libudev_internal,
+                                libudev_static,
                                 libshared],
                    dependencies : [threads],
                    install_rpath : rootlibexecdir,
@@ -2377,6 +2407,15 @@ if conf.get('ENABLE_NETWORKD') == 1
                    install_dir : rootbindir)
         public_programs += [exe]
 endif
+
+executable('systemd-sulogin-shell',
+           ['src/sulogin-shell/sulogin-shell.c'],
+           include_directories : includes,
+           link_with : [libshared],
+           install_rpath : rootlibexecdir,
+           install : true,
+           install_dir : rootlibexecdir)
+
 ############################################################
 
 foreach tuple : tests
@@ -2394,8 +2433,9 @@ foreach tuple : tests
                 timeout = type.split('=')[1].to_int()
                 type = ''
         endif
-
-        if condition == '' or conf.get(condition) == 1
+        if want_tests == 'false'
+                message('Not compiling @0@ because tests is set to false'.format(name))
+        elif condition == '' or conf.get(condition) == 1
                 exe = executable(
                         name,
                         sources,
@@ -2444,6 +2484,39 @@ test('test-libudev-sym',
 
 ############################################################
 
+fuzzer_exes = []
+
+foreach tuple : fuzzers
+        sources = tuple[0]
+        link_with = tuple[1].length() > 0 ? tuple[1] : [libshared]
+        dependencies = tuple[2]
+        defs = tuple.length() >= 4 ? tuple[3] : []
+        incs = tuple.length() >= 5 ? tuple[4] : includes
+
+        if fuzzer_build
+                dependencies += fuzzing_engine
+        else
+                sources += 'src/fuzz/fuzz-main.c'
+        endif
+
+        name = sources[0].split('/')[-1].split('.')[0]
+
+        fuzzer_exes += executable(
+                name,
+                sources,
+                include_directories : [incs, include_directories('src/fuzz')],
+                link_with : link_with,
+                dependencies : dependencies,
+                c_args : defs,
+                install : false)
+endforeach
+
+run_target('fuzzers',
+        depends : fuzzer_exes,
+        command : ['true'])
+
+############################################################
+
 make_directive_index_py = find_program('tools/make-directive-index.py')
 make_man_index_py = find_program('tools/make-man-index.py')
 xml_helper_py = find_program('tools/xml_helper.py')
@@ -2479,6 +2552,8 @@ install_data('README',
              'ENVIRONMENT.md',
              'LICENSE.GPL2',
              'LICENSE.LGPL2.1',
+             'TRANSIENT-SETTINGS.md',
+             'UIDS-GIDS.md',
              'src/libsystemd/sd-bus/GVARIANT-SERIALIZATION',
              install_dir : docdir)
 
@@ -2541,6 +2616,14 @@ if git.found()
                            '--prefix', 'systemd-@0@/'.format(git_head),
                            'HEAD'])
 endif
+
+############################################################
+
+meson_check_api_docs_sh = find_program('tools/meson-check-api-docs.sh')
+run_target(
+        'check-api-docs',
+        depends : [man, libsystemd, libudev],
+        command : [meson_check_api_docs_sh, libsystemd.full_path(), libudev.full_path()])
 
 ############################################################
 

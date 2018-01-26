@@ -133,7 +133,7 @@ static int determine_path_usage(Server *s, const char *path, uint64_t *ret_used,
 }
 
 static void cache_space_invalidate(JournalStorageSpace *space) {
-        memset(space, 0, sizeof(*space));
+        zero(*space);
 }
 
 static int cache_space_refresh(Server *s, JournalStorage *storage) {
@@ -241,6 +241,13 @@ void server_space_usage_message(Server *s, JournalStorage *storage) {
                               NULL);
 }
 
+static bool uid_for_system_journal(uid_t uid) {
+
+        /* Returns true if the specified UID shall get its data stored in the system journal*/
+
+        return uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY;
+}
+
 static void server_add_acls(JournalFile *f, uid_t uid) {
 #if HAVE_ACL
         int r;
@@ -248,7 +255,7 @@ static void server_add_acls(JournalFile *f, uid_t uid) {
         assert(f);
 
 #if HAVE_ACL
-        if (uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY)
+        if (uid_for_system_journal(uid))
                 return;
 
         r = add_acls_for_user(f->fd, uid);
@@ -406,7 +413,7 @@ static JournalFile* find_journal(Server *s, uid_t uid) {
         if (s->runtime_journal)
                 return s->runtime_journal;
 
-        if (uid_is_system(uid) || uid_is_dynamic(uid) || uid == UID_NOBODY)
+        if (uid_for_system_journal(uid))
                 return s->system_journal;
 
         r = sd_id128_get_machine(&machine);
@@ -457,13 +464,14 @@ static int do_rotate(
                 return -EINVAL;
 
         r = journal_file_rotate(f, s->compress, seal, s->deferred_closes);
-        if (r < 0)
+        if (r < 0) {
                 if (*f)
-                        log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
+                        return log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
                 else
-                        log_error_errno(r, "Failed to create new %s journal: %m", name);
-        else
-                server_add_acls(*f, uid);
+                        return log_error_errno(r, "Failed to create new %s journal: %m", name);
+        }
+
+        server_add_acls(*f, uid);
 
         return r;
 }
@@ -724,7 +732,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 #define IOVEC_ADD_NUMERIC_FIELD(iovec, n, value, type, isset, format, field)  \
         if (isset(value)) {                                             \
                 char *k;                                                \
-                k = newa(char, strlen(field "=") + DECIMAL_STR_MAX(type) + 1); \
+                k = newa(char, STRLEN(field "=") + DECIMAL_STR_MAX(type) + 1); \
                 sprintf(k, field "=" format, value);                    \
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
@@ -739,7 +747,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 #define IOVEC_ADD_ID128_FIELD(iovec, n, value, field)                   \
         if (!sd_id128_is_null(value)) {                                 \
                 char *k;                                                \
-                k = newa(char, strlen(field "=") + SD_ID128_STRING_MAX); \
+                k = newa(char, STRLEN(field "=") + SD_ID128_STRING_MAX); \
                 sd_id128_to_string(value, stpcpy(k, field "="));        \
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }
@@ -747,7 +755,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
 #define IOVEC_ADD_SIZED_FIELD(iovec, n, value, value_size, field)       \
         if (value_size > 0) {                                           \
                 char *k;                                                \
-                k = newa(char, strlen(field "=") + value_size + 1);     \
+                k = newa(char, STRLEN(field "=") + value_size + 1);     \
                 *((char*) mempcpy(stpcpy(k, field "="), value, value_size)) = 0; \
                 iovec[n++] = IOVEC_MAKE_STRING(k);                      \
         }                                                               \
@@ -1489,7 +1497,8 @@ static int server_open_hostname(Server *s) {
 
         assert(s);
 
-        s->hostname_fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY|O_NOCTTY);
+        s->hostname_fd = open("/proc/sys/kernel/hostname",
+                              O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (s->hostname_fd < 0)
                 return log_error_errno(errno, "Failed to open /proc/sys/kernel/hostname: %m");
 

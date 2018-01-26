@@ -210,13 +210,12 @@ IPAddressAccessItem* ip_address_access_reduce(IPAddressAccessItem *first) {
                                                   &b->address,
                                                   b->prefixlen,
                                                   &a->address);
-                        if (r <= 0)
-                                continue;
-
-                        /* b covers a fully, then let's drop a */
-
-                        LIST_REMOVE(items, first, a);
-                        free(a);
+                        if (r > 0) {
+                                /* b covers a fully, then let's drop a */
+                                LIST_REMOVE(items, first, a);
+                                free(a);
+                                break;
+                        }
                 }
         }
 

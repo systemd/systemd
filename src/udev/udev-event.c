@@ -231,7 +231,7 @@ static size_t subst_format_var(struct udev_event *event, struct udev_device *dev
                         break;
                 devnode = udev_device_get_devnode(dev_parent);
                 if (devnode != NULL)
-                        l = strpcpy(&s, l, devnode + strlen("/dev/"));
+                        l = strpcpy(&s, l, devnode + STRLEN("/dev/"));
                 break;
         }
         case SUBST_DEVNODE:
@@ -242,7 +242,8 @@ static size_t subst_format_var(struct udev_event *event, struct udev_device *dev
                 if (event->name != NULL)
                         l = strpcpy(&s, l, event->name);
                 else if (udev_device_get_devnode(dev) != NULL)
-                        l = strpcpy(&s, l, udev_device_get_devnode(dev) + strlen("/dev/"));
+                        l = strpcpy(&s, l,
+                                    udev_device_get_devnode(dev) + STRLEN("/dev/"));
                 else
                         l = strpcpy(&s, l, udev_device_get_sysname(dev));
                 break;
@@ -252,9 +253,12 @@ static size_t subst_format_var(struct udev_event *event, struct udev_device *dev
                 list_entry = udev_device_get_devlinks_list_entry(dev);
                 if (list_entry == NULL)
                         break;
-                l = strpcpy(&s, l, udev_list_entry_get_name(list_entry) + strlen("/dev/"));
+                l = strpcpy(&s, l,
+                            udev_list_entry_get_name(list_entry) + STRLEN("/dev/"));
                 udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry))
-                        l = strpcpyl(&s, l, " ", udev_list_entry_get_name(list_entry) + strlen("/dev/"), NULL);
+                        l = strpcpyl(&s, l, " ",
+                                     udev_list_entry_get_name(list_entry) + STRLEN("/dev/"),
+                                     NULL);
                 break;
         }
         case SUBST_ROOT:
@@ -770,10 +774,10 @@ int udev_event_spawn(struct udev_event *event,
                 }
         }
 
-        pid = fork();
-        switch(pid) {
-        case 0:
-        {
+        err = safe_fork("(spawn)", FORK_RESET_SIGNALS|FORK_LOG, &pid);
+        if (err < 0)
+                goto out;
+        if (err == 0) {
                 char arg[UTIL_PATH_SIZE];
                 char *argv[128];
                 char program[UTIL_PATH_SIZE];
@@ -798,23 +802,18 @@ int udev_event_spawn(struct udev_event *event,
 
                 _exit(2);
         }
-        case -1:
-                log_error_errno(errno, "fork of '%s' failed: %m", cmd);
-                err = -1;
-                goto out;
-        default:
-                /* parent closed child's ends of pipes */
-                outpipe[WRITE_END] = safe_close(outpipe[WRITE_END]);
-                errpipe[WRITE_END] = safe_close(errpipe[WRITE_END]);
 
-                spawn_read(event,
-                           timeout_usec,
-                           cmd,
-                           outpipe[READ_END], errpipe[READ_END],
-                           result, ressize);
+        /* parent closed child's ends of pipes */
+        outpipe[WRITE_END] = safe_close(outpipe[WRITE_END]);
+        errpipe[WRITE_END] = safe_close(errpipe[WRITE_END]);
 
-                err = spawn_wait(event, timeout_usec, timeout_warn_usec, cmd, pid, accept_failure);
-        }
+        spawn_read(event,
+                   timeout_usec,
+                   cmd,
+                   outpipe[READ_END], errpipe[READ_END],
+                   result, ressize);
+
+        err = spawn_wait(event, timeout_usec, timeout_warn_usec, cmd, pid, accept_failure);
 
 out:
         if (outpipe[READ_END] >= 0)

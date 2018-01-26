@@ -47,7 +47,7 @@ static char *arg_cipher = NULL;
 static unsigned arg_key_size = 0;
 static int arg_key_slot = CRYPT_ANY_SLOT;
 static unsigned arg_keyfile_size = 0;
-static unsigned arg_keyfile_offset = 0;
+static uint64_t arg_keyfile_offset = 0;
 static char *arg_hash = NULL;
 static char *arg_header = NULL;
 static unsigned arg_tries = 3;
@@ -131,12 +131,21 @@ static int parse_one_option(const char *option) {
                 }
 
         } else if ((val = startswith(option, "keyfile-offset="))) {
+                uint64_t off;
 
-                r = safe_atou(val, &arg_keyfile_offset);
+                r = safe_atou64(val, &off);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse %s, ignoring: %m", option);
                         return 0;
                 }
+
+                if ((size_t) off != off) {
+                        /* https://gitlab.com/cryptsetup/cryptsetup/issues/359 */
+                        log_error("keyfile-offset= value would truncated to %zu, ignoring.", (size_t) off);
+                        return 0;
+                }
+
+                arg_keyfile_offset = off;
 
         } else if ((val = startswith(option, "hash="))) {
                 r = free_and_strdup(&arg_hash, val);
@@ -249,23 +258,6 @@ static int parse_options(const char *options) {
         return 0;
 }
 
-static int disk_major_minor(const char *path, char **ret) {
-        struct stat st;
-
-        assert(path);
-
-        if (stat(path, &st) < 0)
-                return -errno;
-
-        if (!S_ISBLK(st.st_mode))
-                return -EINVAL;
-
-        if (asprintf(ret, "/dev/block/%d:%d", major(st.st_rdev), minor(st.st_rdev)) < 0)
-                return -errno;
-
-        return 0;
-}
-
 static char* disk_description(const char *path) {
 
         static const char name_fields[] =
@@ -324,7 +316,7 @@ static char *disk_mount_point(const char *label) {
 }
 
 static int get_password(const char *vol, const char *src, usec_t until, bool accept_cached, char ***ret) {
-        _cleanup_free_ char *description = NULL, *name_buffer = NULL, *mount_point = NULL, *maj_min = NULL, *text = NULL, *escaped_name = NULL;
+        _cleanup_free_ char *description = NULL, *name_buffer = NULL, *mount_point = NULL, *text = NULL, *disk_path = NULL;
         _cleanup_strv_free_erase_ char **passwords = NULL;
         const char *name = NULL;
         char **p, *id;
@@ -336,6 +328,10 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
 
         description = disk_description(src);
         mount_point = disk_mount_point(vol);
+
+        disk_path = cescape(src);
+        if (!disk_path)
+                return log_oom();
 
         if (description && streq(vol, description))
                 /* If the description string is simply the
@@ -358,19 +354,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
         if (asprintf(&text, "Please enter passphrase for disk %s!", name) < 0)
                 return log_oom();
 
-        if (src)
-                (void) disk_major_minor(src, &maj_min);
-
-        if (maj_min) {
-                escaped_name = maj_min;
-                maj_min = NULL;
-        } else
-                escaped_name = cescape(name);
-
-        if (!escaped_name)
-                return log_oom();
-
-        id = strjoina("cryptsetup:", escaped_name);
+        id = strjoina("cryptsetup:", disk_path);
 
         r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until,
                               ASK_PASSWORD_PUSH_CACHE | (accept_cached*ASK_PASSWORD_ACCEPT_CACHED),
@@ -386,7 +370,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
                 if (asprintf(&text, "Please enter passphrase for disk %s! (verification)", name) < 0)
                         return log_oom();
 
-                id = strjoina("cryptsetup-verification:", escaped_name);
+                id = strjoina("cryptsetup-verification:", disk_path);
 
                 r = ask_password_auto(text, "drive-harddisk", id, "cryptsetup", until, ASK_PASSWORD_PUSH_CACHE, &passwords2);
                 if (r < 0)

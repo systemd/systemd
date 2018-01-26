@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
+# Copyright 2018 Jonathan Rudenberg
 #
 # systemd is free software; you can redistribute it and/or modify it
 # under the terms of the GNU Lesser General Public License as published by
@@ -15,11 +14,17 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-executable('systemd-sulogin-shell',
-           ['sulogin-shell.c'],
-           include_directories : includes,
-           link_with : [libshared],
-           dependencies : [],
-           install_rpath : rootlibexecdir,
-           install : true,
-           install_dir : rootlibexecdir)
+fuzzers += [
+        [['src/fuzz/fuzz-dns-packet.c',
+          dns_type_headers],
+         [libsystemd_resolve_core,
+          libshared],
+         [libgcrypt,
+          libgpg_error,
+          libm]],
+        [['src/fuzz/fuzz-dhcp-server.c',
+          ],
+         [libsystemd_network,
+          libshared],
+          []]
+]

@@ -184,6 +184,9 @@
           <entry>The virtual CAN tunnel driver (vxcan). Similar to the virtual ethernet driver veth, vxcan implements a local CAN traffic tunnel between two virtual CAN network devices. When creating a vxcan, two vxcan devices are created as pair. When one end receives the packet it appears on its pair and vice versa. The vxcan can be used for cross namespace communication.
           </entry></row>
 
+          <row><entry><varname>wireguard</varname></entry>
+          <entry>WireGuard Secure Network Tunnel.</entry></row>
+
         </tbody>
       </tgroup>
     </table>
@@ -229,6 +232,16 @@
           <literal>ConditionKernelCommandLine=</literal> in
           <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for details.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>KernelVersion=</varname></term>
+        <listitem>
+          <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a certain
+          expression (or if prefixed with the exclamation mark does not match it). See
+          <literal>ConditionKernelVersion=</literal> in
+          <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details.
           </para>
         </listitem>
       </varlistentry>
@@ -499,7 +512,15 @@
         <term><varname>Mode=</varname></term>
           <listitem>
             <para>The IPVLAN mode to use. The supported options are
-            <literal>L2</literal> and <literal>L3</literal>.
+            <literal>L2</literal>,<literal>L3</literal> and <literal>L3S</literal>.
+            </para>
+          </listitem>
+      </varlistentry>
+       <varlistentry>
+        <term><varname>Flags=</varname></term>
+          <listitem>
+            <para>The IPVLAN flags to use. The supported options are
+            <literal>bridge</literal>,<literal>private</literal> and <literal>vepa</literal>.
             </para>
           </listitem>
       </varlistentry>
@@ -871,6 +892,14 @@
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>AllowLocalRemote=</varname></term>
+        <listitem>
+          <para>A boolean. When true allows tunnel traffic on <varname>ip6tnl</varname> devices where the remote endpoint is a local host address.
+          Defaults to unset.
+          </para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
   <refsect1>
@@ -981,6 +1010,103 @@
     <para>The <literal>[Tap]</literal> section only applies for
     netdevs of kind <literal>tap</literal>, and accepts the same keys
     as the <literal>[Tun]</literal> section.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>[WireGuard] Section Options</title>
+
+    <para>The <literal>[WireGuard]</literal> section accepts the following
+    keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>PrivateKey=</varname></term>
+        <listitem>
+          <para>The Base64 encoded private key for the interface. It can be
+            generated using the <command>wg genkey</command> command
+            (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
+            This option is mandatory to use wireguard.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ListenPort=</varname></term>
+        <listitem>
+          <para>Sets UDP port for listening. Takes either value between 1 and 65535
+            or <literal>auto</literal>. If <literal>auto</literal> is specified,
+            the port is automatically generated based on interface name.
+            Defaults to <literal>auto</literal>.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>FwMark=</varname></term>
+        <listitem>
+          <para>Sets a firewall mark on outgoing wireguard packets from this interface.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[WireGuardPeer] Section Options</title>
+
+    <para>The <literal>[WireGuardPeer]</literal> section accepts the following
+    keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>PublicKey=</varname></term>
+        <listitem>
+          <para>Sets a Base64 encoded public key calculated by <command>wg pubkey</command>
+            (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+            from a private key, and usually transmitted out of band to the
+            author of the configuration file. This option is mandatory for this
+            section.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PresharedKey=</varname></term>
+        <listitem>
+          <para>Optional preshared key for the interface. It can be generated
+            by the <command>wg genpsk</command> command. This option adds an
+            additional layer of symmetric-key cryptography to be mixed into the
+            already existing public-key cryptography, for post-quantum
+            resistance.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>AllowedIPs=</varname></term>
+        <listitem>
+          <para>Sets a comma-separated list of IP (v4 or v6) addresses with CIDR masks
+            from which this peer is allowed to send incoming traffic and to
+            which outgoing traffic for this peer is directed. The catch-all
+            0.0.0.0/0 may be specified for matching all IPv4 addresses, and
+            ::/0 may be specified for matching all IPv6 addresses. </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Endpoint=</varname></term>
+        <listitem>
+          <para>Sets an endpoint IP address or hostname, followed by a colon, and then
+            a port number. This endpoint will be updated automatically once to
+            the most recent source IP address and port of correctly
+            authenticated packets from the peer at configuration time.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PersistentKeepalive=</varname></term>
+        <listitem>
+          <para>Sets a seconds interval, between 1 and 65535 inclusive, of how often
+            to send an authenticated empty packet to the peer for the purpose
+            of keeping a stateful firewall or NAT mapping valid persistently.
+            For example, if the interface very rarely sends traffic, but it
+            might at anytime receive traffic from a peer, and it is behind NAT,
+            the interface might benefit from having a persistent keepalive
+            interval of 25 seconds. If set to 0 or "off", this option is
+            disabled. By default or when unspecified, this option is off.
+            Most users will not need this.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -1364,6 +1490,21 @@ Table=42</programlisting>
 Name=macvtap-test
 Kind=macvtap
       </programlisting>
+    </example>
+    <example>
+      <title>/etc/systemd/network/25-wireguard.netdev</title>
+      <programlisting>[NetDev]
+Name=wg0
+Kind=wireguard
+
+[WireGuard]
+PrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=
+ListenPort=51820
+
+[WireGuardPeer]
+PublicKey=RDf+LSpeEre7YEIKaxg+wbpsNV7du+ktR99uBEtIiCA=
+AllowedIPs=fd31:bf08:57cb::/48,192.168.26.0/24
+Endpoint=wireguard.example.com:51820</programlisting>
     </example>
   </refsect1>
   <refsect1>

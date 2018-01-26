@@ -950,11 +950,70 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
         return 0;
 }
 
+int seccomp_parse_syscall_filter_internal(
+                bool invert,
+                const char *name,
+                int errno_num,
+                Hashmap *filter,
+                bool whitelist,
+                bool warn,
+                const char *unit,
+                const char *filename,
+                unsigned line) {
+
+        int r;
+
+        assert(name);
+        assert(filter);
+
+        if (name[0] == '@') {
+                const SyscallFilterSet *set;
+                const char *i;
+
+                set = syscall_filter_set_find(name);
+                if (!set) {
+                        if (warn) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown system call group, ignoring: %s", name);
+                                return 0;
+                        } else
+                                return -EINVAL;
+                }
+
+                NULSTR_FOREACH(i, set->value) {
+                        r = seccomp_parse_syscall_filter_internal(invert, i, errno_num, filter, whitelist, warn, unit, filename, line);
+                        if (r < 0)
+                                return r;
+                }
+        } else {
+                int id;
+
+                id = seccomp_syscall_resolve_name(name);
+                if (id == __NR_SCMP_ERROR) {
+                        if (warn) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse system call, ignoring: %s", name);
+                                return 0;
+                        } else
+                                return -EINVAL;
+                }
+
+                /* If we previously wanted to forbid a syscall and now
+                 * we want to allow it, then remove it from the list. */
+                if (!invert == whitelist) {
+                        r = hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
+                        if (r < 0)
+                                return warn ? log_oom() : -ENOMEM;
+                } else
+                        (void) hashmap_remove(filter, INT_TO_PTR(id + 1));
+        }
+
+        return 0;
+}
+
 int seccomp_restrict_namespaces(unsigned long retain) {
         uint32_t arch;
         int r;
 
-        if (log_get_max_level() >= LOG_DEBUG) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *s = NULL;
 
                 (void) namespace_flag_to_string_many(retain, &s);
@@ -1386,6 +1445,7 @@ int seccomp_memory_deny_write_execute(void) {
                         block_syscall = SCMP_SYS(mmap);
                         break;
 
+                case SCMP_ARCH_PPC:
                 case SCMP_ARCH_PPC64:
                 case SCMP_ARCH_PPC64LE:
                         filter_syscall = SCMP_SYS(mmap);
@@ -1410,7 +1470,7 @@ int seccomp_memory_deny_write_execute(void) {
 
                 /* Please add more definitions here, if you port systemd to other architectures! */
 
-#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__)
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__)
 #warning "Consider adding the right mmap() syscall definitions here!"
 #endif
                 }

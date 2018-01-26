@@ -605,8 +605,8 @@
     daemon code, to create it via
     <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     fragments during boot, or via the
-    <varname>RuntimeDirectory=</varname> directive of service units
-    (see
+    <varname>StateDirectory=</varname> and <varname>RuntimeDirectory=</varname>
+    directives of service units (see
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details).</para>
   </refsect1>
@@ -694,7 +694,7 @@
           </row>
           <row>
       <entry><filename>/run/<replaceable>package</replaceable></filename></entry>
-      <entry>Runtime data for the package. Packages must be able to create the necessary subdirectories in this tree on their own, since the directory is flushed automatically on boot. Alternatively, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment may be used to create the necessary directories during boot. Alternatively, the <varname>RuntimeDirectory=</varname> directive of service units may be used (see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details.)</entry>
+      <entry>Runtime data for the package. Packages must be able to create the necessary subdirectories in this tree on their own, since the directory is flushed automatically on boot. Alternatively, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment may be used to create the necessary directories during boot, or the <varname>RuntimeDirectory=</varname> directive of service units may be used to create them at service startup (see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details).</entry>
           </row>
           <row>
       <entry><filename>/run/log/<replaceable>package</replaceable></filename></entry>
@@ -702,15 +702,15 @@
           </row>
           <row>
       <entry><filename>/var/cache/<replaceable>package</replaceable></filename></entry>
-      <entry>Persistent cache data of the package. If this directory is flushed, the application should work correctly on next invocation, though possibly slowed down due to the need to rebuild any local cache files. The application must be capable of recreating this directory should it be missing and necessary.</entry>
+      <entry>Persistent cache data of the package. If this directory is flushed, the application should work correctly on next invocation, though possibly slowed down due to the need to rebuild any local cache files. The application must be capable of recreating this directory should it be missing and necessary. To create an empty directory, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment or the <varname>CacheDirectory=</varname> directive of service units (see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>) may be used.</entry>
           </row>
           <row>
       <entry><filename>/var/lib/<replaceable>package</replaceable></filename></entry>
-      <entry>Persistent private data of the package. This is the primary place to put persistent data that does not fall into the other categories listed. Packages should be able to create the necessary subdirectories in this tree on their own, since the directory might be missing on boot. Alternatively, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment may be used to create the necessary directories during boot.</entry>
+      <entry>Persistent private data of the package. This is the primary place to put persistent data that does not fall into the other categories listed. Packages should be able to create the necessary subdirectories in this tree on their own, since the directory might be missing on boot. To create an empty directory, a <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> fragment or the <varname>StateDirectory=</varname> directive of service units (see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>) may be used.</entry>
           </row>
           <row>
       <entry><filename>/var/log/<replaceable>package</replaceable></filename></entry>
-      <entry>Persistent log data of the package. As above, the package should make sure to create this directory if necessary, as it might be missing.</entry>
+      <entry>Persistent log data of the package. As above, the package should make sure to create this directory if necessary, possibly using <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> or <varname>LogsDirectory=</varname> (see <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>), as it might be missing.</entry>
           </row>
           <row>
       <entry><filename>/var/spool/<replaceable>package</replaceable></filename></entry>

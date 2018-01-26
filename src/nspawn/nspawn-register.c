@@ -203,7 +203,7 @@ int register_machine(
                 if (r < 0)
                         return r;
 
-                r = bus_append_unit_property_assignment_many(m, properties);
+                r = bus_append_unit_property_assignment_many(m, UNIT_SERVICE, properties);
                 if (r < 0)
                         return r;
 
@@ -339,7 +339,7 @@ int allocate_scope(
         if (r < 0)
                 return r;
 
-        r = bus_append_unit_property_assignment_many(m, properties);
+        r = bus_append_unit_property_assignment_many(m, UNIT_SCOPE, properties);
         if (r < 0)
                 return r;
 

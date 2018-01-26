@@ -147,9 +147,8 @@ L     /tmp/foobar -    -    -    -   /dev/null</programlisting>
       <variablelist>
         <varlistentry>
           <term><varname>f</varname></term>
-          <listitem><para>Create a file if it does not exist yet. If
-          the argument parameter is given, it will be written to the
-          file. Does not follow symlinks.</para></listitem>
+          <listitem><para>Create a file if it does not exist yet. If the argument parameter is given and the file did
+          not exist yet, it will be written to the file. Does not follow symlinks.</para></listitem>
         </varlistentry>
 
         <varlistentry>
@@ -484,6 +483,13 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       The second line in contrast to the first one would break a
       running system, and will only be executed with
       <option>--boot</option>.</para>
+
+      <para>Note that for all line types that result in creation of any kind of file node
+      (i.e. <varname>f</varname>/<varname>F</varname>,
+      <varname>d</varname>/<varname>D</varname>/<varname>v</varname>/<varname>q</varname>/<varname>Q</varname>,
+      <varname>p</varname>, <varname>L</varname>, <varname>c</varname>/<varname>b</varname> and <varname>C</varname>)
+      leading directories are implicitly created if needed, owned by root with an access mode of 0755. In order to
+      create them with different modes or ownership make sure to add appropriate <varname>d</varname> lines.</para>
     </refsect2>
 
     <refsect2>
@@ -578,21 +584,14 @@ r! /tmp/.X[0-9]*-lock</programlisting>
     <refsect2>
       <title>Argument</title>
 
-      <para>For <varname>L</varname> lines determines the destination
-      path of the symlink. For <varname>c</varname> and
-      <varname>b</varname>, determines the major/minor of the device
-      node, with major and minor formatted as integers, separated by
-      <literal>:</literal>, e.g.  <literal>1:3</literal>. For
-      <varname>f</varname>, <varname>F</varname>, and
-      <varname>w</varname>, the argument may be used to specify a short string that
-      is written to the file, suffixed by a newline. For
-      <varname>C</varname>, specifies the source file or
-      directory. For <varname>t</varname> and <varname>T</varname>,
-      determines extended attributes to be set. For
-      <varname>a</varname> and <varname>A</varname>, determines ACL
-      attributes to be set. For <varname>h</varname> and
-      <varname>H</varname>, determines the file attributes to
-      set. Ignored for all other lines.</para>
+      <para>For <varname>L</varname> lines determines the destination path of the symlink. For <varname>c</varname> and
+      <varname>b</varname>, determines the major/minor of the device node, with major and minor formatted as integers,
+      separated by <literal>:</literal>, e.g.  <literal>1:3</literal>. For <varname>f</varname>, <varname>F</varname>,
+      and <varname>w</varname>, the argument may be used to specify a short string that is written to the file,
+      suffixed by a newline. For <varname>C</varname>, specifies the source file or directory. For <varname>t</varname>
+      and <varname>T</varname>, determines extended attributes to be set. For <varname>a</varname> and
+      <varname>A</varname>, determines ACL attributes to be set. For <varname>h</varname> and <varname>H</varname>,
+      determines the file attributes to set. Ignored for all other lines.</para>
 
       <para>This field can contain specifiers, see below.</para>
     </refsect2>
@@ -697,7 +696,7 @@ d /run/uscreens 0755 root screen 10d12h
 </programlisting>
 
       <para>Contents of <filename>/run/screens</filename> and /run/uscreens will
-      cleaned up after 10 and 10½ days, respectively.</para>
+      be cleaned up after 10 and 10½ days, respectively.</para>
     </example>
 
     <example>

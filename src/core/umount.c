@@ -28,17 +28,21 @@
 #include "libudev.h"
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
+#include "def.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fstab-util.h"
 #include "linux-3.13/dm-ioctl.h"
 #include "list.h"
 #include "mount-setup.h"
+#include "mount-util.h"
 #include "path-util.h"
+#include "process-util.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "umount.h"
-#include "mount-util.h"
 #include "util.h"
 #include "virt.h"
 
@@ -376,10 +380,84 @@ static bool nonunmountable_path(const char *path) {
                 || path_startswith(path, "/run/initramfs");
 }
 
+static int remount_with_timeout(MountPoint *m, char *options, int *n_failed) {
+        pid_t pid;
+        int r;
+
+        BLOCK_SIGNALS(SIGCHLD);
+
+        /* Due to the possiblity of a remount operation hanging, we
+         * fork a child process and set a timeout. If the timeout
+         * lapses, the assumption is that that particular remount
+         * failed. */
+        r = safe_fork("(sd-remount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_info("Remounting '%s' read-only in with options '%s'.", m->path, options);
+
+                /* Start the mount operation here in the child */
+                r = mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, options);
+                if (r < 0)
+                        log_error_errno(errno, "Failed to remount '%s' read-only: %m", m->path);
+
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+        }
+
+        r = wait_for_terminate_with_timeout(pid, DEFAULT_TIMEOUT_USEC);
+        if (r == -ETIMEDOUT) {
+                log_error_errno(errno, "Remounting '%s' - timed out, issuing SIGKILL to PID "PID_FMT".", m->path, pid);
+                (void) kill(pid, SIGKILL);
+        } else if (r < 0)
+                log_error_errno(r, "Failed to wait for process: %m");
+
+        return r;
+}
+
+static int umount_with_timeout(MountPoint *m, bool *changed) {
+        pid_t pid;
+        int r;
+
+        BLOCK_SIGNALS(SIGCHLD);
+
+        /* Due to the possiblity of a umount operation hanging, we
+         * fork a child process and set a timeout. If the timeout
+         * lapses, the assumption is that that particular umount
+         * failed. */
+        r = safe_fork("(sd-umount)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_info("Unmounting '%s'.", m->path);
+
+                /* Start the mount operation here in the child Using MNT_FORCE
+                 * causes some filesystems (e.g. FUSE and NFS and other network
+                 * filesystems) to abort any pending requests and return -EIO
+                 * rather than blocking indefinitely. If the filesysten is
+                 * "busy", this may allow processes to die, thus making the
+                 * filesystem less busy so the unmount might succeed (rather
+                 * then return EBUSY).*/
+                r = umount2(m->path, MNT_FORCE);
+                if (r < 0)
+                        log_error_errno(errno, "Failed to unmount %s: %m", m->path);
+
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+        }
+
+        r = wait_for_terminate_with_timeout(pid, DEFAULT_TIMEOUT_USEC);
+        if (r == -ETIMEDOUT) {
+                log_error_errno(errno, "Unmounting '%s' - timed out, issuing SIGKILL to PID "PID_FMT".", m->path, pid);
+                (void) kill(pid, SIGKILL);
+        } else if (r < 0)
+                log_error_errno(r, "Failed to wait for process: %m");
+
+        return r;
+}
+
 /* This includes remounting readonly, which changes the kernel mount options.
  * Therefore the list passed to this function is invalidated, and should not be reused. */
 
-static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_error) {
+static int mount_points_list_umount(MountPoint **head, bool *changed) {
         MountPoint *m;
         int n_failed = 0;
 
@@ -425,13 +503,15 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                          * explicitly remount the super block of that
                          * alias read-only we hence should be
                          * relatively safe regarding keeping dirty an fs
-                         * we cannot otherwise see. */
-                        log_info("Remounting '%s' read-only with options '%s'.", m->path, options);
-                        if (mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, options) < 0) {
-                                if (log_error)
-                                        log_notice_errno(errno, "Failed to remount '%s' read-only: %m", m->path);
+                         * we cannot otherwise see.
+                         *
+                         * Since the remount can hang in the instance of
+                         * remote filesystems, we remount asynchronously
+                         * and skip the subsequent umount if it fails */
+                        if (remount_with_timeout(m, options, &n_failed) < 0) {
                                 if (nonunmountable_path(m->path))
                                         n_failed++;
+                                continue;
                         }
                 }
 
@@ -441,21 +521,12 @@ static int mount_points_list_umount(MountPoint **head, bool *changed, bool log_e
                 if (nonunmountable_path(m->path))
                         continue;
 
-                /* Trying to umount. Using MNT_FORCE causes some
-                 * filesystems (e.g. FUSE and NFS and other network
-                 * filesystems) to abort any pending requests and
-                 * return -EIO rather than blocking indefinitely.
-                 * If the filesysten is "busy", this may allow processes
-                 * to die, thus making the filesystem less busy so
-                 * the unmount might succeed (rather then return EBUSY).*/
-                log_info("Unmounting %s.", m->path);
-                if (umount2(m->path, MNT_FORCE) == 0) {
+                /* Trying to umount */
+                if (umount_with_timeout(m, changed) < 0)
+                        n_failed++;
+                else {
                         if (changed)
                                 *changed = true;
-                } else {
-                        if (log_error)
-                                log_warning_errno(errno, "Could not unmount %s: %m", m->path);
-                        n_failed++;
                 }
         }
 
@@ -556,7 +627,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
         return n_failed;
 }
 
-static int umount_all_once(bool *changed, bool log_error) {
+static int umount_all_once(bool *changed) {
         int r;
         LIST_HEAD(MountPoint, mp_list_head);
 
@@ -565,7 +636,7 @@ static int umount_all_once(bool *changed, bool log_error) {
         if (r < 0)
                 goto end;
 
-        r = mount_points_list_umount(&mp_list_head, changed, log_error);
+        r = mount_points_list_umount(&mp_list_head, changed);
 
   end:
         mount_points_list_free(&mp_list_head);
@@ -577,19 +648,16 @@ int umount_all(bool *changed) {
         bool umount_changed;
         int r;
 
-        /* retry umount, until nothing can be umounted anymore */
+        /* Retry umount, until nothing can be umounted anymore. Mounts are
+         * processed in order, newest first. The retries are needed when
+         * an old mount has been moved, to a path inside a newer mount. */
         do {
                 umount_changed = false;
 
-                umount_all_once(&umount_changed, false);
+                r = umount_all_once(&umount_changed);
                 if (umount_changed)
                         *changed = true;
         } while (umount_changed);
-
-        /* umount one more time with logging enabled */
-        r = umount_all_once(&umount_changed, true);
-        if (umount_changed)
-                *changed = true;
 
         return r;
 }

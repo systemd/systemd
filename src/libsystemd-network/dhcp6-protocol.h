@@ -34,6 +34,7 @@ struct DHCP6Message {
                 } _packed_;
                 be32_t transaction_id;
         };
+        uint8_t options[];
 } _packed_;
 
 typedef struct DHCP6Message DHCP6Message;

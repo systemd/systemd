@@ -23,6 +23,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -61,12 +62,30 @@ int write_string_stream_ts(
                 WriteStringFileFlags flags,
                 struct timespec *ts) {
 
+        bool needs_nl;
+
         assert(f);
         assert(line);
 
-        fputs(line, f);
-        if (!(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n"))
-                fputc('\n', f);
+        if (ferror(f))
+                return -EIO;
+
+        needs_nl = !(flags & WRITE_STRING_FILE_AVOID_NEWLINE) && !endswith(line, "\n");
+
+        if (needs_nl && (flags & WRITE_STRING_FILE_DISABLE_BUFFER)) {
+                /* If STDIO buffering was disabled, then let's append the newline character to the string itself, so
+                 * that the write goes out in one go, instead of two */
+
+                line = strjoina(line, "\n");
+                needs_nl = false;
+        }
+
+        if (fputs(line, f) == EOF)
+                return -errno;
+
+        if (needs_nl)
+                if (fputc('\n', f) == EOF)
+                        return -errno;
 
         if (ts) {
                 struct timespec twice[2] = {*ts, *ts};
@@ -98,6 +117,7 @@ static int write_string_file_atomic(
         if (r < 0)
                 return r;
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod_umask(fileno(f), 0644);
 
         r = write_string_stream_ts(f, line, flags, ts);
@@ -140,7 +160,7 @@ int write_string_file_ts(
 
                 return r;
         } else
-                assert(ts == NULL);
+                assert(!ts);
 
         if (flags & WRITE_STRING_FILE_CREATE) {
                 f = fopen(fn, "we");
@@ -166,6 +186,11 @@ int write_string_file_ts(
                         goto fail;
                 }
         }
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
+        if (flags & WRITE_STRING_FILE_DISABLE_BUFFER)
+                setvbuf(f, NULL, _IONBF, 0);
 
         r = write_string_stream_ts(f, line, flags, ts);
         if (r < 0)
@@ -200,6 +225,8 @@ int read_one_line_file(const char *fn, char **line) {
         if (!f)
                 return -errno;
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+
         r = read_line(f, LONG_LINE_MAX, line);
         return r < 0 ? r : 0;
 }
@@ -224,6 +251,8 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
         f = fopen(fn, "re");
         if (!f)
                 return -errno;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         /* We try to read one byte more than we need, so that we know whether we hit eof */
         errno = 0;
@@ -319,6 +348,8 @@ int read_full_file(const char *fn, char **contents, size_t *size) {
         f = fopen(fn, "re");
         if (!f)
                 return -errno;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         return read_full_stream(f, contents, size);
 }
@@ -876,7 +907,8 @@ int write_env_file(const char *fname, char **l) {
         if (r < 0)
                 return r;
 
-        fchmod_umask(fileno(f), 0644);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) fchmod_umask(fileno(f), 0644);
 
         STRV_FOREACH(i, l)
                 write_env_var(f, *i);
@@ -894,14 +926,16 @@ int write_env_file(const char *fname, char **l) {
 }
 
 int executable_is_script(const char *path, char **interpreter) {
-        int r;
         _cleanup_free_ char *line = NULL;
-        int len;
+        size_t len;
         char *ans;
+        int r;
 
         assert(path);
 
         r = read_one_line_file(path, &line);
+        if (r == -ENOBUFS) /* First line overly long? if so, then it's not a script */
+                return 0;
         if (r < 0)
                 return r;
 
@@ -1191,8 +1225,7 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
         if (!filename_is_valid(fn))
                 return -EINVAL;
 
-        if (extra == NULL)
-                extra = "";
+        extra = strempty(extra);
 
         t = new(char, strlen(p) + 2 + strlen(extra) + 6 + 1);
         if (!t)
@@ -1225,8 +1258,7 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
         if (!filename_is_valid(fn))
                 return -EINVAL;
 
-        if (!extra)
-                extra = "";
+        extra = strempty(extra);
 
         t = new(char, strlen(p) + 2 + strlen(extra) + 16 + 1);
         if (!t)
@@ -1266,8 +1298,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
                         return r;
         }
 
-        if (!extra)
-                extra = "";
+        extra = strempty(extra);
 
         t = new(char, strlen(p) + 3 + strlen(extra) + 16 + 1);
         if (!t)
@@ -1458,7 +1489,7 @@ int link_tmpfile(int fd, const char *path, const char *target) {
                 if (rename_noreplace(AT_FDCWD, path, AT_FDCWD, target) < 0)
                         return -errno;
         } else {
-                char proc_fd_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
+                char proc_fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
 
                 xsprintf(proc_fd_path, "/proc/self/fd/%i", fd);
 

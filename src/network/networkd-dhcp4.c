@@ -71,8 +71,9 @@ static int route_scope_from_address(const Route *route, const struct in_addr *se
 }
 
 static int link_set_dhcp_routes(Link *link) {
-        struct in_addr gateway, address;
         _cleanup_free_ sd_dhcp_route **static_routes = NULL;
+        bool classless_route = false, static_route = false;
+        struct in_addr gateway, address;
         int r, n, i;
         uint32_t table;
 
@@ -102,7 +103,20 @@ static int link_set_dhcp_routes(Link *link) {
                 log_link_debug_errno(link, n, "DHCP error: could not get routes: %m");
 
         for (i = 0; i < n; i++) {
+                if (static_routes[i]->option == SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE)
+                        classless_route = true;
+
+                if (static_routes[i]->option == SD_DHCP_OPTION_STATIC_ROUTE)
+                        static_route = true;
+        }
+
+        for (i = 0; i < n; i++) {
                 _cleanup_route_free_ Route *route = NULL;
+
+                /* if the DHCP server returns both a Classless Static Routes option and a Static Routes option,
+                   the DHCP client MUST ignore the Static Routes option. */
+                if (classless_route && static_routes[i]->option == SD_DHCP_OPTION_STATIC_ROUTE)
+                        continue;
 
                 r = route_new(&route);
                 if (r < 0)
@@ -132,7 +146,10 @@ static int link_set_dhcp_routes(Link *link) {
 
         /* According to RFC 3442: If the DHCP server returns both a Classless Static Routes option and
            a Router option, the DHCP client MUST ignore the Router option. */
-        if (r >= 0 && link->dhcp4_messages <= 0) {
+        if (classless_route && static_route)
+                log_link_warning(link, "Classless static routes received from DHCP server: ignoring static-route option and router option");
+
+        if (r >= 0 && !classless_route) {
                 _cleanup_route_free_ Route *route = NULL;
                 _cleanup_route_free_ Route *route_gw = NULL;
 
@@ -462,12 +479,21 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         }
 
         if (link->network->dhcp_use_hostname) {
-                const char *hostname = NULL;
+                const char *dhcpname = NULL;
+                _cleanup_free_ char *hostname = NULL;
 
                 if (link->network->dhcp_hostname)
-                        hostname = link->network->dhcp_hostname;
+                        dhcpname = link->network->dhcp_hostname;
                 else
-                        (void) sd_dhcp_lease_get_hostname(lease, &hostname);
+                        (void) sd_dhcp_lease_get_hostname(lease, &dhcpname);
+
+                if (dhcpname) {
+                        r = shorten_overlong(dhcpname, &hostname);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Unable to shorten overlong DHCP hostname '%s', ignoring: %m", dhcpname);
+                        if (r == 1)
+                                log_link_notice(link, "Overlong DCHP hostname received, shortened from '%s' to '%s'", dhcpname, hostname);
+                }
 
                 if (hostname) {
                         r = manager_set_hostname(link->manager, hostname);

@@ -36,6 +36,7 @@ _public_ int sd_bus_emit_signal(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -73,6 +74,7 @@ _public_ int sd_bus_call_method_async(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
         if (!BUS_IS_OPEN(bus->state))
@@ -614,4 +616,72 @@ _public_ int sd_bus_query_sender_privilege(sd_bus_message *call, int capability)
         }
 
         return 0;
+}
+
+#define make_expression(sender, path, interface, member)        \
+        strjoina(                                               \
+                "type='signal'",                                \
+                sender ? ",sender='" : "",                      \
+                sender ?: "",                                   \
+                sender ? "'" : "",                              \
+                path ? ",path='" : "",                          \
+                path ?: "",                                     \
+                path ? "'" : "",                                \
+                interface ? ",interface='" : "",                \
+                interface ?: "",                                \
+                interface ? "'" : "",                           \
+                member ? ",member='" : "",                      \
+                member ?: "",                                   \
+                member ? "'" : ""                               \
+        )
+
+_public_ int sd_bus_match_signal(
+                sd_bus *bus,
+                sd_bus_slot **ret,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_bus_message_handler_t callback,
+                void *userdata) {
+
+        const char *expression;
+
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!sender || service_name_is_valid(sender), -EINVAL);
+        assert_return(!path || object_path_is_valid(path), -EINVAL);
+        assert_return(!interface || interface_name_is_valid(interface), -EINVAL);
+        assert_return(!member || member_name_is_valid(member), -EINVAL);
+
+        expression = make_expression(sender, path, interface, member);
+
+        return sd_bus_add_match(bus, ret, expression, callback, userdata);
+}
+
+_public_ int sd_bus_match_signal_async(
+                sd_bus *bus,
+                sd_bus_slot **ret,
+                const char *sender,
+                const char *path,
+                const char *interface,
+                const char *member,
+                sd_bus_message_handler_t callback,
+                sd_bus_message_handler_t install_callback,
+                void *userdata) {
+
+        const char *expression;
+
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(!sender || service_name_is_valid(sender), -EINVAL);
+        assert_return(!path || object_path_is_valid(path), -EINVAL);
+        assert_return(!interface || interface_name_is_valid(interface), -EINVAL);
+        assert_return(!member || member_name_is_valid(member), -EINVAL);
+
+        expression = make_expression(sender, path, interface, member);
+
+        return sd_bus_add_match_async(bus, ret, expression, callback, install_callback, userdata);
 }

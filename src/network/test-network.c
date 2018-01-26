@@ -18,10 +18,14 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/param.h>
+
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
+#include "hostname-util.h"
 #include "network-internal.h"
 #include "networkd-manager.h"
+#include "string-util.h"
 #include "udev-util.h"
 
 static void test_deserialize_in_addr(void) {
@@ -186,6 +190,51 @@ static void test_address_equality(void) {
         assert_se(!address_equal(a1, a2));
 }
 
+static void test_dhcp_hostname_shorten_overlong(void) {
+        int r;
+
+        {
+                /* simple hostname, no actions, no errors */
+                _cleanup_free_ char *shortened = NULL;
+                r = shorten_overlong("name1", &shortened);
+                assert_se(r == 0);
+                assert_se(streq("name1", shortened));
+        }
+
+        {
+                /* simple fqdn, no actions, no errors */
+                _cleanup_free_ char *shortened = NULL;
+                r = shorten_overlong("name1.example.com", &shortened);
+                assert_se(r == 0);
+                assert_se(streq("name1.example.com", shortened));
+        }
+
+        {
+                /* overlong fqdn, cut to first dot, no errors */
+                _cleanup_free_ char *shortened = NULL;
+                r = shorten_overlong("name1.test-dhcp-this-one-here-is-a-very-very-long-domain.example.com", &shortened);
+                assert_se(r == 1);
+                assert_se(streq("name1", shortened));
+        }
+
+        {
+                /* overlong hostname, cut to HOST_MAX_LEN, no errors */
+                _cleanup_free_ char *shortened = NULL;
+                r = shorten_overlong("test-dhcp-this-one-here-is-a-very-very-long-hostname-without-domainname", &shortened);
+                assert_se(r == 1);
+                assert_se(streq("test-dhcp-this-one-here-is-a-very-very-long-hostname-without-dom", shortened));
+        }
+
+        {
+                /* overlong fqdn, cut to first dot, empty result error */
+                _cleanup_free_ char *shortened = NULL;
+                r = shorten_overlong(".test-dhcp-this-one-here-is-a-very-very-long-hostname.example.com", &shortened);
+                assert_se(r == -EDOM);
+                assert_se(shortened == NULL);
+        }
+
+}
+
 int main(void) {
         _cleanup_manager_free_ Manager *manager = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -196,6 +245,7 @@ int main(void) {
         test_deserialize_in_addr();
         test_deserialize_dhcp_routes();
         test_address_equality();
+        test_dhcp_hostname_shorten_overlong();
 
         assert_se(sd_event_default(&event) >= 0);
 

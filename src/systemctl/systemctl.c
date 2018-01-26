@@ -84,6 +84,7 @@
 #include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "util.h"
@@ -332,7 +333,7 @@ static bool install_client_side(void) {
         /* Decides when to execute enable/disable/... operations
          * client-side rather than server-side. */
 
-        if (running_in_chroot() > 0)
+        if (running_in_chroot_or_offline())
                 return true;
 
         if (sd_booted() <= 0)
@@ -428,12 +429,12 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
         unsigned n_shown = 0;
         int job_count = 0;
 
-        max_id_len = strlen("UNIT");
-        load_len = strlen("LOAD");
-        active_len = strlen("ACTIVE");
-        sub_len = strlen("SUB");
-        job_len = strlen("JOB");
-        max_desc_len = strlen("DESCRIPTION");
+        max_id_len = STRLEN("UNIT");
+        load_len = STRLEN("LOAD");
+        active_len = STRLEN("ACTIVE");
+        sub_len = STRLEN("SUB");
+        job_len = STRLEN("JOB");
+        max_desc_len = STRLEN("DESCRIPTION");
 
         for (u = unit_infos; u < unit_infos + c; u++) {
                 max_id_len = MAX(max_id_len, strlen(u->id) + (u->machine ? strlen(u->machine)+1 : 0));
@@ -914,10 +915,10 @@ static int socket_info_compare(const struct socket_info *a, const struct socket_
 
 static int output_sockets_list(struct socket_info *socket_infos, unsigned cs) {
         struct socket_info *s;
-        unsigned pathlen = strlen("LISTEN"),
-                typelen = strlen("TYPE") * arg_show_types,
-                socklen = strlen("UNIT"),
-                servlen = strlen("ACTIVATES");
+        unsigned pathlen = STRLEN("LISTEN"),
+                typelen = STRLEN("TYPE") * arg_show_types,
+                socklen = STRLEN("UNIT"),
+                servlen = STRLEN("ACTIVATES");
         const char *on, *off;
 
         for (s = socket_infos; s < socket_infos + cs; s++) {
@@ -1165,12 +1166,12 @@ static int timer_info_compare(const struct timer_info *a, const struct timer_inf
 static int output_timers_list(struct timer_info *timer_infos, unsigned n) {
         struct timer_info *t;
         unsigned
-                nextlen = strlen("NEXT"),
-                leftlen = strlen("LEFT"),
-                lastlen = strlen("LAST"),
-                passedlen = strlen("PASSED"),
-                unitlen = strlen("UNIT"),
-                activatelen = strlen("ACTIVATES");
+                nextlen = STRLEN("NEXT"),
+                leftlen = STRLEN("LEFT"),
+                lastlen = STRLEN("LAST"),
+                passedlen = STRLEN("PASSED"),
+                unitlen = STRLEN("UNIT"),
+                activatelen = STRLEN("ACTIVATES");
 
         const char *on, *off;
 
@@ -1410,8 +1411,8 @@ static void output_unit_file_list(const UnitFileList *units, unsigned c) {
         unsigned max_id_len, id_cols, state_cols;
         const UnitFileList *u;
 
-        max_id_len = strlen("UNIT FILE");
-        state_cols = strlen("STATE");
+        max_id_len = STRLEN("UNIT FILE");
+        state_cols = STRLEN("STATE");
 
         for (u = units; u < units + c; u++) {
                 max_id_len = MAX(max_id_len, strlen(basename(u->path)));
@@ -1999,15 +2000,16 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
         struct machine_info *m;
         unsigned
                 circle_len = 0,
-                namelen = sizeof("NAME") - 1,
-                statelen = sizeof("STATE") - 1,
-                failedlen = sizeof("FAILED") - 1,
-                jobslen = sizeof("JOBS") - 1;
+                namelen = STRLEN("NAME"),
+                statelen = STRLEN("STATE"),
+                failedlen = STRLEN("FAILED"),
+                jobslen = STRLEN("JOBS");
 
         assert(machine_infos || n == 0);
 
         for (m = machine_infos; m < machine_infos + n; m++) {
-                namelen = MAX(namelen, strlen(m->name) + (m->is_host ? sizeof(" (host)") - 1 : 0));
+                namelen = MAX(namelen,
+                              strlen(m->name) + (m->is_host ? STRLEN(" (host)") : 0));
                 statelen = MAX(statelen, strlen_ptr(m->state));
                 failedlen = MAX(failedlen, DECIMAL_STR_WIDTH(m->n_failed_units));
                 jobslen = MAX(jobslen, DECIMAL_STR_WIDTH(m->n_jobs));
@@ -2053,7 +2055,8 @@ static void output_machines_list(struct machine_info *machine_infos, unsigned n)
 
                 if (m->is_host)
                         printf("%-*s (host) %s%-*s%s %s%*" PRIu32 "%s %*" PRIu32 "\n",
-                               (int) (namelen - (sizeof(" (host)")-1)), strna(m->name),
+                               (int) (namelen - (STRLEN(" (host)"))),
+                               strna(m->name),
                                on_state, statelen, strna(m->state), off_state,
                                on_failed, failedlen, m->n_failed_units, off_failed,
                                jobslen, m->n_jobs);
@@ -2073,11 +2076,6 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         struct machine_info *machine_infos = NULL;
         sd_bus *bus;
         int r;
-
-        if (geteuid() != 0) {
-                log_error("Must be root.");
-                return -EPERM;
-        }
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -2261,10 +2259,10 @@ static void output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned 
 
         pager_open(arg_no_pager, false);
 
-        id_len = strlen("JOB");
-        unit_len = strlen("UNIT");
-        type_len = strlen("TYPE");
-        state_len = strlen("STATE");
+        id_len = STRLEN("JOB");
+        unit_len = STRLEN("UNIT");
+        type_len = STRLEN("TYPE");
+        state_len = STRLEN("STATE");
 
         for (j = jobs; j < jobs + n; j++) {
                 uint32_t id = j->id;
@@ -2652,55 +2650,32 @@ static int unit_find_paths(
 
 static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *active_state) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ char *buf = NULL, *path = NULL;
         UnitActiveState state;
-        const char *path;
         int r;
 
         assert(name);
         assert(active_state);
 
-        /* We don't use unit_dbus_path_from_name() directly since we don't want to load the unit unnecessarily, if it
-         * isn't loaded. */
-        r = sd_bus_call_method(
+        path = unit_dbus_path_from_name(name);
+        if (!path)
+                return log_oom();
+
+        r = sd_bus_get_property_string(
                         bus,
                         "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "GetUnit",
+                        path,
+                        "org.freedesktop.systemd1.Unit",
+                        "ActiveState",
                         &error,
-                        &reply,
-                        "s", name);
-        if (r < 0) {
-                if (!sd_bus_error_has_name(&error,  BUS_ERROR_NO_SUCH_UNIT))
-                        return log_error_errno(r, "Failed to retrieve unit: %s", bus_error_message(&error, r));
+                        &buf);
+        if (r < 0)
+                return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
 
-                /* The unit is currently not loaded, hence say it's "inactive", since all units that aren't loaded are
-                 * considered inactive. */
-                state = UNIT_INACTIVE;
-
-        } else {
-                r = sd_bus_message_read(reply, "o", &path);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_get_property_string(
-                                bus,
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Unit",
-                                "ActiveState",
-                                &error,
-                                &buf);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to retrieve unit state: %s", bus_error_message(&error, r));
-
-                state = unit_active_state_from_string(buf);
-                if (state == _UNIT_ACTIVE_STATE_INVALID) {
-                        log_error("Invalid unit state '%s' for: %s", buf, name);
-                        return -EINVAL;
-                }
+        state = unit_active_state_from_string(buf);
+        if (state == _UNIT_ACTIVE_STATE_INVALID) {
+                log_error("Invalid unit state '%s' for: %s", buf, name);
+                return -EINVAL;
         }
 
         *active_state = state;
@@ -2907,7 +2882,6 @@ static int start_unit_one(
 
         if (wait_context) {
                 _cleanup_free_ char *unit_path = NULL;
-                const char* mt;
 
                 log_debug("Watching for property changes of %s", name);
                 r = sd_bus_call_method(
@@ -2930,13 +2904,15 @@ static int start_unit_one(
                 if (r < 0)
                         return log_error_errno(r, "Failed to add unit path %s to set: %m", unit_path);
 
-                mt = strjoina("type='signal',"
-                              "interface='org.freedesktop.DBus.Properties',"
-                              "path='", unit_path, "',"
-                              "member='PropertiesChanged'");
-                r = sd_bus_add_match(bus, &wait_context->match, mt, on_properties_changed, wait_context);
+                r = sd_bus_match_signal_async(bus,
+                                              &wait_context->match,
+                                              NULL,
+                                              unit_path,
+                                              "org.freedesktop.DBus.Properties",
+                                              "PropertiesChanged",
+                                              on_properties_changed, NULL, wait_context);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to add match for PropertiesChanged signal: %m");
+                        return log_error_errno(r, "Failed to request match for PropertiesChanged signal: %m");
         }
 
         log_debug("%s manager for %s on %s, %s",
@@ -3152,22 +3128,21 @@ static int start_unit(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_wait) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-
                 wait_context.unit_paths = set_new(&string_hash_ops);
                 if (!wait_context.unit_paths)
                         return log_oom();
 
-                r = sd_bus_call_method(
+                r = sd_bus_call_method_async(
                                 bus,
+                                NULL,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "Subscribe",
-                                &error,
-                                NULL, NULL);
+                                NULL, NULL,
+                                NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to enable subscription: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to enable subscription: %m");
                 r = sd_event_default(&wait_context.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate event loop: %m");
@@ -3497,7 +3472,7 @@ static int prepare_firmware_setup(void) {
 
 static int load_kexec_kernel(void) {
         _cleanup_(boot_config_free) BootConfig config = {};
-        _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
+        _cleanup_free_ char *where = NULL, *kernel = NULL, *initrd = NULL, *options = NULL;
         const BootEntry *e;
         pid_t pid;
         int r;
@@ -3507,14 +3482,15 @@ static int load_kexec_kernel(void) {
                 return 0;
         }
 
-        r = find_esp(&arg_esp_path, NULL, NULL, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Cannot find the ESP partition mount point: %m");
+        r = find_esp_and_warn(arg_esp_path, false, &where, NULL, NULL, NULL, NULL);
+        if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn about this case */
+                return log_error_errno(r, "Cannot find the ESP partition mount point.");
+        if (r < 0) /* But it logs about all these cases, hence don't log here again */
+                return r;
 
-        r = boot_entries_load_config(arg_esp_path, &config);
+        r = boot_entries_load_config(where, &config);
         if (r < 0)
-                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m",
-                                       arg_esp_path);
+                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m", where);
 
         if (config.default_entry < 0) {
                 log_error("No entry suitable as default, refusing to guess.");
@@ -3527,9 +3503,9 @@ static int load_kexec_kernel(void) {
                 return -EINVAL;
         }
 
-        kernel = path_join(NULL, arg_esp_path, e->kernel);
+        kernel = path_join(NULL, where, e->kernel);
         if (!strv_isempty(e->initrd))
-                initrd = path_join(NULL, arg_esp_path, *e->initrd);
+                initrd = path_join(NULL, where, *e->initrd);
         options = strv_join(e->options, " ");
         if (!options)
                 return log_oom();
@@ -3540,10 +3516,10 @@ static int load_kexec_kernel(void) {
         if (arg_dry_run)
                 return 0;
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-        else if (pid == 0) {
+        r = safe_fork("(kexec)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
 
                 const char* const args[] = {
                         KEXEC,
@@ -3553,15 +3529,11 @@ static int load_kexec_kernel(void) {
                         NULL };
 
                 /* Child */
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
                 execv(args[0], (char * const *) args);
                 _exit(EXIT_FAILURE);
-        } else
-                return wait_for_terminate_and_warn("kexec", pid, true);
+        }
+
+        return wait_for_terminate_and_check("kexec", pid, WAIT_LOG);
 }
 
 static int set_exit_code(uint8_t code) {
@@ -3602,9 +3574,10 @@ static int start_special(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_force >= 2 && geteuid() != 0) {
-                log_error("Must be root.");
-                return -EPERM;
+        if (arg_force >= 2) {
+                r = must_be_root();
+                if (r < 0)
+                        return r;
         }
 
         r = prepare_firmware_setup();
@@ -4045,7 +4018,8 @@ static void print_status_info(
         if (i->load_error != 0)
                 printf("   Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
-        else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset))
+        else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset) &&
+                 !STR_IN_SET(i->unit_file_state, "generated", "transient"))
                 printf("   Loaded: %s%s%s (%s; %s; vendor preset: %s)\n",
                        on, strna(i->load_state), off, path, i->unit_file_state, i->unit_file_preset);
         else if (path && !isempty(i->unit_file_state))
@@ -5583,6 +5557,7 @@ static int set_property(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *n = NULL;
+        UnitType t;
         sd_bus *bus;
         int r;
 
@@ -5606,6 +5581,12 @@ static int set_property(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
+        t = unit_name_to_type(n);
+        if (t < 0) {
+                log_error("Invalid unit type: %s", n);
+                return -EINVAL;
+        }
+
         r = sd_bus_message_append(m, "sb", n, arg_runtime);
         if (r < 0)
                 return bus_log_create_error(r);
@@ -5614,7 +5595,7 @@ static int set_property(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = bus_append_unit_property_assignment_many(m, strv_skip(argv, 2));
+        r = bus_append_unit_property_assignment_many(m, t, strv_skip(argv, 2));
         if (r < 0)
                 return r;
 
@@ -6061,7 +6042,6 @@ static int enable_sysv_units(const char *verb, char **args) {
 
                 _cleanup_free_ char *p = NULL, *q = NULL, *l = NULL;
                 bool found_native = false, found_sysv;
-                siginfo_t status;
                 const char *name;
                 unsigned c = 1;
                 pid_t pid;
@@ -6089,7 +6069,7 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!p)
                         return log_oom();
 
-                p[strlen(p) - strlen(".service")] = 0;
+                p[strlen(p) - STRLEN(".service")] = 0;
                 found_sysv = access(p, F_OK) >= 0;
                 if (!found_sysv)
                         continue;
@@ -6115,41 +6095,31 @@ static int enable_sysv_units(const char *verb, char **args) {
                 if (!arg_quiet)
                         log_info("Executing: %s", l);
 
-                pid = fork();
-                if (pid < 0)
-                        return log_error_errno(errno, "Failed to fork: %m");
-                else if (pid == 0) {
+                j = safe_fork("(sysv-install)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+                if (j < 0)
+                        return j;
+                if (j == 0) {
                         /* Child */
-
-                        (void) reset_all_signal_handlers();
-                        (void) reset_signal_mask();
-
                         execv(argv[0], (char**) argv);
                         log_error_errno(errno, "Failed to execute %s: %m", argv[0]);
                         _exit(EXIT_FAILURE);
                 }
 
-                j = wait_for_terminate(pid, &status);
+                j = wait_for_terminate_and_check("sysv-install", pid, WAIT_LOG_ABNORMAL);
                 if (j < 0)
-                        return log_error_errno(j, "Failed to wait for child: %m");
+                        return j;
+                if (streq(verb, "is-enabled")) {
+                        if (j == EXIT_SUCCESS) {
+                                if (!arg_quiet)
+                                        puts("enabled");
+                                r = 1;
+                        } else {
+                                if (!arg_quiet)
+                                        puts("disabled");
+                        }
 
-                if (status.si_code == CLD_EXITED) {
-                        if (streq(verb, "is-enabled")) {
-                                if (status.si_status == 0) {
-                                        if (!arg_quiet)
-                                                puts("enabled");
-                                        r = 1;
-                                } else {
-                                        if (!arg_quiet)
-                                                puts("disabled");
-                                }
-
-                        } else if (status.si_status != 0)
-                                return -EBADE; /* We don't warn here, under the assumption the script already showed an explanation */
-                } else {
-                        log_error("Unexpected waitid() result.");
-                        return -EPROTO;
-                }
+                } else if (j != EXIT_SUCCESS)
+                        return -EBADE; /* We don't warn here, under the assumption the script already showed an explanation */
 
                 if (found_native)
                         continue;
@@ -6254,7 +6224,6 @@ static int normalize_names(char **names, bool warn_if_path) {
 }
 
 static int unit_exists(LookupPaths *lp, const char *unit) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         static const struct bus_properties_map property_map[] = {
@@ -6277,21 +6246,9 @@ static int unit_exists(LookupPaths *lp, const char *unit) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &error,
-                        &reply,
-                        "s", "");
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, property_map, &error, &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
-
-        r = bus_message_map_all_properties(reply, property_map, &error, &info);
-        if (r < 0)
-                return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
         return !streq_ptr(info.load_state, "not-found") || !streq_ptr(info.active_state, "inactive");
 }
@@ -6987,24 +6944,19 @@ static int unit_file_create_copy(
 }
 
 static int run_editor(char **paths) {
-        pid_t pid;
         int r;
 
         assert(paths);
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-
-        if (pid == 0) {
+        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 const char **args;
                 char *editor, **editor_args = NULL;
                 char **tmp_path, **original_path, *p;
                 unsigned n_editor_args = 0, i = 1;
                 size_t argc;
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
 
                 argc = strv_length(paths)/2 + 1;
 
@@ -7060,10 +7012,6 @@ static int run_editor(char **paths) {
                 log_error("Cannot edit unit(s), no editor available. Please set either $SYSTEMD_EDITOR, $EDITOR or $VISUAL.");
                 _exit(EXIT_FAILURE);
         }
-
-        r = wait_for_terminate_and_warn("editor", pid, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to wait for child: %m");
 
         return 0;
 }
@@ -8381,7 +8329,7 @@ static int talk_initctl(void) {
 
         request.runlevel = rl;
 
-        fd = open(INIT_FIFO, O_WRONLY|O_NDELAY|O_CLOEXEC|O_NOCTTY);
+        fd = open(INIT_FIFO, O_WRONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
         if (fd < 0) {
                 if (errno == ENOENT)
                         return 0;
@@ -8402,72 +8350,72 @@ static int talk_initctl(void) {
 static int systemctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_NOCHROOT, list_units },
-                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,             list_unit_files      },
-                { "list-sockets",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_sockets         },
-                { "list-timers",           VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_timers          },
-                { "list-jobs",             VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_jobs            },
-                { "list-machines",         VERB_ANY, VERB_ANY, VERB_NOCHROOT, list_machines        },
-                { "clear-jobs",            VERB_ANY, 1,        VERB_NOCHROOT, trivial_method       },
-                { "cancel",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, cancel_job           },
-                { "start",                 2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
-                { "stop",                  2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
-                { "condstop",              2,        VERB_ANY, VERB_NOCHROOT, start_unit           }, /* For compatibility with ALTLinux */
-                { "reload",                2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
-                { "restart",               2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
-                { "try-restart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
-                { "reload-or-restart",     2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
-                { "reload-or-try-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit           }, /* For compatbility with old systemctl <= 228 */
-                { "try-reload-or-restart", 2,        VERB_ANY, VERB_NOCHROOT, start_unit           },
-                { "force-reload",          2,        VERB_ANY, VERB_NOCHROOT, start_unit           }, /* For compatibility with SysV */
-                { "condreload",            2,        VERB_ANY, VERB_NOCHROOT, start_unit           }, /* For compatibility with ALTLinux */
-                { "condrestart",           2,        VERB_ANY, VERB_NOCHROOT, start_unit           }, /* For compatibility with RH */
-                { "isolate",               2,        2,        VERB_NOCHROOT, start_unit           },
-                { "kill",                  2,        VERB_ANY, VERB_NOCHROOT, kill_unit            },
-                { "is-active",             2,        VERB_ANY, VERB_NOCHROOT, check_unit_active    },
-                { "check",                 2,        VERB_ANY, VERB_NOCHROOT, check_unit_active    },
-                { "is-failed",             2,        VERB_ANY, VERB_NOCHROOT, check_unit_failed    },
-                { "show",                  VERB_ANY, VERB_ANY, VERB_NOCHROOT, show                 },
-                { "cat",                   2,        VERB_ANY, VERB_NOCHROOT, cat                  },
-                { "status",                VERB_ANY, VERB_ANY, VERB_NOCHROOT, show                 },
-                { "help",                  VERB_ANY, VERB_ANY, VERB_NOCHROOT, show                 },
-                { "daemon-reload",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload        },
-                { "daemon-reexec",         VERB_ANY, 1,        VERB_NOCHROOT, daemon_reload        },
-                { "show-environment",      VERB_ANY, 1,        VERB_NOCHROOT, show_environment     },
-                { "set-environment",       2,        VERB_ANY, VERB_NOCHROOT, set_environment      },
-                { "unset-environment",     2,        VERB_ANY, VERB_NOCHROOT, set_environment      },
-                { "import-environment",    VERB_ANY, VERB_ANY, VERB_NOCHROOT, import_environment   },
-                { "halt",                  VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
-                { "poweroff",              VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
-                { "reboot",                VERB_ANY, 2,        VERB_NOCHROOT, start_system_special },
-                { "kexec",                 VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
-                { "suspend",               VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
-                { "hibernate",             VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
-                { "hybrid-sleep",          VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
-                { "default",               VERB_ANY, 1,        VERB_NOCHROOT, start_special        },
-                { "rescue",                VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
-                { "emergency",             VERB_ANY, 1,        VERB_NOCHROOT, start_system_special },
-                { "exit",                  VERB_ANY, 2,        VERB_NOCHROOT, start_special        },
-                { "reset-failed",          VERB_ANY, VERB_ANY, VERB_NOCHROOT, reset_failed         },
-                { "enable",                2,        VERB_ANY, 0,             enable_unit          },
-                { "disable",               2,        VERB_ANY, 0,             enable_unit          },
-                { "is-enabled",            2,        VERB_ANY, 0,             unit_is_enabled      },
-                { "reenable",              2,        VERB_ANY, 0,             enable_unit          },
-                { "preset",                2,        VERB_ANY, 0,             enable_unit          },
-                { "preset-all",            VERB_ANY, 1,        0,             preset_all           },
-                { "mask",                  2,        VERB_ANY, 0,             enable_unit          },
-                { "unmask",                2,        VERB_ANY, 0,             enable_unit          },
-                { "link",                  2,        VERB_ANY, 0,             enable_unit          },
-                { "revert",                2,        VERB_ANY, 0,             enable_unit          },
-                { "switch-root",           2,        VERB_ANY, VERB_NOCHROOT, switch_root          },
-                { "list-dependencies",     VERB_ANY, 2,        VERB_NOCHROOT, list_dependencies    },
-                { "set-default",           2,        2,        0,             set_default          },
-                { "get-default",           VERB_ANY, 1,        0,             get_default          },
-                { "set-property",          3,        VERB_ANY, VERB_NOCHROOT, set_property         },
-                { "is-system-running",     VERB_ANY, 1,        0,             is_system_running    },
-                { "add-wants",             3,        VERB_ANY, 0,             add_dependency       },
-                { "add-requires",          3,        VERB_ANY, 0,             add_dependency       },
-                { "edit",                  2,        VERB_ANY, VERB_NOCHROOT, edit                 },
+                { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_units },
+                { "list-unit-files",       VERB_ANY, VERB_ANY, 0,                list_unit_files      },
+                { "list-sockets",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_sockets         },
+                { "list-timers",           VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_timers          },
+                { "list-jobs",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, list_jobs            },
+                { "list-machines",         VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY|VERB_MUST_BE_ROOT, list_machines },
+                { "clear-jobs",            VERB_ANY, 1,        VERB_ONLINE_ONLY, trivial_method       },
+                { "cancel",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, cancel_job           },
+                { "start",                 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
+                { "stop",                  2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
+                { "condstop",              2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           }, /* For compatibility with ALTLinux */
+                { "reload",                2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
+                { "restart",               2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
+                { "try-restart",           2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
+                { "reload-or-restart",     2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
+                { "reload-or-try-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           }, /* For compatbility with old systemctl <= 228 */
+                { "try-reload-or-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           },
+                { "force-reload",          2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           }, /* For compatibility with SysV */
+                { "condreload",            2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           }, /* For compatibility with ALTLinux */
+                { "condrestart",           2,        VERB_ANY, VERB_ONLINE_ONLY, start_unit           }, /* For compatibility with RH */
+                { "isolate",               2,        2,        VERB_ONLINE_ONLY, start_unit           },
+                { "kill",                  2,        VERB_ANY, VERB_ONLINE_ONLY, kill_unit            },
+                { "is-active",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    },
+                { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_active    }, /* deprecated alias of is-active */
+                { "is-failed",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_failed    },
+                { "show",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                 },
+                { "cat",                   2,        VERB_ANY, VERB_ONLINE_ONLY, cat                  },
+                { "status",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                 },
+                { "help",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                 },
+                { "daemon-reload",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload        },
+                { "daemon-reexec",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload        },
+                { "show-environment",      VERB_ANY, 1,        VERB_ONLINE_ONLY, show_environment     },
+                { "set-environment",       2,        VERB_ANY, VERB_ONLINE_ONLY, set_environment      },
+                { "unset-environment",     2,        VERB_ANY, VERB_ONLINE_ONLY, set_environment      },
+                { "import-environment",    VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, import_environment   },
+                { "halt",                  VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
+                { "poweroff",              VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
+                { "reboot",                VERB_ANY, 2,        VERB_ONLINE_ONLY, start_system_special },
+                { "kexec",                 VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
+                { "suspend",               VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
+                { "hibernate",             VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
+                { "hybrid-sleep",          VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
+                { "default",               VERB_ANY, 1,        VERB_ONLINE_ONLY, start_special        },
+                { "rescue",                VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
+                { "emergency",             VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
+                { "exit",                  VERB_ANY, 2,        VERB_ONLINE_ONLY, start_special        },
+                { "reset-failed",          VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, reset_failed         },
+                { "enable",                2,        VERB_ANY, 0,                enable_unit          },
+                { "disable",               2,        VERB_ANY, 0,                enable_unit          },
+                { "is-enabled",            2,        VERB_ANY, 0,                unit_is_enabled      },
+                { "reenable",              2,        VERB_ANY, 0,                enable_unit          },
+                { "preset",                2,        VERB_ANY, 0,                enable_unit          },
+                { "preset-all",            VERB_ANY, 1,        0,                preset_all           },
+                { "mask",                  2,        VERB_ANY, 0,                enable_unit          },
+                { "unmask",                2,        VERB_ANY, 0,                enable_unit          },
+                { "link",                  2,        VERB_ANY, 0,                enable_unit          },
+                { "revert",                2,        VERB_ANY, 0,                enable_unit          },
+                { "switch-root",           2,        VERB_ANY, VERB_ONLINE_ONLY, switch_root          },
+                { "list-dependencies",     VERB_ANY, 2,        VERB_ONLINE_ONLY, list_dependencies    },
+                { "set-default",           2,        2,        0,                set_default          },
+                { "get-default",           VERB_ANY, 1,        0,                get_default          },
+                { "set-property",          3,        VERB_ANY, VERB_ONLINE_ONLY, set_property         },
+                { "is-system-running",     VERB_ANY, 1,        0,                is_system_running    },
+                { "add-wants",             3,        VERB_ANY, 0,                add_dependency       },
+                { "add-requires",          3,        VERB_ANY, 0,                add_dependency       },
+                { "edit",                  2,        VERB_ANY, VERB_ONLINE_ONLY, edit                 },
                 {}
         };
 
@@ -8637,7 +8585,7 @@ static int halt_main(void) {
 
         if (geteuid() != 0) {
                 if (arg_dry_run || arg_force > 0) {
-                        log_error("Must be root.");
+                        (void) must_be_root();
                         return -EPERM;
                 }
 

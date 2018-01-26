@@ -1343,7 +1343,8 @@ static int add_dmesg(sd_journal *j) {
         if (!arg_dmesg)
                 return 0;
 
-        r = sd_journal_add_match(j, "_TRANSPORT=kernel", strlen("_TRANSPORT=kernel"));
+        r = sd_journal_add_match(j, "_TRANSPORT=kernel",
+                                 STRLEN("_TRANSPORT=kernel"));
         if (r < 0)
                 return log_error_errno(r, "Failed to add match: %m");
 
@@ -2256,7 +2257,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *filter;
 
                 filter = journal_make_match_string(j);

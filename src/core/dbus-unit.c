@@ -24,12 +24,15 @@
 #include "bpf-firewall.h"
 #include "bus-common-errors.h"
 #include "cgroup-util.h"
+#include "condition.h"
 #include "dbus-job.h"
 #include "dbus-unit.h"
+#include "dbus-util.h"
 #include "dbus.h"
 #include "fd-util.h"
 #include "locale-util.h"
 #include "log.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "selinux-access.h"
 #include "signal-util.h"
@@ -37,6 +40,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
+#include "web-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
@@ -795,7 +799,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Transient", "b", bus_property_get_bool, offsetof(Unit, transient), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Perpetual", "b", bus_property_get_bool, offsetof(Unit, perpetual), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitBurst", "u", bus_property_get_unsigned, offsetof(Unit, start_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitAction", "s", property_get_emergency_action, offsetof(Unit, start_limit_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FailureAction", "s", property_get_emergency_action, offsetof(Unit, failure_action), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -823,6 +827,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("RequiredByOverridable", "as", property_get_obsolete_dependencies, 0, SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("RequisiteOfOverridable", "as", property_get_obsolete_dependencies, 0, SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_VTABLE_END
 };
 
@@ -1352,6 +1357,81 @@ static int bus_unit_set_live_property(
         return 0;
 }
 
+static BUS_DEFINE_SET_TRANSIENT_PARSE(collect_mode, CollectMode, collect_mode_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(emergency_action, EmergencyAction, emergency_action_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(job_mode, JobMode, job_mode_from_string);
+
+static int bus_set_transient_conditions(
+                Unit *u,
+                const char *name,
+                Condition **list,
+                bool is_condition,
+                sd_bus_message *message,
+                UnitWriteFlags flags,
+                sd_bus_error *error) {
+
+        const char *type_name, *param;
+        int trigger, negate, r;
+        bool empty = true;
+
+        assert(list);
+
+        r = sd_bus_message_enter_container(message, 'a', "(sbbs)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(message, "(sbbs)", &type_name, &trigger, &negate, &param)) > 0) {
+                ConditionType t;
+
+                t = is_condition ? condition_type_from_string(type_name) : assert_type_from_string(type_name);
+                if (t < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid condition type: %s", type_name);
+
+                if (t != CONDITION_NULL) {
+                        if (isempty(param))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Condition parameter in %s is empty", type_name);
+
+                        if (condition_takes_path(t) && !path_is_absolute(param))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path in condition %s is not absolute: %s", type_name, param);
+                } else
+                        param = NULL;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        Condition *c;
+
+                        c = condition_new(t, param, trigger, negate);
+                        if (!c)
+                                return -ENOMEM;
+
+                        LIST_PREPEND(conditions, *list, c);
+
+                        if (t != CONDITION_NULL)
+                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                                    "%s=%s%s%s", type_name,
+                                                    trigger ? "|" : "", negate ? "!" : "", param);
+                        else
+                                unit_write_settingf(u, flags, name,
+                                                    "%s=%s%s", type_name,
+                                                    trigger ? "|" : "", yes_no(!negate));
+                }
+
+                empty = false;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        if (!UNIT_WRITE_FLAGS_NOOP(flags) && empty) {
+                *list = condition_free_list(*list);
+                unit_write_settingf(u, flags, name, "%sNull=", is_condition ? "Condition" : "Assert");
+        }
+
+        return 1;
+}
+
 static int bus_unit_set_transient_property(
                 Unit *u,
                 const char *name,
@@ -1359,6 +1439,7 @@ static int bus_unit_set_transient_property(
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
+        UnitDependency d = _UNIT_DEPENDENCY_INVALID;
         int r;
 
         assert(u);
@@ -1368,35 +1449,100 @@ static int bus_unit_set_transient_property(
         /* Handles settings when transient units are created. This settings cannot be altered anymore after the unit
          * has been created. */
 
-        if (streq(name, "DefaultDependencies")) {
-                int b;
+        if (streq(name, "SourcePath"))
+                return bus_set_transient_path(u, name, &u->source_path, message, flags, error);
 
-                r = sd_bus_message_read(message, "b", &b);
+        if (streq(name, "StopWhenUnneeded"))
+                return bus_set_transient_bool(u, name, &u->stop_when_unneeded, message, flags, error);
+
+        if (streq(name, "RefuseManualStart"))
+                return bus_set_transient_bool(u, name, &u->refuse_manual_start, message, flags, error);
+
+        if (streq(name, "RefuseManualStop"))
+                return bus_set_transient_bool(u, name, &u->refuse_manual_stop, message, flags, error);
+
+        if (streq(name, "AllowIsolate"))
+                return bus_set_transient_bool(u, name, &u->allow_isolate, message, flags, error);
+
+        if (streq(name, "DefaultDependencies"))
+                return bus_set_transient_bool(u, name, &u->default_dependencies, message, flags, error);
+
+        if (streq(name, "OnFailureJobMode"))
+                return bus_set_transient_job_mode(u, name, &u->on_failure_job_mode, message, flags, error);
+
+        if (streq(name, "IgnoreOnIsolate"))
+                return bus_set_transient_bool(u, name, &u->ignore_on_isolate, message, flags, error);
+
+        if (streq(name, "JobTimeoutUSec")) {
+                r = bus_set_transient_usec_fix_0(u, name, &u->job_timeout, message, flags, error);
+                if (r >= 0 && !UNIT_WRITE_FLAGS_NOOP(flags) && !u->job_running_timeout_set)
+                        u->job_running_timeout = u->job_timeout;
+        }
+
+        if (streq(name, "JobRunningTimeoutUSec")) {
+                r = bus_set_transient_usec_fix_0(u, name, &u->job_running_timeout, message, flags, error);
+                if (r >= 0 && !UNIT_WRITE_FLAGS_NOOP(flags))
+                        u->job_running_timeout_set = true;
+
+                return r;
+        }
+
+        if (streq(name, "JobTimeoutAction"))
+                return bus_set_transient_emergency_action(u, name, &u->job_timeout_action, message, flags, error);
+
+        if (streq(name, "JobTimeoutRebootArgument"))
+                return bus_set_transient_string(u, name, &u->job_timeout_reboot_arg, message, flags, error);
+
+        if (streq(name, "StartLimitIntervalUSec"))
+                return bus_set_transient_usec(u, name, &u->start_limit.interval, message, flags, error);
+
+        if (streq(name, "StartLimitBurst"))
+                return bus_set_transient_unsigned(u, name, &u->start_limit.burst, message, flags, error);
+
+        if (streq(name, "StartLimitAction"))
+                return bus_set_transient_emergency_action(u, name, &u->start_limit_action, message, flags, error);
+
+        if (streq(name, "FailureAction"))
+                return bus_set_transient_emergency_action(u, name, &u->failure_action, message, flags, error);
+
+        if (streq(name, "SuccessAction"))
+                return bus_set_transient_emergency_action(u, name, &u->success_action, message, flags, error);
+
+        if (streq(name, "RebootArgument"))
+                return bus_set_transient_string(u, name, &u->reboot_arg, message, flags, error);
+
+        if (streq(name, "CollectMode"))
+                return bus_set_transient_collect_mode(u, name, &u->collect_mode, message, flags, error);
+
+        if (streq(name, "Conditions"))
+                return bus_set_transient_conditions(u, name, &u->conditions, true, message, flags, error);
+
+        if (streq(name, "Asserts"))
+                return bus_set_transient_conditions(u, name, &u->asserts, false, message, flags, error);
+
+        if (streq(name, "Documentation")) {
+                _cleanup_strv_free_ char **l = NULL;
+                char **p;
+
+                r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
                         return r;
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        u->default_dependencies = b;
-                        unit_write_settingf(u, flags, name, "DefaultDependencies=%s", yes_no(b));
+                STRV_FOREACH(p, l) {
+                        if (!documentation_url_is_valid(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid URL in %s: %s", name, *p);
                 }
 
-                return 1;
-
-        } else if (streq(name, "CollectMode")) {
-                const char *s;
-                CollectMode m;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                m = collect_mode_from_string(s);
-                if (m < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown garbage collection mode: %s", s);
-
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        u->collect_mode = m;
-                        unit_write_settingf(u, flags, name, "CollectMode=%s", collect_mode_to_string(m));
+                        if (strv_isempty(l)) {
+                                u->documentation = strv_free(u->documentation);
+                                unit_write_settingf(u, flags, name, "%s=", name);
+                        } else {
+                                strv_extend_strv(&u->documentation, l, false);
+
+                                STRV_FOREACH(p, l)
+                                        unit_write_settingf(u, flags, name, "%s=%s", name, *p);
+                        }
                 }
 
                 return 1;
@@ -1439,29 +1585,39 @@ static int bus_unit_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name,
-                              "Requires", "RequiresOverridable",
-                              "Requisite", "RequisiteOverridable",
-                              "Wants",
-                              "BindsTo",
-                              "Conflicts",
-                              "Before", "After",
-                              "OnFailure",
-                              "PropagatesReloadTo", "ReloadPropagatedFrom",
-                              "PartOf")) {
+        } else if (streq(name, "RequiresMountsFor")) {
+                _cleanup_strv_free_ char **l = NULL;
+                char **p;
 
-                UnitDependency d;
-                const char *other;
+                r = sd_bus_message_read_strv(message, &l);
+                if (r < 0)
+                        return r;
 
-                if (streq(name, "RequiresOverridable"))
-                        d = UNIT_REQUIRES; /* redirect for obsolete unit dependency type */
-                else if (streq(name, "RequisiteOverridable"))
-                        d = UNIT_REQUISITE; /* same here */
-                else {
-                        d = unit_dependency_from_string(name);
-                        if (d < 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid unit dependency: %s", name);
+                STRV_FOREACH(p, l) {
+                        if (!path_is_absolute(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path specified in %s is not absolute: %s", name, *p);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = unit_require_mounts_for(u, *p, UNIT_DEPENDENCY_FILE);
+                                if (r < 0)
+                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to add required mount \"%s\": %m", *p);
+
+                                unit_write_settingf(u, flags, name, "%s=%s", name, *p);
+                        }
                 }
+
+                return 1;
+        }
+
+        if (streq(name, "RequiresOverridable"))
+                d = UNIT_REQUIRES; /* redirect for obsolete unit dependency type */
+        else if (streq(name, "RequisiteOverridable"))
+                d = UNIT_REQUISITE; /* same here */
+        else
+                d = unit_dependency_from_string(name);
+
+        if (d >= 0) {
+                const char *other;
 
                 r = sd_bus_message_enter_container(message, 'a', "s");
                 if (r < 0)
@@ -1482,7 +1638,7 @@ static int bus_unit_set_transient_property(
                                 if (!label)
                                         return -ENOMEM;
 
-                                unit_write_settingf(u, flags, label, "%s=%s", name, other);
+                                unit_write_settingf(u, flags, label, "%s=%s", unit_dependency_to_string(d), other);
                         }
 
                 }
@@ -1492,30 +1648,6 @@ static int bus_unit_set_transient_property(
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
                         return r;
-
-                return 1;
-
-        } else if (STR_IN_SET(name, "FailureAction", "SuccessAction")) {
-                EmergencyAction action;
-                const char *s;
-
-                r = sd_bus_message_read(message, "s", &s);
-                if (r < 0)
-                        return r;
-
-                action = emergency_action_from_string(s);
-                if (action < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid emergency action: %s", s);
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-
-                        if (streq(name, "FailureAction"))
-                                u->failure_action = action;
-                        else
-                                u->success_action = action;
-
-                        unit_write_settingf(u, flags, name, "%s=%s", name, emergency_action_to_string(action));
-                }
 
                 return 1;
 

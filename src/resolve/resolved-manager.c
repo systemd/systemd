@@ -20,6 +20,7 @@
 
 #include <netinet/in.h>
 #include <poll.h>
+#include <stdio_ext.h>
 #include <sys/ioctl.h>
 
 #if HAVE_LIBIDN2
@@ -41,6 +42,7 @@
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
+#include "resolved-dnssd.h"
 #include "resolved-dns-stub.h"
 #include "resolved-etc-hosts.h"
 #include "resolved-llmnr.h"
@@ -486,7 +488,8 @@ static int manager_watch_hostname(Manager *m) {
 
         assert(m);
 
-        m->hostname_fd = open("/proc/sys/kernel/hostname", O_RDONLY|O_CLOEXEC|O_NDELAY|O_NOCTTY);
+        m->hostname_fd = open("/proc/sys/kernel/hostname",
+                              O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (m->hostname_fd < 0) {
                 log_warning_errno(errno, "Failed to watch hostname: %m");
                 return 0;
@@ -533,6 +536,8 @@ static int manager_sigusr1(sd_event_source *s, const struct signalfd_siginfo *si
         f = open_memstream(&buffer, &size);
         if (!f)
                 return log_oom();
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         LIST_FOREACH(scopes, scope, m->dns_scopes)
                 dns_scope_dump(scope, f);
@@ -621,6 +626,10 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        r = dnssd_load(m);
+        if (r < 0)
+                log_warning_errno(r, "Failed to load DNS-SD configuration files: %m");
+
         r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
                 return r;
@@ -663,6 +672,7 @@ int manager_start(Manager *m) {
 
 Manager *manager_free(Manager *m) {
         Link *l;
+        DnssdService *s;
 
         if (!m)
                 return NULL;
@@ -718,6 +728,10 @@ Manager *manager_free(Manager *m) {
         free(m->full_hostname);
         free(m->llmnr_hostname);
         free(m->mdns_hostname);
+
+        while ((s = hashmap_first(m->dnssd_services)))
+               dnssd_service_free(s);
+        hashmap_free(m->dnssd_services);
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
@@ -1094,6 +1108,7 @@ int manager_find_ifindex(Manager *m, int family, const union in_addr_union *in_a
 void manager_refresh_rrs(Manager *m) {
         Iterator i;
         Link *l;
+        DnssdService *s;
 
         assert(m);
 
@@ -1102,25 +1117,27 @@ void manager_refresh_rrs(Manager *m) {
         m->mdns_host_ipv4_key = dns_resource_key_unref(m->mdns_host_ipv4_key);
         m->mdns_host_ipv6_key = dns_resource_key_unref(m->mdns_host_ipv6_key);
 
+        if (m->mdns_support == RESOLVE_SUPPORT_YES)
+                HASHMAP_FOREACH(s, m->dnssd_services, i)
+                        if (dnssd_update_rrs(s) < 0)
+                                log_warning("Failed to refresh DNS-SD service '%s'", s->name);
+
         HASHMAP_FOREACH(l, m->links, i) {
                 link_add_rrs(l, true);
                 link_add_rrs(l, false);
         }
 }
 
-int manager_next_hostname(Manager *m) {
+static int manager_next_random_name(const char *old, char **ret_new) {
         const char *p;
         uint64_t u, a;
-        char *h, *k;
-        int r;
+        char *n;
 
-        assert(m);
-
-        p = strchr(m->llmnr_hostname, 0);
+        p = strchr(old, 0);
         assert(p);
 
-        while (p > m->llmnr_hostname) {
-                if (!strchr("0123456789", p[-1]))
+        while (p > old) {
+                if (!strchr(DIGITS, p[-1]))
                         break;
 
                 p--;
@@ -1139,22 +1156,32 @@ int manager_next_hostname(Manager *m) {
         random_bytes(&a, sizeof(a));
         u += 1 + a % 10;
 
-        if (asprintf(&h, "%.*s%" PRIu64, (int) (p - m->llmnr_hostname), m->llmnr_hostname, u) < 0)
+        if (asprintf(&n, "%.*s%" PRIu64, (int) (p - old), old, u) < 0)
                 return -ENOMEM;
 
-        r = dns_name_concat(h, "local", &k);
-        if (r < 0) {
-                free(h);
+        *ret_new = n;
+
+        return 0;
+}
+
+int manager_next_hostname(Manager *m) {
+        _cleanup_free_ char *h = NULL, *k = NULL;
+        int r;
+
+        assert(m);
+
+        r = manager_next_random_name(m->llmnr_hostname, &h);
+        if (r < 0)
                 return r;
-        }
+
+        r = dns_name_concat(h, "local", &k);
+        if (r < 0)
+                return r;
 
         log_info("Hostname conflict, changing published hostname from '%s' to '%s'.", m->llmnr_hostname, h);
 
-        free(m->llmnr_hostname);
-        m->llmnr_hostname = h;
-
-        free(m->mdns_hostname);
-        m->mdns_hostname = k;
+        free_and_replace(m->llmnr_hostname, h);
+        free_and_replace(m->mdns_hostname, k);
 
         manager_refresh_rrs(m);
 
@@ -1384,7 +1411,7 @@ void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResource
         assert(verdict >= 0);
         assert(verdict < _DNSSEC_VERDICT_MAX);
 
-        if (log_get_max_level() >= LOG_DEBUG) {
+        if (DEBUG_LOGGING) {
                 char s[DNS_RESOURCE_KEY_STRING_MAX];
 
                 log_debug("Found verdict for lookup %s: %s",
@@ -1487,4 +1514,37 @@ void manager_cleanup_saved_user(Manager *m) {
 
                 (void) unlink(p);
         }
+}
+
+bool manager_next_dnssd_names(Manager *m) {
+        Iterator i;
+        DnssdService *s;
+        bool tried = false;
+        int r;
+
+        assert(m);
+
+        HASHMAP_FOREACH(s, m->dnssd_services, i) {
+                _cleanup_free_ char * new_name = NULL;
+
+                if (!s->withdrawn)
+                        continue;
+
+                r = manager_next_random_name(s->name_template, &new_name);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to get new name for service '%s': %m", s->name);
+                        continue;
+                }
+
+                free_and_replace(s->name_template, new_name);
+
+                s->withdrawn = false;
+
+                tried = true;
+        }
+
+        if (tried)
+                manager_refresh_rrs(m);
+
+        return tried;
 }

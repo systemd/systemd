@@ -1670,10 +1670,9 @@ int main(int argc, char *argv[]) {
                 log_set_max_level(LOG_DEBUG);
         }
 
-        if (getuid() != 0) {
-                r = log_error_errno(EPERM, "root privileges required");
+        r = must_be_root();
+        if (r < 0)
                 goto exit;
-        }
 
         if (arg_children_max == 0) {
                 cpu_set_t cpu_set;
@@ -1701,9 +1700,9 @@ int main(int argc, char *argv[]) {
                 goto exit;
         }
 
-        r = mkdir("/run/udev", 0755);
-        if (r < 0 && errno != EEXIST) {
-                r = log_error_errno(errno, "could not create /run/udev: %m");
+        r = mkdir_errno_wrapper("/run/udev", 0755);
+        if (r < 0 && r != -EEXIST) {
+                log_error_errno(r, "could not create /run/udev: %m");
                 goto exit;
         }
 

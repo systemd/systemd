@@ -38,7 +38,7 @@ _kernel_install() {
                 fi
                 ;;
             3)
-                [[ "$cur" ]] || cur=/boot/vmlinuz-${COMP_WORDS[2]}
+                [[ "$cur" ]] || cur=/lib/modules/${COMP_WORDS[2]}/vmlinuz
                 comps=$(compgen -f -- "$cur")
                 compopt -o filenames
                 ;;

@@ -38,7 +38,7 @@
 
 struct reply_callback {
         sd_bus_message_handler_t callback;
-        usec_t timeout;
+        usec_t timeout_usec; /* this is a relative timeout until we reach the BUS_HELLO state, and an absolute one right after */
         uint64_t cookie;
         unsigned prioq_idx;
 };
@@ -53,6 +53,9 @@ struct filter_callback {
 
 struct match_callback {
         sd_bus_message_handler_t callback;
+        sd_bus_message_handler_t install_callback;
+
+        sd_bus_slot *install_slot; /* The AddMatch() call */
 
         unsigned last_iteration;
 
@@ -157,12 +160,14 @@ struct sd_bus_slot {
 
 enum bus_state {
         BUS_UNSET,
-        BUS_OPENING,
-        BUS_AUTHENTICATING,
-        BUS_HELLO,
+        BUS_WATCH_BIND,      /* waiting for the socket to appear via inotify */
+        BUS_OPENING,         /* the kernel's connect() is still not ready */
+        BUS_AUTHENTICATING,  /* we are currently in the "SASL" authorization phase of dbus */
+        BUS_HELLO,           /* we are waiting for the Hello() response */
         BUS_RUNNING,
         BUS_CLOSING,
-        BUS_CLOSED
+        BUS_CLOSED,
+        _BUS_STATE_MAX,
 };
 
 static inline bool BUS_IS_OPEN(enum bus_state state) {
@@ -188,6 +193,7 @@ struct sd_bus {
 
         enum bus_state state;
         int input_fd, output_fd;
+        int inotify_fd;
         int message_version;
         int message_endian;
 
@@ -210,6 +216,11 @@ struct sd_bus {
         bool exited:1;
         bool exit_triggered:1;
         bool is_local:1;
+        bool watch_bind:1;
+        bool is_monitor:1;
+        bool accept_fd:1;
+        bool attach_timestamp:1;
+        bool connected_signal:1;
 
         int use_memfd;
 
@@ -261,6 +272,8 @@ struct sd_bus {
 
         struct ucred ucred;
         char *label;
+        gid_t *groups;
+        size_t n_groups;
 
         uint64_t creds_mask;
 
@@ -284,13 +297,11 @@ struct sd_bus {
 
         pid_t original_pid;
 
-        uint64_t hello_flags;
-        uint64_t attach_flags;
-
         sd_event_source *input_io_event_source;
         sd_event_source *output_io_event_source;
         sd_event_source *time_event_source;
         sd_event_source *quit_event_source;
+        sd_event_source *inotify_event_source;
         sd_event *event;
         int event_priority;
 
@@ -305,11 +316,15 @@ struct sd_bus {
         char *cgroup_root;
 
         char *description;
+        char *patch_sender;
 
         sd_bus_track *track_queue;
 
         LIST_HEAD(sd_bus_slot, slots);
         LIST_HEAD(sd_bus_track, tracks);
+
+        int *inotify_watches;
+        size_t n_inotify_watches;
 };
 
 /* For method calls we time-out at 25s, like in the D-Bus reference implementation */
@@ -353,6 +368,8 @@ const char *bus_message_type_to_string(uint8_t u) _pure_;
 
 #define error_name_is_valid interface_name_is_valid
 
+sd_bus *bus_resolve(sd_bus *bus);
+
 int bus_ensure_running(sd_bus *bus);
 int bus_start_running(sd_bus *bus);
 int bus_next_address(sd_bus *bus);
@@ -364,6 +381,12 @@ int bus_rqueue_make_room(sd_bus *bus);
 bool bus_pid_changed(sd_bus *bus);
 
 char *bus_address_escape(const char *v);
+
+int bus_attach_io_events(sd_bus *b);
+int bus_attach_inotify_event(sd_bus *b);
+
+void bus_close_inotify_fd(sd_bus *b);
+void bus_close_io_fds(sd_bus *b);
 
 #define OBJECT_PATH_FOREACH_PREFIX(prefix, path)                        \
         for (char *_slash = ({ strcpy((prefix), (path)); streq((prefix), "/") ? NULL : strrchr((prefix), '/'); }) ; \
@@ -381,8 +404,6 @@ int bus_set_address_user(sd_bus *bus);
 int bus_set_address_system_remote(sd_bus *b, const char *host);
 int bus_set_address_system_machine(sd_bus *b, const char *machine);
 
-int bus_remove_match_by_string(sd_bus *bus, const char *match, sd_bus_message_handler_t callback, void *userdata);
-
 int bus_get_root_path(sd_bus *bus);
 
 int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
@@ -393,64 +414,6 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error);
                         return sd_bus_error_set_errno(error, r);        \
         } while (false)
 
-/**
- * enum kdbus_attach_flags - flags for metadata attachments
- * @KDBUS_ATTACH_TIMESTAMP:             Timestamp
- * @KDBUS_ATTACH_CREDS:                 Credentials
- * @KDBUS_ATTACH_PIDS:                  PIDs
- * @KDBUS_ATTACH_AUXGROUPS:             Auxiliary groups
- * @KDBUS_ATTACH_NAMES:                 Well-known names
- * @KDBUS_ATTACH_TID_COMM:              The "comm" process identifier of the TID
- * @KDBUS_ATTACH_PID_COMM:              The "comm" process identifier of the PID
- * @KDBUS_ATTACH_EXE:                   The path of the executable
- * @KDBUS_ATTACH_CMDLINE:               The process command line
- * @KDBUS_ATTACH_CGROUP:                The croup membership
- * @KDBUS_ATTACH_CAPS:                  The process capabilities
- * @KDBUS_ATTACH_SECLABEL:              The security label
- * @KDBUS_ATTACH_AUDIT:                 The audit IDs
- * @KDBUS_ATTACH_CONN_DESCRIPTION:      The human-readable connection name
- * @_KDBUS_ATTACH_ALL:                  All of the above
- * @_KDBUS_ATTACH_ANY:                  Wildcard match to enable any kind of
- *                                      metatdata.
- */
-enum kdbus_attach_flags {
-        KDBUS_ATTACH_TIMESTAMP          =  1ULL <<  0,
-        KDBUS_ATTACH_CREDS              =  1ULL <<  1,
-        KDBUS_ATTACH_PIDS               =  1ULL <<  2,
-        KDBUS_ATTACH_AUXGROUPS          =  1ULL <<  3,
-        KDBUS_ATTACH_NAMES              =  1ULL <<  4,
-        KDBUS_ATTACH_TID_COMM           =  1ULL <<  5,
-        KDBUS_ATTACH_PID_COMM           =  1ULL <<  6,
-        KDBUS_ATTACH_EXE                =  1ULL <<  7,
-        KDBUS_ATTACH_CMDLINE            =  1ULL <<  8,
-        KDBUS_ATTACH_CGROUP             =  1ULL <<  9,
-        KDBUS_ATTACH_CAPS               =  1ULL << 10,
-        KDBUS_ATTACH_SECLABEL           =  1ULL << 11,
-        KDBUS_ATTACH_AUDIT              =  1ULL << 12,
-        KDBUS_ATTACH_CONN_DESCRIPTION   =  1ULL << 13,
-        _KDBUS_ATTACH_ALL               =  (1ULL << 14) - 1,
-        _KDBUS_ATTACH_ANY               =  ~0ULL
-};
+void bus_enter_closing(sd_bus *bus);
 
-/**
- * enum kdbus_hello_flags - flags for struct kdbus_cmd_hello
- * @KDBUS_HELLO_ACCEPT_FD:      The connection allows the reception of
- *                              any passed file descriptors
- * @KDBUS_HELLO_ACTIVATOR:      Special-purpose connection which registers
- *                              a well-know name for a process to be started
- *                              when traffic arrives
- * @KDBUS_HELLO_POLICY_HOLDER:  Special-purpose connection which registers
- *                              policy entries for a name. The provided name
- *                              is not activated and not registered with the
- *                              name database, it only allows unprivileged
- *                              connections to acquire a name, talk or discover
- *                              a service
- * @KDBUS_HELLO_MONITOR:        Special-purpose connection to monitor
- *                              bus traffic
- */
-enum kdbus_hello_flags {
-        KDBUS_HELLO_ACCEPT_FD           =  1ULL <<  0,
-        KDBUS_HELLO_ACTIVATOR           =  1ULL <<  1,
-        KDBUS_HELLO_POLICY_HOLDER       =  1ULL <<  2,
-        KDBUS_HELLO_MONITOR             =  1ULL <<  3,
-};
+void bus_set_state(sd_bus *bus, enum bus_state state);

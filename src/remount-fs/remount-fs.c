@@ -87,18 +87,11 @@ int main(int argc, char *argv[]) {
 
                 log_debug("Remounting %s", me->mnt_dir);
 
-                pid = fork();
-                if (pid < 0) {
-                        r = log_error_errno(errno, "Failed to fork: %m");
+                r = safe_fork("(remount)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+                if (r < 0)
                         goto finish;
-                }
-
-                if (pid == 0) {
+                if (r == 0) {
                         /* Child */
-
-                        (void) reset_all_signal_handlers();
-                        (void) reset_signal_mask();
-                        (void) prctl(PR_SET_PDEATHSIG, SIGTERM);
 
                         execv(MOUNT_PATH, STRV_MAKE(MOUNT_PATH, me->mnt_dir, "-o", "remount"));
 

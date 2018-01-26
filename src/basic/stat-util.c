@@ -21,10 +21,11 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <linux/magic.h>
+#include <sched.h>
+#include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "dirent-util.h"
@@ -224,6 +225,18 @@ int fd_is_temporary_fs(int fd) {
                 return -errno;
 
         return is_temporary_fs(&s);
+}
+
+int fd_is_network_ns(int fd) {
+        int r;
+
+        r = fd_is_fs_type(fd, NSFS_MAGIC);
+        if (r <= 0)
+                return r;
+        r = ioctl(fd, NS_GET_NSTYPE);
+        if (r < 0)
+                return -errno;
+        return r == CLONE_NEWNET;
 }
 
 int path_is_temporary_fs(const char *path) {

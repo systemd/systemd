@@ -214,6 +214,7 @@ Unit.RefuseManualStop,           config_parse_bool,                  0,         
 Unit.AllowIsolate,               config_parse_bool,                  0,                             offsetof(Unit, allow_isolate)
 Unit.DefaultDependencies,        config_parse_bool,                  0,                             offsetof(Unit, default_dependencies)
 Unit.OnFailureJobMode,           config_parse_job_mode,              0,                             offsetof(Unit, on_failure_job_mode)
+m4_dnl The following is a legacy alias name for compatibility
 Unit.OnFailureIsolate,           config_parse_job_mode_isolate,      0,                             offsetof(Unit, on_failure_job_mode)
 Unit.IgnoreOnIsolate,            config_parse_bool,                  0,                             offsetof(Unit, ignore_on_isolate)
 Unit.IgnoreOnSnapshot,           config_parse_warn_compat,           DISABLED_LEGACY,               0
@@ -241,6 +242,7 @@ Unit.ConditionFileIsExecutable,  config_parse_unit_condition_path,   CONDITION_F
 Unit.ConditionNeedsUpdate,       config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE,        offsetof(Unit, conditions)
 Unit.ConditionFirstBoot,         config_parse_unit_condition_string, CONDITION_FIRST_BOOT,          offsetof(Unit, conditions)
 Unit.ConditionKernelCommandLine, config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE, offsetof(Unit, conditions)
+Unit.ConditionKernelVersion,     config_parse_unit_condition_string, CONDITION_KERNEL_VERSION,      offsetof(Unit, conditions)
 Unit.ConditionArchitecture,      config_parse_unit_condition_string, CONDITION_ARCHITECTURE,        offsetof(Unit, conditions)
 Unit.ConditionVirtualization,    config_parse_unit_condition_string, CONDITION_VIRTUALIZATION,      offsetof(Unit, conditions)
 Unit.ConditionSecurity,          config_parse_unit_condition_string, CONDITION_SECURITY,            offsetof(Unit, conditions)
@@ -249,6 +251,7 @@ Unit.ConditionHost,              config_parse_unit_condition_string, CONDITION_H
 Unit.ConditionACPower,           config_parse_unit_condition_string, CONDITION_AC_POWER,            offsetof(Unit, conditions)
 Unit.ConditionUser,              config_parse_unit_condition_string, CONDITION_USER,                offsetof(Unit, conditions)
 Unit.ConditionGroup,             config_parse_unit_condition_string, CONDITION_GROUP,               offsetof(Unit, conditions)
+Unit.ConditionControlGroupController,  config_parse_unit_condition_string, CONDITION_CONTROL_GROUP_CONTROLLER,   offsetof(Unit, conditions)
 Unit.ConditionNull,              config_parse_unit_condition_null,   0,                             offsetof(Unit, conditions)
 Unit.AssertPathExists,           config_parse_unit_condition_path,   CONDITION_PATH_EXISTS,         offsetof(Unit, asserts)
 Unit.AssertPathExistsGlob,       config_parse_unit_condition_path,   CONDITION_PATH_EXISTS_GLOB,    offsetof(Unit, asserts)
@@ -262,6 +265,7 @@ Unit.AssertFileIsExecutable,     config_parse_unit_condition_path,   CONDITION_F
 Unit.AssertNeedsUpdate,          config_parse_unit_condition_path,   CONDITION_NEEDS_UPDATE,        offsetof(Unit, asserts)
 Unit.AssertFirstBoot,            config_parse_unit_condition_string, CONDITION_FIRST_BOOT,          offsetof(Unit, asserts)
 Unit.AssertKernelCommandLine,    config_parse_unit_condition_string, CONDITION_KERNEL_COMMAND_LINE, offsetof(Unit, asserts)
+Unit.AssertKernelVersion,        config_parse_unit_condition_string, CONDITION_KERNEL_VERSION,      offsetof(Unit, asserts)
 Unit.AssertArchitecture,         config_parse_unit_condition_string, CONDITION_ARCHITECTURE,        offsetof(Unit, asserts)
 Unit.AssertVirtualization,       config_parse_unit_condition_string, CONDITION_VIRTUALIZATION,      offsetof(Unit, asserts)
 Unit.AssertSecurity,             config_parse_unit_condition_string, CONDITION_SECURITY,            offsetof(Unit, asserts)
@@ -270,6 +274,7 @@ Unit.AssertHost,                 config_parse_unit_condition_string, CONDITION_H
 Unit.AssertACPower,              config_parse_unit_condition_string, CONDITION_AC_POWER,            offsetof(Unit, asserts)
 Unit.AssertUser,                 config_parse_unit_condition_string, CONDITION_USER,                offsetof(Unit, asserts)
 Unit.AssertGroup,                config_parse_unit_condition_string, CONDITION_GROUP,               offsetof(Unit, asserts)
+Unit.AssertControlGroupController,     config_parse_unit_condition_string, CONDITION_CONTROL_GROUP_CONTROLLER,   offsetof(Unit, asserts)
 Unit.AssertNull,                 config_parse_unit_condition_null,   0,                             offsetof(Unit, asserts)
 Unit.CollectMode,                config_parse_collect_mode,          0,                             offsetof(Unit, collect_mode)
 m4_dnl

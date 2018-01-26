@@ -18,12 +18,17 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/types.h>
+#include <unistd.h>
+#include <grp.h>
+
 #include "alloc-util.h"
 #include "async.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "macro.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "util.h"
@@ -474,6 +479,68 @@ static void test_in_addr_is_multicast(void) {
         assert_se(in_addr_is_multicast(f, &b) == 0);
 }
 
+static void test_getpeercred_getpeergroups(void) {
+        int r;
+
+        r = safe_fork("(getpeercred)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                static const gid_t gids[] = { 3, 4, 5, 6, 7 };
+                gid_t *test_gids;
+                _cleanup_free_ gid_t *peer_groups = NULL;
+                size_t n_test_gids;
+                uid_t test_uid;
+                gid_t test_gid;
+                struct ucred ucred;
+                int pair[2];
+
+                if (geteuid() == 0) {
+                        test_uid = 1;
+                        test_gid = 2;
+                        test_gids = (gid_t*) gids;
+                        n_test_gids = ELEMENTSOF(gids);
+
+                        assert_se(setgroups(n_test_gids, test_gids) >= 0);
+                        assert_se(setresgid(test_gid, test_gid, test_gid) >= 0);
+                        assert_se(setresuid(test_uid, test_uid, test_uid) >= 0);
+
+                } else {
+                        long ngroups_max;
+
+                        test_uid = getuid();
+                        test_gid = getgid();
+
+                        ngroups_max = sysconf(_SC_NGROUPS_MAX);
+                        assert(ngroups_max > 0);
+
+                        test_gids = newa(gid_t, ngroups_max);
+
+                        r = getgroups(ngroups_max, test_gids);
+                        assert_se(r >= 0);
+                        n_test_gids = (size_t) r;
+                }
+
+                assert_se(socketpair(AF_UNIX, SOCK_STREAM, 0, pair) >= 0);
+
+                assert_se(getpeercred(pair[0], &ucred) >= 0);
+
+                assert_se(ucred.uid == test_uid);
+                assert_se(ucred.gid == test_gid);
+                assert_se(ucred.pid == getpid_cached());
+
+                r = getpeergroups(pair[0], &peer_groups);
+                assert_se(r >= 0 || IN_SET(r, -EOPNOTSUPP, -ENOPROTOOPT));
+
+                if (r >= 0) {
+                        assert_se((size_t) r == n_test_gids);
+                        assert_se(memcmp(peer_groups, test_gids, sizeof(gid_t) * n_test_gids) == 0);
+                }
+
+                safe_close_pair(pair);
+        }
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -501,6 +568,8 @@ int main(int argc, char *argv[]) {
         test_sockaddr_un_len();
 
         test_in_addr_is_multicast();
+
+        test_getpeercred_getpeergroups();
 
         return 0;
 }

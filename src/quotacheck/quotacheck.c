@@ -71,14 +71,6 @@ static void test_files(void) {
 }
 
 int main(int argc, char *argv[]) {
-
-        static const char * const cmdline[] = {
-                QUOTACHECK,
-                "-anug",
-                NULL
-        };
-
-        pid_t pid;
         int r;
 
         if (argc > 1) {
@@ -106,24 +98,21 @@ int main(int argc, char *argv[]) {
                         return EXIT_SUCCESS;
         }
 
-        pid = fork();
-        if (pid < 0) {
-                r = log_error_errno(errno, "fork(): %m");
+        r = safe_fork("(quotacheck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        if (r < 0)
                 goto finish;
-        }
-        if (pid == 0) {
+        if (r == 0) {
+                static const char * const cmdline[] = {
+                        QUOTACHECK,
+                        "-anug",
+                        NULL
+                };
 
                 /* Child */
 
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
-
                 execv(cmdline[0], (char**) cmdline);
-                _exit(1); /* Operational error */
+                _exit(EXIT_FAILURE); /* Operational error */
         }
-
-        r = wait_for_terminate_and_warn("quotacheck", pid, true);
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdio_ext.h>
 #include <sys/prctl.h>
 #include <sys/xattr.h>
 #include <unistd.h>
@@ -540,6 +541,8 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
         if (!stream)
                 return -ENOMEM;
 
+        (void) __fsetlocking(stream, FSETLOCKING_BYCALLER);
+
         FOREACH_DIRENT(dent, proc_fd_dir, return -errno) {
                 _cleanup_fclose_ FILE *fdinfo = NULL;
                 _cleanup_free_ char *fdname = NULL;
@@ -559,13 +562,13 @@ static int compose_open_fds(pid_t pid, char **open_fds) {
                         continue;
 
                 fdinfo = fdopen(fd, "re");
-                if (fdinfo == NULL) {
-                        close(fd);
+                if (!fdinfo) {
+                        safe_close(fd);
                         continue;
                 }
 
                 FOREACH_LINE(line, fdinfo, break) {
-                        fputs_unlocked(line, stream);
+                        fputs(line, stream);
                         if (!endswith(line, "\n"))
                                 fputc('\n', stream);
                 }
@@ -1123,7 +1126,7 @@ static int gather_pid_metadata(
                 /* If this is PID 1 disable coredump collection, we'll unlikely be able to process it later on. */
                 if (is_pid1_crash((const char**) context)) {
                         log_notice("Due to PID 1 having crashed coredump collection will now be turned off.");
-                        (void) write_string_file("/proc/sys/kernel/core_pattern", "|/bin/false", 0);
+                        disable_coredumps();
                 }
 
                 set_iovec_field(iovec, n_iovec, "COREDUMP_UNIT=", context[CONTEXT_UNIT]);

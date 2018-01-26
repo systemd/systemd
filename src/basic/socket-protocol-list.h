@@ -4,7 +4,7 @@
 /***
   This file is part of systemd.
 
-  Copyright 2013 Lennart Poettering
+  Copyright 2014 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by
@@ -20,25 +20,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+const char *socket_protocol_to_name(int id);
+int socket_protocol_from_name(const char *name);
 
-/*
- * Our default bloom filter has the following parameters:
- *
- * m=512   (bits in the filter)
- * k=8     (hash functions)
- *
- * We use SipHash24 as hash function with a number of (originally
- * randomized) but fixed hash keys.
- *
- */
-
-#define DEFAULT_BLOOM_SIZE (512/8) /* m: filter size */
-#define DEFAULT_BLOOM_N_HASH 8     /* k: number of hash functions */
-
-void bloom_add_pair(uint64_t filter[], size_t size, unsigned n_hash, const char *a, const char *b);
-void bloom_add_prefixes(uint64_t filter[], size_t size, unsigned n_hash, const char *a, const char *b, char sep);
-
-bool bloom_validate_parameters(size_t size, unsigned n_hash);
+int socket_protocol_max(void);

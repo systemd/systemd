@@ -64,6 +64,7 @@
 #include "securebits.h"
 #include "securebits-util.h"
 #include "signal-util.h"
+#include "socket-protocol-list.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -433,11 +434,9 @@ int config_parse_socket_listen(const char *unit,
         p->n_auxiliary_fds = 0;
         p->socket = s;
 
-        if (s->ports) {
-                LIST_FIND_TAIL(port, s->ports, tail);
-                LIST_INSERT_AFTER(port, s->ports, tail, p);
-        } else
-                LIST_PREPEND(port, s->ports, p);
+        LIST_FIND_TAIL(port, s->ports, tail);
+        LIST_INSERT_AFTER(port, s->ports, tail, p);
+
         p = NULL;
 
         return 0;
@@ -454,6 +453,7 @@ int config_parse_socket_protocol(const char *unit,
                                  void *data,
                                  void *userdata) {
         Socket *s;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -462,14 +462,16 @@ int config_parse_socket_protocol(const char *unit,
 
         s = SOCKET(data);
 
-        if (streq(rvalue, "udplite"))
-                s->socket_protocol = IPPROTO_UDPLITE;
-        else if (streq(rvalue, "sctp"))
-                s->socket_protocol = IPPROTO_SCTP;
-        else {
+        r = socket_protocol_from_name(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid socket protocol, ignoring: %s", rvalue);
+                return 0;
+        } else if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Socket protocol not supported, ignoring: %s", rvalue);
                 return 0;
         }
+
+        s->socket_protocol = r;
 
         return 0;
 }
@@ -495,19 +497,13 @@ int config_parse_socket_bind(const char *unit,
 
         s = SOCKET(data);
 
-        b = socket_address_bind_ipv6_only_from_string(rvalue);
+        b = parse_socket_address_bind_ipv6_only_or_bool(rvalue);
         if (b < 0) {
-                int r;
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse bind IPv6 only value, ignoring: %s", rvalue);
+                return 0;
+        }
 
-                r = parse_boolean(rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse bind IPv6 only value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                s->bind_ipv6_only = r ? SOCKET_ADDRESS_IPV6_ONLY : SOCKET_ADDRESS_BOTH;
-        } else
-                s->bind_ipv6_only = b;
+        s->bind_ipv6_only = b;
 
         return 0;
 }
@@ -2891,60 +2887,6 @@ int config_parse_documentation(const char *unit,
 }
 
 #if HAVE_SECCOMP
-
-static int syscall_filter_parse_one(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                ExecContext *c,
-                bool invert,
-                const char *t,
-                bool warn,
-                int errno_num) {
-        int r;
-
-        if (t[0] == '@') {
-                const SyscallFilterSet *set;
-                const char *i;
-
-                set = syscall_filter_set_find(t);
-                if (!set) {
-                        if (warn)
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown system call group, ignoring: %s", t);
-                        return 0;
-                }
-
-                NULSTR_FOREACH(i, set->value) {
-                        r = syscall_filter_parse_one(unit, filename, line, c, invert, i, false, errno_num);
-                        if (r < 0)
-                                return r;
-                }
-        } else {
-                int id;
-
-                id = seccomp_syscall_resolve_name(t);
-                if (id == __NR_SCMP_ERROR)  {
-                        if (warn)
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse system call, ignoring: %s", t);
-                        return 0;
-                }
-
-                /* If we previously wanted to forbid a syscall and now
-                 * we want to allow it, then remove it from the list.
-                 */
-                if (!invert == c->syscall_whitelist) {
-                        r = hashmap_put(c->syscall_filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
-                        if (r == 0)
-                                return 0;
-                        if (r < 0)
-                                return log_oom();
-                } else
-                        (void) hashmap_remove(c->syscall_filter, INT_TO_PTR(id + 1));
-        }
-
-        return 0;
-}
-
 int config_parse_syscall_filter(
                 const char *unit,
                 const char *filename,
@@ -2993,7 +2935,7 @@ int config_parse_syscall_filter(
                         c->syscall_whitelist = true;
 
                         /* Accept default syscalls if we are on a whitelist */
-                        r = syscall_filter_parse_one(unit, filename, line, c, false, "@default", false, -1);
+                        r = seccomp_parse_syscall_filter(false, "@default", -1, c->syscall_filter, true);
                         if (r < 0)
                                 return r;
                 }
@@ -3020,7 +2962,7 @@ int config_parse_syscall_filter(
                         continue;
                 }
 
-                r = syscall_filter_parse_one(unit, filename, line, c, invert, name, true, num);
+                r = seccomp_parse_syscall_filter_and_warn(invert, name, num, c->syscall_filter, c->syscall_whitelist, unit, filename, line);
                 if (r < 0)
                         return r;
         }
@@ -3575,7 +3517,8 @@ int config_parse_device_allow(
         if (!path)
                 return log_oom();
 
-        if (!is_deviceallow_pattern(path)) {
+        if (!is_deviceallow_pattern(path) &&
+            !path_startswith(path, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
@@ -3675,7 +3618,8 @@ int config_parse_io_device_weight(
         if (!path)
                 return log_oom();
 
-        if (!path_startswith(path, "/dev")) {
+        if (!path_startswith(path, "/dev") &&
+            !path_startswith(path, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
@@ -3748,7 +3692,8 @@ int config_parse_io_limit(
         if (!path)
                 return log_oom();
 
-        if (!path_startswith(path, "/dev")) {
+        if (!path_startswith(path, "/dev") &&
+            !path_startswith(path, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
@@ -3862,7 +3807,8 @@ int config_parse_blockio_device_weight(
         if (!path)
                 return log_oom();
 
-        if (!path_startswith(path, "/dev")) {
+        if (!path_startswith(path, "/dev") &&
+            !path_startswith(path, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
@@ -3936,7 +3882,8 @@ int config_parse_blockio_bandwidth(
         if (!path)
                 return log_oom();
 
-        if (!path_startswith(path, "/dev")) {
+        if (!path_startswith(path, "/dev") &&
+            !path_startswith(path, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
                 return 0;
         }
@@ -4001,6 +3948,8 @@ int config_parse_job_mode_isolate(
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse boolean, ignoring: %s", rvalue);
                 return 0;
         }
+
+        log_notice("%s is deprecated. Please use OnFailureJobMode= instead", lvalue);
 
         *m = r ? JOB_ISOLATE : JOB_REPLACE;
         return 0;
@@ -4412,7 +4361,7 @@ int config_parse_protect_home(
                 void *userdata) {
 
         ExecContext *c = data;
-        int k;
+        ProtectHome h;
 
         assert(filename);
         assert(lvalue);
@@ -4422,22 +4371,13 @@ int config_parse_protect_home(
         /* Our enum shall be a superset of booleans, hence first try
          * to parse as boolean, and then as enum */
 
-        k = parse_boolean(rvalue);
-        if (k > 0)
-                c->protect_home = PROTECT_HOME_YES;
-        else if (k == 0)
-                c->protect_home = PROTECT_HOME_NO;
-        else {
-                ProtectHome h;
-
-                h = protect_home_from_string(rvalue);
-                if (h < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect home value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                c->protect_home = h;
+        h = parse_protect_home_or_bool(rvalue);
+        if (h < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect home value, ignoring: %s", rvalue);
+                return 0;
         }
+
+        c->protect_home = h;
 
         return 0;
 }
@@ -4455,7 +4395,7 @@ int config_parse_protect_system(
                 void *userdata) {
 
         ExecContext *c = data;
-        int k;
+        ProtectSystem s;
 
         assert(filename);
         assert(lvalue);
@@ -4465,22 +4405,13 @@ int config_parse_protect_system(
         /* Our enum shall be a superset of booleans, hence first try
          * to parse as boolean, and then as enum */
 
-        k = parse_boolean(rvalue);
-        if (k > 0)
-                c->protect_system = PROTECT_SYSTEM_YES;
-        else if (k == 0)
-                c->protect_system = PROTECT_SYSTEM_NO;
-        else {
-                ProtectSystem s;
-
-                s = protect_system_from_string(rvalue);
-                if (s < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect system value, ignoring: %s", rvalue);
-                        return 0;
-                }
-
-                c->protect_system = s;
+        s = parse_protect_system_or_bool(rvalue);
+        if (s < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect system value, ignoring: %s", rvalue);
+                return 0;
         }
+
+        c->protect_system = s;
 
         return 0;
 }

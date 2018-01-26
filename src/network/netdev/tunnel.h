@@ -45,6 +45,7 @@ typedef struct Tunnel {
 
         int family;
         int ipv6_flowlabel;
+        int allow_localremote;
 
         unsigned ttl;
         unsigned tos;

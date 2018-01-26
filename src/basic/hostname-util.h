@@ -21,6 +21,7 @@
 ***/
 
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "macro.h"
 
@@ -38,6 +39,8 @@ bool is_localhost(const char *hostname);
 bool is_gateway_hostname(const char *hostname);
 
 int sethostname_idempotent(const char *s);
+
+int shorten_overlong(const char *s, char **ret);
 
 int read_etc_hostname_stream(FILE *f, char **ret);
 int read_etc_hostname(const char *path, char **ret);

@@ -32,6 +32,7 @@
 #include "manager.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "special.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "test-helper.h"
@@ -338,7 +339,7 @@ static void test_unit_name_build(void) {
 }
 
 static void test_slice_name_is_valid(void) {
-        assert_se(slice_name_is_valid("-.slice"));
+        assert_se(slice_name_is_valid(SPECIAL_ROOT_SLICE));
         assert_se(slice_name_is_valid("foo.slice"));
         assert_se(slice_name_is_valid("foo-bar.slice"));
         assert_se(slice_name_is_valid("foo-bar-baz.slice"));
@@ -356,7 +357,7 @@ static void test_build_subslice(void) {
         char *a;
         char *b;
 
-        assert_se(slice_build_subslice("-.slice", "foo", &a) >= 0);
+        assert_se(slice_build_subslice(SPECIAL_ROOT_SLICE, "foo", &a) >= 0);
         assert_se(slice_build_subslice(a, "bar", &b) >= 0);
         free(a);
         assert_se(slice_build_subslice(b, "barfoo", &a) >= 0);
@@ -378,8 +379,8 @@ static void test_build_parent_slice_one(const char *name, const char *expect, in
 }
 
 static void test_build_parent_slice(void) {
-        test_build_parent_slice_one("-.slice", NULL, 0);
-        test_build_parent_slice_one("foo.slice", "-.slice", 1);
+        test_build_parent_slice_one(SPECIAL_ROOT_SLICE, NULL, 0);
+        test_build_parent_slice_one("foo.slice", SPECIAL_ROOT_SLICE, 1);
         test_build_parent_slice_one("foo-bar.slice", "foo.slice", 1);
         test_build_parent_slice_one("foo-bar-baz.slice", "foo-bar.slice", 1);
         test_build_parent_slice_one("foo-bar--baz.slice", NULL, -EINVAL);

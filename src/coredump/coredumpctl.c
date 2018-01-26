@@ -885,7 +885,6 @@ static int run_gdb(sd_journal *j) {
         _cleanup_free_ char *exe = NULL, *path = NULL;
         bool unlink_path = false;
         const char *data;
-        siginfo_t st;
         size_t len;
         pid_t pid;
         int r;
@@ -903,9 +902,9 @@ static int run_gdb(sd_journal *j) {
         if (r < 0)
                 return log_error_errno(r, "Failed to retrieve COREDUMP_EXE field: %m");
 
-        assert(len > strlen("COREDUMP_EXE="));
-        data += strlen("COREDUMP_EXE=");
-        len -= strlen("COREDUMP_EXE=");
+        assert(len > STRLEN("COREDUMP_EXE="));
+        data += STRLEN("COREDUMP_EXE=");
+        len -= STRLEN("COREDUMP_EXE=");
 
         exe = strndup(data, len);
         if (!exe)
@@ -928,28 +927,16 @@ static int run_gdb(sd_journal *j) {
         /* Don't interfere with gdb and its handling of SIGINT. */
         (void) ignore_signals(SIGINT, -1);
 
-        pid = fork();
-        if (pid < 0) {
-                r = log_error_errno(errno, "Failed to fork(): %m");
+        r = safe_fork("(gdb)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+        if (r < 0)
                 goto finish;
-        }
-        if (pid == 0) {
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
+        if (r == 0) {
                 execlp("gdb", "gdb", exe, path, NULL);
-
                 log_error_errno(errno, "Failed to invoke gdb: %m");
-                _exit(1);
+                _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate(pid, &st);
-        if (r < 0) {
-                log_error_errno(r, "Failed to wait for gdb: %m");
-                goto finish;
-        }
-
-        r = st.si_code == CLD_EXITED ? st.si_status : 255;
+        r = wait_for_terminate_and_check("gdb", pid, WAIT_LOG_ABNORMAL);
 
 finish:
         (void) default_signals(SIGINT, -1);
@@ -1061,7 +1048,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto end;
 
-        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *filter;
 
                 filter = journal_make_match_string(j);

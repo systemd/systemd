@@ -547,7 +547,7 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
          * verify each bus-ID part...
          */
         bus_id_len = strlen(bus_id);
-        if (!bus_id_len || bus_id_len < 8 || bus_id_len > 9)
+        if (!IN_SET(bus_id_len, 8, 9))
                 return -EINVAL;
 
         /* Strip leading zeros from the bus id for aesthetic purposes. This

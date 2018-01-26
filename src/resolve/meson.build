@@ -31,10 +31,14 @@ basic_dns_sources = files('''
 
 dns_type_h = files('dns-type.h')[0]
 
-systemd_resolved_only_sources = files('''
+systemd_resolved_sources = files('''
         resolved.c
         resolved-manager.c
         resolved-manager.h
+        resolved-dnssd.c
+        resolved-dnssd.h
+        resolved-dnssd-bus.c
+        resolved-dnssd-bus.h
         resolved-conf.c
         resolved-conf.h
         resolved-resolv-conf.c
@@ -76,7 +80,7 @@ systemd_resolved_only_sources = files('''
         resolved-etc-hosts.c
 '''.split())
 
-systemd_resolve_only_sources = files('resolve-tool.c')
+systemd_resolve_sources = files('resolve-tool.c')
 
 ############################################################
 
@@ -131,14 +135,19 @@ resolved_gperf_c = custom_target(
         output : 'resolved-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_resolved_sources = (basic_dns_sources +
-                            [resolved_gperf_c] +
-                            systemd_resolved_only_sources +
-                            dns_type_headers)
+resolved_dnssd_gperf_c = custom_target(
+        'resolved_dnssd_gperf.c',
+        input : 'resolved-dnssd-gperf.gperf',
+        output : 'resolved-dnssd-gperf.c',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_resolve_sources = (basic_dns_sources +
-                           systemd_resolve_only_sources +
-                           dns_type_headers)
+libsystemd_resolve_core = static_library(
+        'systemd-resolve-core',
+        basic_dns_sources,
+        dns_type_headers,
+        include_directories : includes)
+
+systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
 
 if conf.get('ENABLE_RESOLVE') == 1
         install_data('org.freedesktop.resolve1.conf',
@@ -155,41 +164,50 @@ if conf.get('ENABLE_RESOLVE') == 1
 
         install_data('resolv.conf',
                      install_dir : rootlibexecdir)
+
+        i18n.merge_file(
+                'org.freedesktop.resolve1.policy',
+                input : 'org.freedesktop.resolve1.policy.in',
+                output : 'org.freedesktop.resolve1.policy',
+                po_dir : po_dir,
+                data_dirs : po_dir,
+                install : install_polkit,
+                install_dir : polkitpolicydir)
 endif
 
 tests += [
         [['src/resolve/test-resolve-tables.c',
-          basic_dns_sources,
           dns_type_headers,
           'src/shared/test-tables.h'],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],
          'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dns-packet.c',
-          basic_dns_sources,
           dns_type_headers],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],
          'ENABLE_RESOLVE'],
 
         [['src/resolve/test-resolved-packet.c',
-          basic_dns_sources,
           dns_type_headers],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],
          'ENABLE_RESOLVE'],
 
         [['src/resolve/test-dnssec.c',
-          basic_dns_sources,
           dns_type_headers],
-         [],
+         [libsystemd_resolve_core,
+          libshared],
          [libgcrypt,
           libgpg_error,
           libm],

@@ -95,13 +95,14 @@ static void server_process_entry_meta(
                         *message = t;
                 }
 
-        } else if (l > strlen("OBJECT_PID=") &&
-                   l < strlen("OBJECT_PID=")  + DECIMAL_STR_MAX(pid_t) &&
+        } else if (l > STRLEN("OBJECT_PID=") &&
+                   l < STRLEN("OBJECT_PID=")  + DECIMAL_STR_MAX(pid_t) &&
                    startswith(p, "OBJECT_PID=") &&
                    allow_object_pid(ucred)) {
                 char buf[DECIMAL_STR_MAX(pid_t)];
-                memcpy(buf, p + strlen("OBJECT_PID="), l - strlen("OBJECT_PID="));
-                buf[l-strlen("OBJECT_PID=")] = '\0';
+                memcpy(buf, p + STRLEN("OBJECT_PID="),
+                       l - STRLEN("OBJECT_PID="));
+                buf[l-STRLEN("OBJECT_PID=")] = '\0';
 
                 (void) parse_pid(buf, object_pid);
         }
@@ -252,7 +253,7 @@ static int server_process_entry(
 
         tn = n++;
         iovec[tn] = IOVEC_MAKE_STRING("_TRANSPORT=journal");
-        entry_size += strlen("_TRANSPORT=journal");
+        entry_size += STRLEN("_TRANSPORT=journal");
 
         if (entry_size + n + 1 > ENTRY_SIZE_MAX) { /* data + separators + trailer */
                 log_debug("Entry is too big with %zu properties and %zu bytes, ignoring.", n, entry_size);
@@ -424,7 +425,7 @@ void server_process_native_file(
                  * https://github.com/systemd/systemd/issues/1822
                  */
                 if (vfs.f_flag & ST_MANDLOCK) {
-                        log_error("Received file descriptor from file system with mandatory locking enable, refusing.");
+                        log_error("Received file descriptor from file system with mandatory locking enabled, refusing.");
                         return;
                 }
 

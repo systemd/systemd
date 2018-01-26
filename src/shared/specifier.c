@@ -46,10 +46,11 @@
 #define POSSIBLE_SPECIFIERS ALPHANUMERICAL "%"
 
 int specifier_printf(const char *text, const Specifier table[], void *userdata, char **_ret) {
-        char *ret, *t;
+        size_t l;
+        _cleanup_free_ char *ret = NULL;
+        char *t;
         const char *f;
         bool percent = false;
-        size_t l;
         int r;
 
         assert(text);
@@ -80,32 +81,25 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
                                         size_t k, j;
 
                                         r = i->lookup(i->specifier, i->data, userdata, &w);
-                                        if (r < 0) {
-                                                free(ret);
+                                        if (r < 0)
                                                 return r;
-                                        }
 
                                         j = t - ret;
                                         k = strlen(w);
 
                                         n = new(char, j + k + l + 1);
-                                        if (!n) {
-                                                free(ret);
+                                        if (!n)
                                                 return -ENOMEM;
-                                        }
 
                                         memcpy(n, ret, j);
                                         memcpy(n + j, w, k);
 
-                                        free(ret);
-
-                                        ret = n;
-                                        t = n + j + k;
-                                } else if (strchr(POSSIBLE_SPECIFIERS, *f)) {
+                                        free_and_replace(ret, n);
+                                        t = ret + j + k;
+                                } else if (strchr(POSSIBLE_SPECIFIERS, *f))
                                         /* Oops, an unknown specifier. */
-                                        free(ret);
                                         return -EBADSLT;
-                                } else {
+                                else {
                                         *(t++) = '%';
                                         *(t++) = *f;
                                 }
@@ -124,6 +118,7 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
 
         *t = 0;
         *_ret = ret;
+        ret = NULL;
         return 0;
 }
 

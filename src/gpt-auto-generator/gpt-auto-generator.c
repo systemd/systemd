@@ -28,6 +28,7 @@
 
 #include "alloc-util.h"
 #include "blkid-util.h"
+#include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "dirent-util.h"
 #include "dissect-image.h"
@@ -712,7 +713,8 @@ int main(int argc, char *argv[]) {
         if (argc > 1)
                 arg_dest = argv[3];
 
-        log_set_target(LOG_TARGET_SAFE);
+        log_set_prohibit_ipc(true);
+        log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
 

@@ -28,6 +28,7 @@
 #include "dhcp-server-internal.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
+#include "sd-id128.h"
 #include "siphash24.h"
 #include "string-util.h"
 #include "unaligned.h"

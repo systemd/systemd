@@ -20,6 +20,8 @@
 #include <stdio.h>
 #include <linux/magic.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
 #include "blkid-util.h"
 #include "bootspec.h"
@@ -36,8 +38,9 @@
 #include "virt.h"
 
 void boot_entry_free(BootEntry *entry) {
-        free(entry->filename);
+        assert(entry);
 
+        free(entry->filename);
         free(entry->title);
         free(entry->show_title);
         free(entry->version);
@@ -51,18 +54,29 @@ void boot_entry_free(BootEntry *entry) {
 }
 
 int boot_entry_load(const char *path, BootEntry *entry) {
+        _cleanup_(boot_entry_free) BootEntry tmp = {};
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
-        _cleanup_(boot_entry_free) BootEntry tmp = {};
+        char *b, *c;
         int r;
+
+        assert(path);
+        assert(entry);
+
+        c = endswith_no_case(path, ".conf");
+        if (!c) {
+                log_error("Invalid loader entry filename: %s", path);
+                return -EINVAL;
+        }
+
+        b = basename(path);
+        tmp.filename = strndup(b, c - b);
+        if (!tmp.filename)
+                return log_oom();
 
         f = fopen(path, "re");
         if (!f)
                 return log_error_errno(errno, "Failed to open \"%s\": %m", path);
-
-        tmp.filename = strdup(basename(path));
-        if (!tmp.filename)
-                return log_oom();
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
@@ -123,6 +137,8 @@ int boot_entry_load(const char *path, BootEntry *entry) {
 void boot_config_free(BootConfig *config) {
         unsigned i;
 
+        assert(config);
+
         free(config->default_pattern);
         free(config->timeout);
         free(config->editor);
@@ -139,6 +155,9 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
         int r;
+
+        assert(path);
+        assert(config);
 
         f = fopen(path, "re");
         if (!f)
@@ -186,78 +205,22 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
         return 0;
 }
 
-/* This is a direct translation of str_verscmp from boot.c */
-static bool is_digit(int c) {
-        return c >= '0' && c <= '9';
-}
-
-static int c_order(int c) {
-        if (c == '\0')
-                return 0;
-        if (is_digit(c))
-                return 0;
-        else if ((c >= 'a') && (c <= 'z'))
-                return c;
-        else
-                return c + 0x10000;
-}
-
-static int str_verscmp(const char *s1, const char *s2) {
-        const char *os1 = s1;
-        const char *os2 = s2;
-
-        while (*s1 || *s2) {
-                int first;
-
-                while ((*s1 && !is_digit(*s1)) || (*s2 && !is_digit(*s2))) {
-                        int order;
-
-                        order = c_order(*s1) - c_order(*s2);
-                        if (order)
-                                return order;
-                        s1++;
-                        s2++;
-                }
-
-                while (*s1 == '0')
-                        s1++;
-                while (*s2 == '0')
-                        s2++;
-
-                first = 0;
-                while (is_digit(*s1) && is_digit(*s2)) {
-                        if (first == 0)
-                                first = *s1 - *s2;
-                        s1++;
-                        s2++;
-                }
-
-                if (is_digit(*s1))
-                        return 1;
-                if (is_digit(*s2))
-                        return -1;
-
-                if (first != 0)
-                        return first;
-        }
-
-        return strcmp(os1, os2);
-}
-
 static int boot_entry_compare(const void *a, const void *b) {
-        const BootEntry *aa = a;
-        const BootEntry *bb = b;
+        const BootEntry *aa = a, *bb = b;
 
         return str_verscmp(aa->filename, bb->filename);
 }
 
-int boot_entries_find(const char *dir, BootEntry **entries, size_t *n_entries) {
+int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_entries) {
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         int r;
-
         BootEntry *array = NULL;
         size_t n_allocated = 0, n = 0;
+
+        assert(dir);
+        assert(ret_entries);
+        assert(ret_n_entries);
 
         r = conf_files_list(&files, ".conf", NULL, 0, dir, NULL);
         if (r < 0)
@@ -276,14 +239,18 @@ int boot_entries_find(const char *dir, BootEntry **entries, size_t *n_entries) {
 
         qsort_safe(array, n, sizeof(BootEntry), boot_entry_compare);
 
-        *entries = array;
-        *n_entries = n;
+        *ret_entries = array;
+        *ret_n_entries = n;
+
         return 0;
 }
 
 static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
         unsigned i, j;
         bool non_unique = false;
+
+        assert(entries || n_entries == 0);
+        assert(arr || n_entries == 0);
 
         for (i = 0; i < n_entries; i++)
                 arr[i] = false;
@@ -302,6 +269,8 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
         unsigned i;
         int r;
         bool arr[n_entries];
+
+        assert(entries || n_entries == 0);
 
         /* Find _all_ non-unique titles */
         if (!find_nonunique(entries, n_entries, arr))
@@ -349,6 +318,8 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
 static int boot_entries_select_default(const BootConfig *config) {
         int i;
 
+        assert(config);
+
         if (config->entry_oneshot)
                 for (i = config->n_entries - 1; i >= 0; i--)
                         if (streq(config->entry_oneshot, config->entries[i].filename)) {
@@ -377,12 +348,16 @@ static int boot_entries_select_default(const BootConfig *config) {
                 log_debug("Found default: last entry \"%s\"", config->entries[config->n_entries - 1].filename);
         else
                 log_debug("Found no default boot entry :(");
+
         return config->n_entries - 1; /* -1 means "no default" */
 }
 
 int boot_entries_load_config(const char *esp_path, BootConfig *config) {
         const char *p;
         int r;
+
+        assert(esp_path);
+        assert(config);
 
         p = strjoina(esp_path, "/loader/loader.conf");
         r = boot_loader_read_conf(p, config);
@@ -413,8 +388,9 @@ int boot_entries_load_config(const char *esp_path, BootConfig *config) {
 /********************************************************************************/
 
 static int verify_esp(
-                bool searching,
                 const char *p,
+                bool searching,
+                bool unprivileged_mode,
                 uint32_t *ret_part,
                 uint64_t *ret_pstart,
                 uint64_t *ret_psize,
@@ -430,21 +406,19 @@ static int verify_esp(
         struct statfs sfs;
         sd_id128_t uuid = SD_ID128_NULL;
         uint32_t part = 0;
-        bool quiet;
         int r;
 
         assert(p);
 
-        /* Non-root user can only check the status, so if an error occured in the following,
-         * it does not cause any issues. Let's silence the error messages. */
-        quiet = geteuid() != 0;
+        /* Non-root user can only check the status, so if an error occured in the following, it does not cause any
+         * issues. Let's also, silence the error messages. */
 
         if (statfs(p, &sfs) < 0) {
                 /* If we are searching for the mount point, don't generate a log message if we can't find the path */
                 if (errno == ENOENT && searching)
                         return -ENOENT;
 
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to check file system type of \"%s\": %m", p);
         }
 
@@ -457,7 +431,7 @@ static int verify_esp(
         }
 
         if (stat(p, &st) < 0)
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to determine block device node of \"%s\": %m", p);
 
         if (major(st.st_dev) == 0) {
@@ -468,7 +442,7 @@ static int verify_esp(
         t2 = strjoina(p, "/..");
         r = stat(t2, &st2);
         if (r < 0)
-                return log_full_errno(quiet && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
                                       "Failed to determine block device node of parent of \"%s\": %m", p);
 
         if (st.st_dev == st2.st_dev) {
@@ -478,7 +452,7 @@ static int verify_esp(
 
         /* In a container we don't have access to block devices, skip this part of the verification, we trust the
          * container manager set everything up correctly on its own. Also skip the following verification for non-root user. */
-        if (detect_container() > 0 || geteuid() != 0)
+        if (detect_container() > 0 || unprivileged_mode)
                 goto finish;
 
 #if HAVE_BLKID
@@ -579,29 +553,53 @@ finish:
         return 0;
 }
 
-int find_esp(char **path,
-             uint32_t *part, uint64_t *pstart, uint64_t *psize, sd_id128_t *uuid) {
+int find_esp_and_warn(
+                const char *path,
+                bool unprivileged_mode,
+                char **ret_path,
+                uint32_t *ret_part,
+                uint64_t *ret_pstart,
+                uint64_t *ret_psize,
+                sd_id128_t *ret_uuid) {
 
-        const char *p;
         int r;
 
-        if (*path)
-                return verify_esp(false, *path, part, pstart, psize, uuid);
+        /* This logs about all errors except:
+         *
+         *    -ENOKEY → when we can't find the partition
+         *   -EACCESS → when unprivileged_mode is true, and we can't access something
+         */
 
-        FOREACH_STRING(p, "/efi", "/boot", "/boot/efi") {
-
-                r = verify_esp(true, p, part, pstart, psize, uuid);
-                if (IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
-                        continue;
+        if (path) {
+                r = verify_esp(path, false, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid);
                 if (r < 0)
                         return r;
 
-                *path = strdup(p);
-                if (!*path)
-                        return log_oom();
-
-                return 0;
+                goto found;
         }
 
-        return -ENOENT;
+        FOREACH_STRING(path, "/efi", "/boot", "/boot/efi") {
+
+                r = verify_esp(path, true, unprivileged_mode, ret_part, ret_pstart, ret_psize, ret_uuid);
+                if (r >= 0)
+                        goto found;
+                if (!IN_SET(r, -ENOENT, -EADDRNOTAVAIL)) /* This one is not it */
+                        return r;
+        }
+
+        /* No logging here */
+        return -ENOKEY;
+
+found:
+        if (ret_path) {
+                char *c;
+
+                c = strdup(path);
+                if (!c)
+                        return log_oom();
+
+                *ret_path = c;
+        }
+
+        return 0;
 }

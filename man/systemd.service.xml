@@ -228,10 +228,10 @@
         <varname>PrivateNetwork=</varname><option>yes</option>.</para>
 
         <para>Behavior of <option>idle</option> is very similar to <option>simple</option>; however, actual execution
-        of the service binary is delayed until all active jobs are dispatched. This may be used to avoid interleaving
+        of the service program is delayed until all active jobs are dispatched. This may be used to avoid interleaving
         of output of shell services with the status output on the console. Note that this type is useful only to
         improve console output, it is not useful as a general unit ordering tool, and the effect of this service type
-        is subject to a 5s time-out, after which the service binary is invoked anyway.</para>
+        is subject to a 5s time-out, after which the service program is invoked anyway.</para>
         </listitem>
       </varlistentry>
 
@@ -264,16 +264,14 @@
       <varlistentry>
         <term><varname>PIDFile=</varname></term>
 
-        <listitem><para>Takes an absolute filename pointing to the
-        PID file of this daemon. Use of this option is recommended for
-        services where <varname>Type=</varname> is set to
-        <option>forking</option>. systemd will read the PID of the
-        main process of the daemon after start-up of the service.
-        systemd will not write to the file configured here, although
-        it will remove the file after the service has shut down if it
-        still exists.
-        </para>
-        </listitem>
+        <listitem><para>Takes an absolute path referring to the PID file of the service. Usage of this option is
+        recommended for services where <varname>Type=</varname> is set to <option>forking</option>. The service manager
+        will read the PID of the main process of the service from this file after start-up of the service. The service
+        manager will not write to the file configured here, although it will remove the file after the service has shut
+        down if it still exists. The PID file does not need to be owned by a privileged user, but if it is owned by an
+        unprivileged user additional safety restrictions are enforced: the file may not be a symlink to a file owned by
+        a different user (neither directly nor indirectly), and the PID file must refer to a process already belonging
+        to the service.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -517,6 +515,15 @@
         <varname>Type=oneshot</varname> is used, in which case the
         timeout is disabled by default (see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        </para>
+
+        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
+        the start time to be extended beyond <varname>TimeoutStartSec=</varname>. The first receipt of this message
+        must occur before <varname>TimeoutStartSec=</varname> is exceeded, and once the start time has exended beyond
+        <varname>TimeoutStartSec=</varname>, the service manager will allow the service to continue to start, provided
+        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
+        startup status is finished by <literal>READY=1</literal>. (see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
       </varlistentry>
 
@@ -535,6 +542,14 @@
         <varname>DefaultTimeoutStopSec=</varname> from the manager
         configuration file (see
         <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        </para>
+
+        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
+        the stop time to be extended beyond <varname>TimeoutStopSec=</varname>. The first receipt of this message
+        must occur before <varname>TimeoutStopSec=</varname> is exceeded, and once the stop time has exended beyond
+        <varname>TimeoutStopSec=</varname>, the service manager will allow the service to continue to stop, provided
+        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified, or terminates itself
+        (see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
       </varlistentry>
 
@@ -553,7 +568,16 @@
         active for longer than the specified time it is terminated and put into a failure state. Note that this setting
         does not have any effect on <varname>Type=oneshot</varname> services, as they terminate immediately after
         activation completed. Pass <literal>infinity</literal> (the default) to configure no runtime
-        limit.</para></listitem>
+        limit.</para>
+
+        <para>If a service of <varname>Type=notify</varname> sends <literal>EXTEND_TIMEOUT_USEC=…</literal>, this may cause
+        the runtime to be extended beyond <varname>RuntimeMaxSec=</varname>. The first receipt of this message
+        must occur before <varname>RuntimeMaxSec=</varname> is exceeded, and once the runtime has exended beyond
+        <varname>RuntimeMaxSec=</varname>, the service manager will allow the service to continue to run, provided
+        the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
+        shutdown is acheived by <literal>STOPPING=1</literal> (or termination). (see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -728,7 +752,8 @@
         limiting configured with <varname>StartLimitIntervalSec=</varname>
         and <varname>StartLimitBurst=</varname>, see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details.</para>
+        for details.  A restarted service enters the failed state only
+        after the start limits are reached.</para>
 
         <para>Setting this to <option>on-failure</option> is the
         recommended choice for long-running services, in order to

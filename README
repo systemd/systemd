@@ -69,11 +69,10 @@ REQUIREMENTS:
         create additional symlinks in /dev/disk/ and /dev/tape:
           CONFIG_BLK_DEV_BSG
 
-        Required for PrivateNetwork= and PrivateDevices= in service units:
+        Required for PrivateNetwork= in service units:
           CONFIG_NET_NS
-          CONFIG_DEVPTS_MULTIPLE_INSTANCES
         Note that systemd-localed.service and other systemd units use
-        PrivateNetwork and PrivateDevices so this is effectively required.
+        PrivateNetwork so this is effectively required.
 
         Required for PrivateUsers= in service units:
           CONFIG_USER_NS
@@ -82,7 +81,7 @@ REQUIREMENTS:
           CONFIG_IPV6
           CONFIG_AUTOFS4_FS
           CONFIG_TMPFS_XATTR
-          CONFIG_{TMPFS,EXT4,XFS,BTRFS_FS,...}_POSIX_ACL
+          CONFIG_{TMPFS,EXT4_FS,XFS,BTRFS_FS,...}_POSIX_ACL
           CONFIG_SECCOMP
           CONFIG_SECCOMP_FILTER (required for seccomp support)
           CONFIG_CHECKPOINT_RESTORE (for the kcmp() syscall)
@@ -118,6 +117,9 @@ REQUIREMENTS:
         would be a kernel compile-time option for this, but there currently
         isn't. The next best thing is to make this change through a modprobe.d
         drop-in. This is shipped by default, see modprobe.d/systemd.conf.
+
+        Required for systemd-nspawn:
+          CONFIG_DEVPTS_MULTIPLE_INSTANCES or Linux kernel >= 4.7
 
         Note that kernel auditing is broken when used with systemd's
         container code. When using systemd in conjunction with

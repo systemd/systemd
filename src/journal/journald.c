@@ -28,6 +28,7 @@
 #include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
+#include "process-util.h"
 #include "sigbus.h"
 
 int main(int argc, char *argv[]) {
@@ -39,7 +40,8 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        log_set_target(LOG_TARGET_SAFE);
+        log_set_prohibit_ipc(true);
+        log_set_target(LOG_TARGET_AUTO);
         log_set_facility(LOG_SYSLOG);
         log_parse_environment();
         log_open();

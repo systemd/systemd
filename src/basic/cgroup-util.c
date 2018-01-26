@@ -24,6 +24,7 @@
 #include <limits.h>
 #include <signal.h>
 #include <stddef.h>
+#include <stdio_ext.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -778,13 +779,11 @@ int cg_create(const char *controller, const char *path) {
         if (r < 0)
                 return r;
 
-        if (mkdir(fs, 0755) < 0) {
-
-                if (errno == EEXIST)
-                        return 0;
-
-                return -errno;
-        }
+        r = mkdir_errno_wrapper(fs, 0755);
+        if (r == -EEXIST)
+                return 0;
+        if (r < 0)
+                return r;
 
         r = cg_hybrid_unified();
         if (r < 0)
@@ -1031,6 +1030,8 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
         f = fopen(fs, "re");
         if (!f)
                 return errno == ENOENT ? -ESRCH : -errno;
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         FOREACH_LINE(line, f, return -errno) {
                 char *e, *p;
@@ -1471,7 +1472,7 @@ static bool valid_slice_name(const char *p, size_t n) {
         if (!p)
                 return false;
 
-        if (n < strlen("x.slice"))
+        if (n < STRLEN("x.slice"))
                 return false;
 
         if (memcmp(p + n - 6, ".slice", 6) == 0) {
@@ -1555,7 +1556,7 @@ static const char *skip_session(const char *p) {
         p += strspn(p, "/");
 
         n = strcspn(p, "/");
-        if (n < strlen("session-x.scope"))
+        if (n < STRLEN("session-x.scope"))
                 return NULL;
 
         if (memcmp(p, "session-", 8) == 0 && memcmp(p + n - 6, ".scope", 6) == 0) {
@@ -1592,7 +1593,7 @@ static const char *skip_user_manager(const char *p) {
         p += strspn(p, "/");
 
         n = strcspn(p, "/");
-        if (n < strlen("user@x.service"))
+        if (n < STRLEN("user@x.service"))
                 return NULL;
 
         if (memcmp(p, "user@", 5) == 0 && memcmp(p + n - 8, ".service", 8) == 0) {
@@ -2370,6 +2371,8 @@ int cg_kernel_controllers(Set **ret) {
 
                 return -errno;
         }
+
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         /* Ignore the header line */
         (void) read_line(f, (size_t) -1, NULL);

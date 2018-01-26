@@ -83,6 +83,8 @@
 #define BUS_ERROR_NO_SUCH_LINK "org.freedesktop.resolve1.NoSuchLink"
 #define BUS_ERROR_LINK_BUSY "org.freedesktop.resolve1.LinkBusy"
 #define BUS_ERROR_NETWORK_DOWN "org.freedesktop.resolve1.NetworkDown"
+#define BUS_ERROR_NO_SUCH_DNSSD_SERVICE "org.freedesktop.resolve1.NoSuchDnssdService"
+#define BUS_ERROR_DNSSD_SERVICE_EXISTS "org.freedesktop.resolve1.DnssdServiceExists"
 #define _BUS_ERROR_DNS "org.freedesktop.resolve1.DnsError."
 
 #define BUS_ERROR_NO_SUCH_TRANSFER "org.freedesktop.import1.NoSuchTransfer"

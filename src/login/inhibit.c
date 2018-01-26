@@ -266,26 +266,17 @@ int main(int argc, char *argv[]) {
                         return EXIT_FAILURE;
                 }
 
-                pid = fork();
-                if (pid < 0) {
-                        log_error_errno(errno, "Failed to fork: %m");
+                r = safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+                if (r < 0)
                         return EXIT_FAILURE;
-                }
-
-                if (pid == 0) {
+                if (r == 0) {
                         /* Child */
-
-                        (void) reset_all_signal_handlers();
-                        (void) reset_signal_mask();
-
-                        close_all_fds(NULL, 0);
-
                         execvp(argv[optind], argv + optind);
                         log_error_errno(errno, "Failed to execute %s: %m", argv[optind]);
                         _exit(EXIT_FAILURE);
                 }
 
-                r = wait_for_terminate_and_warn(argv[optind], pid, true);
+                r = wait_for_terminate_and_check(argv[optind], pid, WAIT_LOG);
                 return r < 0 ? EXIT_FAILURE : r;
         }
 

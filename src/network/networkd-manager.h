@@ -25,6 +25,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-netlink.h"
+#include "sd-resolve.h"
 #include "udev.h"
 
 #include "dhcp-identifier.h"
@@ -39,10 +40,14 @@ extern const char* const network_dirs[];
 
 struct Manager {
         sd_netlink *rtnl;
+        /* lazy initialized */
+        sd_netlink *genl;
         sd_event *event;
+        sd_resolve *resolve;
         sd_event_source *bus_retry_event_source;
         sd_bus *bus;
         sd_bus_slot *prepare_for_sleep_slot;
+        sd_bus_slot *connected_slot;
         struct udev *udev;
         struct udev_monitor *udev_monitor;
         sd_event_source *udev_event_source;
@@ -58,6 +63,7 @@ struct Manager {
         Hashmap *links;
         Hashmap *netdevs;
         Hashmap *networks_by_name;
+        Hashmap *dhcp6_prefixes;
         LIST_HEAD(Network, networks);
         LIST_HEAD(AddressPool, address_pools);
 
@@ -108,6 +114,11 @@ Link* manager_find_uplink(Manager *m, Link *exclude);
 
 int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *timezone);
+
+Link *manager_dhcp6_prefix_get(Manager *m, struct in6_addr *addr);
+int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link);
+int manager_dhcp6_prefix_remove(Manager *m, struct in6_addr *addr);
+int manager_dhcp6_prefix_remove_all(Manager *m, Link *link);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 #define _cleanup_manager_free_ _cleanup_(manager_freep)

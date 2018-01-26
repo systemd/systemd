@@ -141,7 +141,7 @@ static void test_filter_sets(void) {
                         _exit(EXIT_SUCCESS);
                 }
 
-                assert_se(wait_for_terminate_and_warn(syscall_filter_sets[i].name, pid, true) == EXIT_SUCCESS);
+                assert_se(wait_for_terminate_and_check(syscall_filter_sets[i].name, pid, WAIT_LOG) == EXIT_SUCCESS);
         }
 }
 
@@ -227,7 +227,7 @@ static void test_restrict_namespace(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(wait_for_terminate_and_warn("nsseccomp", pid, true) == EXIT_SUCCESS);
+        assert_se(wait_for_terminate_and_check("nsseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
 static void test_protect_sysctl(void) {
@@ -260,7 +260,7 @@ static void test_protect_sysctl(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(wait_for_terminate_and_warn("sysctlseccomp", pid, true) == EXIT_SUCCESS);
+        assert_se(wait_for_terminate_and_check("sysctlseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
 static void test_restrict_address_families(void) {
@@ -343,7 +343,7 @@ static void test_restrict_address_families(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(wait_for_terminate_and_warn("socketseccomp", pid, true) == EXIT_SUCCESS);
+        assert_se(wait_for_terminate_and_check("socketseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
 static void test_restrict_realtime(void) {
@@ -381,7 +381,7 @@ static void test_restrict_realtime(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(wait_for_terminate_and_warn("realtimeseccomp", pid, true) == EXIT_SUCCESS);
+        assert_se(wait_for_terminate_and_check("realtimeseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
 static void test_memory_deny_write_execute_mmap(void) {
@@ -424,7 +424,7 @@ static void test_memory_deny_write_execute_mmap(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(wait_for_terminate_and_warn("memoryseccomp-mmap", pid, true) == EXIT_SUCCESS);
+        assert_se(wait_for_terminate_and_check("memoryseccomp-mmap", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
 static void test_memory_deny_write_execute_shmat(void) {
@@ -471,7 +471,7 @@ static void test_memory_deny_write_execute_shmat(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(wait_for_terminate_and_warn("memoryseccomp-shmat", pid, true) == EXIT_SUCCESS);
+        assert_se(wait_for_terminate_and_check("memoryseccomp-shmat", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
 static void test_restrict_archs(void) {
@@ -505,7 +505,7 @@ static void test_restrict_archs(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(wait_for_terminate_and_warn("archseccomp", pid, true) == EXIT_SUCCESS);
+        assert_se(wait_for_terminate_and_check("archseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
 static void test_load_syscall_filter_set_raw(void) {
@@ -596,7 +596,7 @@ static void test_load_syscall_filter_set_raw(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(wait_for_terminate_and_warn("syscallrawseccomp", pid, true) == EXIT_SUCCESS);
+        assert_se(wait_for_terminate_and_check("syscallrawseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
 static void test_lock_personality(void) {
@@ -643,7 +643,7 @@ static void test_lock_personality(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(wait_for_terminate_and_warn("lockpersonalityseccomp", pid, true) == EXIT_SUCCESS);
+        assert_se(wait_for_terminate_and_check("lockpersonalityseccomp", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
 static void test_filter_sets_ordered(void) {

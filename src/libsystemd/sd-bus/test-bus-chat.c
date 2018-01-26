@@ -102,9 +102,9 @@ static int server_init(sd_bus **_bus) {
                 goto fail;
         }
 
-        r = sd_bus_add_match(bus, NULL, "type='signal',interface='foo.bar',member='Notify'", match_callback, NULL);
+        r = sd_bus_match_signal(bus, NULL, NULL, NULL, "foo.bar", "Notify", match_callback, NULL);
         if (r < 0) {
-                log_error_errno(r, "Failed to add match: %m");
+                log_error_errno(r, "Failed to request match: %m");
                 goto fail;
         }
 

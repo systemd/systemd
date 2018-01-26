@@ -40,7 +40,9 @@
 #include "stat-util.h"
 #include "strv.h"
 #include "udev-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
+#include "user-util.h"
 #include "terminal-util.h"
 
 enum {
@@ -69,6 +71,8 @@ static usec_t arg_timeout_idle = USEC_INFINITY;
 static bool arg_timeout_idle_set = false;
 static char **arg_automount_property = NULL;
 static int arg_bind_device = -1;
+static uid_t arg_uid = UID_INVALID;
+static gid_t arg_gid = GID_INVALID;
 static bool arg_fsck = true;
 static bool arg_aggressive_gc = false;
 
@@ -89,6 +93,7 @@ static void help(void) {
                "     --discover                   Discover mount device metadata\n"
                "  -t --type=TYPE                  File system type\n"
                "  -o --options=OPTIONS            Mount options\n"
+               "     --owner=USER                 Add uid= and gid= options for USER\n"
                "     --fsck=no                    Don't run file system check before mount\n"
                "     --description=TEXT           Description for unit\n"
                "  -p --property=NAME=VALUE        Set mount unit property\n"
@@ -116,6 +121,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DISCOVER,
                 ARG_MOUNT_TYPE,
                 ARG_MOUNT_OPTIONS,
+                ARG_OWNER,
                 ARG_FSCK,
                 ARG_DESCRIPTION,
                 ARG_TIMEOUT_IDLE,
@@ -139,6 +145,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "discover",           no_argument,       NULL, ARG_DISCOVER           },
                 { "type",               required_argument, NULL, 't'                    },
                 { "options",            required_argument, NULL, 'o'                    },
+                { "owner",              required_argument, NULL, ARG_OWNER              },
                 { "fsck",               required_argument, NULL, ARG_FSCK               },
                 { "description",        required_argument, NULL, ARG_DESCRIPTION        },
                 { "property",           required_argument, NULL, 'p'                    },
@@ -219,6 +226,18 @@ static int parse_argv(int argc, char *argv[]) {
                         if (free_and_strdup(&arg_mount_options, optarg) < 0)
                                 return log_oom();
                         break;
+
+                case ARG_OWNER: {
+                        const char *user = optarg;
+
+                        r = get_user_creds(&user, &arg_uid, &arg_gid, NULL, NULL);
+                        if (r < 0)
+                                return log_error_errno(r,
+                                                       r == -EBADMSG ? "UID or GID of user %s are invalid."
+                                                                     : "Cannot use \"%s\" as owner: %m",
+                                                       optarg);
+                        break;
+                }
 
                 case ARG_FSCK:
                         r = parse_boolean(optarg);
@@ -385,7 +404,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
+static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **properties) {
         int r;
 
         if (!isempty(arg_description)) {
@@ -414,7 +433,7 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
                         return r;
         }
 
-        r = bus_append_unit_property_assignment_many(m, properties);
+        r = bus_append_unit_property_assignment_many(m, t, properties);
         if (r < 0)
                 return r;
 
@@ -422,11 +441,12 @@ static int transient_unit_set_properties(sd_bus_message *m, char **properties) {
 }
 
 static int transient_mount_set_properties(sd_bus_message *m) {
+        _cleanup_free_ char *options = NULL;
         int r;
 
         assert(m);
 
-        r = transient_unit_set_properties(m, arg_property);
+        r = transient_unit_set_properties(m, UNIT_MOUNT, arg_property);
         if (r < 0)
                 return r;
 
@@ -442,11 +462,24 @@ static int transient_mount_set_properties(sd_bus_message *m) {
                         return r;
         }
 
-        if (arg_mount_options) {
-                r = sd_bus_message_append(m, "(sv)", "Options", "s", arg_mount_options);
+        /* Prepend uid=…,gid=… if arg_uid is set */
+        if (arg_uid != UID_INVALID) {
+                r = asprintf(&options,
+                             "uid=" UID_FMT ",gid=" GID_FMT "%s%s",
+                             arg_uid, arg_gid,
+                             arg_mount_options ? "," : "", arg_mount_options);
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        if (options || arg_mount_options) {
+                log_debug("Using mount options: %s", options ?: arg_mount_options);
+
+                r = sd_bus_message_append(m, "(sv)", "Options", "s", options ?: arg_mount_options);
                 if (r < 0)
                         return r;
-        }
+        } else
+                log_debug("Not using any mount options");
 
         if (arg_fsck) {
                 _cleanup_free_ char *fsck = NULL;
@@ -471,7 +504,7 @@ static int transient_automount_set_properties(sd_bus_message *m) {
 
         assert(m);
 
-        r = transient_unit_set_properties(m, arg_automount_property);
+        r = transient_unit_set_properties(m, UNIT_AUTOMOUNT, arg_automount_property);
         if (r < 0)
                 return r;
 
@@ -1530,7 +1563,7 @@ finish:
 }
 
 int main(int argc, char* argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();
@@ -1604,6 +1637,23 @@ int main(int argc, char* argv[]) {
                 }
         }
 
+        /* The kernel (properly) refuses mounting file systems with unknown uid=,gid= options,
+         * but not for all filesystem types. Let's try to catch the cases where the option
+         * would be used if the file system does not support it. It is also possible to
+         * autodetect the file system, but that's only possible with disk-based file systems
+         * which incidentally seem to be implemented more carefully and reject unknown options,
+         * so it's probably OK that we do the check only when the type is specified.
+         */
+        if (arg_mount_type &&
+            !streq(arg_mount_type, "auto") &&
+            arg_uid != UID_INVALID &&
+            !fstype_can_uid_gid(arg_mount_type)) {
+                log_error("File system type %s is not known to support uid=/gid=, refusing.",
+                          arg_mount_type);
+                r = -EOPNOTSUPP;
+                goto finish;
+        }
+
         switch (arg_action) {
 
         case ACTION_MOUNT:
@@ -1620,6 +1670,9 @@ int main(int argc, char* argv[]) {
         }
 
 finish:
+        /* make sure we terminate the bus connection first, and then close the
+         * pager, see issue #3543 for the details. */
+        bus = sd_bus_flush_close_unref(bus);
         pager_close();
 
         free(arg_mount_what);

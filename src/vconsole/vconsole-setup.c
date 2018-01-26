@@ -133,6 +133,7 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
         const char *args[8];
         unsigned i = 0;
         pid_t pid;
+        int r;
 
         /* An empty map means kernel map */
         if (isempty(map))
@@ -152,19 +153,15 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
         log_debug("Executing \"%s\"...",
                   strnull((cmd = strv_join((char**) args, " "))));
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-        else if (pid == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
+        r = safe_fork("(loadkeys)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_warn(KBD_LOADKEYS, pid, true);
+        return wait_for_terminate_and_check(KBD_LOADKEYS, pid, WAIT_LOG);
 }
 
 static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
@@ -172,6 +169,7 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         const char *args[9];
         unsigned i = 0;
         pid_t pid;
+        int r;
 
         /* Any part can be set independently */
         if (isempty(font) && isempty(map) && isempty(unimap))
@@ -195,19 +193,15 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
         log_debug("Executing \"%s\"...",
                   strnull((cmd = strv_join((char**) args, " "))));
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-        else if (pid == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
+        r = safe_fork("(setfont)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 execv(args[0], (char **) args);
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_warn(KBD_SETFONT, pid, true);
+        return wait_for_terminate_and_check(KBD_SETFONT, pid, WAIT_LOG);
 }
 
 /*
@@ -335,7 +329,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
         int ret_fd, r, err = 0;
 
         path = new(char, sizeof("/dev/tty63"));
-        if (path == NULL)
+        if (!path)
                 return log_oom();
 
         for (i = 1; i <= 63; i++) {
@@ -396,7 +390,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
                 return log_error_errno(r, "Virtual console %s is not in K_XLATE or K_UNICODE: %m", src_vc);
 
         path = strdup(src_vc);
-        if (path == NULL)
+        if (!path)
                 return log_oom();
 
         *ret_path = path;
@@ -458,8 +452,8 @@ int main(int argc, char **argv) {
                         log_warning_errno(r, "Failed to read /proc/cmdline: %m");
         }
 
-        toggle_utf8_sysfs(utf8);
-        toggle_utf8(vc, fd, utf8);
+        (void) toggle_utf8_sysfs(utf8);
+        (void) toggle_utf8(vc, fd, utf8);
 
         r = font_load_and_wait(vc, vc_font, vc_font_map, vc_font_unimap);
         keyboard_ok = keyboard_load_and_wait(vc, vc_keymap, vc_keymap_toggle, utf8) == 0;

@@ -127,7 +127,6 @@ static void message_free(sd_bus_message *m) {
         if (m->iovec != m->iovec_fixed)
                 free(m->iovec);
 
-        m->destination_ptr = mfree(m->destination_ptr);
         message_reset_containers(m);
         free(m->root_container.signature);
         free(m->root_container.offsets);
@@ -707,6 +706,7 @@ static int message_new_reply(
                 sd_bus_message **m) {
 
         sd_bus_message *t;
+        uint64_t cookie;
         int r;
 
         assert_return(call, -EINVAL);
@@ -715,6 +715,10 @@ static int message_new_reply(
         assert_return(call->bus->state != BUS_UNSET, -ENOTCONN);
         assert_return(m, -EINVAL);
 
+        cookie = BUS_MESSAGE_COOKIE(call);
+        if (cookie == 0)
+                return -EOPNOTSUPP;
+
         r = sd_bus_message_new(call->bus, &t, type);
         if (r < 0)
                 return -ENOMEM;
@@ -722,10 +726,7 @@ static int message_new_reply(
         assert(t);
 
         t->header->flags |= BUS_MESSAGE_NO_REPLY_EXPECTED;
-        t->reply_cookie = BUS_MESSAGE_COOKIE(call);
-        if (t->reply_cookie == 0)
-                return -EOPNOTSUPP;
-
+        t->reply_cookie = cookie;
         r = message_append_reply_cookie(t, t->reply_cookie);
         if (r < 0)
                 goto fail;
@@ -1319,7 +1320,9 @@ static void *message_extend_body(
                         m->n_body_parts <= 0 ||
                         m->body_end->sealed ||
                         (padding != ALIGN_TO(m->body_end->size, align) - m->body_end->size) ||
-                        (force_inline && m->body_end->size > MEMFD_MIN_SIZE); /* if this must be an inlined extension, let's create a new part if the previous part is large enough to be inlined */
+                        (force_inline && m->body_end->size > MEMFD_MIN_SIZE);
+                        /* If this must be an inlined extension, let's create a new part if
+                         * the previous part is large enough to be inlined. */
 
                 if (add_new_part) {
                         if (padding > 0) {
@@ -1366,7 +1369,7 @@ static void *message_extend_body(
                 }
         } else
                 /* Return something that is not NULL and is aligned */
-                p = (uint8_t *) NULL + align;
+                p = (uint8_t*) align;
 
         m->body_size = end_body;
         message_extend_containers(m, added);
@@ -4777,7 +4780,7 @@ _public_ int sd_bus_message_read_array(
         if (sz == 0)
                 /* Zero length array, let's return some aligned
                  * pointer that is not NULL */
-                p = (uint8_t*) NULL + align;
+                p = (uint8_t*) align;
         else {
                 r = message_peek_body(m, &m->rindex, align, sz, &p);
                 if (r < 0)
@@ -5484,6 +5487,15 @@ _public_ int sd_bus_message_set_destination(sd_bus_message *m, const char *desti
         assert_return(!m->destination, -EEXIST);
 
         return message_append_field_string(m, BUS_MESSAGE_HEADER_DESTINATION, SD_BUS_TYPE_STRING, destination, &m->destination);
+}
+
+_public_ int sd_bus_message_set_sender(sd_bus_message *m, const char *sender) {
+        assert_return(m, -EINVAL);
+        assert_return(sender, -EINVAL);
+        assert_return(!m->sealed, -EPERM);
+        assert_return(!m->sender, -EEXIST);
+
+        return message_append_field_string(m, BUS_MESSAGE_HEADER_SENDER, SD_BUS_TYPE_STRING, sender, &m->sender);
 }
 
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {

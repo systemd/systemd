@@ -68,7 +68,7 @@ static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_
 }
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
-        _cleanup_free_ char *match = NULL;
+        const char *match;
         const char *unique;
         int r;
 
@@ -85,23 +85,21 @@ int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name) {
         if (r < 0)
                 return r;
 
-        r = asprintf(&match,
-                     "sender='org.freedesktop.DBus',"
-                     "type='signal',"
-                     "interface='org.freedesktop.DBus',"
-                     "member='NameOwnerChanged',"
-                     "path='/org/freedesktop/DBus',"
-                     "arg0='%s',"
-                     "arg1='%s',"
-                     "arg2=''", name, unique);
-        if (r < 0)
-                return -ENOMEM;
+        match = strjoina(
+                        "sender='org.freedesktop.DBus',"
+                        "type='signal',"
+                        "interface='org.freedesktop.DBus',"
+                        "member='NameOwnerChanged',"
+                        "path='/org/freedesktop/DBus',"
+                        "arg0='", name, "',",
+                        "arg1='", unique, "',",
+                        "arg2=''");
 
-        r = sd_bus_add_match(bus, NULL, match, name_owner_change_callback, e);
+        r = sd_bus_add_match_async(bus, NULL, match, name_owner_change_callback, NULL, e);
         if (r < 0)
                 return r;
 
-        r = sd_bus_release_name(bus, name);
+        r = sd_bus_release_name_async(bus, NULL, name, NULL, NULL);
         if (r < 0)
                 return r;
 
@@ -560,8 +558,7 @@ void bus_verify_polkit_async_registry_free(Hashmap *registry) {
 
 int bus_check_peercred(sd_bus *c) {
         struct ucred ucred;
-        socklen_t l;
-        int fd;
+        int fd, r;
 
         assert(c);
 
@@ -569,12 +566,9 @@ int bus_check_peercred(sd_bus *c) {
         if (fd < 0)
                 return fd;
 
-        l = sizeof(struct ucred);
-        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &ucred, &l) < 0)
-                return -errno;
-
-        if (l != sizeof(struct ucred))
-                return -E2BIG;
+        r = getpeercred(fd, &ucred);
+        if (r < 0)
+                return r;
 
         if (ucred.uid != 0 && ucred.uid != geteuid())
                 return -EPERM;
@@ -717,7 +711,7 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                 /* Yes, heuristics! But we can change this check
                  * should it turn out to not be sufficient */
 
-                if (endswith(name, "Timestamp")) {
+                if (endswith(name, "Timestamp") || STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec")) {
                         char timestamp[FORMAT_TIMESTAMP_MAX], *t;
 
                         t = format_timestamp(timestamp, sizeof(timestamp), u);
@@ -1344,6 +1338,25 @@ int bus_property_get_bool(
         return sd_bus_message_append_basic(reply, 'b', &b);
 }
 
+int bus_property_set_bool(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *value,
+                void *userdata,
+                sd_bus_error *error) {
+
+        int b, r;
+
+        r = sd_bus_message_read(value, "b", &b);
+        if (r < 0)
+                return r;
+
+        *(bool *) userdata = !!b;
+        return 0;
+}
+
 int bus_property_get_id128(
                 sd_bus *bus,
                 const char *path,
@@ -1603,4 +1616,55 @@ int bus_track_add_name_many(sd_bus_track *t, char **l) {
         }
 
         return r;
+}
+
+int bus_open_system_watch_bind(sd_bus **ret) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        const char *e;
+        int r;
+
+        assert(ret);
+
+        /* Match like sd_bus_open_system(), but with the "watch_bind" feature and the Connected() signal turned on. */
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
+        if (!e)
+                e = DEFAULT_SYSTEM_BUS_ADDRESS;
+
+        r = sd_bus_set_address(bus, e);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_bus_client(bus, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_trusted(bus, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_negotiate_creds(bus, true, SD_BUS_CREDS_UID|SD_BUS_CREDS_EUID|SD_BUS_CREDS_EFFECTIVE_CAPS);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_watch_bind(bus, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_connected_signal(bus, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        *ret = bus;
+        bus = NULL;
+
+        return 0;
 }

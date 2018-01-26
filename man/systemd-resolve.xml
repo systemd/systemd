@@ -321,6 +321,48 @@
         <listitem><para>Shows the global and per-link DNS settings in currently in effect.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--set-dns=SERVER</option></term>
+        <term><option>--set-domain=DOMAIN</option></term>
+        <term><option>--set-llmnr=MODE</option></term>
+        <term><option>--set-mdns=MODE</option></term>
+        <term><option>--set-dnssec=MODE</option></term>
+        <term><option>--set-nta=DOMAIN</option></term>
+
+        <listitem><para>Set per-interface DNS configuration. These switches may be used to configure various DNS
+        settings for network interfaces that aren't managed by
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. (These
+        commands will fail when used on interfaces that are managed by <command>systemd-networkd</command>, please
+        configure their DNS settings directly inside the <filename>.network</filename> files instead.) These switches
+        may be used to inform <command>systemd-resolved</command> about per-interface DNS configuration determined
+        through external means. Multiple of these switches may be passed on a single invocation of
+        <command>systemd-resolve</command> in order to set multiple configuration options at once. If any of these
+        switches is used, it must be combined with <option>--interface=</option> to indicate the network interface the
+        new DNS configuration belongs to. The <option>--set-dns=</option> option expects an IPv4 or IPv6 address
+        specification of a DNS server to use, and may be used multiple times to define multiple servers for the same
+        interface. The <option>--set-domain=</option> option expects a valid DNS domain, possibly prefixed with
+        <literal>~</literal>, and configures a per-interface search or route-only domain. It may be used multiple times
+        to configure multiple such domains. The <option>--set-llmnr=</option>, <option>--set-mdns=</option> and
+        <option>--set-dnssec=</option> options may be used to configure the per-interface LLMNR, MulticastDNS and
+        DNSSEC settings. Finally, <option>--set-nta=</option> may be used to configure additional per-interface DNSSEC
+        NTA domains and may also be used multiple times. For details about these settings, their possible values and
+        their effect, see the corresponding options in
+        <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--revert</option></term>
+
+        <listitem><para>Revert the per-interface DNS configuration. This option must be combined with
+        <option>--interface=</option> to indicate the network interface the DNS configuration shall be reverted on. If
+        the DNS configuration is reverted all per-interface DNS setting are reset to their defaults, undoing all
+        effects of <option>--set-dns=</option>, <option>--set-domain=</option>, <option>--set-llmnr=</option>,
+        <option>--set-mdns=</option>, <option>--set-dnssec=</option>, <option>--set-nta=</option>. Note that when a
+        network interface disappears all configuration is lost automatically, an explicit reverting is not necessary in
+        that case.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
@@ -403,7 +445,9 @@ _443._tcp.fedoraproject.org IN TLSA 0 0 1 19400be5b7a31fb733917700789d2f0a2471c0
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.dnssd</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>

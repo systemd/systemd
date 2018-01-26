@@ -252,11 +252,13 @@ int ask_password_tty(
                 }
 
                 if (colors_enabled())
-                        loop_write(ttyfd, ANSI_HIGHLIGHT, strlen(ANSI_HIGHLIGHT), false);
+                        loop_write(ttyfd, ANSI_HIGHLIGHT,
+                                   STRLEN(ANSI_HIGHLIGHT), false);
                 loop_write(ttyfd, message, strlen(message), false);
                 loop_write(ttyfd, " ", 1, false);
                 if (colors_enabled())
-                        loop_write(ttyfd, ANSI_NORMAL, strlen(ANSI_NORMAL), false);
+                        loop_write(ttyfd, ANSI_NORMAL, STRLEN(ANSI_NORMAL),
+                                   false);
 
                 new_termios = old_termios;
                 new_termios.c_lflag &= ~(ICANON|ECHO);
@@ -314,7 +316,7 @@ int ask_password_tty(
                 }
 
                 if (notify >= 0 && pollfd[POLL_INOTIFY].revents != 0)
-                        flush_fd(notify);
+                        (void) flush_fd(notify);
 
                 if (pollfd[POLL_TTY].revents == 0)
                         continue;
@@ -654,7 +656,7 @@ int ask_password_agent(
                                 goto finish;
                         }
 
-                        if (strv_length(l) <= 0) {
+                        if (strv_isempty(l)) {
                                 l = strv_free(l);
                                 log_debug("Invalid packet");
                                 continue;

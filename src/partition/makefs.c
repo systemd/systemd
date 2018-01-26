@@ -28,12 +28,14 @@
 
 #include "alloc-util.h"
 #include "dissect-image.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 
 static int makefs(const char *type, const char *device) {
         const char *mkfs;
         pid_t pid;
+        int r;
 
         if (streq(type, "swap"))
                 mkfs = "/sbin/mkswap";
@@ -42,24 +44,19 @@ static int makefs(const char *type, const char *device) {
         if (access(mkfs, X_OK) != 0)
                 return log_error_errno(errno, "%s is not executable: %m", mkfs);
 
-        pid = fork();
-        if (pid < 0)
-                return log_error_errno(errno, "fork(): %m");
-
-        if (pid == 0) {
+        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 const char *cmdline[3] = { mkfs, device, NULL };
 
                 /* Child */
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-                assert_se(prctl(PR_SET_PDEATHSIG, SIGTERM) == 0);
 
                 execv(cmdline[0], (char**) cmdline);
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_warn(mkfs, pid, true);
+        return wait_for_terminate_and_check(mkfs, pid, WAIT_LOG);
 }
 
 int main(int argc, char *argv[]) {

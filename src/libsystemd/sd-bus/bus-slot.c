@@ -81,7 +81,7 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                 if (slot->reply_callback.cookie != 0)
                         ordered_hashmap_remove(slot->bus->reply_callbacks, &slot->reply_callback.cookie);
 
-                if (slot->reply_callback.timeout != 0)
+                if (slot->reply_callback.timeout_usec != 0)
                         prioq_remove(slot->bus->reply_callbacks_prioq, &slot->reply_callback, &slot->reply_callback.prioq_idx);
 
                 break;
@@ -94,12 +94,17 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
         case BUS_MATCH_CALLBACK:
 
                 if (slot->match_added)
-                        bus_remove_match_internal(slot->bus, slot->match_callback.match_string);
+                        (void) bus_remove_match_internal(slot->bus, slot->match_callback.match_string);
+
+                if (slot->match_callback.install_slot) {
+                        bus_slot_disconnect(slot->match_callback.install_slot);
+                        slot->match_callback.install_slot = sd_bus_slot_unref(slot->match_callback.install_slot);
+                }
 
                 slot->bus->match_callbacks_modified = true;
                 bus_match_remove(&slot->bus->match_callbacks, &slot->match_callback);
 
-                free(slot->match_callback.match_string);
+                slot->match_callback.match_string = mfree(slot->match_callback.match_string);
 
                 break;
 
@@ -174,7 +179,7 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                         }
                 }
 
-                free(slot->node_vtable.interface);
+                slot->node_vtable.interface = mfree(slot->node_vtable.interface);
 
                 if (slot->node_vtable.node) {
                         LIST_REMOVE(vtables, slot->node_vtable.node->vtables, &slot->node_vtable);

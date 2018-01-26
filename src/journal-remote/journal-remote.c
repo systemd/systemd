@@ -43,6 +43,7 @@
 #include "journald-native.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -81,27 +82,20 @@ static bool arg_trust_all = false;
  **********************************************************************/
 
 static int spawn_child(const char* child, char** argv) {
-        int fd[2];
-        pid_t parent_pid, child_pid;
-        int r;
+        pid_t child_pid;
+        int fd[2], r;
 
         if (pipe(fd) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
-        parent_pid = getpid_cached();
-
-        child_pid = fork();
-        if (child_pid < 0) {
-                r = log_error_errno(errno, "Failed to fork: %m");
+        r = safe_fork("(remote)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &child_pid);
+        if (r < 0) {
                 safe_close_pair(fd);
                 return r;
         }
 
         /* In the child */
-        if (child_pid == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
+        if (r == 0) {
 
                 r = dup2(fd[1], STDOUT_FILENO);
                 if (r < 0) {
@@ -110,15 +104,6 @@ static int spawn_child(const char* child, char** argv) {
                 }
 
                 safe_close_pair(fd);
-
-                /* Make sure the child goes away when the parent dies */
-                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
-                        _exit(EXIT_FAILURE);
-
-                /* Check whether our parent died before we were able
-                 * to set the death signal */
-                if (getppid() != parent_pid)
-                        _exit(EXIT_SUCCESS);
 
                 execvp(child, argv);
                 log_error_errno(errno, "Failed to exec child %s: %m", child);
@@ -422,7 +407,7 @@ static int add_source(RemoteServer *s, int fd, char* name, bool own_name) {
 static int add_raw_socket(RemoteServer *s, int fd) {
         int r;
         _cleanup_close_ int fd_ = fd;
-        char name[sizeof("raw-socket-")-1 + DECIMAL_STR_MAX(int) + 1];
+        char name[STRLEN("raw-socket-") + DECIMAL_STR_MAX(int) + 1];
 
         assert(fd >= 0);
 

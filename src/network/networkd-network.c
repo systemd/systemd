@@ -228,6 +228,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->dhcp_use_mtu = false;
         /* NOTE: from man: UseTimezone=... Defaults to "no".*/
         network->dhcp_use_timezone = false;
+        network->rapid_commit = true;
 
         network->dhcp_server_emit_dns = true;
         network->dhcp_server_emit_ntp = true;
@@ -431,7 +432,8 @@ void network_free(Network *network) {
 
         condition_free_list(network->match_host);
         condition_free_list(network->match_virt);
-        condition_free_list(network->match_kernel);
+        condition_free_list(network->match_kernel_cmdline);
+        condition_free_list(network->match_kernel_version);
         condition_free_list(network->match_arch);
 
         free(network->dhcp_server_timezone);
@@ -485,8 +487,8 @@ int network_get(Manager *manager, struct udev_device *device,
                 if (net_match_config(network->match_mac, network->match_path,
                                      network->match_driver, network->match_type,
                                      network->match_name, network->match_host,
-                                     network->match_virt, network->match_kernel,
-                                     network->match_arch,
+                                     network->match_virt, network->match_kernel_cmdline,
+                                     network->match_kernel_version, network->match_arch,
                                      address, path, parent_driver, driver,
                                      devtype, ifname)) {
                         if (network->match_name && device) {

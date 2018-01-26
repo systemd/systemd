@@ -172,6 +172,17 @@
           for details.</para>
         </listitem>
       </varlistentry>
+        <varlistentry>
+          <term><varname>KernelVersion=</varname></term>
+          <listitem>
+            <para>Checks whether the kernel version (as reported by <command>uname -r</command>) matches a certain
+            expression (or if prefixed with the exclamation mark does not match it). See
+            <literal>ConditionKernelVersion=</literal> in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+            details.
+            </para>
+          </listitem>
+        </varlistentry>
       <varlistentry>
         <term><varname>Architecture=</varname></term>
         <listitem>
@@ -442,6 +453,8 @@
               </listitem>
             </varlistentry>
           </variablelist>
+
+          <para>Defaults to <literal>off</literal>.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

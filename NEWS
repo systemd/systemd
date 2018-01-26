@@ -1,18 +1,177 @@
 systemd System and Service Manager
 
-CHANGES WITH 236 in spe:
+CHANGES WITH 237 in spe:
+
+        * Some keyboards come with a zoom see-saw or rocker which until now got
+          mapped to the Linux "zoomin/out" keys in hwdb. However, these
+          keycodes are not recognized by any major desktop. They now produce
+          Up/Down key events so that they can be used for scrolling.
+
+        * INCOMPATIBILITY: systemd-tmpfiles' "f" lines changed behaviour
+          slightly: previously, if an argument was specified for lines of this
+          type (i.e. the right-most column was set) this string was appended to
+          existing files each time systemd-tmpfiles was run. This behaviour was
+          different from what the documentation said, and not particularly
+          useful, as repeated systemd-tmpfiles invocations would not be
+          idempotent and grow such files without bounds. With this release
+          behaviour has been altered slightly, to match what the documentation
+          says: lines of this type only have an effect if the indicated files
+          don't exist yet, and only then the argument string is written to the
+          file.
+
+        * A new environment variable $SYSTEMD_OFFLINE is now understood by
+          systemctl. It takes a boolean argument. If on, systemctl assumes it
+          operates on an "offline" OS tree, and will not attempt to talk to the
+          service manager. Previously, this mode was implicitly enabled if a
+          chroot() environment was detected, and this new environment variable
+          now provides explicit control.
+
+        * .path and .socket units may now be created transiently,
+          too. Previously only service, mount, automount and timer units were
+          supported as transient units. The systemd-run tool has been updated
+          to expose this new functionality, you may hence use it now to bind
+          arbitrary commands to path or socket activation on-the-fly from the
+          command line. Moreover, for the unit types already supporting
+          transient operation most properties are now hooked up.
+
+        * The systemd-mount command gained support for a new --owner= parameter
+          which takes a user name, which is then resolved and included in uid=
+          and gid= mount options string of the file system to mount.
+
+        * A new unit condition ConditionControlGroupController= has been added
+          that checks whether a specific cgroup controller is available.
+
+        * Unit files, udev's .link files, and systemd-networkd's .netdev and
+          .network files all gained support for a new condition
+          ConditionKernelVersion= for checking against specific kernel
+          versions.
+
+        * In systemd-networkd, the [IPVLAN] section in .netdev files gained
+          support for configuring device flags in the Flags= setting In the
+          same files, the [Tunnel] section gained support for configuring
+          AllowLocalRemote=.  The [Route] section in .network files gained
+          support for configuring InitialCongestionWindow=,
+          InitialAdvertisedReceiveWindow= and QuickAck=. The [DHCP] section now
+          understands RapidCommit=.
+
+        * systemd-networkd's DHCPv6 support gained support for Prefix
+          Delegation.
+
+        * sd-bus gained support for a new "watch-bind" feature. When this
+          feature is enabled, an sd_bus connection may be set up to connect to
+          an AF_UNIX socket in the file system as soon as it is created. This
+          functionality is useful for writing early-boot services that
+          automatically connect to the system bus as soon as it is started,
+          without ugly time-based polling. systemd-networkd and
+          systemd-resolved have been updated to make use of this
+          functionality. busctl exposes this functionality in a new
+          --watch-bind= command line switch.
+
+        * sd-bus will now optionally synthesize a local "Connected" signal as
+          soon as a D-Bus connection is set up fully. This message mirrors the
+          already existing "Disconnected" signal which is synthesized when the
+          connection is terminated. This signal is generally useful but
+          particularly handy in combination with the "watch-bind" feature
+          described above. Synthesizing of this message has to be requested
+          explicitly through the new API call sd_bus_set_connected_signal(). In
+          addition a new call sd_bus_is_ready() has been added that checks
+          wether a connection is fully set up (i.e. between the "Connected" and
+          "Disconnected" signals).
+
+        * sd-bus gained two new calls sd_bus_request_name_async() and
+          sd_bus_release_name_async() for asynchronously registering bus
+          names. Similar, there is now sd_bus_add_match_async() for installing
+          a signal match asynchronously. All of systemd's own services have
+          been updated to make use of these calls. Doing these operations
+          asynchronously has two benefits: it reduces the risk of deadlocks in
+          case of cyclic dependencies between bus services, and it speeds up
+          service initialization since synchronization points for bus
+          round-trips are removed.
+
+        * sd-bus gained two new calls sd_bus_match_signal() and
+          sd_bus_match_signal_async(), which are similar to sd_bus_add_match()
+          and sd_bus_add_match_async() but instead of taking a D-Bus match
+          string take match fields as normal function parameters.
+
+        * sd-bus gained two new calls sd_bus_set_sender() and
+          sd_bus_message_set_sender() for setting the sender name of outgoing
+          messages (either for all outgoing messages or for just one specific
+          one). These calls are only useful in direct connections as on
+          brokered connections the broker fills in the sender anyway,
+          overwriting whatever the client filled in.
+
+        * sd-event gained a new pseudo-handle that may be specified on all API
+          calls where an "sd_event*" object is expected: SD_EVENT_DEFAULT. When
+          used this refers to the default event loop object of the calling
+          thread. Note however that this does not implicitly allocate one —
+          which has to be done prior by using sd_event_default(). Similar
+          sd-bus gained a three new pseudo-handles SD_BUS_DEFAULT,
+          SD_BUS_DEFAULT_USER, SD_BUS_DEFAULT_SYSTEM that may be used to refer
+          to the default bus of the specified type of the calling thread. Here
+          too this does not implicitly allocate bus connection objects, this
+          has to be done prior with sd_bus_default() and friends.
+
+        * sd-event gained a new call pair
+          sd_event_source_{get|set}_io_fd_own(). This may be used to optionally
+          automatically close the file descriptor an IO event source watches
+          when the event source is destroyed.
+
+        * systemd-networkd gained support for natively configuring WireGuard
+          connections.
+
+        * Already in previous versions systemd synthesized user records both
+          for the "nobody" (UID 65534) and "root" (UID 0) users in nss-systemd
+          and internally. In order to simplify distribution-wide renames of the
+          "nobody" user (like it is planned in Fedora: nfsnobody → nobody), a
+          new transitional flag file has been added: if
+          /etc/systemd/dont-synthesize-nobody exists synthesizing of the 65534
+          user and group record within the systemd codebase is disabled.
+
+        * systemd-notify gained a new --uid= option for selecting the source
+          user/UID to use for notification messages sent to the service
+          manager.
+
+        * There's now a "systemd-analyze service-watchdogs" command for turning
+          on or off the per-service watchdogs system-wide (i.e. the concept you
+          configure in WatchdogSec=), for debugging purposes. There's also a
+          kernel command line option systemd.service_watchdogs= for controlling
+          the same.
+
+        Contributions from: Adam Duskett, Alan Jenkins, Alexander Kuleshov,
+        Alexis Deruelle, Armin Widegreen, bleep_blop, Bruce A. Johnson, Chris
+        Down, Colin Walters, Dimitri John Ledkov, Dmitry Rozhkov, Ewout van
+        Mansom, Felipe Sateler, Franck Bui, Frantisek Sumsal, George Gaydarov,
+        Gianluca Boiano, Hans-Christian Noren Egtvedt, Hans de Goede, Henrik
+        Grindal Bakken, Jan Alexander Steffens, Jan Klötzke, jdkbx, Jérémy
+        Rosen, Jerónimo Borque, John Lin, John Paul Herold, Jonathan Rudenberg,
+        Jörg Thalheim, Ken (Bitsko) MacLeod, Larry Bernstone, Lennart
+        Poettering, Lucas Werkmeister, Maciej S. Szmigiero, Marek Čermák,
+        Martin Pitt, Mathieu Malaterre, Matthew Thode, Matthias-Christian Ott,
+        Max Harmathy, Michael Biebl, Michal Koutný, Michal Sekletar, Michał
+        Szczepański, Mike Gilbert, Nathaniel McCallum, Olaf Hering, Olivier
+        Schwander, Patrik Flykt, Paul Cercueil, Peter Hutterer, Piotr Drąg,
+        Reverend Homer, Robert Kolchmeyer, Samuel Dionne-Riel, Sergey
+        Ptashnick, Shawn Landden, Susant Sahani, Sylvain Plantefève, Thomas
+        Huth, Tomasz Bachorski, Vladislav Vishnyakov, Wieland Hoffmann, Yu
+        Watanabe, Zachary Winnerman, Zbigniew Jędrzejewski-Szmek, Дамјан
+        Георгиевски, Дилян Палаузов
+
+        — Berlin, 2018-XX-XX
+
+CHANGES WITH 236:
 
         * The modprobe.d/ drop-in for the bonding.ko kernel module introduced
           in v235 has been extended to also set the dummy.ko module option
           numdummies=0, preventing the kernel from automatically creating
           dummy0. All dummy interfaces must now be explicitly created.
 
-        * Unknown specifiers are now rejected. This applies to units and
-          tmpfiles.d configuration. Any percent characters that are followed by
-          a letter or digit that are not supposed to be interpreted as the
-          beginning of a specifier should be escaped by doubling ("%%").
-          (So "size=5%" is still accepted, as well as "size=5%,foo=bar", but
-          not "LABEL=x%y%z" since %y and %z are not valid specifiers today.)
+        * Unknown '%' specifiers in configuration files are now rejected. This
+          applies to units and tmpfiles.d configuration. Any percent characters
+          that are followed by a letter or digit that are not supposed to be
+          interpreted as the beginning of a specifier should be escaped by
+          doubling ("%%").  (So "size=5%" is still accepted, as well as
+          "size=5%,foo=bar", but not "LABEL=x%y%z" since %y and %z are not
+          valid specifiers today.)
 
         * systemd-resolved now maintains a new dynamic
           /run/systemd/resolve/stub-resolv.conf compatibility file. It is
@@ -31,6 +190,17 @@ CHANGES WITH 236 in spe:
           systemd-journal-upload.service. This means "nss-systemd" must be
           enabled in /etc/nsswitch.conf to ensure the UIDs assigned to these
           services are resolved properly.
+
+        * In /etc/fstab two new mount options are now understood:
+          x-systemd.makefs and x-systemd.growfs. The former has the effect that
+          the configured file system is formatted before it is mounted, the
+          latter that the file system is resized to the full block device size
+          after it is mounted (i.e. if the file system is smaller than the
+          partition it resides on, it's grown). This is similar to the fsck
+          logic in /etc/fstab, and pulls in systemd-makefs@.service and
+          systemd-growfs@.service as necessary, similar to
+          systemd-fsck@.service. Resizing is currently only supported on ext4
+          and btrfs.
 
         * In systemd-networkd, the IPv6 RA logic now optionally may announce
           DNS server and domain information.
@@ -155,25 +325,63 @@ CHANGES WITH 236 in spe:
           store again, ahead of POLLHUP or POLLERR when they are removed
           anyway.
 
-        Contributions from: aeywalee, Alan Jenkins, Alessandro Ghedini, Andrew
-        Jeddeloh, Antonio Rojas, Ari, bleep_blop, Carsten Strotmann, Christian
-        Brauner, Christian Hesse, Collin Eggert, Daniel Lockyer, Daniel Rusek,
-        Dimitri John Ledkov, Evgeny Vereshchagin, Florian Klink, Franck Bui,
-        gwendalcr, Hans de Goede, Jakub Wilk, Jérémy Rosen, jobol, John Lin,
-        juga0, Krzysztof Nowicki, Lars Karlitski, Lars Kellogg-Stedman, Lauri
-        Tirkkonen, Lennart Poettering, longersson, Lubomir Rintel, Lucas
-        Werkmeister, lukas, Lukáš Nykrýn, Lukasz Rubaszewski, Maciej
-        S. Szmigiero, macrothian, Mantas Mikulėnas, martingh, Mathieu
-        Trudel-Lapierre, Matija Skala, Michael Biebl, Michael Vogt, Michal
-        Sekletar, Mike Gilbert, Muhammet Kara, myrkr, Neil Brown, Ondrej
-        Kozina, Patrik Flykt, Peter Hutterer, Piotr Drąg, Razvan Cojocaru,
-        Robin McCorkell, Roland Hieber, Sergey Ptashnick, Shawn Landden, Shuang
-        Liu, Simon Arlott, Simon Peeters, Stefan Agner, Susant Sahani, Sylvain
-        Plantefève, Thomas Blume, Tom Stellard, Topi Miettinen, Vito Caputo,
-        Vladislav Vishnyakov, WaLyong Cho, Yu Watanabe, Zbigniew
+        * A new document UIDS-GIDS.md has been added to the source tree, that
+          documents the UID/GID range and assignment assumptions and
+          requirements of systemd.
+
+        * The watchdog device PID 1 will ping may now be configured through the
+          WatchdogDevice= configuration file setting, or by setting the
+          systemd.watchdog_service= kernel commandline option.
+
+        * systemd-resolved's gained support for registering DNS-SD services on
+          the local network using MulticastDNS. Services may either be
+          registered by dropping in a .dnssd file in /etc/systemd/dnssd/ (or
+          the same dir below /run, /usr/lib), or through its D-Bus API.
+
+        * The sd_notify() protocol can now with EXTEND_TIMEOUT_USEC=microsecond
+          extend the effective start, runtime, and stop time. The service must
+          continue to send EXTEND_TIMEOUT_USEC within the period specified to
+          prevent the service manager from making the service as timedout.
+
+        * systemd-resolved's DNSSEC support gained support for RFC 8080
+          (Ed25519 keys and signatures).
+
+        * The systemd-resolve command line tool gained a new set of options
+          --set-dns=, --set-domain=, --set-llmnr=, --set-mdns=, --set-dnssec=,
+          --set-nta= and --revert to configure per-interface DNS configuration
+          dynamically during runtime. It's useful for pushing DNS information
+          into systemd-resolved from DNS hook scripts that various interface
+          managing software supports (such as pppd).
+
+        * systemd-nspawn gained a new --network-namespace-path= command line
+          option, which may be used to make a container join an existing
+          network namespace, by specifying a path to a "netns" file.
+
+        Contributions from: Alan Jenkins, Alan Robertson, Alessandro Ghedini,
+        Andrew Jeddeloh, Antonio Rojas, Ari, asavah, bleep_blop, Carsten
+        Strotmann, Christian Brauner, Christian Hesse, Clinton Roy, Collin
+        Eggert, Cong Wang, Daniel Black, Daniel Lockyer, Daniel Rusek, Dimitri
+        John Ledkov, Dmitry Rozhkov, Dongsu Park, Edward A. James, Evgeny
+        Vereshchagin, Florian Klink, Franck Bui, Gwendal Grignou, Hans de
+        Goede, Harald Hoyer, Hristo Venev, Iago López Galeiras, Ikey Doherty,
+        Jakub Wilk, Jérémy Rosen, Jiahui Xie, John Lin, José Bollo, Josef
+        Andersson, juga0, Krzysztof Nowicki, Kyle Walker, Lars Karlitski, Lars
+        Kellogg-Stedman, Lauri Tirkkonen, Lennart Poettering, Lubomir Rintel,
+        Luca Bruno, Lucas Werkmeister, Lukáš Nykrýn, Lukáš Říha, Lukasz
+        Rubaszewski, Maciej S. Szmigiero, Mantas Mikulėnas, Marcus Folkesson,
+        Martin Steuer, Mathieu Trudel-Lapierre, Matija Skala,
+        Matthias-Christian Ott, Max Resch, Michael Biebl, Michael Vogt, Michal
+        Koutný, Michal Sekletar, Mike Gilbert, Muhammet Kara, Neil Brown, Olaf
+        Hering, Ondrej Kozina, Patrik Flykt, Patryk Kocielnik, Peter Hutterer,
+        Piotr Drąg, Razvan Cojocaru, Robin McCorkell, Roland Hieber, Saran
+        Tunyasuvunakool, Sergey Ptashnick, Shawn Landden, Shuang Liu, Simon
+        Arlott, Simon Peeters, Stanislav Angelovič, Stefan Agner, Susant
+        Sahani, Sylvain Plantefève, Thomas Blume, Thomas Haller, Tiago Salem
+        Herrmann, Tinu Weber, Tom Stellard, Topi Miettinen, Torsten Hilbrich,
+        Vito Caputo, Vladislav Vishnyakov, WaLyong Cho, Yu Watanabe, Zbigniew
         Jędrzejewski-Szmek, Zeal Jagannatha
 
-        — Berlin, 2017-12-XX
+        — Berlin, 2017-12-14
 
 CHANGES WITH 235:
 
@@ -2023,6 +2231,13 @@ CHANGES WITH 229:
           create your own tmpfiles.d config file with:
 
                   d /run/lock/lockdev 0775 root lock -
+
+        * The settings StartLimitBurst=, StartLimitInterval=, StartLimitAction=
+          and RebootArgument= have been moved from the [Service] section of
+          unit files to [Unit], and they are now supported on all unit types,
+          not just service units. Of course, systemd will continue to
+          understand these settings also at the old location, in order to
+          maintain compatibility.
 
         Contributions from: Abdo Roig-Maranges, Alban Crequy, Aleksander
         Adamowski, Alexander Kuleshov, Andreas Pokorny, Andrei Borzenkov,
@@ -5264,7 +5479,7 @@ CHANGES WITH 209:
           option as supported by Debian is added. It allows indicating
           which LUKS slot to use on disk, speeding up key loading.
 
-        * The sd_journald_sendv() API call has been checked and
+        * The sd_journal_sendv() API call has been checked and
           officially declared to be async-signal-safe so that it may
           be invoked from signal handlers for logging purposes.
 

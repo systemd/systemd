@@ -306,8 +306,7 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
         assert(j);
         assert(f);
 
-        if (!prefix)
-                prefix = "";
+        prefix = strempty(prefix);
 
         fprintf(f,
                 "%s-> Job %u:\n"
@@ -1244,7 +1243,7 @@ void job_shutdown_magic(Job *j) {
         if (detect_container() > 0)
                 return;
 
-        asynchronous_sync();
+        (void) asynchronous_sync(NULL);
 }
 
 int job_get_timeout(Job *j, usec_t *timeout) {

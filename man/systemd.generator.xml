@@ -48,7 +48,7 @@
 
   <refnamediv>
     <refname>systemd.generator</refname>
-    <refpurpose>Systemd unit generators</refpurpose>
+    <refpurpose>systemd unit generators</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -261,7 +261,7 @@
 
           <para>Of these two rules the first rule is probably the more
           important one and breaks the second one sometimes. Hence,
-          when deciding whether to user argv[1], argv[2], or argv[3],
+          when deciding whether to use argv[1], argv[2], or argv[3],
           your default choice should probably be argv[1].</para>
         </listitem>
 
@@ -336,6 +336,7 @@ find $dir</programlisting>
       <citerefentry><refentrytitle>systemd-getty-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-rc-local-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-sysv-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

@@ -1207,27 +1207,19 @@ static int setup_pam(
 
         parent_pid = getpid_cached();
 
-        pam_pid = fork();
-        if (pam_pid < 0) {
-                r = -errno;
+        r = safe_fork("(sd-pam)", 0, &pam_pid);
+        if (r < 0)
                 goto fail;
-        }
-
-        if (pam_pid == 0) {
+        if (r == 0) {
                 int sig, ret = EXIT_PAM;
 
                 /* The child's job is to reset the PAM session on
                  * termination */
                 barrier_set_role(&barrier, BARRIER_CHILD);
 
-                /* This string must fit in 10 chars (i.e. the length
-                 * of "/sbin/init"), to look pretty in /bin/ps */
-                rename_process("(sd-pam)");
-
-                /* Make sure we don't keep open the passed fds in this
-                child. We assume that otherwise only those fds are
-                open here that have been opened by PAM. */
-                close_many(fds, n_fds);
+                /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only those fds
+                 * are open here that have been opened by PAM. */
+                (void) close_many(fds, n_fds);
 
                 /* Drop privileges - we don't need any to pam_close_session
                  * and this will make PR_SET_PDEATHSIG work in most cases.
@@ -1784,7 +1776,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
 static bool exec_needs_mount_namespace(
                 const ExecContext *context,
                 const ExecParameters *params,
-                ExecRuntime *runtime) {
+                const ExecRuntime *runtime) {
 
         assert(context);
         assert(params);
@@ -1797,12 +1789,7 @@ static bool exec_needs_mount_namespace(
             !strv_isempty(context->inaccessible_paths))
                 return true;
 
-        if (context->n_bind_mounts > 0 ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_RUNTIME].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths) ||
-            !strv_isempty(context->directories[EXEC_DIRECTORY_CONFIGURATION].paths))
+        if (context->n_bind_mounts > 0)
                 return true;
 
         if (context->mount_flags != 0)
@@ -1822,6 +1809,12 @@ static bool exec_needs_mount_namespace(
         if (context->mount_apivfs && (context->root_image || context->root_directory))
                 return true;
 
+        if (context->dynamic_user &&
+            (!strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
+             !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
+             !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths)))
+                return true;
+
         return false;
 }
 
@@ -1831,7 +1824,6 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         _cleanup_close_ int unshare_ready_fd = -1;
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         uint64_t c = 1;
-        siginfo_t si;
         ssize_t n;
         int r;
 
@@ -1879,11 +1871,10 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         if (pipe2(errno_pipe, O_CLOEXEC) < 0)
                 return -errno;
 
-        pid = fork();
-        if (pid < 0)
-                return -errno;
-
-        if (pid == 0) {
+        r = safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
                 _cleanup_close_ int fd = -1;
                 const char *a;
                 pid_t ppid;
@@ -1972,13 +1963,11 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         if (n != 0) /* on success we should have read 0 bytes */
                 return -EIO;
 
-        r = wait_for_terminate(pid, &si);
+        r = wait_for_terminate_and_check("(sd-userns)", pid, 0);
+        pid = 0;
         if (r < 0)
                 return r;
-        pid = 0;
-
-        /* If something strange happened with the child, let's consider this fatal, too */
-        if (si.si_code != CLD_EXITED || si.si_status != 0)
+        if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
                 return -EIO;
 
         return 0;
@@ -3418,7 +3407,7 @@ static int exec_child(
                 return log_oom();
         }
 
-        if (_unlikely_(log_get_max_level() >= LOG_DEBUG)) {
+        if (DEBUG_LOGGING) {
                 _cleanup_free_ char *line;
 
                 line = exec_command_line(final_argv);
@@ -3854,7 +3843,7 @@ int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
                                 p = strv_env_clean_with_callback(p, invalid_env, &info);
                         }
 
-                        if (r == NULL)
+                        if (!r)
                                 r = p;
                         else {
                                 char **m;
@@ -4162,19 +4151,19 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         if (c->pam_name)
                 fprintf(f, "%sPAMName: %s\n", prefix, c->pam_name);
 
-        if (strv_length(c->read_write_paths) > 0) {
+        if (!strv_isempty(c->read_write_paths)) {
                 fprintf(f, "%sReadWritePaths:", prefix);
                 strv_fprintf(f, c->read_write_paths);
                 fputs("\n", f);
         }
 
-        if (strv_length(c->read_only_paths) > 0) {
+        if (!strv_isempty(c->read_only_paths)) {
                 fprintf(f, "%sReadOnlyPaths:", prefix);
                 strv_fprintf(f, c->read_only_paths);
                 fputs("\n", f);
         }
 
-        if (strv_length(c->inaccessible_paths) > 0) {
+        if (!strv_isempty(c->inaccessible_paths)) {
                 fprintf(f, "%sInaccessiblePaths:", prefix);
                 strv_fprintf(f, c->inaccessible_paths);
                 fputs("\n", f);

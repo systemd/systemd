@@ -194,8 +194,8 @@ static int call_get_os_release(sd_bus *bus, const char *method, const char *name
 
 static int list_machines(int argc, char *argv[], void *userdata) {
 
-        size_t max_name = strlen("MACHINE"), max_class = strlen("CLASS"),
-               max_service = strlen("SERVICE"), max_os = strlen("OS"), max_version_id = strlen("VERSION");
+        size_t max_name = STRLEN("MACHINE"), max_class = STRLEN("CLASS"),
+               max_service = STRLEN("SERVICE"), max_os = STRLEN("OS"), max_version_id = STRLEN("VERSION");
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *prefix = NULL;
@@ -284,13 +284,13 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 
         qsort_safe(machines, n_machines, sizeof(MachineInfo), compare_machine_info);
 
-        /* Allocate for prefix max characters for all fields + spaces between them + strlen(",\n") */
+        /* Allocate for prefix max characters for all fields + spaces between them + STRLEN(",\n") */
         r = asprintf(&prefix, "%-*s",
                         (int) (max_name +
                         max_class +
                         max_service +
                         max_os +
-                        max_version_id + 5 + strlen(",\n")),
+                        max_version_id + 5 + STRLEN(",\n")),
                         ",\n");
         if (r < 0) {
                 r = log_oom();
@@ -352,7 +352,7 @@ static int compare_image_info(const void *a, const void *b) {
 static int list_images(int argc, char *argv[], void *userdata) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        size_t max_name = strlen("NAME"), max_type = strlen("TYPE"), max_size = strlen("USAGE"), max_crtime = strlen("CREATED"), max_mtime = strlen("MODIFIED");
+        size_t max_name = STRLEN("NAME"), max_type = STRLEN("TYPE"), max_size = STRLEN("USAGE"), max_crtime = STRLEN("CREATED"), max_mtime = STRLEN("MODIFIED");
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ ImageInfo *images = NULL;
         size_t n_images = 0, n_allocated = 0, j;
@@ -1568,9 +1568,9 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                          "member='MachineRemoved',"
                          "arg0='", machine, "'");
 
-        r = sd_bus_add_match(bus, &slot, match, on_machine_removed, &forward);
+        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, NULL, &forward);
         if (r < 0)
-                return log_error_errno(r, "Failed to add machine removal match: %m");
+                return log_error_errno(r, "Failed to request machine removal match: %m");
 
         r = sd_bus_call_method(
                         bus,
@@ -1643,9 +1643,9 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
                          "member='MachineRemoved',"
                          "arg0='", machine, "'");
 
-        r = sd_bus_add_match(bus, &slot, match, on_machine_removed, &forward);
+        r = sd_bus_add_match_async(bus, &slot, match, on_machine_removed, NULL, &forward);
         if (r < 0)
-                return log_error_errno(r, "Failed to add machine removal match: %m");
+                return log_error_errno(r, "Failed to request machine removal match: %m");
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -2087,28 +2087,27 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        r = sd_bus_add_match(
+        r = sd_bus_match_signal_async(
                         bus,
                         &slot_job_removed,
-                        "type='signal',"
-                        "sender='org.freedesktop.import1',"
-                        "interface='org.freedesktop.import1.Manager',"
-                        "member='TransferRemoved',"
-                        "path='/org/freedesktop/import1'",
-                        match_transfer_removed, &path);
+                        "org.freedesktop.import1",
+                        "/org/freedesktop/import1",
+                        "org.freedesktop.import1.Manager",
+                        "TransferRemoved",
+                        match_transfer_removed, NULL, &path);
         if (r < 0)
-                return log_error_errno(r, "Failed to install match: %m");
+                return log_error_errno(r, "Failed to request match: %m");
 
-        r = sd_bus_add_match(
+        r = sd_bus_match_signal_async(
                         bus,
                         &slot_log_message,
-                        "type='signal',"
-                        "sender='org.freedesktop.import1',"
-                        "interface='org.freedesktop.import1.Transfer',"
-                        "member='LogMessage'",
-                        match_log_message, &path);
+                        "org.freedesktop.import1",
+                        NULL,
+                        "org.freedesktop.import1.Transfer",
+                        "LogMessage",
+                        match_log_message, NULL, &path);
         if (r < 0)
-                return log_error_errno(r, "Failed to install match: %m");
+                return log_error_errno(r, "Failed to request match: %m");
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
         if (r < 0) {
@@ -2527,7 +2526,7 @@ static int compare_transfer_info(const void *a, const void *b) {
 }
 
 static int list_transfers(int argc, char *argv[], void *userdata) {
-        size_t max_type = strlen("TYPE"), max_local = strlen("LOCAL"), max_remote = strlen("REMOTE");
+        size_t max_type = STRLEN("TYPE"), max_local = STRLEN("LOCAL"), max_remote = STRLEN("REMOTE");
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ TransferInfo *transfers = NULL;
@@ -3144,7 +3143,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
 }
 
 int main(int argc, char*argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        sd_bus *bus = NULL;
         int r;
 
         setlocale(LC_ALL, "");
@@ -3167,6 +3166,9 @@ int main(int argc, char*argv[]) {
         r = machinectl_main(argc, argv, bus);
 
 finish:
+        /* make sure we terminate the bus connection first, and then close the
+         * pager, see issue #3543 for the details. */
+        sd_bus_flush_close_unref(bus);
         pager_close();
         polkit_agent_close();
 

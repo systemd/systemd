@@ -267,38 +267,23 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
 
 static int fork_and_exec_process(const char* child, char** argv, char **env, int fd) {
         _cleanup_free_ char *joined = NULL;
-        pid_t parent_pid, child_pid;
+        pid_t child_pid;
+        int r;
 
         joined = strv_join(argv, " ");
         if (!joined)
                 return log_oom();
 
-        parent_pid = getpid_cached();
-
-        child_pid = fork();
-        if (child_pid < 0)
-                return log_error_errno(errno, "Failed to fork: %m");
-
-        /* In the child */
-        if (child_pid == 0) {
-
-                (void) reset_all_signal_handlers();
-                (void) reset_signal_mask();
-
-                /* Make sure the child goes away when the parent dies */
-                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
-                        _exit(EXIT_FAILURE);
-
-                /* Check whether our parent died before we were able
-                 * to set the death signal */
-                if (getppid() != parent_pid)
-                        _exit(EXIT_SUCCESS);
-
+        r = safe_fork("(activate)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &child_pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* In the child */
                 exec_process(child, argv, env, fd, 1);
                 _exit(EXIT_FAILURE);
         }
 
-        log_info("Spawned %s (%s) as PID %d", child, joined, child_pid);
+        log_info("Spawned %s (%s) as PID " PID_FMT ".", child, joined, child_pid);
         return 0;
 }
 

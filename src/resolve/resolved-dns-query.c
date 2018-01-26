@@ -28,9 +28,6 @@
 #include "resolved-etc-hosts.h"
 #include "string-util.h"
 
-/* How long to wait for the query in total */
-#define QUERY_TIMEOUT_USEC (60 * USEC_PER_SEC)
-
 #define CNAME_MAX 8
 #define QUERIES_MAX 2048
 #define AUXILIARY_QUERIES_MAX 64
@@ -769,8 +766,8 @@ int dns_query_go(DnsQuery *q) {
                         q->manager->event,
                         &q->timeout_event_source,
                         clock_boottime_or_monotonic(),
-                        now(clock_boottime_or_monotonic()) + QUERY_TIMEOUT_USEC, 0,
-                        on_query_timeout, q);
+                        now(clock_boottime_or_monotonic()) + SD_RESOLVED_QUERY_TIMEOUT_USEC,
+                        0, on_query_timeout, q);
         if (r < 0)
                 goto fail;
 

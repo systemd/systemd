@@ -18,6 +18,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#if defined(__i386__) || defined(__x86_64__)
+#include <cpuid.h>
+#endif
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -56,30 +59,14 @@ static int detect_vm_cpuid(void) {
                 { "bhyve bhyve ", VIRTUALIZATION_BHYVE     },
         };
 
-        uint32_t eax, ecx;
+        uint32_t eax, ebx, ecx, edx;
         bool hypervisor;
 
         /* http://lwn.net/Articles/301888/ */
 
-#if defined (__i386__)
-#define REG_a "eax"
-#define REG_b "ebx"
-#elif defined (__amd64__)
-#define REG_a "rax"
-#define REG_b "rbx"
-#endif
-
         /* First detect whether there is a hypervisor */
-        eax = 1;
-        __asm__ __volatile__ (
-                /* ebx/rbx is being used for PIC! */
-                "  push %%"REG_b"         \n\t"
-                "  cpuid                  \n\t"
-                "  pop %%"REG_b"          \n\t"
-
-                : "=a" (eax), "=c" (ecx)
-                : "0" (eax)
-        );
+        if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) == 0)
+                return VIRTUALIZATION_NONE;
 
         hypervisor = !!(ecx & 0x80000000U);
 
@@ -91,17 +78,11 @@ static int detect_vm_cpuid(void) {
                 unsigned j;
 
                 /* There is a hypervisor, see what it is */
-                eax = 0x40000000U;
-                __asm__ __volatile__ (
-                        /* ebx/rbx is being used for PIC! */
-                        "  push %%"REG_b"         \n\t"
-                        "  cpuid                  \n\t"
-                        "  mov %%ebx, %1          \n\t"
-                        "  pop %%"REG_b"          \n\t"
+                __cpuid(0x40000000U, eax, ebx, ecx, edx);
 
-                        : "=a" (eax), "=r" (sig.sig32[0]), "=c" (sig.sig32[1]), "=d" (sig.sig32[2])
-                        : "0" (eax)
-                );
+                sig.sig32[0] = ebx;
+                sig.sig32[1] = ecx;
+                sig.sig32[2] = edx;
 
                 log_debug("Virtualization found, CPUID=%s", sig.text);
 
@@ -227,11 +208,33 @@ static int detect_vm_xen(void) {
         return VIRTUALIZATION_XEN;
 }
 
+#define XENFEAT_dom0 11 /* xen/include/public/features.h */
+#define PATH_FEATURES "/sys/hypervisor/properties/features"
 /* Returns -errno, or 0 for domU, or 1 for dom0 */
 static int detect_vm_xen_dom0(void) {
         _cleanup_free_ char *domcap = NULL;
         char *cap, *i;
         int r;
+
+        r = read_one_line_file(PATH_FEATURES, &domcap);
+        if (r < 0 && r != -ENOENT)
+                return r;
+        if (r == 0) {
+                unsigned long features;
+
+                /* Here, we need to use sscanf() instead of safe_atoul()
+                 * as the string lacks the leading "0x". */
+                r = sscanf(domcap, "%lx", &features);
+                if (r == 1) {
+                        r = !!(features & (1U << XENFEAT_dom0));
+                        log_debug("Virtualization XEN, found %s with value %08lx, "
+                                  "XENFEAT_dom0 (indicating the 'hardware domain') is%s set.",
+                                  PATH_FEATURES, features, r ? "" : " not");
+                        return r;
+                }
+                log_debug("Virtualization XEN, found %s, unhandled content '%s'",
+                          PATH_FEATURES, domcap);
+        }
 
         r = read_one_line_file("/proc/xen/capabilities", &domcap);
         if (r == -ENOENT) {

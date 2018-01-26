@@ -201,7 +201,7 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
 
         tcg_event = AllocateZeroPool(desc_len + sizeof(TCG_PCR_EVENT));
 
-        if (tcg_event == NULL)
+        if (!tcg_event)
                 return EFI_OUT_OF_RESOURCES;
 
         tcg_event->EventSize = desc_len;
@@ -232,8 +232,11 @@ static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 p
  */
 static EFI_STATUS trigger_tcg2_final_events_table(const EFI_TCG2 *tcg, EFI_TCG2_EVENT_LOG_FORMAT log_fmt)
 {
+        EFI_PHYSICAL_ADDRESS loc;
+        EFI_PHYSICAL_ADDRESS last_loc;
+        BOOLEAN truncated;
         return uefi_call_wrapper(tcg->GetEventLog, 5, (EFI_TCG2 *) tcg,
-                                 log_fmt, 0, 0, 0);
+                                 log_fmt, &loc, &last_loc, &truncated);
 }
 
 static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg, UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer,
@@ -255,7 +258,7 @@ static EFI_STATUS tpm2_measure_to_pcr_and_event_log(const EFI_TCG2 *tcg, UINT32 
 
         tcg_event = AllocateZeroPool(sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len + 1);
 
-        if (tcg_event == NULL)
+        if (!tcg_event)
                 return EFI_OUT_OF_RESOURCES;
 
         tcg_event->Size = sizeof(*tcg_event) - sizeof(tcg_event->Event) + desc_len + 1;

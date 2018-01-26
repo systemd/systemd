@@ -960,7 +960,7 @@ static int process_introspect(
                 if (!streq_ptr(previous_interface, c->interface)) {
 
                         if (previous_interface)
-                                fputs_unlocked(" </interface>\n", intro.f);
+                                fputs(" </interface>\n", intro.f);
 
                         fprintf(intro.f, " <interface name=\"%s\">\n", c->interface);
                 }
@@ -973,7 +973,7 @@ static int process_introspect(
         }
 
         if (previous_interface)
-                fputs_unlocked(" </interface>\n", intro.f);
+                fputs(" </interface>\n", intro.f);
 
         if (empty) {
                 /* Nothing?, let's see if we exist at all, and if not
@@ -1369,7 +1369,7 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
         assert(bus);
         assert(m);
 
-        if (bus->hello_flags & KDBUS_HELLO_MONITOR)
+        if (bus->is_monitor)
                 return 0;
 
         if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
@@ -1547,6 +1547,7 @@ static int bus_add_object(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -1650,6 +1651,7 @@ static int add_object_vtable_internal(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(vtable, -EINVAL);
@@ -1859,6 +1861,7 @@ _public_ int sd_bus_add_node_enumerator(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(callback, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -2110,6 +2113,7 @@ _public_ int sd_bus_emit_properties_changed_strv(
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -2156,6 +2160,7 @@ _public_ int sd_bus_emit_properties_changed(
         char **names;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(interface_name_is_valid(interface), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
@@ -2340,6 +2345,7 @@ _public_ int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
          */
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -2510,6 +2516,7 @@ _public_ int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
          */
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -2663,6 +2670,7 @@ _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, ch
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -2729,6 +2737,7 @@ _public_ int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const c
         char **interfaces;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -2746,6 +2755,7 @@ _public_ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, 
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -2780,6 +2790,7 @@ _public_ int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const
         char **interfaces;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
@@ -2797,6 +2808,7 @@ _public_ int sd_bus_add_object_manager(sd_bus *bus, sd_bus_slot **slot, const ch
         int r;
 
         assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(object_path_is_valid(path), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 

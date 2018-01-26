@@ -60,11 +60,13 @@ typedef enum NetDevKind {
         NETDEV_KIND_VCAN,
         NETDEV_KIND_GENEVE,
         NETDEV_KIND_VXCAN,
+        NETDEV_KIND_WIREGUARD,
         _NETDEV_KIND_MAX,
         _NETDEV_KIND_INVALID = -1
 } NetDevKind;
 
 typedef enum NetDevState {
+        NETDEV_STATE_LOADING,
         NETDEV_STATE_FAILED,
         NETDEV_STATE_CREATING,
         NETDEV_STATE_READY,
@@ -93,7 +95,8 @@ typedef struct NetDev {
 
         Condition *match_host;
         Condition *match_virt;
-        Condition *match_kernel;
+        Condition *match_kernel_cmdline;
+        Condition *match_kernel_version;
         Condition *match_arch;
 
         NetDevState state;
@@ -143,12 +146,14 @@ typedef struct NetDevVTable {
 
 extern const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX];
 
-#define NETDEV_VTABLE(n) netdev_vtable[(n)->kind]
+#define NETDEV_VTABLE(n) ((n)->kind != _NETDEV_KIND_INVALID ? netdev_vtable[(n)->kind] : NULL)
 
 /* For casting a netdev into the various netdev kinds */
 #define DEFINE_NETDEV_CAST(UPPERCASE, MixedCase)                            \
         static inline MixedCase* UPPERCASE(NetDev *n) {                     \
-                if (_unlikely_(!n || n->kind != NETDEV_KIND_##UPPERCASE))   \
+                if (_unlikely_(!n ||                                        \
+                               n->kind != NETDEV_KIND_##UPPERCASE) ||       \
+                               n->state == _NETDEV_STATE_INVALID)           \
                         return NULL;                                        \
                                                                             \
                 return (MixedCase*) n;                                      \

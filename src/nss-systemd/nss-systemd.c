@@ -92,7 +92,7 @@ static int direct_lookup_name(const char *name, uid_t *ret) {
 }
 
 static int direct_lookup_uid(uid_t uid, char **ret) {
-        char path[strlen("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1], *s;
+        char path[STRLEN("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1], *s;
         int r;
 
         xsprintf(path, "/run/systemd/dynamic-uid/direct:" UID_FMT, uid);
@@ -136,7 +136,8 @@ enum nss_status _nss_systemd_getpwnam_r(
                         *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
-                if (streq(name, nobody_passwd.pw_name)) {
+                if (synthesize_nobody() &&
+                    streq(name, nobody_passwd.pw_name)) {
                         *pwd = nobody_passwd;
                         *errnop = 0;
                         return NSS_STATUS_SUCCESS;
@@ -244,7 +245,8 @@ enum nss_status _nss_systemd_getpwuid_r(
                         *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
-                if (uid == nobody_passwd.pw_uid) {
+                if (synthesize_nobody() &&
+                    uid == nobody_passwd.pw_uid) {
                         *pwd = nobody_passwd;
                         *errnop = 0;
                         return NSS_STATUS_SUCCESS;
@@ -351,7 +353,8 @@ enum nss_status _nss_systemd_getgrnam_r(
                         *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
-                if (streq(name, nobody_group.gr_name)) {
+                if (synthesize_nobody() &&
+                    streq(name, nobody_group.gr_name)) {
                         *gr = nobody_group;
                         *errnop = 0;
                         return NSS_STATUS_SUCCESS;
@@ -456,7 +459,8 @@ enum nss_status _nss_systemd_getgrgid_r(
                         *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
-                if (gid == nobody_group.gr_gid) {
+                if (synthesize_nobody() &&
+                    gid == nobody_group.gr_gid) {
                         *gr = nobody_group;
                         *errnop = 0;
                         return NSS_STATUS_SUCCESS;

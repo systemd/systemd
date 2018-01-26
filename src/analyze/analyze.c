@@ -47,6 +47,7 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
+#include "verbs.h"
 
 #define SCALE_X (0.1 / 1000.0)   /* pixels per us */
 #define SCALE_Y (20.0)
@@ -78,7 +79,7 @@ static char** arg_dot_to_patterns = NULL;
 static usec_t arg_fuzz = 0;
 static bool arg_no_pager = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static bool arg_user = false;
 static bool arg_man = true;
 static bool arg_generators = false;
@@ -129,6 +130,13 @@ struct host_info {
         char *virtualization;
         char *architecture;
 };
+
+static int acquire_bus(bool need_full_bus, sd_bus **bus) {
+        if (need_full_bus)
+                return bus_connect_transport(arg_transport, arg_host, arg_user, bus);
+        else
+                return bus_connect_transport_systemd(arg_transport, arg_host, arg_user, bus);
+}
 
 static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *interface, const char *property, uint64_t *val) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -416,7 +424,7 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                         continue;
 
                 t->name = strdup(u.id);
-                if (t->name == NULL) {
+                if (!t->name) {
                         r = log_oom();
                         goto fail;
                 }
@@ -521,7 +529,7 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
                         "ActiveEnterTimestampMonotonic",
                         &activated_time);
         if (r < 0) {
-                log_info_errno(r, "default.target seems not to be started. Continuing...");
+                log_info_errno(r, "Could not get time to reach default.target. Continuing...");
                 activated_time = USEC_INFINITY;
         }
 
@@ -541,8 +549,15 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
         size = strpcpyf(&ptr, size, "%s (userspace) ", format_timespan(ts, sizeof(ts), t->finish_time - t->userspace_time, USEC_PER_MSEC));
         strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
 
-        if (unit_id && activated_time != USEC_INFINITY)
+        if (unit_id && (activated_time > 0 && activated_time != USEC_INFINITY))
                 size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id, format_timespan(ts, sizeof(ts), activated_time - t->userspace_time, USEC_PER_MSEC));
+        else if (unit_id && activated_time == 0)
+                size = strpcpyf(&ptr, size, "\n%s was never reached", unit_id);
+        else if (unit_id && activated_time == USEC_INFINITY)
+                size = strpcpyf(&ptr, size, "\nCould not get time to reach %s.",unit_id);
+        else if (!unit_id)
+                size = strpcpyf(&ptr, size, "\ncould not find default.target");
+
 
         ptr = strdup(buf);
         if (!ptr)
@@ -575,14 +590,19 @@ static void svg_graph_box(double height, double begin, double end) {
         }
 }
 
-static int analyze_plot(sd_bus *bus) {
+static int analyze_plot(int argc, char *argv[], void *userdata) {
         _cleanup_(free_host_infop) struct host_info *host = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         struct unit_times *times;
         struct boot_times *boot;
-        int n, m = 1, y=0;
+        int n, m = 1, y = 0, r;
         double width;
         _cleanup_free_ char *pretty_times = NULL;
         struct unit_times *u;
+
+        r = acquire_bus(true, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
         n = acquire_boot_times(bus, &boot);
         if (n < 0)
@@ -820,7 +840,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
         assert(deps);
 
         path = unit_dbus_path_from_name(name);
-        if (path == NULL)
+        if (!path)
                 return -ENOMEM;
 
         return bus_get_unit_property_strv(bus, path, "After", deps);
@@ -878,7 +898,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
                 }
         }
 
-        if (service_longest == 0 )
+        if (service_longest == 0)
                 return r;
 
         STRV_FOREACH(c, deps) {
@@ -937,7 +957,7 @@ static int list_dependencies(sd_bus *bus, const char *name) {
         assert(bus);
 
         path = unit_dbus_path_from_name(name);
-        if (path == NULL)
+        if (!path)
                 return -ENOMEM;
 
         r = sd_bus_get_property(
@@ -977,11 +997,16 @@ static int list_dependencies(sd_bus *bus, const char *name) {
         return list_dependencies_one(bus, name, 0, &units, 0);
 }
 
-static int analyze_critical_chain(sd_bus *bus, char *names[]) {
+static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         struct unit_times *times;
         unsigned int i;
         Hashmap *h;
         int n, r;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
         n = acquire_time_data(bus, &times);
         if (n <= 0)
@@ -989,12 +1014,12 @@ static int analyze_critical_chain(sd_bus *bus, char *names[]) {
 
         h = hashmap_new(&string_hash_ops);
         if (!h)
-                return -ENOMEM;
+                return log_oom();
 
-        for (i = 0; i < (unsigned)n; i++) {
+        for (i = 0; i < (unsigned) n; i++) {
                 r = hashmap_put(h, times[i].name, &times[i]);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to add entry to hashmap: %m");
         }
         unit_times_hashmap = h;
 
@@ -1003,22 +1028,27 @@ static int analyze_critical_chain(sd_bus *bus, char *names[]) {
         puts("The time after the unit is active or started is printed after the \"@\" character.\n"
              "The time the unit takes to start is printed after the \"+\" character.\n");
 
-        if (!strv_isempty(names)) {
+        if (argc > 1) {
                 char **name;
-                STRV_FOREACH(name, names)
+                STRV_FOREACH(name, strv_skip(argv, 1))
                         list_dependencies(bus, *name);
         } else
                 list_dependencies(bus, SPECIAL_DEFAULT_TARGET);
 
-        hashmap_free(h);
+        h = hashmap_free(h);
         free_unit_times(times, (unsigned) n);
         return 0;
 }
 
-static int analyze_blame(sd_bus *bus) {
+static int analyze_blame(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         struct unit_times *times;
         unsigned i;
-        int n;
+        int n, r;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
         n = acquire_time_data(bus, &times);
         if (n <= 0)
@@ -1039,9 +1069,14 @@ static int analyze_blame(sd_bus *bus) {
         return 0;
 }
 
-static int analyze_time(sd_bus *bus) {
+static int analyze_time(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *buf = NULL;
         int r;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
         r = pretty_boot_time(bus, &buf);
         if (r < 0)
@@ -1163,16 +1198,21 @@ static int expand_patterns(sd_bus *bus, char **patterns, char ***ret) {
         return 0;
 }
 
-static int dot(sd_bus *bus, char* patterns[]) {
+static int dot(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **expanded_patterns = NULL;
         _cleanup_strv_free_ char **expanded_from_patterns = NULL;
         _cleanup_strv_free_ char **expanded_to_patterns = NULL;
         int r;
         UnitInfo u;
 
-        r = expand_patterns(bus, patterns, &expanded_patterns);
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
+
+        r = expand_patterns(bus, strv_skip(argv, 1), &expanded_patterns);
         if (r < 0)
                 return r;
 
@@ -1228,28 +1268,28 @@ static int dot(sd_bus *bus, char* patterns[]) {
         return 0;
 }
 
-static int dump(sd_bus *bus, char **args) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+static int dump(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *text = NULL;
         int r;
 
-        if (!strv_isempty(args)) {
-                log_error("Too many arguments.");
-                return -E2BIG;
-        }
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
         pager_open(arg_no_pager, false);
 
         r = sd_bus_call_method(
                         bus,
-                       "org.freedesktop.systemd1",
-                       "/org/freedesktop/systemd1",
-                       "org.freedesktop.systemd1.Manager",
-                       "Dump",
-                       &error,
-                       &reply,
-                       "");
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "Dump",
+                        &error,
+                        &reply,
+                        NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed issue method call: %s", bus_error_message(&error, r));
 
@@ -1261,17 +1301,17 @@ static int dump(sd_bus *bus, char **args) {
         return 0;
 }
 
-static int set_log_level(sd_bus *bus, char **args) {
+static int set_log_level(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        assert(bus);
-        assert(args);
+        assert(argc == 2);
+        assert(argv);
 
-        if (strv_length(args) != 1) {
-                log_error("This command expects one argument only.");
-                return -E2BIG;
-        }
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
         r = sd_bus_set_property(
                         bus,
@@ -1281,25 +1321,22 @@ static int set_log_level(sd_bus *bus, char **args) {
                         "LogLevel",
                         &error,
                         "s",
-                        args[0]);
+                        argv[1]);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
         return 0;
 }
 
-static int get_log_level(sd_bus *bus, char **args) {
+static int get_log_level(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *level = NULL;
+        int r;
 
-        assert(bus);
-        assert(args);
-
-        if (!strv_isempty(args)) {
-                log_error("Too many arguments.");
-                return -E2BIG;
-        }
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
         r = sd_bus_get_property_string(
                         bus,
@@ -1316,17 +1353,17 @@ static int get_log_level(sd_bus *bus, char **args) {
         return 0;
 }
 
-static int set_log_target(sd_bus *bus, char **args) {
+static int set_log_target(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
-        assert(bus);
-        assert(args);
+        assert(argc == 2);
+        assert(argv);
 
-        if (strv_length(args) != 1) {
-                log_error("This command expects one argument only.");
-                return -E2BIG;
-        }
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
         r = sd_bus_set_property(
                         bus,
@@ -1336,25 +1373,22 @@ static int set_log_target(sd_bus *bus, char **args) {
                         "LogTarget",
                         &error,
                         "s",
-                        args[0]);
+                        argv[1]);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
         return 0;
 }
 
-static int get_log_target(sd_bus *bus, char **args) {
+static int get_log_target(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *target = NULL;
+        int r;
 
-        assert(bus);
-        assert(args);
-
-        if (!strv_isempty(args)) {
-                log_error("Too many arguments.");
-                return -E2BIG;
-        }
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
 
         r = sd_bus_get_property_string(
                         bus,
@@ -1381,12 +1415,12 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
                 printf("    %s\n", syscall);
 }
 
-static int dump_syscall_filters(char** names) {
+static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         bool first = true;
 
         pager_open(arg_no_pager, false);
 
-        if (strv_isempty(names)) {
+        if (strv_isempty(strv_skip(argv, 1))) {
                 int i;
 
                 for (i = 0; i < _SYSCALL_FILTER_SET_MAX; i++) {
@@ -1398,7 +1432,7 @@ static int dump_syscall_filters(char** names) {
         } else {
                 char **name;
 
-                STRV_FOREACH(name, names) {
+                STRV_FOREACH(name, strv_skip(argv, 1)) {
                         const SyscallFilterSet *set;
 
                         if (!first)
@@ -1422,25 +1456,20 @@ static int dump_syscall_filters(char** names) {
 }
 
 #else
-static int dump_syscall_filters(char** names) {
+static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         log_error("Not compiled with syscall filters, sorry.");
         return -EOPNOTSUPP;
 }
 #endif
 
-static int test_calendar(char **args) {
+static int test_calendar(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
         char **p;
         usec_t n;
 
-        if (strv_isempty(args)) {
-                log_error("Expected at least one calendar specification string as argument.");
-                return -EINVAL;
-        }
-
         n = now(CLOCK_REALTIME);
 
-        STRV_FOREACH(p, args) {
+        STRV_FOREACH(p, strv_skip(argv, 1)) {
                 _cleanup_(calendar_spec_freep) CalendarSpec *spec = NULL;
                 _cleanup_free_ char *t = NULL;
                 usec_t next;
@@ -1492,7 +1521,47 @@ static int test_calendar(char **args) {
         return ret;
 }
 
-static void help(void) {
+static int service_watchdogs(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int b, r;
+
+        assert(argc == 2);
+        assert(argv);
+
+        b = parse_boolean(argv[1]);
+        if (b < 0) {
+                log_error("Failed to parse service-watchdogs argument.");
+                return -EINVAL;
+        }
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
+
+        r = sd_bus_set_property(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "ServiceWatchdogs",
+                        &error,
+                        "b",
+                        b);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int do_verify(int argc, char *argv[], void *userdata) {
+        return verify_units(strv_skip(argv, 1),
+                            arg_user ? UNIT_FILE_USER : UNIT_FILE_SYSTEM,
+                            arg_man,
+                            arg_generators);
+}
+
+static int help(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_no_pager, false);
 
@@ -1516,9 +1585,9 @@ static void help(void) {
                "Commands:\n"
                "  time                     Print time spent in the kernel\n"
                "  blame                    Print list of running units ordered by time to init\n"
-               "  critical-chain           Print a tree of the time critical chain of units\n"
+               "  critical-chain [UNIT...] Print a tree of the time critical chain of units\n"
                "  plot                     Output SVG graphic showing service initialization\n"
-               "  dot                      Output dependency graph in man:dot(1) format\n"
+               "  dot [UNIT...]            Output dependency graph in man:dot(1) format\n"
                "  set-log-level LEVEL      Set logging threshold for manager\n"
                "  set-log-target TARGET    Set logging target for manager\n"
                "  get-log-level            Get logging threshold for manager\n"
@@ -1527,11 +1596,14 @@ static void help(void) {
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  verify FILE...           Check unit files for correctness\n"
                "  calendar SPEC...         Validate repetitive calendar time events\n"
+               "  service-watchdogs on/off Enable/disable service watchdogs\n"
                , program_invocation_short_name);
 
         /* When updating this list, including descriptions, apply
          * changes to shell-completion/bash/systemd-analyze and
          * shell-completion/zsh/_systemd-analyze too. */
+
+        return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1576,8 +1648,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help(0, NULL, NULL);
 
                 case ARG_VERSION:
                         return version();
@@ -1669,10 +1740,31 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+
+        static const Verb verbs[] = {
+                { "help",              VERB_ANY, VERB_ANY, 0,            help                   },
+                { "time",              VERB_ANY, 1,        VERB_DEFAULT, analyze_time           },
+                { "blame",             VERB_ANY, 1,        0,            analyze_blame          },
+                { "critical-chain",    VERB_ANY, VERB_ANY, 0,            analyze_critical_chain },
+                { "plot",              VERB_ANY, 1,        0,            analyze_plot           },
+                { "dot",               VERB_ANY, VERB_ANY, 0,            dot                    },
+                { "set-log-level",     2,        2,        0,            set_log_level          },
+                { "get-log-level",     VERB_ANY, 1,        0,            get_log_level          },
+                { "set-log-target",    2,        2,        0,            set_log_target         },
+                { "get-log-target",    VERB_ANY, 1,        0,            get_log_target         },
+                { "dump",              VERB_ANY, 1,        0,            dump                   },
+                { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
+                { "verify",            2,        VERB_ANY, 0,            do_verify              },
+                { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
+                { "service-watchdogs", 2,        2,        0,            service_watchdogs      },
+                {}
+        };
+
         int r;
 
         setlocale(LC_ALL, "");
         setlocale(LC_NUMERIC, "C"); /* we want to format/parse floats in C style */
+
         log_parse_environment();
         log_open();
 
@@ -1680,47 +1772,7 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (streq_ptr(argv[optind], "verify"))
-                r = verify_units(argv+optind+1,
-                                 arg_user ? UNIT_FILE_USER : UNIT_FILE_SYSTEM,
-                                 arg_man,
-                                 arg_generators);
-        else {
-                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-
-                r = bus_connect_transport_systemd(arg_transport, arg_host, arg_user, &bus);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to create bus connection: %m");
-                        goto finish;
-                }
-
-                if (!argv[optind] || streq(argv[optind], "time"))
-                        r = analyze_time(bus);
-                else if (streq(argv[optind], "blame"))
-                        r = analyze_blame(bus);
-                else if (streq(argv[optind], "critical-chain"))
-                        r = analyze_critical_chain(bus, argv+optind+1);
-                else if (streq(argv[optind], "plot"))
-                        r = analyze_plot(bus);
-                else if (streq(argv[optind], "dot"))
-                        r = dot(bus, argv+optind+1);
-                else if (streq(argv[optind], "dump"))
-                        r = dump(bus, argv+optind+1);
-                else if (streq(argv[optind], "set-log-level"))
-                        r = set_log_level(bus, argv+optind+1);
-                else if (streq(argv[optind], "get-log-level"))
-                        r = get_log_level(bus, argv+optind+1);
-                else if (streq(argv[optind], "set-log-target"))
-                        r = set_log_target(bus, argv+optind+1);
-                else if (streq(argv[optind], "get-log-target"))
-                        r = get_log_target(bus, argv+optind+1);
-                else if (streq(argv[optind], "syscall-filter"))
-                        r = dump_syscall_filters(argv+optind+1);
-                else if (streq(argv[optind], "calendar"))
-                        r = test_calendar(argv+optind+1);
-                else
-                        log_error("Unknown operation '%s'.", argv[optind]);
-        }
+        r = dispatch_verb(argc, argv, verbs, NULL);
 
 finish:
         pager_close();

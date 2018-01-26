@@ -38,6 +38,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -49,7 +50,7 @@ static void test_get_process_comm(pid_t pid) {
         struct stat st;
         _cleanup_free_ char *a = NULL, *c = NULL, *d = NULL, *f = NULL, *i = NULL;
         _cleanup_free_ char *env = NULL;
-        char path[strlen("/proc//comm") + DECIMAL_STR_MAX(pid_t)];
+        char path[STRLEN("/proc//comm") + DECIMAL_STR_MAX(pid_t)];
         pid_t e;
         uid_t u;
         gid_t g;
@@ -353,7 +354,7 @@ static void test_get_process_cmdline_harder(void) {
         line = mfree(line);
 
         safe_close(fd);
-        _exit(0);
+        _exit(EXIT_SUCCESS);
 }
 
 static void test_rename_process_now(const char *p, int ret) {
@@ -382,7 +383,7 @@ static void test_rename_process_now(const char *p, int ret) {
         /* we cannot expect cmdline to be renamed properly without privileges */
         if (geteuid() == 0) {
                 log_info("cmdline = <%s>", cmdline);
-                assert_se(strneq(p, cmdline, strlen("test-process-util")));
+                assert_se(strneq(p, cmdline, STRLEN("test-process-util")));
                 assert_se(startswith(p, cmdline));
         } else
                 log_info("cmdline = <%s> (not verified)", cmdline);
@@ -462,7 +463,7 @@ static void test_getpid_cached(void) {
                 c = getpid();
 
                 assert_se(a == b && a == c);
-                _exit(0);
+                _exit(EXIT_SUCCESS);
         }
 
         d = raw_getpid();
@@ -497,6 +498,47 @@ static void test_getpid_measure(void) {
         log_info("getpid_cached(): %llu/s\n", (unsigned long long) (MEASURE_ITERATIONS*USEC_PER_SEC/q));
 }
 
+static void test_safe_fork(void) {
+        siginfo_t status;
+        pid_t pid;
+        int r;
+
+        BLOCK_SIGNALS(SIGCHLD);
+
+        r = safe_fork("(test-child)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NULL_STDIO|FORK_REOPEN_LOG, &pid);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                /* child */
+                usleep(100 * USEC_PER_MSEC);
+
+                _exit(88);
+        }
+
+        assert_se(wait_for_terminate(pid, &status) >= 0);
+        assert_se(status.si_code == CLD_EXITED);
+        assert_se(status.si_status == 88);
+}
+
+static void test_pid_to_ptr(void) {
+
+        assert_se(PTR_TO_PID(NULL) == 0);
+        assert_se(PID_TO_PTR(0) == NULL);
+
+        assert_se(PTR_TO_PID(PID_TO_PTR(1)) == 1);
+        assert_se(PTR_TO_PID(PID_TO_PTR(2)) == 2);
+        assert_se(PTR_TO_PID(PID_TO_PTR(-1)) == -1);
+        assert_se(PTR_TO_PID(PID_TO_PTR(-2)) == -2);
+
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT16_MAX)) == INT16_MAX);
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT16_MIN)) == INT16_MIN);
+
+#if SIZEOF_PID_T >= 4
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT32_MAX)) == INT32_MAX);
+        assert_se(PTR_TO_PID(PID_TO_PTR(INT32_MIN)) == INT32_MIN);
+#endif
+}
+
 int main(int argc, char *argv[]) {
 
         log_set_max_level(LOG_DEBUG);
@@ -523,6 +565,8 @@ int main(int argc, char *argv[]) {
         test_rename_process();
         test_getpid_cached();
         test_getpid_measure();
+        test_safe_fork();
+        test_pid_to_ptr();
 
         return 0;
 }

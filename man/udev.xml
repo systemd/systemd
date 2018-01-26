@@ -465,6 +465,9 @@
             <para>Starting daemons or other long-running processes is not appropriate
             for udev; the forked processes, detached or not, will be unconditionally
             killed after the event handling has finished.</para>
+            <para>Note that running programs that access the network or mount/unmount
+            filesystems is not allowed inside of udev rules, due to the default sandbox
+            that is enforced on <filename>systemd-udevd.service</filename>.</para>
           </listitem>
         </varlistentry>
 

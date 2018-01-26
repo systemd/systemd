@@ -18,14 +18,15 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <errno.h>
 #include <stdio.h>
 #include <sys/stat.h>
 
-#include "crypt-util.h"
-#include "log.h"
-#include "hexdecoct.h"
-#include "string-util.h"
 #include "alloc-util.h"
+#include "crypt-util.h"
+#include "hexdecoct.h"
+#include "log.h"
+#include "string-util.h"
 
 static char *arg_root_hash = NULL;
 static char *arg_data_what = NULL;

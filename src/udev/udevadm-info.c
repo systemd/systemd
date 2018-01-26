@@ -137,14 +137,15 @@ static void print_record(struct udev_device *device) {
 
         str = udev_device_get_devnode(device);
         if (str != NULL)
-                printf("N: %s\n", str + strlen("/dev/"));
+                printf("N: %s\n", str + STRLEN("/dev/"));
 
         i = udev_device_get_devlink_priority(device);
         if (i != 0)
                 printf("L: %i\n", i);
 
         udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(device))
-                printf("S: %s\n", udev_list_entry_get_name(list_entry) + strlen("/dev/"));
+                printf("S: %s\n",
+                       udev_list_entry_get_name(list_entry) + STRLEN("/dev/"));
 
         udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
                 printf("E: %s=%s\n",
@@ -412,7 +413,8 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                         if (root)
                                 printf("%s\n", udev_device_get_devnode(device));
                         else
-                                printf("%s\n", udev_device_get_devnode(device) + strlen("/dev/"));
+                                printf("%s\n",
+                                       udev_device_get_devnode(device) + STRLEN("/dev/"));
                         break;
                 }
                 case QUERY_SYMLINK:
@@ -421,7 +423,8 @@ static int uinfo(struct udev *udev, int argc, char *argv[]) {
                                 if (root)
                                         printf("%s", udev_list_entry_get_name(list_entry));
                                 else
-                                        printf("%s", udev_list_entry_get_name(list_entry) + strlen("/dev/"));
+                                        printf("%s",
+                                               udev_list_entry_get_name(list_entry) + STRLEN("/dev/"));
                                 list_entry = udev_list_entry_get_next(list_entry);
                                 if (list_entry != NULL)
                                         printf(" ");

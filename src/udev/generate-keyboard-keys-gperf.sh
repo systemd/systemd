@@ -1,4 +1,5 @@
-#!/bin/sh -eu
+#!/bin/sh
+set -eu
 awk '   BEGIN {
                 print "%{\n\
 #if __GNUC__ >= 7\n\

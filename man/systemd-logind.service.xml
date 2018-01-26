@@ -100,9 +100,9 @@
     <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the configuration of this service.</para>
 
-    <para>See <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/multiseat">Multi-Seat
-    on Linux</ulink> for an introduction into basic concepts of logind
+    <para>See
+    <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for information about the basic concepts of logind
     such as users, sessions and seats.</para>
 
     <para>See the <ulink
@@ -123,6 +123,7 @@
       <citerefentry><refentrytitle>loginctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd-login</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

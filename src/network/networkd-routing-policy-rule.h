@@ -33,8 +33,10 @@ typedef struct RoutingPolicyRule RoutingPolicyRule;
 typedef struct Network Network;
 typedef struct Link Link;
 typedef struct NetworkConfigSection NetworkConfigSection;
+typedef struct Manager Manager;
 
 struct RoutingPolicyRule {
+        Manager *manager;
         Network *network;
         Link *link;
         NetworkConfigSection *section;

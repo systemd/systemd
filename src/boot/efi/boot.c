@@ -166,7 +166,7 @@ static BOOLEAN line_edit(CHAR16 *line_in, CHAR16 **line_out, UINTN x_max, UINTN 
                 case KEYPRESS(EFI_ALT_PRESSED, 0, 'f'):
                 case KEYPRESS(EFI_CONTROL_PRESSED, SCAN_RIGHT, 0):
                         /* forward-word */
-                        while (line[first + cursor] && line[first + cursor] == ' ')
+                        while (line[first + cursor] == ' ')
                                 cursor_right(&cursor, &first, x_max, len);
                         while (line[first + cursor] && line[first + cursor] != ' ')
                                 cursor_right(&cursor, &first, x_max, len);

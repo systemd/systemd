@@ -182,6 +182,19 @@ bool dns_resource_key_is_address(const DnsResourceKey *key) {
         return key->class == DNS_CLASS_IN && IN_SET(key->type, DNS_TYPE_A, DNS_TYPE_AAAA);
 }
 
+bool dns_resource_key_is_dnssd_ptr(const DnsResourceKey *key) {
+        assert(key);
+
+        /* Check if this is a PTR resource key used in
+           Service Instance Enumeration as described in RFC6763 p4.1. */
+
+        if (key->type != DNS_TYPE_PTR)
+                return false;
+
+        return dns_name_endswith(dns_resource_key_name(key), "_tcp.local") ||
+                dns_name_endswith(dns_resource_key_name(key), "_udp.local");
+}
+
 int dns_resource_key_equal(const DnsResourceKey *a, const DnsResourceKey *b) {
         int r;
 
@@ -504,8 +517,12 @@ DnsResourceRecord* dns_resource_record_unref(DnsResourceRecord *rr) {
 
                 case DNS_TYPE_OPENPGPKEY:
                 default:
-                        free(rr->generic.data);
+                        if (!rr->unparseable)
+                                free(rr->generic.data);
                 }
+
+                if (rr->unparseable)
+                        free(rr->generic.data);
 
                 free(rr->wire_format);
                 dns_resource_key_unref(rr->key);
@@ -753,7 +770,7 @@ static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
         struct tm tm;
 
         assert(buf);
-        assert(l > strlen("YYYYMMDDHHmmSS"));
+        assert(l > STRLEN("YYYYMMDDHHmmSS"));
 
         if (!gmtime_r(&sec, &tm))
                 return -EINVAL;
@@ -1022,7 +1039,7 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
 
         case DNS_TYPE_RRSIG: {
                 _cleanup_free_ char *alg = NULL;
-                char expiration[strlen("YYYYMMDDHHmmSS") + 1], inception[strlen("YYYYMMDDHHmmSS") + 1];
+                char expiration[STRLEN("YYYYMMDDHHmmSS") + 1], inception[STRLEN("YYYYMMDDHHmmSS") + 1];
                 const char *type;
                 int n;
 
@@ -1806,6 +1823,22 @@ DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first) {
         return copy;
 }
 
+int dns_txt_item_new_empty(DnsTxtItem **ret) {
+        DnsTxtItem *i;
+
+        /* RFC 6763, section 6.1 suggests to treat
+         * empty TXT RRs as equivalent to a TXT record
+         * with a single empty string. */
+
+        i = malloc0(offsetof(DnsTxtItem, data) + 1); /* for safety reasons we add an extra NUL byte */
+        if (!i)
+                return -ENOMEM;
+
+        *ret = i;
+
+        return 0;
+}
+
 static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
         /* Mnemonics as listed on https://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml */
         [DNSSEC_ALGORITHM_RSAMD5]             = "RSAMD5",
@@ -1820,6 +1853,8 @@ static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] =
         [DNSSEC_ALGORITHM_ECC_GOST]           = "ECC-GOST",
         [DNSSEC_ALGORITHM_ECDSAP256SHA256]    = "ECDSAP256SHA256",
         [DNSSEC_ALGORITHM_ECDSAP384SHA384]    = "ECDSAP384SHA384",
+        [DNSSEC_ALGORITHM_ED25519]            = "ED25519",
+        [DNSSEC_ALGORITHM_ED448]              = "ED448",
         [DNSSEC_ALGORITHM_INDIRECT]           = "INDIRECT",
         [DNSSEC_ALGORITHM_PRIVATEDNS]         = "PRIVATEDNS",
         [DNSSEC_ALGORITHM_PRIVATEOID]         = "PRIVATEOID",

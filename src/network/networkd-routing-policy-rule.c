@@ -60,10 +60,11 @@ void routing_policy_rule_free(RoutingPolicyRule *rule) {
                         network_config_section_free(rule->section);
                 }
 
-                if (rule->network->manager) {
-                        set_remove(rule->network->manager->rules, rule);
-                        set_remove(rule->network->manager->rules_foreign, rule);
-                }
+        }
+
+        if (rule->manager) {
+                set_remove(rule->manager->rules, rule);
+                set_remove(rule->manager->rules_foreign, rule);
         }
 
         free(rule->iif);
@@ -236,7 +237,8 @@ int routing_policy_rule_make_local(Manager *m, RoutingPolicyRule *rule) {
         return -ENOENT;
 }
 
-static int routing_policy_rule_add_internal(Set **rules,
+static int routing_policy_rule_add_internal(Manager *m,
+                                            Set **rules,
                                             int family,
                                             const union in_addr_union *from,
                                             uint8_t from_prefixlen,
@@ -258,6 +260,7 @@ static int routing_policy_rule_add_internal(Set **rules,
         if (r < 0)
                 return r;
 
+        rule->manager = m;
         rule->family = family;
         rule->from = *from;
         rule->from_prefixlen = from_prefixlen;
@@ -298,7 +301,7 @@ int routing_policy_rule_add(Manager *m,
                             char *oif,
                             RoutingPolicyRule **ret) {
 
-        return routing_policy_rule_add_internal(&m->rules, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, ret);
+        return routing_policy_rule_add_internal(m, &m->rules, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, ret);
 }
 
 int routing_policy_rule_add_foreign(Manager *m,
@@ -313,7 +316,7 @@ int routing_policy_rule_add_foreign(Manager *m,
                                     char *iif,
                                     char *oif,
                                     RoutingPolicyRule **ret) {
-        return routing_policy_rule_add_internal(&m->rules_foreign, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, ret);
+        return routing_policy_rule_add_internal(m, &m->rules_foreign, family, from, from_prefixlen, to, to_prefixlen, tos, fwmark, table, iif, oif, ret);
 }
 
 static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
@@ -324,7 +327,7 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
         assert(link);
         assert(link->ifname);
 
-        link->link_messages--;
+        link->routing_policy_rule_remove_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -438,9 +441,9 @@ int link_routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, vo
         assert(m);
         assert(link);
         assert(link->ifname);
-        assert(link->link_messages > 0);
+        assert(link->routing_policy_rule_messages > 0);
 
-        link->link_messages--;
+        link->routing_policy_rule_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 1;
@@ -449,8 +452,11 @@ int link_routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, vo
         if (r < 0 && r != -EEXIST)
                 log_link_warning_errno(link, r, "Could not add routing policy rule: %m");
 
-        if (link->link_messages == 0)
+        if (link->routing_policy_rule_messages == 0) {
                 log_link_debug(link, "Routing policy rule configured");
+                link->routing_policy_rules_configured = true;
+                link_check_ready(link);
+        }
 
         return 1;
 }
@@ -1057,7 +1063,7 @@ void routing_policy_rule_purge(Manager *m, Link *link) {
                                 continue;
                         }
 
-                        link->link_messages++;
+                        link->routing_policy_rule_remove_messages++;
                 }
         }
 }

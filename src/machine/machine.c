@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio_ext.h>
 
 #include "sd-messages.h"
 
@@ -138,6 +139,7 @@ int machine_save(Machine *m) {
         if (r < 0)
                 goto fail;
 
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
@@ -201,16 +203,16 @@ int machine_save(Machine *m) {
         if (m->n_netif > 0) {
                 unsigned i;
 
-                fputs_unlocked("NETIF=", f);
+                fputs("NETIF=", f);
 
                 for (i = 0; i < m->n_netif; i++) {
                         if (i != 0)
-                                fputc_unlocked(' ', f);
+                                fputc(' ', f);
 
                         fprintf(f, "%i", m->netif[i]);
                 }
 
-                fputc_unlocked('\n', f);
+                fputc('\n', f);
         }
 
         r = fflush_and_check(f);
@@ -608,7 +610,7 @@ void machine_release_unit(Machine *m) {
 }
 
 int machine_get_uid_shift(Machine *m, uid_t *ret) {
-        char p[strlen("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
+        char p[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
         uid_t uid_base, uid_shift, uid_range;
         gid_t gid_base, gid_shift, gid_range;
         _cleanup_fclose_ FILE *f = NULL;

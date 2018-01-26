@@ -36,16 +36,26 @@
 #include "util.h"
 
 union sockaddr_union {
+        /* The minimal, abstract version */
         struct sockaddr sa;
+
+        /* The libc provided version that allocates "enough room" for every protocol */
+        struct sockaddr_storage storage;
+
+        /* Protoctol-specific implementations */
         struct sockaddr_in in;
         struct sockaddr_in6 in6;
         struct sockaddr_un un;
         struct sockaddr_nl nl;
-        struct sockaddr_storage storage;
         struct sockaddr_ll ll;
         struct sockaddr_vm vm;
+
         /* Ensure there is enough space to store Infiniband addresses */
         uint8_t ll_buffer[offsetof(struct sockaddr_ll, sll_addr) + CONST_MAX(ETH_ALEN, INFINIBAND_ALEN)];
+
+        /* Ensure there is enough space after the AF_UNIX sun_path for one more NUL byte, just to be sure that the path
+         * component is always followed by at least one NUL byte. */
+        uint8_t un_buffer[sizeof(struct sockaddr_un) + 1];
 };
 
 typedef struct SocketAddress {
@@ -71,6 +81,9 @@ typedef enum SocketAddressBindIPv6Only {
 } SocketAddressBindIPv6Only;
 
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
+
+const char* socket_address_type_to_string(int t) _const_;
+int socket_address_type_from_string(const char *s) _pure_;
 
 int socket_address_parse(SocketAddress *a, const char *s);
 int socket_address_parse_and_warn(SocketAddress *a, const char *s);
@@ -117,6 +130,7 @@ int getnameinfo_pretty(int fd, char **ret);
 
 const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
+SocketAddressBindIPv6Only parse_socket_address_bind_ipv6_only_or_bool(const char *s);
 
 int netlink_family_to_string_alloc(int b, char **s);
 int netlink_family_from_string(const char *s) _pure_;
@@ -134,6 +148,7 @@ bool address_label_valid(const char *p);
 
 int getpeercred(int fd, struct ucred *ucred);
 int getpeersec(int fd, char **ret);
+int getpeergroups(int fd, gid_t **ret);
 
 int send_one_fd_sa(int transport_fd,
                    int fd,

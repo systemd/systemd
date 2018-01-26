@@ -228,7 +228,6 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                 _cleanup_free_ char *us = NULL, *them = NULL;
                 _cleanup_close_ int netns_fd = -1;
                 const char *p;
-                siginfo_t si;
                 pid_t child;
 
                 r = readlink_malloc("/proc/self/ns/net", &us);
@@ -250,11 +249,10 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return -errno;
 
-                child = fork();
-                if (child < 0)
-                        return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-
-                if (child == 0) {
+                r = safe_fork("(sd-addr)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+                if (r == 0) {
                         _cleanup_free_ struct local_address *addresses = NULL;
                         struct local_address *a;
                         int i, n;
@@ -338,10 +336,10 @@ int bus_machine_method_get_addresses(sd_bus_message *message, void *userdata, sd
                                 return r;
                 }
 
-                r = wait_for_terminate(child, &si);
+                r = wait_for_terminate_and_check("(sd-addr)", child, 0);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
-                if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                if (r != EXIT_SUCCESS)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
                 break;
         }
@@ -380,7 +378,6 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 _cleanup_close_ int mntns_fd = -1, root_fd = -1;
                 _cleanup_close_pair_ int pair[2] = { -1, -1 };
                 _cleanup_fclose_ FILE *f = NULL;
-                siginfo_t si;
                 pid_t child;
 
                 r = namespace_open(m->leader, NULL, &mntns_fd, NULL, NULL, &root_fd);
@@ -390,11 +387,10 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return -errno;
 
-                child = fork();
-                if (child < 0)
-                        return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-
-                if (child == 0) {
+                r = safe_fork("(sd-osrel)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+                if (r == 0) {
                         int fd = -1;
 
                         pair[0] = safe_close(pair[0]);
@@ -431,12 +427,12 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                 if (r < 0)
                         return r;
 
-                r = wait_for_terminate(child, &si);
+                r = wait_for_terminate_and_check("(sd-osrel)", child, 0);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
-                if (si.si_code == CLD_EXITED && si.si_status == EXIT_NOT_FOUND)
+                if (r == EXIT_NOT_FOUND)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Machine does not contain OS release information");
-                if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                if (r != EXIT_SUCCESS)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
 
                 break;
@@ -613,7 +609,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
         sd_bus *container_bus = NULL;
         _cleanup_close_ int master = -1, slave = -1;
-        _cleanup_strv_free_ char **env = NULL, **args = NULL;
+        _cleanup_strv_free_ char **env = NULL, **args_wire = NULL, **args = NULL;
         Machine *m = userdata;
         const char *p, *unit, *user, *path, *description, *utmp_id;
         int r;
@@ -625,22 +621,41 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
         user = empty_to_null(user);
-        if (isempty(path))
-                path = "/bin/sh";
-        if (!path_is_absolute(path))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
-
-        r = sd_bus_message_read_strv(message, &args);
+        r = sd_bus_message_read_strv(message, &args_wire);
         if (r < 0)
                 return r;
-        if (strv_isempty(args)) {
-                args = strv_free(args);
+        if (isempty(path)) {
+                path = "/bin/sh";
 
-                args = strv_new(path, NULL);
+                args = new0(char*, 3 + 1);
                 if (!args)
                         return -ENOMEM;
+                args[0] = strdup("sh");
+                if (!args[0])
+                        return -ENOMEM;
+                args[1] = strdup("-c");
+                if (!args[1])
+                        return -ENOMEM;
+                r = asprintf(&args[2],
+                             "shell=$(getent passwd %s 2>/dev/null | { IFS=: read _ _ _ _ _ _ x; echo \"$x\"; })\n"\
+                             "exec \"${shell:-/bin/sh}\" -l", /* -l is means --login */
+                             isempty(user) ? "root" : user);
+                if (r < 0) {
+                        args[2] = NULL;
+                        return -ENOMEM;
+                }
+        } else {
+                if (!path_is_absolute(path))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
+                args = args_wire;
+                args_wire = NULL;
+                if (strv_isempty(args)) {
+                        args = strv_free(args);
 
-                args[0][0] = '-'; /* Tell /bin/sh that this shall be a login shell */
+                        args = strv_new(path, NULL);
+                        if (!args)
+                                return -ENOMEM;
+                }
         }
 
         r = sd_bus_message_read_strv(message, &env);
@@ -842,7 +857,6 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         const char *dest, *src;
         Machine *m = userdata;
         struct stat st;
-        siginfo_t si;
         pid_t child;
         uid_t uid;
         int r;
@@ -931,7 +945,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         /* Second, we mount the source file or directory to a directory inside of our MS_SLAVE playground. */
         mount_tmp = strjoina(mount_slave, "/mount");
         if (S_ISDIR(st.st_mode))
-                r = mkdir(mount_tmp, 0700) < 0 ? -errno : 0;
+                r = mkdir_errno_wrapper(mount_tmp, 0700);
         else
                 r = touch(mount_tmp);
         if (r < 0) {
@@ -997,13 +1011,12 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
                 goto finish;
         }
 
-        child = fork();
-        if (child < 0) {
-                r = sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
+        r = safe_fork("(sd-bindmnt)", FORK_RESET_SIGNALS, &child);
+        if (r < 0) {
+                sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
                 goto finish;
         }
-
-        if (child == 0) {
+        if (r == 0) {
                 const char *mount_inside;
                 int mntfd;
                 const char *q;
@@ -1049,17 +1062,12 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = wait_for_terminate(child, &si);
+        r = wait_for_terminate_and_check("(sd-bindmnt)", child, 0);
         if (r < 0) {
                 r = sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
                 goto finish;
         }
-        if (si.si_code != CLD_EXITED) {
-                r = sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
-                goto finish;
-        }
-        if (si.si_status != EXIT_SUCCESS) {
-
+        if (r != EXIT_SUCCESS) {
                 if (read(errno_pipe_fd[0], &r, sizeof(r)) == sizeof(r))
                         r = sd_bus_error_set_errnof(error, r, "Failed to mount: %m");
                 else
@@ -1172,11 +1180,10 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        child = fork();
-        if (child < 0)
-                return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-
-        if (child == 0) {
+        r = safe_fork("(sd-copy)", FORK_RESET_SIGNALS, &child);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+        if (r == 0) {
                 int containerfd;
                 const char *q;
                 int mntfd;
@@ -1272,7 +1279,6 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
         case MACHINE_CONTAINER: {
                 _cleanup_close_ int mntns_fd = -1, root_fd = -1;
                 _cleanup_close_pair_ int pair[2] = { -1, -1 };
-                siginfo_t si;
                 pid_t child;
 
                 r = namespace_open(m->leader, NULL, &mntns_fd, NULL, NULL, &root_fd);
@@ -1282,11 +1288,10 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
                 if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                         return -errno;
 
-                child = fork();
-                if (child < 0)
-                        return sd_bus_error_set_errnof(error, errno, "Failed to fork(): %m");
-
-                if (child == 0) {
+                r = safe_fork("(sd-openroot)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &child);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
+                if (r == 0) {
                         _cleanup_close_ int dfd = -1;
 
                         pair[0] = safe_close(pair[0]);
@@ -1309,10 +1314,10 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
 
                 pair[1] = safe_close(pair[1]);
 
-                r = wait_for_terminate(child, &si);
+                r = wait_for_terminate_and_check("(sd-openroot)", child, 0);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to wait for child: %m");
-                if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
+                if (r != EXIT_SUCCESS)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Child died abnormally.");
 
                 fd = receive_one_fd(pair[0], MSG_DONTWAIT);

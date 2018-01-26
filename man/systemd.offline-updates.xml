@@ -82,7 +82,7 @@
         <citerefentry><refentrytitle>systemd-system-update-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         checks whether <filename>/system-update</filename> exists. If so, it (temporarily and for
         this boot only) redirects (i.e. symlinks) <filename>default.target</filename> to
-        <filename>system-update.target</filename>, a special target that is pulls in the base system
+        <filename>system-update.target</filename>, a special target that pulls in the base system
         (i.e. <filename>sysinit.target</filename>, so that all file systems are mounted but little
         else) and the system update units.</para>
       </listitem>

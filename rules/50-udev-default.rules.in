@@ -78,7 +78,8 @@ KERNEL=="tun", MODE="0666", OPTIONS+="static_node=net/tun"
 
 KERNEL=="fuse", MODE="0666", OPTIONS+="static_node=fuse"
 
-KERNEL=="kvm", GROUP="kvm", MODE="@DEV_KVM_MODE@"
+# The static_node is required on s390x and ppc (they are using MODULE_ALIAS)
+KERNEL=="kvm", GROUP="kvm", MODE="@DEV_KVM_MODE@", OPTIONS+="static_node=kvm"
 
 SUBSYSTEM=="ptp", ATTR{clock_name}=="KVM virtual PTP", SYMLINK += "ptp_kvm"
 

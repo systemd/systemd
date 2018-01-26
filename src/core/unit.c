@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -628,6 +629,9 @@ void unit_free(Unit *u) {
 
         if (u->in_cgroup_empty_queue)
                 LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
+
+        if (u->on_console)
+                manager_unref_console(u->manager);
 
         unit_release_cgroup(u);
 
@@ -2304,6 +2308,23 @@ finish:
 
 }
 
+static void unit_update_on_console(Unit *u) {
+        bool b;
+
+        assert(u);
+
+        b = unit_needs_console(u);
+        if (u->on_console == b)
+                return;
+
+        u->on_console = b;
+        if (b)
+                manager_ref_console(u->manager);
+        else
+                manager_unref_console(u->manager);
+
+}
+
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
         Manager *m;
         bool unexpected;
@@ -2344,24 +2365,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 unit_unlink_state_files(u);
         }
 
-        /* Note that this doesn't apply to RemainAfterExit services exiting
-         * successfully, since there's no change of state in that case. Which is
-         * why it is handled in service_set_state() */
-        if (UNIT_IS_INACTIVE_OR_FAILED(os) != UNIT_IS_INACTIVE_OR_FAILED(ns)) {
-                ExecContext *ec;
-
-                ec = unit_get_exec_context(u);
-                if (ec && exec_context_may_touch_console(ec)) {
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
-                                m->n_on_console--;
-
-                                if (m->n_on_console == 0)
-                                        /* unset no_console_output flag, since the console is free */
-                                        m->no_console_output = false;
-                        } else
-                                m->n_on_console++;
-                }
-        }
+        unit_update_on_console(u);
 
         if (u->job) {
                 unexpected = false;
@@ -2533,44 +2537,97 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 }
 
 int unit_watch_pid(Unit *u, pid_t pid) {
-        int q, r;
+        int r;
 
         assert(u);
-        assert(pid >= 1);
+        assert(pid_is_valid(pid));
 
-        /* Watch a specific PID. We only support one or two units
-         * watching each PID for now, not more. */
+        /* Watch a specific PID */
 
         r = set_ensure_allocated(&u->pids, NULL);
         if (r < 0)
                 return r;
 
-        r = hashmap_ensure_allocated(&u->manager->watch_pids1, NULL);
+        r = hashmap_ensure_allocated(&u->manager->watch_pids, NULL);
         if (r < 0)
                 return r;
 
-        r = hashmap_put(u->manager->watch_pids1, PID_TO_PTR(pid), u);
-        if (r == -EEXIST) {
-                r = hashmap_ensure_allocated(&u->manager->watch_pids2, NULL);
-                if (r < 0)
-                        return r;
+        /* First try, let's add the unit keyed by "pid". */
+        r = hashmap_put(u->manager->watch_pids, PID_TO_PTR(pid), u);
+        if (r == -EEXIST)  {
+                Unit **array;
+                bool found = false;
+                size_t n = 0;
 
-                r = hashmap_put(u->manager->watch_pids2, PID_TO_PTR(pid), u);
-        }
+                /* OK, the "pid" key is already assigned to a different unit. Let's see if the "-pid" key (which points
+                 * to an array of Units rather than just a Unit), lists us already. */
 
-        q = set_put(u->pids, PID_TO_PTR(pid));
-        if (q < 0)
-                return q;
+                array = hashmap_get(u->manager->watch_pids, PID_TO_PTR(-pid));
+                if (array)
+                        for (; array[n]; n++)
+                                if (array[n] == u)
+                                        found = true;
 
-        return r;
+                if (found) /* Found it already? if so, do nothing */
+                        r = 0;
+                else {
+                        Unit **new_array;
+
+                        /* Allocate a new array */
+                        new_array = new(Unit*, n + 2);
+                        if (!new_array)
+                                return -ENOMEM;
+
+                        memcpy_safe(new_array, array, sizeof(Unit*) * n);
+                        new_array[n] = u;
+                        new_array[n+1] = NULL;
+
+                        /* Add or replace the old array */
+                        r = hashmap_replace(u->manager->watch_pids, PID_TO_PTR(-pid), new_array);
+                        if (r < 0) {
+                                free(new_array);
+                                return r;
+                        }
+
+                        free(array);
+                }
+        } else if (r < 0)
+                return r;
+
+        r = set_put(u->pids, PID_TO_PTR(pid));
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 void unit_unwatch_pid(Unit *u, pid_t pid) {
-        assert(u);
-        assert(pid >= 1);
+        Unit **array;
 
-        (void) hashmap_remove_value(u->manager->watch_pids1, PID_TO_PTR(pid), u);
-        (void) hashmap_remove_value(u->manager->watch_pids2, PID_TO_PTR(pid), u);
+        assert(u);
+        assert(pid_is_valid(pid));
+
+        /* First let's drop the unit in case it's keyed as "pid". */
+        (void) hashmap_remove_value(u->manager->watch_pids, PID_TO_PTR(pid), u);
+
+        /* Then, let's also drop the unit, in case it's in the array keyed by -pid */
+        array = hashmap_get(u->manager->watch_pids, PID_TO_PTR(-pid));
+        if (array) {
+                size_t n, m = 0;
+
+                /* Let's iterate through the array, dropping our own entry */
+                for (n = 0; array[n]; n++)
+                        if (array[n] != u)
+                                array[m++] = array[n];
+                array[m] = NULL;
+
+                if (m == 0) {
+                        /* The array is now empty, remove the entire entry */
+                        assert(hashmap_remove(u->manager->watch_pids, PID_TO_PTR(-pid)) == array);
+                        free(array);
+                }
+        }
+
         (void) set_remove(u->pids, PID_TO_PTR(pid));
 }
 
@@ -3041,7 +3098,7 @@ int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
                          "member='NameOwnerChanged',"
                          "arg0='", name, "'");
 
-        return sd_bus_add_match(bus, &u->match_bus_slot, match, signal_name_owner_changed, u);
+        return sd_bus_add_match_async(bus, &u->match_bus_slot, match, signal_name_owner_changed, NULL, u);
 }
 
 int unit_watch_bus_name(Unit *u, const char *name) {
@@ -4704,25 +4761,29 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
                    NULL);
 }
 
-int unit_fail_if_symlink(Unit *u, const char* where) {
+int unit_fail_if_noncanonical(Unit *u, const char* where) {
+        _cleanup_free_ char *canonical_where;
         int r;
 
         assert(u);
         assert(where);
 
-        r = is_symlink(where);
+        r = chase_symlinks(where, NULL, CHASE_NONEXISTENT, &canonical_where);
         if (r < 0) {
-                log_unit_debug_errno(u, r, "Failed to check symlink %s, ignoring: %m", where);
+                log_unit_debug_errno(u, r, "Failed to check %s for symlinks, ignoring: %m", where);
                 return 0;
         }
-        if (r == 0)
+
+        /* We will happily ignore a trailing slash (or any redundant slashes) */
+        if (path_equal(where, canonical_where))
                 return 0;
 
+        /* No need to mention "." or "..", they would already have been rejected by unit_name_from_path() */
         log_struct(LOG_ERR,
                    "MESSAGE_ID=" SD_MESSAGE_OVERMOUNTING_STR,
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
-                   LOG_UNIT_MESSAGE(u, "Mount on symlink %s not allowed.", where),
+                   LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
                    "WHERE=%s", where,
                    NULL);
 
@@ -4968,8 +5029,7 @@ void unit_set_exec_params(Unit *u, ExecParameters *p) {
         SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, UNIT_CGROUP_BOOL(u, delegate));
 }
 
-int unit_fork_helper_process(Unit *u, pid_t *ret) {
-        pid_t pid;
+int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {
         int r;
 
         assert(u);
@@ -4980,32 +5040,24 @@ int unit_fork_helper_process(Unit *u, pid_t *ret) {
 
         (void) unit_realize_cgroup(u);
 
-        pid = fork();
-        if (pid < 0)
-                return -errno;
+        r = safe_fork(name, FORK_REOPEN_LOG, ret);
+        if (r != 0)
+                return r;
 
-        if (pid == 0) {
+        (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
+        (void) ignore_signals(SIGPIPE, -1);
 
-                (void) default_signals(SIGNALS_CRASH_HANDLER, SIGNALS_IGNORE, -1);
-                (void) ignore_signals(SIGPIPE, -1);
+        (void) prctl(PR_SET_PDEATHSIG, SIGTERM);
 
-                log_close();
-                log_open();
-
-                if (u->cgroup_path) {
-                        r = cg_attach_everywhere(u->manager->cgroup_supported, u->cgroup_path, 0, NULL, NULL);
-                        if (r < 0) {
-                                log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", u->cgroup_path);
-                                _exit(EXIT_CGROUP);
-                        }
+        if (u->cgroup_path) {
+                r = cg_attach_everywhere(u->manager->cgroup_supported, u->cgroup_path, 0, NULL, NULL);
+                if (r < 0) {
+                        log_unit_error_errno(u, r, "Failed to join unit cgroup %s: %m", u->cgroup_path);
+                        _exit(EXIT_CGROUP);
                 }
-
-                *ret = getpid_cached();
-                return 0;
         }
 
-        *ret = pid;
-        return 1;
+        return 0;
 }
 
 static void unit_update_dependency_mask(Unit *u, UnitDependency d, Unit *other, UnitDependencyInfo di) {
@@ -5299,6 +5351,28 @@ void unit_warn_leftover_processes(Unit *u) {
                 return;
 
         (void) cg_kill_recursive(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, 0, 0, NULL, log_leftover, u);
+}
+
+bool unit_needs_console(Unit *u) {
+        ExecContext *ec;
+        UnitActiveState state;
+
+        assert(u);
+
+        state = unit_active_state(u);
+
+        if (UNIT_IS_INACTIVE_OR_FAILED(state))
+                return false;
+
+        if (UNIT_VTABLE(u)->needs_console)
+                return UNIT_VTABLE(u)->needs_console(u);
+
+        /* If this unit type doesn't implement this call, let's use a generic fallback implementation: */
+        ec = unit_get_exec_context(u);
+        if (!ec)
+                return false;
+
+        return exec_context_may_touch_console(ec);
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {

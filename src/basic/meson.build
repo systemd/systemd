@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-basic_sources_plain = files('''
+basic_sources = files('''
         MurmurHash2.c
         MurmurHash2.h
         af-list.c
@@ -35,6 +35,8 @@ basic_sources_plain = files('''
         bitmap.c
         bitmap.h
         blkid-util.h
+        blockdev-util.c
+        blockdev-util.h
         bpf-program.c
         bpf-program.h
         btrfs-ctree.h
@@ -148,6 +150,8 @@ basic_sources_plain = files('''
         proc-cmdline.h
         process-util.c
         process-util.h
+        procfs-util.c
+        procfs-util.h
         random-util.c
         random-util.h
         ratelimit.c
@@ -176,6 +180,8 @@ basic_sources_plain = files('''
         smack-util.c
         smack-util.h
         socket-label.c
+        socket-protocol-list.c
+        socket-protocol-list.h
         socket-util.c
         socket-util.h
         sparse-endian.h
@@ -201,10 +207,10 @@ basic_sources_plain = files('''
         time-util.h
         umask-util.h
         unaligned.h
-        unit-name.c
-        unit-name.h
         unit-def.c
         unit-def.h
+        unit-name.c
+        unit-name.h
         user-util.c
         user-util.h
         utf8.c
@@ -255,11 +261,19 @@ errno_list_txt = custom_target(
         command : [generate_errno_list, cpp],
         capture : true)
 
+generate_socket_protocol_list = find_program('generate-socket-protocol-list.sh')
+socket_protocol_list_txt = custom_target(
+        'socket-protocol-list.txt',
+        output : 'socket-protocol-list.txt',
+        command : [generate_socket_protocol_list, cpp],
+        capture : true)
+
 generated_gperf_headers = []
 foreach item : [['af',     af_list_txt,     'af',         ''],
                 ['arphrd', arphrd_list_txt, 'arphrd',     'ARPHRD_'],
                 ['cap',    cap_list_txt,    'capability', ''],
-                ['errno',  errno_list_txt,  'errno',      '']]
+                ['errno',  errno_list_txt,  'errno',      ''],
+                ['socket-protocol', socket_protocol_list_txt, 'socket_protocol',     'IPPROTO_']]
 
         fname = '@0@-from-name.gperf'.format(item[0])
         gperf_file = custom_target(
@@ -294,7 +308,7 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
         generated_gperf_headers += [target1, target2]
 endforeach
 
-basic_sources = basic_sources_plain + [missing_h] + generated_gperf_headers
+basic_sources += [missing_h] + generated_gperf_headers
 
 libbasic = static_library(
         'basic',
@@ -303,6 +317,16 @@ libbasic = static_library(
         dependencies : [threads,
                         libcap,
                         libblkid,
-                        libselinux,
-                       ],
+                        libselinux],
+        c_args : ['-fvisibility=default'],
         install : false)
+
+# A convenience library that is separate from libbasic to avoid
+# unnecessary linking to libgcrypt.
+libbasic_gcrypt = static_library(
+        'basic-gcrypt',
+        'gcrypt-util.c',
+        'gcrypt-util.h',
+        include_directories : includes,
+        dependencies : [libgcrypt],
+        c_args : ['-fvisibility=default'])

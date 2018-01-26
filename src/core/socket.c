@@ -53,6 +53,7 @@
 #include "signal-util.h"
 #include "smack-util.h"
 #include "socket.h"
+#include "socket-protocol-list.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -655,7 +656,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         SocketExecCommand c;
         Socket *s = SOCKET(u);
         SocketPort *p;
-        const char *prefix2;
+        const char *prefix2, *str;
 
         assert(s);
         assert(f);
@@ -680,7 +681,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTCPCongestion: %s\n"
                 "%sRemoveOnStop: %s\n"
                 "%sWritable: %s\n"
-                "%sFDName: %s\n"
+                "%sFileDescriptorName: %s\n"
                 "%sSELinuxContextFromNet: %s\n",
                 prefix, socket_state_to_string(s->state),
                 prefix, socket_result_to_string(s->result),
@@ -715,10 +716,12 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%sAccepted: %u\n"
                         "%sNConnections: %u\n"
-                        "%sMaxConnections: %u\n",
+                        "%sMaxConnections: %u\n"
+                        "%sMaxConnectionsPerSource: %u\n",
                         prefix, s->n_accepted,
                         prefix, s->n_connections,
-                        prefix, s->max_connections);
+                        prefix, s->max_connections,
+                        prefix, s->max_connections_per_source);
 
         if (s->priority >= 0)
                 fprintf(f,
@@ -842,6 +845,24 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sTriggerLimitBurst: %u\n",
                 prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->trigger_limit.interval, USEC_PER_SEC),
                 prefix, s->trigger_limit.burst);
+
+        str = socket_protocol_to_name(s->socket_protocol);
+        if (str)
+                fprintf(f, "%sSocketProtocol: %s\n", prefix, str);
+
+        if (!strv_isempty(s->symlinks)) {
+                char **q;
+
+                fprintf(f, "%sSymlinks:", prefix);
+                STRV_FOREACH(q, s->symlinks)
+                        fprintf(f, " %s", *q);
+
+                fprintf(f, "\n");
+        }
+
+        fprintf(f,
+                "%sTimeoutSec: %s\n",
+                prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->timeout_usec, USEC_PER_SEC));
 
         exec_context_dump(&s->exec_context, f, prefix);
         kill_context_dump(&s->kill_context, f, prefix);
@@ -1506,7 +1527,7 @@ static int socket_address_listen_in_cgroup(
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "Failed to create communication channel: %m");
 
-        r = unit_fork_helper_process(UNIT(s), &pid);
+        r = unit_fork_helper_process(UNIT(s), "(sd-listen)", &pid);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to fork off listener stub process: %m");
         if (r == 0) {
@@ -1533,7 +1554,7 @@ static int socket_address_listen_in_cgroup(
         fd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_warn("listen-cgroup-helper", pid, false);
+        r = wait_for_terminate_and_check("(sd-listen)", pid, WAIT_LOG_ABNORMAL);
         if (r < 0) {
                 safe_close(fd);
                 return r;
@@ -1923,7 +1944,7 @@ static int socket_chown(Socket *s, pid_t *_pid) {
         /* We have to resolve the user names out-of-process, hence
          * let's fork here. It's messy, but well, what can we do? */
 
-        r = unit_fork_helper_process(UNIT(s), &pid);
+        r = unit_fork_helper_process(UNIT(s), "(sd-chown)", &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -2780,6 +2801,23 @@ const char* socket_port_type_to_string(SocketPort *p) {
         }
 }
 
+SocketType socket_port_type_from_string(const char *s) {
+        assert(s);
+
+        if (STR_IN_SET(s, "Stream", "Datagram", "SequentialPacket", "Netlink"))
+                return SOCKET_SOCKET;
+        else if (streq(s, "Special"))
+                return SOCKET_SPECIAL;
+        else if (streq(s, "MessageQueue"))
+                return SOCKET_MQUEUE;
+        else if (streq(s, "FIFO"))
+                return SOCKET_FIFO;
+        else if (streq(s, "USBFunction"))
+                return SOCKET_USB_FUNCTION;
+        else
+                return _SOCKET_TYPE_INVALID;
+}
+
 _pure_ static bool socket_check_gc(Unit *u) {
         Socket *s = SOCKET(u);
 
@@ -2833,7 +2871,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "Failed to create communication channel: %m");
 
-        r = unit_fork_helper_process(UNIT(s), &pid);
+        r = unit_fork_helper_process(UNIT(s), "(sd-accept)", &pid);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to fork off accept stub process: %m");
         if (r == 0) {
@@ -2860,7 +2898,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         cfd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_warn("accept-cgroup-helper", pid, false);
+        r = wait_for_terminate_and_check("(sd-accept)", pid, WAIT_LOG_ABNORMAL);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
@@ -3212,10 +3250,7 @@ char *socket_fdname(Socket *s) {
          * didn't specify anything specifically, use the socket unit's
          * name as fallback. */
 
-        if (s->fdname)
-                return s->fdname;
-
-        return UNIT(s)->id;
+        return s->fdname ?: UNIT(s)->id;
 }
 
 static int socket_control_pid(Unit *u) {
@@ -3227,11 +3262,11 @@ static int socket_control_pid(Unit *u) {
 }
 
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
-        [SOCKET_EXEC_START_PRE] = "StartPre",
-        [SOCKET_EXEC_START_CHOWN] = "StartChown",
-        [SOCKET_EXEC_START_POST] = "StartPost",
-        [SOCKET_EXEC_STOP_PRE] = "StopPre",
-        [SOCKET_EXEC_STOP_POST] = "StopPost"
+        [SOCKET_EXEC_START_PRE] = "ExecStartPre",
+        [SOCKET_EXEC_START_CHOWN] = "ExecStartChown",
+        [SOCKET_EXEC_START_POST] = "ExecStartPost",
+        [SOCKET_EXEC_STOP_PRE] = "ExecStopPre",
+        [SOCKET_EXEC_STOP_POST] = "ExecStopPost"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
@@ -3263,6 +3298,8 @@ const UnitVTable socket_vtable = {
                 "Socket\0"
                 "Install\0",
         .private_section = "Socket",
+
+        .can_transient = true,
 
         .init = socket_init,
         .done = socket_done,
