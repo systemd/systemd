@@ -92,6 +92,9 @@ static bool link_ipv4ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
+        if (streq_ptr(link->kind, "wireguard"))
+                return false;
+
         return link->network->link_local & ADDRESS_FAMILY_IPV4;
 }
 
@@ -105,6 +108,9 @@ static bool link_ipv6ll_enabled(Link *link) {
                 return false;
 
         if (!link->network)
+                return false;
+
+        if (streq_ptr(link->kind, "wireguard"))
                 return false;
 
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
