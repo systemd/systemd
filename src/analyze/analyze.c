@@ -1353,6 +1353,10 @@ static int get_log_level(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int get_or_set_log_level(int argc, char *argv[], void *userdata) {
+        return (argc == 1) ? get_log_level(argc, argv, userdata) : set_log_level(argc, argv, userdata);
+}
+
 static int set_log_target(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1403,6 +1407,10 @@ static int get_log_target(int argc, char *argv[], void *userdata) {
 
         puts(target);
         return 0;
+}
+
+static int get_or_set_log_target(int argc, char *argv[], void *userdata) {
+        return (argc == 1) ? get_log_target(argc, argv, userdata) : set_log_target(argc, argv, userdata);
 }
 
 #if HAVE_SECCOMP
@@ -1526,18 +1534,38 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int b, r;
 
-        assert(argc == 2);
+        assert(IN_SET(argc, 1, 2));
         assert(argv);
 
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
+
+        /* get ServiceWatchdogs */
+        if (argc == 1) {
+                r = sd_bus_get_property_trivial(
+                                bus,
+                                "org.freedesktop.systemd1",
+                                "/org/freedesktop/systemd1",
+                                "org.freedesktop.systemd1.Manager",
+                                "ServiceWatchdogs",
+                                &error,
+                                'b',
+                                &b);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get service-watchdog state: %s", bus_error_message(&error, r));
+
+                printf("%s\n", yes_no(!!b));
+
+                return 0;
+        }
+
+        /* set ServiceWatchdogs */
         b = parse_boolean(argv[1]);
         if (b < 0) {
                 log_error("Failed to parse service-watchdogs argument.");
                 return -EINVAL;
         }
-
-        r = acquire_bus(false, &bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create bus connection: %m");
 
         r = sd_bus_set_property(
                         bus,
@@ -1549,7 +1577,7 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
                         "b",
                         b);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set service-watchdog state: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -1588,15 +1616,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "  critical-chain [UNIT...] Print a tree of the time critical chain of units\n"
                "  plot                     Output SVG graphic showing service initialization\n"
                "  dot [UNIT...]            Output dependency graph in man:dot(1) format\n"
-               "  set-log-level LEVEL      Set logging threshold for manager\n"
-               "  set-log-target TARGET    Set logging target for manager\n"
-               "  get-log-level            Get logging threshold for manager\n"
-               "  get-log-target           Get logging target for manager\n"
+               "  log-level [LEVEL]        Get/set logging threshold for manager\n"
+               "  log-target [TARGET]      Get/set logging target for manager\n"
                "  dump                     Output state serialization of service manager\n"
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  verify FILE...           Check unit files for correctness\n"
                "  calendar SPEC...         Validate repetitive calendar time events\n"
-               "  service-watchdogs on/off Enable/disable service watchdogs\n"
+               "  service-watchdogs [BOOL] Get/set service watchdog state\n"
                , program_invocation_short_name);
 
         /* When updating this list, including descriptions, apply
@@ -1748,6 +1774,9 @@ int main(int argc, char *argv[]) {
                 { "critical-chain",    VERB_ANY, VERB_ANY, 0,            analyze_critical_chain },
                 { "plot",              VERB_ANY, 1,        0,            analyze_plot           },
                 { "dot",               VERB_ANY, VERB_ANY, 0,            dot                    },
+                { "log-level",         VERB_ANY, 2,        0,            get_or_set_log_level   },
+                { "log-target",        VERB_ANY, 2,        0,            get_or_set_log_target  },
+                /* The following four verbs are deprecated aliases */
                 { "set-log-level",     2,        2,        0,            set_log_level          },
                 { "get-log-level",     VERB_ANY, 1,        0,            get_log_level          },
                 { "set-log-target",    2,        2,        0,            set_log_target         },
@@ -1756,7 +1785,7 @@ int main(int argc, char *argv[]) {
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
-                { "service-watchdogs", 2,        2,        0,            service_watchdogs      },
+                { "service-watchdogs", VERB_ANY, 2,        0,            service_watchdogs      },
                 {}
         };
 
