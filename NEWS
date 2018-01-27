@@ -138,25 +138,27 @@ CHANGES WITH 237 in spe:
           the same.
 
         Contributions from: Adam Duskett, Alan Jenkins, Alexander Kuleshov,
-        Alexis Deruelle, Armin Widegreen, bleep_blop, Bruce A. Johnson, Chris
-        Down, Colin Walters, Dimitri John Ledkov, Dmitry Rozhkov, Ewout van
-        Mansom, Felipe Sateler, Franck Bui, Frantisek Sumsal, George Gaydarov,
-        Gianluca Boiano, Hans-Christian Noren Egtvedt, Hans de Goede, Henrik
-        Grindal Bakken, Jan Alexander Steffens, Jan Klötzke, jdkbx, Jérémy
-        Rosen, Jerónimo Borque, John Lin, John Paul Herold, Jonathan Rudenberg,
-        Jörg Thalheim, Ken (Bitsko) MacLeod, Larry Bernstone, Lennart
-        Poettering, Lucas Werkmeister, Maciej S. Szmigiero, Marek Čermák,
-        Martin Pitt, Mathieu Malaterre, Matthew Thode, Matthias-Christian Ott,
-        Max Harmathy, Michael Biebl, Michal Koutný, Michal Sekletar, Michał
-        Szczepański, Mike Gilbert, Nathaniel McCallum, Olaf Hering, Olivier
-        Schwander, Patrik Flykt, Paul Cercueil, Peter Hutterer, Piotr Drąg,
-        Reverend Homer, Robert Kolchmeyer, Samuel Dionne-Riel, Sergey
-        Ptashnick, Shawn Landden, Susant Sahani, Sylvain Plantefève, Thomas
-        Huth, Tomasz Bachorski, Vladislav Vishnyakov, Wieland Hoffmann, Yu
-        Watanabe, Zachary Winnerman, Zbigniew Jędrzejewski-Szmek, Дамјан
-        Георгиевски, Дилян Палаузов, Jason A. Donenfeld
+        Alexis Deruelle, Andrew Jeddeloh, Armin Widegreen, Björn Esser,
+        bleep_blop, Bruce A. Johnson, Chris Down, Clinton Roy, Colin Walters,
+        Daniel Rusek, Dimitri John Ledkov, Dmitry Rozhkov, Evgeny Vereshchagin,
+        Ewout van Mansom, Felipe Sateler, Franck Bui, Frantisek Sumsal, George
+        Gaydarov, Gianluca Boiano, Hans-Christian Noren Egtvedt, Hans de Goede,
+        Henrik Grindal Bakken, Jan Alexander Steffens, Jan Klötzke, Jason
+        A. Donenfeld, jdkbx, Jérémy Rosen, Jerónimo Borque, John Lin, John Paul
+        Herold, Jonathan Rudenberg, Jörg Thalheim, Ken (Bitsko) MacLeod, Larry
+        Bernstone, Lennart Poettering, Lucas Werkmeister, Maciej S. Szmigiero,
+        Marek Čermák, Martin Pitt, Mathieu Malaterre, Matthew Thode,
+        Matthias-Christian Ott, Max Harmathy, Michael Biebl, Michael Vogt,
+        Michal Koutný, Michal Sekletar, Michał Szczepański, Mike Gilbert,
+        Nathaniel McCallum, Nicolas Chauvet, Olaf Hering, Olivier Schwander,
+        Patrik Flykt, Paul Cercueil, Peter Hutterer, Piotr Drąg, Raphael
+        Vogelgsang, Reverend Homer, Robert Kolchmeyer, Samuel Dionne-Riel,
+        Sergey Ptashnick, Shawn Landden, Susant Sahani, Sylvain Plantefève,
+        Thomas Huth, Tomasz Bachorski, Vladislav Vishnyakov, Wieland Hoffmann,
+        Yu Watanabe, Zachary Winnerman, Zbigniew Jędrzejewski-Szmek, Дамјан
+        Георгиевски, Дилян Палаузов
 
-        — Berlin, 2018-XX-XX
+        — Brno, 2018-01-27
 
 CHANGES WITH 236:
 
