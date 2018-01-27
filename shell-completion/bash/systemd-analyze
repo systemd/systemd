@@ -42,11 +42,11 @@ _systemd_analyze() {
         )
 
         local -A VERBS=(
-                [STANDALONE]='time blame plot dump get-log-level get-log-target calendar'
+                [STANDALONE]='time blame plot dump calendar'
                 [CRITICAL_CHAIN]='critical-chain'
                 [DOT]='dot'
-                [LOG_LEVEL]='set-log-level'
-                [LOG_TARGET]='set-log-target'
+                [LOG_LEVEL]='log-level'
+                [LOG_TARGET]='log-target'
                 [VERIFY]='verify'
                 [SECCOMP_FILTER]='syscall-filter'
                 [SERVICE_WATCHDOGS]='service-watchdogs'
