@@ -570,12 +570,6 @@ static int dir_cleanup(
                         continue;
                 }
 
-                /* Do not delete read-only files owned by root */
-                if (s.st_uid == 0 && !(s.st_mode & S_IWUSR)) {
-                        log_debug("Ignoring \"%s/%s\": read-only and owner by root.", p, dent->d_name);
-                        continue;
-                }
-
                 sub_path = strjoin(p, "/", dent->d_name);
                 if (!sub_path) {
                         r = log_oom();
