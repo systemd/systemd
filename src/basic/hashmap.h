@@ -53,6 +53,8 @@ typedef struct Hashmap Hashmap;               /* Maps keys to values */
 typedef struct OrderedHashmap OrderedHashmap; /* Like Hashmap, but also remembers entry insertion order */
 typedef struct Set Set;                       /* Stores just keys */
 
+typedef struct IteratedCache IteratedCache;   /* Caches the iterated order of one of the above */
+
 /* Ideally the Iterator would be an opaque struct, but it is instantiated
  * by hashmap users, so the definition has to be here. Do not use its fields
  * directly. */
@@ -126,6 +128,9 @@ static inline OrderedHashmap *ordered_hashmap_free_free_free(OrderedHashmap *h) 
         return (void*)hashmap_free_free_free(PLAIN_HASHMAP(h));
 }
 
+IteratedCache *iterated_cache_free(IteratedCache *cache);
+int iterated_cache_get(IteratedCache *cache, const void ***res_keys, const void ***res_values, unsigned *res_n_entries);
+
 HashmapBase *internal_hashmap_copy(HashmapBase *h);
 static inline Hashmap *hashmap_copy(Hashmap *h) {
         return (Hashmap*) internal_hashmap_copy(HASHMAP_BASE(h));
@@ -138,6 +143,14 @@ int internal_hashmap_ensure_allocated(Hashmap **h, const struct hash_ops *hash_o
 int internal_ordered_hashmap_ensure_allocated(OrderedHashmap **h, const struct hash_ops *hash_ops  HASHMAP_DEBUG_PARAMS);
 #define hashmap_ensure_allocated(h, ops) internal_hashmap_ensure_allocated(h, ops  HASHMAP_DEBUG_SRC_ARGS)
 #define ordered_hashmap_ensure_allocated(h, ops) internal_ordered_hashmap_ensure_allocated(h, ops  HASHMAP_DEBUG_SRC_ARGS)
+
+IteratedCache *internal_hashmap_iterated_cache_new(HashmapBase *h);
+static inline IteratedCache *hashmap_iterated_cache_new(Hashmap *h) {
+        return (IteratedCache*) internal_hashmap_iterated_cache_new(HASHMAP_BASE(h));
+}
+static inline IteratedCache *ordered_hashmap_iterated_cache_new(OrderedHashmap *h) {
+        return (IteratedCache*) internal_hashmap_iterated_cache_new(HASHMAP_BASE(h));
+}
 
 int hashmap_put(Hashmap *h, const void *key, void *value);
 static inline int ordered_hashmap_put(OrderedHashmap *h, const void *key, void *value) {
@@ -394,3 +407,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free_free_free);
 #define _cleanup_ordered_hashmap_free_ _cleanup_(ordered_hashmap_freep)
 #define _cleanup_ordered_hashmap_free_free_ _cleanup_(ordered_hashmap_free_freep)
 #define _cleanup_ordered_hashmap_free_free_free_ _cleanup_(ordered_hashmap_free_free_freep)
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(IteratedCache*, iterated_cache_free);
+
+#define _cleanup_iterated_cache_free_ _cleanup_(iterated_cache_freep)
