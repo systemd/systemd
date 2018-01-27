@@ -2516,6 +2516,7 @@ int main(int argc, char *argv[]) {
         for (;;) {
                 while (arg_lines < 0 || n_shown < arg_lines || (arg_follow && !first_line)) {
                         int flags;
+                        size_t highlight[2] = {};
 
                         if (need_seek) {
                                 if (!arg_reverse)
@@ -2574,6 +2575,7 @@ int main(int argc, char *argv[]) {
                                 _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
                                 const void *message;
                                 size_t len;
+                                PCRE2_SIZE *ovec;
 
                                 md = pcre2_match_data_create(1, NULL);
                                 if (!md)
@@ -2613,6 +2615,10 @@ int main(int argc, char *argv[]) {
                                         r = -EINVAL;
                                         goto finish;
                                 }
+
+                                ovec = pcre2_get_ovector_pointer(md);
+                                highlight[0] = ovec[0];
+                                highlight[1] = ovec[1];
                         }
 #endif
 
@@ -2624,7 +2630,8 @@ int main(int argc, char *argv[]) {
                                 arg_utc * OUTPUT_UTC |
                                 arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
-                        r = output_journal(stdout, j, arg_output, 0, flags, arg_output_fields, &ellipsized);
+                        r = output_journal(stdout, j, arg_output, 0, flags,
+                                           arg_output_fields, highlight, &ellipsized);
                         need_seek = true;
                         if (r == -EADDRNOTAVAIL)
                                 break;

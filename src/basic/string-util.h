@@ -177,7 +177,7 @@ char* strshorten(char *s, size_t l);
 
 char *strreplace(const char *text, const char *old_string, const char *new_string);
 
-char *strip_tab_ansi(char **p, size_t *l);
+char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]);
 
 char *strextend_with_separator(char **x, const char *separator, ...) _sentinel_;
 
