@@ -1,0 +1,2 @@
+# it is not allowed to create groups implicitely in the uid:gid syntax
+u u1 100:100 -

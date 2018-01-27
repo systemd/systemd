@@ -191,7 +191,10 @@ u      root   0               "Superuser"           /root</programlisting>
       in the file system. In this case, the UID/GID is read from the
       path's owner/group. This is useful to create users whose UID/GID
       match the owners of pre-existing files (such as SUID or SGID
-      binaries).</para>
+      binaries).
+      The syntax <literal><replaceable>uid</replaceable>:<replaceable>gid</replaceable></literal> is also supported to
+      allow creating user and group pairs with different numeric UID and GID values. The group with the indicated GID must get created explicitly before or it must already exist.
+      </para>
 
       <para>For <varname>m</varname> lines, this field should contain
       the group name to add to a user to.</para>
