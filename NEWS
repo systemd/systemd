@@ -131,11 +131,19 @@ CHANGES WITH 237 in spe:
           user/UID to use for notification messages sent to the service
           manager.
 
-        * There's now a "systemd-analyze service-watchdogs" command for turning
-          on or off the per-service watchdogs system-wide (i.e. the concept you
-          configure in WatchdogSec=), for debugging purposes. There's also a
-          kernel command line option systemd.service_watchdogs= for controlling
-          the same.
+        * There's now a "systemd-analyze service-watchdogs" command for printing
+          the current state of the service runtime watchdog, and optionally 
+          enabling or disabling the per-service watchdogs system-wide if given a
+          boolean argument (i.e. the concept you configure in WatchdogSec=), for 
+          debugging purposes. There's also a kernel command line option 
+          systemd.service_watchdogs= for controlling the same.
+         
+        * Two new "log-level" and "log-target" options for systemd-analyze were 
+          addded that merge the now deprecated get-log-level, set-log-level and 
+          get-log-target, set-log-target pairs. The deprecated options are still 
+          understood for backwards compatibility. The two new options print the 
+          current value when no arguments are given, and set them when a 
+          level/target is given as an argument.
 
         Contributions from: Adam Duskett, Alan Jenkins, Alexander Kuleshov,
         Alexis Deruelle, Andrew Jeddeloh, Armin Widegreen, Björn Esser,
