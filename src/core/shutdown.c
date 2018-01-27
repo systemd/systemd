@@ -284,6 +284,7 @@ int main(int argc, char *argv[]) {
         /* journald will die if not gone yet. The log target defaults
          * to console, but may have been changed by command line options. */
 
+        log_set_prohibit_ipc(true);
         log_open();
 
         umask(0022);
