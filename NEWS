@@ -75,7 +75,7 @@ CHANGES WITH 237 in spe:
           described above. Synthesizing of this message has to be requested
           explicitly through the new API call sd_bus_set_connected_signal(). In
           addition a new call sd_bus_is_ready() has been added that checks
-          wether a connection is fully set up (i.e. between the "Connected" and
+          whether a connection is fully set up (i.e. between the "Connected" and
           "Disconnected" signals).
 
         * sd-bus gained two new calls sd_bus_request_name_async() and
