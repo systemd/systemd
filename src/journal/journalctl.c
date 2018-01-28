@@ -334,7 +334,7 @@ static void help(void) {
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
                "  -p --priority=RANGE        Show entries with the specified priority\n"
-               "  -g --grep=PATTERN          Show entries with MESSSAGE matching PATTERN\n"
+               "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
                "     --case-sensitive[=BOOL] Force case sensitive or insenstive matching\n"
                "  -e --pager-end             Immediately jump to the end in the pager\n"
                "  -f --follow                Follow the journal\n"
