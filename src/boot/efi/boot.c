@@ -68,7 +68,9 @@ typedef struct {
         CHAR16 *entry_default_pattern;
         CHAR16 *entry_oneshot;
         CHAR16 *options_edit;
-        BOOLEAN no_editor;
+        BOOLEAN editor;
+        BOOLEAN auto_entries;
+        BOOLEAN auto_firmware;
 } Config;
 
 static VOID cursor_left(UINTN *cursor, UINTN *first) {
@@ -392,7 +394,9 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"OsIndicationsSupported: %d\n", (UINT64)*b);
                 FreePool(b);
         }
-        Print(L"\n");
+
+        Print(L"\n--- press key ---\n\n");
+        console_key_read(&key, TRUE);
 
         Print(L"timeout:                %d\n", config->timeout_sec);
         if (config->timeout_sec_efivar >= 0)
@@ -400,7 +404,9 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"timeout (config):       %d\n", config->timeout_sec_config);
         if (config->entry_default_pattern)
                 Print(L"default pattern:        '%s'\n", config->entry_default_pattern);
-        Print(L"editor:                 %s\n", yes_no(!config->no_editor));
+        Print(L"editor:                 %s\n", yes_no(config->editor));
+        Print(L"auto-entries:           %s\n", yes_no(config->auto_entries));
+        Print(L"auto-firmware:          %s\n", yes_no(config->auto_firmware));
         Print(L"\n");
 
         Print(L"config entry count:     %d\n", config->entry_count);
@@ -774,7 +780,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
 
                 case KEYPRESS(0, 0, 'e'):
                         /* only the options of configured entries can be edited */
-                        if (config->no_editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
+                        if (!config->editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
                                 break;
                         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_max-1);
@@ -1006,7 +1012,23 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
 
                         if (EFI_ERROR(parse_boolean(value, &on)))
                                 continue;
-                        config->no_editor = !on;
+                        config->editor = on;
+                }
+
+                if (strcmpa((CHAR8 *)"auto-entries", key) == 0) {
+                        BOOLEAN on;
+
+                        if (EFI_ERROR(parse_boolean(value, &on)))
+                                continue;
+                        config->auto_entries = on;
+                }
+
+                if (strcmpa((CHAR8 *)"auto-firmware", key) == 0) {
+                        BOOLEAN on;
+
+                        if (EFI_ERROR(parse_boolean(value, &on)))
+                                continue;
+                        config->auto_firmware = on;
                 }
         }
 }
@@ -1143,6 +1165,10 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         CHAR8 *content = NULL;
         UINTN sec;
         EFI_STATUS err;
+
+        config->editor = TRUE;
+        config->auto_entries = TRUE;
+        config->auto_firmware = TRUE;
 
         err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
         if (!EFI_ERROR(err))
@@ -1428,6 +1454,9 @@ static BOOLEAN config_entry_add_loader_auto(Config *config, EFI_HANDLE *device, 
         ConfigEntry *entry;
         EFI_STATUS err;
 
+        if (!config->auto_entries)
+                return FALSE;
+
         /* do not add an entry for ourselves */
         if (loaded_image_path && StriCmp(loader, loaded_image_path) == 0)
                 return FALSE;
@@ -1452,6 +1481,9 @@ static VOID config_entry_add_osx(Config *config) {
         EFI_STATUS err;
         UINTN handle_count = 0;
         EFI_HANDLE *handles = NULL;
+
+        if (!config->auto_entries)
+                return;
 
         err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &handle_count, &handles);
         if (!EFI_ERROR(err)) {
@@ -1761,7 +1793,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                                      L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\Boot\\boot" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_osx(&config);
 
-        if (efivar_get_raw(&global_guid, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
+        if (config.auto_firmware && efivar_get_raw(&global_guid, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
                 UINT64 osind = (UINT64)*b;
 
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
