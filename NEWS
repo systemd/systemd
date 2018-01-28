@@ -142,7 +142,7 @@ CHANGES WITH 237:
           user/UID to use for notification messages sent to the service
           manager.
 
-        * journalctl gained a new --grep option to list only entries in which
+        * journalctl gained a new --grep= option to list only entries in which
           the message matches a certain pattern. By default matching is case
           insensitive if the pattern is lowercase, and case sensitive
           otherwise. Option --case-sensitive=yes|no can be used to override
