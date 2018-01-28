@@ -131,6 +131,12 @@ CHANGES WITH 237 in spe:
           user/UID to use for notification messages sent to the service
           manager.
 
+        * journalctl gained a new --grep option to list only entries in which
+          the message matches a certain pattern. By default matching is case
+          insensitive if the pattern is lowercase, and case sensitive
+          otherwise. Option --case-sensitive=yes|no can be used to override
+          this an specify case sensitivity or case insensitivity.
+
         * There's now a "systemd-analyze service-watchdogs" command for printing
           the current state of the service runtime watchdog, and optionally
           enabling or disabling the per-service watchdogs system-wide if given a
