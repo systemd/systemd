@@ -132,41 +132,46 @@ CHANGES WITH 237 in spe:
           manager.
 
         * There's now a "systemd-analyze service-watchdogs" command for printing
-          the current state of the service runtime watchdog, and optionally 
+          the current state of the service runtime watchdog, and optionally
           enabling or disabling the per-service watchdogs system-wide if given a
-          boolean argument (i.e. the concept you configure in WatchdogSec=), for 
-          debugging purposes. There's also a kernel command line option 
+          boolean argument (i.e. the concept you configure in WatchdogSec=), for
+          debugging purposes. There's also a kernel command line option
           systemd.service_watchdogs= for controlling the same.
-         
-        * Two new "log-level" and "log-target" options for systemd-analyze were 
-          addded that merge the now deprecated get-log-level, set-log-level and 
-          get-log-target, set-log-target pairs. The deprecated options are still 
-          understood for backwards compatibility. The two new options print the 
-          current value when no arguments are given, and set them when a 
+
+        * Two new "log-level" and "log-target" options for systemd-analyze were
+          addded that merge the now deprecated get-log-level, set-log-level and
+          get-log-target, set-log-target pairs. The deprecated options are still
+          understood for backwards compatibility. The two new options print the
+          current value when no arguments are given, and set them when a
           level/target is given as an argument.
 
-        Contributions from: Adam Duskett, Alan Jenkins, Alexander Kuleshov,
-        Alexis Deruelle, Andrew Jeddeloh, Armin Widegreen, Björn Esser,
-        bleep_blop, Bruce A. Johnson, Chris Down, Clinton Roy, Colin Walters,
-        Daniel Rusek, Dimitri John Ledkov, Dmitry Rozhkov, Evgeny Vereshchagin,
-        Ewout van Mansom, Felipe Sateler, Franck Bui, Frantisek Sumsal, George
-        Gaydarov, Gianluca Boiano, Hans-Christian Noren Egtvedt, Hans de Goede,
-        Henrik Grindal Bakken, Jan Alexander Steffens, Jan Klötzke, Jason
-        A. Donenfeld, jdkbx, Jérémy Rosen, Jerónimo Borque, John Lin, John Paul
-        Herold, Jonathan Rudenberg, Jörg Thalheim, Ken (Bitsko) MacLeod, Larry
-        Bernstone, Lennart Poettering, Lucas Werkmeister, Maciej S. Szmigiero,
-        Marek Čermák, Martin Pitt, Mathieu Malaterre, Matthew Thode,
-        Matthias-Christian Ott, Max Harmathy, Michael Biebl, Michael Vogt,
-        Michal Koutný, Michal Sekletar, Michał Szczepański, Mike Gilbert,
-        Nathaniel McCallum, Nicolas Chauvet, Olaf Hering, Olivier Schwander,
-        Patrik Flykt, Paul Cercueil, Peter Hutterer, Piotr Drąg, Raphael
-        Vogelgsang, Reverend Homer, Robert Kolchmeyer, Samuel Dionne-Riel,
-        Sergey Ptashnick, Shawn Landden, Susant Sahani, Sylvain Plantefève,
-        Thomas Huth, Tomasz Bachorski, Vladislav Vishnyakov, Wieland Hoffmann,
-        Yu Watanabe, Zachary Winnerman, Zbigniew Jędrzejewski-Szmek, Дамјан
-        Георгиевски, Дилян Палаузов
+        * sysusers.d's "u" lines now optionally accept both a UID and a GID
+          specification, separated by a ":" character, in order to create users
+          where UID and GID do not match.
 
-        — Brno, 2018-01-27
+        Contributions from: Adam Duskett, Alan Jenkins, Alexander Kuleshov,
+        Alexis Deruelle, Andrew Jeddeloh, Armin Widegreen, Batuhan Osman
+        Taşkaya, Björn Esser, bleep_blop, Bruce A. Johnson, Chris Down, Clinton
+        Roy, Colin Walters, Daniel Rusek, Dimitri John Ledkov, Dmitry Rozhkov,
+        Evgeny Vereshchagin, Ewout van Mansom, Felipe Sateler, Franck Bui,
+        Frantisek Sumsal, George Gaydarov, Gianluca Boiano, Hans-Christian
+        Noren Egtvedt, Hans de Goede, Henrik Grindal Bakken, Jan Alexander
+        Steffens, Jan Klötzke, Jason A. Donenfeld, jdkbx, Jérémy Rosen,
+        Jerónimo Borque, John Lin, John Paul Herold, Jonathan Rudenberg, Jörg
+        Thalheim, Ken (Bitsko) MacLeod, Larry Bernstone, Lennart Poettering,
+        Lucas Werkmeister, Maciej S. Szmigiero, Marek Čermák, Martin Pitt,
+        Mathieu Malaterre, Matthew Thode, Matthias-Christian Ott, Max Harmathy,
+        Michael Biebl, Michael Vogt, Michal Koutný, Michal Sekletar, Michał
+        Szczepański, Mike Gilbert, Nathaniel McCallum, Nicolas Chauvet, Olaf
+        Hering, Olivier Schwander, Patrik Flykt, Paul Cercueil, Peter Hutterer,
+        Piotr Drąg, Raphael Vogelgsang, Reverend Homer, Robert Kolchmeyer,
+        Samuel Dionne-Riel, Sergey Ptashnick, Shawn Landden, Susant Sahani,
+        Sylvain Plantefève, Thomas H. P. Andersen, Thomas Huth, Tomasz
+        Bachorski, Vladislav Vishnyakov, Wieland Hoffmann, Yu Watanabe, Zachary
+        Winnerman, Zbigniew Jędrzejewski-Szmek, Дамјан Георгиевски, Дилян
+        Палаузов
+
+        — Brno, 2018-01-28
 
 CHANGES WITH 236:
 
