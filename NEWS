@@ -37,13 +37,13 @@ CHANGES WITH 237:
           chroot() environment was detected, and this new environment variable
           now provides explicit control.
 
-        * .path and .socket units may now be created transiently,
-          too. Previously only service, mount, automount and timer units were
+        * .path and .socket units may now be created transiently, too.
+          Previously only service, mount, automount and timer units were
           supported as transient units. The systemd-run tool has been updated
           to expose this new functionality, you may hence use it now to bind
           arbitrary commands to path or socket activation on-the-fly from the
-          command line. Moreover, for the unit types already supporting
-          transient operation most properties are now hooked up.
+          command line. Moreover, almost all properties are now exposed for the
+          unit types that already supported transient operation.
 
         * The systemd-mount command gained support for a new --owner= parameter
           which takes a user name, which is then resolved and included in uid=
