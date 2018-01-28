@@ -83,35 +83,34 @@ static bool prohibit_ipc = false;
  * use here. */
 static char *log_abort_msg = NULL;
 
-void log_close_console(void) {
+static void log_close_console(void) {
 
         if (console_fd < 0)
                 return;
 
-        if (getpid_cached() == 1) {
-                if (console_fd >= 3)
-                        safe_close(console_fd);
+        if (console_fd >= 3)
+                safe_close(console_fd);
 
-                console_fd = -1;
-        }
+        console_fd = -1;
 }
 
 static int log_open_console(void) {
 
-        if (console_fd >= 0)
+        if (!always_reopen_console) {
+                console_fd = STDERR_FILENO;
                 return 0;
+        }
 
-        if (always_reopen_console) {
+        if (console_fd < 3) {
                 console_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
                 if (console_fd < 0)
                         return console_fd;
-        } else
-                console_fd = STDERR_FILENO;
+        }
 
         return 0;
 }
 
-void log_close_kmsg(void) {
+static void log_close_kmsg(void) {
         kmsg_fd = safe_close(kmsg_fd);
 }
 
@@ -127,7 +126,7 @@ static int log_open_kmsg(void) {
         return 0;
 }
 
-void log_close_syslog(void) {
+static void log_close_syslog(void) {
         syslog_fd = safe_close(syslog_fd);
 }
 
@@ -199,7 +198,7 @@ fail:
         return r;
 }
 
-void log_close_journal(void) {
+static void log_close_journal(void) {
         journal_fd = safe_close(journal_fd);
 }
 
@@ -241,7 +240,8 @@ int log_open(void) {
         /* If we don't use the console we close it here, to not get
          * killed by SAK. If we don't use syslog we close it here so
          * that we are not confused by somebody deleting the socket in
-         * the fs. If we don't use /dev/kmsg we still keep it open,
+         * the fs, and to make sure we don't use it if prohibit_ipc is
+         * set. If we don't use /dev/kmsg we still keep it open,
          * because there is no reason to close it. */
 
         if (log_target == LOG_TARGET_NULL) {

@@ -3543,14 +3543,13 @@ void manager_recheck_journal(Manager *m) {
 
                 /* The journal is fully and entirely up? If so, let's permit logging to it, if that's configured. */
                 log_set_prohibit_ipc(false);
-                log_open();
         } else {
 
                 /* If the journal is down, don't ever log to it, otherwise we might end up deadlocking ourselves as we
                  * might trigger an activation ourselves we can't fulfill */
                 log_set_prohibit_ipc(true);
-                log_close_journal();
         }
+        log_open();
 }
 
 void manager_set_show_status(Manager *m, ShowStatus mode) {

@@ -2392,7 +2392,6 @@ int main(int argc, char *argv[]) {
                 /* Running inside a container, as PID 1 */
                 arg_system = true;
                 log_set_target(LOG_TARGET_CONSOLE);
-                log_close_console(); /* force reopen of /dev/console */
                 log_open();
 
                 /* For later on, see above... */
