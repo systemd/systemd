@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 237 in spe:
+CHANGES WITH 237:
 
         * Some keyboards come with a zoom see-saw or rocker which until now got
           mapped to the Linux "zoomin/out" keys in hwdb. However, these
@@ -18,6 +18,17 @@ CHANGES WITH 237 in spe:
           says: lines of this type only have an effect if the indicated files
           don't exist yet, and only then the argument string is written to the
           file.
+
+        * FUTURE INCOMPATIBILITY: In systemd v238 we intend to slightly change
+          systemd-tmpfiles behaviour: previously, read-only files owned by root
+          were always excluded from the file "aging" algorithm (i.e. the
+          automatic clean-up of directories like /tmp based on
+          atime/mtime/ctime). We intend to drop this restriction, and age files
+          by default even when owned by root and read-only. This behaviour was
+          inherited from older tools, but there have been requests to remove
+          it, and it's not obvious why this restriction was made in the first
+          place. Please speak up now, if you are aware of software that reqires
+          this behaviour, otherwise we'll remove the restriction in v238.
 
         * A new environment variable $SYSTEMD_OFFLINE is now understood by
           systemctl. It takes a boolean argument. If on, systemctl assumes it
