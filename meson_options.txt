@@ -260,6 +260,8 @@ option('lz4', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'lz4 compression support')
 option('xkbcommon', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'xkbcommon keymap support')
+option('pcre2', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'regexp matching support using pcre2')
 option('glib', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libglib support (for tests only)')
 option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],

@@ -140,6 +140,12 @@
 #define _IDN_FEATURE_ "-IDN"
 #endif
 
+#if HAVE_PCRE2
+#define _PCRE2_FEATURE_ "+PCRE2"
+#else
+#define _PCRE2_FEATURE_ "-PCRE2"
+#endif
+
 #define _CGROUP_HIEARCHY_ "default-hierarchy=" DEFAULT_HIERARCHY_NAME
 
 #define SYSTEMD_FEATURES                                                \
@@ -163,4 +169,5 @@
         _KMOD_FEATURE_ " "                                              \
         _IDN2_FEATURE_ " "                                              \
         _IDN_FEATURE_ " "                                               \
+        _PCRE2_FEATURE_ " "                                             \
         _CGROUP_HIEARCHY_

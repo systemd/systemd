@@ -30,6 +30,7 @@
 #include "gunicode.h"
 #include "macro.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "utf8.h"
 #include "util.h"
 
@@ -648,7 +649,17 @@ char *strreplace(const char *text, const char *old_string, const char *new_strin
         return ret;
 }
 
-char *strip_tab_ansi(char **ibuf, size_t *_isz) {
+static void advance_offsets(ssize_t diff, size_t offsets[2], size_t shift[2], size_t size) {
+        if (!offsets)
+                return;
+
+        if ((size_t) diff < offsets[0])
+                shift[0] += size;
+        if ((size_t) diff < offsets[1])
+                shift[1] += size;
+}
+
+char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         const char *i, *begin = NULL;
         enum {
                 STATE_OTHER,
@@ -656,7 +667,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz) {
                 STATE_BRACKET
         } state = STATE_OTHER;
         char *obuf = NULL;
-        size_t osz = 0, isz;
+        size_t osz = 0, isz, shift[2] = {};
         FILE *f;
 
         assert(ibuf);
@@ -684,15 +695,18 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz) {
                                 break;
                         else if (*i == '\x1B')
                                 state = STATE_ESCAPE;
-                        else if (*i == '\t')
+                        else if (*i == '\t') {
                                 fputs("        ", f);
-                        else
+                                advance_offsets(i - *ibuf, highlight, shift, 7);
+                        } else
                                 fputc(*i, f);
+
                         break;
 
                 case STATE_ESCAPE:
                         if (i >= *ibuf + isz) { /* EOT */
                                 fputc('\x1B', f);
+                                advance_offsets(i - *ibuf, highlight, shift, 1);
                                 break;
                         } else if (*i == '[') {
                                 state = STATE_BRACKET;
@@ -700,6 +714,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz) {
                         } else {
                                 fputc('\x1B', f);
                                 fputc(*i, f);
+                                advance_offsets(i - *ibuf, highlight, shift, 1);
                                 state = STATE_OTHER;
                         }
 
@@ -711,6 +726,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz) {
                             (!(*i >= '0' && *i <= '9') && !IN_SET(*i, ';', 'm'))) {
                                 fputc('\x1B', f);
                                 fputc('[', f);
+                                advance_offsets(i - *ibuf, highlight, shift, 2);
                                 state = STATE_OTHER;
                                 i = begin-1;
                         } else if (*i == 'm')
@@ -731,6 +747,11 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz) {
 
         if (_isz)
                 *_isz = osz;
+
+        if (highlight) {
+                highlight[0] += shift[0];
+                highlight[1] += shift[1];
+        }
 
         return obuf;
 }

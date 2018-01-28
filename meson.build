@@ -1104,6 +1104,17 @@ else
 endif
 conf.set10('HAVE_XKBCOMMON', have)
 
+want_pcre2 = get_option('pcre2')
+if want_pcre2 != 'false'
+        libpcre2 = dependency('libpcre2-8',
+                              required : want_pcre2 == 'true')
+        have = libpcre2.found()
+else
+        have = false
+        libpcre2 = []
+endif
+conf.set10('HAVE_PCRE2', have)
+
 want_glib = get_option('glib')
 if want_glib != 'false' and not fuzzer_build
         libglib =    dependency('glib-2.0',
@@ -1465,7 +1476,8 @@ exe = executable('journalctl',
                  dependencies : [threads,
                                  libqrencode,
                                  libxz,
-                                 liblz4],
+                                 liblz4,
+                                 libpcre2],
                  install_rpath : rootlibexecdir,
                  install : true,
                  install_dir : rootbindir)
@@ -2817,6 +2829,7 @@ foreach tuple : [
         ['gnu-efi',          have_gnu_efi],
         ['kmod'],
         ['xkbcommon'],
+        ['pcre2'],
         ['blkid'],
         ['dbus'],
         ['glib'],
