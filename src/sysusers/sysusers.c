@@ -74,6 +74,7 @@ typedef struct Item {
 } Item;
 
 static char *arg_root = NULL;
+static bool arg_inline = false;
 
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("sysusers.d");
 
@@ -1718,6 +1719,7 @@ static void help(void) {
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
+               "     --inline               Treat arguments as configuration lines\n"
                , program_invocation_short_name);
 }
 
@@ -1726,12 +1728,14 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_ROOT,
+                ARG_INLINE,
         };
 
         static const struct option options[] = {
                 { "help",    no_argument,       NULL, 'h'         },
                 { "version", no_argument,       NULL, ARG_VERSION },
                 { "root",    required_argument, NULL, ARG_ROOT    },
+                { "inline",  no_argument,       NULL, ARG_INLINE  },
                 {}
         };
 
@@ -1755,6 +1759,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_path_argument_and_warn(optarg, true, &arg_root);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_INLINE:
+                        arg_inline = true;
                         break;
 
                 case '?':
@@ -1795,9 +1803,13 @@ int main(int argc, char *argv[]) {
                 int j;
 
                 for (j = optind; j < argc; j++) {
-                        k = read_config_file(argv[j], false);
-                        if (k < 0 && r == 0)
-                                r = k;
+                        if (arg_inline)
+                                /* Use (argument):n, where n==1 for the first positional arg */
+                                r = parse_line("(argument)", j - optind + 1, argv[j]);
+                        else
+                                r = read_config_file(argv[j], false);
+                        if (r < 0)
+                                goto finish;
                 }
         } else {
                 _cleanup_strv_free_ char **files = NULL;
