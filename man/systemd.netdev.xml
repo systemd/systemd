@@ -1025,7 +1025,7 @@
           <para>The Base64 encoded private key for the interface. It can be
             generated using the <command>wg genkey</command> command
             (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
-            This option is mandatory to use wireguard.</para>
+            This option is mandatory to use WireGuard.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1040,7 +1040,7 @@
       <varlistentry>
         <term><varname>FwMark=</varname></term>
         <listitem>
-          <para>Sets a firewall mark on outgoing wireguard packets from this interface.</para>
+          <para>Sets a firewall mark on outgoing WireGuard packets from this interface.</para>
         </listitem>
       </varlistentry>
     </variablelist>
