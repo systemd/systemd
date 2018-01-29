@@ -63,28 +63,11 @@ static int link_get_type_string(unsigned short iftype, sd_device *d, char **ret)
         assert(ret);
 
         if (d) {
-                const char *devtype = NULL, *id = NULL;
+                const char *devtype = NULL;
 
                 (void) sd_device_get_devtype(d, &devtype);
-
-                /* WLANs have iftype ARPHRD_ETHER, but we want
-                 * to show a more useful type string for
-                 * them */
-                if (iftype == ARPHRD_ETHER) {
-                        if (streq_ptr(devtype, "wlan"))
-                                id = "wlan";
-                        else if (streq_ptr(devtype, "wwan"))
-                                id = "wwan";
-                }
-
-                /* Likewise, WireGuard has iftype ARPHRD_NONE,
-                 * since it's layer 3, but we of course want
-                 * something more useful than that. */
-                if (iftype == ARPHRD_NONE && streq_ptr(devtype, "wireguard"))
-                        id = "wireguard";
-
-                if (id) {
-                        p = strdup(id);
+                if (!isempty(devtype)) {
+                        p = strdup(devtype);
                         if (!p)
                                 return -ENOMEM;
 
