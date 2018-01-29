@@ -56,7 +56,7 @@ static bool arg_no_pager = false;
 static bool arg_legend = true;
 static bool arg_all = false;
 
-static int link_get_type_string(unsigned short iftype, sd_device *d, char **ret) {
+static void link_get_type_string(unsigned short iftype, sd_device *d, char **ret) {
         const char *t;
         char *p;
 
@@ -69,27 +69,25 @@ static int link_get_type_string(unsigned short iftype, sd_device *d, char **ret)
                 if (!isempty(devtype)) {
                         p = strdup(devtype);
                         if (!p)
-                                return -ENOMEM;
+                                return;
 
                         *ret = p;
-                        return 1;
+                        return;
                 }
         }
 
         t = arphrd_to_name(iftype);
         if (!t) {
                 *ret = NULL;
-                return 0;
+                return;
         }
 
         p = strdup(t);
         if (!p)
-                return -ENOMEM;
+                return;
 
         ascii_strlower(p);
         *ret = p;
-
-        return 0;
 }
 
 static void operational_state_to_color(const char *state, const char **on, const char **off) {
@@ -314,7 +312,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 xsprintf(devid, "n%i", links[i].ifindex);
                 (void) sd_device_new_from_device_id(&d, devid);
 
-                (void) link_get_type_string(links[i].iftype, d, &t);
+                link_get_type_string(links[i].iftype, d, &t);
 
                 printf("%3i %-16s %-18s %s%-11s%s %s%-10s%s\n",
                        links[i].ifindex, links[i].name, strna(t),
@@ -807,7 +805,7 @@ static int link_status_one(
                         (void) sd_device_get_property_value(d, "ID_MODEL", &model);
         }
 
-        (void) link_get_type_string(info->iftype, d, &t);
+        link_get_type_string(info->iftype, d, &t);
 
         (void) sd_network_link_get_network_file(info->ifindex, &network);
 
