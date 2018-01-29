@@ -1025,7 +1025,10 @@
           <para>The Base64 encoded private key for the interface. It can be
             generated using the <command>wg genkey</command> command
             (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
-            This option is mandatory to use WireGuard.</para>
+            This option is mandatory to use WireGuard.
+            Note that because this information is secret, you may want to set
+            the permissions of the .netdev file to be owned by <literal>root:systemd-networkd</literal>
+            with a <literal>0640</literal> file mode.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1070,7 +1073,10 @@
             by the <command>wg genpsk</command> command. This option adds an
             additional layer of symmetric-key cryptography to be mixed into the
             already existing public-key cryptography, for post-quantum
-            resistance.</para>
+            resistance.
+            Note that because this information is secret, you may want to set
+            the permissions of the .netdev file to be owned by <literal>root:systemd-networkd</literal>
+            with a <literal>0640</literal> file mode.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
