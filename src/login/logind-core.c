@@ -602,3 +602,34 @@ bool manager_is_docked_or_external_displays(Manager *m) {
 
         return false;
 }
+
+bool manager_is_on_external_power(void) {
+        int r;
+
+        /* For now we only check for AC power, but 'external power' can apply
+         * to anything that isn't an internal battery */
+        r = on_ac_power();
+        if (r < 0)
+                log_warning_errno(r, "Failed to read AC power status: %m");
+        else if (r > 0)
+                return true;
+
+        return false;
+}
+
+bool manager_all_buttons_ignored(Manager *m) {
+        if (m->handle_power_key != HANDLE_IGNORE)
+                return false;
+        if (m->handle_suspend_key != HANDLE_IGNORE)
+                return false;
+        if (m->handle_hibernate_key != HANDLE_IGNORE)
+                return false;
+        if (m->handle_lid_switch != HANDLE_IGNORE)
+                return false;
+        if (m->handle_lid_switch_ep != _HANDLE_ACTION_INVALID &&
+            m->handle_lid_switch_ep != HANDLE_IGNORE)
+                return false;
+        if (m->handle_lid_switch_docked != HANDLE_IGNORE)
+                return false;
+        return true;
+}
