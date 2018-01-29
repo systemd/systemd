@@ -56,38 +56,28 @@ static bool arg_no_pager = false;
 static bool arg_legend = true;
 static bool arg_all = false;
 
-static void link_get_type_string(unsigned short iftype, sd_device *d, char **ret) {
+static char *link_get_type_string(unsigned short iftype, sd_device *d) {
         const char *t;
         char *p;
-
-        assert(ret);
 
         if (d) {
                 const char *devtype = NULL;
 
                 (void) sd_device_get_devtype(d, &devtype);
-                if (!isempty(devtype)) {
-                        p = strdup(devtype);
-                        if (!p)
-                                return;
-
-                        *ret = p;
-                        return;
-                }
+                if (!isempty(devtype))
+                        return strdup(devtype);
         }
 
         t = arphrd_to_name(iftype);
-        if (!t) {
-                *ret = NULL;
-                return;
-        }
+        if (!t)
+                return NULL;
 
         p = strdup(t);
         if (!p)
-                return;
+                return NULL;
 
         ascii_strlower(p);
-        *ret = p;
+        return p;
 }
 
 static void operational_state_to_color(const char *state, const char **on, const char **off) {
@@ -312,7 +302,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
                 xsprintf(devid, "n%i", links[i].ifindex);
                 (void) sd_device_new_from_device_id(&d, devid);
 
-                link_get_type_string(links[i].iftype, d, &t);
+                t = link_get_type_string(links[i].iftype, d);
 
                 printf("%3i %-16s %-18s %s%-11s%s %s%-10s%s\n",
                        links[i].ifindex, links[i].name, strna(t),
@@ -805,7 +795,7 @@ static int link_status_one(
                         (void) sd_device_get_property_value(d, "ID_MODEL", &model);
         }
 
-        link_get_type_string(info->iftype, d, &t);
+        t = link_get_type_string(info->iftype, d);
 
         (void) sd_network_link_get_network_file(info->ifindex, &network);
 
