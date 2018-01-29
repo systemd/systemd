@@ -10,6 +10,16 @@ test_setup() {
         mkdir -p $TESTDIR/etc  $TESTDIR/usr/lib/sysusers.d $TESTDIR/tmp
 }
 
+preprocess() {
+    in="$1"
+
+    # see meson.build how to extract this. gcc -E was used before to
+    # get this value from config.h, however the autopkgtest fails with
+    # it
+    SYSTEM_UID_MAX=$(awk 'BEGIN { uid=999 } /^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }' /etc/login.defs)
+    sed "s/SYSTEM_UID_MAX/${SYSTEM_UID_MAX}/g" "$in"
+}
+
 test_run() {
         # ensure our build of systemd-sysusers is run
         PATH=${BUILD_DIR}:$PATH
@@ -21,11 +31,11 @@ test_run() {
                 cp $f $TESTDIR/usr/lib/sysusers.d/test.conf
                 systemd-sysusers --root=$TESTDIR
 
-                if ! diff -u $TESTDIR/etc/passwd ${f%.*}.expected-passwd; then
+                if ! diff -u $TESTDIR/etc/passwd <(preprocess ${f%.*}.expected-passwd); then
                         echo "**** Unexpected output for $f"
                         exit 1
                 fi
-                if ! diff -u $TESTDIR/etc/group ${f%.*}.expected-group; then
+                if ! diff -u $TESTDIR/etc/group <(preprocess ${f%.*}.expected-group); then
                         echo "**** Unexpected output for $f"
                         exit 1
                 fi

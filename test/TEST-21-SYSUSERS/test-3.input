@@ -1,3 +1,6 @@
+# Ensure that the semantic for the uid:gid syntax is correct
+#
+#Type Name ID  GECOS HOMEDIR
 g hoge    300     -            -
 u foo     301     -            -
 

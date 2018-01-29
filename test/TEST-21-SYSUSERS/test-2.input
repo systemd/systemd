@@ -1,2 +1,4 @@
+# Trivial smoke test that generate the ID dynamically based on SYSTEM_UID_MAX
+#
 #Type Name ID  GECOS        HOMEDIR
 u     u1   -   "some gecos" /random/dir
