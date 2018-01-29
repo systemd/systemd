@@ -1841,7 +1841,7 @@ int main(int argc, char *argv[]) {
 
         lock = take_etc_passwd_lock(arg_root);
         if (lock < 0) {
-                log_error_errno(lock, "Failed to take lock: %m");
+                log_error_errno(lock, "Failed to take /etc/passwd lock: %m");
                 goto finish;
         }
 
