@@ -98,6 +98,15 @@ bool valid_user_group_name_or_id(const char *u);
 bool valid_gecos(const char *d);
 bool valid_home(const char *p);
 
+static inline bool valid_shell(const char *p) {
+        /* We have the same requirements, so just piggy-back on the home check.
+         *
+         * Let's ignore /etc/shells because this is only applicable to real and
+         * not system users. It is also incompatible with the idea of empty /etc.
+         */
+        return valid_home(p);
+}
+
 int maybe_setgroups(size_t size, const gid_t *list);
 
 bool synthesize_nobody(void);

@@ -645,6 +645,8 @@ bool valid_gecos(const char *d) {
 }
 
 bool valid_home(const char *p) {
+        /* Note that this function is also called by valid_shell(), any
+         * changes must account for that. */
 
         if (isempty(p))
                 return false;
