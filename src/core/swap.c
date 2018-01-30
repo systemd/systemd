@@ -557,6 +557,7 @@ static int swap_coldplug(Unit *u) {
 }
 
 static void swap_dump(Unit *u, FILE *f, const char *prefix) {
+        char buf[FORMAT_TIMESPAN_MAX] = {};
         Swap *s = SWAP(u);
         SwapParameters *p;
 
@@ -591,6 +592,10 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sOptions: %s\n",
                         prefix, p->priority,
                         prefix, strempty(p->options));
+
+        fprintf(f,
+                "%sTimeoutSec: %s\n",
+                prefix, format_timespan(buf, sizeof(buf), s->timeout_usec, USEC_PER_SEC));
 
         if (s->control_pid > 0)
                 fprintf(f,
