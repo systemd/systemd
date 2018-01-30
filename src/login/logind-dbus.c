@@ -41,6 +41,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "cgroup-util.h"
 #include "selinux-util.h"
 #include "sleep-config.h"
 #include "special.h"
@@ -658,6 +659,7 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
 static int method_create_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
         uint32_t audit_id = 0;
+        _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *id = NULL;
         Session *session = NULL;
         Manager *m = userdata;
@@ -787,8 +789,15 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         return r;
         }
 
-        r = manager_get_session_by_pid(m, leader, NULL);
-        if (r > 0)
+        /*
+         * Check if we are already in a logind session.  Or if we are in user@.service
+         * which is a special PAM session that avoids creating a logind session.
+         */
+        r = cg_pid_get_unit(leader, &unit);
+        if (r < 0)
+                return r;
+        if (hashmap_get(m->session_units, unit) ||
+            hashmap_get(m->user_units, unit))
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY, "Already running in a session");
 
         /*
