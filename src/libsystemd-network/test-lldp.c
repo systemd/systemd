@@ -139,7 +139,7 @@ static void test_receive_basic_packet(sd_event *e) {
         assert_se(sd_lldp_neighbor_get_port_id(neighbors[0], &type, &data, &length) == 0);
         assert_se(type == SD_LLDP_PORT_SUBTYPE_INTERFACE_NAME);
         assert_se(length == 3);
-        assert_se(strneq((char *) data, "1/3", 3));
+        assert_se(!memcmp(data, "1/3", 3));
 
         assert_se(sd_lldp_neighbor_get_port_description(neighbors[0], &str) == 0);
         assert_se(streq(str, "Port"));
