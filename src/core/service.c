@@ -774,6 +774,8 @@ static int service_load(Unit *u) {
 }
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
+        char buf_restart[FORMAT_TIMESPAN_MAX] = {}, buf_start[FORMAT_TIMESPAN_MAX] = {}, buf_stop[FORMAT_TIMESPAN_MAX] = {};
+        char buf_runtime[FORMAT_TIMESPAN_MAX] = {}, buf_watchdog[FORMAT_TIMESPAN_MAX] = {};
         ServiceExecCommand c;
         Service *s = SERVICE(u);
         const char *prefix2;
@@ -837,6 +839,18 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%sAccept Socket: %s\n",
                         prefix, UNIT_DEREF(s->accept_socket)->id);
+
+        fprintf(f,
+                "%sRestartSec: %s\n"
+                "%sTimeoutStartSec: %s\n"
+                "%sTimeoutStopSec: %s\n"
+                "%sRuntimeMaxSec: %s\n"
+                "%sWatchdogSec: %s\n",
+                prefix, format_timespan(buf_restart, sizeof(buf_restart), s->restart_usec, USEC_PER_SEC),
+                prefix, format_timespan(buf_start, sizeof(buf_start), s->timeout_start_usec, USEC_PER_SEC),
+                prefix, format_timespan(buf_stop, sizeof(buf_stop), s->timeout_stop_usec, USEC_PER_SEC),
+                prefix, format_timespan(buf_runtime, sizeof(buf_runtime), s->runtime_max_usec, USEC_PER_SEC),
+                prefix, format_timespan(buf_watchdog, sizeof(buf_watchdog), s->watchdog_usec, USEC_PER_SEC));
 
         kill_context_dump(&s->kill_context, f, prefix);
         exec_context_dump(&s->exec_context, f, prefix);
