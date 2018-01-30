@@ -101,11 +101,14 @@
 
     <para>After installing new generators or updating the
     configuration, <command>systemctl daemon-reload</command> may be
-    executed. This will delete the previous configuration created by
-    generators, re-run all generators, and cause
-    <command>systemd</command> to reload units from disk. See
-    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    for more information.
+    executed. With respect to generators, this will delete the previous
+    configuration created by them, re-run all generators, and cause
+    <command>systemd</command> to reload units from disk. Generated units
+    may have their configurations overridden by provided unit files,
+    directories, or templates placed in the /etc/systemd/system directory,
+    as explained in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry.
+    See <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    for more information on the systemctl command.
     </para>
   </refsect1>
 
@@ -183,6 +186,17 @@
             is reloaded. That means the lifetime of the generated
             units is closely bound to the reload cycles of
             <command>systemd</command> itself.
+          </para>
+        </listitem>
+
+        <listitem>
+          <para>
+            Units created by generators to /run/systemd/system might not be 
+            written to the root of that directory; they may exist in a
+            subdirectory. Nevertheless, desired vendor overrides for
+            generated unit files should be placed directly in
+            /etc/systemd/system as described in
+            <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           </para>
         </listitem>
 
