@@ -46,6 +46,7 @@
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
+#include "conf-parser.h"
 #include "copy.h"
 #include "dropin.h"
 #include "efivars.h"
@@ -87,6 +88,7 @@
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "utf8.h"
 #include "util.h"
 #include "utmp-wtmp.h"
 #include "verbs.h"
@@ -5480,6 +5482,21 @@ static int cat_file(const char *filename, bool newline) {
         return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, 0);
 }
 
+static void print_reload_warning(const char *name) {
+        fprintf(stderr,
+                "%s# Warning: %s changed on disk, the version systemd has loaded is outdated.\n"
+                "%s# This output shows the current version of the unit's original fragment and drop-in files.\n"
+                "%s# If fragments or drop-ins were added or removed, they are not properly reflected in this output.\n"
+                "%s# Run 'systemctl%s daemon-reload' to reload units.%s\n",
+                ansi_highlight_red(),
+                name,
+                ansi_highlight_red(),
+                ansi_highlight_red(),
+                ansi_highlight_red(),
+                arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
+                ansi_normal());
+}
+
 static int cat(int argc, char *argv[], void *userdata) {
         _cleanup_lookup_paths_free_ LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
@@ -5524,18 +5541,7 @@ static int cat(int argc, char *argv[], void *userdata) {
                         puts("");
 
                 if (need_daemon_reload(bus, *name) > 0) /* ignore errors (<0), this is informational output */
-                        fprintf(stderr,
-                                "%s# Warning: %s changed on disk, the version systemd has loaded is outdated.\n"
-                                "%s# This output shows the current version of the unit's original fragment and drop-in files.\n"
-                                "%s# If fragments or drop-ins were added or removed, they are not properly reflected in this output.\n"
-                                "%s# Run 'systemctl%s daemon-reload' to reload units.%s\n",
-                                ansi_highlight_red(),
-                                *name,
-                                ansi_highlight_red(),
-                                ansi_highlight_red(),
-                                ansi_highlight_red(),
-                                arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
-                                ansi_normal());
+                        print_reload_warning(*name);
 
                 if (fragment_path) {
                         r = cat_file(fragment_path, false);
@@ -5547,6 +5553,195 @@ static int cat(int argc, char *argv[], void *userdata) {
                         r = cat_file(*path, path == dropin_paths);
                         if (r < 0)
                                 return log_warning_errno(r, "Failed to cat %s: %m", *path);
+                }
+        }
+
+        return 0;
+}
+
+static int config_parse_extra(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***sv = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (!utf8_is_valid(rvalue)) {
+                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
+                return 0;
+        }
+
+        if (!isempty(rvalue)) {
+                int r;
+                r = strv_extend(sv, rvalue);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
+typedef struct {
+        int num_properties;
+        char ***values;
+        ConfigTableItem *config_table;
+} ExtraPropertiesContext;
+
+static void extra_properties_context_free(ExtraPropertiesContext *ctx) {
+        if (ctx->config_table) {
+                ConfigTableItem *t = ctx->config_table;
+                for (; t->lvalue; t++) {
+                        char ***sv = t->data;
+                        strv_free(*sv);
+                }
+                free(ctx->config_table);
+        }
+        free(ctx->values);
+}
+
+static int show_extras(int argc, char *argv[], void *userdata) {
+        _cleanup_lookup_paths_free_ LookupPaths lp = {};
+        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(extra_properties_context_free) ExtraPropertiesContext ctx = {};
+        char **name;
+        sd_bus *bus;
+        bool first = true;
+        int r;
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL) {
+                log_error("Cannot remotely show extra properties of units.");
+                return -EINVAL;
+        }
+
+        if (!arg_properties) {
+                log_error("Use --property (or -p) to pass what extra properties to show.\n"
+                          "Extra properties must either be of the form X-Section.Name or Section.X-Name.");
+                return -EINVAL;
+        }
+
+        r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine unit paths: %m");
+
+        r = acquire_bus(BUS_MANAGER, &bus);
+        if (r < 0)
+                return r;
+
+        r = expand_names(bus, strv_skip(argv, 1), NULL, &names);
+        if (r < 0)
+                return log_error_errno(r, "Failed to expand names: %m");
+
+        pager_open(arg_no_pager, false);
+
+        ctx.num_properties = strv_length(arg_properties);
+        ctx.config_table = new0(ConfigTableItem, ctx.num_properties+1); /* empty element mark end of list. */
+        if (!ctx.config_table)
+                return log_oom();
+        ctx.values = new0(char **, ctx.num_properties);
+        if (!ctx.values)
+                return log_oom();
+
+        for (int i = 0; i < ctx.num_properties; i++) {
+                ConfigTableItem *item = &ctx.config_table[i];
+                char *fullname = arg_properties[i];
+                char *property;
+
+                property = index(fullname, '.');
+                if (!property) {
+                        return log_error("Missing section in '%s'.\n"
+                                         "Extra properties must either be of the form X-Section.Name or Section.X-Name.",
+                                         fullname);
+                }
+
+                /* Splitting arg_properties strings in-place. */
+                *property = '\0';
+                property++;
+                if (!strstr(fullname, "X-") && !strstr(property, "X-")) {
+                        return log_error("'%s.%s' doesn't specify an extra property.\n"
+                                         "Extra properties must either be of the form X-Section.Name or Section.X-Name.",
+                                         fullname, property);
+                }
+
+                item->section = fullname;
+                item->lvalue = property;
+                item->parse = config_parse_extra;
+                item->data = &ctx.values[i];
+        }
+
+        STRV_FOREACH(name, names) {
+                _cleanup_strv_free_ char **all_paths = NULL;
+                char *fragment_path = NULL;
+                char **path;
+
+                r = unit_find_paths(bus, *name, &lp, &fragment_path, &all_paths);
+                if (r < 0)
+                        return r;
+                else if (r == 0)
+                        return -ENOENT;
+
+                if (first)
+                        first = false;
+                else
+                        puts("");
+
+                if (need_daemon_reload(bus, *name) > 0) /* ignore errors (<0), this is informational output */
+                        print_reload_warning(*name);
+
+                r = strv_push_prepend(&all_paths, fragment_path);
+                if (r < 0)
+                        return log_oom();
+
+                STRV_FOREACH(path, all_paths) {
+                        _cleanup_fclose_ FILE *f = NULL;
+                        if (arg_full && !arg_quiet)
+                                printf("%s# %s%s\n",
+                                       ansi_highlight_blue(),
+                                       *path,
+                                       ansi_normal());
+
+                        f = fopen(*path, "r");
+                        if (!f) {
+                                return log_warning("Failed to read %s", *path);
+                        }
+
+                        r = config_parse(NULL, *path, f, NULL, config_item_table_lookup, ctx.config_table, CONFIG_PARSE_RELAXED, NULL);
+                        if (r < 0)
+                                return log_warning_errno(r, "Failed to parse %s: %m", *path);
+
+                        if (arg_full) {
+                                for (int i = 0; i < ctx.num_properties; i++) {
+                                        char ***sv = ctx.config_table[i].data;
+                                        char **value;
+                                        STRV_FOREACH (value, *sv) {
+                                                printf("%s=%s\n", ctx.config_table[i].lvalue, *value);
+                                        }
+                                        strv_clear(*sv);
+                                }
+                        }
+                }
+
+                if (!arg_full) {
+                        for (int i = 0; i < ctx.num_properties; i++) {
+                                char ***sv = ctx.config_table[i].data;
+                                char **value;
+                                STRV_FOREACH_BACKWARDS (value, *sv) {
+                                        printf("%s=%s\n", ctx.config_table[i].lvalue, *value);
+                                        break; /* Just print the last entry, if there's one. */
+                                }
+                                strv_clear(*sv);
+                        }
                 }
         }
 
@@ -8377,6 +8572,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "is-failed",             2,        VERB_ANY, VERB_ONLINE_ONLY, check_unit_failed    },
                 { "show",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                 },
                 { "cat",                   2,        VERB_ANY, VERB_ONLINE_ONLY, cat                  },
+                { "show-extras",           2,        VERB_ANY, VERB_ONLINE_ONLY, show_extras          },
                 { "status",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                 },
                 { "help",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, show                 },
                 { "daemon-reload",         VERB_ANY, 1,        VERB_ONLINE_ONLY, daemon_reload        },

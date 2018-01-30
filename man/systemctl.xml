@@ -1004,6 +1004,22 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><command>show-extras <replaceable>-p SECTION.KEY</replaceable>… <replaceable>NAME</replaceable>…</command></term>
+
+          <listitem>
+            <para>Show extra properties (those with
+            <literal>X-</literal> on the name or section) of one or more
+            units. The properties are specified with <option>-p</option>
+            (<option>--property</option>) using the
+            <literal>Section.Name</literal> notation, one of the parts
+            must start with <literal>X-</literal>. Only the last
+            assigned to the property property is shown. Use
+            <option>--full</option> to show all assignments. In that
+            case use <option>-q</option> (<option>--quiet</option>) to
+            omit the comments with the filenames in the output.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><command>set-property <replaceable>NAME</replaceable> <replaceable>ASSIGNMENT</replaceable>…</command></term>
 
           <listitem>
