@@ -75,6 +75,7 @@ typedef struct Item {
 } Item;
 
 static char *arg_root = NULL;
+static const char *arg_replace = NULL;
 static bool arg_inline = false;
 
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("sysusers.d");
@@ -1746,6 +1747,7 @@ static void help(void) {
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
+               "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --inline               Treat arguments as configuration lines\n"
                , program_invocation_short_name);
 }
@@ -1755,6 +1757,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_ROOT,
+                ARG_REPLACE,
                 ARG_INLINE,
         };
 
@@ -1762,6 +1765,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",    no_argument,       NULL, 'h'         },
                 { "version", no_argument,       NULL, ARG_VERSION },
                 { "root",    required_argument, NULL, ARG_ROOT    },
+                { "replace", required_argument, NULL, ARG_REPLACE },
                 { "inline",  no_argument,       NULL, ARG_INLINE  },
                 {}
         };
@@ -1788,6 +1792,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_REPLACE:
+                        if (!path_is_absolute(optarg) ||
+                            !endswith(optarg, ".conf")) {
+                                log_error("The argument to --replace= must an absolute path to a config file");
+                                return -EINVAL;
+                        }
+
+                        arg_replace = optarg;
+                        break;
+
                 case ARG_INLINE:
                         arg_inline = true;
                         break;
@@ -1799,14 +1813,76 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
+        if (arg_replace && optind >= argc) {
+                log_error("When --replace= is given, some configuration items must be specified");
+                return -EINVAL;
+        }
+
         return 1;
+}
+
+static int parse_arguments(char **args) {
+        char **arg;
+        unsigned pos = 1;
+        int r;
+
+        STRV_FOREACH(arg, args) {
+                if (arg_inline)
+                        /* Use (argument):n, where n==1 for the first positional arg */
+                        r = parse_line("(argument)", pos, *arg);
+                else
+                        r = read_config_file(*arg, false);
+                if (r < 0)
+                        return r;
+
+                pos++;
+        }
+
+        return 0;
+}
+
+static int read_config_files(const char* dirs, char **args) {
+        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free_ char *p = NULL;
+        char **f;
+        int r;
+
+        r = conf_files_list_nulstr(&files, ".conf", arg_root, 0, dirs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate sysusers.d files: %m");
+
+        if (arg_replace) {
+                r = conf_files_insert(&files, arg_root, dirs, arg_replace);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extend sysusers.d file list: %m");
+
+                p = path_join(arg_root, arg_replace, NULL);
+                if (!p)
+                        return log_oom();
+        }
+
+        STRV_FOREACH(f, files)
+                if (p && path_equal(*f, p)) {
+                        log_debug("Parsing arguments at position \"%s\"…", *f);
+
+                        r = parse_arguments(args);
+                        if (r < 0)
+                                return r;
+                } else {
+                        log_debug("Reading config file \"%s\"…", *f);
+
+                        /* Just warn, ignore result otherwise */
+                        (void) read_config_file(*f, true);
+                }
+
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
 
         _cleanup_close_ int lock = -1;
         Iterator iterator;
-        int r, k;
+        int r;
         Item *i;
         char *n;
 
@@ -1826,34 +1902,18 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (optind < argc) {
-                int j;
-
-                for (j = optind; j < argc; j++) {
-                        if (arg_inline)
-                                /* Use (argument):n, where n==1 for the first positional arg */
-                                r = parse_line("(argument)", j - optind + 1, argv[j]);
-                        else
-                                r = read_config_file(argv[j], false);
-                        if (r < 0)
-                                goto finish;
-                }
-        } else {
-                _cleanup_strv_free_ char **files = NULL;
-                char **f;
-
-                r = conf_files_list_nulstr(&files, ".conf", arg_root, 0, conf_file_dirs);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enumerate sysusers.d files: %m");
-                        goto finish;
-                }
-
-                STRV_FOREACH(f, files) {
-                        k = read_config_file(*f, true);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
-        }
+        /* If command line arguments are specified along with --replace, read all
+         * configuration files and insert the positional arguments at the specified
+         * place. Otherwise, if command line arguments are specified, execute just
+         * them, and finally, without --replace= or any positional arguments, just
+         * read configuration and execute it.
+         */
+        if (arg_replace || optind >= argc)
+                r = read_config_files(conf_file_dirs, argv + optind);
+        else
+                r = parse_arguments(argv + optind);
+        if (r < 0)
+                goto finish;
 
         /* Let's tell nss-systemd not to synthesize the "root" and "nobody" entries for it, so that our detection
          * whether the names or UID/GID area already used otherwise doesn't get confused. After all, even though

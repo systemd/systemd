@@ -154,6 +154,70 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
         return 0;
 }
 
+int conf_files_insert(char ***strv, const char *root, const char *dirs, const char *path) {
+        /* Insert a path into strv, at the place honouring the usual sorting rules:
+         * - we first compare by the basename
+         * - and then we compare by dirname, allowing just one file with the given
+         *   basename.
+         * This means that we will
+         * - add a new entry if basename(path) was not on the list,
+         * - do nothing if an entry with higher priority was already present,
+         * - do nothing if our new entry matches the existing entry,
+         * - replace the existing entry if our new entry has higher priority.
+         */
+        char *t;
+        unsigned i;
+        int r;
+
+        for (i = 0; i < strv_length(*strv); i++) {
+                int c;
+
+                c = base_cmp(*strv + i, &path);
+                if (c == 0) {
+                        const char *dir;
+
+                        /* Oh, we found our spot and it already contains something. */
+                        NULSTR_FOREACH(dir, dirs) {
+                                char *p1, *p2;
+
+                                p1 = path_startswith((*strv)[i], root);
+                                if (p1)
+                                        /* Skip "/" in dir, because p1 is without "/" too */
+                                        p1 = path_startswith(p1, dir + 1);
+                                if (p1)
+                                        /* Existing entry with higher priority
+                                         * or same priority, no need to do anything. */
+                                        return 0;
+
+                                p2 = path_startswith(path, dir);
+                                if (p2) {
+                                        /* Our new entry has higher priority */
+                                        t = path_join(root, path, NULL);
+                                        if (!t)
+                                                return log_oom();
+
+                                        return free_and_replace((*strv)[i], t);
+                                }
+                        }
+
+                } else if (c > 0)
+                        /* Following files have lower priority, let's go insert our
+                         * new entry. */
+                        break;
+
+                /* … we are not there yet, let's continue */
+        }
+
+        t = path_join(root, path, NULL);
+        if (!t)
+                return log_oom();
+
+        r = strv_insert(strv, i, t);
+        if (r < 0)
+                free(t);
+        return r;
+}
+
 int conf_files_list_strv(char ***strv, const char *suffix, const char *root, unsigned flags, const char* const* dirs) {
         _cleanup_strv_free_ char **copy = NULL;
 
