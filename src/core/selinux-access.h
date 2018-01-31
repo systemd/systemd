@@ -33,10 +33,7 @@ int mac_selinux_generic_access_check(sd_bus_message *message, const char *path, 
         mac_selinux_generic_access_check((message), NULL, (permission), (error))
 
 #define mac_selinux_unit_access_check(unit, message, permission, error) \
-        ({                                                              \
-                const Unit *_unit = (unit);                             \
-                mac_selinux_generic_access_check((message), _unit->source_path ?: _unit->fragment_path, (permission), (error)); \
-        })
+        mac_selinux_generic_access_check((message), unit_label_path(unit), (permission), (error))
 
 #else
 
