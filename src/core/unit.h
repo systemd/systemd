@@ -801,6 +801,8 @@ void unit_warn_leftover_processes(Unit *u);
 
 bool unit_needs_console(Unit *u);
 
+const char *unit_label_path(Unit *u);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full(unit, level, error, ...)                          \
