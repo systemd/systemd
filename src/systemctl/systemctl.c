@@ -4889,7 +4889,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                print_prop(type, "%s", path);
+                                print_prop(name, "%s (%s)", path, type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
