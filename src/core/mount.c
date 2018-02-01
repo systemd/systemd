@@ -707,6 +707,7 @@ static int mount_coldplug(Unit *u) {
 }
 
 static void mount_dump(Unit *u, FILE *f, const char *prefix) {
+        char buf[FORMAT_TIMESPAN_MAX] = {};
         Mount *m = MOUNT(u);
         MountParameters *p;
 
@@ -728,7 +729,8 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sDirectoryMode: %04o\n"
                 "%sSloppyOptions: %s\n"
                 "%sLazyUnmount: %s\n"
-                "%sForceUnmount: %s\n",
+                "%sForceUnmount: %s\n"
+                "%sTimoutSec: %s\n",
                 prefix, mount_state_to_string(m->state),
                 prefix, mount_result_to_string(m->result),
                 prefix, m->where,
@@ -741,7 +743,8 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, m->directory_mode,
                 prefix, yes_no(m->sloppy_options),
                 prefix, yes_no(m->lazy_unmount),
-                prefix, yes_no(m->force_unmount));
+                prefix, yes_no(m->force_unmount),
+                prefix, format_timespan(buf, sizeof(buf), m->timeout_usec, USEC_PER_SEC));
 
         if (m->control_pid > 0)
                 fprintf(f,
