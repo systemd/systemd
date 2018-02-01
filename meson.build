@@ -136,12 +136,16 @@ udevhwdbdir = join_paths(udevlibexecdir, 'hwdb.d')
 catalogdir = join_paths(prefixdir, 'lib/systemd/catalog')
 kernelinstalldir = join_paths(prefixdir, 'lib/kernel/install.d')
 factorydir = join_paths(datadir, 'factory')
-docdir = join_paths(datadir, 'doc/systemd')
 bootlibdir = join_paths(prefixdir, 'lib/systemd/boot/efi')
 testsdir = join_paths(prefixdir, 'lib/systemd/tests')
 systemdstatedir = join_paths(localstatedir, 'lib/systemd')
 catalogstatedir = join_paths(systemdstatedir, 'catalog')
 randomseeddir = join_paths(localstatedir, 'lib/systemd')
+
+docdir = get_option('docdir')
+if docdir == ''
+        docdir = join_paths(datadir, 'doc/systemd')
+endif
 
 dbuspolicydir = get_option('dbuspolicydir')
 if dbuspolicydir == ''
