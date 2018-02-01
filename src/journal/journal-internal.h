@@ -89,6 +89,7 @@ struct sd_journal {
         char *prefix;
 
         OrderedHashmap *files;
+        IteratedCache *files_cache;
         MMapCache *mmap;
 
         Location current_location;
