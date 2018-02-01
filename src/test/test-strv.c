@@ -447,6 +447,36 @@ static void test_strv_from_stdarg_alloca(void) {
         test_strv_from_stdarg_alloca_one(STRV_MAKE_EMPTY, NULL);
 }
 
+static void test_strv_insert(void) {
+        _cleanup_strv_free_ char **a = NULL;
+
+        assert_se(strv_insert(&a, 0, strdup("first")) == 0);
+        assert_se(streq(a[0], "first"));
+        assert_se(!a[1]);
+
+        assert_se(strv_insert(&a, 0, NULL) == 0);
+        assert_se(streq(a[0], "first"));
+        assert_se(!a[1]);
+
+        assert_se(strv_insert(&a, 1, strdup("two")) == 0);
+        assert_se(streq(a[0], "first"));
+        assert_se(streq(a[1], "two"));
+        assert_se(!a[2]);
+
+        assert_se(strv_insert(&a, 4, strdup("tri")) == 0);
+        assert_se(streq(a[0], "first"));
+        assert_se(streq(a[1], "two"));
+        assert_se(streq(a[2], "tri"));
+        assert_se(!a[3]);
+
+        assert_se(strv_insert(&a, 1, strdup("duo")) == 0);
+        assert_se(streq(a[0], "first"));
+        assert_se(streq(a[1], "duo"));
+        assert_se(streq(a[2], "two"));
+        assert_se(streq(a[3], "tri"));
+        assert_se(!a[4]);
+}
+
 static void test_strv_push_prepend(void) {
         _cleanup_strv_free_ char **a = NULL;
 
@@ -723,6 +753,7 @@ int main(int argc, char *argv[]) {
         test_strv_extend();
         test_strv_extendf();
         test_strv_from_stdarg_alloca();
+        test_strv_insert();
         test_strv_push_prepend();
         test_strv_push();
         test_strv_equal();
