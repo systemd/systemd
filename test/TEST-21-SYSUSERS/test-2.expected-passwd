@@ -1,1 +1,1 @@
-u1:x:999:999:some gecos:/random/dir:/sbin/nologin
+u1:x:SYSTEM_UID_MAX:SYSTEM_UID_MAX:some gecos:/random/dir:/sbin/nologin
