@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "escape.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
@@ -102,36 +103,6 @@ static const char* const input_table_one_empty[] = {
 };
 
 
-static const char* const input_table_quotes[] = {
-        "\"",
-        "'",
-        "\"\"",
-        "\\",
-        "\\\\",
-        NULL,
-};
-#define QUOTES_STRING                            \
-        "\"\\\"\" "                              \
-        "\"\\\'\" "                              \
-        "\"\\\"\\\"\" "                          \
-        "\"\\\\\" "                              \
-        "\"\\\\\\\\\""
-
-static const char * const input_table_spaces[] = {
-        " ",
-        "' '",
-        "\" ",
-        " \"",
-        " \\\\ ",
-        NULL,
-};
-#define SPACES_STRING                           \
-        "\" \" "                                \
-        "\"\\' \\'\" "                          \
-        "\"\\\" \" "                            \
-        "\" \\\"\" "                            \
-        "\" \\\\\\\\ \""
-
 static void test_strv_find(void) {
         assert_se(strv_find((char **)input_table_multiple, "three"));
         assert_se(!strv_find((char **)input_table_multiple, "four"));
@@ -191,28 +162,6 @@ static void test_strv_join(void) {
         w = strv_join((char **)input_table_one_empty, ", ");
         assert_se(w);
         assert_se(streq(w, ""));
-}
-
-static void test_strv_quote_unquote(const char* const *split, const char *quoted) {
-        _cleanup_free_ char *p;
-        _cleanup_strv_free_ char **s = NULL;
-        char **t;
-        int r;
-
-        p = strv_join_quoted((char **)split);
-        assert_se(p);
-        printf("-%s- --- -%s-\n", p, quoted); /* fprintf deals with NULL, puts does not */
-        assert_se(p);
-        assert_se(streq(p, quoted));
-
-        r = strv_split_extract(&s, quoted, WHITESPACE, EXTRACT_QUOTES);
-        assert_se(r == (int) strv_length(s));
-        assert_se(s);
-        STRV_FOREACH(t, s) {
-                assert_se(*t);
-                assert_se(streq(*t, *split));
-                split++;
-        }
 }
 
 static void test_strv_unquote(const char *quoted, char **list) {
@@ -737,14 +686,6 @@ int main(int argc, char *argv[]) {
         test_strv_find_prefix();
         test_strv_find_startswith();
         test_strv_join();
-
-        test_strv_quote_unquote(input_table_multiple, "\"one\" \"two\" \"three\"");
-        test_strv_quote_unquote(input_table_one, "\"one\"");
-        test_strv_quote_unquote(input_table_none, "");
-        test_strv_quote_unquote(input_table_one_empty, "\"\"");
-        test_strv_quote_unquote(input_table_two_empties, "\"\" \"\"");
-        test_strv_quote_unquote(input_table_quotes, QUOTES_STRING);
-        test_strv_quote_unquote(input_table_spaces, SPACES_STRING);
 
         test_strv_unquote("    foo=bar     \"waldo\"    zzz    ", STRV_MAKE("foo=bar", "waldo", "zzz"));
         test_strv_unquote("", STRV_MAKE_EMPTY);
