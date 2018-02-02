@@ -65,9 +65,12 @@ typedef struct Item {
         uid_t uid;
 
         bool gid_set:1;
-        // id_set_strict means that the group with the specified gid must
-        // exist and that the check if a uid clashes with a gid is skipped
+
+        /* When set the group with the specified gid must exist
+         * and the check if a uid clashes with the gid is skipped.
+         */
         bool id_set_strict:1;
+
         bool uid_set:1;
 
         bool todo_user:1;
