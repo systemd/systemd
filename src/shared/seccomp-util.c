@@ -935,7 +935,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
                                 /* If the system call is not known on this architecture, then that's fine, let's ignore it */
                                 _cleanup_free_ char *n = NULL;
 
-                                n = seccomp_syscall_resolve_num_arch(arch, PTR_TO_INT(id) - 1);
+                                n = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
                                 log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", strna(n), PTR_TO_INT(id) - 1);
                         }
                 }
