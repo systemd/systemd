@@ -322,9 +322,8 @@
 
         <listitem><para>Invoke unit generators, see
         <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
-        Some generators require root privileges. When run under a
-        normal users, enabling generators will generally result in
-        some warnings.</para></listitem>
+        Some generators require root privileges. Under a normal user, running with
+        generators enabled will generally result in some warnings.</para></listitem>
       </varlistentry>
 
       <xi:include href="user-system-options.xml" xpointer="host" />
