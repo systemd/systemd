@@ -33,13 +33,13 @@
 
 import errno
 import os
-import sys
-import time
-import unittest
-import tempfile
-import subprocess
 import shutil
 import socket
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
 
 HAVE_DNSMASQ = shutil.which('dnsmasq') is not None
 
@@ -93,8 +93,8 @@ class NetworkdTestingUtilities:
 
     def write_network_dropin(self, unit_name, dropin_name, contents):
         """Write a network unit drop-in, and queue it to be removed."""
-        dropin_dir = os.path.join(NETWORK_UNITDIR, "%s.d" % unit_name)
-        dropin_path = os.path.join(dropin_dir, "%s.conf" % dropin_name)
+        dropin_dir = os.path.join(NETWORK_UNITDIR, "{}.d".format(unit_name))
+        dropin_path = os.path.join(dropin_dir, "{}.conf".format(dropin_name))
 
         os.makedirs(dropin_dir, exist_ok=True)
         self.addCleanup(os.rmdir, dropin_dir)
@@ -130,7 +130,7 @@ class NetworkdTestingUtilities:
 
         # Wait for the requested interfaces, but don't fail for them.
         subprocess.call([NETWORKD_WAIT_ONLINE, '--timeout=5'] +
-                        ['--interface=%s' % iface for iface in kwargs])
+                        ['--interface={}'.format(iface) for iface in kwargs])
 
         # Validate each link state found in the networkctl output.
         out = subprocess.check_output(['networkctl', '--no-legend']).rstrip()
@@ -142,13 +142,12 @@ class NetworkdTestingUtilities:
                 actual = fields[-1]
                 if (actual != expected and
                         not (expected == 'managed' and actual != 'unmanaged')):
-                    self.fail("Link %s expects state %s, found %s" %
-                              (iface, expected, actual))
+                    self.fail("Link {} expects state {}, found {}".format(iface, expected, actual))
                 interfaces.remove(iface)
 
         # Ensure that all requested interfaces have been covered.
         if interfaces:
-            self.fail("Missing links in status output: %s" % interfaces)
+            self.fail("Missing links in status output: {}".format(interfaces))
 
 
 class BridgeTest(NetworkdTestingUtilities, unittest.TestCase):
@@ -257,7 +256,7 @@ class ClientTestBase(NetworkdTestingUtilities):
     def show_journal(self, unit):
         '''Show journal of given unit since start of the test'''
 
-        print('---- %s ----' % unit)
+        print('---- {} ----'.format(unit))
         subprocess.check_output(['journalctl', '--sync'])
         sys.stdout.flush()
         subprocess.call(['journalctl', '-b', '--no-pager', '--quiet',
@@ -287,10 +286,10 @@ class ClientTestBase(NetworkdTestingUtilities):
             raise
         self.write_network(self.config, '''\
 [Match]
-Name=%s
+Name={}
 [Network]
-DHCP=%s
-%s''' % (self.iface, dhcp_mode, extra_opts))
+DHCP={}
+{}'''.format(self.iface, dhcp_mode, extra_opts))
 
         if coldplug:
             # create interface first, then start networkd
@@ -335,8 +334,8 @@ DHCP=%s
 
             # check networkctl state
             out = subprocess.check_output(['networkctl'])
-            self.assertRegex(out, (r'%s\s+ether\s+[a-z-]+\s+unmanaged' % self.if_router).encode())
-            self.assertRegex(out, (r'%s\s+ether\s+routable\s+configured' % self.iface).encode())
+            self.assertRegex(out, (r'{}\s+ether\s+[a-z-]+\s+unmanaged'.format(self.if_router)).encode())
+            self.assertRegex(out, (r'{}\s+ether\s+routable\s+configured'.format(self.iface)).encode())
 
             out = subprocess.check_output(['networkctl', 'status', self.iface])
             self.assertRegex(out, br'Type:\s+ether')
@@ -352,11 +351,11 @@ DHCP=%s
         except (AssertionError, subprocess.CalledProcessError):
             # show networkd status, journal, and DHCP server log on failure
             with open(os.path.join(NETWORK_UNITDIR, self.config)) as f:
-                print('\n---- %s ----\n%s' % (self.config, f.read()))
+                print('\n---- {} ----\n{}'.format(self.config, f.read()))
             print('---- interface status ----')
             sys.stdout.flush()
             subprocess.call(['ip', 'a', 'show', 'dev', self.iface])
-            print('---- networkctl status %s ----' % self.iface)
+            print('---- networkctl status {} ----'.format(self.iface))
             sys.stdout.flush()
             subprocess.call(['networkctl', 'status', self.iface])
             self.show_journal('systemd-networkd.service')
@@ -513,7 +512,7 @@ class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
         '''Print DHCP server log for debugging failures'''
 
         with open(self.dnsmasq_log) as f:
-            sys.stdout.write('\n\n---- dnsmasq log ----\n%s\n------\n\n' % f.read())
+            sys.stdout.write('\n\n---- dnsmasq log ----\n{}\n------\n\n'.format(f.read()))
 
     def test_resolved_domain_restricted_dns(self):
         '''resolved: domain-restricted DNS servers'''
@@ -523,10 +522,10 @@ class DnsmasqClientTest(ClientTestBase, unittest.TestCase):
         self.create_iface(dnsmasq_opts=['--address=/#/192.168.42.1'])
         self.write_network('general.network', '''\
 [Match]
-Name=%s
+Name={}
 [Network]
 DHCP=ipv4
-IPv6AcceptRA=False''' % self.iface)
+IPv6AcceptRA=False'''.format(self.iface))
 
         # create second device/dnsmasq for a .company/.lab VPN interface
         # static IPs for simplicity
@@ -653,7 +652,7 @@ Domains= ~company ~lab''')
             self.addCleanup(subprocess.call, ['umount', '/etc/hostname'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-hostnamed.service'])
 
-        self.create_iface(dnsmasq_opts=['--dhcp-host=%s,192.168.5.210,testgreen' % self.iface_mac])
+        self.create_iface(dnsmasq_opts=['--dhcp-host={},192.168.5.210,testgreen'.format(self.iface_mac)])
         self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
 
         try:
@@ -670,7 +669,7 @@ Domains= ~company ~lab''')
                 sys.stdout.write('[retry %i] ' % retry)
                 sys.stdout.flush()
             else:
-                self.fail('Transient hostname not found in hostnamectl:\n%s' % out.decode())
+                self.fail('Transient hostname not found in hostnamectl:\n{}'.format(out.decode()))
             # and also applied to the system
             self.assertEqual(socket.gethostname(), 'testgreen')
         except AssertionError:
@@ -688,7 +687,7 @@ Domains= ~company ~lab''')
             self.writeConfig('/etc/hostname', orig_hostname)
         subprocess.check_call(['systemctl', 'stop', 'systemd-hostnamed.service'])
 
-        self.create_iface(dnsmasq_opts=['--dhcp-host=%s,192.168.5.210,testgreen' % self.iface_mac])
+        self.create_iface(dnsmasq_opts=['--dhcp-host={},192.168.5.210,testgreen'.format(self.iface_mac)])
         self.do_test(coldplug=None, extra_opts='IPv6AcceptRA=False', dhcp_mode='ipv4')
 
         try:
@@ -942,9 +941,9 @@ class MatchClientTest(unittest.TestCase, NetworkdTestingUtilities):
                            ['addr', mac], ['addr', mac])
         self.write_network('no-veth.network', """\
 [Match]
-MACAddress=%s
+MACAddress={}
 Name=!nonexistent *peer*
-[Network]""" % mac)
+[Network]""".format(mac))
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
         self.assert_link_states(test_veth='managed', test_peer='unmanaged')
 
