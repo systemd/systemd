@@ -1900,8 +1900,6 @@ int set_put_strsplit(Set *s, const char *v, const char *separators, ExtractFlags
 
 /* expand the cachemem if needed, return true if newly (re)activated. */
 static int cachemem_maintain(CacheMem *mem, unsigned size) {
-        int r = false;
-
         assert(mem);
 
         if (!GREEDY_REALLOC(mem->ptr, mem->n_allocated, size)) {
@@ -1909,10 +1907,12 @@ static int cachemem_maintain(CacheMem *mem, unsigned size) {
                         return -ENOMEM;
         }
 
-        if (!mem->active)
-                mem->active = r = true;
+        if (!mem->active) {
+                mem->active = true;
+                return true;
+        }
 
-        return r;
+        return false;
 }
 
 int iterated_cache_get(IteratedCache *cache, const void ***res_keys, const void ***res_values, unsigned *res_n_entries) {
