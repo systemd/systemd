@@ -76,6 +76,7 @@ int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout);
 
 void sigkill_wait(pid_t pid);
 void sigkill_waitp(pid_t *pid);
+void sigterm_wait(pid_t pid);
 
 int kill_and_sigcont(pid_t pid, int sig);
 

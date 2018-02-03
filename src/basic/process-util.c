@@ -806,6 +806,13 @@ void sigkill_waitp(pid_t *pid) {
         sigkill_wait(*pid);
 }
 
+void sigterm_wait(pid_t pid) {
+        assert(pid > 1);
+
+        if (kill_and_sigcont(pid, SIGTERM) > 0)
+                (void) wait_for_terminate(pid, NULL);
+}
+
 int kill_and_sigcont(pid_t pid, int sig) {
         int r;
 
