@@ -1724,6 +1724,8 @@ static int rename_image(int argc, char *argv[], void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
+        assert(bus);
+
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_call_method(
@@ -1748,6 +1750,8 @@ static int clone_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus *bus = userdata;
         int r;
+
+        assert(bus);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -1777,6 +1781,8 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int b = true, r;
+
+        assert(bus);
 
         if (argc > 2) {
                 b = parse_boolean(argv[2]);
