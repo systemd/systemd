@@ -1008,7 +1008,7 @@ int getpeergroups(int fd, gid_t **ret) {
         socklen_t n = sizeof(gid_t) * 64;
         _cleanup_free_ gid_t *d = NULL;
 
-        assert(fd);
+        assert(fd >= 0);
         assert(ret);
 
         for (;;) {
