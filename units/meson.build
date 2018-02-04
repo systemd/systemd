@@ -91,7 +91,6 @@ units = [
         ['sysinit.target',                      ''],
         ['syslog.socket',                       ''],
         ['system-update.target',                ''],
-        ['system.slice',                        ''],
         ['systemd-ask-password-console.path',   '',
          'sysinit.target.wants/'],
         ['systemd-ask-password-wall.path',      '',

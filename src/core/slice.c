@@ -146,6 +146,29 @@ static int slice_load_root_slice(Unit *u) {
         return 1;
 }
 
+static int slice_load_system_slice(Unit *u) {
+        assert(u);
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return 0;
+        if (!unit_has_name(u, SPECIAL_SYSTEM_SLICE))
+                return 0;
+
+        u->perpetual = true;
+
+        /* The system slice is a bit special. For example it is always running and cannot be terminated. Because of its
+         * special semantics we synthesize it here, instead of relying on the unit file on disk. */
+
+        u->default_dependencies = false;
+
+        if (!u->description)
+                u->description = strdup("System Slice");
+        if (!u->documentation)
+                u->documentation = strv_new("man:systemd.special(7)", NULL);
+
+        return 1;
+}
+
 static int slice_load(Unit *u) {
         Slice *s = SLICE(u);
         int r;
@@ -156,6 +179,10 @@ static int slice_load(Unit *u) {
         r = slice_load_root_slice(u);
         if (r < 0)
                 return r;
+        r = slice_load_system_slice(u);
+        if (r < 0)
+                return r;
+
         r = unit_load_fragment_and_dropin_optional(u);
         if (r < 0)
                 return r;
@@ -286,17 +313,17 @@ _pure_ static const char *slice_sub_state_to_string(Unit *u) {
         return slice_state_to_string(SLICE(u)->state);
 }
 
-static void slice_enumerate(Manager *m) {
+static void slice_enumerate_perpetual(Manager *m, const char *name) {
         Unit *u;
         int r;
 
         assert(m);
 
-        u = manager_get_unit(m, SPECIAL_ROOT_SLICE);
+        u = manager_get_unit(m, name);
         if (!u) {
-                r = unit_new_for_name(m, sizeof(Slice), SPECIAL_ROOT_SLICE, &u);
+                r = unit_new_for_name(m, sizeof(Slice), name, &u);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to allocate the special " SPECIAL_ROOT_SLICE " unit: %m");
+                        log_error_errno(r, "Failed to allocate the special %s unit: %m", name);
                         return;
                 }
         }
@@ -306,6 +333,15 @@ static void slice_enumerate(Manager *m) {
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);
+}
+
+static void slice_enumerate(Manager *m) {
+        assert(m);
+
+        slice_enumerate_perpetual(m, SPECIAL_ROOT_SLICE);
+
+        if (MANAGER_IS_SYSTEM(m))
+                slice_enumerate_perpetual(m, SPECIAL_SYSTEM_SLICE);
 }
 
 const UnitVTable slice_vtable = {
