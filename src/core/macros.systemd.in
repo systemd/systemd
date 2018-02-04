@@ -84,17 +84,11 @@ fi \
 
 %systemd_user_postun_with_restart() %{nil}
 
-%udev_hwdb_update() \
-systemd-hwdb update >/dev/null 2>&1 || : \
-%{nil}
+%udev_hwdb_update() %{nil}
 
-%udev_rules_update() \
-udevadm control --reload >/dev/null 2>&1 || : \
-%{nil}
+%udev_rules_update() %{nil}
 
-%journal_catalog_update() \
-journalctl --update-catalog >/dev/null 2>&1 || : \
-%{nil}
+%journal_catalog_update() %{nil}
 
 %tmpfiles_create() \
 systemd-tmpfiles --create %{?*} >/dev/null 2>&1 || : \
