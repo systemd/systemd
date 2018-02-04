@@ -137,7 +137,6 @@ static int slice_load_root_slice(Unit *u) {
          * special semantics we synthesize it here, instead of relying on the unit file on disk. */
 
         u->default_dependencies = false;
-        u->ignore_on_isolate = true;
 
         if (!u->description)
                 u->description = strdup("Root Slice");
