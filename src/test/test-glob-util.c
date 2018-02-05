@@ -49,12 +49,16 @@ static void test_glob_exists(void) {
         assert_se(r == 0);
 }
 
+static void _closedir(void* v) {
+        (void) closedir(v);
+}
+
 static void test_glob_no_dot(void) {
         char template[] = "/tmp/test-glob-util.XXXXXXX";
         const char *fn;
 
         _cleanup_globfree_ glob_t g = {
-                .gl_closedir = (void (*)(void *)) closedir,
+                .gl_closedir = _closedir,
                 .gl_readdir = (struct dirent *(*)(void *)) readdir_no_dot,
                 .gl_opendir = (void *(*)(const char *)) opendir,
                 .gl_lstat = lstat,
