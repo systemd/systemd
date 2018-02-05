@@ -1534,17 +1534,35 @@ int seccomp_restrict_archs(Set *archs) {
         int r;
 
         /* This installs a filter with no rules, but that restricts the system call architectures to the specified
-         * list. */
+         * list.
+         *
+         * There are some qualifications. However the most important use is to stop processes from bypassing
+         * system call restrictions, in case they used a broader (multiplexing) syscall which is only available
+         * in a non-native architecture. There are no holes in this use case, at least so far. */
 
+        /* Note libseccomp includes our "native" (current) architecture in the filter by default.
+         * We do not remove it. For example, our callers expect to be able to call execve() afterwards
+         * to run a program with the restrictions applied. */
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
                 return -ENOMEM;
 
         SET_FOREACH(id, archs, i) {
                 r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0)
+                if (r < 0 && r != -EEXIST)
+                        return r;
+        }
+
+        /* The vdso for x32 assumes that x86-64 syscalls are available.  Let's allow them, since x32
+         * x32 syscalls should basically match x86-64 for everything except the pointer type.
+         * The important thing is that you can block the old 32-bit x86 syscalls.
+         * https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=850047 */
+
+        if (seccomp_arch_native() == SCMP_ARCH_X32 ||
+            set_contains(archs, UINT32_TO_PTR(SCMP_ARCH_X32 + 1))) {
+
+                r = seccomp_arch_add(seccomp, SCMP_ARCH_X86_64);
+                if (r < 0 && r != -EEXIST)
                         return r;
         }
 
