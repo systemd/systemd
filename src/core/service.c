@@ -929,8 +929,11 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         prio = may_warn ? LOG_INFO : LOG_DEBUG;
 
         fd = chase_symlinks(s->pid_file, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
-        if (fd == -EPERM)
-                return log_unit_full(UNIT(s), prio, fd, "Permission denied while opening PID file or unsafe symlink chain: %s", s->pid_file);
+        if (fd == -EPERM) {
+                log_unit_full(UNIT(s), prio, fd, "Permission denied while opening PID file or unsafe symlink chain. Fallback to unsafe logic: %s", s->pid_file);
+                /* The following fallback logic is not safe. It may be dropped in the future release. */
+                fd = chase_symlinks(s->pid_file, NULL, CHASE_OPEN, NULL);
+        }
         if (fd < 0)
                 return log_unit_full(UNIT(s), prio, fd, "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
 
