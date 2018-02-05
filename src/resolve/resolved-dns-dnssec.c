@@ -1167,7 +1167,7 @@ static int digest_to_gcrypt_md(uint8_t algorithm) {
 
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
         char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
-        gcry_md_hd_t md = NULL;
+        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         size_t hash_size;
         int md_algorithm, r;
         void *result;
@@ -1223,16 +1223,10 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         gcry_md_write(md, dnskey->dnskey.key, dnskey->dnskey.key_size);
 
         result = gcry_md_read(md, 0);
-        if (!result) {
-                r = -EIO;
-                goto finish;
-        }
+        if (!result)
+                return -EIO;
 
-        r = memcmp(result, ds->ds.digest, ds->ds.digest_size) != 0;
-
-finish:
-        gcry_md_close(md);
-        return r;
+        return memcmp(result, ds->ds.digest, ds->ds.digest_size) != 0;
 }
 
 int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
