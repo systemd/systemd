@@ -84,12 +84,16 @@
     </para>
 
     <para>If invoked with no arguments, it applies all directives from all configuration
-    files. If one or more absolute filenames are passed on the command line, only the
-    directives in these files are applied.  If <literal>-</literal> is specified instead
-    of a filename, directives are read from standard input.  If only the basename of a
-    configuration file is specified, all configuration directories as specified in
+    files. When invoked with <option>--replace=<replaceable>PATH</replaceable></option>,
+    arguments specified on the command line are used instead of the configuration file
+    <replaceable>PATH</replaceable>. Otherwise, if one or more absolute filenames are
+    passed on the command line, only the directives in these files are applied. If
+    <literal>-</literal> is specified instead of a filename, directives are read from
+    standard input. If only the basename of a configuration file is specified, all
+    configuration directories as specified in
     <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    are searched for a matching file.</para>
+    are searched for a matching file and the file found that has the highest priority is
+    executed.</para>
   </refsect1>
 
   <refsect1>
@@ -174,6 +178,22 @@
         resolved. With or without this option, users and groups are always resolved according to the host's user and
         group databases, any such databases stored under the specified root directories are not
         consulted.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--replace=<replaceable>PATH</replaceable></option></term>
+        <listitem><para>When this option is given, one ore more positional arguments
+        must be specified. All configuration files found in the directories listed in
+        <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        will be read, and the configuration given on the command line will be
+        handled instead of and with the same priority as the configuration file
+        <replaceable>PATH</replaceable>.</para>
+
+        <para>This option is intended to be used when package installation scripts
+        are running and files belonging to that package are not yet available on
+        disk, so their contents must be given on the command line, but the admin
+        configuration might already exist and should be given higher priority.
+        </para></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
