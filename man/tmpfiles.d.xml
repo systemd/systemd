@@ -579,6 +579,13 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       <literal>~</literal>, the clean-up is only applied to files and
       directories one level inside the directory specified, but not
       the files and directories immediately inside it.</para>
+
+      <para>The age of a file system entry is determined from its last
+      modification timestamp (mtime), its last access timestamp (atime),
+      and (except for directories) its last status change timestamp
+      (ctime). Any of these three (or two) values will prevent cleanup
+      if it is more recent than the current time minus the age
+      field.</para>
     </refsect2>
 
     <refsect2>
