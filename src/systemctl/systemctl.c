@@ -4870,7 +4870,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(sb)", &path, &ignore)) > 0)
-                                print_prop("EnvironmentFile", "%s (ignore_errors=%s)", path, yes_no(ignore));
+                                print_prop(name, "%s (ignore_errors=%s)", path, yes_no(ignore));
 
                         if (r < 0)
                                 return bus_log_parse_error(r);
@@ -4889,7 +4889,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                print_prop(type, "%s", path);
+                                print_prop(name, "%s (%s)", path, type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4907,10 +4907,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 return bus_log_parse_error(r);
 
                         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0)
-                                if (arg_value)
-                                        puts(path);
-                                else
-                                        printf("Listen%s=%s\n", type, path);
+                                print_prop(name, "%s (%s)", path, type);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
@@ -4920,7 +4917,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                         return 0;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Timers")) {
+                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "TimersMonotonic")) {
                         const char *base;
                         uint64_t value, next_elapse;
 
@@ -4931,9 +4928,32 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         while ((r = sd_bus_message_read(m, "(stt)", &base, &value, &next_elapse)) > 0) {
                                 char timespan1[FORMAT_TIMESPAN_MAX], timespan2[FORMAT_TIMESPAN_MAX];
 
-                                print_prop(base, "{ value=%s ; next_elapse=%s }",
+                                print_prop(name, "{ %s=%s ; next_elapse=%s }", base,
                                            format_timespan(timespan1, sizeof(timespan1), value, 0),
                                            format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
+                        }
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        return 0;
+
+                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "TimersCalendar")) {
+                        const char *base, *spec;
+                        uint64_t next_elapse;
+
+                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sst)");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        while ((r = sd_bus_message_read(m, "(sst)", &base, &spec, &next_elapse)) > 0) {
+                                char timestamp[FORMAT_TIMESTAMP_MAX];
+
+                                print_prop(name, "{ %s=%s ; next_elapse=%s }", base, spec,
+                                           format_timestamp(timestamp, sizeof(timestamp), next_elapse));
                         }
                         if (r < 0)
                                 return bus_log_parse_error(r);
