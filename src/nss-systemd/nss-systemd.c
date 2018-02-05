@@ -328,6 +328,8 @@ fail:
         return NSS_STATUS_UNAVAIL;
 }
 
+#pragma GCC diagnostic ignored "-Wsizeof-pointer-memaccess"
+
 enum nss_status _nss_systemd_getgrnam_r(
                 const char *name,
                 struct group *gr,
