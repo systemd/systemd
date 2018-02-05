@@ -130,6 +130,10 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svncube:pni1-TF:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni7Stylus:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
+# Cube i7 Book (i16)
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni16:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
 #########################################
 # Endless
 #########################################
