@@ -446,7 +446,7 @@ int strv_push_pair(char ***l, char *a, char *b) {
         return 0;
 }
 
-int strv_push_prepend(char ***l, char *value) {
+int strv_insert(char ***l, unsigned position, char *value) {
         char **c;
         unsigned n, m, i;
 
@@ -454,6 +454,7 @@ int strv_push_prepend(char ***l, char *value) {
                 return 0;
 
         n = strv_length(*l);
+        position = MIN(position, n);
 
         /* increase and check for overflow */
         m = n + 2;
@@ -464,10 +465,12 @@ int strv_push_prepend(char ***l, char *value) {
         if (!c)
                 return -ENOMEM;
 
-        for (i = 0; i < n; i++)
+        for (i = 0; i < position; i++)
+                c[i] = (*l)[i];
+        c[position] = value;
+        for (i = position; i < n; i++)
                 c[i+1] = (*l)[i];
 
-        c[0] = value;
         c[n+1] = NULL;
 
         free(*l);

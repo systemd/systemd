@@ -100,12 +100,31 @@ journalctl --update-catalog >/dev/null 2>&1 || : \
 systemd-tmpfiles --create %{?*} >/dev/null 2>&1 || : \
 %{nil}
 
+# Deprecated. Use %sysusers_create_package instead
 %sysusers_create() \
 systemd-sysusers %{?*} >/dev/null 2>&1 || : \
 %{nil}
 
 %sysusers_create_inline() \
 echo %{?*} | systemd-sysusers - >/dev/null 2>&1 || : \
+%{nil}
+
+# This should be used by package installation scripts which
+# require users or groups to be present before the files installed
+# by the package are present on disk (for example because some files
+# are owned by those users or groups).
+#
+# Example:
+#   Source1: %{name}.conf
+#   ...
+#   %install
+#   install -Dt %{buildroot}%{sysusersdir} %SOURCE1
+#   %pre
+#   %sysusers_create_package %{name} %SOURCE1
+#   %files
+#   %{sysusersdir}/%{name}.conf
+%sysusers_create_package() \
+echo "%(cat %2)" | systemd-sysusers --replace=%_sysusersdir/%1.conf - >/dev/null 2>&1 || : \
 %{nil}
 
 %sysctl_apply() \

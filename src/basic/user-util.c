@@ -553,18 +553,18 @@ int take_etc_passwd_lock(const char *root) {
          * awfully racy, and thus we just won't do them. */
 
         if (root)
-                path = prefix_roota(root, "/etc/.pwd.lock");
+                path = prefix_roota(root, ETC_PASSWD_LOCK_PATH);
         else
-                path = "/etc/.pwd.lock";
+                path = ETC_PASSWD_LOCK_PATH;
 
         fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
         if (fd < 0)
-                return -errno;
+                return log_debug_errno(errno, "Cannot open %s: %m", path);
 
         r = fcntl(fd, F_SETLKW, &flock);
         if (r < 0) {
                 safe_close(fd);
-                return -errno;
+                return log_debug_errno(errno, "Locking %s failed: %m", path);
         }
 
         return fd;
@@ -645,6 +645,8 @@ bool valid_gecos(const char *d) {
 }
 
 bool valid_home(const char *p) {
+        /* Note that this function is also called by valid_shell(), any
+         * changes must account for that. */
 
         if (isempty(p))
                 return false;

@@ -59,14 +59,18 @@ typedef struct Item {
         char *gid_path;
         char *description;
         char *home;
+        char *shell;
 
         gid_t gid;
         uid_t uid;
 
         bool gid_set:1;
-        // id_set_strict means that the group with the specified gid must
-        // exist and that the check if a uid clashes with a gid is skipped
+
+        /* When set the group with the specified gid must exist
+         * and the check if a uid clashes with the gid is skipped.
+         */
         bool id_set_strict:1;
+
         bool uid_set:1;
 
         bool todo_user:1;
@@ -74,6 +78,8 @@ typedef struct Item {
 } Item;
 
 static char *arg_root = NULL;
+static const char *arg_replace = NULL;
+static bool arg_inline = false;
 
 static const char conf_file_dirs[] = CONF_PATHS_NULSTR("sysusers.d");
 
@@ -383,6 +389,10 @@ static int rename_and_apply_smack(const char *temp_path, const char *dest_path) 
         return r;
 }
 
+static const char* default_shell(uid_t uid) {
+        return uid == 0 ? "/bin/sh" : "/sbin/nologin";
+}
+
 static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char **tmpfile_path) {
         _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
@@ -450,7 +460,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
 
                         /* Initialize the shell to nologin, with one exception:
                          * for root we patch in something special */
-                        .pw_shell = i->uid == 0 ? (char*) "/bin/sh" : (char*) "/sbin/nologin",
+                        .pw_shell = i->shell ?: (char*) default_shell(i->uid),
                 };
 
                 errno = 0;
@@ -1224,6 +1234,7 @@ static void item_free(Item *i) {
         free(i->gid_path);
         free(i->description);
         free(i->home);
+        free(i->shell);
         free(i);
 }
 
@@ -1331,6 +1342,9 @@ static bool item_equal(Item *a, Item *b) {
         if (!streq_ptr(a->home, b->home))
                 return false;
 
+        if (!streq_ptr(a->shell, b->shell))
+                return false;
+
         return true;
 }
 
@@ -1344,7 +1358,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 {}
         };
 
-        _cleanup_free_ char *action = NULL, *name = NULL, *id = NULL, *resolved_name = NULL, *resolved_id = NULL, *description = NULL, *home = NULL;
+        _cleanup_free_ char *action = NULL,
+                *name = NULL, *resolved_name = NULL,
+                *id = NULL, *resolved_id = NULL,
+                *description = NULL,
+                *home = NULL,
+                *shell, *resolved_shell = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
         OrderedHashmap *h;
@@ -1357,7 +1376,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         /* Parse columns */
         p = buffer;
-        r = extract_many_words(&p, NULL, EXTRACT_QUOTES, &action, &name, &id, &description, &home, NULL);
+        r = extract_many_words(&p, NULL, EXTRACT_QUOTES,
+                               &action, &name, &id, &description, &home, &shell, NULL);
         if (r < 0) {
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return r;
@@ -1433,6 +1453,24 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
         }
 
+        /* Verify shell */
+        if (isempty(shell) || streq(shell, "-"))
+                shell = mfree(shell);
+
+        if (shell) {
+                r = specifier_printf(shell, specifier_table, NULL, &resolved_shell);
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, shell);
+                        return r;
+                }
+
+                if (!valid_shell(resolved_shell)) {
+                        log_error("[%s:%u] '%s' is not a valid login shell field.", fname, line, resolved_shell);
+                        return -EINVAL;
+                }
+        }
+
+
         switch (action[0]) {
 
         case ADD_RANGE:
@@ -1446,13 +1484,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                if (description) {
-                        log_error("[%s:%u] Lines of type 'r' don't take a GECOS field.", fname, line);
-                        return -EINVAL;
-                }
-
-                if (home) {
-                        log_error("[%s:%u] Lines of type 'r' don't take a home directory field.", fname, line);
+                if (description || home || shell) {
+                        log_error("[%s:%u] Lines of type '%c' don't take a %s field.",
+                                  fname, line, action[0],
+                                  description ? "GECOS" : home ? "home directory" : "login shell");
                         return -EINVAL;
                 }
 
@@ -1483,13 +1518,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                if (description) {
-                        log_error("[%s:%u] Lines of type 'm' don't take a GECOS field.", fname, line);
-                        return -EINVAL;
-                }
-
-                if (home) {
-                        log_error("[%s:%u] Lines of type 'm' don't take a home directory field.", fname, line);
+                if (description || home || shell) {
+                        log_error("[%s:%u] Lines of type '%c' don't take a %s field.",
+                                  fname, line, action[0],
+                                  description ? "GECOS" : home ? "home directory" : "login shell");
                         return -EINVAL;
                 }
 
@@ -1573,6 +1605,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 i->home = home;
                 home = NULL;
 
+                i->shell = resolved_shell;
+                resolved_shell = NULL;
+
                 h = users;
                 break;
 
@@ -1582,13 +1617,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         return -EINVAL;
                 }
 
-                if (description) {
-                        log_error("[%s:%u] Lines of type 'g' don't take a GECOS field.", fname, line);
-                        return -EINVAL;
-                }
-
-                if (home) {
-                        log_error("[%s:%u] Lines of type 'g' don't take a home directory field.", fname, line);
+                if (description || home || shell) {
+                        log_error("[%s:%u] Lines of type '%c' don't take a %s field.",
+                                  fname, line, action[0],
+                                  description ? "GECOS" : home ? "home directory" : "login shell");
                         return -EINVAL;
                 }
 
@@ -1718,6 +1750,8 @@ static void help(void) {
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
+               "     --replace=PATH         Treat arguments as replacement for PATH\n"
+               "     --inline               Treat arguments as configuration lines\n"
                , program_invocation_short_name);
 }
 
@@ -1726,12 +1760,16 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_ROOT,
+                ARG_REPLACE,
+                ARG_INLINE,
         };
 
         static const struct option options[] = {
                 { "help",    no_argument,       NULL, 'h'         },
                 { "version", no_argument,       NULL, ARG_VERSION },
                 { "root",    required_argument, NULL, ARG_ROOT    },
+                { "replace", required_argument, NULL, ARG_REPLACE },
+                { "inline",  no_argument,       NULL, ARG_INLINE  },
                 {}
         };
 
@@ -1757,6 +1795,20 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_REPLACE:
+                        if (!path_is_absolute(optarg) ||
+                            !endswith(optarg, ".conf")) {
+                                log_error("The argument to --replace= must an absolute path to a config file");
+                                return -EINVAL;
+                        }
+
+                        arg_replace = optarg;
+                        break;
+
+                case ARG_INLINE:
+                        arg_inline = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1764,14 +1816,76 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
+        if (arg_replace && optind >= argc) {
+                log_error("When --replace= is given, some configuration items must be specified");
+                return -EINVAL;
+        }
+
         return 1;
+}
+
+static int parse_arguments(char **args) {
+        char **arg;
+        unsigned pos = 1;
+        int r;
+
+        STRV_FOREACH(arg, args) {
+                if (arg_inline)
+                        /* Use (argument):n, where n==1 for the first positional arg */
+                        r = parse_line("(argument)", pos, *arg);
+                else
+                        r = read_config_file(*arg, false);
+                if (r < 0)
+                        return r;
+
+                pos++;
+        }
+
+        return 0;
+}
+
+static int read_config_files(const char* dirs, char **args) {
+        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free_ char *p = NULL;
+        char **f;
+        int r;
+
+        r = conf_files_list_nulstr(&files, ".conf", arg_root, 0, dirs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate sysusers.d files: %m");
+
+        if (arg_replace) {
+                r = conf_files_insert(&files, arg_root, dirs, arg_replace);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extend sysusers.d file list: %m");
+
+                p = path_join(arg_root, arg_replace, NULL);
+                if (!p)
+                        return log_oom();
+        }
+
+        STRV_FOREACH(f, files)
+                if (p && path_equal(*f, p)) {
+                        log_debug("Parsing arguments at position \"%s\"…", *f);
+
+                        r = parse_arguments(args);
+                        if (r < 0)
+                                return r;
+                } else {
+                        log_debug("Reading config file \"%s\"…", *f);
+
+                        /* Just warn, ignore result otherwise */
+                        (void) read_config_file(*f, true);
+                }
+
+        return 0;
 }
 
 int main(int argc, char *argv[]) {
 
         _cleanup_close_ int lock = -1;
         Iterator iterator;
-        int r, k;
+        int r;
         Item *i;
         char *n;
 
@@ -1791,30 +1905,18 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (optind < argc) {
-                int j;
-
-                for (j = optind; j < argc; j++) {
-                        k = read_config_file(argv[j], false);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
-        } else {
-                _cleanup_strv_free_ char **files = NULL;
-                char **f;
-
-                r = conf_files_list_nulstr(&files, ".conf", arg_root, 0, conf_file_dirs);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enumerate sysusers.d files: %m");
-                        goto finish;
-                }
-
-                STRV_FOREACH(f, files) {
-                        k = read_config_file(*f, true);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
-        }
+        /* If command line arguments are specified along with --replace, read all
+         * configuration files and insert the positional arguments at the specified
+         * place. Otherwise, if command line arguments are specified, execute just
+         * them, and finally, without --replace= or any positional arguments, just
+         * read configuration and execute it.
+         */
+        if (arg_replace || optind >= argc)
+                r = read_config_files(conf_file_dirs, argv + optind);
+        else
+                r = parse_arguments(argv + optind);
+        if (r < 0)
+                goto finish;
 
         /* Let's tell nss-systemd not to synthesize the "root" and "nobody" entries for it, so that our detection
          * whether the names or UID/GID area already used otherwise doesn't get confused. After all, even though
@@ -1841,7 +1943,7 @@ int main(int argc, char *argv[]) {
 
         lock = take_etc_passwd_lock(arg_root);
         if (lock < 0) {
-                log_error_errno(lock, "Failed to take lock: %m");
+                log_error_errno(lock, "Failed to take /etc/passwd lock: %m");
                 goto finish;
         }
 

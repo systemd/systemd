@@ -63,6 +63,8 @@ int take_etc_passwd_lock(const char *root);
 #define UID_NOBODY ((uid_t) 65534U)
 #define GID_NOBODY ((gid_t) 65534U)
 
+#define ETC_PASSWD_LOCK_PATH "/etc/.pwd.lock"
+
 static inline bool uid_is_dynamic(uid_t uid) {
         return DYNAMIC_UID_MIN <= uid && uid <= DYNAMIC_UID_MAX;
 }
@@ -95,6 +97,15 @@ bool valid_user_group_name(const char *u);
 bool valid_user_group_name_or_id(const char *u);
 bool valid_gecos(const char *d);
 bool valid_home(const char *p);
+
+static inline bool valid_shell(const char *p) {
+        /* We have the same requirements, so just piggy-back on the home check.
+         *
+         * Let's ignore /etc/shells because this is only applicable to real and
+         * not system users. It is also incompatible with the idea of empty /etc.
+         */
+        return valid_home(p);
+}
 
 int maybe_setgroups(size_t size, const gid_t *list);
 
