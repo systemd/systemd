@@ -643,6 +643,11 @@ tests += [
          [],
          []],
 
+        [['src/test/test-gcrypt-util.c'],
+         [],
+         [],
+         'HAVE_GCRYPT'],
+
         [['src/test/test-nss.c'],
          [],
          [libdl],

@@ -716,7 +716,7 @@ int dnssec_verify_rrset(
         uint8_t wire_format_name[DNS_WIRE_FOMAT_HOSTNAME_MAX];
         DnsResourceRecord **list, *rr;
         const char *source, *name;
-        gcry_md_hd_t md = NULL;
+        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         int r, md_algorithm;
         size_t k, n = 0;
         size_t sig_size = 0;
@@ -841,13 +841,13 @@ int dnssec_verify_rrset(
 
         r = dns_name_to_wire_format(rrsig->rrsig.signer, wire_format_name, sizeof(wire_format_name), true);
         if (r < 0)
-                goto finish;
+                return r;
         fwrite(wire_format_name, 1, r, f);
 
         /* Convert the source of synthesis into wire format */
         r = dns_name_to_wire_format(source, wire_format_name, sizeof(wire_format_name), true);
         if (r < 0)
-                goto finish;
+                return r;
 
         for (k = 0; k < n; k++) {
                 size_t l;
@@ -885,26 +885,20 @@ int dnssec_verify_rrset(
 #endif
         case DNSSEC_ALGORITHM_ED448:
                 *result = DNSSEC_UNSUPPORTED_ALGORITHM;
-                r = 0;
-                goto finish;
+                return 0;
         default:
                 /* OK, the RRs are now in canonical order. Let's calculate the digest */
                 md_algorithm = algorithm_to_gcrypt_md(rrsig->rrsig.algorithm);
                 if (md_algorithm == -EOPNOTSUPP) {
                         *result = DNSSEC_UNSUPPORTED_ALGORITHM;
-                        r = 0;
-                        goto finish;
+                        return 0;
                 }
-                if (md_algorithm < 0) {
-                        r = md_algorithm;
-                        goto finish;
-                }
+                if (md_algorithm < 0)
+                        return md_algorithm;
 
                 gcry_md_open(&md, md_algorithm, 0);
-                if (!md) {
-                        r = -EIO;
-                        goto finish;
-                }
+                if (!md)
+                        return -EIO;
 
                 hash_size = gcry_md_get_algo_dlen(md_algorithm);
                 assert(hash_size > 0);
@@ -912,10 +906,8 @@ int dnssec_verify_rrset(
                 gcry_md_write(md, sig_data, sig_size);
 
                 hash = gcry_md_read(md, 0);
-                if (!hash) {
-                        r = -EIO;
-                        goto finish;
-                }
+                if (!hash)
+                        return -EIO;
         }
 
         switch (rrsig->rrsig.algorithm) {
@@ -950,9 +942,8 @@ int dnssec_verify_rrset(
                 break;
 #endif
         }
-
         if (r < 0)
-                goto finish;
+                return r;
 
         /* Now, fix the ttl, expiry, and remember the synthesizing source and the signer */
         if (r > 0)
@@ -965,13 +956,7 @@ int dnssec_verify_rrset(
         else
                 *result = DNSSEC_VALIDATED;
 
-        r = 0;
-
-finish:
-        if (md)
-                gcry_md_close(md);
-
-        return r;
+        return 0;
 }
 
 int dnssec_rrsig_match_dnskey(DnsResourceRecord *rrsig, DnsResourceRecord *dnskey, bool revoked_ok) {
@@ -1182,7 +1167,7 @@ static int digest_to_gcrypt_md(uint8_t algorithm) {
 
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
         char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
-        gcry_md_hd_t md = NULL;
+        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         size_t hash_size;
         int md_algorithm, r;
         void *result;
@@ -1238,16 +1223,10 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         gcry_md_write(md, dnskey->dnskey.key, dnskey->dnskey.key_size);
 
         result = gcry_md_read(md, 0);
-        if (!result) {
-                r = -EIO;
-                goto finish;
-        }
+        if (!result)
+                return -EIO;
 
-        r = memcmp(result, ds->ds.digest, ds->ds.digest_size) != 0;
-
-finish:
-        gcry_md_close(md);
-        return r;
+        return memcmp(result, ds->ds.digest, ds->ds.digest_size) != 0;
 }
 
 int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {

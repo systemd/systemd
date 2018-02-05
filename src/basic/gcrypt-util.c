@@ -42,7 +42,7 @@ void initialize_libgcrypt(bool secmem) {
 }
 
 int string_hashsum(const char *s, size_t len, int md_algorithm, char **out) {
-        gcry_md_hd_t md = NULL;
+        _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         size_t hash_size;
         void *hash;
         char *enc;
