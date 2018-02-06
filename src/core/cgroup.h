@@ -219,3 +219,5 @@ void manager_invalidate_startup_units(Manager *m);
 
 const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
 CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;
+
+bool unit_cgroup_delegate(Unit *u);

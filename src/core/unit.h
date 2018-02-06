@@ -568,6 +568,9 @@ struct UnitVTable {
         /* True if transient units of this type are OK */
         bool can_transient:1;
 
+        /* True if cgroup delegation is permissible */
+        bool can_delegate:1;
+
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
         bool gc_jobs:1;
 };

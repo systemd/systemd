@@ -4541,22 +4541,15 @@ int unit_kill_context(
 
                 } else if (r > 0) {
 
-                        /* FIXME: For now, on the legacy hierarchy, we
-                         * will not wait for the cgroup members to die
-                         * if we are running in a container or if this
-                         * is a delegation unit, simply because cgroup
-                         * notification is unreliable in these
-                         * cases. It doesn't work at all in
-                         * containers, and outside of containers it
-                         * can be confused easily by left-over
-                         * directories in the cgroup — which however
-                         * should not exist in non-delegated units. On
-                         * the unified hierarchy that's different,
-                         * there we get proper events. Hence rely on
-                         * them. */
+                        /* FIXME: For now, on the legacy hierarchy, we will not wait for the cgroup members to die if
+                         * we are running in a container or if this is a delegation unit, simply because cgroup
+                         * notification is unreliable in these cases. It doesn't work at all in containers, and outside
+                         * of containers it can be confused easily by left-over directories in the cgroup — which
+                         * however should not exist in non-delegated units. On the unified hierarchy that's different,
+                         * there we get proper events. Hence rely on them. */
 
                         if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0 ||
-                            (detect_container() == 0 && !UNIT_CGROUP_BOOL(u, delegate)))
+                            (detect_container() == 0 && !unit_cgroup_delegate(u)))
                                 wait_for_exit = true;
 
                         if (send_sighup) {
@@ -5007,7 +5000,7 @@ void unit_set_exec_params(Unit *u, ExecParameters *p) {
         assert(p);
 
         p->cgroup_path = u->cgroup_path;
-        SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, UNIT_CGROUP_BOOL(u, delegate));
+        SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, unit_cgroup_delegate(u));
 }
 
 int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {

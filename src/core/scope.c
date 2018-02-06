@@ -599,6 +599,7 @@ const UnitVTable scope_vtable = {
         .private_section = "Scope",
 
         .can_transient = true,
+        .can_delegate = true,
 
         .init = scope_init,
         .load = scope_load,

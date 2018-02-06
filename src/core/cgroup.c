@@ -1124,14 +1124,7 @@ CGroupMask unit_get_delegate_mask(Unit *u) {
          *
          * Note that on the unified hierarchy it is safe to delegate controllers to unprivileged services. */
 
-        if (u->type == UNIT_SLICE)
-                return 0;
-
-        c = unit_get_cgroup_context(u);
-        if (!c)
-                return 0;
-
-        if (!c->delegate)
+        if (!unit_cgroup_delegate(u))
                 return 0;
 
         if (cg_all_unified() <= 0) {
@@ -1142,6 +1135,7 @@ CGroupMask unit_get_delegate_mask(Unit *u) {
                         return 0;
         }
 
+        assert_se(c = unit_get_cgroup_context(u));
         return c->delegate_controllers;
 }
 
@@ -1496,7 +1490,7 @@ static int unit_create_cgroup(
         u->cgroup_enabled_mask = enable_mask;
         u->cgroup_bpf_state = needs_bpf ? UNIT_CGROUP_BPF_ON : UNIT_CGROUP_BPF_OFF;
 
-        if (u->type != UNIT_SLICE && !c->delegate) {
+        if (u->type != UNIT_SLICE && !unit_cgroup_delegate(u)) {
 
                 /* Then, possibly move things over, but not if
                  * subgroups may contain processes, which is the case
@@ -2561,6 +2555,21 @@ void unit_invalidate_cgroup_bpf(Unit *u) {
                         unit_invalidate_cgroup_bpf(member);
                 }
         }
+}
+
+bool unit_cgroup_delegate(Unit *u) {
+        CGroupContext *c;
+
+        assert(u);
+
+        if (!UNIT_VTABLE(u)->can_delegate)
+                return false;
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->delegate;
 }
 
 void manager_invalidate_startup_units(Manager *m) {
