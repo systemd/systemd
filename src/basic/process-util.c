@@ -1137,7 +1137,7 @@ pid_t getpid_cached(void) {
         case CACHED_PID_UNSET: { /* Not initialized yet, then do so now */
                 pid_t new_pid;
 
-                new_pid = getpid();
+                new_pid = raw_getpid();
 
                 if (__register_atfork(NULL, NULL, reset_cached_pid, __dso_handle) != 0) {
                         /* OOM? Let's try again later */
@@ -1150,7 +1150,7 @@ pid_t getpid_cached(void) {
         }
 
         case CACHED_PID_BUSY: /* Somebody else is currently initializing */
-                return getpid();
+                return raw_getpid();
 
         default: /* Properly initialized */
                 return current_value;
