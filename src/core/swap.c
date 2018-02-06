@@ -157,7 +157,7 @@ static void swap_done(Unit *u) {
         s->parameters_fragment.what = mfree(s->parameters_fragment.what);
         s->parameters_fragment.options = mfree(s->parameters_fragment.options);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, false);
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -549,8 +549,10 @@ static int swap_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED))
+        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED)) {
                 (void) unit_setup_dynamic_creds(u);
+                (void) unit_setup_exec_runtime(u);
+        }
 
         swap_set_state(s, new_state);
         return 0;
@@ -669,8 +671,7 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
 
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 
-        exec_runtime_destroy(s->exec_runtime);
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
 
         exec_context_destroy_runtime_directory(&s->exec_context, UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 

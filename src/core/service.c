@@ -369,7 +369,7 @@ static void service_done(Unit *u) {
         s->pid_file = mfree(s->pid_file);
         s->status_text = mfree(s->status_text);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, false);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         s->control_command = NULL;
         s->main_command = NULL;
@@ -1155,8 +1155,10 @@ static int service_coldplug(Unit *u) {
         if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
                 service_start_watchdog(s);
 
-        if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART))
+        if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART)) {
                 (void) unit_setup_dynamic_creds(u);
+                (void) unit_setup_exec_runtime(u);
+        }
 
         if (UNIT_ISSET(s->accept_socket)) {
                 Socket* socket = SOCKET(UNIT_DEREF(s->accept_socket));
@@ -1643,8 +1645,7 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         s->forbid_restart = false;
 
         /* We want fresh tmpdirs in case service is started again immediately */
-        exec_runtime_destroy(s->exec_runtime);
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
 
         if (s->exec_context.runtime_directory_preserve_mode == EXEC_PRESERVE_NO ||
             (s->exec_context.runtime_directory_preserve_mode == EXEC_PRESERVE_RESTART && !service_will_restart(UNIT(s))))

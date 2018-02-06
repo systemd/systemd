@@ -3176,18 +3176,9 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs) {
         assert(fds);
 
         if (unit_can_serialize(u)) {
-                ExecRuntime *rt;
-
                 r = UNIT_VTABLE(u)->serialize(u, f, fds);
                 if (r < 0)
                         return r;
-
-                rt = unit_get_exec_runtime(u);
-                if (rt) {
-                        r = exec_runtime_serialize(u, rt, f, fds);
-                        if (r < 0)
-                                return r;
-                }
         }
 
         dual_timestamp_serialize(f, "state-change-timestamp", &u->state_change_timestamp);
@@ -3333,17 +3324,11 @@ void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *f
 }
 
 int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
-        ExecRuntime **rt = NULL;
-        size_t offset;
         int r;
 
         assert(u);
         assert(f);
         assert(fds);
-
-        offset = UNIT_VTABLE(u)->exec_runtime_offset;
-        if (offset > 0)
-                rt = (ExecRuntime**) ((uint8_t*) u + offset);
 
         for (;;) {
                 char line[LINE_MAX], *l, *v;
@@ -3604,17 +3589,15 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 }
 
                 if (unit_can_serialize(u)) {
-                        if (rt) {
-                                r = exec_runtime_deserialize_item(u, rt, l, v, fds);
-                                if (r < 0) {
-                                        log_unit_warning(u, "Failed to deserialize runtime parameter '%s', ignoring.", l);
-                                        continue;
-                                }
-
-                                /* Returns positive if key was handled by the call */
-                                if (r > 0)
-                                        continue;
+                        r = exec_runtime_deserialize_compat(u, l, v, fds);
+                        if (r < 0) {
+                                log_unit_warning(u, "Failed to deserialize runtime parameter '%s', ignoring.", l);
+                                continue;
                         }
+
+                        /* Returns positive if key was handled by the call */
+                        if (r > 0)
+                                continue;
 
                         r = UNIT_VTABLE(u)->deserialize_item(u, l, v, fds);
                         if (r < 0)
@@ -4684,6 +4667,7 @@ int unit_setup_exec_runtime(Unit *u) {
         Unit *other;
         Iterator i;
         void *v;
+        int r;
 
         offset = UNIT_VTABLE(u)->exec_runtime_offset;
         assert(offset > 0);
@@ -4695,15 +4679,12 @@ int unit_setup_exec_runtime(Unit *u) {
 
         /* Try to get it from somebody else */
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_JOINS_NAMESPACE_OF], i) {
-
-                *rt = unit_get_exec_runtime(other);
-                if (*rt) {
-                        exec_runtime_ref(*rt);
-                        return 0;
-                }
+                r = exec_runtime_acquire(u->manager, NULL, other->id, false, rt);
+                if (r == 1)
+                        return 1;
         }
 
-        return exec_runtime_make(rt, unit_get_exec_context(u), u->id);
+        return exec_runtime_acquire(u->manager, unit_get_exec_context(u), u->id, true, rt);
 }
 
 int unit_setup_dynamic_creds(Unit *u) {

@@ -1200,6 +1200,9 @@ Manager* manager_free(Manager *m) {
 
         bus_done(m);
 
+        exec_runtime_vacuum(m);
+        hashmap_free(m->exec_runtime_by_id);
+
         dynamic_user_vacuum(m, false);
         hashmap_free(m->dynamic_users);
 
@@ -1462,6 +1465,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         /* Release any dynamic users no longer referenced */
         dynamic_user_vacuum(m, true);
+
+        exec_runtime_vacuum(m);
 
         /* Release any references to UIDs/GIDs no longer referenced, and destroy any IPC owned by them */
         manager_vacuum_uid_refs(m);
@@ -2800,6 +2805,10 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         manager_serialize_uid_refs(m, f);
         manager_serialize_gid_refs(m, f);
 
+        r = exec_runtime_serialize(m, f, fds);
+        if (r < 0)
+                return r;
+
         (void) fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units, i) {
@@ -2978,6 +2987,8 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         manager_deserialize_uid_refs_one(m, val);
                 else if ((val = startswith(l, "destroy-ipc-gid=")))
                         manager_deserialize_gid_refs_one(m, val);
+                else if ((val = startswith(l, "exec-runtime=")))
+                        exec_runtime_deserialize_one(m, val, fds);
                 else if ((val = startswith(l, "subscribed="))) {
 
                         if (strv_extend(&m->deserialized_subscribed, val) < 0)
@@ -3082,6 +3093,7 @@ int manager_reload(Manager *m) {
         manager_clear_jobs_and_units(m);
         lookup_paths_flush_generator(&m->lookup_paths);
         lookup_paths_free(&m->lookup_paths);
+        exec_runtime_vacuum(m);
         dynamic_user_vacuum(m, false);
         m->uid_refs = hashmap_free(m->uid_refs);
         m->gid_refs = hashmap_free(m->gid_refs);
@@ -3139,6 +3151,8 @@ int manager_reload(Manager *m) {
         /* Release any references to UIDs/GIDs no longer referenced, and destroy any IPC owned by them */
         manager_vacuum_uid_refs(m);
         manager_vacuum_gid_refs(m);
+
+        exec_runtime_vacuum(m);
 
         /* It might be safe to log to the journal now. */
         manager_recheck_journal(m);
