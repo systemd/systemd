@@ -3703,18 +3703,6 @@ Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
         return hashmap_get(m->units_requiring_mounts_for, streq(p, "/") ? "" : p);
 }
 
-void manager_set_exec_params(Manager *m, ExecParameters *p) {
-        assert(m);
-        assert(p);
-
-        p->environment = m->environment;
-        p->confirm_spawn = manager_get_confirm_spawn(m);
-        p->cgroup_supported = m->cgroup_supported;
-        p->prefix = m->prefix;
-
-        SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, MANAGER_IS_SYSTEM(m));
-}
-
 int manager_update_failed_units(Manager *m, Unit *u, bool failed) {
         unsigned size;
         int r;

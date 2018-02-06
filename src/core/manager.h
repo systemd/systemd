@@ -435,8 +435,6 @@ void manager_flip_auto_status(Manager *m, bool enable);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
 
-void manager_set_exec_params(Manager *m, ExecParameters *p);
-
 ManagerState manager_state(Manager *m);
 
 int manager_update_failed_units(Manager *m, Unit *u, bool failed);

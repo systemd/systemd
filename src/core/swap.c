@@ -632,7 +632,6 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
-        manager_set_exec_params(UNIT(s)->manager, &exec_params);
         unit_set_exec_params(UNIT(s), &exec_params);
 
         r = exec_spawn(UNIT(s),
