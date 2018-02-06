@@ -1355,4 +1355,8 @@ struct fib_rule_uid_range {
 #define NS_GET_NSTYPE _IO(0xb7, 0x3)
 #endif
 
+#ifndef PF_KTHREAD
+#define PF_KTHREAD 0x00200000
+#endif
+
 #include "missing_syscall.h"
