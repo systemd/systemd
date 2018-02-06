@@ -25,6 +25,7 @@ typedef struct ExecCommand ExecCommand;
 typedef struct ExecContext ExecContext;
 typedef struct ExecRuntime ExecRuntime;
 typedef struct ExecParameters ExecParameters;
+typedef struct Manager Manager;
 
 #include <sched.h>
 #include <stdbool.h>
@@ -119,6 +120,11 @@ struct ExecCommand {
 
 struct ExecRuntime {
         int n_ref;
+
+        Manager *manager;
+
+        /* unit id of the owner */
+        char *id;
 
         char *tmp_dir;
         char *var_tmp_dir;
@@ -374,14 +380,13 @@ void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix);
 
-int exec_runtime_make(ExecRuntime **rt, ExecContext *c, const char *id);
-ExecRuntime *exec_runtime_ref(ExecRuntime *r);
-ExecRuntime *exec_runtime_unref(ExecRuntime *r);
+int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecRuntime **ret);
+ExecRuntime *exec_runtime_unref(ExecRuntime *r, bool destroy);
 
-int exec_runtime_serialize(Unit *unit, ExecRuntime *rt, FILE *f, FDSet *fds);
-int exec_runtime_deserialize_item(Unit *unit, ExecRuntime **rt, const char *key, const char *value, FDSet *fds);
-
-void exec_runtime_destroy(ExecRuntime *rt);
+int exec_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
+int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value, FDSet *fds);
+void exec_runtime_deserialize_one(Manager *m, const char *value, FDSet *fds);
+void exec_runtime_vacuum(Manager *m);
 
 const char* exec_output_to_string(ExecOutput i) _const_;
 ExecOutput exec_output_from_string(const char *s) _pure_;

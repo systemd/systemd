@@ -164,7 +164,7 @@ static void socket_done(Unit *u) {
 
         s->peers_by_address = set_free(s->peers_by_address);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, false);
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -1878,8 +1878,10 @@ static int socket_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(s->deserialized_state, SOCKET_DEAD, SOCKET_FAILED))
+        if (!IN_SET(s->deserialized_state, SOCKET_DEAD, SOCKET_FAILED)) {
                 (void) unit_setup_dynamic_creds(u);
+                (void) unit_setup_exec_runtime(u);
+        }
 
         socket_set_state(s, s->deserialized_state);
         return 0;
@@ -2017,8 +2019,7 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 
-        exec_runtime_destroy(s->exec_runtime);
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
 
         exec_context_destroy_runtime_directory(&s->exec_context, UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 

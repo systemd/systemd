@@ -241,7 +241,7 @@ static void mount_done(Unit *u) {
         mount_parameters_done(&m->parameters_proc_self_mountinfo);
         mount_parameters_done(&m->parameters_fragment);
 
-        m->exec_runtime = exec_runtime_unref(m->exec_runtime);
+        m->exec_runtime = exec_runtime_unref(m->exec_runtime, false);
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
 
@@ -699,8 +699,10 @@ static int mount_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(new_state, MOUNT_DEAD, MOUNT_FAILED))
+        if (!IN_SET(new_state, MOUNT_DEAD, MOUNT_FAILED)) {
                 (void) unit_setup_dynamic_creds(u);
+                (void) unit_setup_exec_runtime(u);
+        }
 
         mount_set_state(m, new_state);
         return 0;
@@ -813,8 +815,7 @@ static void mount_enter_dead(Mount *m, MountResult f) {
 
         mount_set_state(m, m->result != MOUNT_SUCCESS ? MOUNT_FAILED : MOUNT_DEAD);
 
-        exec_runtime_destroy(m->exec_runtime);
-        m->exec_runtime = exec_runtime_unref(m->exec_runtime);
+        m->exec_runtime = exec_runtime_unref(m->exec_runtime, true);
 
         exec_context_destroy_runtime_directory(&m->exec_context, UNIT(m)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
