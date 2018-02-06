@@ -1380,7 +1380,7 @@ static void dhcp6_prefixes_hash_func(const void *p, struct siphash *state) {
 static int dhcp6_prefixes_compare_func(const void *_a, const void *_b) {
         const struct in6_addr *a = _a, *b = _b;
 
-        return memcmp(&a, &b, sizeof(*a));
+        return memcmp(a, b, sizeof(*a));
 }
 
 static const struct hash_ops dhcp6_prefixes_hash_ops = {
