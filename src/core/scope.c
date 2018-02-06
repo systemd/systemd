@@ -163,9 +163,6 @@ static int scope_load_init_scope(Unit *u) {
          * synthesize it here, instead of relying on the unit file on disk. */
 
         u->default_dependencies = false;
-        u->ignore_on_isolate = true;
-
-        SCOPE(u)->kill_context.kill_signal = SIGRTMIN+14;
 
         /* Prettify things, if we can. */
         if (!u->description)
