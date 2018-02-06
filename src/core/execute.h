@@ -345,15 +345,11 @@ int exec_spawn(Unit *unit,
                DynamicCreds *dynamic_creds,
                pid_t *ret);
 
-void exec_command_done(ExecCommand *c);
 void exec_command_done_array(ExecCommand *c, unsigned n);
 
 ExecCommand* exec_command_free_list(ExecCommand *c);
 void exec_command_free_array(ExecCommand **c, unsigned n);
 
-char *exec_command_line(char **argv);
-
-void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_append_list(ExecCommand **l, ExecCommand *e);
 int exec_command_set(ExecCommand *c, const char *path, ...);
@@ -361,24 +357,22 @@ int exec_command_append(ExecCommand *c, const char *path, ...);
 
 void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
-void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
+void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
-int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_root);
+int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
 
-int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l);
-int exec_context_named_iofds(Unit *unit, const ExecContext *c, const ExecParameters *p, int named_iofds[3]);
 const char* exec_context_fdname(const ExecContext *c, int fd_index);
 
-bool exec_context_may_touch_console(ExecContext *c);
-bool exec_context_maintains_privileges(ExecContext *c);
+bool exec_context_may_touch_console(const ExecContext *c);
+bool exec_context_maintains_privileges(const ExecContext *c);
 
-int exec_context_get_effective_ioprio(ExecContext *c);
+int exec_context_get_effective_ioprio(const ExecContext *c);
 
 void exec_context_free_log_extra_fields(ExecContext *c);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
-void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status);
-void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix);
+void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
+void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
 
 int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecRuntime **ret);
 ExecRuntime *exec_runtime_unref(ExecRuntime *r, bool destroy);

@@ -331,7 +331,7 @@ static int connect_journal_socket(int fd, uid_t uid, gid_t gid) {
 }
 
 static int connect_logger_as(
-                Unit *unit,
+                const Unit *unit,
                 const ExecContext *context,
                 const ExecParameters *params,
                 ExecOutput output,
@@ -562,7 +562,7 @@ static int setup_input(
 }
 
 static int setup_output(
-                Unit *unit,
+                const Unit *unit,
                 const ExecContext *context,
                 const ExecParameters *params,
                 int fileno,
@@ -1055,7 +1055,7 @@ static int get_supplementary_groups(const ExecContext *c, const char *user,
         return 0;
 }
 
-static int enforce_groups(gid_t gid, gid_t *supplementary_gids, int ngids) {
+static int enforce_groups(gid_t gid, const gid_t *supplementary_gids, int ngids) {
         int r;
 
         /* Handle SupplementaryGroups= if it is not empty */
@@ -1541,7 +1541,7 @@ static int apply_private_devices(const Unit *u, const ExecContext *c) {
         return seccomp_load_syscall_filter_set(SCMP_ACT_ALLOW, syscall_filter_sets + SYSCALL_FILTER_SET_RAW_IO, SCMP_ACT_ERRNO(EPERM));
 }
 
-static int apply_restrict_namespaces(Unit *u, const ExecContext *c) {
+static int apply_restrict_namespaces(const Unit *u, const ExecContext *c) {
         assert(u);
         assert(c);
 
@@ -1611,7 +1611,7 @@ static void do_idle_pipe_dance(int idle_pipe[4]) {
 }
 
 static int build_environment(
-                Unit *u,
+                const Unit *u,
                 const ExecContext *c,
                 const ExecParameters *p,
                 unsigned n_fds,
@@ -2310,11 +2310,11 @@ finish:
 }
 
 static int apply_mount_namespace(
-                Unit *u,
-                ExecCommand *command,
+                const Unit *u,
+                const ExecCommand *command,
                 const ExecContext *context,
                 const ExecParameters *params,
-                ExecRuntime *runtime) {
+                const ExecRuntime *runtime) {
 
         _cleanup_strv_free_ char **empty_directories = NULL;
         char *tmp = NULL, *var = NULL;
@@ -2438,7 +2438,7 @@ static int apply_working_directory(
 }
 
 static int setup_keyring(
-                Unit *u,
+                const Unit *u,
                 const ExecContext *context,
                 const ExecParameters *p,
                 uid_t uid, gid_t gid) {
@@ -2549,7 +2549,7 @@ static int setup_keyring(
         return 0;
 }
 
-static void append_socket_pair(int *array, unsigned *n, int pair[2]) {
+static void append_socket_pair(int *array, unsigned *n, const int pair[2]) {
         assert(array);
         assert(n);
 
@@ -2564,8 +2564,8 @@ static void append_socket_pair(int *array, unsigned *n, int pair[2]) {
 
 static int close_remaining_fds(
                 const ExecParameters *params,
-                ExecRuntime *runtime,
-                DynamicCreds *dcreds,
+                const ExecRuntime *runtime,
+                const DynamicCreds *dcreds,
                 int user_lookup_fd,
                 int socket_fd,
                 int *fds, unsigned n_fds) {
@@ -2708,9 +2708,11 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
         return 0;
 }
 
+static char *exec_command_line(char **argv);
+
 static int exec_child(
                 Unit *unit,
-                ExecCommand *command,
+                const ExecCommand *command,
                 const ExecContext *context,
                 const ExecParameters *params,
                 ExecRuntime *runtime,
@@ -3442,6 +3444,9 @@ static int exec_child(
         return log_unit_error_errno(unit, errno, "Failed to execute command: %m");
 }
 
+static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
+static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[3]);
+
 int exec_spawn(Unit *unit,
                ExecCommand *command,
                const ExecContext *context,
@@ -3488,7 +3493,7 @@ int exec_spawn(Unit *unit,
                 n_socket_fds = params->n_socket_fds;
         }
 
-        r = exec_context_named_iofds(unit, context, params, named_iofds);
+        r = exec_context_named_iofds(context, params, named_iofds);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to load a named file descriptor: %m");
 
@@ -3641,7 +3646,7 @@ void exec_context_done(ExecContext *c) {
         c->stdin_data_size = 0;
 }
 
-int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_prefix) {
+int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
         char **i;
 
         assert(c);
@@ -3664,7 +3669,7 @@ int exec_context_destroy_runtime_directory(ExecContext *c, const char *runtime_p
         return 0;
 }
 
-void exec_command_done(ExecCommand *c) {
+static void exec_command_done(ExecCommand *c) {
         assert(c);
 
         c->path = mfree(c->path);
@@ -3699,7 +3704,7 @@ void exec_command_free_array(ExecCommand **c, unsigned n) {
 }
 
 typedef struct InvalidEnvInfo {
-        Unit *unit;
+        const Unit *unit;
         const char *path;
 } InvalidEnvInfo;
 
@@ -3737,7 +3742,7 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index) {
         }
 }
 
-int exec_context_named_iofds(Unit *unit, const ExecContext *c, const ExecParameters *p, int named_iofds[3]) {
+static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[3]) {
         unsigned i, targets;
         const char* stdio_fdname[3];
         unsigned n_fds;
@@ -3783,7 +3788,7 @@ int exec_context_named_iofds(Unit *unit, const ExecContext *c, const ExecParamet
         return targets == 0 ? 0 : -ENOENT;
 }
 
-int exec_context_load_environment(Unit *unit, const ExecContext *c, char ***l) {
+static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l) {
         char **i, **r = NULL;
 
         assert(c);
@@ -3887,7 +3892,7 @@ static bool tty_may_match_dev_console(const char *tty) {
         return streq(console, tty) || (streq(console, "tty0") && tty_is_vc(tty));
 }
 
-bool exec_context_may_touch_console(ExecContext *ec) {
+bool exec_context_may_touch_console(const ExecContext *ec) {
 
         return (ec->tty_reset ||
                 ec->tty_vhangup ||
@@ -3907,7 +3912,7 @@ static void strv_fprintf(FILE *f, char **l) {
                 fprintf(f, " %s", *g);
 }
 
-void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
+void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         ExecDirectoryType dt;
         char **e, **d;
         unsigned i;
@@ -4293,7 +4298,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         prefix, c->apparmor_profile_ignore ? "-" : "", c->apparmor_profile);
 }
 
-bool exec_context_maintains_privileges(ExecContext *c) {
+bool exec_context_maintains_privileges(const ExecContext *c) {
         assert(c);
 
         /* Returns true if the process forked off would run under
@@ -4308,7 +4313,7 @@ bool exec_context_maintains_privileges(ExecContext *c) {
         return false;
 }
 
-int exec_context_get_effective_ioprio(ExecContext *c) {
+int exec_context_get_effective_ioprio(const ExecContext *c) {
         int p;
 
         assert(c);
@@ -4342,7 +4347,7 @@ void exec_status_start(ExecStatus *s, pid_t pid) {
         dual_timestamp_get(&s->start_timestamp);
 }
 
-void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, int status) {
+void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status) {
         assert(s);
 
         if (s->pid && s->pid != pid)
@@ -4362,7 +4367,7 @@ void exec_status_exit(ExecStatus *s, ExecContext *context, pid_t pid, int code, 
         }
 }
 
-void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {
+void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix) {
         char buf[FORMAT_TIMESTAMP_MAX];
 
         assert(s);
@@ -4392,7 +4397,7 @@ void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {
                         prefix, s->status);
 }
 
-char *exec_command_line(char **argv) {
+static char *exec_command_line(char **argv) {
         size_t k;
         char *n, *p, **a;
         bool first = true;
@@ -4432,7 +4437,7 @@ char *exec_command_line(char **argv) {
         return n;
 }
 
-void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
+static void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
         _cleanup_free_ char *cmd = NULL;
         const char *prefix2;
 
