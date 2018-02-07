@@ -483,7 +483,7 @@
           <para>A special target unit for shutting down and powering
           off the system.</para>
 
-          <para>Applications wanting to reboot the system should not start this unit
+          <para>Applications wanting to power off the system should not start this unit
           directly, but should instead execute <command>systemctl poweroff</command>
           (possibly with the <option>--no-block</option> option) or call
           <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
