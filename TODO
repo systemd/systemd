@@ -24,8 +24,13 @@ Janitorial Clean-ups:
 
 Features:
 
-* check what setting the login shell to /bin/false vs. /sbin/nologin means and
-  do the right thing in get_user_creds_clean() with it.
+* block setrlimit(RLIMIT_NOPROC) (and other per-user limits) in nspawn when userns is not on
+
+* nss-systemd: implement enumeration, that shows all dynamic users plus the
+  synthesized ones if necessary, so that "getent passwd" shows useful data.
+
+* teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
+  project quota
 
 * maybe rework get_user_creds() to query the user database if $SHELL is used
   for root, but only then.
@@ -377,8 +382,6 @@ Features:
   can be used for resuming the system but nothing else.
 
 * what to do about udev db binary stability for apps? (raw access is not an option)
-
-* maybe provide an API to allow migration of foreign PIDs into existing scopes.
 
 * man: maybe use the word "inspect" rather than "introspect"?
 
