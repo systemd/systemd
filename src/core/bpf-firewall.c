@@ -494,7 +494,7 @@ int bpf_firewall_compile(Unit *u) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("BPF firewalling not supported on this systemd, proceeding without.");
+                log_debug("BPF firewalling not supported on this manager, proceeding without.");
                 return -EOPNOTSUPP;
         }
 
@@ -556,7 +556,7 @@ int bpf_firewall_install(Unit *u) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("BPF firewalling not supported on this systemd, proceeding without.");
+                log_debug("BPF firewalling not supported on this manager, proceeding without.");
                 return -EOPNOTSUPP;
         }
 
