@@ -985,26 +985,6 @@ static int manager_setup_user_lookup_fd(Manager *m) {
         return 0;
 }
 
-static int manager_connect_bus(Manager *m, bool reexecuting) {
-        bool try_bus_connect;
-        Unit *u = NULL;
-
-        assert(m);
-
-        if (m->test_run_flags)
-                return 0;
-
-        u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
-
-        try_bus_connect =
-                (u && SERVICE(u)->deserialized_state == SERVICE_RUNNING) &&
-                (reexecuting ||
-                 (MANAGER_IS_USER(m) && getenv("DBUS_SESSION_BUS_ADDRESS")));
-
-        /* Try to connect to the buses, if possible. */
-        return bus_init(m, try_bus_connect);
-}
-
 static unsigned manager_dispatch_cleanup_queue(Manager *m) {
         Unit *u;
         unsigned n = 0;
@@ -1374,6 +1354,38 @@ static void manager_distribute_fds(Manager *m, FDSet *fds) {
         }
 }
 
+static bool manager_dbus_is_running(Manager *m, bool deserialized) {
+        Unit *u;
+
+        assert(m);
+
+        /* This checks whether the dbus instance we are supposed to expose our APIs on is up. We check both the socket
+         * and the service unit. If the 'deserialized' parameter is true we'll check the deserialized state of the unit
+         * rather than the current one. */
+
+        if (m->test_run_flags != 0)
+                return false;
+
+        /* If we are in the user instance, and the env var is already set for us, then this means D-Bus is ran
+         * somewhere outside of our own logic. Let's use it */
+        if (MANAGER_IS_USER(m) && getenv("DBUS_SESSION_BUS_ADDRESS"))
+                return true;
+
+        u = manager_get_unit(m, SPECIAL_DBUS_SOCKET);
+        if (!u)
+                return false;
+        if ((deserialized ? SOCKET(u)->deserialized_state : SOCKET(u)->state) != SOCKET_RUNNING)
+                return false;
+
+        u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
+        if (!u)
+                return false;
+        if (!IN_SET((deserialized ? SERVICE(u)->deserialized_state : SERVICE(u)->state), SERVICE_RUNNING, SERVICE_RELOAD))
+                return false;
+
+        return true;
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r;
 
@@ -1454,9 +1466,22 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 /* This shouldn't fail, except if things are really broken. */
                 return r;
 
-        /* Let's connect to the bus now. */
-        (void) manager_connect_bus(m, !!serialization);
+        /* Let's set up our private bus connection now, unconditionally */
+        (void) bus_init_private(m);
 
+        /* If we are in --user mode also connect to the system bus now */
+        if (MANAGER_IS_USER(m))
+                (void) bus_init_system(m);
+
+        /* Let's connect to the bus now, but only if the unit is supposed to be up */
+        if (manager_dbus_is_running(m, !!serialization)) {
+                (void) bus_init_api(m);
+
+                if (MANAGER_IS_SYSTEM(m))
+                        (void) bus_init_system(m);
+        }
+
+        /* Now that we are connected to all possible busses, let's deserialize who is tracking us. */
         (void) bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
         m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
 
@@ -2295,23 +2320,21 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 /* This is a nop on non-init */
                 break;
 
-        case SIGUSR1: {
-                Unit *u;
+        case SIGUSR1:
 
-                u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
-
-                if (!u || UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
+                if (manager_dbus_is_running(m, false)) {
                         log_info("Trying to reconnect to bus...");
-                        bus_init(m, true);
-                }
 
-                if (!u || !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u))) {
-                        log_info("Loading D-Bus service...");
+                        (void) bus_init_api(m);
+
+                        if (MANAGER_IS_SYSTEM(m))
+                                (void) bus_init_system(m);
+                } else {
+                        log_info("Starting D-Bus service...");
                         manager_start_target(m, SPECIAL_DBUS_SERVICE, JOB_REPLACE);
                 }
 
                 break;
-        }
 
         case SIGUSR2: {
                 _cleanup_free_ char *dump = NULL;
@@ -3154,8 +3177,9 @@ int manager_reload(Manager *m) {
 
         exec_runtime_vacuum(m);
 
-        /* It might be safe to log to the journal now. */
+        /* It might be safe to log to the journal now and connect to dbus */
         manager_recheck_journal(m);
+        manager_recheck_dbus(m);
 
         /* Sync current state of bus names with our set of listening units */
         if (m->api_bus)
@@ -3517,6 +3541,27 @@ int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
         }
 
         return 0;
+}
+
+void manager_recheck_dbus(Manager *m) {
+        assert(m);
+
+        /* Connects to the bus if the dbus service and socket are running. If we are running in user mode this is all
+         * it does. In system mode we'll also connect to the system bus (which will most likely just reuse the
+         * connection of the API bus). That's because the system bus after all runs as service of the system instance,
+         * while in the user instance we can assume it's already there. */
+
+        if (manager_dbus_is_running(m, false)) {
+                (void) bus_init_api(m);
+
+                if (MANAGER_IS_SYSTEM(m))
+                        (void) bus_init_system(m);
+        } else {
+                (void) bus_done_api(m);
+
+                if (MANAGER_IS_SYSTEM(m))
+                        (void) bus_done_system(m);
+        }
 }
 
 static bool manager_journal_is_running(Manager *m) {
