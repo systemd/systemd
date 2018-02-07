@@ -3920,7 +3920,15 @@ _public_ int sd_bus_get_description(sd_bus *bus, const char **description) {
         assert_return(bus->description, -ENXIO);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        *description = bus->description;
+        if (bus->description)
+                *description = bus->description;
+        else if (bus->is_system)
+                *description = "system";
+        else if (bus->is_user)
+                *description = "user";
+        else
+                *description = NULL;
+
         return 0;
 }
 
