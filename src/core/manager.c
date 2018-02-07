@@ -1203,6 +1203,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->run_queue_event_source);
         sd_event_source_unref(m->user_lookup_event_source);
+        sd_event_source_unref(m->sync_bus_names_event_source);
 
         safe_close(m->signal_fd);
         safe_close(m->notify_fd);
@@ -3182,8 +3183,9 @@ int manager_reload(Manager *m) {
         manager_recheck_dbus(m);
 
         /* Sync current state of bus names with our set of listening units */
-        if (m->api_bus)
-                manager_sync_bus_names(m, m->api_bus);
+        q = manager_enqueue_sync_bus_names(m);
+        if (q < 0 && r >= 0)
+                r = q;
 
         assert(m->n_reloading > 0);
         m->n_reloading--;

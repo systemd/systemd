@@ -727,17 +727,29 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
         return 0;
 }
 
-int manager_sync_bus_names(Manager *m, sd_bus *bus) {
+static int manager_dispatch_sync_bus_names(sd_event_source *es, void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
+        Manager *m = userdata;
         const char *name;
         Iterator i;
         Unit *u;
         int r;
 
+        assert(es);
         assert(m);
-        assert(bus);
+        assert(m->sync_bus_names_event_source == es);
 
-        r = sd_bus_list_names(bus, &names, NULL);
+        /* First things first, destroy the defer event so that we aren't triggered again */
+        m->sync_bus_names_event_source = sd_event_source_unref(m->sync_bus_names_event_source);
+
+        /* Let's see if there's anything to do still? */
+        if (!m->api_bus)
+                return 0;
+        if (hashmap_isempty(m->watch_bus))
+                return 0;
+
+        /* OK, let's sync up the names. Let's see which names are currently on the bus. */
+        r = sd_bus_list_names(m->api_bus, &names, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to get initial list of names: %m");
 
@@ -761,7 +773,7 @@ int manager_sync_bus_names(Manager *m, sd_bus *bus) {
                         const char *unique;
 
                         /* If it is, determine its current owner */
-                        r = sd_bus_get_name_creds(bus, name, SD_BUS_CREDS_UNIQUE_NAME, &creds);
+                        r = sd_bus_get_name_creds(m->api_bus, name, SD_BUS_CREDS_UNIQUE_NAME, &creds);
                         if (r < 0) {
                                 log_full_errno(r == -ENXIO ? LOG_DEBUG : LOG_ERR, r, "Failed to get bus name owner %s: %m", name);
                                 continue;
@@ -792,6 +804,34 @@ int manager_sync_bus_names(Manager *m, sd_bus *bus) {
                 }
         }
 
+        return 0;
+}
+
+int manager_enqueue_sync_bus_names(Manager *m) {
+        int r;
+
+        assert(m);
+
+        /* Enqueues a request to synchronize the bus names in a later event loop iteration. The callers generally don't
+         * want us to invoke ->bus_name_owner_change() unit calls from their stack frames as this might result in event
+         * dispatching on its own creating loops, hence we simply create a defer event for the event loop and exit. */
+
+        if (m->sync_bus_names_event_source)
+                return 0;
+
+        r = sd_event_add_defer(m->event, &m->sync_bus_names_event_source, manager_dispatch_sync_bus_names, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus name synchronization event: %m");
+
+        r = sd_event_source_set_priority(m->sync_bus_names_event_source, SD_EVENT_PRIORITY_IDLE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set event priority: %m");
+
+        r = sd_event_source_set_enabled(m->sync_bus_names_event_source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set even to oneshot: %m");
+
+        (void) sd_event_source_set_description(m->sync_bus_names_event_source, "manager-sync-bus-names");
         return 0;
 }
 
@@ -840,11 +880,8 @@ static int bus_setup_api(Manager *m, sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = manager_sync_bus_names(m, bus);
-        if (r < 0)
-                return r;
-
         log_debug("Successfully connected to API bus.");
+
         return 0;
 }
 
@@ -881,6 +918,10 @@ int bus_init_api(Manager *m) {
 
         m->api_bus = bus;
         bus = NULL;
+
+        r = manager_enqueue_sync_bus_names(m);
+        if (r < 0)
+                return r;
 
         return 0;
 }
