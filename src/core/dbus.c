@@ -653,6 +653,8 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 return 0;
         }
 
+        (void) sd_bus_set_description(bus, "private-bus-connection");
+
         r = sd_bus_set_fd(bus, nfd, nfd);
         if (r < 0) {
                 log_warning_errno(r, "Failed to set fd on new connection bus: %m");
