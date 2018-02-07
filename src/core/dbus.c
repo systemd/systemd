@@ -958,22 +958,21 @@ int bus_init_system(Manager *m) {
                 return 0;
 
         /* The API and system bus is the same if we are running in system mode */
-        if (MANAGER_IS_SYSTEM(m) && m->api_bus) {
-                m->system_bus = sd_bus_ref(m->api_bus);
-                return 0;
+        if (MANAGER_IS_SYSTEM(m) && m->api_bus)
+                bus = sd_bus_ref(m->api_bus);
+        else {
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to system bus: %m");
+
+                r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach system bus to event loop: %m");
+
+                r = bus_setup_disconnected_match(m, bus);
+                if (r < 0)
+                        return r;
         }
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to system bus: %m");
-
-        r = bus_setup_disconnected_match(m, bus);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach system bus to event loop: %m");
 
         r = bus_setup_system(m, bus);
         if (r < 0)
