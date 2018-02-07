@@ -806,6 +806,8 @@ bool unit_needs_console(Unit *u);
 
 const char *unit_label_path(Unit *u);
 
+int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
+
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
 #define log_unit_full(unit, level, error, ...)                          \

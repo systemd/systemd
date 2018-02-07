@@ -863,6 +863,26 @@ static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd
         return bus_unit_method_get_processes(message, u, error);
 }
 
+static int method_attach_processes_to_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        r = bus_get_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
+
+        return bus_unit_method_attach_processes(message, u, error);
+}
+
 static int transient_unit_from_message(
                 Manager *m,
                 sd_bus_message *message,
@@ -2504,6 +2524,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("UnrefUnit", "s", NULL, method_unref_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("StartTransientUnit", "ssa(sv)a(sa(sv))", "o", method_start_transient_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUnitProcesses", "s", "a(sus)", method_get_unit_processes, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("AttachProcessesToUnit", "ssau", NULL, method_attach_processes_to_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetJob", "u", "o", method_get_job, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetJobAfter", "u", "a(usssoo)", method_get_job_waiting, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetJobBefore", "u", "a(usssoo)", method_get_job_waiting, SD_BUS_VTABLE_UNPRIVILEGED),

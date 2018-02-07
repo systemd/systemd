@@ -24,6 +24,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "bpf-firewall.h"
+#include "bus-error.h"
 #include "cgroup-util.h"
 #include "cgroup.h"
 #include "fd-util.h"
@@ -1303,13 +1304,12 @@ void unit_update_cgroup_members_masks(Unit *u) {
         }
 }
 
-static const char *migrate_callback(CGroupMask mask, void *userdata) {
-        Unit *u = userdata;
+const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask) {
 
-        assert(mask != 0);
-        assert(u);
+        /* Returns the realized cgroup path of the specified unit where all specified controllers are available. */
 
         while (u) {
+
                 if (u->cgroup_path &&
                     u->cgroup_realized &&
                     (u->cgroup_realized_mask & mask) == mask)
@@ -1319,6 +1319,10 @@ static const char *migrate_callback(CGroupMask mask, void *userdata) {
         }
 
         return NULL;
+}
+
+static const char *migrate_callback(CGroupMask mask, void *userdata) {
+        return unit_get_realized_cgroup_path(userdata, mask);
 }
 
 char *unit_default_cgroup_path(Unit *u) {
@@ -1503,19 +1507,142 @@ static int unit_create_cgroup(
         return 0;
 }
 
-int unit_attach_pids_to_cgroup(Unit *u) {
+static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suffix_path) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        char *pp;
         int r;
+
         assert(u);
+
+        if (MANAGER_IS_SYSTEM(u->manager))
+                return -EINVAL;
+
+        if (!u->manager->system_bus)
+                return -EIO;
+
+        if (!u->cgroup_path)
+                return -EINVAL;
+
+        /* Determine this unit's cgroup path relative to our cgroup root */
+        pp = path_startswith(u->cgroup_path, u->manager->cgroup_root);
+        if (!pp)
+                return -EINVAL;
+
+        pp = strjoina("/", pp, suffix_path);
+        path_kill_slashes(pp);
+
+        r = sd_bus_call_method(u->manager->system_bus,
+                               "org.freedesktop.systemd1",
+                               "/org/freedesktop/systemd1",
+                               "org.freedesktop.systemd1.Manager",
+                               "AttachProcessesToUnit",
+                               &error, NULL,
+                               "ssau",
+                               NULL /* empty unit name means client's unit, i.e. us */, pp, 1, (uint32_t) pid);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to attach unit process " PID_FMT " via the bus: %s", pid, bus_error_message(&error, r));
+
+        return 0;
+}
+
+int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
+        CGroupMask delegated_mask;
+        const char *p;
+        Iterator i;
+        void *pidp;
+        int r, q;
+
+        assert(u);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EINVAL;
+
+        if (set_isempty(pids))
+                return 0;
 
         r = unit_realize_cgroup(u);
         if (r < 0)
                 return r;
 
-        r = cg_attach_many_everywhere(u->manager->cgroup_supported, u->cgroup_path, u->pids, migrate_callback, u);
-        if (r < 0)
-                return r;
+        if (isempty(suffix_path))
+                p = u->cgroup_path;
+        else
+                p = strjoina(u->cgroup_path, "/", suffix_path);
 
-        return 0;
+        delegated_mask = unit_get_delegate_mask(u);
+
+        r = 0;
+        SET_FOREACH(pidp, pids, i) {
+                pid_t pid = PTR_TO_PID(pidp);
+                CGroupController c;
+
+                /* First, attach the PID to the main cgroup hierarchy */
+                q = cg_attach(SYSTEMD_CGROUP_CONTROLLER, p, pid);
+                if (q < 0) {
+                        log_unit_debug_errno(u, q, "Couldn't move process " PID_FMT " to requested cgroup '%s': %m", pid, p);
+
+                        if (MANAGER_IS_USER(u->manager) && IN_SET(q, -EPERM, -EACCES)) {
+                                int z;
+
+                                /* If we are in a user instance, and we can't move the process ourselves due to
+                                 * permission problems, let's ask the system instance about it instead. Since it's more
+                                 * privileged it might be able to move the process across the leaves of a subtree who's
+                                 * top node is not owned by us. */
+
+                                z = unit_attach_pid_to_cgroup_via_bus(u, pid, suffix_path);
+                                if (z < 0)
+                                        log_unit_debug_errno(u, z, "Couldn't move process " PID_FMT " to requested cgroup '%s' via the system bus either: %m", pid, p);
+                                else
+                                        continue; /* When the bus thing worked via the bus we are fully done for this PID. */
+                        }
+
+                        if (r >= 0)
+                                r = q; /* Remember first error */
+
+                        continue;
+                }
+
+                q = cg_all_unified();
+                if (q < 0)
+                        return q;
+                if (q > 0)
+                        continue;
+
+                /* In the legacy hierarchy, attach the process to the request cgroup if possible, and if not to the
+                 * innermost realized one */
+
+                for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
+                        CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
+                        const char *realized;
+
+                        if (!(u->manager->cgroup_supported & bit))
+                                continue;
+
+                        /* If this controller is delegated and realized, honour the caller's request for the cgroup suffix. */
+                        if (delegated_mask & u->cgroup_realized_mask & bit) {
+                                q = cg_attach(cgroup_controller_to_string(c), p, pid);
+                                if (q >= 0)
+                                        continue; /* Success! */
+
+                                log_unit_debug_errno(u, q, "Failed to attach PID " PID_FMT " to requested cgroup %s in controller %s, falling back to unit's cgroup: %m",
+                                                     pid, p, cgroup_controller_to_string(c));
+                        }
+
+                        /* So this controller is either not delegate or realized, or something else weird happened. In
+                         * that case let's attach the PID at least to the closest cgroup up the tree that is
+                         * realized. */
+                        realized = unit_get_realized_cgroup_path(u, bit);
+                        if (!realized)
+                                continue; /* Not even realized in the root slice? Then let's not bother */
+
+                        q = cg_attach(cgroup_controller_to_string(c), realized, pid);
+                        if (q < 0)
+                                log_unit_debug_errno(u, q, "Failed to attach PID " PID_FMT " to realized cgroup %s in controller %s, ignoring: %m",
+                                                     pid, realized, cgroup_controller_to_string(c));
+                }
+        }
+
+        return r;
 }
 
 static void cgroup_xattr_apply(Unit *u) {

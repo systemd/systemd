@@ -1127,6 +1127,118 @@ static int property_get_ip_counter(
         return sd_bus_message_append(reply, "t", value);
 }
 
+int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_(set_freep) Set *pids = NULL;
+        Unit *u = userdata;
+        const char *path;
+        int r;
+
+        assert(message);
+
+        /* This migrates the processes with the specified PIDs into the cgroup of this unit, optionally below a
+         * specified cgroup path. Obviously this only works for units that actually maintain a cgroup
+         * representation. If a process is already in the cgroup no operation is executed – in this case the specified
+         * subcgroup path has no effect! */
+
+        r = mac_selinux_unit_access_check(u, message, "start", error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "s", &path);
+        if (r < 0)
+                return r;
+
+        path = empty_to_null(path);
+        if (path) {
+                if (!path_is_absolute(path))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Control group path is not absolute: %s", path);
+
+                if (!path_is_normalized(path))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Control group path is not normalized: %s", path);
+        }
+
+        if (!unit_cgroup_delegate(u))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process migration not available on non-delegated units.");
+
+        if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not active, refusing.");
+
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(message, 'a', "u");
+        if (r < 0)
+                return r;
+        for (;;) {
+                uid_t process_uid, sender_uid;
+                uint32_t upid;
+                pid_t pid;
+
+                r = sd_bus_message_read(message, "u", &upid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                if (upid == 0) {
+                        r = sd_bus_creds_get_pid(creds, &pid);
+                        if (r < 0)
+                                return r;
+                } else
+                        pid = (uid_t) upid;
+
+                /* Filter out duplicates */
+                if (set_contains(pids, PID_TO_PTR(pid)))
+                        continue;
+
+                /* Check if this process is suitable for attaching to this unit */
+                r = unit_pid_attachable(u, pid, error);
+                if (r < 0)
+                        return r;
+
+                /* Let's query the sender's UID, so that we can make our security decisions */
+                r = sd_bus_creds_get_euid(creds, &sender_uid);
+                if (r < 0)
+                        return r;
+
+                /* Let's validate security: if the sender is root, then all is OK. If the sender is is any other unit,
+                 * then the process' UID and the target unit's UID have to match the sender's UID */
+                if (sender_uid != 0 && sender_uid != getuid()) {
+                        r = get_process_uid(pid, &process_uid);
+                        if (r < 0)
+                                return sd_bus_error_set_errnof(error, r, "Failed to retrieve process UID: %m");
+
+                        if (process_uid != sender_uid)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by client's UID. Refusing.", pid);
+                        if (process_uid != u->ref_uid)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by target unit's UID. Refusing.", pid);
+                }
+
+                if (!pids) {
+                        pids = set_new(NULL);
+                        if (!pids)
+                                return -ENOMEM;
+                }
+
+                r = set_put(pids, PID_TO_PTR(pid));
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_exit_container(message);
+        if (r < 0)
+                return r;
+
+        r = unit_attach_pids_to_cgroup(u, pids, path);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to attach processes to control group: %m");
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
@@ -1139,6 +1251,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IPEgressBytes", "t", property_get_ip_counter, 0, 0),
         SD_BUS_PROPERTY("IPEgressPackets", "t", property_get_ip_counter, 0, 0),
         SD_BUS_METHOD("GetProcesses", NULL, "a(sus)", bus_unit_method_get_processes, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("AttachProcesses", "sau", NULL, bus_unit_method_attach_processes, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
