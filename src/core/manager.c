@@ -3569,6 +3569,9 @@ static bool manager_journal_is_running(Manager *m) {
 
         assert(m);
 
+        if (m->test_run_flags != 0)
+                return false;
+
         /* If we are the user manager we can safely assume that the journal is up */
         if (!MANAGER_IS_SYSTEM(m))
                 return true;
