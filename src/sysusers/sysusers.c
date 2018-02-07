@@ -1855,7 +1855,7 @@ static int read_config_files(const char* dirs, char **args) {
                 return log_error_errno(r, "Failed to enumerate sysusers.d files: %m");
 
         if (arg_replace) {
-                r = conf_files_insert(&files, arg_root, dirs, arg_replace);
+                r = conf_files_insert_nulstr(&files, arg_root, dirs, arg_replace);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extend sysusers.d file list: %m");
 

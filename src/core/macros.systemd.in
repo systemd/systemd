@@ -90,6 +90,7 @@ fi \
 
 %journal_catalog_update() %{nil}
 
+# Deprecated. Use %tmpfiles_create_package instead
 %tmpfiles_create() \
 systemd-tmpfiles --create %{?*} >/dev/null 2>&1 || : \
 %{nil}
@@ -103,22 +104,38 @@ systemd-sysusers %{?*} >/dev/null 2>&1 || : \
 echo %{?*} | systemd-sysusers - >/dev/null 2>&1 || : \
 %{nil}
 
-# This should be used by package installation scripts which
-# require users or groups to be present before the files installed
-# by the package are present on disk (for example because some files
-# are owned by those users or groups).
+# This should be used by package installation scripts which require users or
+# groups to be present before the files installed by the package are present on
+# disk (for example because some files are owned by those users or groups).
 #
 # Example:
-#   Source1: %{name}.conf
+#   Source1: %{name}-sysusers.conf
 #   ...
 #   %install
-#   install -Dt %{buildroot}%{sysusersdir} %SOURCE1
+#   install -D %SOURCE1 %{buildroot}%{_sysusersdir}/%{name}.conf
 #   %pre
 #   %sysusers_create_package %{name} %SOURCE1
 #   %files
-#   %{sysusersdir}/%{name}.conf
+#   %{_sysusersdir}/%{name}.conf
 %sysusers_create_package() \
 echo "%(cat %2)" | systemd-sysusers --replace=%_sysusersdir/%1.conf - >/dev/null 2>&1 || : \
+%{nil}
+
+# This may be used by package installation scripts to create files according to
+# their tmpfiles configuration from a package installation script, even before
+# the files of that package are installed on disk.
+#
+# Example:
+#   Source1: %{name}-tmpfiles.conf
+#   ...
+#   %install
+#   install -D %SOURCE1 %{buildroot}%{_tmpfilesdir}/%{name}.conf
+#   %pre
+#   %tmpfiles_create_package %{name} %SOURCE1
+#   %files
+#   %{_tmpfilesdir}/%{name}.conf
+%tmpfiles_create_package() \
+echo "%(cat %2)" | systemd-tmpfiles --replace=%_tmpfilesdir/%1.conf --create - >/dev/null 2>&1 || : \
 %{nil}
 
 %sysctl_apply() \

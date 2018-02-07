@@ -171,6 +171,7 @@ static bool arg_boot = false;
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
+static char *arg_replace = NULL;
 
 #define MAX_DEPTH 256
 
@@ -2364,6 +2365,7 @@ static void help(void) {
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
+               "     --replace=PATH         Treat arguments as replacement for PATH\n"
                , program_invocation_short_name);
 }
 
@@ -2379,6 +2381,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PREFIX,
                 ARG_EXCLUDE_PREFIX,
                 ARG_ROOT,
+                ARG_REPLACE,
         };
 
         static const struct option options[] = {
@@ -2392,6 +2395,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
                 { "root",           required_argument,   NULL, ARG_ROOT           },
+                { "replace",        required_argument,   NULL, ARG_REPLACE        },
                 {}
         };
 
@@ -2447,6 +2451,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_REPLACE:
+                        if (!path_is_absolute(optarg) ||
+                            !endswith(optarg, ".conf")) {
+                                log_error("The argument to --replace= must an absolute path to a config file");
+                                return -EINVAL;
+                        }
+
+                        arg_replace = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2459,10 +2473,15 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (arg_replace && optind >= argc) {
+                log_error("When --replace= is given, some configuration items must be specified");
+                return -EINVAL;
+        }
+
         return 1;
 }
 
-static int read_config_file(const char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
+static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
         _cleanup_fclose_ FILE *_f = NULL;
         FILE *f;
         char line[LINE_MAX];
@@ -2474,11 +2493,11 @@ static int read_config_file(const char **config_dirs, const char *fn, bool ignor
         assert(fn);
 
         if (streq(fn, "-")) {
-                log_debug("Reading config from stdin.");
+                log_debug("Reading config from stdin…");
                 fn = "<stdin>";
                 f = stdin;
         } else {
-                r = search_and_fopen(fn, "re", arg_root, config_dirs, &_f);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) config_dirs, &_f);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT) {
                                 log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
@@ -2487,7 +2506,7 @@ static int read_config_file(const char **config_dirs, const char *fn, bool ignor
 
                         return log_error_errno(r, "Failed to open '%s': %m", fn);
                 }
-                log_debug("Reading config file \"%s\".", fn);
+                log_debug("Reading config file \"%s\"…", fn);
                 f = _f;
         }
 
@@ -2550,13 +2569,60 @@ static int read_config_file(const char **config_dirs, const char *fn, bool ignor
         return r;
 }
 
+static int parse_arguments(char **config_dirs, char **args, bool *invalid_config) {
+        char **arg;
+        int r;
+
+        STRV_FOREACH(arg, args) {
+                r = read_config_file(config_dirs, *arg, false, invalid_config);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int read_config_files(char **config_dirs, char **args, bool *invalid_config) {
+        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free_ char *p = NULL;
+        char **f;
+        int r;
+
+        r = conf_files_list_strv(&files, ".conf", arg_root, 0, (const char* const*) config_dirs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate tmpfiles.d files: %m");
+
+        if (arg_replace) {
+                r = conf_files_insert(&files, arg_root, config_dirs, arg_replace);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extend tmpfiles.d file list: %m");
+
+                p = path_join(arg_root, arg_replace, NULL);
+                if (!p)
+                        return log_oom();
+        }
+
+        STRV_FOREACH(f, files)
+                if (p && path_equal(*f, p)) {
+                        log_debug("Parsing arguments at position \"%s\"…", *f);
+
+                        r = parse_arguments(config_dirs, args, invalid_config);
+                        if (r < 0)
+                                return r;
+                } else
+                        /* Just warn, ignore result otherwise.
+                         * read_config_file() has some debug output, so no need to print anything. */
+                        (void) read_config_file(config_dirs, *f, true, invalid_config);
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
         int r, k;
         ItemArray *a;
         Iterator iterator;
         _cleanup_strv_free_ char **config_dirs = NULL;
         bool invalid_config = false;
-        char **f;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -2602,30 +2668,20 @@ int main(int argc, char *argv[]) {
                         log_debug("Looking for configuration files in (higher priority first:\n\t%s", t);
         }
 
-        if (optind < argc) {
-                int j;
+        /* If command line arguments are specified along with --replace, read all
+         * configuration files and insert the positional arguments at the specified
+         * place. Otherwise, if command line arguments are specified, execute just
+         * them, and finally, without --replace= or any positional arguments, just
+         * read configuration and execute it.
+         */
+        if (arg_replace || optind >= argc)
+                r = read_config_files(config_dirs, argv + optind, &invalid_config);
+        else
+                r = parse_arguments(config_dirs, argv + optind, &invalid_config);
+        if (r < 0)
+                goto finish;
 
-                for (j = optind; j < argc; j++) {
-                        k = read_config_file((const char**) config_dirs, argv[j], false, &invalid_config);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
 
-        } else {
-                _cleanup_strv_free_ char **files = NULL;
-
-                r = conf_files_list_strv(&files, ".conf", arg_root, 0, (const char* const*) config_dirs);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enumerate tmpfiles.d files: %m");
-                        goto finish;
-                }
-
-                STRV_FOREACH(f, files) {
-                        k = read_config_file((const char**) config_dirs, *f, true, &invalid_config);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
-        }
 
         /* The non-globbing ones usually create things, hence we apply
          * them first */
