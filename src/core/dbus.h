@@ -25,6 +25,10 @@
 int bus_send_queued_message(Manager *m);
 
 int bus_init(Manager *m, bool try_bus_connect);
+
+void bus_done_private(Manager *m);
+void bus_done_api(Manager *m);
+void bus_done_system(Manager *m);
 void bus_done(Manager *m);
 
 int bus_fdset_add_all(Manager *m, FDSet *fds);
