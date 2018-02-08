@@ -426,7 +426,7 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
 
         path_kill_slashes(cleaned);
 
-        done = set_new(&string_hash_ops);
+        done = set_new(&path_hash_ops);
         if (!done)
                 return -ENOMEM;
 
@@ -436,7 +436,7 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
                 char *x;
                 unsigned long orig_flags;
 
-                todo = set_new(&string_hash_ops);
+                todo = set_new(&path_hash_ops);
                 if (!todo)
                         return -ENOMEM;
 

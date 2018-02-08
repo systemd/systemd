@@ -1733,12 +1733,12 @@ static sd_journal *journal_new(int flags, const char *path) {
                         j->path = t;
         }
 
-        j->files = ordered_hashmap_new(&string_hash_ops);
+        j->files = ordered_hashmap_new(&path_hash_ops);
         if (!j->files)
                 goto fail;
 
         j->files_cache = ordered_hashmap_iterated_cache_new(j->files);
-        j->directories_by_path = hashmap_new(&string_hash_ops);
+        j->directories_by_path = hashmap_new(&path_hash_ops);
         j->mmap = mmap_cache_new();
         if (!j->files_cache || !j->directories_by_path || !j->mmap)
                 goto fail;
