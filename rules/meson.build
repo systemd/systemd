@@ -36,6 +36,7 @@ rules = files('''
         78-sound-card.rules
         80-drivers.rules
         80-net-setup-link.rules
+        90-hda-powersave.rules
 '''.split())
 
 install_data(rules,

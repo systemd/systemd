@@ -1,0 +1,54 @@
+# This file is part of systemd.
+#
+# The lookup keys are composed in:
+#   90-snd_hda_intel.rules
+#
+# Note: The format of the "snd_hda_intel:" prefix match key is a
+# contract between the rules file and the hardware data, it might
+# change in later revisions to support more or better matches, it
+# is not necessarily expected to be a stable ABI.
+#
+# Match string formats:
+# snd_hda_intel:<pci-subsys-vendor-id>:<pci-subsys-device-id>:dmi:<dmi string>
+#
+# Allowed properties are:
+#    SND_HDA_INTEL_POWERSAVE=<powersave-value>
+#
+# Typical use is SND_HDA_INTEL_POWERSAVE=0 to disable codec autosuspend on
+# troublesome devices, where a plopping or crackling sound is produced each
+# time the codec is turned on/off. Note the need to disable coded autosuspend
+# almost always points to a problem in the kernel hda-codec drivers.
+#
+# To add local entries, create a new file
+#   /etc/udev/hwdb.d/91-snd_hda_intel-local.hwdb
+# and add your rules there. To load the new rules execute (as root):
+#   systemd-hwdb update
+#   udevadm trigger
+#
+# If this fixes the plopping or crackling sounds for you please submit your
+# changes upstream. As mentioned the need for an entry here almost always points
+# to a bug in the kernel hda-codec drivers. Therefor you MUST submit a bug for
+# your issue in the kernel bugzilla before we can accept your changes to this
+# file, go to  https://bugzilla.kernel.org/enter_bug.cgi?product=Drivers
+# and as component choose "Sound(ALSA)", when done add a comment to your
+# entry to this file with a link to the filed bug
+#
+# When ready to submit your changes, preferably send them as a pull request to
+#   https://github.com/systemd/systemd
+# or create a bug report on https://github.com/systemd/systemd/issues and
+# include your new rules, a description of the device, and the output of
+#   udevadm info --export-db
+#
+# For hwdb format and systemd behavior:
+#   https://www.freedesktop.org/software/systemd/man/hwdb.html
+#
+# Sort by brand, model
+
+#########################################
+# Lenovo
+#########################################
+
+# X1 Carbon 3rd Generation with ALC3232 codec
+# https://bugzilla.kernel.org/show_bug.cgi?id=198611
+snd_hda_intel:0x17aa:0x2227:dmi:*:svnLENOVO:*:pvrThinkPadX1Carbon3rd:rvnLENOVO:*
+ SND_HDA_INTEL_POWERSAVE=0
