@@ -441,8 +441,7 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         return c;
 
 fail:
-        if (unit_times)
-                free_unit_times(unit_times, (unsigned) c);
+        free_unit_times(unit_times, (unsigned) c);
         return r;
 }
 
@@ -866,6 +865,11 @@ static int list_dependencies_compare(const void *_a, const void *_b) {
         return usb - usa;
 }
 
+static bool times_in_range(const struct unit_times *times, const struct boot_times *boot) {
+        return times &&
+                times->activated > 0 && times->activated <= boot->finish_time;
+}
+
 static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int level, char ***units,
                                  unsigned int branches) {
         _cleanup_strv_free_ char **deps = NULL;
@@ -891,11 +895,9 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
 
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
-                if (times
-                    && times->activated
-                    && times->activated <= boot->finish_time
-                    && (times->activated >= service_longest
-                        || service_longest == 0)) {
+                if (times_in_range(times, boot) &&
+                    (times->activated >= service_longest
+                     || service_longest == 0)) {
                         service_longest = times->activated;
                         break;
                 }
@@ -906,7 +908,8 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
 
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
-                if (times && times->activated && times->activated <= boot->finish_time && (service_longest - times->activated) <= arg_fuzz)
+                if (times_in_range(times, boot) &&
+                    service_longest - times->activated <= arg_fuzz)
                         to_print++;
         }
 
@@ -915,10 +918,8 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
 
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
-                if (!times
-                    || !times->activated
-                    || times->activated > boot->finish_time
-                    || service_longest - times->activated > arg_fuzz)
+                if (!times_in_range(times, boot) ||
+                    service_longest - times->activated > arg_fuzz)
                         continue;
 
                 to_print--;
