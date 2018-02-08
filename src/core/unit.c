@@ -649,6 +649,9 @@ void unit_free(Unit *u) {
         if (u->in_cleanup_queue)
                 LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
 
+        if (u->in_target_deps_queue)
+                LIST_REMOVE(target_deps_queue, u->manager->target_deps_queue, u);
+
         safe_close(u->ip_accounting_ingress_map_fd);
         safe_close(u->ip_accounting_egress_map_fd);
 
@@ -1338,6 +1341,18 @@ int unit_load_fragment_and_dropin_optional(Unit *u) {
         return unit_load_dropin(unit_follow_merge(u));
 }
 
+void unit_add_to_target_deps_queue(Unit *u) {
+        Manager *m = u->manager;
+
+        assert(u);
+
+        if (u->in_target_deps_queue)
+                return;
+
+        LIST_PREPEND(target_deps_queue, m->target_deps_queue, u);
+        u->in_target_deps_queue = true;
+}
+
 int unit_add_default_target_dependency(Unit *u, Unit *target) {
         assert(u);
         assert(target);
@@ -1362,35 +1377,6 @@ int unit_add_default_target_dependency(Unit *u, Unit *target) {
                 return 0;
 
         return unit_add_dependency(target, UNIT_AFTER, u, true, UNIT_DEPENDENCY_DEFAULT);
-}
-
-static int unit_add_target_dependencies(Unit *u) {
-
-        static const UnitDependency deps[] = {
-                UNIT_REQUIRED_BY,
-                UNIT_REQUISITE_OF,
-                UNIT_WANTED_BY,
-                UNIT_BOUND_BY
-        };
-
-        unsigned k;
-        int r = 0;
-
-        assert(u);
-
-        for (k = 0; k < ELEMENTSOF(deps); k++) {
-                Unit *target;
-                Iterator i;
-                void *v;
-
-                HASHMAP_FOREACH_KEY(v, target, u->dependencies[deps[k]], i) {
-                        r = unit_add_default_target_dependency(u, target);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        return r;
 }
 
 static int unit_add_slice_dependencies(Unit *u) {
@@ -1521,10 +1507,7 @@ int unit_load(Unit *u) {
         }
 
         if (u->load_state == UNIT_LOADED) {
-
-                r = unit_add_target_dependencies(u);
-                if (r < 0)
-                        goto fail;
+                unit_add_to_target_deps_queue(u);
 
                 r = unit_add_slice_dependencies(u);
                 if (r < 0)

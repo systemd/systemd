@@ -144,6 +144,9 @@ struct Manager {
         /* Units whose cgroup ran empty */
         LIST_HEAD(Unit, cgroup_empty_queue);
 
+        /* Target units whose default target dependencies haven't been set yet */
+        LIST_HEAD(Unit, target_deps_queue);
+
         sd_event *event;
 
         /* This maps PIDs we care about to units that are interested in. We allow multiple units to he interested in

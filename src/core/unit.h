@@ -231,6 +231,9 @@ struct Unit {
         /* cgroup empty queue */
         LIST_FIELDS(Unit, cgroup_empty_queue);
 
+        /* Target dependencies queue */
+        LIST_FIELDS(Unit, target_deps_queue);
+
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
          * process SIGCHLD for */
@@ -336,6 +339,7 @@ struct Unit {
         bool in_gc_queue:1;
         bool in_cgroup_realize_queue:1;
         bool in_cgroup_empty_queue:1;
+        bool in_target_deps_queue:1;
 
         bool sent_dbus_new_signal:1;
 
@@ -632,6 +636,7 @@ void unit_add_to_load_queue(Unit *u);
 void unit_add_to_dbus_queue(Unit *u);
 void unit_add_to_cleanup_queue(Unit *u);
 void unit_add_to_gc_queue(Unit *u);
+void unit_add_to_target_deps_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);
