@@ -776,7 +776,7 @@ int config_parse_address(const char *unit,
         if (!e && f == AF_INET) {
                 r = in4_addr_default_prefixlen(&buffer.in, &n->prefixlen);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length not specified, and a default one can not be deduced for '%s', ignoring assignment", address);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Prefix length not specified, and a default one cannot be deduced for '%s', ignoring assignment", address);
                         return 0;
                 }
         }

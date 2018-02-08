@@ -143,7 +143,7 @@ _public_ const char *udev_device_get_driver(struct udev_device *udev_device)
  *
  * Retrieve the devtype string of the udev device.
  *
- * Returns: the devtype name of the udev device, or #NULL if it can not be determined
+ * Returns: the devtype name of the udev device, or #NULL if it cannot be determined
  **/
 _public_ const char *udev_device_get_devtype(struct udev_device *udev_device)
 {
@@ -168,7 +168,7 @@ _public_ const char *udev_device_get_devtype(struct udev_device *udev_device)
  * Retrieve the subsystem string of the udev device. The string does not
  * contain any "/".
  *
- * Returns: the subsystem name of the udev device, or #NULL if it can not be determined
+ * Returns: the subsystem name of the udev device, or #NULL if it cannot be determined
  **/
 _public_ const char *udev_device_get_subsystem(struct udev_device *udev_device)
 {

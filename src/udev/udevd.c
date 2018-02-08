@@ -648,7 +648,7 @@ static bool is_devpath_busy(Manager *manager, struct event *event) {
 
         /* check if queue contains events we depend on */
         LIST_FOREACH(event, loop_event, manager->events) {
-                /* we already found a later event, earlier can not block us, no need to check again */
+                /* we already found a later event, earlier cannot block us, no need to check again */
                 if (loop_event->seqnum < event->delaying_seqnum)
                         continue;
 

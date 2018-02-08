@@ -200,14 +200,14 @@ int config_parse_vxlan_address(const char *unit,
 
         if (streq(lvalue, "Group")) {
                 if (r <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan invalid multicast '%s' address, ignoring assignment: %s", lvalue, rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s invalid multicast address, ignoring assignment: %s", lvalue, rvalue);
                         return 0;
                 }
 
                 v->remote_family = f;
         } else {
                 if (r > 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s can not be multicast address, ignoring assignment: %s", lvalue, rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "vxlan %s cannot be a multicast address, ignoring assignment: %s", lvalue, rvalue);
                         return 0;
                 }
 
