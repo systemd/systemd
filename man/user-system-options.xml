@@ -33,12 +33,13 @@
       <para>Execute the operation remotely. Specify a hostname, or a
       username and hostname separated by <literal>@</literal>, to
       connect to. The hostname may optionally be suffixed by a
-      container name, separated by <literal>:</literal>, which
+      port ssh is listening on, seperated by <literal>:</literal>, and then a
+      container name, separated by <literal>/</literal>, which
       connects directly to a specific container on the specified
       host. This will use SSH to talk to the remote machine manager
       instance. Container names may be enumerated with
       <command>machinectl -H
-      <replaceable>HOST</replaceable></command>.</para>
+      <replaceable>HOST</replaceable></command>. Put IPv6 addresses in brackets.</para>
     </listitem>
   </varlistentry>
 
