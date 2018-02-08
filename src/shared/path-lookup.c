@@ -420,11 +420,11 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
         }
 
         case UNIT_FILE_USER:
-                r = xdg_user_config_dir(&a, "/systemd/system.control");
+                r = xdg_user_config_dir(&a, "/systemd/user.control");
                 if (r < 0 && r != -ENXIO)
                         return r;
 
-                r = xdg_user_runtime_dir(runtime, "/systemd/system.control");
+                r = xdg_user_runtime_dir(runtime, "/systemd/user.control");
                 if (r < 0) {
                         if (r != -ENXIO)
                                 return r;
