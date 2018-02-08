@@ -297,7 +297,7 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
         }
 
         if (arg_scope == UNIT_FILE_SYSTEM) {
-                if (times.initrd_time)
+                if (times.initrd_time > 0)
                         times.kernel_done_time = times.initrd_time;
                 else
                         times.kernel_done_time = times.userspace_time;
@@ -539,11 +539,11 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
         size = sizeof(buf);
 
         size = strpcpyf(&ptr, size, "Startup finished in ");
-        if (t->firmware_time)
+        if (t->firmware_time > 0)
                 size = strpcpyf(&ptr, size, "%s (firmware) + ", format_timespan(ts, sizeof(ts), t->firmware_time - t->loader_time, USEC_PER_MSEC));
-        if (t->loader_time)
+        if (t->loader_time > 0)
                 size = strpcpyf(&ptr, size, "%s (loader) + ", format_timespan(ts, sizeof(ts), t->loader_time, USEC_PER_MSEC));
-        if (t->kernel_time)
+        if (t->kernel_time > 0)
                 size = strpcpyf(&ptr, size, "%s (kernel) + ", format_timespan(ts, sizeof(ts), t->kernel_done_time, USEC_PER_MSEC));
         if (t->initrd_time > 0)
                 size = strpcpyf(&ptr, size, "%s (initrd) + ", format_timespan(ts, sizeof(ts), t->userspace_time - t->initrd_time, USEC_PER_MSEC));
@@ -552,7 +552,7 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
         if (t->kernel_time > 0)
                 strpcpyf(&ptr, size, "= %s", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
 
-        if (unit_id && (activated_time > 0 && activated_time != USEC_INFINITY))
+        if (unit_id && activated_time > 0 && activated_time != USEC_INFINITY)
                 size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id, format_timespan(ts, sizeof(ts), activated_time - t->userspace_time, USEC_PER_MSEC));
         else if (unit_id && activated_time == 0)
                 size = strpcpyf(&ptr, size, "\n%s was never reached", unit_id);
@@ -631,14 +631,14 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
 
         if (boot->firmware_time > boot->loader_time)
                 m++;
-        if (boot->loader_time) {
+        if (boot->loader_time > 0) {
                 m++;
                 if (width < 1000.0)
                         width = 1000.0;
         }
-        if (boot->initrd_time)
+        if (boot->initrd_time > 0)
                 m++;
-        if (boot->kernel_time)
+        if (boot->kernel_time > 0)
                 m++;
 
         for (u = times; u < times + n; u++) {
@@ -727,22 +727,22 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
         svg_graph_box(m, -(double) boot->firmware_time, boot->finish_time);
 
-        if (boot->firmware_time) {
+        if (boot->firmware_time > 0) {
                 svg_bar("firmware", -(double) boot->firmware_time, -(double) boot->loader_time, y);
                 svg_text(true, -(double) boot->firmware_time, y, "firmware");
                 y++;
         }
-        if (boot->loader_time) {
+        if (boot->loader_time > 0) {
                 svg_bar("loader", -(double) boot->loader_time, 0, y);
                 svg_text(true, -(double) boot->loader_time, y, "loader");
                 y++;
         }
-        if (boot->kernel_time) {
+        if (boot->kernel_time > 0) {
                 svg_bar("kernel", 0, boot->kernel_done_time, y);
                 svg_text(true, 0, y, "kernel");
                 y++;
         }
-        if (boot->initrd_time) {
+        if (boot->initrd_time > 0) {
                 svg_bar("initrd", boot->initrd_time, boot->userspace_time, y);
                 svg_text(true, boot->initrd_time, y, "initrd");
                 y++;
@@ -820,7 +820,7 @@ static int list_dependencies_print(const char *name, unsigned int level, unsigne
         printf("%s", special_glyph(last ? TREE_RIGHT : TREE_BRANCH));
 
         if (times) {
-                if (times->time)
+                if (times->time > 0)
                         printf("%s%s @%s +%s%s", ansi_highlight_red(), name,
                                format_timespan(ts, sizeof(ts), times->activating - boot->userspace_time, USEC_PER_MSEC),
                                format_timespan(ts2, sizeof(ts2), times->time, USEC_PER_MSEC), ansi_normal());
@@ -940,7 +940,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
                 if (r < 0)
                         return r;
 
-                if (!to_print)
+                if (to_print == 0)
                         break;
         }
         return 0;
