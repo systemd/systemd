@@ -56,7 +56,7 @@
     <title>Description</title>
 
     <para>A unit configuration file whose name ends in
-    <filename>.service</filename> encodes information about a process
+    <literal>.service</literal> encodes information about a process
     controlled and supervised by systemd.</para>
 
     <para>This man page lists the configuration options specific to
