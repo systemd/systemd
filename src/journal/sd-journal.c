@@ -40,6 +40,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "io-util.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -1139,7 +1140,6 @@ _public_ int sd_journal_test_cursor(sd_journal *j, const char *cursor) {
 
         return 1;
 }
-
 
 _public_ int sd_journal_seek_monotonic_usec(sd_journal *j, sd_id128_t boot_id, uint64_t usec) {
         assert_return(j, -EINVAL);
@@ -2369,8 +2369,6 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
         /* Is this a subdirectory we watch? */
         d = hashmap_get(j->directories_by_wd, INT_TO_PTR(e->wd));
         if (d) {
-                sd_id128_t id;
-
                 if (!(e->mask & IN_ISDIR) && e->len > 0 &&
                     (endswith(e->name, ".journal") ||
                      endswith(e->name, ".journal~"))) {
@@ -2389,7 +2387,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         if (e->mask & (IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT))
                                 remove_directory(j, d);
 
-                } else if (d->is_root && (e->mask & IN_ISDIR) && e->len > 0 && sd_id128_from_string(e->name, &id) >= 0) {
+                } else if (d->is_root && (e->mask & IN_ISDIR) && e->len > 0 && id128_is_valid(e->name)) {
 
                         /* Event for root directory */
 
@@ -2403,7 +2401,7 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
         if (e->mask & IN_IGNORED)
                 return;
 
-        log_debug("Unknown inotify event.");
+        log_debug("Unexpected inotify event.");
 }
 
 static int determine_change(sd_journal *j) {
