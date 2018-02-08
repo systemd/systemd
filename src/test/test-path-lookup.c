@@ -52,6 +52,36 @@ static void test_paths(UnitFileScope scope) {
         assert_se(rm_rf(template, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
 
+static void test_user_and_global_paths(void) {
+        _cleanup_lookup_paths_free_ LookupPaths lp_global = {}, lp_user = {};
+        char **u, **g, **p;
+        unsigned k = 0;
+
+        assert_se(unsetenv("SYSTEMD_UNIT_PATH") == 0);
+
+        assert_se(lookup_paths_init(&lp_global, UNIT_FILE_GLOBAL, 0, NULL) == 0);
+        assert_se(lookup_paths_init(&lp_user, UNIT_FILE_USER, 0, NULL) == 0);
+        g = lp_global.search_path;
+        u = lp_user.search_path;
+
+        /* Go over all entries in global search path, and verify
+         * that they also exist in the user search path. Skip any
+         * entries in user search path which don't exist in the global
+         * one, but not vice versa. */
+        log_info("/* %s */", __func__);
+        STRV_FOREACH(p, g) {
+                while (u[k] && !streq(*p, u[k])) {
+                        log_info("+ %s", u[k]);
+                        k++;
+                }
+                log_info("  %s", *p);
+                assert(u[k]); /* If NULL, we didn't find a matching entry */
+                k++;
+        }
+        STRV_FOREACH(p, u + k)
+                log_info("+ %s", *p);
+}
+
 static void print_generator_binary_paths(UnitFileScope scope) {
         _cleanup_strv_free_ char **paths;
         char **dir;
@@ -71,6 +101,8 @@ int main(int argc, char **argv) {
         test_paths(UNIT_FILE_SYSTEM);
         test_paths(UNIT_FILE_USER);
         test_paths(UNIT_FILE_GLOBAL);
+
+        test_user_and_global_paths();
 
         print_generator_binary_paths(UNIT_FILE_SYSTEM);
         print_generator_binary_paths(UNIT_FILE_USER);

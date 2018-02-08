@@ -626,11 +626,11 @@ int lookup_paths_init(
                                         runtime_config,
                                         "/run/systemd/user",
                                         STRV_IFNOTNULL(generator),
-                                        "/usr/local/lib/systemd/user",
                                         "/usr/local/share/systemd/user",
+                                        "/usr/share/systemd/user",
+                                        "/usr/local/lib/systemd/user",
                                         USER_DATA_UNIT_PATH,
                                         "/usr/lib/systemd/user",
-                                        "/usr/share/systemd/user",
                                         STRV_IFNOTNULL(generator_late),
                                         NULL);
                         break;
