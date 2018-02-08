@@ -623,7 +623,7 @@ int lookup_paths_init(
                         add = user_dirs(persistent_config, runtime_config,
                                         generator, generator_early, generator_late,
                                         transient,
-                                        persistent_config, runtime_control);
+                                        persistent_control, runtime_control);
                         break;
 
                 default:
