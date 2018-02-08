@@ -85,6 +85,11 @@
     instantiate existing templates, thus extending or overriding existing definitions. Their main purpose is to convert
     configuration files that are not native unit files dynamically into native unit files.</para>
 
+    <para>Generated units may have their configurations modified by files,
+    templates, or drop-ins placed directly into /etc/systemd/system; see
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for complete information.</para>
+
     <para>Generators are loaded from a set of paths determined during
     compilation, as listed above. System and user generators are loaded
     from directories with names ending in
