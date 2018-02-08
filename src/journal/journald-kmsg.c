@@ -138,7 +138,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
         if (r < 0 || priority < 0 || priority > 999)
                 return;
 
-        if (s->forward_to_kmsg && (priority & LOG_FACMASK) != LOG_KERN)
+        if (s->forward_to_kmsg && LOG_FAC(priority) != LOG_KERN)
                 return;
 
         l -= (e - p) + 1;
@@ -287,7 +287,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
         if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
                 iovec[n++] = IOVEC_MAKE_STRING(syslog_facility);
 
-        if ((priority & LOG_FACMASK) == LOG_KERN)
+        if (LOG_FAC(priority) == LOG_KERN)
                 iovec[n++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=kernel");
         else {
                 pl -= syslog_parse_identifier((const char**) &p, &identifier, &pid);
