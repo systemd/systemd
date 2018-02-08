@@ -544,7 +544,7 @@
       <varlistentry>
         <term><varname>Remote=</varname></term>
         <listitem>
-          <para>Configures destination multicast group IP address.</para>
+          <para>Configures destination IP address.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
