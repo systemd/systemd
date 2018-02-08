@@ -215,7 +215,7 @@
 
     <para><command>systemd-tmpfiles</command> tries to avoid changing
     the access and modification times on the directories it accesses,
-    which requires <constant>CAP_ADMIN</constant> privileges. When
+    which requires <constant>CAP_FOWNER</constant> privileges. When
     running as non-root, directories which are checked for files to
     clean up will have their access time bumped, which might prevent
     their cleanup.
