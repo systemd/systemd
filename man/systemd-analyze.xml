@@ -243,6 +243,13 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>--system</option></term>
+
+        <listitem><para>Operates on the system systemd instance. This
+        is the implied default.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--user</option></term>
 
         <listitem><para>Operates on the user systemd
@@ -250,10 +257,10 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--system</option></term>
+        <term><option>--global</option></term>
 
-        <listitem><para>Operates on the system systemd instance. This
-        is the implied default.</para></listitem>
+        <listitem><para>Operates on the system-wide configuration for
+        user systemd instance.</para></listitem>
       </varlistentry>
 
       <varlistentry>

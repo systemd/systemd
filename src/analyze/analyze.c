@@ -80,7 +80,7 @@ static usec_t arg_fuzz = 0;
 static bool arg_no_pager = false;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
-static bool arg_user = false;
+static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static bool arg_man = true;
 static bool arg_generators = false;
 
@@ -132,10 +132,12 @@ struct host_info {
 };
 
 static int acquire_bus(bool need_full_bus, sd_bus **bus) {
+        bool user = arg_scope != UNIT_FILE_SYSTEM;
+
         if (need_full_bus)
-                return bus_connect_transport(arg_transport, arg_host, arg_user, bus);
+                return bus_connect_transport(arg_transport, arg_host, user, bus);
         else
-                return bus_connect_transport_systemd(arg_transport, arg_host, arg_user, bus);
+                return bus_connect_transport_systemd(arg_transport, arg_host, user, bus);
 }
 
 static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *interface, const char *property, uint64_t *val) {
@@ -294,7 +296,12 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
                 return -EINPROGRESS;
         }
 
-        if (arg_user) {
+        if (arg_scope == UNIT_FILE_SYSTEM) {
+                if (times.initrd_time)
+                        times.kernel_done_time = times.initrd_time;
+                else
+                        times.kernel_done_time = times.userspace_time;
+        } else {
                 /*
                  * User-instance-specific timestamps processing
                  * (see comment to reverse_offset in struct boot_times).
@@ -312,11 +319,6 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
 
                 subtract_timestamp(&times.unitsload_start_time, times.reverse_offset);
                 subtract_timestamp(&times.unitsload_finish_time, times.reverse_offset);
-        } else {
-                if (times.initrd_time)
-                        times.kernel_done_time = times.initrd_time;
-                else
-                        times.kernel_done_time = times.userspace_time;
         }
 
         cached = true;
@@ -1584,10 +1586,7 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
 }
 
 static int do_verify(int argc, char *argv[], void *userdata) {
-        return verify_units(strv_skip(argv, 1),
-                            arg_user ? UNIT_FILE_USER : UNIT_FILE_SYSTEM,
-                            arg_man,
-                            arg_generators);
+        return verify_units(strv_skip(argv, 1), arg_scope, arg_man, arg_generators);
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -1601,6 +1600,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-pager            Do not pipe output into a pager\n"
                "     --system              Operate on system systemd instance\n"
                "     --user                Operate on user systemd instance\n"
+               "     --global              Operate on global user configuration\n"
                "  -H --host=[USER@]HOST    Operate on remote host\n"
                "  -M --machine=CONTAINER   Operate on local container\n"
                "     --order               Show only order in the graph\n"
@@ -1638,8 +1638,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_ORDER,
                 ARG_REQUIRE,
-                ARG_USER,
                 ARG_SYSTEM,
+                ARG_USER,
+                ARG_GLOBAL,
                 ARG_DOT_FROM_PATTERN,
                 ARG_DOT_TO_PATTERN,
                 ARG_FUZZ,
@@ -1653,8 +1654,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",      no_argument,       NULL, ARG_VERSION          },
                 { "order",        no_argument,       NULL, ARG_ORDER            },
                 { "require",      no_argument,       NULL, ARG_REQUIRE          },
-                { "user",         no_argument,       NULL, ARG_USER             },
                 { "system",       no_argument,       NULL, ARG_SYSTEM           },
+                { "user",         no_argument,       NULL, ARG_USER             },
+                { "global",       no_argument,       NULL, ARG_GLOBAL           },
                 { "from-pattern", required_argument, NULL, ARG_DOT_FROM_PATTERN },
                 { "to-pattern",   required_argument, NULL, ARG_DOT_TO_PATTERN   },
                 { "fuzz",         required_argument, NULL, ARG_FUZZ             },
@@ -1680,12 +1682,16 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
-                case ARG_USER:
-                        arg_user = true;
+                case ARG_SYSTEM:
+                        arg_scope = UNIT_FILE_SYSTEM;
                         break;
 
-                case ARG_SYSTEM:
-                        arg_user = false;
+                case ARG_USER:
+                        arg_scope = UNIT_FILE_USER;
+                        break;
+
+                case ARG_GLOBAL:
+                        arg_scope = UNIT_FILE_GLOBAL;
                         break;
 
                 case ARG_ORDER:
