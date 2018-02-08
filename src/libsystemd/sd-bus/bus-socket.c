@@ -713,6 +713,8 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                 b->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
                 if (b->inotify_fd < 0)
                         return -errno;
+
+                b->inotify_fd = fd_move_above_stdio(b->inotify_fd);
         }
 
         /* Make sure the path is NUL terminated */
@@ -879,6 +881,8 @@ int bus_socket_connect(sd_bus *b) {
                 if (b->input_fd < 0)
                         return -errno;
 
+                b->input_fd = fd_move_above_stdio(b->input_fd);
+
                 b->output_fd = b->input_fd;
                 bus_socket_setup(b);
 
@@ -978,7 +982,7 @@ int bus_socket_exec(sd_bus *b) {
         }
 
         safe_close(s[1]);
-        b->output_fd = b->input_fd = s[0];
+        b->output_fd = b->input_fd = fd_move_above_stdio(s[0]);
 
         bus_socket_setup(b);
 
@@ -1206,7 +1210,7 @@ int bus_socket_read_message(sd_bus *bus) {
                 CMSG_FOREACH(cmsg, &mh)
                         if (cmsg->cmsg_level == SOL_SOCKET &&
                             cmsg->cmsg_type == SCM_RIGHTS) {
-                                int n, *f;
+                                int n, *f, i;
 
                                 n = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 
@@ -1225,9 +1229,9 @@ int bus_socket_read_message(sd_bus *bus) {
                                         return -ENOMEM;
                                 }
 
-                                memcpy_safe(f + bus->n_fds, CMSG_DATA(cmsg), n * sizeof(int));
+                                for (i = 0; i < n; i++)
+                                        f[bus->n_fds++] = fd_move_above_stdio(((int*) CMSG_DATA(cmsg))[i]);
                                 bus->fds = f;
-                                bus->n_fds += n;
                         } else
                                 log_debug("Got unexpected auxiliary data with level=%d and type=%d",
                                           cmsg->cmsg_level, cmsg->cmsg_type);

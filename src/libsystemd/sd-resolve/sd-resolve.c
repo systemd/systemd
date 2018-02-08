@@ -507,12 +507,15 @@ _public_ int sd_resolve_new(sd_resolve **ret) {
                 goto fail;
         }
 
-        fd_inc_sndbuf(resolve->fds[REQUEST_SEND_FD], QUERIES_MAX * BUFSIZE);
-        fd_inc_rcvbuf(resolve->fds[REQUEST_RECV_FD], QUERIES_MAX * BUFSIZE);
-        fd_inc_sndbuf(resolve->fds[RESPONSE_SEND_FD], QUERIES_MAX * BUFSIZE);
-        fd_inc_rcvbuf(resolve->fds[RESPONSE_RECV_FD], QUERIES_MAX * BUFSIZE);
+        for (i = 0; i < _FD_MAX; i++)
+                resolve->fds[i] = fd_move_above_stdio(resolve->fds[i]);
 
-        fd_nonblock(resolve->fds[RESPONSE_RECV_FD], true);
+        (void) fd_inc_sndbuf(resolve->fds[REQUEST_SEND_FD], QUERIES_MAX * BUFSIZE);
+        (void) fd_inc_rcvbuf(resolve->fds[REQUEST_RECV_FD], QUERIES_MAX * BUFSIZE);
+        (void) fd_inc_sndbuf(resolve->fds[RESPONSE_SEND_FD], QUERIES_MAX * BUFSIZE);
+        (void) fd_inc_rcvbuf(resolve->fds[RESPONSE_RECV_FD], QUERIES_MAX * BUFSIZE);
+
+        (void) fd_nonblock(resolve->fds[RESPONSE_RECV_FD], true);
 
         *ret = resolve;
         return 0;

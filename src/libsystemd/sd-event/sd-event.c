@@ -457,6 +457,8 @@ _public_ int sd_event_new(sd_event** ret) {
                 goto fail;
         }
 
+        e->epoll_fd = fd_move_above_stdio(e->epoll_fd);
+
         if (secure_getenv("SD_EVENT_PROFILE_DELAYS")) {
                 log_debug("Event loop profiling enabled. Logarithmic histogram of event loop iterations in the range 2^0 ... 2^63 us will be logged every 5s.");
                 e->profile_delays = true;
@@ -695,7 +697,7 @@ static int event_make_signal_data(
                 return 0;
         }
 
-        d->fd = r;
+        d->fd = fd_move_above_stdio(r);
 
         ev.events = EPOLLIN;
         ev.data.ptr = d;
@@ -1044,6 +1046,8 @@ static int event_setup_timer_fd(
         fd = timerfd_create(clock, TFD_NONBLOCK|TFD_CLOEXEC);
         if (fd < 0)
                 return -errno;
+
+        fd = fd_move_above_stdio(fd);
 
         ev.events = EPOLLIN;
         ev.data.ptr = d;
