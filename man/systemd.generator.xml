@@ -76,14 +76,33 @@
 
   <refsect1>
     <title>Description</title>
-    <para>Generators are small executables that live in <filename>&systemgeneratordir;/</filename> and other
-    directories listed above.
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will execute those
-    binaries very early at bootup and at configuration reload time — before unit files are loaded.  Generators may
-    dynamically generate unit files (regular ones, instances as well as templates) and unit file
-    <filename>.d/</filename> drop-ins, or create symbolic links to unit files to add additional dependencies or
-    instantiate existing templates, thus extending or overriding existing definitions. Their main purpose is to convert
-    configuration files that are not native unit files dynamically into native unit files.</para>
+    <para>Generators are small executables that live in
+    <filename>&systemgeneratordir;/</filename> and other directories listed above.
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    will execute those binaries very early at bootup and at configuration reload time
+    — before unit files are loaded. Their main purpose is to convert configuration
+    that is not native into dynamically generated unit files.</para>
+
+    <para>Each generator is called with three directory paths that are to be used for
+    generator output. In these three directories, generators may dynamically generate
+    unit files (regular ones, instances, as well as templates), unit file
+    <filename>.d/</filename> drop-ins, and create symbolic links to unit files to add
+    additional dependencies, create aliases, or instantiate existing templates. Those
+    directories are included in the unit load path of
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    allowing generated configuration to extend or override existing
+    definitions.</para>
+
+    <para>Directory paths for generator output differ by priority:
+    <filename>…/generator.early</filename> has priority higher than the admin
+    configuration in <filename>/etc</filename>, while
+    <filename>…/generator</filename> has lower priority than
+    <filename>/etc</filename> but higher than vendor configuration in
+    <filename>/usr</filename>, and <filename>…/generator.late</filename> has priority
+    lower than all other configuration. See the next section and the discussion of
+    unit load paths and unit overriding in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    </para>
 
     <para>Generators are loaded from a set of paths determined during
     compilation, as listed above. System and user generators are loaded
@@ -110,40 +129,45 @@
   </refsect1>
 
   <refsect1>
-    <title>Writing generators</title>
+    <title>Output directories</title>
 
-    <para>Generators are invoked with three arguments: paths to
-    runtime directories where generators can place their generated
-    unit files or symlinks.</para>
+    <para>Generators are invoked with three arguments: paths to directories where
+    generators can place their generated unit files or symlinks. By default those
+    paths are runtime directories that are included in the search path of
+    <command>systemd</command>, but a generator may be called with different paths
+    for debugging purposes.</para>
 
     <orderedlist>
       <listitem>
         <para><parameter>normal-dir</parameter></para>
-        <para>argv[1] may be used to override unit files in
-        <filename>/usr</filename>, but not those in
-        <filename>/run</filename> or in <filename>/etc</filename>.
-        This means that unit files placed
-        in this directory take precedence over vendor unit
-        configuration but not over native user/administrator unit
-        configuration.</para>
+        <para>In normal use this is <filename>/run/systemd/generator</filename> in
+        case of the system generators and
+        <filename>$XDG_RUNTIME_DIR/generator</filename> in case of the user
+        generators. Unit files placed in this directory take precedence over vendor
+        unit configuration but not over native user/administrator unit configuration.
+        </para>
       </listitem>
 
       <listitem>
         <para><parameter>early-dir</parameter></para>
-        <para>argv[2] may be used to override unit files in
-        <filename>/usr</filename>, in <filename>/run</filename> and in
-        <filename>/etc</filename>. This means that unit files placed
-        in this directory take precedence over all configuration,
-        both vendor and user/administrator.</para>
+        <para>In normal use this is <filename>/run/systemd/generator.early</filename>
+        in case of the system generators and
+        <filename>$XDG_RUNTIME_DIR/generator.early</filename> in case of the user
+        generators. Unit files placed in this directory override unit files in
+        <filename>/usr</filename>, <filename>/run</filename> and
+        <filename>/etc</filename>. This means that unit files placed in this
+        directory take precedence over all normal configuration, both vendor and
+        user/administrator.</para>
       </listitem>
 
       <listitem>
         <para><parameter>late-dir</parameter></para>
-        <para>argv[3] may be used to extend the unit file tree without
-        overriding any other unit files. Any native configuration
-        files supplied by the vendor or user/administrator take
-        precedence over the generated ones placed in this directory.
-        </para>
+        <para>In normal use this is <filename>/run/systemd/generator.late</filename>
+        in case of the system generators and
+        <filename>$XDG_RUNTIME_DIR/generator.late</filename> in case of the user
+        generators. This directory may be used to extend the unit file tree without
+        overriding any other unit files. Any native configuration files supplied by
+        the vendor or user/administrator take precedence.</para>
       </listitem>
     </orderedlist>
 
