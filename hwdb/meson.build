@@ -33,6 +33,7 @@ hwdb_files = files('''
         70-mouse.hwdb
         70-pointingstick.hwdb
         70-touchpad.hwdb
+        90-snd_hda_intel.hwdb
 '''.split())
 
 if conf.get('ENABLE_HWDB') == 1
