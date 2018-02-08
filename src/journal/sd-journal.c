@@ -51,6 +51,7 @@
 #include "process-util.h"
 #include "replace-var.h"
 #include "stat-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1186,22 +1187,12 @@ _public_ int sd_journal_seek_tail(sd_journal *j) {
 }
 
 static void check_network(sd_journal *j, int fd) {
-        struct statfs sfs;
-
         assert(j);
 
         if (j->on_network)
                 return;
 
-        if (fstatfs(fd, &sfs) < 0)
-                return;
-
-        j->on_network =
-                F_TYPE_EQUAL(sfs.f_type, CIFS_MAGIC_NUMBER) ||
-                F_TYPE_EQUAL(sfs.f_type, CODA_SUPER_MAGIC) ||
-                F_TYPE_EQUAL(sfs.f_type, NCP_SUPER_MAGIC) ||
-                F_TYPE_EQUAL(sfs.f_type, NFS_SUPER_MAGIC) ||
-                F_TYPE_EQUAL(sfs.f_type, SMB_SUPER_MAGIC);
+        j->on_network = fd_is_network_fs(fd);
 }
 
 static bool file_has_type_prefix(const char *prefix, const char *filename) {

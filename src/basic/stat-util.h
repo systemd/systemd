@@ -61,8 +61,13 @@ int fd_is_fs_type(int fd, statfs_f_type_t magic_value);
 int path_is_fs_type(const char *path, statfs_f_type_t magic_value);
 
 bool is_temporary_fs(const struct statfs *s) _pure_;
+bool is_network_fs(const struct statfs *s) _pure_;
+
 int fd_is_temporary_fs(int fd);
+int fd_is_network_fs(int fd);
+
 int fd_is_network_ns(int fd);
+
 int path_is_temporary_fs(const char *path);
 
 /* Because statfs.t_type can be int on some architectures, we have to cast
