@@ -10,6 +10,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "build.h"
@@ -18,7 +19,8 @@
 
 #define DEFAULT_BUS_PATH "unix:path=/run/dbus/system_bus_socket"
 
-const char *arg_bus_path = DEFAULT_BUS_PATH;
+static const char *arg_bus_path = DEFAULT_BUS_PATH;
+static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 
 static int help(void) {
 
@@ -26,7 +28,8 @@ static int help(void) {
                "STDIO or socket-activatable proxy to a given DBus endpoint.\n\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
-               "  -p --bus-path=PATH     Path to the kernel bus (default: %s)\n",
+               "  -p --bus-path=PATH     Path to the kernel bus (default: %s)\n"
+               "  -M --machine=MACHINE   Name of machine to connect to\n",
                program_invocation_short_name, DEFAULT_BUS_PATH);
 
         return 0;
@@ -36,12 +39,14 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_MACHINE,
         };
 
         static const struct option options[] = {
                 { "help",            no_argument,       NULL, 'h'         },
                 { "version",         no_argument,       NULL, ARG_VERSION },
                 { "bus-path",        required_argument, NULL, 'p'         },
+                { "machine",         required_argument, NULL, 'M'         },
                 {},
         };
 
@@ -66,8 +71,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'p':
                         arg_bus_path = optarg;
+
                         break;
 
+                case 'M':
+                        arg_bus_path = optarg;
+
+                        arg_transport = BUS_TRANSPORT_MACHINE;
+
+                        break;
                 default:
                         log_error("Unknown option code %c", c);
                         return -EINVAL;
@@ -113,7 +125,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = sd_bus_set_address(a, arg_bus_path);
+        if (arg_transport == BUS_TRANSPORT_MACHINE)
+                r = bus_set_address_system_machine(a, arg_bus_path);
+        else
+                r = sd_bus_set_address(a, arg_bus_path);
         if (r < 0) {
                 log_error_errno(r, "Failed to set address to connect to: %m");
                 goto finish;
