@@ -916,6 +916,7 @@ static int service_is_suitable_main_pid(Service *s, pid_t pid, int prio) {
 
 static int service_load_pid_file(Service *s, bool may_warn) {
         char procfs[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        bool questionable_pid_file = false;
         _cleanup_free_ char *k = NULL;
         _cleanup_close_ int fd = -1;
         int r, prio;
@@ -929,8 +930,13 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         prio = may_warn ? LOG_INFO : LOG_DEBUG;
 
         fd = chase_symlinks(s->pid_file, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
-        if (fd == -EPERM)
-                return log_unit_full(UNIT(s), prio, fd, "Permission denied while opening PID file or unsafe symlink chain: %s", s->pid_file);
+        if (fd == -EPERM) {
+                log_unit_full(UNIT(s), LOG_DEBUG, fd, "Permission denied while opening PID file or potentially unsafe symlink chain, will now retry with relaxed checks: %s", s->pid_file);
+
+                questionable_pid_file = true;
+
+                fd = chase_symlinks(s->pid_file, NULL, CHASE_OPEN, NULL);
+        }
         if (fd < 0)
                 return log_unit_full(UNIT(s), prio, fd, "Can't open PID file %s (yet?) after %s: %m", s->pid_file, service_state_to_string(s->state));
 
@@ -952,6 +958,11 @@ static int service_load_pid_file(Service *s, bool may_warn) {
                 return r;
         if (r == 0) {
                 struct stat st;
+
+                if (questionable_pid_file) {
+                        log_unit_error(UNIT(s), "Refusing to accept PID outside of service control group, acquired through unsafe symlink chain: %s", s->pid_file);
+                        return -EPERM;
+                }
 
                 /* Hmm, it's not clear if the new main PID is safe. Let's allow this if the PID file is owned by root */
 
