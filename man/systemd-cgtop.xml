@@ -229,6 +229,12 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-1</option></term>
+
+        <listitem><para>A shortcut for <option>--iterations=1</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-d</option></term>
         <term><option>--delay=</option></term>
 
