@@ -54,6 +54,8 @@ int bus_container_connect_socket(sd_bus *b) {
         if (b->input_fd < 0)
                 return -errno;
 
+        b->input_fd = fd_move_above_stdio(b->input_fd);
+
         b->output_fd = b->input_fd;
 
         bus_socket_setup(b);

@@ -25,6 +25,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "missing.h"
 #include "netlink-internal.h"
@@ -41,7 +42,7 @@ int socket_open(int family) {
         if (fd < 0)
                 return -errno;
 
-        return fd;
+        return fd_move_above_stdio(fd);
 }
 
 static int broadcast_groups_get(sd_netlink *nl) {

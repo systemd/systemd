@@ -155,12 +155,31 @@ static void test_acquire_data_fd(void) {
         test_acquire_data_fd_one(ACQUIRE_NO_DEV_NULL|ACQUIRE_NO_MEMFD|ACQUIRE_NO_PIPE|ACQUIRE_NO_TMPFILE);
 }
 
+static void test_fd_move_above_stdio(void) {
+        int original_stdin, new_fd;
+
+        original_stdin = fcntl(0, F_DUPFD, 3);
+        assert_se(original_stdin >= 3);
+        assert_se(close_nointr(0) != EBADF);
+
+        new_fd = open("/dev/null", O_RDONLY);
+        assert_se(new_fd == 0);
+
+        new_fd = fd_move_above_stdio(new_fd);
+        assert_se(new_fd >= 3);
+
+        assert_se(dup(original_stdin) == 0);
+        assert_se(close_nointr(original_stdin) != EBADF);
+        assert_se(close_nointr(new_fd) != EBADF);
+}
+
 int main(int argc, char *argv[]) {
         test_close_many();
         test_close_nointr();
         test_same_fd();
         test_open_serialization_fd();
         test_acquire_data_fd();
+        test_fd_move_above_stdio();
 
         return 0;
 }

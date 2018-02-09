@@ -91,3 +91,5 @@ int acquire_data_fd(const void *data, size_t size, unsigned flags);
 /* Hint: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5 */
 #define ERRNO_IS_DISCONNECT(r) \
         IN_SET(r, ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE, ENETUNREACH)
+
+int fd_move_above_stdio(int fd);
