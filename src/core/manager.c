@@ -673,6 +673,7 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         m->unit_file_scope = scope;
         m->exit_code = _MANAGER_EXIT_CODE_INVALID;
         m->default_timer_accuracy_usec = USEC_PER_MINUTE;
+        m->default_memory_accounting = true;
         m->default_tasks_accounting = true;
         m->default_tasks_max = UINT64_MAX;
         m->default_timeout_start_usec = DEFAULT_TIMEOUT_USEC;

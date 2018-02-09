@@ -1,5 +1,21 @@
 systemd System and Service Manager
 
+CHANGES WITH 238 in spe:
+
+        * The MemoryAccounting= unit property now defaults to on. After
+          discussions with the upstream control group maintainers we learnt
+          that the negative impact of cgroup memory accounting on current
+          kernels is finally relatively minimal, so that it should be safe to
+          enable this by default without affecting system performance too
+          much. Besides memory accounting only tasks accounting is turned on by
+          default, all other forms of resource accounting (CPU, IO, IP) remain
+          off for now, because it's not clear yet that their impact is small
+          enough to move from opt-in to opt-out for them, too. We recommend
+          downstreams to leave memory accounting on by default, however in some
+          situations it might be wise to revert this change of defaults, in
+          particular on very resource constrained systems or when support for
+          old kernels is a necessity.
+
 CHANGES WITH 237:
 
         * Some keyboards come with a zoom see-saw or rocker which until now got

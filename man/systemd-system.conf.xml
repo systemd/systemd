@@ -338,8 +338,8 @@
         <varname>CPUAccounting=</varname>, <varname>BlockIOAccounting=</varname>, <varname>MemoryAccounting=</varname>,
         <varname>TasksAccounting=</varname> and <varname>IPAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details on the per-unit settings. <varname>DefaultTasksAccounting=</varname> defaults to on, the other
-        four settings to off.</para></listitem>
+        for details on the per-unit settings. <varname>DefaultTasksAccounting=</varname> and
+        <varname>DefaultMemoryAccounting=</varname> default to on, the other three settings to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>
