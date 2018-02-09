@@ -349,7 +349,7 @@ _public_ int sd_bus_set_monitor(sd_bus *bus, int b) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        bus->is_monitor = b;
+        bus->is_monitor = !!b;
         return 0;
 }
 
@@ -359,7 +359,7 @@ _public_ int sd_bus_negotiate_fds(sd_bus *bus, int b) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        bus->accept_fd = b;
+        bus->accept_fd = !!b;
         return 0;
 }
 
@@ -371,7 +371,7 @@ _public_ int sd_bus_negotiate_timestamp(sd_bus *bus, int b) {
 
         /* This is not actually supported by any of our transports these days, but we do honour it for synthetic
          * replies, and maybe one day classic D-Bus learns this too */
-        bus->attach_timestamp = b;
+        bus->attach_timestamp = !!b;
 
         return 0;
 }
@@ -455,7 +455,7 @@ _public_ int sd_bus_set_watch_bind(sd_bus *bus, int b) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        bus->watch_bind = b;
+        bus->watch_bind = !!b;
         return 0;
 }
 
@@ -473,7 +473,7 @@ _public_ int sd_bus_set_connected_signal(sd_bus *bus, int b) {
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        bus->connected_signal = b;
+        bus->connected_signal = !!b;
         return 0;
 }
 
