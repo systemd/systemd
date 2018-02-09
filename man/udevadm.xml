@@ -335,6 +335,17 @@
             device.</para>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>-w</option></term>
+          <term><option>--settle</option></term>
+          <listitem>
+            <para>Apart from triggering events, also waits for those events to
+            finish. Note that this is different from calling <command>udevadm
+            settle</command>. <command>udevadm settle</command> waits for all
+            events to finish. This option only waits for events triggered by
+            the same command to finish.</para>
+          </listitem>
+        </varlistentry>
 
         <xi:include href="standard-options.xml" xpointer="version" />
         <xi:include href="standard-options.xml" xpointer="help" />
