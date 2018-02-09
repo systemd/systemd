@@ -1009,9 +1009,7 @@
 
     <para>The command line accepts <literal>%</literal> specifiers as
     described in
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    Note that the first argument of the command line (i.e. the program
-    to execute) may not include specifiers.</para>
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Basic environment variable substitution is supported. Use
     <literal>${FOO}</literal> as part of a word, or as a word of its
