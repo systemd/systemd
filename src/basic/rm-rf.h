@@ -25,10 +25,10 @@
 #include "util.h"
 
 typedef enum RemoveFlags {
-        REMOVE_ONLY_DIRECTORIES = 1,
-        REMOVE_ROOT = 2,
-        REMOVE_PHYSICAL = 4, /* if not set, only removes files on tmpfs, never physical file systems */
-        REMOVE_SUBVOLUME = 8,
+        REMOVE_ONLY_DIRECTORIES = 1 << 0,
+        REMOVE_ROOT             = 1 << 1,
+        REMOVE_PHYSICAL         = 1 << 2, /* if not set, only removes files on tmpfs, never physical file systems */
+        REMOVE_SUBVOLUME        = 1 << 3,
 } RemoveFlags;
 
 int rm_rf_children(int fd, RemoveFlags flags, struct stat *root_dev);
