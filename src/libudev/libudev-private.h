@@ -1,4 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
+#pragma once
+
 /***
   This file is part of systemd.
 
@@ -17,9 +19,6 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
-
-#ifndef _LIBUDEV_PRIVATE_H_
-#define _LIBUDEV_PRIVATE_H_
 
 #include <signal.h>
 #include <stdbool.h>
@@ -146,5 +145,3 @@ uint64_t util_string_bloom64(const char *str);
 
 /* libudev-util-private.c */
 int util_resolve_subsys_kernel(struct udev *udev, const char *string, char *result, size_t maxsize, int read_value);
-
-#endif

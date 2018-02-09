@@ -559,7 +559,7 @@ static int swap_coldplug(Unit *u) {
 }
 
 static void swap_dump(Unit *u, FILE *f, const char *prefix) {
-        char buf[FORMAT_TIMESPAN_MAX] = {};
+        char buf[FORMAT_TIMESPAN_MAX];
         Swap *s = SWAP(u);
         SwapParameters *p;
 
