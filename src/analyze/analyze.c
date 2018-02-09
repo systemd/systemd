@@ -1416,6 +1416,21 @@ static int get_or_set_log_target(int argc, char *argv[], void *userdata) {
         return (argc == 1) ? get_log_target(argc, argv, userdata) : set_log_target(argc, argv, userdata);
 }
 
+static int dump_unit_paths(int argc, char *argv[], void *userdata) {
+        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        int r;
+        char **p;
+
+        r = lookup_paths_init(&paths, arg_scope, 0, NULL);
+        if (r < 0)
+                return log_error_errno(r, "lookup_paths_init() failed: %m");
+
+        STRV_FOREACH(p, paths.search_path)
+                puts(*p);
+
+        return 0;
+}
+
 #if HAVE_SECCOMP
 static void dump_syscall_filter(const SyscallFilterSet *set) {
         const char *syscall;
@@ -1620,6 +1635,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  log-level [LEVEL]        Get/set logging threshold for manager\n"
                "  log-target [TARGET]      Get/set logging target for manager\n"
                "  dump                     Output state serialization of service manager\n"
+               "  unit-paths               List load directories for units\n"
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  verify FILE...           Check unit files for correctness\n"
                "  calendar SPEC...         Validate repetitive calendar time events\n"
@@ -1769,6 +1785,12 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option code.");
                 }
 
+        if (arg_scope == UNIT_FILE_GLOBAL &&
+            !STR_IN_SET(argv[optind] ?: "time", "dot", "unit-paths", "verify")) {
+                log_error("Option --global only makes sense with verbs dot, unit-paths, verify.");
+                return -EINVAL;
+        }
+
         return 1; /* work to do */
 }
 
@@ -1789,6 +1811,7 @@ int main(int argc, char *argv[]) {
                 { "set-log-target",    2,        2,        0,            set_log_target         },
                 { "get-log-target",    VERB_ANY, 1,        0,            get_log_target         },
                 { "dump",              VERB_ANY, 1,        0,            dump                   },
+                { "unit-paths",        1,        1,        0,            dump_unit_paths        },
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },
                 { "calendar",          2,        VERB_ANY, 0,            test_calendar          },
