@@ -257,14 +257,13 @@ static int process(
                         if (r < 0)
                                 return r;
                 } else if (all_unified) {
-                        const char *keys[] = { "usage_usec", NULL };
                         _cleanup_free_ char *val = NULL;
 
                         if (!streq(controller, "cpu"))
                                 return 0;
 
-                        r = cg_get_keyed_attribute("cpu", path, "cpu.stat", keys, &val);
-                        if (r == -ENOENT)
+                        r = cg_get_keyed_attribute("cpu", path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
+                        if (IN_SET(r, -ENOENT, -ENXIO))
                                 return 0;
                         if (r < 0)
                                 return r;

@@ -2358,16 +2358,17 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
         if (r < 0)
                 return r;
         if (r > 0) {
-                const char *keys[] = { "usage_usec", NULL };
                 _cleanup_free_ char *val = NULL;
                 uint64_t us;
 
                 if ((u->cgroup_realized_mask & CGROUP_MASK_CPU) == 0)
                         return -ENODATA;
 
-                r = cg_get_keyed_attribute("cpu", u->cgroup_path, "cpu.stat", keys, &val);
+                r = cg_get_keyed_attribute("cpu", u->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
                 if (r < 0)
                         return r;
+                if (IN_SET(r, -ENOENT, -ENXIO))
+                        return -ENODATA;
 
                 r = safe_atou64(val, &us);
                 if (r < 0)

@@ -2032,46 +2032,95 @@ int cg_get_attribute(const char *controller, const char *path, const char *attri
         return read_one_line_file(p, ret);
 }
 
-int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, const char **keys, char **values) {
-        _cleanup_free_ char *filename = NULL, *content = NULL;
-        char *line, *p;
-        int i, r;
+int cg_get_keyed_attribute(
+                const char *controller,
+                const char *path,
+                const char *attribute,
+                char **keys,
+                char **ret_values) {
 
-        for (i = 0; keys[i]; i++)
-                values[i] = NULL;
+        _cleanup_free_ char *filename = NULL, *contents = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        const char *p;
+        size_t n, i;
+        char **v;
+        int r;
+
+        /* Reads one or more fields of a cgroupsv2 keyed attribute file. The 'keys' parameter should be an strv with
+         * all keys to retrieve. The 'ret_values' parameter should be passed as string size with the same number of
+         * entries as 'keys'. On success each entry will be set to the value of the matching key.
+         *
+         * If the attribute file doesn't exist at all returns ENOENT, if any key is not found returns ENXIO. */
 
         r = cg_get_path(controller, path, attribute, &filename);
         if (r < 0)
                 return r;
 
-        r = read_full_file(filename, &content, NULL);
+        r = read_full_file(filename, &contents, NULL);
         if (r < 0)
                 return r;
 
-        p = content;
-        while ((line = strsep(&p, "\n"))) {
-                char *key;
+        n = strv_length(keys);
+        if (n == 0) /* No keys to retrieve? That's easy, we are done then */
+                return 0;
 
-                key = strsep(&line, " ");
+        /* Let's build this up in a temporary array for now in order not to clobber the return parameter on failure */
+        v = newa0(char*, n);
 
-                for (i = 0; keys[i]; i++) {
-                        if (streq(key, keys[i])) {
-                                values[i] = strdup(line);
-                                break;
+        for (p = contents; *p;) {
+                const char *w = NULL;
+                size_t n_done = 0;
+
+                for (i = 0; i < n; i++) {
+                        if (v[i])
+                                n_done ++;
+                        else {
+                                w = first_word(p, keys[i]);
+                                if (w)
+                                        break;
                         }
                 }
-        }
 
-        for (i = 0; keys[i]; i++) {
-                if (!values[i]) {
-                        for (i = 0; keys[i]; i++) {
-                                values[i] = mfree(values[i]);
+                if (w) {
+                        char *c;
+                        size_t l;
+
+                        l = strcspn(w, NEWLINE);
+                        c = strndup(w, l);
+                        if (!c) {
+                                r = -ENOMEM;
+                                goto fail;
                         }
-                        return -ENOENT;
+
+                        v[i] = c;
+                        n_done++;
+
+                        if (n_done >= n)
+                                goto done;
+
+                        p = w + l;
+                } else {
+                        if (n_done >= n)
+                                goto done;
+
+                        p += strcspn(p, NEWLINE);
                 }
+
+                p += strspn(p, NEWLINE);
         }
 
+        r = -ENXIO;
+
+fail:
+        for (i = 0; i < n; i++)
+                free(v[i]);
+
+        return r;
+
+done:
+        memcpy(ret_values, v, sizeof(char*) * n);
         return 0;
+
 }
 
 int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path) {
