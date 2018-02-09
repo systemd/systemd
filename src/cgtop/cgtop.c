@@ -782,17 +782,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DEPTH:
                         r = safe_atou(optarg, &arg_depth);
-                        if (r < 0) {
-                                log_error("Failed to parse depth parameter.");
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse depth parameter: %s", optarg);
 
                         break;
 
                 case 'd':
                         r = parse_sec(optarg, &arg_delay);
                         if (r < 0 || arg_delay <= 0) {
-                                log_error("Failed to parse delay parameter.");
+                                log_error("Failed to parse delay parameter: %s", optarg);
                                 return -EINVAL;
                         }
 
@@ -800,10 +798,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'n':
                         r = safe_atou(optarg, &arg_iterations);
-                        if (r < 0) {
-                                log_error("Failed to parse iterations parameter.");
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse iterations parameter: %s", optarg);
 
                         break;
 
@@ -866,10 +862,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_RECURSIVE:
                         r = parse_boolean(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse --recursive= argument: %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --recursive= argument: %s", optarg);
 
                         arg_recursive = r;
                         arg_recursive_unset = r == 0;
