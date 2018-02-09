@@ -556,6 +556,7 @@ void bus_set_state(sd_bus *bus, enum bus_state state) {
 
 static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         const char *s;
+        char *t;
         sd_bus *bus;
         int r;
 
@@ -575,9 +576,11 @@ static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *e
         if (!service_name_is_valid(s) || s[0] != ':')
                 return -EBADMSG;
 
-        bus->unique_name = strdup(s);
-        if (!bus->unique_name)
+        t = strdup(s);
+        if (!t)
                 return -ENOMEM;
+
+        free_and_replace(bus->unique_name, t);
 
         if (bus->state == BUS_HELLO) {
                 bus_set_state(bus, BUS_RUNNING);
@@ -1377,7 +1380,7 @@ fail:
 
 int bus_set_address_system_remote(sd_bus *b, const char *host) {
         _cleanup_free_ char *e = NULL;
-        char *m = NULL, *c = NULL;
+        char *m = NULL, *c = NULL, *a;
 
         assert(b);
         assert(host);
@@ -1408,9 +1411,11 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                         return -ENOMEM;
         }
 
-        b->address = strjoin("unixexec:path=ssh,argv1=-xT,argv2=--,argv3=", e, ",argv4=systemd-stdio-bridge", c);
-        if (!b->address)
+        a = strjoin("unixexec:path=ssh,argv1=-xT,argv2=--,argv3=", e, ",argv4=systemd-stdio-bridge", c);
+        if (!a)
                 return -ENOMEM;
+
+        free_and_replace(b->address, a);
 
         return 0;
  }
@@ -1449,6 +1454,7 @@ fail:
 
 int bus_set_address_system_machine(sd_bus *b, const char *machine) {
         _cleanup_free_ char *e = NULL;
+        char *a;
 
         assert(b);
         assert(machine);
@@ -1457,9 +1463,11 @@ int bus_set_address_system_machine(sd_bus *b, const char *machine) {
         if (!e)
                 return -ENOMEM;
 
-        b->address = strjoin("x-machine-unix:machine=", e);
-        if (!b->address)
+        a = strjoin("x-machine-unix:machine=", e);
+        if (!a)
                 return -ENOMEM;
+
+        free_and_replace(b->address, a);
 
         return 0;
 }
