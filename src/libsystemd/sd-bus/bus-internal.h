@@ -296,6 +296,7 @@ struct sd_bus {
         unsigned n_memfd_cache;
 
         pid_t original_pid;
+        pid_t busexec_pid;
 
         sd_event_source *input_io_event_source;
         sd_event_source *output_io_event_source;

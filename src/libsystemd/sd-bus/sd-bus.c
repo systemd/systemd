@@ -22,8 +22,10 @@
 #include <netdb.h>
 #include <poll.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -1095,6 +1097,13 @@ static int bus_parse_next_address(sd_bus *b) {
         return 1;
 }
 
+static void bus_kill_exec(sd_bus *bus) {
+        if (pid_is_valid(bus->busexec_pid) > 0) {
+                sigterm_wait(bus->busexec_pid);
+                bus->busexec_pid = 0;
+        }
+}
+
 static int bus_start_address(sd_bus *b) {
         int r;
 
@@ -1103,6 +1112,8 @@ static int bus_start_address(sd_bus *b) {
         for (;;) {
                 bus_close_io_fds(b);
                 bus_close_inotify_fd(b);
+
+                bus_kill_exec(b);
 
                 /* If you provide multiple different bus-addresses, we
                  * try all of them in order and use the first one that
@@ -1507,6 +1518,9 @@ _public_ void sd_bus_close(sd_bus *bus) {
         if (bus_pid_changed(bus))
                 return;
 
+        /* Don't leave ssh hanging around */
+        bus_kill_exec(bus);
+
         bus_set_state(bus, BUS_CLOSED);
 
         sd_bus_detach_event(bus);
@@ -1523,6 +1537,9 @@ _public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
 
         if (!bus)
                 return NULL;
+
+        /* Have to do this before flush() to prevent hang */
+        bus_kill_exec(bus);
 
         sd_bus_flush(bus);
         sd_bus_close(bus);
