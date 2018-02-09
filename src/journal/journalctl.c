@@ -81,8 +81,6 @@
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
 
-#define PROCESS_INOTIFY_INTERVAL 1024   /* Every 1,024 messages processed */
-
 #if HAVE_PCRE2
 DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_match_data*, pcre2_match_data_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(pcre2_code*, pcre2_code_free);
@@ -2641,32 +2639,6 @@ int main(int argc, char *argv[]) {
                                 goto finish;
 
                         n_shown++;
-                        
-                        /* If journalctl take a long time to process messages, and
-                         * during that time journal file rotation occurs, a journalctl
-                         * client will keep those rotated files open until it calls
-                         * sd_journal_process(), which typically happens as a result
-                         * of calling sd_journal_wait() below in the "following" case.
-                         * By periodically calling sd_journal_process() during the
-                         * processing loop we shrink the window of time a client
-                         * instance has open file descriptors for rotated (deleted)
-                         * journal files.
-                         *
-                         * FIXME: This change does not appear to solve the case of a
-                         * "paused" output stream. If somebody is using `journalctl | less`
-                         * and pauses the output, then without a background thread
-                         * periodically listening for inotify delete events and cleaning
-                         * up, journal logs will eventually stop flowing in cases where
-                         * a journal client with enough open files causes the "free"
-                         * disk space threshold to be crossed. 
-                         */
-                        if ((n_shown % PROCESS_INOTIFY_INTERVAL) == 0) {
-                                r = sd_journal_process(j);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to process inotify events: %m");
-                                        goto finish;
-                                }
-                        }
                 }
 
                 if (!arg_follow) {
