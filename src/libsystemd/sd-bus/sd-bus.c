@@ -286,8 +286,7 @@ _public_ int sd_bus_set_address(sd_bus *bus, const char *address) {
         if (!a)
                 return -ENOMEM;
 
-        free(bus->address);
-        bus->address = a;
+        free_and_replace(bus->address, a);
 
         return 0;
 }
@@ -325,10 +324,9 @@ _public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) 
                 return -ENOMEM;
         }
 
-        free(bus->exec_path);
-        strv_free(bus->exec_argv);
+        free_and_replace(bus->exec_path, p);
 
-        bus->exec_path = p;
+        strv_free(bus->exec_argv);
         bus->exec_argv = a;
 
         return 0;
@@ -652,8 +650,8 @@ int bus_start_running(sd_bus *bus) {
 
 static int parse_address_key(const char **p, const char *key, char **value) {
         size_t l, n = 0, allocated = 0;
+        _cleanup_free_ char *r = NULL;
         const char *a;
-        char *r = NULL;
 
         assert(p);
         assert(*p);
@@ -681,16 +679,12 @@ static int parse_address_key(const char **p, const char *key, char **value) {
                         int x, y;
 
                         x = unhexchar(a[1]);
-                        if (x < 0) {
-                                free(r);
+                        if (x < 0)
                                 return x;
-                        }
 
                         y = unhexchar(a[2]);
-                        if (y < 0) {
-                                free(r);
+                        if (y < 0)
                                 return y;
-                        }
 
                         c = (char) ((x << 4) | y);
                         a += 3;
@@ -717,8 +711,7 @@ static int parse_address_key(const char **p, const char *key, char **value) {
 
         *p = a;
 
-        free(*value);
-        *value = r;
+        free_and_replace(*value, r);
 
         return 1;
 }
