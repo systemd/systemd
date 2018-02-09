@@ -36,13 +36,13 @@ _systemd_analyze() {
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
 
         local -A OPTS=(
-               [STANDALONE]='-h --help --version --system --user --order --require --no-pager
+               [STANDALONE]='-h --help --version --system --user --global --order --require --no-pager
                              --man=no --generators=yes'
                       [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern'
         )
 
         local -A VERBS=(
-                [STANDALONE]='time blame plot dump calendar'
+                [STANDALONE]='time blame plot dump unit-paths calendar'
                 [CRITICAL_CHAIN]='critical-chain'
                 [DOT]='dot'
                 [LOG_LEVEL]='log-level'
@@ -85,7 +85,7 @@ _systemd_analyze() {
 
         elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
                 if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user'
+                        comps='--help --version --system --user --global'
                 fi
 
         elif __contains_word "$verb" ${VERBS[CRITICAL_CHAIN]}; then
@@ -95,7 +95,7 @@ _systemd_analyze() {
 
         elif __contains_word "$verb" ${VERBS[DOT]}; then
                 if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user --from-pattern --to-pattern --order --require'
+                        comps='--help --version --system --user --global --from-pattern --to-pattern --order --require'
                 fi
 
         elif __contains_word "$verb" ${VERBS[LOG_LEVEL]}; then
@@ -119,7 +119,7 @@ _systemd_analyze() {
 
         elif __contains_word "$verb" ${VERBS[VERIFY]}; then
                 if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user --man=no --generators=yes'
+                        comps='--help --version --system --user --global --man=no --generators=yes'
                 else
                         comps=$( compgen -A file -- "$cur" )
                         compopt -o filenames

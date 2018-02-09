@@ -169,6 +169,8 @@ int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
 static char** user_dirs(
                 const char *persistent_config,
                 const char *runtime_config,
+                const char *global_persistent_config,
+                const char *global_runtime_config,
                 const char *generator,
                 const char *generator_early,
                 const char *generator_late,
@@ -209,10 +211,17 @@ static char** user_dirs(
         if (strv_extend(&res, persistent_config) < 0)
                 return NULL;
 
+        /* global config has lower priority than the user config of the same type */
+        if (strv_extend(&res, global_persistent_config) < 0)
+                return NULL;
+
         if (strv_extend_strv(&res, (char**) user_config_unit_paths, false) < 0)
                 return NULL;
 
         if (strv_extend(&res, runtime_config) < 0)
+                return NULL;
+
+        if (strv_extend(&res, global_runtime_config) < 0)
                 return NULL;
 
         if (strv_extend(&res, generator) < 0)
@@ -411,11 +420,11 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
         }
 
         case UNIT_FILE_USER:
-                r = xdg_user_config_dir(&a, "/systemd/system.control");
+                r = xdg_user_config_dir(&a, "/systemd/user.control");
                 if (r < 0 && r != -ENXIO)
                         return r;
 
-                r = xdg_user_runtime_dir(runtime, "/systemd/system.control");
+                r = xdg_user_runtime_dir(runtime, "/systemd/user.control");
                 if (r < 0) {
                         if (r != -ENXIO)
                                 return r;
@@ -484,6 +493,7 @@ int lookup_paths_init(
         _cleanup_free_ char
                 *root = NULL,
                 *persistent_config = NULL, *runtime_config = NULL,
+                *global_persistent_config = NULL, *global_runtime_config = NULL,
                 *generator = NULL, *generator_early = NULL, *generator_late = NULL,
                 *transient = NULL,
                 *persistent_control = NULL, *runtime_control = NULL;
@@ -521,6 +531,12 @@ int lookup_paths_init(
         r = acquire_config_dirs(scope, &persistent_config, &runtime_config);
         if (r < 0)
                 return r;
+
+        if (scope == UNIT_FILE_USER) {
+                r = acquire_config_dirs(UNIT_FILE_GLOBAL, &global_persistent_config, &global_runtime_config);
+                if (r < 0)
+                        return r;
+        }
 
         if ((flags & LOOKUP_PATHS_EXCLUDE_GENERATED) == 0) {
                 /* Note: if XDG_RUNTIME_DIR is not set, this will fail completely with ENXIO */
@@ -610,20 +626,21 @@ int lookup_paths_init(
                                         runtime_config,
                                         "/run/systemd/user",
                                         STRV_IFNOTNULL(generator),
-                                        "/usr/local/lib/systemd/user",
                                         "/usr/local/share/systemd/user",
+                                        "/usr/share/systemd/user",
+                                        "/usr/local/lib/systemd/user",
                                         USER_DATA_UNIT_PATH,
                                         "/usr/lib/systemd/user",
-                                        "/usr/share/systemd/user",
                                         STRV_IFNOTNULL(generator_late),
                                         NULL);
                         break;
 
                 case UNIT_FILE_USER:
                         add = user_dirs(persistent_config, runtime_config,
+                                        global_persistent_config, global_runtime_config,
                                         generator, generator_early, generator_late,
                                         transient,
-                                        persistent_config, runtime_control);
+                                        persistent_control, runtime_control);
                         break;
 
                 default:

@@ -65,19 +65,31 @@
     <filename><replaceable>slice</replaceable>.slice</filename>,
     <filename><replaceable>scope</replaceable>.scope</filename></para>
 
-    <para><literallayout><filename>/etc/systemd/system/*</filename>
+    <para><literallayout><filename>/etc/systemd/system.control/*</filename>
+<filename>/run/systemd/system.control/*</filename>
+<filename>/run/systemd/transient/*</filename>
+<filename>/run/systemd/generator.early/*</filename>
+<filename>/etc/systemd/system/*</filename>
 <filename>/run/systemd/system/*</filename>
-<filename>/usr/lib/systemd/system/*</filename>
+<filename>/run/systemd/generator/*</filename>
 <filename>…</filename>
+<filename>/usr/lib/systemd/system/*</filename>
+<filename>/run/systemd/generator.late/*</filename>
     </literallayout></para>
 
-    <para><literallayout><filename>~/.config/systemd/user/*</filename>
+    <para><literallayout><filename>~/.config/systemd/user.control/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/user.control/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/transient/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/generator.early/*</filename>
+<filename>~/.config/systemd/user/*</filename>
 <filename>/etc/systemd/user/*</filename>
 <filename>$XDG_RUNTIME_DIR/systemd/user/*</filename>
 <filename>/run/systemd/user/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/generator/*</filename>
 <filename>~/.local/share/systemd/user/*</filename>
-<filename>/usr/lib/systemd/user/*</filename>
 <filename>…</filename>
+<filename>/usr/lib/systemd/user/*</filename>
+<filename>$XDG_RUNTIME_DIR/systemd/generator.late/*</filename>
     </literallayout></para>
   </refsynopsisdiv>
 
@@ -343,6 +355,22 @@
         </thead>
         <tbody>
           <row>
+            <entry><filename>/etc/systemd/system.control</filename></entry>
+            <entry morerows="1">Persistent and transient configuration created using the dbus API</entry>
+          </row>
+          <row>
+            <entry><filename>/run/systemd/system.control</filename></entry>
+          </row>
+          <row>
+            <entry><filename>/run/systemd/transient</filename></entry>
+            <entry>Dynamic configuration for transient units</entry>
+          </row>
+          <row>
+            <entry><filename>/run/systemd/generator.early</filename></entry>
+            <entry>Generated units with high priority (see <replaceable>early-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+          </row>
+          <row>
             <entry><filename>/etc/systemd/system</filename></entry>
             <entry>Local configuration</entry>
           </row>
@@ -351,8 +379,21 @@
             <entry>Runtime units</entry>
           </row>
           <row>
+            <entry><filename>/run/systemd/generator</filename></entry>
+            <entry>Generated units with medium priority (see <replaceable>normal-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+          </row>
+          <row>
+            <entry><filename>/usr/local/lib/systemd/system</filename></entry>
+            <entry morerows="1">Units of installed packages</entry>
+          </row>
+          <row>
             <entry><filename>/usr/lib/systemd/system</filename></entry>
-            <entry>Units of installed packages</entry>
+          </row>
+          <row>
+            <entry><filename>/run/systemd/generator.late</filename></entry>
+            <entry>Generated units with low priority (see <replaceable>late-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
         </tbody>
       </tgroup>
@@ -374,12 +415,25 @@
         </thead>
         <tbody>
           <row>
-            <entry><filename>$XDG_CONFIG_HOME/systemd/user</filename></entry>
-            <entry>User configuration (only used when $XDG_CONFIG_HOME is set)</entry>
+            <entry><filename>$XDG_CONFIG_HOME/systemd/user.control</filename> or <filename
+            >~/.config/systemd/user.control</filename></entry>
+            <entry morerows="1">Persistent and transient configuration created using the dbus API (<varname>$XDG_CONFIG_HOME</varname> is used if set, <filename>~/.config</filename> otherwise)</entry>
           </row>
           <row>
-            <entry><filename>$HOME/.config/systemd/user</filename></entry>
-            <entry>User configuration (only used when $XDG_CONFIG_HOME is not set)</entry>
+            <entry><filename>$XDG_RUNTIME_DIR/systemd/user.control</filename></entry>
+          </row>
+          <row>
+            <entry><filename>/run/systemd/transient</filename></entry>
+            <entry>Dynamic configuration for transient units</entry>
+          </row>
+          <row>
+            <entry><filename>/run/systemd/generator.early</filename></entry>
+            <entry>Generated units with high priority (see <replaceable>early-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
+          </row>
+          <row>
+            <entry><filename>$XDG_CONFIG_HOME/systemd/user</filename> or <filename>$HOME/.config/systemd/user</filename></entry>
+            <entry>User configuration (<varname>$XDG_CONFIG_HOME</varname> is used if set, <filename>~/.config</filename> otherwise)</entry>
           </row>
           <row>
             <entry><filename>/etc/systemd/user</filename></entry>
@@ -394,27 +448,50 @@
             <entry>Runtime units</entry>
           </row>
           <row>
-            <entry><filename>$XDG_DATA_HOME/systemd/user</filename></entry>
-            <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is set)</entry>
+            <entry><filename>$XDG_RUNTIME_DIR/systemd/generator</filename></entry>
+            <entry>Generated units with medium priority (see <replaceable>normal-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
           <row>
-            <entry><filename>$HOME/.local/share/systemd/user</filename></entry>
-            <entry>Units of packages that have been installed in the home directory (only used when $XDG_DATA_HOME is not set)</entry>
+            <entry><filename>$XDG_DATA_HOME/systemd/user</filename> or <filename>$HOME/.local/share/systemd/user</filename></entry>
+            <entry>Units of packages that have been installed in the home directory (<varname>$XDG_DATA_HOME</varname> is used if set, <filename>~/.local/share</filename> otherwise)</entry>
+          </row>
+          <row>
+            <entry><filename>$dir/systemd/user</filename> for each <varname noindex='true'>$dir</varname> in <varname>$XDG_DATA_DIRS</varname></entry>
+            <entry>Additional locations for installed user units, one for each entry in <varname>$XDG_DATA_DIRS</varname></entry>
+          </row>
+          <row>
+            <entry><filename>/usr/local/lib/systemd/user</filename></entry>
+            <entry morerows="1">Units of packages that have been installed system-wide</entry>
           </row>
           <row>
             <entry><filename>/usr/lib/systemd/user</filename></entry>
-            <entry>Units of packages that have been installed system-wide</entry>
+          </row>
+          <row>
+            <entry><filename>$XDG_RUNTIME_DIR/systemd/generator.late</filename></entry>
+            <entry>Generated units with low priority (see <replaceable>late-dir</replaceable> in <citerefentry
+            ><refentrytitle>system.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>)</entry>
           </row>
         </tbody>
       </tgroup>
     </table>
 
-    <para>Additional units might be loaded into systemd ("linked")
-    from directories not on the unit load path. See the
-    <command>link</command> command for
+    <para>The set of load paths for the user manager instance may be augmented or
+    changed using various environment variables. And environment variables may in
+    turn be set using environment generators, see
+    <citerefentry><refentrytitle>system.environment-generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    In particular, <varname>$XDG_DATA_HOME</varname> and
+    <varname>$XDG_DATA_DIRS</varname> may be easily set using
+    <citerefentry><refentrytitle>systemd-environment-d-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+    Thus, directories listed here are just the defaults. To see the actual list that
+    would be used based on compilation options and current environment use
+    <programlisting>systemd-analyze --user unit-paths</programlisting>
+    </para>
+
+    <para>Moreover, additional units might be loaded into systemd ("linked") from
+    directories not on the unit load path. See the <command>link</command> command
+    for
     <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
-    Also, some units are dynamically created via a
-    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     </para>
   </refsect1>
 

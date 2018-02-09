@@ -136,7 +136,7 @@ static void print_status_info(const StatusInfo *i) {
         if (i->rtc_local)
                 printf("\n%s"
                        "Warning: The system is configured to read the RTC time in the local time zone.\n"
-                       "         This mode can not be fully supported. It will create various problems\n"
+                       "         This mode cannot be fully supported. It will create various problems\n"
                        "         with time zone changes and daylight saving time adjustments. The RTC\n"
                        "         time is never updated, it relies on external facilities to maintain it.\n"
                        "         If at all possible, use RTC in UTC by calling\n"
