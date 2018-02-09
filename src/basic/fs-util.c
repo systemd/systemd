@@ -225,29 +225,6 @@ int readlink_and_make_absolute(const char *p, char **r) {
         return 0;
 }
 
-int readlink_and_canonicalize(const char *p, const char *root, char **ret) {
-        char *t, *s;
-        int r;
-
-        assert(p);
-        assert(ret);
-
-        r = readlink_and_make_absolute(p, &t);
-        if (r < 0)
-                return r;
-
-        r = chase_symlinks(t, root, 0, &s);
-        if (r < 0)
-                /* If we can't follow up, then let's return the original string, slightly cleaned up. */
-                *ret = path_kill_slashes(t);
-        else {
-                *ret = s;
-                free(t);
-        }
-
-        return 0;
-}
-
 int readlink_and_make_absolute_root(const char *root, const char *path, char **ret) {
         _cleanup_free_ char *target = NULL, *t = NULL;
         const char *full;
