@@ -252,7 +252,11 @@ static int process(
                 uint64_t new_usage;
                 nsec_t timestamp;
 
-                if (all_unified) {
+                if (is_root_cgroup(path)) {
+                        r = procfs_cpu_get_usage(&new_usage);
+                        if (r < 0)
+                                return r;
+                } else if (all_unified) {
                         const char *keys[] = { "usage_usec", NULL };
                         _cleanup_free_ char *val = NULL;
 
@@ -310,24 +314,31 @@ static int process(
                 g->cpu_iteration = iteration;
 
         } else if (streq(controller, "memory")) {
-                _cleanup_free_ char *p = NULL, *v = NULL;
 
-                if (all_unified)
-                        r = cg_get_path(controller, path, "memory.current", &p);
-                else
-                        r = cg_get_path(controller, path, "memory.usage_in_bytes", &p);
-                if (r < 0)
-                        return r;
+                if (is_root_cgroup(path)) {
+                        r = procfs_memory_get_current(&g->memory);
+                        if (r < 0)
+                                return r;
+                } else {
+                        _cleanup_free_ char *p = NULL, *v = NULL;
 
-                r = read_one_line_file(p, &v);
-                if (r == -ENOENT)
-                        return 0;
-                if (r < 0)
-                        return r;
+                        if (all_unified)
+                                r = cg_get_path(controller, path, "memory.current", &p);
+                        else
+                                r = cg_get_path(controller, path, "memory.usage_in_bytes", &p);
+                        if (r < 0)
+                                return r;
 
-                r = safe_atou64(v, &g->memory);
-                if (r < 0)
-                        return r;
+                        r = read_one_line_file(p, &v);
+                        if (r == -ENOENT)
+                                return 0;
+                        if (r < 0)
+                                return r;
+
+                        r = safe_atou64(v, &g->memory);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (g->memory > 0)
                         g->memory_valid = true;
