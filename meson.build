@@ -529,6 +529,9 @@ else
         conf.set10('HAVE_GETRANDOM', have)
 endif
 
+glibc_uses_libidn2 = cc.get_define('NI_IDN_USE_STD3_ASCII_RULES', prefix : '''#include <netdb.h>''', args : '-D_GNU_SOURCE') != '128'
+conf.set10('GLIBC_USES_LIBIDN2', glibc_uses_libidn2)
+
 #####################################################################
 
 sed = find_program('sed')
@@ -965,6 +968,13 @@ conf.set10('HAVE_LIBCURL', have)
 m4_defines += have ? ['-DHAVE_LIBCURL'] : []
 
 want_libidn = get_option('libidn')
+if glibc_uses_libidn2
+        if want_libidn == 'true'
+                error('glibc uses libidn2. libidn cannot be requested.')
+        endif
+        want_libidn = 'false'
+endif
+
 want_libidn2 = get_option('libidn2')
 if want_libidn == 'true' and want_libidn2 == 'true'
         error('libidn and libidn2 cannot be requested simultaneously')
