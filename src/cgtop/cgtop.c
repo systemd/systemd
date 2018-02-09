@@ -125,6 +125,10 @@ static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64
         return format_bytes(buf, l, t);
 }
 
+static bool is_root_cgroup(const char *path) {
+        return isempty(path) || path_equal(path, "/");
+}
+
 static int process(
                 const char *controller,
                 const char *path,
@@ -196,7 +200,7 @@ static int process(
 
         } else if (streq(controller, "pids") && arg_count == COUNT_PIDS) {
 
-                if (isempty(path) || path_equal(path, "/")) {
+                if (is_root_cgroup(path)) {
                         r = procfs_tasks_get_current(&g->n_tasks);
                         if (r < 0)
                                 return r;
