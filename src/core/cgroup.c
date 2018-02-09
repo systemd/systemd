@@ -2296,6 +2296,10 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
         if (!u->cgroup_path)
                 return -ENODATA;
 
+        /* The root cgroup doesn't expose this information, let's get it from /proc instead */
+        if (unit_has_root_cgroup(u))
+                return procfs_memory_get_current(ret);
+
         if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
                 return -ENODATA;
 
@@ -2327,12 +2331,12 @@ int unit_get_tasks_current(Unit *u, uint64_t *ret) {
         if (!u->cgroup_path)
                 return -ENODATA;
 
-        if ((u->cgroup_realized_mask & CGROUP_MASK_PIDS) == 0)
-                return -ENODATA;
-
         /* The root cgroup doesn't expose this information, let's get it from /proc instead */
         if (unit_has_root_cgroup(u))
                 return procfs_tasks_get_current(ret);
+
+        if ((u->cgroup_realized_mask & CGROUP_MASK_PIDS) == 0)
+                return -ENODATA;
 
         r = cg_get_attribute("pids", u->cgroup_path, "pids.current", &v);
         if (r == -ENOENT)
@@ -2353,6 +2357,10 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
 
         if (!u->cgroup_path)
                 return -ENODATA;
+
+        /* The root cgroup doesn't expose this information, let's get it from /proc instead */
+        if (unit_has_root_cgroup(u))
+                return procfs_cpu_get_usage(ret);
 
         r = cg_all_unified();
         if (r < 0)
