@@ -35,8 +35,9 @@
 static int verbose;
 static int dry_run;
 
-static void exec_list(struct udev_enumerate *udev_enumerate, const char *action, Set *settle_set) {
+static int exec_list(struct udev_enumerate *udev_enumerate, const char *action, Set *settle_set) {
         struct udev_list_entry *entry;
+        int r;
 
         udev_list_entry_foreach(entry, udev_enumerate_get_list_entry(udev_enumerate)) {
                 char filename[UTIL_PATH_SIZE];
@@ -53,12 +54,17 @@ static void exec_list(struct udev_enumerate *udev_enumerate, const char *action,
                 fd = open(filename, O_WRONLY|O_CLOEXEC);
                 if (fd < 0)
                         continue;
-                if (settle_set != NULL)
-                        set_put_strdup(settle_set, syspath);
+                if (settle_set) {
+                        r = set_put_strdup(settle_set, syspath);
+                        if (r < 0)
+                                return log_oom();
+                }
                 if (write(fd, action, strlen(action)) < 0)
                         log_debug_errno(errno, "error writing '%s' to '%s': %m", action, filename);
                 close(fd);
         }
+
+        return 0;
 }
 
 static const char *keyval(const char *str, const char **val, char *buf, size_t size) {
@@ -137,7 +143,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
         int c, r;
 
         udev_enumerate = udev_enumerate_new(udev);
-        if (udev_enumerate == NULL)
+        if (!udev_enumerate)
                 return 1;
 
         while ((c = getopt_long(argc, argv, "vnt:c:s:S:a:A:p:g:y:b:wVh", options, NULL)) >= 0) {
@@ -226,7 +232,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                         _cleanup_udev_device_unref_ struct udev_device *dev;
 
                         dev = find_device(udev, optarg, "/sys");
-                        if (dev == NULL) {
+                        if (!dev) {
                                 log_error("unable to open the device '%s'", optarg);
                                 return 2;
                         }
@@ -246,7 +252,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                         _cleanup_udev_device_unref_ struct udev_device *dev;
 
                         dev = find_device(udev, optarg, "/dev/");
-                        if (dev == NULL) {
+                        if (!dev) {
                                 log_error("unable to open the device '%s'", optarg);
                                 return 2;
                         }
@@ -276,7 +282,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                 _cleanup_udev_device_unref_ struct udev_device *dev;
 
                 dev = find_device(udev, argv[optind], NULL);
-                if (dev == NULL) {
+                if (!dev) {
                         log_error("unable to open the device '%s'", argv[optind]);
                         return 2;
                 }
@@ -296,7 +302,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                 }
 
                 udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
-                if (udev_monitor == NULL) {
+                if (!udev_monitor) {
                         log_error("error: unable to create netlink socket");
                         return 3;
                 }
@@ -314,7 +320,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                 }
 
                 settle_set = set_new(&string_hash_ops);
-                if (settle_set == NULL) {
+                if (!settle_set) {
                         log_oom();
                         return 1;
                 }
@@ -330,7 +336,9 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
         default:
                 assert_not_reached("device_type");
         }
-        exec_list(udev_enumerate, action, settle_set);
+        r = exec_list(udev_enumerate, action, settle_set);
+        if (r < 0)
+                return 1;
 
         while (!set_isempty(settle_set)) {
                 int fdcount;
@@ -350,7 +358,7 @@ static int adm_trigger(struct udev *udev, int argc, char *argv[]) {
                                 const char *syspath = NULL;
 
                                 device = udev_monitor_receive_device(udev_monitor);
-                                if (device == NULL)
+                                if (!device)
                                         continue;
 
                                 syspath = udev_device_get_syspath(device);
