@@ -27,6 +27,7 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
@@ -278,14 +279,15 @@ int journal_directory_vacuum(
                 if (r > 0) {
                         /* Always vacuum empty non-online files. */
 
-                        if (unlinkat(dirfd(d), p, 0) >= 0) {
+                        r = unlinkat_deallocate(dirfd(d), p, 0);
+                        if (r >= 0) {
 
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
                                          "Deleted empty archived journal %s/%s (%s).", directory, p, format_bytes(sbytes, sizeof(sbytes), size));
 
                                 freed += size;
-                        } else if (errno != ENOENT)
-                                log_warning_errno(errno, "Failed to delete empty archived journal %s/%s: %m", directory, p);
+                        } else if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to delete empty archived journal %s/%s: %m", directory, p);
 
                         continue;
                 }
@@ -321,7 +323,8 @@ int journal_directory_vacuum(
                     (n_max_files <= 0 || left <= n_max_files))
                         break;
 
-                if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
+                r = unlinkat_deallocate(dirfd(d), list[i].filename, 0);
+                if (r >= 0) {
                         log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).", directory, list[i].filename, format_bytes(sbytes, sizeof(sbytes), list[i].usage));
                         freed += list[i].usage;
 
@@ -330,8 +333,8 @@ int journal_directory_vacuum(
                         else
                                 sum = 0;
 
-                } else if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
+                } else if (r != -ENOENT)
+                        log_warning_errno(r, "Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
         }
 
         if (oldest_usec && i < n_list && (*oldest_usec == 0 || list[i].realtime < *oldest_usec))
