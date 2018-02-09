@@ -53,6 +53,7 @@ static void manager_reset_config(Manager *m) {
         m->handle_suspend_key = HANDLE_SUSPEND;
         m->handle_hibernate_key = HANDLE_HIBERNATE;
         m->handle_lid_switch = HANDLE_SUSPEND;
+        m->handle_lid_switch_ep = _HANDLE_ACTION_INVALID;
         m->handle_lid_switch_docked = HANDLE_IGNORE;
         m->power_key_ignore_inhibited = false;
         m->suspend_key_ignore_inhibited = false;
@@ -253,11 +254,7 @@ static int manager_enumerate_buttons(Manager *m) {
 
         /* Loads buttons from udev */
 
-        if (m->handle_power_key == HANDLE_IGNORE &&
-            m->handle_suspend_key == HANDLE_IGNORE &&
-            m->handle_hibernate_key == HANDLE_IGNORE &&
-            m->handle_lid_switch == HANDLE_IGNORE &&
-            m->handle_lid_switch_docked == HANDLE_IGNORE)
+        if (manager_all_buttons_ignored(m))
                 return 0;
 
         e = udev_enumerate_new(m->udev);
@@ -905,12 +902,7 @@ static int manager_connect_udev(Manager *m) {
                 return r;
 
         /* Don't watch keys if nobody cares */
-        if (m->handle_power_key != HANDLE_IGNORE ||
-            m->handle_suspend_key != HANDLE_IGNORE ||
-            m->handle_hibernate_key != HANDLE_IGNORE ||
-            m->handle_lid_switch != HANDLE_IGNORE ||
-            m->handle_lid_switch_docked != HANDLE_IGNORE) {
-
+        if (!manager_all_buttons_ignored(m)) {
                 m->udev_button_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
                 if (!m->udev_button_monitor)
                         return -ENOMEM;

@@ -211,6 +211,7 @@
         <term><varname>HandleSuspendKey=</varname></term>
         <term><varname>HandleHibernateKey=</varname></term>
         <term><varname>HandleLidSwitch=</varname></term>
+        <term><varname>HandleLidSwitchExternalPower=</varname></term>
         <term><varname>HandleLidSwitchDocked=</varname></term>
 
         <listitem><para>Controls how logind shall handle the
@@ -235,12 +236,17 @@
         <varname>HandleSuspendKey=</varname> and
         <varname>HandleLidSwitch=</varname> default to
         <literal>suspend</literal>.
-        <varname>HandleLidSwitchDocked=</varname> defaults to
-        <literal>ignore</literal>.
+        <varname>HandleLidSwitchExternalPower=</varname> is completely
+        ignored by default (for backwards compatibility) &#x2014; an explicit
+        value must be set before it will be used to determine
+        behaviour.  <varname>HandleLidSwitchDocked=</varname> defaults
+        to <literal>ignore</literal>.
         <varname>HandleHibernateKey=</varname> defaults to
         <literal>hibernate</literal>. If the system is inserted in a
         docking station, or if more than one display is connected, the
         action specified by <varname>HandleLidSwitchDocked=</varname>
+        occurs; if the system is on external power the action (if any)
+        specified by <varname>HandleLidSwitchExternalPower=</varname>
         occurs; otherwise the <varname>HandleLidSwitch=</varname>
         action occurs.</para>
 
