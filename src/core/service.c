@@ -774,8 +774,8 @@ static int service_load(Unit *u) {
 }
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
-        char buf_restart[FORMAT_TIMESPAN_MAX] = {}, buf_start[FORMAT_TIMESPAN_MAX] = {}, buf_stop[FORMAT_TIMESPAN_MAX] = {};
-        char buf_runtime[FORMAT_TIMESPAN_MAX] = {}, buf_watchdog[FORMAT_TIMESPAN_MAX] = {};
+        char buf_restart[FORMAT_TIMESPAN_MAX], buf_start[FORMAT_TIMESPAN_MAX], buf_stop[FORMAT_TIMESPAN_MAX];
+        char buf_runtime[FORMAT_TIMESPAN_MAX], buf_watchdog[FORMAT_TIMESPAN_MAX];
         ServiceExecCommand c;
         Service *s = SERVICE(u);
         const char *prefix2;

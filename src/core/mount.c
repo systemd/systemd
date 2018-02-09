@@ -709,7 +709,7 @@ static int mount_coldplug(Unit *u) {
 }
 
 static void mount_dump(Unit *u, FILE *f, const char *prefix) {
-        char buf[FORMAT_TIMESPAN_MAX] = {};
+        char buf[FORMAT_TIMESPAN_MAX];
         Mount *m = MOUNT(u);
         MountParameters *p;
 
