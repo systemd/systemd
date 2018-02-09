@@ -2540,6 +2540,9 @@ _public_ int sd_journal_process(sd_journal *j) {
         assert_return(j, -EINVAL);
         assert_return(!journal_pid_changed(j), -ECHILD);
 
+        if (j->inotify_fd < 0) /* We have no inotify fd yet? Then there's noting to process. */
+                return 0;
+
         j->last_process_usec = now(CLOCK_MONOTONIC);
         j->last_invalidate_counter = j->current_invalidate_counter;
 
