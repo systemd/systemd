@@ -313,19 +313,18 @@ _pure_ static const char *slice_sub_state_to_string(Unit *u) {
         return slice_state_to_string(SLICE(u)->state);
 }
 
-static void slice_enumerate_perpetual(Manager *m, const char *name) {
+static int slice_make_perpetual(Manager *m, const char *name, Unit **ret) {
         Unit *u;
         int r;
 
         assert(m);
+        assert(name);
 
         u = manager_get_unit(m, name);
         if (!u) {
                 r = unit_new_for_name(m, sizeof(Slice), name, &u);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to allocate the special %s unit: %m", name);
-                        return;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate the special %s unit: %m", name);
         }
 
         u->perpetual = true;
@@ -333,15 +332,34 @@ static void slice_enumerate_perpetual(Manager *m, const char *name) {
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);
+
+        if (ret)
+                *ret = u;
+
+        return 0;
 }
 
 static void slice_enumerate(Manager *m) {
+        Unit *u;
+        int r;
+
         assert(m);
 
-        slice_enumerate_perpetual(m, SPECIAL_ROOT_SLICE);
+        r = slice_make_perpetual(m, SPECIAL_ROOT_SLICE, &u);
+        if (r >= 0 && manager_owns_root_cgroup(m)) {
+                Slice *s = SLICE(u);
+
+                /* If we are managing the root cgroup then this means our root slice covers the whole system, which
+                 * means the kernel will track CPU/tasks/memory for us anyway, and it is all available in /proc. Let's
+                 * hence turn accounting on here, so that our APIs to query this data are available. */
+
+                s->cgroup_context.cpu_accounting = true;
+                s->cgroup_context.tasks_accounting = true;
+                s->cgroup_context.memory_accounting = true;
+        }
 
         if (MANAGER_IS_SYSTEM(m))
-                slice_enumerate_perpetual(m, SPECIAL_SYSTEM_SLICE);
+                (void) slice_make_perpetual(m, SPECIAL_SYSTEM_SLICE, NULL);
 }
 
 const UnitVTable slice_vtable = {
