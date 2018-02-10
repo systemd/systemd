@@ -651,7 +651,7 @@ fail:
         return r;
 }
 
-static int mount_bind_dev(MountEntry *m) {
+static int mount_bind_dev(const MountEntry *m) {
         int r;
 
         assert(m);
@@ -673,7 +673,7 @@ static int mount_bind_dev(MountEntry *m) {
         return 1;
 }
 
-static int mount_sysfs(MountEntry *m) {
+static int mount_sysfs(const MountEntry *m) {
         int r;
 
         assert(m);
@@ -693,7 +693,7 @@ static int mount_sysfs(MountEntry *m) {
         return 1;
 }
 
-static int mount_procfs(MountEntry *m) {
+static int mount_procfs(const MountEntry *m) {
         int r;
 
         assert(m);
@@ -713,7 +713,7 @@ static int mount_procfs(MountEntry *m) {
         return 1;
 }
 
-static int mount_empty_dir(MountEntry *m) {
+static int mount_empty_dir(const MountEntry *m) {
         assert(m);
 
         /* First, get rid of everything that is below if there is anything. Then, overmount with our new empty dir */
@@ -729,7 +729,7 @@ static int mount_empty_dir(MountEntry *m) {
 
 static int mount_entry_chase(
                 const char *root_directory,
-                MountEntry *m,
+                const MountEntry *m,
                 const char *path,
                 char **location) {
 
@@ -902,7 +902,7 @@ static int apply_mount(
         return 0;
 }
 
-static int make_read_only(MountEntry *m, char **blacklist, FILE *proc_self_mountinfo) {
+static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self_mountinfo) {
         int r = 0;
 
         assert(m);
