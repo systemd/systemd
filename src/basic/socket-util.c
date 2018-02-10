@@ -758,19 +758,6 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
         return 0;
 }
 
-int getnameinfo_pretty(int fd, char **ret) {
-        union sockaddr_union sa;
-        socklen_t salen = sizeof(sa);
-
-        assert(fd >= 0);
-        assert(ret);
-
-        if (getsockname(fd, &sa.sa, &salen) < 0)
-                return -errno;
-
-        return socknameinfo_pretty(&sa, salen, ret);
-}
-
 int socket_address_unlink(SocketAddress *a) {
         assert(a);
 

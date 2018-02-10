@@ -225,49 +225,6 @@ int readlink_and_make_absolute(const char *p, char **r) {
         return 0;
 }
 
-int readlink_and_canonicalize(const char *p, const char *root, char **ret) {
-        char *t, *s;
-        int r;
-
-        assert(p);
-        assert(ret);
-
-        r = readlink_and_make_absolute(p, &t);
-        if (r < 0)
-                return r;
-
-        r = chase_symlinks(t, root, 0, &s);
-        if (r < 0)
-                /* If we can't follow up, then let's return the original string, slightly cleaned up. */
-                *ret = path_kill_slashes(t);
-        else {
-                *ret = s;
-                free(t);
-        }
-
-        return 0;
-}
-
-int readlink_and_make_absolute_root(const char *root, const char *path, char **ret) {
-        _cleanup_free_ char *target = NULL, *t = NULL;
-        const char *full;
-        int r;
-
-        full = prefix_roota(root, path);
-        r = readlink_malloc(full, &target);
-        if (r < 0)
-                return r;
-
-        t = file_in_same_dir(path, target);
-        if (!t)
-                return -ENOMEM;
-
-        *ret = t;
-        t = NULL;
-
-        return 0;
-}
-
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
         assert(path);
 

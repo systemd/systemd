@@ -360,58 +360,6 @@ static void test_in_addr_ifindex_from_string_auto(void) {
         assert_se(in_addr_ifindex_from_string_auto("fe80::19%thisinterfacecantexist", &family, &ua, &ifindex) == -ENODEV);
 }
 
-static void *connect_thread(void *arg) {
-        union sockaddr_union *sa = arg;
-        _cleanup_close_ int fd = -1;
-
-        fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
-        assert_se(fd >= 0);
-
-        assert_se(connect(fd, &sa->sa, sizeof(sa->in)) == 0);
-
-        return NULL;
-}
-
-static void test_nameinfo_pretty(void) {
-        _cleanup_free_ char *stdin_name = NULL, *localhost = NULL;
-
-        union sockaddr_union s = {
-                .in.sin_family = AF_INET,
-                .in.sin_port = 0,
-                .in.sin_addr.s_addr = htobe32(INADDR_ANY),
-        };
-        int r;
-
-        union sockaddr_union c = {};
-        socklen_t slen = sizeof(c.in), clen = sizeof(c.in);
-
-        _cleanup_close_ int sfd = -1, cfd = -1;
-        r = getnameinfo_pretty(STDIN_FILENO, &stdin_name);
-        log_info_errno(r, "No connection remote: %m");
-
-        assert_se(r < 0);
-
-        sfd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        assert_se(sfd >= 0);
-
-        assert_se(bind(sfd, &s.sa, sizeof(s.in)) == 0);
-
-        /* find out the port number */
-        assert_se(getsockname(sfd, &s.sa, &slen) == 0);
-
-        assert_se(listen(sfd, 1) == 0);
-
-        assert_se(asynchronous_job(connect_thread, &s) == 0);
-
-        log_debug("Accepting new connection on fd:%d", sfd);
-        cfd = accept4(sfd, &c.sa, &clen, SOCK_CLOEXEC);
-        assert_se(cfd >= 0);
-
-        r = getnameinfo_pretty(cfd, &localhost);
-        log_info("Connection from %s", localhost);
-        assert_se(r == 0);
-}
-
 static void test_sockaddr_equal(void) {
         union sockaddr_union a = {
                 .in.sin_family = AF_INET,
@@ -560,8 +508,6 @@ int main(int argc, char *argv[]) {
         test_in_addr_to_string();
         test_in_addr_ifindex_to_string();
         test_in_addr_ifindex_from_string_auto();
-
-        test_nameinfo_pretty();
 
         test_sockaddr_equal();
 
