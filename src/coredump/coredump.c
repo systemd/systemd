@@ -109,6 +109,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage);
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage, CoredumpStorage, "Failed to parse storage setting");
 
 static CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
+static const char *arg_coredump_path = NULL;
 static bool arg_compress = true;
 static uint64_t arg_process_size_max = PROCESS_SIZE_MAX;
 static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
@@ -119,6 +120,7 @@ static uint64_t arg_max_use = (uint64_t) -1;
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "Coredump", "Storage",          config_parse_coredump_storage,  0, &arg_storage           },
+                { "Coredump", "Path",             config_parse_path,              0, &arg_coredump_path     },
                 { "Coredump", "Compress",         config_parse_bool,              0, &arg_compress          },
                 { "Coredump", "ProcessSizeMax",   config_parse_iec_uint64,        0, &arg_process_size_max  },
                 { "Coredump", "ExternalSizeMax",  config_parse_iec_uint64,        0, &arg_external_size_max },
@@ -273,12 +275,13 @@ static int maybe_remove_external_coredump(const char *filename, uint64_t size) {
         return 1;
 }
 
-static int make_filename(const char *context[_CONTEXT_MAX], char **ret) {
+static int make_filename(const char *context[_CONTEXT_MAX], char **ret, const char *coredump_path) {
         _cleanup_free_ char *c = NULL, *u = NULL, *p = NULL, *t = NULL;
         sd_id128_t boot = {};
         int r;
 
         assert(context);
+        assert(coredump_path);
 
         c = filename_escape(context[CONTEXT_COMM]);
         if (!c)
@@ -301,7 +304,8 @@ static int make_filename(const char *context[_CONTEXT_MAX], char **ret) {
                 return -ENOMEM;
 
         if (asprintf(ret,
-                     "/var/lib/systemd/coredump/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s000000",
+                     "%s/core.%s.%s." SD_ID128_FORMAT_STR ".%s.%s000000",
+                     coredump_path,
                      c,
                      u,
                      SD_ID128_FORMAT_VAL(boot),
@@ -359,15 +363,19 @@ static int save_external_coredump(
         /* Never store more than the process configured, or than we actually shall keep or process */
         max_size = MIN(rlimit, process_limit);
 
-        r = make_filename(context, &fn);
+        r = make_filename(context, &fn, arg_coredump_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine coredump file name: %m");
 
-        mkdir_p_label("/var/lib/systemd/coredump", 0755);
+        mkdir_p_label(arg_coredump_path, 0755);
 
         fd = open_tmpfile_linkable(fn, O_RDWR|O_CLOEXEC, &tmp);
-        if (fd < 0)
-                return log_error_errno(fd, "Failed to create temporary file for coredump %s: %m", fn);
+        if (fd < 0) {
+                if (errno == EROFS)
+                    return log_error_errno(fd, "Failed to create temporary file for coredump %s: \n%m; Check the ProtectSystem settings in systemd-coredump@.service", fn);
+                else
+                    return log_error_errno(fd, "Failed to create temporary file for coredump %s: %m", fn);
+        }
 
         r = copy_bytes(input_fd, fd, max_size, 0);
         if (r < 0) {
@@ -722,7 +730,7 @@ static int submit_coredump(
         journald_crash = is_journald_crash(context);
 
         /* Vacuum before we write anything again */
-        (void) coredump_vacuum(-1, arg_keep_free, arg_max_use);
+        (void) coredump_vacuum(-1, arg_keep_free, arg_max_use, arg_coredump_path);
 
         /* Always stream the coredump to disk, if that's possible */
         r = save_external_coredump(context, input_fd,
@@ -741,12 +749,13 @@ static int submit_coredump(
 
                 coredump_filename = strjoina("COREDUMP_FILENAME=", filename);
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(coredump_filename);
+
         } else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
                 log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
                          coredump_size, arg_external_size_max);
 
         /* Vacuum again, but exclude the coredump we just created */
-        (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
+        (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use, arg_coredump_path);
 
         /* Now, let's drop privileges to become the user who owns the segfaulted process and allocate the coredump
          * memory under the user's uid. This also ensures that the credentials journald will see are the ones of the
@@ -1380,8 +1389,13 @@ int main(int argc, char *argv[]) {
         /* Ignore all parse errors */
         (void) parse_config();
 
+        /* make sure there is a path to write to */
+        if (!arg_coredump_path)
+            arg_coredump_path = "/var/lib/systemd/coredump";
+
         log_debug("Selected storage '%s'.", coredump_storage_to_string(arg_storage));
         log_debug("Selected compression %s.", yes_no(arg_compress));
+        log_debug("Selected path %s.", arg_coredump_path);
 
         r = sd_listen_fds(false);
         if (r < 0) {

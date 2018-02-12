@@ -63,7 +63,7 @@
         <literal>external</literal>, and <literal>journal</literal>. When
         <literal>none</literal>, the core dumps may be logged (including the backtrace if
         possible), but not stored permanently. When <literal>external</literal> (the
-        default), cores will be stored in <filename>/var/lib/systemd/coredump/</filename>.
+        default), cores will be stored according to the Path= option below.
         When <literal>journal</literal>, cores will be stored in the journal and rotated
         following normal journal rotation patterns.</para>
 
@@ -72,6 +72,15 @@
         <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         When cores are stored externally, they will be compressed
         by default, see below.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Path=</varname></term>
+
+        <listitem><para>Controls the location of coredumps on disk.
+        Takes a local directory name, which defaults to
+        <literal>/var/lib/systemd/coredump/</literal>.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>

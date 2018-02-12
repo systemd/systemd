@@ -110,7 +110,7 @@ static bool vacuum_necessary(int fd, uint64_t sum, uint64_t keep_free, uint64_t 
         return false;
 }
 
-int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
+int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use, const char *arg_coredump_path) {
         _cleanup_closedir_ DIR *d = NULL;
         struct stat exclude_st;
         int r;
@@ -129,7 +129,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
          * because we rely on rate-limiting of the messages there,
          * to avoid being flooded. */
 
-        d = opendir("/var/lib/systemd/coredump");
+        d = opendir(arg_coredump_path);
         if (!d) {
                 if (errno == ENOENT)
                         return 0;
@@ -159,7 +159,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                                 if (errno == ENOENT)
                                         continue;
 
-                                log_warning_errno(errno, "Failed to stat /var/lib/systemd/coredump/%s: %m", de->d_name);
+                                log_warning_errno(errno, "Failed to stat %s/%s: %m", arg_coredump_path, de->d_name);
                                 continue;
                         }
 
