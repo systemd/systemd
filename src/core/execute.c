@@ -2258,10 +2258,8 @@ static int compile_bind_mounts(
                         }
 
                         r = strv_consume(&empty_directories, private_root);
-                        if (r < 0) {
-                                r = -ENOMEM;
+                        if (r < 0)
                                 goto finish;
-                        }
                 }
 
                 STRV_FOREACH(suffix, context->directories[t].paths) {
