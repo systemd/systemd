@@ -365,9 +365,7 @@ static int prefix_where_needed(MountEntry *m, unsigned n, const char *root_direc
                 if (!s)
                         return -ENOMEM;
 
-                free(m[i].path_malloc);
-                m[i].path_malloc = s;
-
+                free_and_replace(m[i].path_malloc, s);
                 m[i].has_prefix = true;
         }
 
