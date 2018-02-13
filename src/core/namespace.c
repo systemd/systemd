@@ -938,7 +938,6 @@ static unsigned namespace_calculate_mounts(
                 char** read_only_paths,
                 char** inaccessible_paths,
                 char** empty_directories,
-                const BindMount *bind_mounts,
                 unsigned n_bind_mounts,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
@@ -1056,7 +1055,7 @@ int setup_namespace(
                         read_only_paths,
                         inaccessible_paths,
                         empty_directories,
-                        bind_mounts, n_bind_mounts,
+                        n_bind_mounts,
                         tmp_dir, var_tmp_dir,
                         protect_home, protect_system);
 
