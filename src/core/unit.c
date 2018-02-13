@@ -610,27 +610,6 @@ void unit_free(Unit *u) {
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                 bidi_set_free(u, u->dependencies[d]);
 
-        if (u->type != _UNIT_TYPE_INVALID)
-                LIST_REMOVE(units_by_type, u->manager->units_by_type[u->type], u);
-
-        if (u->in_load_queue)
-                LIST_REMOVE(load_queue, u->manager->load_queue, u);
-
-        if (u->in_dbus_queue)
-                LIST_REMOVE(dbus_queue, u->manager->dbus_unit_queue, u);
-
-        if (u->in_cleanup_queue)
-                LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
-
-        if (u->in_gc_queue)
-                LIST_REMOVE(gc_queue, u->manager->gc_unit_queue, u);
-
-        if (u->in_cgroup_realize_queue)
-                LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
-
-        if (u->in_cgroup_empty_queue)
-                LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
-
         if (u->on_console)
                 manager_unref_console(u->manager);
 
@@ -649,6 +628,27 @@ void unit_free(Unit *u) {
         unit_ref_unset(&u->slice);
         while (u->refs_by_target)
                 unit_ref_unset(u->refs_by_target);
+
+        if (u->type != _UNIT_TYPE_INVALID)
+                LIST_REMOVE(units_by_type, u->manager->units_by_type[u->type], u);
+
+        if (u->in_load_queue)
+                LIST_REMOVE(load_queue, u->manager->load_queue, u);
+
+        if (u->in_dbus_queue)
+                LIST_REMOVE(dbus_queue, u->manager->dbus_unit_queue, u);
+
+        if (u->in_gc_queue)
+                LIST_REMOVE(gc_queue, u->manager->gc_unit_queue, u);
+
+        if (u->in_cgroup_realize_queue)
+                LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
+
+        if (u->in_cgroup_empty_queue)
+                LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
+
+        if (u->in_cleanup_queue)
+                LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
 
         safe_close(u->ip_accounting_ingress_map_fd);
         safe_close(u->ip_accounting_egress_map_fd);
