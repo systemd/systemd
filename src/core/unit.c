@@ -644,23 +644,7 @@ void unit_free(Unit *u) {
         (void) manager_update_failed_units(u->manager, u, false);
         set_remove(u->manager->startup_units, u);
 
-        free(u->description);
-        strv_free(u->documentation);
-        free(u->fragment_path);
-        free(u->source_path);
-        strv_free(u->dropin_paths);
-        free(u->instance);
-
-        free(u->job_timeout_reboot_arg);
-
-        set_free_free(u->names);
-
         unit_unwatch_all_pids(u);
-
-        condition_free_list(u->conditions);
-        condition_free_list(u->asserts);
-
-        free(u->reboot_arg);
 
         unit_ref_unset(&u->slice);
         while (u->refs_by_target)
@@ -676,6 +660,22 @@ void unit_free(Unit *u) {
 
         bpf_program_unref(u->ip_bpf_ingress);
         bpf_program_unref(u->ip_bpf_egress);
+
+        condition_free_list(u->conditions);
+        condition_free_list(u->asserts);
+
+        free(u->description);
+        strv_free(u->documentation);
+        free(u->fragment_path);
+        free(u->source_path);
+        strv_free(u->dropin_paths);
+        free(u->instance);
+
+        free(u->job_timeout_reboot_arg);
+
+        set_free_free(u->names);
+
+        free(u->reboot_arg);
 
         free(u);
 }
