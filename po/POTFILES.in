@@ -4,5 +4,6 @@ src/import/org.freedesktop.import1.policy.in
 src/locale/org.freedesktop.locale1.policy.in
 src/login/org.freedesktop.login1.policy.in
 src/machine/org.freedesktop.machine1.policy.in
+src/resolve/org.freedesktop.resolve1.policy.in
 src/timedate/org.freedesktop.timedate1.policy.in
 src/core/dbus-unit.c
