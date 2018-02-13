@@ -1295,7 +1295,7 @@ static int dump(int argc, char *argv[], void *userdata) {
                         &reply,
                         NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed issue method call: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "s", &text);
         if (r < 0)
