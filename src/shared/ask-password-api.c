@@ -267,11 +267,14 @@ int ask_password_tty(
                 reset_tty = true;
         }
 
-        zero(pollfd);
-        pollfd[POLL_TTY].fd = ttyfd >= 0 ? ttyfd : STDIN_FILENO;
-        pollfd[POLL_TTY].events = POLLIN;
-        pollfd[POLL_INOTIFY].fd = notify;
-        pollfd[POLL_INOTIFY].events = POLLIN;
+        pollfd[POLL_TTY] = (struct pollfd) {
+                .fd = ttyfd >= 0 ? ttyfd : STDIN_FILENO,
+                .events = POLLIN,
+        };
+        pollfd[POLL_INOTIFY] = (struct pollfd) {
+                .fd = notify,
+                .events = POLLIN,
+        };
 
         for (;;) {
                 char c;
