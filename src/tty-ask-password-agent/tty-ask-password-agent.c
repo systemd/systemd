@@ -363,7 +363,7 @@ static int parse_password(const char *filename, char **wall) {
                         int tty_fd = -1;
 
                         if (arg_console) {
-                                const char *con = arg_device ? arg_device : "/dev/console";
+                                const char *con = arg_device ?: "/dev/console";
 
                                 tty_fd = acquire_terminal(con, false, false, false, USEC_INFINITY);
                                 if (tty_fd < 0)
