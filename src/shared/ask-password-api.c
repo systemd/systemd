@@ -291,7 +291,7 @@ int ask_password_tty(
                                 goto finish;
                         }
 
-                        sleep_for = (int) ((until - y) / USEC_PER_MSEC);
+                        sleep_for = (int) DIV_ROUND_UP(until - y, USEC_PER_MSEC);
                 }
 
                 if (flag_file)
