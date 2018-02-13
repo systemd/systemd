@@ -549,3 +549,9 @@ global:
         sd_event_source_get_io_fd_own;
         sd_event_source_set_io_fd_own;
 } LIBSYSTEMD_236;
+
+LIBSYSTEMD_238 {
+global:
+        sd_bus_get_n_queued_read;
+        sd_bus_get_n_queued_write;
+} LIBSYSTEMD_237;

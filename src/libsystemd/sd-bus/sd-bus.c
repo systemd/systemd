@@ -4091,3 +4091,23 @@ _public_ int sd_bus_get_sender(sd_bus *bus, const char **ret) {
         *ret = bus->patch_sender;
         return 0;
 }
+
+_public_ int sd_bus_get_n_queued_read(sd_bus *bus, uint64_t *ret) {
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(ret, -EINVAL);
+
+        *ret = bus->rqueue_size;
+        return 0;
+}
+
+_public_ int sd_bus_get_n_queued_write(sd_bus *bus, uint64_t *ret) {
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(!bus_pid_changed(bus), -ECHILD);
+        assert_return(ret, -EINVAL);
+
+        *ret = bus->wqueue_size;
+        return 0;
+}
