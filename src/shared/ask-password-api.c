@@ -232,24 +232,18 @@ int ask_password_tty(
 
         if (flag_file) {
                 notify = inotify_init1(IN_CLOEXEC|IN_NONBLOCK);
-                if (notify < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (notify < 0)
+                        return -errno;
 
-                if (inotify_add_watch(notify, flag_file, IN_ATTRIB /* for the link count */) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (inotify_add_watch(notify, flag_file, IN_ATTRIB /* for the link count */) < 0)
+                        return -errno;
         }
 
         ttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (ttyfd >= 0) {
 
-                if (tcgetattr(ttyfd, &old_termios) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                if (tcgetattr(ttyfd, &old_termios) < 0)
+                        return -errno;
 
                 if (colors_enabled())
                         loop_write(ttyfd, ANSI_HIGHLIGHT,
