@@ -246,13 +246,13 @@ int ask_password_tty(
                         return -errno;
 
                 if (colors_enabled())
-                        loop_write(ttyfd, ANSI_HIGHLIGHT,
-                                   STRLEN(ANSI_HIGHLIGHT), false);
-                loop_write(ttyfd, message, strlen(message), false);
-                loop_write(ttyfd, " ", 1, false);
+                        (void) loop_write(ttyfd, ANSI_HIGHLIGHT, STRLEN(ANSI_HIGHLIGHT), false);
+
+                (void) loop_write(ttyfd, message, strlen(message), false);
+                (void) loop_write(ttyfd, " ", 1, false);
+
                 if (colors_enabled())
-                        loop_write(ttyfd, ANSI_NORMAL, STRLEN(ANSI_NORMAL),
-                                   false);
+                        (void) loop_write(ttyfd, ANSI_NORMAL, STRLEN(ANSI_NORMAL), false);
 
                 new_termios = old_termios;
                 new_termios.c_lflag &= ~(ICANON|ECHO);
@@ -351,10 +351,10 @@ int ask_password_tty(
                                  * as first key (and only as first
                                  * key), or ... */
                                 if (ttyfd >= 0)
-                                        loop_write(ttyfd, "(no echo) ", 10, false);
+                                        (void) loop_write(ttyfd, "(no echo) ", 10, false);
 
                         } else if (ttyfd >= 0)
-                                loop_write(ttyfd, "\a", 1, false);
+                                (void) loop_write(ttyfd, "\a", 1, false);
 
                 } else if (c == '\t' && !(flags & ASK_PASSWORD_SILENT)) {
 
@@ -364,11 +364,11 @@ int ask_password_tty(
                         /* ... or by pressing TAB at any time. */
 
                         if (ttyfd >= 0)
-                                loop_write(ttyfd, "(no echo) ", 10, false);
+                                (void) loop_write(ttyfd, "(no echo) ", 10, false);
                 } else {
                         if (p >= sizeof(passphrase)-1) {
                                 if (ttyfd >= 0)
-                                        loop_write(ttyfd, "\a", 1, false);
+                                        (void) loop_write(ttyfd, "\a", 1, false);
                                 continue;
                         }
 
@@ -378,7 +378,7 @@ int ask_password_tty(
                                 n = utf8_encoded_valid_unichar(passphrase + codepoint);
                                 if (n >= 0) {
                                         codepoint = p;
-                                        loop_write(ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
+                                        (void) loop_write(ttyfd, (flags & ASK_PASSWORD_ECHO) ? &c : "*", 1, false);
                                 }
                         }
 
@@ -403,8 +403,8 @@ int ask_password_tty(
 
 finish:
         if (ttyfd >= 0 && reset_tty) {
-                loop_write(ttyfd, "\n", 1, false);
-                tcsetattr(ttyfd, TCSADRAIN, &old_termios);
+                (void) loop_write(ttyfd, "\n", 1, false);
+                (void) tcsetattr(ttyfd, TCSADRAIN, &old_termios);
         }
 
         return r;
