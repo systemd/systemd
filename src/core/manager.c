@@ -1158,7 +1158,7 @@ static unsigned manager_dispatch_gc_job_queue(Manager *m) {
 
                 n++;
 
-                if (job_check_gc(j))
+                if (!job_may_gc(j))
                         continue;
 
                 log_unit_debug(j->unit, "Collecting job.");
