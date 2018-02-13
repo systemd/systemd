@@ -327,8 +327,8 @@ int reset_terminal(const char *name) {
 }
 
 int open_terminal(const char *name, int mode) {
-        int fd, r;
         unsigned c = 0;
+        int fd;
 
         /*
          * If a TTY is in the process of being closed opening it might
@@ -358,8 +358,7 @@ int open_terminal(const char *name, int mode) {
                 c++;
         }
 
-        r = isatty(fd);
-        if (r == 0) {
+        if (isatty(fd) <= 0) {
                 safe_close(fd);
                 return -ENOTTY;
         }
@@ -507,7 +506,7 @@ int release_terminal(void) {
 
         _cleanup_close_ int fd = -1;
         struct sigaction sa_old;
-        int r = 0;
+        int r;
 
         fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
@@ -517,8 +516,7 @@ int release_terminal(void) {
          * by our own TIOCNOTTY */
         assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
-        if (ioctl(fd, TIOCNOTTY) < 0)
-                r = -errno;
+        r = ioctl(fd, TIOCNOTTY) < 0 ? -errno : 0;
 
         assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
