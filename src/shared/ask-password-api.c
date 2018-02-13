@@ -209,18 +209,20 @@ int ask_password_tty(
                 const char *flag_file,
                 char **ret) {
 
-        struct termios old_termios, new_termios;
-        char passphrase[LINE_MAX + 1] = {}, *x;
-        size_t p = 0, codepoint = 0;
-        int r;
-        _cleanup_close_ int ttyfd = -1, notify = -1;
-        struct pollfd pollfd[2];
-        bool reset_tty = false;
-        bool dirty = false;
         enum {
                 POLL_TTY,
-                POLL_INOTIFY
+                POLL_INOTIFY,
+                _POLL_MAX,
         };
+
+        _cleanup_close_ int ttyfd = -1, notify = -1;
+        struct termios old_termios, new_termios;
+        char passphrase[LINE_MAX + 1] = {}, *x;
+        struct pollfd pollfd[_POLL_MAX];
+        size_t p = 0, codepoint = 0;
+        bool reset_tty = false;
+        bool dirty = false;
+        int r;
 
         assert(ret);
 
