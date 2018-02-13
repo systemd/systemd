@@ -365,44 +365,36 @@ int open_terminal(const char *name, int mode) {
 
 int acquire_terminal(
                 const char *name,
-                bool fail,
-                bool force,
-                bool ignore_tiocstty_eperm,
+                AcquireTerminalFlags flags,
                 usec_t timeout) {
 
-        int fd = -1, notify = -1, r = 0, wd = -1;
-        usec_t ts = 0;
+        _cleanup_close_ int notify = -1, fd = -1;
+        usec_t ts = USEC_INFINITY;
+        int r, wd = -1;
 
         assert(name);
+        assert(IN_SET(flags & ~ACQUIRE_TERMINAL_PERMISSIVE, ACQUIRE_TERMINAL_TRY, ACQUIRE_TERMINAL_FORCE, ACQUIRE_TERMINAL_WAIT));
 
-        /* We use inotify to be notified when the tty is closed. We
-         * create the watch before checking if we can actually acquire
-         * it, so that we don't lose any event.
+        /* We use inotify to be notified when the tty is closed. We create the watch before checking if we can actually
+         * acquire it, so that we don't lose any event.
          *
-         * Note: strictly speaking this actually watches for the
-         * device being closed, it does *not* really watch whether a
-         * tty loses its controlling process. However, unless some
-         * rogue process uses TIOCNOTTY on /dev/tty *after* closing
-         * its tty otherwise this will not become a problem. As long
-         * as the administrator makes sure not configure any service
-         * on the same tty as an untrusted user this should not be a
-         * problem. (Which he probably should not do anyway.) */
+         * Note: strictly speaking this actually watches for the device being closed, it does *not* really watch
+         * whether a tty loses its controlling process. However, unless some rogue process uses TIOCNOTTY on /dev/tty
+         * *after* closing its tty otherwise this will not become a problem. As long as the administrator makes sure
+         * not configure any service on the same tty as an untrusted user this should not be a problem. (Which he
+         * probably should not do anyway.) */
 
-        if (timeout != USEC_INFINITY)
-                ts = now(CLOCK_MONOTONIC);
-
-        if (!fail && !force) {
+        if ((flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_WAIT) {
                 notify = inotify_init1(IN_CLOEXEC | (timeout != USEC_INFINITY ? IN_NONBLOCK : 0));
-                if (notify < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+                if (notify < 0)
+                        return -errno;
 
                 wd = inotify_add_watch(notify, name, IN_CLOSE);
-                if (wd < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+                if (wd < 0)
+                        return -errno;
+
+                if (timeout != USEC_INFINITY)
+                        ts = now(CLOCK_MONOTONIC);
         }
 
         for (;;) {
@@ -414,41 +406,43 @@ int acquire_terminal(
                 if (notify >= 0) {
                         r = flush_fd(notify);
                         if (r < 0)
-                                goto fail;
+                                return r;
                 }
 
-                /* We pass here O_NOCTTY only so that we can check the return
-                 * value TIOCSCTTY and have a reliable way to figure out if we
-                 * successfully became the controlling process of the tty */
+                /* We pass here O_NOCTTY only so that we can check the return value TIOCSCTTY and have a reliable way
+                 * to figure out if we successfully became the controlling process of the tty */
                 fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
                 if (fd < 0)
                         return fd;
 
-                /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed
-                 * if we already own the tty. */
+                /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed if we already own the tty. */
                 assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
                 /* First, try to get the tty */
-                if (ioctl(fd, TIOCSCTTY, force) < 0)
-                        r = -errno;
+                r = ioctl(fd, TIOCSCTTY,
+                          (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE) < 0 ? -errno : 0;
 
+                /* Reset signal handler to old value */
                 assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
-                /* Sometimes, it makes sense to ignore TIOCSCTTY
-                 * returning EPERM, i.e. when very likely we already
-                 * are have this controlling terminal. */
-                if (r < 0 && r == -EPERM && ignore_tiocstty_eperm)
-                        r = 0;
-
-                if (r < 0 && (force || fail || r != -EPERM))
-                        goto fail;
-
+                /* Success? Exit the loop now! */
                 if (r >= 0)
                         break;
 
-                assert(!fail);
-                assert(!force);
+                /* Any failure besides -EPERM? Fail, regardless of the mode. */
+                if (r != -EPERM)
+                        return r;
+
+                if (flags & ACQUIRE_TERMINAL_PERMISSIVE) /* If we are in permissive mode, then EPERM is fine, turn this
+                                                          * into a success. Note that EPERM is also returned if we
+                                                          * already are the owner of the TTY. */
+                        break;
+
+                if (flags != ACQUIRE_TERMINAL_WAIT) /* If we are in TRY or FORCE mode, then propagate EPERM as EPERM */
+                        return r;
+
                 assert(notify >= 0);
+                assert(wd >= 0);
 
                 for (;;) {
                         union inotify_event_buffer buffer;
@@ -458,20 +452,17 @@ int acquire_terminal(
                         if (timeout != USEC_INFINITY) {
                                 usec_t n;
 
+                                assert(ts != USEC_INFINITY);
+
                                 n = now(CLOCK_MONOTONIC);
-                                if (ts + timeout < n) {
-                                        r = -ETIMEDOUT;
-                                        goto fail;
-                                }
+                                if (ts + timeout < n)
+                                        return -ETIMEDOUT;
 
                                 r = fd_wait_for_event(notify, POLLIN, ts + timeout - n);
                                 if (r < 0)
-                                        goto fail;
-
-                                if (r == 0) {
-                                        r = -ETIMEDOUT;
-                                        goto fail;
-                                }
+                                        return r;
+                                if (r == 0)
+                                        return -ETIMEDOUT;
                         }
 
                         l = read(notify, &buffer, sizeof(buffer));
@@ -479,34 +470,27 @@ int acquire_terminal(
                                 if (IN_SET(errno, EINTR, EAGAIN))
                                         continue;
 
-                                r = -errno;
-                                goto fail;
+                                return -errno;
                         }
 
                         FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                                if (e->wd != wd || !(e->mask & IN_CLOSE)) {
-                                        r = -EIO;
-                                        goto fail;
-                                }
+                                if (e->mask & IN_Q_OVERFLOW) /* If we hit an inotify queue overflow, simply check if the terminal is up for grabs now. */
+                                        break;
+
+                                if (e->wd != wd || !(e->mask & IN_CLOSE)) /* Safety checks */
+                                        return -EIO;
                         }
 
                         break;
                 }
 
-                /* We close the tty fd here since if the old session
-                 * ended our handle will be dead. It's important that
-                 * we do this after sleeping, so that we don't enter
-                 * an endless loop. */
+                /* We close the tty fd here since if the old session ended our handle will be dead. It's important that
+                 * we do this after sleeping, so that we don't enter an endless loop. */
                 fd = safe_close(fd);
         }
 
-        safe_close(notify);
-
-        return fd;
-
-fail:
-        safe_close(fd);
-        safe_close(notify);
+        r = fd;
+        fd = -1;
 
         return r;
 }
@@ -630,7 +614,7 @@ int make_console_stdio(void) {
 
         /* Make /dev/console the controlling terminal and stdin/stdout/stderr */
 
-        fd = acquire_terminal("/dev/console", false, true, true, USEC_INFINITY);
+        fd = acquire_terminal("/dev/console", ACQUIRE_TERMINAL_FORCE|ACQUIRE_TERMINAL_PERMISSIVE, USEC_INFINITY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to acquire terminal: %m");
 

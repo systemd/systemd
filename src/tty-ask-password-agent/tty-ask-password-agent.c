@@ -365,7 +365,7 @@ static int parse_password(const char *filename, char **wall) {
                         if (arg_console) {
                                 const char *con = arg_device ?: "/dev/console";
 
-                                tty_fd = acquire_terminal(con, false, false, false, USEC_INFINITY);
+                                tty_fd = acquire_terminal(con, ACQUIRE_TERMINAL_WAIT, USEC_INFINITY);
                                 if (tty_fd < 0)
                                         return log_error_errno(tty_fd, "Failed to acquire /dev/console: %m");
 

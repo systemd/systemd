@@ -509,9 +509,9 @@ static int setup_input(
                 int fd;
 
                 fd = acquire_terminal(exec_context_tty_path(context),
-                                      i == EXEC_INPUT_TTY_FAIL,
-                                      i == EXEC_INPUT_TTY_FORCE,
-                                      false,
+                                      i == EXEC_INPUT_TTY_FAIL  ? ACQUIRE_TERMINAL_TRY :
+                                      i == EXEC_INPUT_TTY_FORCE ? ACQUIRE_TERMINAL_FORCE :
+                                                                  ACQUIRE_TERMINAL_WAIT,
                                       USEC_INFINITY);
                 if (fd < 0)
                         return fd;
@@ -753,7 +753,7 @@ static int setup_confirm_stdio(const char *vc, int *_saved_stdin, int *_saved_st
         if (saved_stdout < 0)
                 return -errno;
 
-        fd = acquire_terminal(vc, false, false, false, DEFAULT_CONFIRM_USEC);
+        fd = acquire_terminal(vc, ACQUIRE_TERMINAL_WAIT, DEFAULT_CONFIRM_USEC);
         if (fd < 0)
                 return fd;
 
