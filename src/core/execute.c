@@ -3621,6 +3621,8 @@ void exec_context_done(ExecContext *c) {
         c->inaccessible_paths = strv_free(c->inaccessible_paths);
 
         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
+        c->bind_mounts = NULL;
+        c->n_bind_mounts = 0;
 
         c->cpuset = cpu_set_mfree(c->cpuset);
 
