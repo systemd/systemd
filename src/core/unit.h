@@ -123,8 +123,8 @@ struct UnitRef {
          * that we can merge two units if necessary and correct all
          * references to them */
 
-        Unit* unit;
-        LIST_FIELDS(UnitRef, refs);
+        Unit *source, *target;
+        LIST_FIELDS(UnitRef, refs_by_target);
 };
 
 typedef enum UnitCGroupBPFState {
@@ -187,7 +187,7 @@ struct Unit {
         char *job_timeout_reboot_arg;
 
         /* References to this */
-        LIST_HEAD(UnitRef, refs);
+        LIST_HEAD(UnitRef, refs_by_target);
 
         /* Conditions to check */
         LIST_HEAD(Condition, conditions);
@@ -724,11 +724,11 @@ void unit_trigger_notify(Unit *u);
 UnitFileState unit_get_unit_file_state(Unit *u);
 int unit_get_unit_file_preset(Unit *u);
 
-Unit* unit_ref_set(UnitRef *ref, Unit *u);
+Unit* unit_ref_set(UnitRef *ref, Unit *source, Unit *target);
 void unit_ref_unset(UnitRef *ref);
 
-#define UNIT_DEREF(ref) ((ref).unit)
-#define UNIT_ISSET(ref) (!!(ref).unit)
+#define UNIT_DEREF(ref) ((ref).target)
+#define UNIT_ISSET(ref) (!!(ref).target)
 
 int unit_patch_contexts(Unit *u);
 

@@ -1860,7 +1860,7 @@ int config_parse_socket_service(
                 return -ENOEXEC;
         }
 
-        unit_ref_set(&s->service, x);
+        unit_ref_set(&s->service, UNIT(s), x);
 
         return 0;
 }

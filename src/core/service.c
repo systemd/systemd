@@ -2684,7 +2684,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to load accept-socket unit: %s", value);
                 else {
-                        unit_ref_set(&s->accept_socket, socket);
+                        unit_ref_set(&s->accept_socket, u, socket);
                         SOCKET(socket)->n_connections++;
                 }
 
@@ -3770,7 +3770,7 @@ int service_set_socket_fd(Service *s, int fd, Socket *sock, bool selinux_context
         s->socket_fd = fd;
         s->socket_fd_selinux_context_net = selinux_context_net;
 
-        unit_ref_set(&s->accept_socket, UNIT(sock));
+        unit_ref_set(&s->accept_socket, UNIT(s), UNIT(sock));
         return 0;
 }
 

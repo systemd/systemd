@@ -250,7 +250,7 @@ int socket_instantiate_service(Socket *s) {
         if (r < 0)
                 return r;
 
-        unit_ref_set(&s->service, u);
+        unit_ref_set(&s->service, UNIT(s), u);
 
         return unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, u, false, UNIT_DEPENDENCY_IMPLICIT);
 }
@@ -377,7 +377,7 @@ static int socket_add_extras(Socket *s) {
                         if (r < 0)
                                 return r;
 
-                        unit_ref_set(&s->service, x);
+                        unit_ref_set(&s->service, u, x);
                 }
 
                 r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(s->service), true, UNIT_DEPENDENCY_IMPLICIT);
