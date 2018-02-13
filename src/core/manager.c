@@ -2121,11 +2121,10 @@ static int manager_dispatch_sigchld(sd_event_source *source, void *userdata) {
 
         if (waitid(P_ALL, 0, &si, WEXITED|WNOHANG|WNOWAIT) < 0) {
 
-                if (errno == ECHILD)
-                        goto turn_off;
+                if (errno != ECHILD)
+                        log_error_errno(errno, "Failed to peek for child with waitid(), ignoring: %m");
 
-                log_error_errno(errno, "Failed to peek for child with waitid(), ignoring: %m");
-                return 0;
+                goto turn_off;
         }
 
         if (si.si_pid <= 0)
@@ -2258,7 +2257,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
         case SIGCHLD:
                 r = sd_event_source_set_enabled(m->sigchld_event_source, SD_EVENT_ON);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to enable SIGCHLD even source, ignoring: %m");
+                        log_warning_errno(r, "Failed to enable SIGCHLD event source, ignoring: %m");
 
                 break;
 
