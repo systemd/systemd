@@ -1279,3 +1279,34 @@ int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_erro
 int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
         return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.set-environment", NULL, false, UID_INVALID, &m->polkit_registry, error);
 }
+
+uint64_t manager_bus_n_queued_write(Manager *m) {
+        uint64_t c = 0;
+        Iterator i;
+        sd_bus *b;
+        int r;
+
+        /* Returns the total number of messages queued for writing on all our direct and API busses. */
+
+        SET_FOREACH(b, m->private_buses, i) {
+                uint64_t k;
+
+                r = sd_bus_get_n_queued_write(b, &k);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to query queued messages for private bus: %m");
+                else
+                        c += k;
+        }
+
+        if (m->api_bus) {
+                uint64_t k;
+
+                r = sd_bus_get_n_queued_write(m->api_bus, &k);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to query queued messages for API bus: %m");
+                else
+                        c += k;
+        }
+
+        return c;
+}
