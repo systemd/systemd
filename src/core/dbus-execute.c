@@ -2293,11 +2293,7 @@ int bus_exec_context_set_transient_property(
                 int ignore;
                 const char *s;
 
-                r = sd_bus_message_enter_container(message, 'r', "bs");
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_read(message, "bs", &ignore, &s);
+                r = sd_bus_message_read(message, "(bs)", &ignore, &s);
                 if (r < 0)
                         return r;
 
