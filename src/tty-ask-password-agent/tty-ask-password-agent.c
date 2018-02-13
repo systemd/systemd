@@ -254,6 +254,7 @@ static int send_passwords(const char *socket_name, char **passwords) {
         union sockaddr_union sa = { .un.sun_family = AF_UNIX };
         size_t packet_length = 1;
         char **p, *d;
+        ssize_t n;
         int r;
 
         assert(socket_name);
@@ -279,9 +280,13 @@ static int send_passwords(const char *socket_name, char **passwords) {
 
         strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
 
-        r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, SOCKADDR_UN_LEN(sa.un));
-        if (r < 0)
+        n = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+        if (n < 0) {
                 r = log_debug_errno(errno, "sendto(): %m");
+                goto finish;
+        }
+
+        r = (int) n;
 
 finish:
         explicit_bzero(packet, packet_length);
