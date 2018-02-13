@@ -490,10 +490,9 @@ struct UnitVTable {
         /* Additionally to UnitActiveState determine whether unit is to be restarted. */
         bool (*will_restart)(Unit *u);
 
-        /* Return true when there is reason to keep this entry around
-         * even nothing references it and it isn't active in any
-         * way */
-        bool (*check_gc)(Unit *u);
+        /* Return false when there is a reason to prevent this unit from being gc'ed
+         * even though nothing references it and it isn't active in any way. */
+        bool (*may_gc)(Unit *u);
 
         /* When the unit is not running and no job for it queued we shall release its runtime resources */
         void (*release_resources)(Unit *u);
@@ -623,7 +622,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
 
-bool unit_check_gc(Unit *u);
+bool unit_may_gc(Unit *u);
 
 void unit_add_to_load_queue(Unit *u);
 void unit_add_to_dbus_queue(Unit *u);

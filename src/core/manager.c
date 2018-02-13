@@ -1057,7 +1057,7 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
         if (u->in_cleanup_queue)
                 goto bad;
 
-        if (unit_check_gc(u))
+        if (!unit_may_gc(u))
                 goto good;
 
         u->gc_marker = gc_marker + GC_OFFSET_IN_PATH;

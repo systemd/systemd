@@ -2833,20 +2833,20 @@ static const char *service_sub_state_to_string(Unit *u) {
         return service_state_to_string(SERVICE(u)->state);
 }
 
-static bool service_check_gc(Unit *u) {
+static bool service_may_gc(Unit *u) {
         Service *s = SERVICE(u);
 
         assert(s);
 
         /* Never clean up services that still have a process around, even if the service is formally dead. Note that
-         * unit_check_gc() already checked our cgroup for us, we just check our two additional PIDs, too, in case they
+         * unit_may_gc() already checked our cgroup for us, we just check our two additional PIDs, too, in case they
          * have moved outside of the cgroup. */
 
         if (main_pid_good(s) > 0 ||
             control_pid_good(s) > 0)
-                return true;
+                return false;
 
-        return false;
+        return true;
 }
 
 static int service_retry_pid_file(Service *s) {
@@ -3934,7 +3934,7 @@ const UnitVTable service_vtable = {
 
         .will_restart = service_will_restart,
 
-        .check_gc = service_check_gc,
+        .may_gc = service_may_gc,
 
         .sigchld_event = service_sigchld_event,
 
