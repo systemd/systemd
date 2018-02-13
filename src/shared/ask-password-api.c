@@ -202,6 +202,7 @@ static void backspace_chars(int ttyfd, size_t p) {
 }
 
 int ask_password_tty(
+                int ttyfd,
                 const char *message,
                 const char *keyname,
                 usec_t until,
@@ -215,7 +216,7 @@ int ask_password_tty(
                 _POLL_MAX,
         };
 
-        _cleanup_close_ int ttyfd = -1, notify = -1;
+        _cleanup_close_ int cttyfd = -1, notify = -1;
         struct termios old_termios, new_termios;
         char passphrase[LINE_MAX + 1] = {}, *x;
         struct pollfd pollfd[_POLL_MAX];
@@ -241,9 +242,11 @@ int ask_password_tty(
                         return -errno;
         }
 
-        ttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (ttyfd >= 0) {
+        /* If the caller didn't specify a TTY, then use the controlling tty, if we can. */
+        if (ttyfd < 0)
+                ttyfd = cttyfd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC);
 
+        if (ttyfd >= 0) {
                 if (tcgetattr(ttyfd, &old_termios) < 0)
                         return -errno;
 
@@ -715,7 +718,7 @@ int ask_password_auto(
         if (!(flags & ASK_PASSWORD_NO_TTY) && isatty(STDIN_FILENO)) {
                 char *s = NULL, **l = NULL;
 
-                r = ask_password_tty(message, keyname, until, flags, NULL, &s);
+                r = ask_password_tty(-1, message, keyname, until, flags, NULL, &s);
                 if (r < 0)
                         return r;
 

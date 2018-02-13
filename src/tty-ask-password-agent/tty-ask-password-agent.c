@@ -380,7 +380,7 @@ static int parse_password(const char *filename, char **wall) {
 
                         }
 
-                        r = ask_password_tty(message, NULL, not_after, echo ? ASK_PASSWORD_ECHO : 0, filename, &password);
+                        r = ask_password_tty(tty_fd, message, NULL, not_after, echo ? ASK_PASSWORD_ECHO : 0, filename, &password);
 
                         if (arg_console) {
                                 tty_fd = safe_close(tty_fd);
