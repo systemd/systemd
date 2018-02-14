@@ -57,7 +57,7 @@
     system and service manager are organized based on a file system
     hierarchy inspired by UNIX, more specifically the hierarchy
     described in the <ulink
-    url="http://refspecs.linuxfoundation.org/FHS_2.3/fhs-2.3.html">File
+    url="http://refspecs.linuxfoundation.org/FHS_3.0/fhs-3.0.html">File
     System Hierarchy</ulink> specification and
     <citerefentry project='man-pages'><refentrytitle>hier</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     This manual page describes a more minimal, modernized subset of
