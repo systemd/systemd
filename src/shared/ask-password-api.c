@@ -201,6 +201,27 @@ static void backspace_chars(int ttyfd, size_t p) {
         }
 }
 
+static void backspace_string(int ttyfd, const char *str) {
+        size_t m;
+
+        assert(str);
+
+        if (ttyfd < 0)
+                return;
+
+        /* Backspaces back for enough characters to entirely undo printing of the specified string. */
+
+        m = utf8_n_codepoints(str);
+        if (m == (size_t) -1)
+                m = strlen(str); /* Not a valid UTF-8 string? If so, let's backspace the number of bytes output. Most
+                                  * likely this happened because we are not in an UTF-8 locale, and in that case that
+                                  * is the correct thing to do. And even if it's not, terminals tend to stop
+                                  * backspacing at the leftmost column, hence backspacing too much should be mostly
+                                  * OK. */
+
+        backspace_chars(ttyfd, m);
+}
+
 int ask_password_tty(
                 int ttyfd,
                 const char *message,
@@ -286,9 +307,9 @@ int ask_password_tty(
         };
 
         for (;;) {
-                char c;
                 int sleep_for = -1, k;
                 ssize_t n;
+                char c;
 
                 if (until > 0) {
                         usec_t y;
@@ -335,33 +356,56 @@ int ask_password_tty(
                         r = -errno;
                         goto finish;
 
-                } else if (n == 0)
+                }
+
+                /* We treat EOF, newline and NUL byte all as valid end markers */
+                if (n == 0 || c == '\n' || c == 0)
                         break;
 
-                if (c == '\n')
-                        break;
-                else if (c == 21) { /* C-u */
+                if (c == 21) { /* C-u */
 
                         if (!(flags & ASK_PASSWORD_SILENT))
-                                backspace_chars(ttyfd, p);
-                        p = 0;
+                                backspace_string(ttyfd, passphrase);
+
+                        explicit_bzero(passphrase, sizeof(passphrase));
+                        p = codepoint = 0;
 
                 } else if (IN_SET(c, '\b', 127)) {
 
                         if (p > 0) {
+                                size_t q;
 
                                 if (!(flags & ASK_PASSWORD_SILENT))
                                         backspace_chars(ttyfd, 1);
 
-                                p--;
+                                /* Remove a full UTF-8 codepoint from the end. For that, figure out where the last one
+                                 * begins */
+                                q = 0;
+                                for (;;) {
+                                        size_t z;
+
+                                        z = utf8_encoded_valid_unichar(passphrase + q);
+                                        if (z == 0) {
+                                                q = (size_t) -1; /* Invalid UTF8! */
+                                                break;
+                                        }
+
+                                        if (q + z >= p) /* This one brings us over the edge */
+                                                break;
+
+                                        q += z;
+                                }
+
+                                p = codepoint = q == (size_t) -1 ? p - 1 : q;
+                                explicit_bzero(passphrase + p, sizeof(passphrase) - p);
+
                         } else if (!dirty && !(flags & ASK_PASSWORD_SILENT)) {
 
                                 flags |= ASK_PASSWORD_SILENT;
 
-                                /* There are two ways to enter silent
-                                 * mode. Either by pressing backspace
-                                 * as first key (and only as first
-                                 * key), or ... */
+                                /* There are two ways to enter silent mode. Either by pressing backspace as first key
+                                 * (and only as first key), or ... */
+
                                 if (ttyfd >= 0)
                                         (void) loop_write(ttyfd, "(no echo) ", 10, false);
 
@@ -370,23 +414,25 @@ int ask_password_tty(
 
                 } else if (c == '\t' && !(flags & ASK_PASSWORD_SILENT)) {
 
-                        backspace_chars(ttyfd, p);
+                        backspace_string(ttyfd, passphrase);
                         flags |= ASK_PASSWORD_SILENT;
 
                         /* ... or by pressing TAB at any time. */
 
                         if (ttyfd >= 0)
                                 (void) loop_write(ttyfd, "(no echo) ", 10, false);
-                } else {
-                        if (p >= sizeof(passphrase)-1) {
-                                if (ttyfd >= 0)
-                                        (void) loop_write(ttyfd, "\a", 1, false);
-                                continue;
-                        }
 
+                } else if (p >= sizeof(passphrase)-1) {
+
+                        /* Reached the size limit */
+                        if (ttyfd >= 0)
+                                (void) loop_write(ttyfd, "\a", 1, false);
+
+                } else {
                         passphrase[p++] = c;
 
                         if (!(flags & ASK_PASSWORD_SILENT) && ttyfd >= 0) {
+                                /* Check if we got a complete UTF-8 character now. If so, let's output one '*'. */
                                 n = utf8_encoded_valid_unichar(passphrase + codepoint);
                                 if (n >= 0) {
                                         codepoint = p;
@@ -397,11 +443,12 @@ int ask_password_tty(
                         dirty = true;
                 }
 
+                /* Let's forget this char, just to not keep needlessly copies of key material around */
                 c = 'x';
         }
 
         x = strndup(passphrase, p);
-        explicit_bzero(passphrase, p);
+        explicit_bzero(passphrase, sizeof(passphrase));
         if (!x) {
                 r = -ENOMEM;
                 goto finish;
