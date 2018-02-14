@@ -672,37 +672,55 @@ int vtnr_from_tty(const char *tty) {
         return i;
 }
 
-char *resolve_dev_console(char **active) {
+ int resolve_dev_console(char **ret) {
+        _cleanup_free_ char *active = NULL;
         char *tty;
+        int r;
 
-        /* Resolve where /dev/console is pointing to, if /sys is actually ours
-         * (i.e. not read-only-mounted which is a sign for container setups) */
+        assert(ret);
+
+        /* Resolve where /dev/console is pointing to, if /sys is actually ours (i.e. not read-only-mounted which is a
+         * sign for container setups) */
 
         if (path_is_read_only_fs("/sys") > 0)
-                return NULL;
+                return -ENOMEDIUM;
 
-        if (read_one_line_file("/sys/class/tty/console/active", active) < 0)
-                return NULL;
+        r = read_one_line_file("/sys/class/tty/console/active", &active);
+        if (r < 0)
+                return r;
 
-        /* If multiple log outputs are configured the last one is what
-         * /dev/console points to */
-        tty = strrchr(*active, ' ');
+        /* If multiple log outputs are configured the last one is what /dev/console points to */
+        tty = strrchr(active, ' ');
         if (tty)
                 tty++;
         else
-                tty = *active;
+                tty = active;
 
         if (streq(tty, "tty0")) {
-                char *tmp;
+                active = mfree(active);
 
                 /* Get the active VC (e.g. tty1) */
-                if (read_one_line_file("/sys/class/tty/tty0/active", &tmp) >= 0) {
-                        free(*active);
-                        tty = *active = tmp;
-                }
+                r = read_one_line_file("/sys/class/tty/tty0/active", &active);
+                if (r < 0)
+                        return r;
+
+                tty = active;
         }
 
-        return tty;
+        if (tty == active) {
+                *ret = active;
+                active = NULL;
+        } else {
+                char *tmp;
+
+                tmp = strdup(tty);
+                if (!tmp)
+                        return -ENOMEM;
+
+                *ret = tmp;
+        }
+
+        return 0;
 }
 
 int get_kernel_consoles(char ***ret) {
@@ -777,16 +795,17 @@ fallback:
 }
 
 bool tty_is_vc_resolve(const char *tty) {
-        _cleanup_free_ char *active = NULL;
+        _cleanup_free_ char *resolved = NULL;
 
         assert(tty);
 
         tty = skip_dev_prefix(tty);
 
         if (streq(tty, "console")) {
-                tty = resolve_dev_console(&active);
-                if (!tty)
+                if (resolve_dev_console(&resolved) < 0)
                         return false;
+
+                tty = resolved;
         }
 
         return tty_is_vc(tty);

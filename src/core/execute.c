@@ -3871,8 +3871,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
 }
 
 static bool tty_may_match_dev_console(const char *tty) {
-        _cleanup_free_ char *active = NULL;
-        char *console;
+        _cleanup_free_ char *resolved = NULL;
 
         if (!tty)
                 return true;
@@ -3883,13 +3882,11 @@ static bool tty_may_match_dev_console(const char *tty) {
         if (streq(tty, "console"))
                 return true;
 
-        console = resolve_dev_console(&active);
-        /* if we could not resolve, assume it may */
-        if (!console)
-                return true;
+        if (resolve_dev_console(&resolved) < 0)
+                return true; /* if we could not resolve, assume it may */
 
         /* "tty0" means the active VC, so it may be the same sometimes */
-        return streq(console, tty) || (streq(console, "tty0") && tty_is_vc(tty));
+        return streq(resolved, tty) || (streq(resolved, "tty0") && tty_is_vc(tty));
 }
 
 bool exec_context_may_touch_console(const ExecContext *ec) {
