@@ -73,7 +73,7 @@ typedef struct MountEntry {
         bool ignore:1;            /* Ignore if path does not exist? */
         bool has_prefix:1;        /* Already is prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
-        char *path_malloc;        /* Use this instead of 'path' if we had to allocate memory */
+        char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
         const char *source_const; /* The source path, for bind mounts */
         char *source_malloc;
 } MountEntry;
@@ -1254,7 +1254,7 @@ int setup_namespace(
                         goto finish;
         }
 
-        /* Remount / as the desired mode. Not that this will not
+        /* Remount / as the desired mode. Note that this will not
          * reestablish propagation from our side to the host, since
          * what's disconnected is disconnected. */
         if (mount(NULL, "/", NULL, mount_flags | MS_REC, NULL) < 0) {
