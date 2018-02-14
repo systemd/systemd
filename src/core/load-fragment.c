@@ -1745,9 +1745,8 @@ int config_parse_trigger_unit(
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Unit type not valid, ignoring: %s", rvalue);
                 return 0;
         }
-
-        if (type == u->type) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trigger cannot be of same type, ignoring: %s", rvalue);
+        if (unit_has_name(u, p)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Units cannot trigger themselves, ignoring: %s", rvalue);
                 return 0;
         }
 
