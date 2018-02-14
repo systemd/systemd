@@ -71,9 +71,9 @@ static int context_read_data(Context *c) {
 
         r = get_timezone(&t);
         if (r == -EINVAL)
-                log_warning_errno(r, "/etc/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
+                log_warning_errno(r, TIMEDATEDIR "/localtime should be a symbolic link to a time zone data file in /usr/share/zoneinfo/.");
         else if (r < 0)
-                log_warning_errno(r, "Failed to get target of /etc/localtime: %m");
+                log_warning_errno(r, "Failed to get target of " TIMEDATEDIR "/localtime: %m");
 
         free_and_replace(c->zone, t);
 
@@ -89,17 +89,17 @@ static int context_write_data_timezone(Context *c) {
         assert(c);
 
         if (isempty(c->zone)) {
-                if (unlink("/etc/localtime") < 0 && errno != ENOENT)
+                if (unlink(TIMEDATEDIR "/localtime") < 0 && errno != ENOENT)
                         r = -errno;
 
                 return r;
         }
 
-        p = strappend("../usr/share/zoneinfo/", c->zone);
+        p = strappend("/usr/share/zoneinfo/", c->zone);
         if (!p)
                 return log_oom();
 
-        r = symlink_atomic(p, "/etc/localtime");
+        r = symlink_atomic(p, TIMEDATEDIR "/localtime");
         if (r < 0)
                 return r;
 
@@ -112,7 +112,7 @@ static int context_write_data_local_rtc(Context *c) {
 
         assert(c);
 
-        r = read_full_file("/etc/adjtime", &s, NULL);
+        r = read_full_file(TIMEDATEDIR "/adjtime", &s, NULL);
         if (r < 0) {
                 if (r != -ENOENT)
                         return r;
@@ -164,7 +164,7 @@ static int context_write_data_local_rtc(Context *c) {
                 *(char*) mempcpy(stpcpy(stpcpy(mempcpy(w, s, a), prepend), c->local_rtc ? "LOCAL" : "UTC"), e, b) = 0;
 
                 if (streq(w, NULL_ADJTIME_UTC)) {
-                        if (unlink("/etc/adjtime") < 0)
+                        if (unlink(TIMEDATEDIR "/adjtime") < 0)
                                 if (errno != ENOENT)
                                         return -errno;
 
@@ -173,7 +173,7 @@ static int context_write_data_local_rtc(Context *c) {
         }
 
         mac_selinux_init();
-        return write_string_file_atomic_label("/etc/adjtime", w);
+        return write_string_file_atomic_label(TIMEDATEDIR "/adjtime", w);
 }
 
 static int context_read_ntp(Context *c, sd_bus *bus) {

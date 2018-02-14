@@ -174,6 +174,8 @@ endif
 
 memory_accounting_default = get_option('memory-accounting-default')
 
+timedatedir = get_option('timedatedir')
+
 conf.set_quoted('PKGSYSCONFDIR',                              pkgsysconfdir)
 conf.set_quoted('SYSTEM_CONFIG_UNIT_PATH',                    join_paths(pkgsysconfdir, 'system'))
 conf.set_quoted('SYSTEM_DATA_UNIT_PATH',                      systemunitdir)
@@ -221,6 +223,7 @@ conf.set_quoted('USER_KEYRING_PATH',                          join_paths(pkgsysc
 conf.set_quoted('DOCUMENT_ROOT',                              join_paths(pkgdatadir, 'gatewayd'))
 conf.set('MEMORY_ACCOUNTING_DEFAULT',                         memory_accounting_default ? 'true' : 'false')
 conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_ON_OFF',           memory_accounting_default ? 'on' : 'off')
+conf.set_quoted('TIMEDATEDIR',                                timedatedir)
 
 conf.set_quoted('ABS_BUILD_DIR',                              meson.build_root())
 conf.set_quoted('ABS_SRC_DIR',                                meson.source_root())
@@ -234,6 +237,7 @@ substs.set('pkgsysconfdir',                                   pkgsysconfdir)
 substs.set('bindir',                                          bindir)
 substs.set('rootbindir',                                      rootbindir)
 substs.set('rootlibexecdir',                                  rootlibexecdir)
+substs.set('timedatedir',                                     timedatedir)
 substs.set('systemunitdir',                                   systemunitdir)
 substs.set('userunitdir',                                     userunitdir)
 substs.set('systempresetdir',                                 systempresetdir)

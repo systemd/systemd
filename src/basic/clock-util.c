@@ -74,7 +74,7 @@ int clock_is_localtime(const char* adjtime_path) {
         _cleanup_fclose_ FILE *f;
 
         if (!adjtime_path)
-                adjtime_path = "/etc/adjtime";
+                adjtime_path = TIMEDATEDIR "/adjtime";
 
         /*
          * The third line of adjtime is "UTC" or "LOCAL" or nothing.

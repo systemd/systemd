@@ -1386,7 +1386,7 @@ int get_timezone(char **tz) {
         char *z;
         int r;
 
-        r = readlink_malloc("/etc/localtime", &t);
+        r = readlink_malloc(TIMEDATEDIR "/localtime", &t);
         if (r < 0)
                 return r; /* returns EINVAL if not a symlink */
 

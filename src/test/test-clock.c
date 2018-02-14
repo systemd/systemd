@@ -79,8 +79,8 @@ static void test_clock_is_localtime_system(void) {
         int r;
         r = clock_is_localtime(NULL);
 
-        if (access("/etc/adjtime", F_OK) == 0) {
-                log_info("/etc/adjtime exists, clock_is_localtime() == %i", r);
+        if (access(TIMEDATEDIR "/adjtime", F_OK) == 0) {
+                log_info(TIMEDATEDIR "/adjtime exists, clock_is_localtime() == %i", r);
                 /* if /etc/adjtime exists we expect some answer, no error or
                  * crash */
                 assert_se(IN_SET(r, 0, 1));

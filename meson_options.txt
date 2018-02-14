@@ -302,3 +302,6 @@ option('oss-fuzz', type : 'boolean', value : 'false',
        description : 'build against oss-fuzz')
 option('llvm-fuzz', type : 'boolean', value : 'false',
        description : 'build against LLVM libFuzzer')
+
+option('timedatedir', type : 'string', value : '/etc',
+       description : 'path to timedate specific files, useful if the default /etc path is read-only.')
