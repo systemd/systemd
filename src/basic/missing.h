@@ -27,6 +27,7 @@
 #include <inttypes.h>
 #include <linux/audit.h>
 #include <linux/capability.h>
+#include <linux/falloc.h>
 #include <linux/if_link.h>
 #include <linux/input.h>
 #include <linux/loop.h>
@@ -515,6 +516,10 @@ struct btrfs_ioctl_quota_ctl_args {
 
 #ifndef BPF_FS_MAGIC
 #define BPF_FS_MAGIC 0xcafe4a11
+#endif
+
+#ifndef OCFS2_SUPER_MAGIC
+#define OCFS2_SUPER_MAGIC 0x7461636f
 #endif
 
 #ifndef MS_MOVE
@@ -1353,6 +1358,14 @@ struct fib_rule_uid_range {
 
 #ifndef NS_GET_NSTYPE
 #define NS_GET_NSTYPE _IO(0xb7, 0x3)
+#endif
+
+#ifndef FALLOC_FL_KEEP_SIZE
+#define FALLOC_FL_KEEP_SIZE 0x01
+#endif
+
+#ifndef FALLOC_FL_PUNCH_HOLE
+#define FALLOC_FL_PUNCH_HOLE 0x02
 #endif
 
 #include "missing_syscall.h"

@@ -110,19 +110,19 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
                 _cleanup_free_ char *l = NULL;
                 void *v;
                 int k;
+
                 k = read_line(f, LONG_LINE_MAX, &l);
                 if (k == 0)
                         break;
-
                 if (k < 0)
                         return log_error_errno(k, "Failed to read file '%s', ignoring: %m", path);
 
                 c++;
 
                 p = strstrip(l);
-                if (!*p)
-                        continue;
 
+                if (isempty(p))
+                        continue;
                 if (strchr(COMMENTS "\n", *p))
                         continue;
 
@@ -261,7 +261,7 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        sysctl_options = ordered_hashmap_new(&string_hash_ops);
+        sysctl_options = ordered_hashmap_new(&path_hash_ops);
         if (!sysctl_options) {
                 r = log_oom();
                 goto finish;

@@ -928,8 +928,8 @@ int main(int argc, char *argv[]) {
         } else
                 log_debug("Cgroup path: %s", root);
 
-        a = hashmap_new(&string_hash_ops);
-        b = hashmap_new(&string_hash_ops);
+        a = hashmap_new(&path_hash_ops);
+        b = hashmap_new(&path_hash_ops);
         if (!a || !b) {
                 r = log_oom();
                 goto finish;

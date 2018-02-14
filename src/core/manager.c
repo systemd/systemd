@@ -731,7 +731,7 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         if (r < 0)
                 goto fail;
 
-        r = hashmap_ensure_allocated(&m->cgroup_unit, &string_hash_ops);
+        r = hashmap_ensure_allocated(&m->cgroup_unit, &path_hash_ops);
         if (r < 0)
                 goto fail;
 
@@ -1314,7 +1314,7 @@ static void manager_build_unit_path_cache(Manager *m) {
 
         set_free_free(m->unit_path_cache);
 
-        m->unit_path_cache = set_new(&string_hash_ops);
+        m->unit_path_cache = set_new(&path_hash_ops);
         if (!m->unit_path_cache) {
                 r = -ENOMEM;
                 goto fail;

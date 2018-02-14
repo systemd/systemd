@@ -2369,7 +2369,7 @@ int unit_show_processes(
         if (r < 0)
                 return r;
 
-        cgroups = hashmap_new(&string_hash_ops);
+        cgroups = hashmap_new(&path_hash_ops);
         if (!cgroups)
                 return -ENOMEM;
 

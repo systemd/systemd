@@ -4594,7 +4594,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         if (!path_is_absolute(path))
                 return -EINVAL;
 
-        r = hashmap_ensure_allocated(&u->requires_mounts_for, &string_hash_ops);
+        r = hashmap_ensure_allocated(&u->requires_mounts_for, &path_hash_ops);
         if (r < 0)
                 return r;
 
@@ -4631,7 +4631,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
                 if (!x) {
                         char *q;
 
-                        r = hashmap_ensure_allocated(&u->manager->units_requiring_mounts_for, &string_hash_ops);
+                        r = hashmap_ensure_allocated(&u->manager->units_requiring_mounts_for, &path_hash_ops);
                         if (r < 0)
                                 return r;
 

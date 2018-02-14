@@ -527,6 +527,31 @@ static void test_touch_file(void) {
         assert_se(timespec_load(&st.st_mtim) == test_mtime);
 }
 
+static void test_unlinkat_deallocate(void) {
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+
+        assert_se(tempfn_random_child(NULL, "unlink-deallocation", &p) >= 0);
+
+        fd = open(p, O_WRONLY|O_CLOEXEC|O_CREAT|O_EXCL, 0600);
+        assert_se(fd >= 0);
+
+        assert_se(write(fd, "hallo\n", 6) == 6);
+
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se(st.st_size == 6);
+        assert_se(st.st_blocks > 0);
+        assert_se(st.st_nlink == 1);
+
+        assert_se(unlinkat_deallocate(AT_FDCWD, p, 0) >= 0);
+
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se(IN_SET(st.st_size, 0, 6)); /* depending on whether hole punching worked the size will be 6 (it worked) or 0 (we had to resort to truncation) */
+        assert_se(st.st_blocks == 0);
+        assert_se(st.st_nlink == 0);
+}
+
 int main(int argc, char *argv[]) {
         test_unlink_noerrno();
         test_get_files_in_directory();
@@ -536,6 +561,7 @@ int main(int argc, char *argv[]) {
         test_dot_or_dot_dot();
         test_access_fd();
         test_touch_file();
+        test_unlinkat_deallocate();
 
         return 0;
 }

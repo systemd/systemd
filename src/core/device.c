@@ -77,7 +77,7 @@ static int device_set_sysfs(Device *d, const char *sysfs) {
         if (streq_ptr(d->sysfs, sysfs))
                 return 0;
 
-        r = hashmap_ensure_allocated(&UNIT(d)->manager->devices_by_sysfs, &string_hash_ops);
+        r = hashmap_ensure_allocated(&UNIT(d)->manager->devices_by_sysfs, &path_hash_ops);
         if (r < 0)
                 return r;
 

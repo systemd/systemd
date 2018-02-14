@@ -383,9 +383,11 @@ static void load_unix_sockets(void) {
 
         /* We maintain a cache of the sockets we found in /proc/net/unix to speed things up a little. */
 
-        unix_sockets = set_new(&string_hash_ops);
-        if (!unix_sockets)
+        unix_sockets = set_new(&path_hash_ops);
+        if (!unix_sockets) {
+                log_oom();
                 return;
+        }
 
         f = fopen("/proc/net/unix", "re");
         if (!f) {

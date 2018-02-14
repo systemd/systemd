@@ -24,6 +24,7 @@
 #include "coredump-vacuum.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "macro.h"
 #include "string-util.h"
@@ -247,14 +248,13 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                 if (r <= 0)
                         return r;
 
-                if (unlinkat(dirfd(d), worst->oldest_file, 0) < 0) {
+                r = unlinkat_deallocate(dirfd(d), worst->oldest_file, 0);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to remove file %s: %m", worst->oldest_file);
 
-                        if (errno == ENOENT)
-                                continue;
-
-                        return log_error_errno(errno, "Failed to remove file %s: %m", worst->oldest_file);
-                } else
-                        log_info("Removed old coredump %s.", worst->oldest_file);
+                log_info("Removed old coredump %s.", worst->oldest_file);
         }
 
         return 0;
