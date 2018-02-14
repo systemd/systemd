@@ -408,3 +408,22 @@ int utf8_encoded_valid_unichar(const char *str) {
 
         return len;
 }
+
+size_t utf8_n_codepoints(const char *str) {
+        size_t n = 0;
+
+        /* Returns the number of UTF-8 codepoints in this string, or (size_t) -1 if the string is not valid UTF-8. */
+
+        while (*str != 0) {
+                int k;
+
+                k = utf8_encoded_valid_unichar(str);
+                if (k < 0)
+                        return (size_t) -1;
+
+                str += k;
+                n++;
+        }
+
+        return n;
+}
