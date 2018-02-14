@@ -68,6 +68,9 @@ static volatile int cached_underline_enabled = -1;
 int chvt(int vt) {
         _cleanup_close_ int fd;
 
+        /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log messages go,
+         * if that's configured. */
+
         fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
                 return -errno;
@@ -1204,6 +1207,12 @@ bool terminal_is_dumb(void) {
 }
 
 bool colors_enabled(void) {
+
+        /* Returns true if colors are considered supported on our stdout. For that we check $SYSTEMD_COLORS first
+         * (which is the explicit way to turn off/on colors). If that didn't work we turn off colors unless we are on a
+         * TTY. And if we are on a TTY we turn it off if $TERM is set to "dumb". There's one special tweak though: if
+         * we are PID 1 then we do not check whether we are connected to a TTY, because we don't keep /dev/console open
+         * continously due to fear of SAK, and hence things are a bit weird. */
 
         if (cached_colors_enabled < 0) {
                 int val;
