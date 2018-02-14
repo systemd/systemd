@@ -826,17 +826,33 @@ int kill_and_sigcont(pid_t pid, int sig) {
         return r;
 }
 
-int getenv_for_pid(pid_t pid, const char *field, char **_value) {
+int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         char *value = NULL;
-        int r;
         bool done = false;
-        size_t l;
         const char *path;
+        size_t l;
 
         assert(pid >= 0);
         assert(field);
-        assert(_value);
+        assert(ret);
+
+        if (pid == 0 || pid == getpid_cached()) {
+                const char *e;
+
+                e = getenv(field);
+                if (!e) {
+                        *ret = NULL;
+                        return 0;
+                }
+
+                value = strdup(e);
+                if (!value)
+                        return -ENOMEM;
+
+                *ret = value;
+                return 1;
+        }
 
         path = procfs_file_alloca(pid, "environ");
 
@@ -844,13 +860,13 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
         if (!f) {
                 if (errno == ENOENT)
                         return -ESRCH;
+
                 return -errno;
         }
 
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         l = strlen(field);
-        r = 0;
 
         do {
                 char line[LINE_MAX];
@@ -875,14 +891,14 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
                         if (!value)
                                 return -ENOMEM;
 
-                        r = 1;
-                        break;
+                        *ret = value;
+                        return 1;
                 }
 
         } while (!done);
 
-        *_value = value;
-        return r;
+        *ret = NULL;
+        return 0;
 }
 
 bool pid_is_unwaited(pid_t pid) {
