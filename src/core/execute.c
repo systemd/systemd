@@ -2009,7 +2009,6 @@ static int setup_exec_directory(
 
         STRV_FOREACH(rt, context->directories[type].paths) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
-                const char *effective;
 
                 p = strjoin(params->prefix[type], "/", *rt);
                 if (!p) {
@@ -2103,20 +2102,17 @@ static int setup_exec_directory(
                         if (r < 0)
                                 goto fail;
 
-                        effective = pp;
-
+                        /* Lock down the access mode */
+                        if (chmod(pp, context->directories[type].mode) < 0) {
+                                r = -errno;
+                                goto fail;
+                        }
                 } else {
                         r = mkdir_label(p, context->directories[type].mode);
-                        if (r < 0 && r != -EEXIST)
+                        if (r == -EEXIST)
+                                continue;
+                        if (r < 0)
                                 goto fail;
-
-                        effective = p;
-                }
-
-                /* First lock down the access mode */
-                if (chmod(effective, context->directories[type].mode) < 0) {
-                        r = -errno;
-                        goto fail;
                 }
 
                 /* Don't change the owner of the configuration directory, as in the common case it is not written to by
@@ -2125,7 +2121,7 @@ static int setup_exec_directory(
                         continue;
 
                 /* Then, change the ownership of the whole tree, if necessary */
-                r = path_chown_recursive(effective, uid, gid);
+                r = path_chown_recursive(pp ?: p, uid, gid);
                 if (r < 0)
                         goto fail;
         }
