@@ -48,6 +48,8 @@
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -56,7 +58,6 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "util.h"
-#include "path-util.h"
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
@@ -1228,6 +1229,27 @@ bool colors_enabled(void) {
         }
 
         return cached_colors_enabled;
+}
+
+bool dev_console_colors_enabled(void) {
+        _cleanup_free_ char *s = NULL;
+        int b;
+
+        /* Returns true if we assume that color is supported on /dev/console.
+         *
+         * For that we first check if we explicitly got told to use colors or not, by checking $SYSTEMD_COLORS. If that
+         * didn't tell us anything we check whether PID 1 has $TERM set, and if not whether $TERM is set on the kernel
+         * command line. If we find $TERM set we assume color if it's not set to "dumb", similar to regular
+         * colors_enabled() operates. */
+
+        b = getenv_bool("SYSTEMD_COLORS");
+        if (b >= 0)
+                return b;
+
+        if (getenv_for_pid(1, "TERM", &s) <= 0)
+                (void) proc_cmdline_get_key("TERM", 0, &s);
+
+        return !streq_ptr(s, "dumb");
 }
 
 bool underline_enabled(void) {

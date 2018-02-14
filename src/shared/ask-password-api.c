@@ -216,13 +216,12 @@ int ask_password_tty(
                 _POLL_MAX,
         };
 
+        bool reset_tty = false, dirty = false, use_color = false;
         _cleanup_close_ int cttyfd = -1, notify = -1;
         struct termios old_termios, new_termios;
         char passphrase[LINE_MAX + 1] = {}, *x;
         struct pollfd pollfd[_POLL_MAX];
         size_t p = 0, codepoint = 0;
-        bool reset_tty = false;
-        bool dirty = false;
         int r;
 
         assert(ret);
@@ -250,13 +249,18 @@ int ask_password_tty(
                 if (tcgetattr(ttyfd, &old_termios) < 0)
                         return -errno;
 
-                if (colors_enabled())
+                if (flags & ASK_PASSWORD_CONSOLE_COLOR)
+                        use_color = dev_console_colors_enabled();
+                else
+                        use_color = colors_enabled();
+
+                if (use_color)
                         (void) loop_write(ttyfd, ANSI_HIGHLIGHT, STRLEN(ANSI_HIGHLIGHT), false);
 
                 (void) loop_write(ttyfd, message, strlen(message), false);
                 (void) loop_write(ttyfd, " ", 1, false);
 
-                if (colors_enabled())
+                if (use_color)
                         (void) loop_write(ttyfd, ANSI_NORMAL, STRLEN(ANSI_NORMAL), false);
 
                 new_termios = old_termios;
