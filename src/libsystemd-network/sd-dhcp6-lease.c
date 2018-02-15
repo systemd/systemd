@@ -95,11 +95,14 @@ int dhcp6_lease_set_serverid(sd_dhcp6_lease *lease, const uint8_t *id,
 
 int dhcp6_lease_get_serverid(sd_dhcp6_lease *lease, uint8_t **id, size_t *len) {
         assert_return(lease, -EINVAL);
-        assert_return(id, -EINVAL);
-        assert_return(len, -EINVAL);
 
-        *id = lease->serverid;
-        *len = lease->serverid_len;
+        if (!lease->serverid)
+                return -ENOMSG;
+
+        if (id)
+                *id = lease->serverid;
+        if (len)
+                *len = lease->serverid_len;
 
         return 0;
 }
