@@ -48,6 +48,8 @@
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
@@ -56,13 +58,19 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "util.h"
-#include "path-util.h"
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
+static volatile int cached_on_tty = -1;
+static volatile int cached_colors_enabled = -1;
+static volatile int cached_underline_enabled = -1;
+
 int chvt(int vt) {
         _cleanup_close_ int fd;
+
+        /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log messages go,
+         * if that's configured. */
 
         fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
@@ -323,8 +331,8 @@ int reset_terminal(const char *name) {
 }
 
 int open_terminal(const char *name, int mode) {
-        int fd, r;
         unsigned c = 0;
+        int fd;
 
         /*
          * If a TTY is in the process of being closed opening it might
@@ -354,8 +362,7 @@ int open_terminal(const char *name, int mode) {
                 c++;
         }
 
-        r = isatty(fd);
-        if (r == 0) {
+        if (isatty(fd) <= 0) {
                 safe_close(fd);
                 return -ENOTTY;
         }
@@ -365,44 +372,36 @@ int open_terminal(const char *name, int mode) {
 
 int acquire_terminal(
                 const char *name,
-                bool fail,
-                bool force,
-                bool ignore_tiocstty_eperm,
+                AcquireTerminalFlags flags,
                 usec_t timeout) {
 
-        int fd = -1, notify = -1, r = 0, wd = -1;
-        usec_t ts = 0;
+        _cleanup_close_ int notify = -1, fd = -1;
+        usec_t ts = USEC_INFINITY;
+        int r, wd = -1;
 
         assert(name);
+        assert(IN_SET(flags & ~ACQUIRE_TERMINAL_PERMISSIVE, ACQUIRE_TERMINAL_TRY, ACQUIRE_TERMINAL_FORCE, ACQUIRE_TERMINAL_WAIT));
 
-        /* We use inotify to be notified when the tty is closed. We
-         * create the watch before checking if we can actually acquire
-         * it, so that we don't lose any event.
+        /* We use inotify to be notified when the tty is closed. We create the watch before checking if we can actually
+         * acquire it, so that we don't lose any event.
          *
-         * Note: strictly speaking this actually watches for the
-         * device being closed, it does *not* really watch whether a
-         * tty loses its controlling process. However, unless some
-         * rogue process uses TIOCNOTTY on /dev/tty *after* closing
-         * its tty otherwise this will not become a problem. As long
-         * as the administrator makes sure not configure any service
-         * on the same tty as an untrusted user this should not be a
-         * problem. (Which he probably should not do anyway.) */
+         * Note: strictly speaking this actually watches for the device being closed, it does *not* really watch
+         * whether a tty loses its controlling process. However, unless some rogue process uses TIOCNOTTY on /dev/tty
+         * *after* closing its tty otherwise this will not become a problem. As long as the administrator makes sure
+         * not configure any service on the same tty as an untrusted user this should not be a problem. (Which he
+         * probably should not do anyway.) */
 
-        if (timeout != USEC_INFINITY)
-                ts = now(CLOCK_MONOTONIC);
-
-        if (!fail && !force) {
+        if ((flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_WAIT) {
                 notify = inotify_init1(IN_CLOEXEC | (timeout != USEC_INFINITY ? IN_NONBLOCK : 0));
-                if (notify < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+                if (notify < 0)
+                        return -errno;
 
                 wd = inotify_add_watch(notify, name, IN_CLOSE);
-                if (wd < 0) {
-                        r = -errno;
-                        goto fail;
-                }
+                if (wd < 0)
+                        return -errno;
+
+                if (timeout != USEC_INFINITY)
+                        ts = now(CLOCK_MONOTONIC);
         }
 
         for (;;) {
@@ -414,41 +413,43 @@ int acquire_terminal(
                 if (notify >= 0) {
                         r = flush_fd(notify);
                         if (r < 0)
-                                goto fail;
+                                return r;
                 }
 
-                /* We pass here O_NOCTTY only so that we can check the return
-                 * value TIOCSCTTY and have a reliable way to figure out if we
-                 * successfully became the controlling process of the tty */
+                /* We pass here O_NOCTTY only so that we can check the return value TIOCSCTTY and have a reliable way
+                 * to figure out if we successfully became the controlling process of the tty */
                 fd = open_terminal(name, O_RDWR|O_NOCTTY|O_CLOEXEC);
                 if (fd < 0)
                         return fd;
 
-                /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed
-                 * if we already own the tty. */
+                /* Temporarily ignore SIGHUP, so that we don't get SIGHUP'ed if we already own the tty. */
                 assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
                 /* First, try to get the tty */
-                if (ioctl(fd, TIOCSCTTY, force) < 0)
-                        r = -errno;
+                r = ioctl(fd, TIOCSCTTY,
+                          (flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_FORCE) < 0 ? -errno : 0;
 
+                /* Reset signal handler to old value */
                 assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
-                /* Sometimes, it makes sense to ignore TIOCSCTTY
-                 * returning EPERM, i.e. when very likely we already
-                 * are have this controlling terminal. */
-                if (r < 0 && r == -EPERM && ignore_tiocstty_eperm)
-                        r = 0;
-
-                if (r < 0 && (force || fail || r != -EPERM))
-                        goto fail;
-
+                /* Success? Exit the loop now! */
                 if (r >= 0)
                         break;
 
-                assert(!fail);
-                assert(!force);
+                /* Any failure besides -EPERM? Fail, regardless of the mode. */
+                if (r != -EPERM)
+                        return r;
+
+                if (flags & ACQUIRE_TERMINAL_PERMISSIVE) /* If we are in permissive mode, then EPERM is fine, turn this
+                                                          * into a success. Note that EPERM is also returned if we
+                                                          * already are the owner of the TTY. */
+                        break;
+
+                if (flags != ACQUIRE_TERMINAL_WAIT) /* If we are in TRY or FORCE mode, then propagate EPERM as EPERM */
+                        return r;
+
                 assert(notify >= 0);
+                assert(wd >= 0);
 
                 for (;;) {
                         union inotify_event_buffer buffer;
@@ -458,20 +459,17 @@ int acquire_terminal(
                         if (timeout != USEC_INFINITY) {
                                 usec_t n;
 
+                                assert(ts != USEC_INFINITY);
+
                                 n = now(CLOCK_MONOTONIC);
-                                if (ts + timeout < n) {
-                                        r = -ETIMEDOUT;
-                                        goto fail;
-                                }
+                                if (ts + timeout < n)
+                                        return -ETIMEDOUT;
 
                                 r = fd_wait_for_event(notify, POLLIN, ts + timeout - n);
                                 if (r < 0)
-                                        goto fail;
-
-                                if (r == 0) {
-                                        r = -ETIMEDOUT;
-                                        goto fail;
-                                }
+                                        return r;
+                                if (r == 0)
+                                        return -ETIMEDOUT;
                         }
 
                         l = read(notify, &buffer, sizeof(buffer));
@@ -479,34 +477,27 @@ int acquire_terminal(
                                 if (IN_SET(errno, EINTR, EAGAIN))
                                         continue;
 
-                                r = -errno;
-                                goto fail;
+                                return -errno;
                         }
 
                         FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                                if (e->wd != wd || !(e->mask & IN_CLOSE)) {
-                                        r = -EIO;
-                                        goto fail;
-                                }
+                                if (e->mask & IN_Q_OVERFLOW) /* If we hit an inotify queue overflow, simply check if the terminal is up for grabs now. */
+                                        break;
+
+                                if (e->wd != wd || !(e->mask & IN_CLOSE)) /* Safety checks */
+                                        return -EIO;
                         }
 
                         break;
                 }
 
-                /* We close the tty fd here since if the old session
-                 * ended our handle will be dead. It's important that
-                 * we do this after sleeping, so that we don't enter
-                 * an endless loop. */
+                /* We close the tty fd here since if the old session ended our handle will be dead. It's important that
+                 * we do this after sleeping, so that we don't enter an endless loop. */
                 fd = safe_close(fd);
         }
 
-        safe_close(notify);
-
-        return fd;
-
-fail:
-        safe_close(fd);
-        safe_close(notify);
+        r = fd;
+        fd = -1;
 
         return r;
 }
@@ -519,7 +510,7 @@ int release_terminal(void) {
 
         _cleanup_close_ int fd = -1;
         struct sigaction sa_old;
-        int r = 0;
+        int r;
 
         fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd < 0)
@@ -529,8 +520,7 @@ int release_terminal(void) {
          * by our own TIOCNOTTY */
         assert_se(sigaction(SIGHUP, &sa_new, &sa_old) == 0);
 
-        if (ioctl(fd, TIOCNOTTY) < 0)
-                r = -errno;
+        r = ioctl(fd, TIOCNOTTY) < 0 ? -errno : 0;
 
         assert_se(sigaction(SIGHUP, &sa_old, NULL) == 0);
 
@@ -630,7 +620,7 @@ int make_console_stdio(void) {
 
         /* Make /dev/console the controlling terminal and stdin/stdout/stderr */
 
-        fd = acquire_terminal("/dev/console", false, true, true, USEC_INFINITY);
+        fd = acquire_terminal("/dev/console", ACQUIRE_TERMINAL_FORCE|ACQUIRE_TERMINAL_PERMISSIVE, USEC_INFINITY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to acquire terminal: %m");
 
@@ -641,6 +631,8 @@ int make_console_stdio(void) {
         r = make_stdio(fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to duplicate terminal fd: %m");
+
+        reset_terminal_feature_caches();
 
         return 0;
 }
@@ -680,57 +672,80 @@ int vtnr_from_tty(const char *tty) {
         return i;
 }
 
-char *resolve_dev_console(char **active) {
+ int resolve_dev_console(char **ret) {
+        _cleanup_free_ char *active = NULL;
         char *tty;
+        int r;
 
-        /* Resolve where /dev/console is pointing to, if /sys is actually ours
-         * (i.e. not read-only-mounted which is a sign for container setups) */
+        assert(ret);
+
+        /* Resolve where /dev/console is pointing to, if /sys is actually ours (i.e. not read-only-mounted which is a
+         * sign for container setups) */
 
         if (path_is_read_only_fs("/sys") > 0)
-                return NULL;
+                return -ENOMEDIUM;
 
-        if (read_one_line_file("/sys/class/tty/console/active", active) < 0)
-                return NULL;
+        r = read_one_line_file("/sys/class/tty/console/active", &active);
+        if (r < 0)
+                return r;
 
-        /* If multiple log outputs are configured the last one is what
-         * /dev/console points to */
-        tty = strrchr(*active, ' ');
+        /* If multiple log outputs are configured the last one is what /dev/console points to */
+        tty = strrchr(active, ' ');
         if (tty)
                 tty++;
         else
-                tty = *active;
+                tty = active;
 
         if (streq(tty, "tty0")) {
-                char *tmp;
+                active = mfree(active);
 
                 /* Get the active VC (e.g. tty1) */
-                if (read_one_line_file("/sys/class/tty/tty0/active", &tmp) >= 0) {
-                        free(*active);
-                        tty = *active = tmp;
-                }
+                r = read_one_line_file("/sys/class/tty/tty0/active", &active);
+                if (r < 0)
+                        return r;
+
+                tty = active;
         }
 
-        return tty;
+        if (tty == active) {
+                *ret = active;
+                active = NULL;
+        } else {
+                char *tmp;
+
+                tmp = strdup(tty);
+                if (!tmp)
+                        return -ENOMEM;
+
+                *ret = tmp;
+        }
+
+        return 0;
 }
 
-int get_kernel_consoles(char ***consoles) {
-        _cleanup_strv_free_ char **con = NULL;
+int get_kernel_consoles(char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *line = NULL;
-        const char *active;
+        const char *p;
         int r;
 
-        assert(consoles);
+        assert(ret);
+
+        /* If we /sys is mounted read-only this means we are running in some kind of container environment. In that
+         * case /sys would reflect the host system, not us, hence ignore the data we can read from it. */
+        if (path_is_read_only_fs("/sys") > 0)
+                goto fallback;
 
         r = read_one_line_file("/sys/class/tty/console/active", &line);
         if (r < 0)
                 return r;
 
-        active = line;
+        p = line;
         for (;;) {
                 _cleanup_free_ char *tty = NULL;
                 char *path;
 
-                r = extract_first_word(&active, &tty, NULL, 0);
+                r = extract_first_word(&p, &tty, NULL, 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -753,35 +768,44 @@ int get_kernel_consoles(char ***consoles) {
                         continue;
                 }
 
-                r = strv_consume(&con, path);
+                r = strv_consume(&l, path);
                 if (r < 0)
                         return r;
         }
 
-        if (strv_isempty(con)) {
+        if (strv_isempty(l)) {
                 log_debug("No devices found for system console");
-
-                r = strv_extend(&con, "/dev/console");
-                if (r < 0)
-                        return r;
+                goto fallback;
         }
 
-        *consoles = con;
-        con = NULL;
+        *ret = l;
+        l = NULL;
+
+        return 0;
+
+fallback:
+        r = strv_extend(&l, "/dev/console");
+        if (r < 0)
+                return r;
+
+        *ret = l;
+        l = NULL;
+
         return 0;
 }
 
 bool tty_is_vc_resolve(const char *tty) {
-        _cleanup_free_ char *active = NULL;
+        _cleanup_free_ char *resolved = NULL;
 
         assert(tty);
 
         tty = skip_dev_prefix(tty);
 
         if (streq(tty, "console")) {
-                tty = resolve_dev_console(&active);
-                if (!tty)
+                if (resolve_dev_console(&resolved) < 0)
                         return false;
+
+                tty = resolved;
         }
 
         return tty_is_vc(tty);
@@ -807,7 +831,7 @@ unsigned columns(void) {
         const char *e;
         int c;
 
-        if (_likely_(cached_columns > 0))
+        if (cached_columns > 0)
                 return cached_columns;
 
         c = 0;
@@ -841,7 +865,7 @@ unsigned lines(void) {
         const char *e;
         int l;
 
-        if (_likely_(cached_lines > 0))
+        if (cached_lines > 0)
                 return cached_lines;
 
         l = 0;
@@ -865,10 +889,17 @@ void columns_lines_cache_reset(int signum) {
         cached_lines = 0;
 }
 
-bool on_tty(void) {
-        static int cached_on_tty = -1;
+void reset_terminal_feature_caches(void) {
+        cached_columns = 0;
+        cached_lines = 0;
 
-        if (_unlikely_(cached_on_tty < 0))
+        cached_colors_enabled = -1;
+        cached_underline_enabled = -1;
+        cached_on_tty = -1;
+}
+
+bool on_tty(void) {
+        if (cached_on_tty < 0)
                 cached_on_tty = isatty(STDOUT_FILENO) > 0;
 
         return cached_on_tty;
@@ -879,7 +910,7 @@ int make_stdio(int fd) {
 
         assert(fd >= 0);
 
-        if (dup2(fd, STDIN_FILENO) < 0 && r >= 0)
+        if (dup2(fd, STDIN_FILENO) < 0)
                 r = -errno;
         if (dup2(fd, STDOUT_FILENO) < 0 && r >= 0)
                 r = -errno;
@@ -896,13 +927,17 @@ int make_stdio(int fd) {
 }
 
 int make_null_stdio(void) {
-        int null_fd;
+        int null_fd, r;
 
         null_fd = open("/dev/null", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (null_fd < 0)
                 return -errno;
 
-        return make_stdio(null_fd);
+        r = make_stdio(null_fd);
+
+        reset_terminal_feature_caches();
+
+        return r;
 }
 
 int getttyname_malloc(int fd, char **ret) {
@@ -1205,38 +1240,63 @@ bool terminal_is_dumb(void) {
 }
 
 bool colors_enabled(void) {
-        static int enabled = -1;
 
-        if (_unlikely_(enabled < 0)) {
+        /* Returns true if colors are considered supported on our stdout. For that we check $SYSTEMD_COLORS first
+         * (which is the explicit way to turn off/on colors). If that didn't work we turn off colors unless we are on a
+         * TTY. And if we are on a TTY we turn it off if $TERM is set to "dumb". There's one special tweak though: if
+         * we are PID 1 then we do not check whether we are connected to a TTY, because we don't keep /dev/console open
+         * continously due to fear of SAK, and hence things are a bit weird. */
+
+        if (cached_colors_enabled < 0) {
                 int val;
 
                 val = getenv_bool("SYSTEMD_COLORS");
                 if (val >= 0)
-                        enabled = val;
+                        cached_colors_enabled = val;
                 else if (getpid_cached() == 1)
                         /* PID1 outputs to the console without holding it open all the time */
-                        enabled = !getenv_terminal_is_dumb();
+                        cached_colors_enabled = !getenv_terminal_is_dumb();
                 else
-                        enabled = !terminal_is_dumb();
+                        cached_colors_enabled = !terminal_is_dumb();
         }
 
-        return enabled;
+        return cached_colors_enabled;
+}
+
+bool dev_console_colors_enabled(void) {
+        _cleanup_free_ char *s = NULL;
+        int b;
+
+        /* Returns true if we assume that color is supported on /dev/console.
+         *
+         * For that we first check if we explicitly got told to use colors or not, by checking $SYSTEMD_COLORS. If that
+         * didn't tell us anything we check whether PID 1 has $TERM set, and if not whether $TERM is set on the kernel
+         * command line. If we find $TERM set we assume color if it's not set to "dumb", similar to regular
+         * colors_enabled() operates. */
+
+        b = getenv_bool("SYSTEMD_COLORS");
+        if (b >= 0)
+                return b;
+
+        if (getenv_for_pid(1, "TERM", &s) <= 0)
+                (void) proc_cmdline_get_key("TERM", 0, &s);
+
+        return !streq_ptr(s, "dumb");
 }
 
 bool underline_enabled(void) {
-        static int enabled = -1;
 
-        if (enabled < 0) {
+        if (cached_underline_enabled < 0) {
 
                 /* The Linux console doesn't support underlining, turn it off, but only there. */
 
-                if (!colors_enabled())
-                        enabled = false;
+                if (colors_enabled())
+                        cached_underline_enabled = !streq_ptr(getenv("TERM"), "linux");
                 else
-                        enabled = !streq_ptr(getenv("TERM"), "linux");
+                        cached_underline_enabled = false;
         }
 
-        return enabled;
+        return cached_underline_enabled;
 }
 
 int vt_default_utf8(void) {

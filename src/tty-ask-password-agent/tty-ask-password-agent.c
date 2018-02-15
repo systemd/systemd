@@ -254,6 +254,7 @@ static int send_passwords(const char *socket_name, char **passwords) {
         union sockaddr_union sa = { .un.sun_family = AF_UNIX };
         size_t packet_length = 1;
         char **p, *d;
+        ssize_t n;
         int r;
 
         assert(socket_name);
@@ -279,9 +280,13 @@ static int send_passwords(const char *socket_name, char **passwords) {
 
         strncpy(sa.un.sun_path, socket_name, sizeof(sa.un.sun_path));
 
-        r = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, SOCKADDR_UN_LEN(sa.un));
-        if (r < 0)
+        n = sendto(socket_fd, packet, packet_length, MSG_NOSIGNAL, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+        if (n < 0) {
                 r = log_debug_errno(errno, "sendto(): %m");
+                goto finish;
+        }
+
+        r = (int) n;
 
 finish:
         explicit_bzero(packet, packet_length);
@@ -363,18 +368,21 @@ static int parse_password(const char *filename, char **wall) {
                         int tty_fd = -1;
 
                         if (arg_console) {
-                                const char *con = arg_device ? arg_device : "/dev/console";
+                                const char *con = arg_device ?: "/dev/console";
 
-                                tty_fd = acquire_terminal(con, false, false, false, USEC_INFINITY);
+                                tty_fd = acquire_terminal(con, ACQUIRE_TERMINAL_WAIT, USEC_INFINITY);
                                 if (tty_fd < 0)
-                                        return log_error_errno(tty_fd, "Failed to acquire /dev/console: %m");
+                                        return log_error_errno(tty_fd, "Failed to acquire %s: %m", con);
 
                                 r = reset_terminal_fd(tty_fd, true);
                                 if (r < 0)
                                         log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
                         }
 
-                        r = ask_password_tty(message, NULL, not_after, echo ? ASK_PASSWORD_ECHO : 0, filename, &password);
+                        r = ask_password_tty(tty_fd, message, NULL, not_after,
+                                             (echo ? ASK_PASSWORD_ECHO : 0) |
+                                             (arg_console ? ASK_PASSWORD_CONSOLE_COLOR : 0),
+                                             filename, &password);
 
                         if (arg_console) {
                                 tty_fd = safe_close(tty_fd);

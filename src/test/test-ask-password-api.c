@@ -26,7 +26,7 @@ static void ask_password(void) {
         int r;
         _cleanup_free_ char *ret;
 
-        r = ask_password_tty("hello?", "da key", 0, 0, NULL, &ret);
+        r = ask_password_tty(-1, "hello?", "da key", 0, 0, NULL, &ret);
         assert(r >= 0);
 
         log_info("Got %s", ret);

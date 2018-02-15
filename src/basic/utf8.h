@@ -59,3 +59,5 @@ static inline bool utf16_is_trailing_surrogate(char16_t c) {
 static inline char32_t utf16_surrogate_pair_to_unichar(char16_t lead, char16_t trail) {
                 return ((lead - 0xd800) << 10) + (trail - 0xdc00) + 0x10000;
 }
+
+size_t utf8_n_codepoints(const char *str);

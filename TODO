@@ -32,6 +32,18 @@ Features:
 * teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
   project quota
 
+* introduce DefaultSlice= or so in system.conf that allows changing where we
+  place our units by default, i.e. change system.slice to something
+  else. Similar, ManagerSlice= should exist so that PID1's own scope unit could
+  be moved somewhere else too. Finally machined and logind should get similar
+  options so that it is possible to move user session scopes and machines to a
+  different slice too by default. Usecase: people who want to put resources on
+  the entire system, with the exception of one specific service. See:
+  https://lists.freedesktop.org/archives/systemd-devel/2018-February/040369.html
+
+* check what setting the login shell to /bin/false vs. /sbin/nologin means and
+  do the right thing in get_user_creds_clean() with it.
+
 * maybe rework get_user_creds() to query the user database if $SHELL is used
   for root, but only then.
 

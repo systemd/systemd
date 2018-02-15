@@ -67,6 +67,7 @@ BuildPackages=
         m4
         meson
         pam-devel
+        pcre2-devel
         pkgconfig
         python3-devel
         python3-lxml

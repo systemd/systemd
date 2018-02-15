@@ -52,7 +52,23 @@ int reset_terminal_fd(int fd, bool switch_to_text);
 int reset_terminal(const char *name);
 
 int open_terminal(const char *name, int mode);
-int acquire_terminal(const char *name, bool fail, bool force, bool ignore_tiocstty_eperm, usec_t timeout);
+
+/* Flags for tweaking the way we become the controlling process of a terminal. */
+typedef enum AcquireTerminalFlags {
+        /* Try to become the controlling process of the TTY. If we can't return -EPERM. */
+        ACQUIRE_TERMINAL_TRY = 0,
+
+        /* Tell the kernel to forcibly make us the controlling process of the TTY. Returns -EPERM if the kernel doesn't allow that. */
+        ACQUIRE_TERMINAL_FORCE = 1,
+
+        /* If we can't become the controlling process of the TTY right-away, then wait until we can. */
+        ACQUIRE_TERMINAL_WAIT = 2,
+
+        /* Pick one of the above, and then OR this flag in, in order to request permissive behaviour, if we can't become controlling process then don't mind */
+        ACQUIRE_TERMINAL_PERMISSIVE = 4,
+} AcquireTerminalFlags;
+
+int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
 int release_terminal(void);
 
 int terminal_vhangup_fd(int fd);
@@ -66,8 +82,8 @@ int ask_string(char **ret, const char *text, ...) _printf_(2, 3);
 
 int vt_disallocate(const char *name);
 
-char *resolve_dev_console(char **active);
-int get_kernel_consoles(char ***consoles);
+int resolve_dev_console(char **ret);
+int get_kernel_consoles(char ***ret);
 bool tty_is_vc(const char *tty);
 bool tty_is_vc_resolve(const char *tty);
 bool tty_is_console(const char *tty) _pure_;
@@ -82,12 +98,15 @@ int fd_columns(int fd);
 unsigned columns(void);
 int fd_lines(int fd);
 unsigned lines(void);
+
 void columns_lines_cache_reset(int _unused_ signum);
+void reset_terminal_feature_caches(void);
 
 bool on_tty(void);
 bool terminal_is_dumb(void);
 bool colors_enabled(void);
 bool underline_enabled(void);
+bool dev_console_colors_enabled(void);
 
 #define DEFINE_ANSI_FUNC(name, NAME)                            \
         static inline const char *ansi_##name(void) {           \
