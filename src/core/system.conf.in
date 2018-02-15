@@ -42,7 +42,7 @@
 #DefaultIOAccounting=no
 #DefaultIPAccounting=no
 #DefaultBlockIOAccounting=no
-#DefaultMemoryAccounting=yes
+#DefaultMemoryAccounting=@MEMORY_ACCOUNTING_DEFAULT@
 #DefaultTasksAccounting=yes
 #DefaultTasksMax=15%
 #DefaultLimitCPU=

@@ -172,6 +172,8 @@ if pamconfdir == ''
         pamconfdir = join_paths(sysconfdir, 'pam.d')
 endif
 
+memory_accounting_default = get_option('memory-accounting-default')
+
 conf.set_quoted('PKGSYSCONFDIR',                              pkgsysconfdir)
 conf.set_quoted('SYSTEM_CONFIG_UNIT_PATH',                    join_paths(pkgsysconfdir, 'system'))
 conf.set_quoted('SYSTEM_DATA_UNIT_PATH',                      systemunitdir)
@@ -217,6 +219,8 @@ conf.set_quoted('SYSTEMD_EXPORT_PATH',                        join_paths(rootlib
 conf.set_quoted('VENDOR_KEYRING_PATH',                        join_paths(rootlibexecdir, 'import-pubring.gpg'))
 conf.set_quoted('USER_KEYRING_PATH',                          join_paths(pkgsysconfdir, 'import-pubring.gpg'))
 conf.set_quoted('DOCUMENT_ROOT',                              join_paths(pkgdatadir, 'gatewayd'))
+conf.set('MEMORY_ACCOUNTING_DEFAULT',                         memory_accounting_default ? 'true' : 'false')
+conf.set_quoted('MEMORY_ACCOUNTING_DEFAULT_ON_OFF',           memory_accounting_default ? 'on' : 'off')
 
 conf.set_quoted('ABS_BUILD_DIR',                              meson.build_root())
 conf.set_quoted('ABS_SRC_DIR',                                meson.source_root())
@@ -257,6 +261,7 @@ substs.set('SYSTEM_SYSVINIT_PATH',                            sysvinit_path)
 substs.set('SYSTEM_SYSVRCND_PATH',                            sysvrcnd_path)
 substs.set('RC_LOCAL_SCRIPT_PATH_START',                      get_option('rc-local'))
 substs.set('RC_LOCAL_SCRIPT_PATH_STOP',                       get_option('halt-local'))
+substs.set('MEMORY_ACCOUNTING_DEFAULT',                       memory_accounting_default ? 'yes' : 'no')
 
 #####################################################################
 

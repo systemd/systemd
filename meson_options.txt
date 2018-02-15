@@ -53,6 +53,8 @@ option('debug-tty', type : 'string', value : '/dev/tty9',
        description : 'specify the tty device for debug shell')
 option('debug', type : 'string',
        description : 'enable extra debugging (hashmap,mmap-cache)')
+option('memory-accounting-default', type : 'boolean',
+       description : 'enable MemoryAccounting= by default')
 
 option('utmp', type : 'boolean',
        description : 'support for utmp/wtmp log handling')

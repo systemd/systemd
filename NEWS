@@ -6,15 +6,15 @@ CHANGES WITH 238 in spe:
           discussions with the upstream control group maintainers we learnt
           that the negative impact of cgroup memory accounting on current
           kernels is finally relatively minimal, so that it should be safe to
-          enable this by default without affecting system performance too
-          much. Besides memory accounting only tasks accounting is turned on by
-          default, all other forms of resource accounting (CPU, IO, IP) remain
-          off for now, because it's not clear yet that their impact is small
-          enough to move from opt-in to opt-out for them, too. We recommend
-          downstreams to leave memory accounting on by default, however in some
-          situations it might be wise to revert this change of defaults, in
-          particular on very resource constrained systems or when support for
-          old kernels is a necessity.
+          enable this by default without affecting system performance. Besides
+          memory accounting only task accounting is turned on by default, all
+          other forms of resource accounting (CPU, IO, IP) remain off for now,
+          because it's not clear yet that their impact is small enough to move
+          from opt-in to opt-out. We recommend downstreams to leave memory
+          accounting on by default if kernel 4.14 or higher is are primarily
+          used. On very resource constrained systems or when support for old
+          kernels is a necessity, -Dmemory-accounting-default=false can be used
+          to revert this change.
 
 CHANGES WITH 237:
 
