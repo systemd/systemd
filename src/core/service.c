@@ -1449,7 +1449,6 @@ static int service_spawn(
                 }
         }
 
-        manager_set_exec_params(UNIT(s)->manager, &exec_params);
         unit_set_exec_params(UNIT(s), &exec_params);
 
         final_env = strv_env_merge(2, exec_params.environment, our_env, NULL);
@@ -3909,6 +3908,9 @@ const UnitVTable service_vtable = {
                 "Install\0",
         .private_section = "Service",
 
+        .can_transient = true,
+        .can_delegate = true,
+
         .init = service_init,
         .done = service_done,
         .load = service_load,
@@ -3954,7 +3956,6 @@ const UnitVTable service_vtable = {
 
         .get_timeout = service_get_timeout,
         .needs_console = service_needs_console,
-        .can_transient = true,
 
         .status_message_formats = {
                 .starting_stopping = {

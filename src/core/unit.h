@@ -568,6 +568,9 @@ struct UnitVTable {
         /* True if transient units of this type are OK */
         bool can_transient:1;
 
+        /* True if cgroup delegation is permissible */
+        bool can_delegate:1;
+
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
         bool gc_jobs:1;
 };
@@ -802,6 +805,8 @@ void unit_warn_leftover_processes(Unit *u);
 bool unit_needs_console(Unit *u);
 
 const char *unit_label_path(Unit *u);
+
+int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

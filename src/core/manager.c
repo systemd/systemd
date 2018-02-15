@@ -985,26 +985,6 @@ static int manager_setup_user_lookup_fd(Manager *m) {
         return 0;
 }
 
-static int manager_connect_bus(Manager *m, bool reexecuting) {
-        bool try_bus_connect;
-        Unit *u = NULL;
-
-        assert(m);
-
-        if (m->test_run_flags)
-                return 0;
-
-        u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
-
-        try_bus_connect =
-                (u && SERVICE(u)->deserialized_state == SERVICE_RUNNING) &&
-                (reexecuting ||
-                 (MANAGER_IS_USER(m) && getenv("DBUS_SESSION_BUS_ADDRESS")));
-
-        /* Try to connect to the buses, if possible. */
-        return bus_init(m, try_bus_connect);
-}
-
 static unsigned manager_dispatch_cleanup_queue(Manager *m) {
         Unit *u;
         unsigned n = 0;
@@ -1223,6 +1203,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->run_queue_event_source);
         sd_event_source_unref(m->user_lookup_event_source);
+        sd_event_source_unref(m->sync_bus_names_event_source);
 
         safe_close(m->signal_fd);
         safe_close(m->notify_fd);
@@ -1374,6 +1355,38 @@ static void manager_distribute_fds(Manager *m, FDSet *fds) {
         }
 }
 
+static bool manager_dbus_is_running(Manager *m, bool deserialized) {
+        Unit *u;
+
+        assert(m);
+
+        /* This checks whether the dbus instance we are supposed to expose our APIs on is up. We check both the socket
+         * and the service unit. If the 'deserialized' parameter is true we'll check the deserialized state of the unit
+         * rather than the current one. */
+
+        if (m->test_run_flags != 0)
+                return false;
+
+        /* If we are in the user instance, and the env var is already set for us, then this means D-Bus is ran
+         * somewhere outside of our own logic. Let's use it */
+        if (MANAGER_IS_USER(m) && getenv("DBUS_SESSION_BUS_ADDRESS"))
+                return true;
+
+        u = manager_get_unit(m, SPECIAL_DBUS_SOCKET);
+        if (!u)
+                return false;
+        if ((deserialized ? SOCKET(u)->deserialized_state : SOCKET(u)->state) != SOCKET_RUNNING)
+                return false;
+
+        u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
+        if (!u)
+                return false;
+        if (!IN_SET((deserialized ? SERVICE(u)->deserialized_state : SERVICE(u)->state), SERVICE_RUNNING, SERVICE_RELOAD))
+                return false;
+
+        return true;
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r;
 
@@ -1454,9 +1467,22 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 /* This shouldn't fail, except if things are really broken. */
                 return r;
 
-        /* Let's connect to the bus now. */
-        (void) manager_connect_bus(m, !!serialization);
+        /* Let's set up our private bus connection now, unconditionally */
+        (void) bus_init_private(m);
 
+        /* If we are in --user mode also connect to the system bus now */
+        if (MANAGER_IS_USER(m))
+                (void) bus_init_system(m);
+
+        /* Let's connect to the bus now, but only if the unit is supposed to be up */
+        if (manager_dbus_is_running(m, !!serialization)) {
+                (void) bus_init_api(m);
+
+                if (MANAGER_IS_SYSTEM(m))
+                        (void) bus_init_system(m);
+        }
+
+        /* Now that we are connected to all possible busses, let's deserialize who is tracking us. */
         (void) bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
         m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
 
@@ -2294,23 +2320,21 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 /* This is a nop on non-init */
                 break;
 
-        case SIGUSR1: {
-                Unit *u;
+        case SIGUSR1:
 
-                u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
-
-                if (!u || UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
+                if (manager_dbus_is_running(m, false)) {
                         log_info("Trying to reconnect to bus...");
-                        bus_init(m, true);
-                }
 
-                if (!u || !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u))) {
-                        log_info("Loading D-Bus service...");
+                        (void) bus_init_api(m);
+
+                        if (MANAGER_IS_SYSTEM(m))
+                                (void) bus_init_system(m);
+                } else {
+                        log_info("Starting D-Bus service...");
                         manager_start_target(m, SPECIAL_DBUS_SERVICE, JOB_REPLACE);
                 }
 
                 break;
-        }
 
         case SIGUSR2: {
                 _cleanup_free_ char *dump = NULL;
@@ -3153,12 +3177,14 @@ int manager_reload(Manager *m) {
 
         exec_runtime_vacuum(m);
 
-        /* It might be safe to log to the journal now. */
+        /* It might be safe to log to the journal now and connect to dbus */
         manager_recheck_journal(m);
+        manager_recheck_dbus(m);
 
         /* Sync current state of bus names with our set of listening units */
-        if (m->api_bus)
-                manager_sync_bus_names(m, m->api_bus);
+        q = manager_enqueue_sync_bus_names(m);
+        if (q < 0 && r >= 0)
+                r = q;
 
         assert(m->n_reloading > 0);
         m->n_reloading--;
@@ -3518,10 +3544,34 @@ int manager_set_default_rlimits(Manager *m, struct rlimit **default_rlimit) {
         return 0;
 }
 
+void manager_recheck_dbus(Manager *m) {
+        assert(m);
+
+        /* Connects to the bus if the dbus service and socket are running. If we are running in user mode this is all
+         * it does. In system mode we'll also connect to the system bus (which will most likely just reuse the
+         * connection of the API bus). That's because the system bus after all runs as service of the system instance,
+         * while in the user instance we can assume it's already there. */
+
+        if (manager_dbus_is_running(m, false)) {
+                (void) bus_init_api(m);
+
+                if (MANAGER_IS_SYSTEM(m))
+                        (void) bus_init_system(m);
+        } else {
+                (void) bus_done_api(m);
+
+                if (MANAGER_IS_SYSTEM(m))
+                        (void) bus_done_system(m);
+        }
+}
+
 static bool manager_journal_is_running(Manager *m) {
         Unit *u;
 
         assert(m);
+
+        if (m->test_run_flags != 0)
+                return false;
 
         /* If we are the user manager we can safely assume that the journal is up */
         if (!MANAGER_IS_SYSTEM(m))
@@ -3538,7 +3588,7 @@ static bool manager_journal_is_running(Manager *m) {
         u = manager_get_unit(m, SPECIAL_JOURNALD_SERVICE);
         if (!u)
                 return false;
-        if (SERVICE(u)->state != SERVICE_RUNNING)
+        if (!IN_SET(SERVICE(u)->state, SERVICE_RELOAD, SERVICE_RUNNING))
                 return false;
 
         return true;
@@ -3552,16 +3602,10 @@ void manager_recheck_journal(Manager *m) {
         if (getpid_cached() != 1)
                 return;
 
-        if (manager_journal_is_running(m)) {
-
-                /* The journal is fully and entirely up? If so, let's permit logging to it, if that's configured. */
-                log_set_prohibit_ipc(false);
-        } else {
-
-                /* If the journal is down, don't ever log to it, otherwise we might end up deadlocking ourselves as we
-                 * might trigger an activation ourselves we can't fulfill */
-                log_set_prohibit_ipc(true);
-        }
+        /* The journal is fully and entirely up? If so, let's permit logging to it, if that's configured. If the
+         * journal is down, don't ever log to it, otherwise we might end up deadlocking ourselves as we might trigger
+         * an activation ourselves we can't fulfill. */
+        log_set_prohibit_ipc(!manager_journal_is_running(m));
         log_open();
 }
 
@@ -3700,18 +3744,6 @@ Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
         path_kill_slashes(p);
 
         return hashmap_get(m->units_requiring_mounts_for, streq(p, "/") ? "" : p);
-}
-
-void manager_set_exec_params(Manager *m, ExecParameters *p) {
-        assert(m);
-        assert(p);
-
-        p->environment = m->environment;
-        p->confirm_spawn = manager_get_confirm_spawn(m);
-        p->cgroup_supported = m->cgroup_supported;
-        p->prefix = m->prefix;
-
-        SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, MANAGER_IS_SYSTEM(m));
 }
 
 int manager_update_failed_units(Manager *m, Unit *u, bool failed) {

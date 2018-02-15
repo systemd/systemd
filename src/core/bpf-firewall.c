@@ -494,7 +494,7 @@ int bpf_firewall_compile(Unit *u) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("BPF firewalling not supported on this systemd, proceeding without.");
+                log_debug("BPF firewalling not supported on this manager, proceeding without.");
                 return -EOPNOTSUPP;
         }
 
@@ -556,7 +556,7 @@ int bpf_firewall_install(Unit *u) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("BPF firewalling not supported on this systemd, proceeding without.");
+                log_debug("BPF firewalling not supported on this manager, proceeding without.");
                 return -EOPNOTSUPP;
         }
 
@@ -569,7 +569,7 @@ int bpf_firewall_install(Unit *u) {
                 if (r < 0)
                         return log_error_errno(r, "Kernel upload of egress BPF program failed: %m");
 
-                r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path, cc->delegate ? BPF_F_ALLOW_OVERRIDE : 0);
+                r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path, unit_cgroup_delegate(u) ? BPF_F_ALLOW_OVERRIDE : 0);
                 if (r < 0)
                         return log_error_errno(r, "Attaching egress BPF program to cgroup %s failed: %m", path);
         } else {
@@ -584,7 +584,7 @@ int bpf_firewall_install(Unit *u) {
                 if (r < 0)
                         return log_error_errno(r, "Kernel upload of ingress BPF program failed: %m");
 
-                r = bpf_program_cgroup_attach(u->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path, cc->delegate ? BPF_F_ALLOW_OVERRIDE : 0);
+                r = bpf_program_cgroup_attach(u->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path, unit_cgroup_delegate(u) ? BPF_F_ALLOW_OVERRIDE : 0);
                 if (r < 0)
                         return log_error_errno(r, "Attaching ingress BPF program to cgroup %s failed: %m", path);
         } else {

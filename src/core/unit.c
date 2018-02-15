@@ -2326,18 +2326,16 @@ static void unit_update_on_console(Unit *u) {
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
-        Manager *m;
         bool unexpected;
+        Manager *m;
 
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
         assert(ns < _UNIT_ACTIVE_STATE_MAX);
 
-        /* Note that this is called for all low-level state changes,
-         * even if they might map to the same high-level
-         * UnitActiveState! That means that ns == os is an expected
-         * behavior here. For example: if a mount point is remounted
-         * this function will be called too! */
+        /* Note that this is called for all low-level state changes, even if they might map to the same high-level
+         * UnitActiveState! That means that ns == os is an expected behavior here. For example: if a mount point is
+         * remounted this function will be called too! */
 
         m = u->manager;
 
@@ -2463,12 +2461,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         /* Some names are special */
         if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
 
-                if (unit_has_name(u, SPECIAL_DBUS_SERVICE))
-                        /* The bus might have just become available,
-                         * hence try to connect to it, if we aren't
-                         * yet connected. */
-                        bus_init(m, true);
-
                 if (u->type == UNIT_SERVICE &&
                     !UNIT_IS_ACTIVE_OR_RELOADING(os) &&
                     !MANAGER_IS_RELOADING(m)) {
@@ -2481,8 +2473,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                         manager_send_unit_plymouth(m, u);
 
         } else {
-                /* We don't care about D-Bus going down here, since we'll get an asynchronous notification for it
-                 * anyway. */
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns) &&
                     !UNIT_IS_INACTIVE_OR_FAILED(os)
@@ -2512,17 +2502,15 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         }
 
         manager_recheck_journal(m);
+        manager_recheck_dbus(m);
         unit_trigger_notify(u);
 
         if (!MANAGER_IS_RELOADING(u->manager)) {
-                /* Maybe we finished startup and are now ready for
-                 * being stopped because unneeded? */
+                /* Maybe we finished startup and are now ready for being stopped because unneeded? */
                 unit_check_unneeded(u);
 
-                /* Maybe we finished startup, but something we needed
-                 * has vanished? Let's die then. (This happens when
-                 * something BindsTo= to a Type=oneshot unit, as these
-                 * units go directly from starting to inactive,
+                /* Maybe we finished startup, but something we needed has vanished? Let's die then. (This happens when
+                 * something BindsTo= to a Type=oneshot unit, as these units go directly from starting to inactive,
                  * without ever entering started.) */
                 unit_check_binds_to(u);
 
@@ -4541,22 +4529,15 @@ int unit_kill_context(
 
                 } else if (r > 0) {
 
-                        /* FIXME: For now, on the legacy hierarchy, we
-                         * will not wait for the cgroup members to die
-                         * if we are running in a container or if this
-                         * is a delegation unit, simply because cgroup
-                         * notification is unreliable in these
-                         * cases. It doesn't work at all in
-                         * containers, and outside of containers it
-                         * can be confused easily by left-over
-                         * directories in the cgroup — which however
-                         * should not exist in non-delegated units. On
-                         * the unified hierarchy that's different,
-                         * there we get proper events. Hence rely on
-                         * them. */
+                        /* FIXME: For now, on the legacy hierarchy, we will not wait for the cgroup members to die if
+                         * we are running in a container or if this is a delegation unit, simply because cgroup
+                         * notification is unreliable in these cases. It doesn't work at all in containers, and outside
+                         * of containers it can be confused easily by left-over directories in the cgroup — which
+                         * however should not exist in non-delegated units. On the unified hierarchy that's different,
+                         * there we get proper events. Hence rely on them. */
 
                         if (cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0 ||
-                            (detect_container() == 0 && !UNIT_CGROUP_BOOL(u, delegate)))
+                            (detect_container() == 0 && !unit_cgroup_delegate(u)))
                                 wait_for_exit = true;
 
                         if (send_sighup) {
@@ -5006,8 +4987,16 @@ void unit_set_exec_params(Unit *u, ExecParameters *p) {
         assert(u);
         assert(p);
 
+        /* Copy parameters from manager */
+        p->environment = u->manager->environment;
+        p->confirm_spawn = manager_get_confirm_spawn(u->manager);
+        p->cgroup_supported = u->manager->cgroup_supported;
+        p->prefix = u->manager->prefix;
+        SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, MANAGER_IS_SYSTEM(u->manager));
+
+        /* Copy paramaters from unit */
         p->cgroup_path = u->cgroup_path;
-        SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, UNIT_CGROUP_BOOL(u, delegate));
+        SET_FLAG(p->flags, EXEC_CGROUP_DELEGATE, unit_cgroup_delegate(u));
 }
 
 int unit_fork_helper_process(Unit *u, const char *name, pid_t *ret) {
@@ -5371,6 +5360,34 @@ const char *unit_label_path(Unit *u) {
                 return NULL;
 
         return p;
+}
+
+int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
+        int r;
+
+        assert(u);
+
+        /* Checks whether the specified PID is generally good for attaching, i.e. a valid PID, not our manager itself,
+         * and not a kernel thread either */
+
+        /* First, a simple range check */
+        if (!pid_is_valid(pid))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process identifier " PID_FMT " is not valid.", pid);
+
+        /* Some extra safety check */
+        if (pid == 1 || pid == getpid_cached())
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a manager processs, refusing.", pid);
+
+        /* Don't even begin to bother with kernel threads */
+        r = is_kernel_thread(pid);
+        if (r == -ESRCH)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_UNIX_PROCESS_ID_UNKNOWN, "Process with ID " PID_FMT " does not exist.", pid);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to determine whether process " PID_FMT " is a kernel thread: %m", pid);
+        if (r > 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a kernel thread, refusing.", pid);
+
+        return 0;
 }
 
 static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {

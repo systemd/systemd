@@ -398,37 +398,61 @@ use_saved_argv:
 }
 
 int is_kernel_thread(pid_t pid) {
+        _cleanup_free_ char *line = NULL;
+        unsigned long long flags;
+        size_t l, i;
         const char *p;
-        size_t count;
-        char c;
-        bool eof;
-        FILE *f;
+        char *q;
+        int r;
 
         if (IN_SET(pid, 0, 1) || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
                 return 0;
+        if (!pid_is_valid(pid))
+                return -EINVAL;
 
-        assert(pid > 1);
+        p = procfs_file_alloca(pid, "stat");
+        r = read_one_line_file(p, &line);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
 
-        p = procfs_file_alloca(pid, "cmdline");
-        f = fopen(p, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return -ESRCH;
-                return -errno;
+        /* Skip past the comm field */
+        q = strrchr(line, ')');
+        if (!q)
+                return -EINVAL;
+        q++;
+
+        /* Skip 6 fields to reach the flags field */
+        for (i = 0; i < 6; i++) {
+                l = strspn(q, WHITESPACE);
+                if (l < 1)
+                        return -EINVAL;
+                q += l;
+
+                l = strcspn(q, WHITESPACE);
+                if (l < 1)
+                        return -EINVAL;
+                q += l;
         }
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        /* Skip preceeding whitespace */
+        l = strspn(q, WHITESPACE);
+        if (l < 1)
+                return -EINVAL;
+        q += l;
 
-        count = fread(&c, 1, 1, f);
-        eof = feof(f);
-        fclose(f);
+        /* Truncate the rest */
+        l = strcspn(q, WHITESPACE);
+        if (l < 1)
+                return -EINVAL;
+        q[l] = 0;
 
-        /* Kernel threads have an empty cmdline */
+        r = safe_atollu(q, &flags);
+        if (r < 0)
+                return r;
 
-        if (count <= 0)
-                return eof ? 1 : -errno;
-
-        return 0;
+        return !!(flags & PF_KTHREAD);
 }
 
 int get_process_capeff(pid_t pid, char **capeff) {

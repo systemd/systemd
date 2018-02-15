@@ -89,17 +89,39 @@ static int bus_scope_set_transient_property(
                 return bus_set_transient_usec(UNIT(s), name, &s->timeout_stop_usec, message, flags, error);
 
         if (streq(name, "PIDs")) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 unsigned n = 0;
-                uint32_t pid;
 
                 r = sd_bus_message_enter_container(message, 'a', "u");
                 if (r < 0)
                         return r;
 
-                while ((r = sd_bus_message_read(message, "u", &pid)) > 0) {
+                for (;;) {
+                        uint32_t upid;
+                        pid_t pid;
 
-                        if (pid <= 1)
-                                return -EINVAL;
+                        r = sd_bus_message_read(message, "u", &upid);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                break;
+
+                        if (upid == 0) {
+                                if (!creds) {
+                                        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                r = sd_bus_creds_get_pid(creds, &pid);
+                                if (r < 0)
+                                        return r;
+                        } else
+                                pid = (uid_t) upid;
+
+                        r = unit_pid_attachable(UNIT(s), pid, error);
+                        if (r < 0)
+                                return r;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = unit_watch_pid(UNIT(s), pid);
@@ -109,8 +131,6 @@ static int bus_scope_set_transient_property(
 
                         n++;
                 }
-                if (r < 0)
-                        return r;
 
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)

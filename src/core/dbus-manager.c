@@ -372,21 +372,16 @@ static int property_get_timer_slack_nsec(
         return sd_bus_message_append(reply, "t", (uint64_t) prctl(PR_GET_TIMERSLACK));
 }
 
-static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *path = NULL;
-        Manager *m = userdata;
-        const char *name;
+static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
         Unit *u;
         int r;
 
-        assert(message);
         assert(m);
+        assert(message);
+        assert(ret_unit);
 
-        /* Anyone can call this method */
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
+        /* More or less a wrapper around manager_get_unit() that generates nice errors and has one trick up its sleeve:
+         * if the name is specified empty we use the client's unit. */
 
         if (isempty(name)) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
@@ -408,6 +403,43 @@ static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error
                 if (!u)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", name);
         }
+
+        *ret_unit = u;
+        return 0;
+}
+
+static int bus_load_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
+        assert(m);
+        assert(message);
+        assert(ret_unit);
+
+        /* Pretty much the same as bus_get_unit_by_name(), but we also load the unit if necessary. */
+
+        if (isempty(name))
+                return bus_get_unit_by_name(m, message, name, ret_unit, error);
+
+        return manager_load_unit(m, name, NULL, error, ret_unit);
+}
+
+static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *path = NULL;
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        /* Anyone can call this method */
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        r = bus_get_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
 
         r = mac_selinux_unit_access_check(u, message, "status", error);
         if (r < 0)
@@ -541,26 +573,9 @@ static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        if (isempty(name)) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                pid_t pid;
-
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_creds_get_pid(creds, &pid);
-                if (r < 0)
-                        return r;
-
-                u = manager_get_unit_by_pid(m, pid);
-                if (!u)
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Client not member of any unit.");
-        } else {
-                r = manager_load_unit(m, name, NULL, error, &u);
-                if (r < 0)
-                        return r;
-        }
+        r = bus_load_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
 
         r = mac_selinux_unit_access_check(u, message, "status", error);
         if (r < 0)
@@ -633,8 +648,10 @@ static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        u = manager_get_unit(m, old_name);
-        if (!u || !u->job || u->job->type != JOB_START)
+        r = bus_get_unit_by_name(m, message, old_name, &u, error);
+        if (r < 0)
+                return r;
+        if (!u->job || u->job->type != JOB_START)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_JOB, "No job queued for unit %s", old_name);
 
         return method_start_unit_generic(message, m, JOB_START, false, error);
@@ -653,9 +670,9 @@ static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        u = manager_get_unit(m, name);
-        if (!u)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+        r = bus_get_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
 
         return bus_unit_method_kill(message, u, error);
 }
@@ -673,9 +690,9 @@ static int method_reset_failed_unit(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        u = manager_get_unit(m, name);
-        if (!u)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s is not loaded.", name);
+        r = bus_get_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
 
         return bus_unit_method_reset_failed(message, u, error);
 }
@@ -693,7 +710,7 @@ static int method_set_unit_properties(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(m, name, NULL, error, &u);
+        r = bus_load_unit_by_name(m, message, name, &u, error);
         if (r < 0)
                 return r;
 
@@ -717,7 +734,7 @@ static int method_ref_unit(sd_bus_message *message, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(m, name, NULL, error, &u);
+        r = bus_load_unit_by_name(m, message, name, &u, error);
         if (r < 0)
                 return r;
 
@@ -741,7 +758,7 @@ static int method_unref_unit(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        r = manager_load_unit(m, name, NULL, error, &u);
+        r = bus_load_unit_by_name(m, message, name, &u, error);
         if (r < 0)
                 return r;
 
@@ -810,7 +827,7 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
                 if (!unit_name_is_valid(*unit, UNIT_NAME_ANY))
                         continue;
 
-                r = manager_load_unit(m, *unit, NULL, error, &u);
+                r = bus_load_unit_by_name(m, message, *unit, &u, error);
                 if (r < 0)
                         return r;
 
@@ -839,11 +856,31 @@ static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
-        u = manager_get_unit(m, name);
-        if (!u)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", name);
+        r = bus_get_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
 
         return bus_unit_method_get_processes(message, u, error);
+}
+
+static int method_attach_processes_to_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+        const char *name;
+        Unit *u;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        r = sd_bus_message_read(message, "s", &name);
+        if (r < 0)
+                return r;
+
+        r = bus_get_unit_by_name(m, message, name, &u, error);
+        if (r < 0)
+                return r;
+
+        return bus_unit_method_attach_processes(message, u, error);
 }
 
 static int transient_unit_from_message(
@@ -2487,6 +2524,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("UnrefUnit", "s", NULL, method_unref_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("StartTransientUnit", "ssa(sv)a(sa(sv))", "o", method_start_transient_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUnitProcesses", "s", "a(sus)", method_get_unit_processes, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("AttachProcessesToUnit", "ssau", NULL, method_attach_processes_to_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetJob", "u", "o", method_get_job, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetJobAfter", "u", "a(usssoo)", method_get_job_waiting, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetJobBefore", "u", "a(usssoo)", method_get_job_waiting, SD_BUS_VTABLE_UNPRIVILEGED),

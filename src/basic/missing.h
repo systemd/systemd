@@ -1368,4 +1368,8 @@ struct fib_rule_uid_range {
 #define FALLOC_FL_PUNCH_HOLE 0x02
 #endif
 
+#ifndef PF_KTHREAD
+#define PF_KTHREAD 0x00200000
+#endif
+
 #include "missing_syscall.h"

@@ -351,6 +351,9 @@ static int bus_cgroup_set_transient_property(
         if (streq(name, "Delegate")) {
                 int b;
 
+                if (!UNIT_VTABLE(u)->can_delegate)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
+
                 r = sd_bus_message_read(message, "b", &b);
                 if (r < 0)
                         return r;
@@ -366,6 +369,9 @@ static int bus_cgroup_set_transient_property(
 
         } else if (streq(name, "DelegateControllers")) {
                 CGroupMask mask = 0;
+
+                if (!UNIT_VTABLE(u)->can_delegate)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
 
                 r = sd_bus_message_enter_container(message, 'a', "s");
                 if (r < 0)

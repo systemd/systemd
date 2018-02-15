@@ -197,6 +197,25 @@ int get_user_creds(
         return 0;
 }
 
+static inline bool is_nologin_shell(const char *shell) {
+
+        return PATH_IN_SET(shell,
+                           /* 'nologin' is the friendliest way to disable logins for a user account. It prints a nice
+                            * message and exits. Different distributions place the binary at different places though,
+                            * hence let's list them all. */
+                           "/bin/nologin",
+                           "/sbin/nologin",
+                           "/usr/bin/nologin",
+                           "/usr/sbin/nologin",
+                           /* 'true' and 'false' work too for the same purpose, but are less friendly as they don't do
+                            * any message printing. Different distributions place the binary at various places but at
+                            * least not in the 'sbin' directory. */
+                           "/bin/false",
+                           "/usr/bin/false",
+                           "/bin/true",
+                           "/usr/bin/true");
+}
+
 int get_user_creds_clean(
                 const char **username,
                 uid_t *uid, gid_t *gid,
@@ -212,11 +231,7 @@ int get_user_creds_clean(
                 return r;
 
         if (shell &&
-            (isempty(*shell) || PATH_IN_SET(*shell,
-                                            "/bin/nologin",
-                                            "/sbin/nologin",
-                                            "/usr/bin/nologin",
-                                            "/usr/sbin/nologin")))
+            (isempty(*shell) || is_nologin_shell(*shell)))
                 *shell = NULL;
 
         if (home &&
