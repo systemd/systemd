@@ -814,29 +814,37 @@ int mount_verbose(
                 unsigned long flags,
                 const char *options) {
 
-        _cleanup_free_ char *fl = NULL;
+        _cleanup_free_ char *fl = NULL, *o = NULL;
+        unsigned long f;
+        int r;
 
-        fl = mount_flags_to_string(flags);
+        r = mount_option_mangle(options, flags, &f, &o);
+        if (r < 0)
+                return log_full_errno(error_log_level, r,
+                                      "Failed to mangle mount options %s: %m",
+                                      strempty(options));
 
-        if ((flags & MS_REMOUNT) && !what && !type)
+        fl = mount_flags_to_string(f);
+
+        if ((f & MS_REMOUNT) && !what && !type)
                 log_debug("Remounting %s (%s \"%s\")...",
-                          where, strnull(fl), strempty(options));
+                          where, strnull(fl), strempty(o));
         else if (!what && !type)
                 log_debug("Mounting %s (%s \"%s\")...",
-                          where, strnull(fl), strempty(options));
-        else if ((flags & MS_BIND) && !type)
+                          where, strnull(fl), strempty(o));
+        else if ((f & MS_BIND) && !type)
                 log_debug("Bind-mounting %s on %s (%s \"%s\")...",
-                          what, where, strnull(fl), strempty(options));
-        else if (flags & MS_MOVE)
+                          what, where, strnull(fl), strempty(o));
+        else if (f & MS_MOVE)
                 log_debug("Moving mount %s → %s (%s \"%s\")...",
-                          what, where, strnull(fl), strempty(options));
+                          what, where, strnull(fl), strempty(o));
         else
                 log_debug("Mounting %s on %s (%s \"%s\")...",
-                          strna(type), where, strnull(fl), strempty(options));
-        if (mount(what, where, type, flags, options) < 0)
+                          strna(type), where, strnull(fl), strempty(o));
+        if (mount(what, where, type, f, o) < 0)
                 return log_full_errno(error_log_level, errno,
                                       "Failed to mount %s on %s (%s \"%s\"): %m",
-                                      strna(type), where, strnull(fl), strempty(options));
+                                      strna(type), where, strnull(fl), strempty(o));
         return 0;
 }
 
