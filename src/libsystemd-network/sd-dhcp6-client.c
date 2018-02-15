@@ -973,7 +973,7 @@ static int client_parse_message(
                 lease->pd.ia_pd.lifetime_t2 = htobe32(lt_t2);
         }
 
-        return r;
+        return 0;
 }
 
 static int client_receive_reply(sd_dhcp6_client *client, DHCP6Message *reply, size_t len) {
