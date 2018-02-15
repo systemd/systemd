@@ -41,12 +41,12 @@ BuildPackages=
         docbook-style-xsl
         elfutils-devel
         gcc
+        gettext
         git
         gnu-efi
         gnu-efi-devel
         gnutls-devel
         gperf
-        intltool
         iptables-devel
         kmod-devel
         libacl-devel
