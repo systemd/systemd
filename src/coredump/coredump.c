@@ -102,6 +102,7 @@ enum {
         CONTEXT_SIGNAL,
         CONTEXT_TIMESTAMP,
         CONTEXT_RLIMIT,
+        CONTEXT_HOSTNAME,
         CONTEXT_COMM,
         CONTEXT_EXE,
         CONTEXT_UNIT,
@@ -205,6 +206,7 @@ static int fix_xattr(int fd, const char *context[_CONTEXT_MAX]) {
                 [CONTEXT_SIGNAL] = "user.coredump.signal",
                 [CONTEXT_TIMESTAMP] = "user.coredump.timestamp",
                 [CONTEXT_RLIMIT] = "user.coredump.rlimit",
+                [CONTEXT_HOSTNAME] = "user.coredump.hostname",
                 [CONTEXT_COMM] = "user.coredump.comm",
                 [CONTEXT_EXE] = "user.coredump.exe",
         };
@@ -848,6 +850,7 @@ static void map_context_fields(const struct iovec *iovec, const char* context[])
                 [CONTEXT_SIGNAL] = "COREDUMP_SIGNAL=",
                 [CONTEXT_TIMESTAMP] = "COREDUMP_TIMESTAMP=",
                 [CONTEXT_RLIMIT] = "COREDUMP_RLIMIT=",
+                [CONTEXT_HOSTNAME] = "COREDUMP_HOSTNAME=",
                 [CONTEXT_COMM] = "COREDUMP_COMM=",
                 [CONTEXT_EXE] = "COREDUMP_EXE=",
         };
@@ -981,6 +984,7 @@ static int process_socket(int fd) {
         assert(context[CONTEXT_SIGNAL]);
         assert(context[CONTEXT_TIMESTAMP]);
         assert(context[CONTEXT_RLIMIT]);
+        assert(context[CONTEXT_HOSTNAME]);
         assert(context[CONTEXT_COMM]);
         assert(coredump_fd >= 0);
 
@@ -1067,7 +1071,7 @@ static int send_iovec(const struct iovec iovec[], size_t n_iovec, int input_fd) 
         return 0;
 }
 
-static char* set_iovec_field(struct iovec iovec[27], size_t *n_iovec, const char *field, const char *value) {
+static char* set_iovec_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value) {
         char *x;
 
         x = strappend(field, value);
@@ -1076,7 +1080,7 @@ static char* set_iovec_field(struct iovec iovec[27], size_t *n_iovec, const char
         return x;
 }
 
-static char* set_iovec_field_free(struct iovec iovec[27], size_t *n_iovec, const char *field, char *value) {
+static char* set_iovec_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value) {
         char *x;
 
         x = set_iovec_field(iovec, n_iovec, field, value);
@@ -1089,7 +1093,7 @@ static int gather_pid_metadata(
                 char **comm_fallback,
                 struct iovec *iovec, size_t *n_iovec) {
 
-        /* We need 26 empty slots in iovec!
+        /* We need 27 empty slots in iovec!
          *
          * Note that if we fail on oom later on, we do not roll-back changes to the iovec structure. (It remains valid,
          * with the first n_iovec fields initialized.) */
@@ -1149,6 +1153,9 @@ static int gather_pid_metadata(
                 return log_oom();
 
         if (!set_iovec_field(iovec, n_iovec, "COREDUMP_RLIMIT=", context[CONTEXT_RLIMIT]))
+                return log_oom();
+
+        if (!set_iovec_field(iovec, n_iovec, "COREDUMP_HOSTNAME=", context[CONTEXT_HOSTNAME]))
                 return log_oom();
 
         if (!set_iovec_field(iovec, n_iovec, "COREDUMP_COMM=", context[CONTEXT_COMM]))
@@ -1231,7 +1238,7 @@ static int gather_pid_metadata(
 static int process_kernel(int argc, char* argv[]) {
 
         char* context[_CONTEXT_MAX] = {};
-        struct iovec iovec[28 + SUBMIT_COREDUMP_FIELDS];
+        struct iovec iovec[29 + SUBMIT_COREDUMP_FIELDS];
         size_t i, n_iovec, n_to_free = 0;
         int r;
 
@@ -1248,6 +1255,7 @@ static int process_kernel(int argc, char* argv[]) {
         context[CONTEXT_SIGNAL]    = argv[1 + CONTEXT_SIGNAL];
         context[CONTEXT_TIMESTAMP] = argv[1 + CONTEXT_TIMESTAMP];
         context[CONTEXT_RLIMIT]    = argv[1 + CONTEXT_RLIMIT];
+        context[CONTEXT_HOSTNAME]  = argv[1 + CONTEXT_HOSTNAME];
 
         r = gather_pid_metadata(context, argv + 1 + CONTEXT_COMM, iovec, &n_to_free);
         if (r < 0)
@@ -1304,9 +1312,10 @@ static int process_backtrace(int argc, char *argv[]) {
         context[CONTEXT_SIGNAL]    = argv[2 + CONTEXT_SIGNAL];
         context[CONTEXT_TIMESTAMP] = argv[2 + CONTEXT_TIMESTAMP];
         context[CONTEXT_RLIMIT]    = argv[2 + CONTEXT_RLIMIT];
+        context[CONTEXT_HOSTNAME]  = argv[2 + CONTEXT_HOSTNAME];
 
-        n_allocated = 33 + COREDUMP_STORAGE_EXTERNAL;
-        /* 25 metadata, 2 static, +unknown input, 4 storage, rounded up */
+        n_allocated = 34 + COREDUMP_STORAGE_EXTERNAL;
+        /* 26 metadata, 2 static, +unknown input, 4 storage, rounded up */
         iovec = new(struct iovec, n_allocated);
         if (!iovec)
                 return log_oom();
