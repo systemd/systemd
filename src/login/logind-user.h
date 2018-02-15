@@ -66,7 +66,7 @@ User *user_free(User *u);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(User *, user_free);
 
-bool user_check_gc(User *u, bool drop_not_started);
+bool user_may_gc(User *u, bool drop_not_started);
 void user_add_to_gc_queue(User *u);
 int user_start(User *u);
 int user_stop(User *u, bool force);

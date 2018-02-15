@@ -680,25 +680,25 @@ int user_check_linger_file(User *u) {
         return access(p, F_OK) >= 0;
 }
 
-bool user_check_gc(User *u, bool drop_not_started) {
+bool user_may_gc(User *u, bool drop_not_started) {
         assert(u);
 
         if (drop_not_started && !u->started)
-                return false;
+                return true;
 
         if (u->sessions)
-                return true;
+                return false;
 
         if (user_check_linger_file(u) > 0)
-                return true;
+                return false;
 
         if (u->slice_job && manager_job_is_active(u->manager, u->slice_job))
-                return true;
+                return false;
 
         if (u->service_job && manager_job_is_active(u->manager, u->service_job))
-                return true;
+                return false;
 
-        return false;
+        return true;
 }
 
 void user_add_to_gc_queue(User *u) {
