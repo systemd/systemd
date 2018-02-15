@@ -336,20 +336,25 @@ int unit_set_description(Unit *u, const char *description) {
         return 0;
 }
 
-bool unit_check_gc(Unit *u) {
+bool unit_may_gc(Unit *u) {
         UnitActiveState state;
         int r;
 
         assert(u);
 
-        /* Checks whether the unit is ready to be unloaded for garbage collection. Returns true, when the unit shall
-         * stay around, false if there's no reason to keep it loaded. */
+        /* Checks whether the unit is ready to be unloaded for garbage collection.
+         * Returns true when the unit may be collected, and false if there's some
+         * reason to keep it loaded.
+         *
+         * References from other units are *not* checked here. Instead, this is done
+         * in unit_gc_sweep(), but using markers to properly collect dependency loops.
+         */
 
         if (u->job)
-                return true;
+                return false;
 
         if (u->nop_job)
-                return true;
+                return false;
 
         state = unit_active_state(u);
 
@@ -359,26 +364,23 @@ bool unit_check_gc(Unit *u) {
                 UNIT_VTABLE(u)->release_resources(u);
 
         if (u->perpetual)
-                return true;
-
-        if (u->refs)
-                return true;
+                return false;
 
         if (sd_bus_track_count(u->bus_track) > 0)
-                return true;
+                return false;
 
         /* But we keep the unit object around for longer when it is referenced or configured to not be gc'ed */
         switch (u->collect_mode) {
 
         case COLLECT_INACTIVE:
                 if (state != UNIT_INACTIVE)
-                        return true;
+                        return false;
 
                 break;
 
         case COLLECT_INACTIVE_OR_FAILED:
                 if (!IN_SET(state, UNIT_INACTIVE, UNIT_FAILED))
-                        return true;
+                        return false;
 
                 break;
 
@@ -394,14 +396,13 @@ bool unit_check_gc(Unit *u) {
                 if (r < 0)
                         log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty: %m", u->cgroup_path);
                 if (r <= 0)
-                        return true;
+                        return false;
         }
 
-        if (UNIT_VTABLE(u)->check_gc)
-                if (UNIT_VTABLE(u)->check_gc(u))
-                        return true;
+        if (UNIT_VTABLE(u)->may_gc && !UNIT_VTABLE(u)->may_gc(u))
+                return false;
 
-        return false;
+        return true;
 }
 
 void unit_add_to_load_queue(Unit *u) {
@@ -431,7 +432,7 @@ void unit_add_to_gc_queue(Unit *u) {
         if (u->in_gc_queue || u->in_cleanup_queue)
                 return;
 
-        if (unit_check_gc(u))
+        if (!unit_may_gc(u))
                 return;
 
         LIST_PREPEND(gc_queue, u->manager->gc_unit_queue, u);
@@ -609,27 +610,6 @@ void unit_free(Unit *u) {
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                 bidi_set_free(u, u->dependencies[d]);
 
-        if (u->type != _UNIT_TYPE_INVALID)
-                LIST_REMOVE(units_by_type, u->manager->units_by_type[u->type], u);
-
-        if (u->in_load_queue)
-                LIST_REMOVE(load_queue, u->manager->load_queue, u);
-
-        if (u->in_dbus_queue)
-                LIST_REMOVE(dbus_queue, u->manager->dbus_unit_queue, u);
-
-        if (u->in_cleanup_queue)
-                LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
-
-        if (u->in_gc_queue)
-                LIST_REMOVE(gc_queue, u->manager->gc_unit_queue, u);
-
-        if (u->in_cgroup_realize_queue)
-                LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
-
-        if (u->in_cgroup_empty_queue)
-                LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
-
         if (u->on_console)
                 manager_unref_console(u->manager);
 
@@ -643,28 +623,32 @@ void unit_free(Unit *u) {
         (void) manager_update_failed_units(u->manager, u, false);
         set_remove(u->manager->startup_units, u);
 
-        free(u->description);
-        strv_free(u->documentation);
-        free(u->fragment_path);
-        free(u->source_path);
-        strv_free(u->dropin_paths);
-        free(u->instance);
-
-        free(u->job_timeout_reboot_arg);
-
-        set_free_free(u->names);
-
         unit_unwatch_all_pids(u);
 
-        condition_free_list(u->conditions);
-        condition_free_list(u->asserts);
-
-        free(u->reboot_arg);
-
         unit_ref_unset(&u->slice);
+        while (u->refs_by_target)
+                unit_ref_unset(u->refs_by_target);
 
-        while (u->refs)
-                unit_ref_unset(u->refs);
+        if (u->type != _UNIT_TYPE_INVALID)
+                LIST_REMOVE(units_by_type, u->manager->units_by_type[u->type], u);
+
+        if (u->in_load_queue)
+                LIST_REMOVE(load_queue, u->manager->load_queue, u);
+
+        if (u->in_dbus_queue)
+                LIST_REMOVE(dbus_queue, u->manager->dbus_unit_queue, u);
+
+        if (u->in_gc_queue)
+                LIST_REMOVE(gc_queue, u->manager->gc_unit_queue, u);
+
+        if (u->in_cgroup_realize_queue)
+                LIST_REMOVE(cgroup_realize_queue, u->manager->cgroup_realize_queue, u);
+
+        if (u->in_cgroup_empty_queue)
+                LIST_REMOVE(cgroup_empty_queue, u->manager->cgroup_empty_queue, u);
+
+        if (u->in_cleanup_queue)
+                LIST_REMOVE(cleanup_queue, u->manager->cleanup_queue, u);
 
         safe_close(u->ip_accounting_ingress_map_fd);
         safe_close(u->ip_accounting_egress_map_fd);
@@ -676,6 +660,22 @@ void unit_free(Unit *u) {
 
         bpf_program_unref(u->ip_bpf_ingress);
         bpf_program_unref(u->ip_bpf_egress);
+
+        condition_free_list(u->conditions);
+        condition_free_list(u->asserts);
+
+        free(u->description);
+        strv_free(u->documentation);
+        free(u->fragment_path);
+        free(u->source_path);
+        strv_free(u->dropin_paths);
+        free(u->instance);
+
+        free(u->job_timeout_reboot_arg);
+
+        set_free_free(u->names);
+
+        free(u->reboot_arg);
 
         free(u);
 }
@@ -896,8 +896,8 @@ int unit_merge(Unit *u, Unit *other) {
                 return r;
 
         /* Redirect all references */
-        while (other->refs)
-                unit_ref_set(other->refs, u);
+        while (other->refs_by_target)
+                unit_ref_set(other->refs_by_target, other->refs_by_target->source, u);
 
         /* Merge dependencies */
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
@@ -1119,7 +1119,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tActive Enter Timestamp: %s\n"
                 "%s\tActive Exit Timestamp: %s\n"
                 "%s\tInactive Enter Timestamp: %s\n"
-                "%s\tGC Check Good: %s\n"
+                "%s\tMay GC: %s\n"
                 "%s\tNeed Daemon Reload: %s\n"
                 "%s\tTransient: %s\n"
                 "%s\tPerpetual: %s\n"
@@ -1137,7 +1137,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->active_enter_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp3, sizeof(timestamp3), u->active_exit_timestamp.realtime)),
                 prefix, strna(format_timestamp(timestamp4, sizeof(timestamp4), u->inactive_enter_timestamp.realtime)),
-                prefix, yes_no(unit_check_gc(u)),
+                prefix, yes_no(unit_may_gc(u)),
                 prefix, yes_no(unit_need_daemon_reload(u)),
                 prefix, yes_no(u->transient),
                 prefix, yes_no(u->perpetual),
@@ -2964,8 +2964,7 @@ int unit_set_slice(Unit *u, Unit *slice) {
         if (UNIT_ISSET(u->slice) && u->cgroup_realized)
                 return -EBUSY;
 
-        unit_ref_unset(&u->slice);
-        unit_ref_set(&u->slice, slice);
+        unit_ref_set(&u->slice, u, slice);
         return 1;
 }
 
@@ -3974,30 +3973,32 @@ int unit_get_unit_file_preset(Unit *u) {
         return u->unit_file_preset;
 }
 
-Unit* unit_ref_set(UnitRef *ref, Unit *u) {
+Unit* unit_ref_set(UnitRef *ref, Unit *source, Unit *target) {
         assert(ref);
-        assert(u);
+        assert(source);
+        assert(target);
 
-        if (ref->unit)
+        if (ref->target)
                 unit_ref_unset(ref);
 
-        ref->unit = u;
-        LIST_PREPEND(refs, u->refs, ref);
-        return u;
+        ref->source = source;
+        ref->target = target;
+        LIST_PREPEND(refs_by_target, target->refs_by_target, ref);
+        return target;
 }
 
 void unit_ref_unset(UnitRef *ref) {
         assert(ref);
 
-        if (!ref->unit)
+        if (!ref->target)
                 return;
 
         /* We are about to drop a reference to the unit, make sure the garbage collection has a look at it as it might
          * be unreferenced now. */
-        unit_add_to_gc_queue(ref->unit);
+        unit_add_to_gc_queue(ref->target);
 
-        LIST_REMOVE(refs, ref->unit->refs, ref);
-        ref->unit = NULL;
+        LIST_REMOVE(refs_by_target, ref->target->refs_by_target, ref);
+        ref->source = ref->target = NULL;
 }
 
 static int user_from_unit_name(Unit *u, char **ret) {

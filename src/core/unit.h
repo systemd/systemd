@@ -123,8 +123,8 @@ struct UnitRef {
          * that we can merge two units if necessary and correct all
          * references to them */
 
-        Unit* unit;
-        LIST_FIELDS(UnitRef, refs);
+        Unit *source, *target;
+        LIST_FIELDS(UnitRef, refs_by_target);
 };
 
 typedef enum UnitCGroupBPFState {
@@ -187,7 +187,7 @@ struct Unit {
         char *job_timeout_reboot_arg;
 
         /* References to this */
-        LIST_HEAD(UnitRef, refs);
+        LIST_HEAD(UnitRef, refs_by_target);
 
         /* Conditions to check */
         LIST_HEAD(Condition, conditions);
@@ -490,10 +490,9 @@ struct UnitVTable {
         /* Additionally to UnitActiveState determine whether unit is to be restarted. */
         bool (*will_restart)(Unit *u);
 
-        /* Return true when there is reason to keep this entry around
-         * even nothing references it and it isn't active in any
-         * way */
-        bool (*check_gc)(Unit *u);
+        /* Return false when there is a reason to prevent this unit from being gc'ed
+         * even though nothing references it and it isn't active in any way. */
+        bool (*may_gc)(Unit *u);
 
         /* When the unit is not running and no job for it queued we shall release its runtime resources */
         void (*release_resources)(Unit *u);
@@ -626,7 +625,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
 
-bool unit_check_gc(Unit *u);
+bool unit_may_gc(Unit *u);
 
 void unit_add_to_load_queue(Unit *u);
 void unit_add_to_dbus_queue(Unit *u);
@@ -728,11 +727,11 @@ void unit_trigger_notify(Unit *u);
 UnitFileState unit_get_unit_file_state(Unit *u);
 int unit_get_unit_file_preset(Unit *u);
 
-Unit* unit_ref_set(UnitRef *ref, Unit *u);
+Unit* unit_ref_set(UnitRef *ref, Unit *source, Unit *target);
 void unit_ref_unset(UnitRef *ref);
 
-#define UNIT_DEREF(ref) ((ref).unit)
-#define UNIT_ISSET(ref) (!!(ref).unit)
+#define UNIT_DEREF(ref) ((ref).target)
+#define UNIT_ISSET(ref) (!!(ref).target)
 
 int unit_patch_contexts(Unit *u);
 

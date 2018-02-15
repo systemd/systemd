@@ -978,12 +978,15 @@ _pure_ static const char *swap_sub_state_to_string(Unit *u) {
         return swap_state_to_string(SWAP(u)->state);
 }
 
-_pure_ static bool swap_check_gc(Unit *u) {
+_pure_ static bool swap_may_gc(Unit *u) {
         Swap *s = SWAP(u);
 
         assert(s);
 
-        return s->from_proc_swaps;
+        if (s->from_proc_swaps)
+                return false;
+
+        return true;
 }
 
 static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
@@ -1505,7 +1508,7 @@ const UnitVTable swap_vtable = {
         .active_state = swap_active_state,
         .sub_state_to_string = swap_sub_state_to_string,
 
-        .check_gc = swap_check_gc,
+        .may_gc = swap_may_gc,
 
         .sigchld_event = swap_sigchld_event,
 

@@ -639,16 +639,16 @@ int seat_get_idle_hint(Seat *s, dual_timestamp *t) {
         return idle_hint;
 }
 
-bool seat_check_gc(Seat *s, bool drop_not_started) {
+bool seat_may_gc(Seat *s, bool drop_not_started) {
         assert(s);
 
         if (drop_not_started && !s->started)
-                return false;
-
-        if (seat_is_seat0(s))
                 return true;
 
-        return seat_has_master_device(s);
+        if (seat_is_seat0(s))
+                return false;
+
+        return !seat_has_master_device(s);
 }
 
 void seat_add_to_gc_queue(Seat *s) {

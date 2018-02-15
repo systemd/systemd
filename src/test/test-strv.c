@@ -676,6 +676,17 @@ static void test_strv_make_nulstr(void) {
         test_strv_make_nulstr_one(STRV_MAKE("foo", "bar", "quuux"));
 }
 
+static void test_strv_free_free(void) {
+        char ***t;
+
+        assert_se(t = new(char**, 3));
+        assert_se(t[0] = strv_new("a", "b", NULL));
+        assert_se(t[1] = strv_new("c", "d", "e", NULL));
+        t[2] = NULL;
+
+        t = strv_free_free(t);
+}
+
 static void test_foreach_string(void) {
         const char * const t[] = {
                 "foo",
@@ -763,6 +774,7 @@ int main(int argc, char *argv[]) {
         test_strv_skip();
         test_strv_extend_n();
         test_strv_make_nulstr();
+        test_strv_free_free();
 
         test_foreach_string();
         test_strv_fnmatch();

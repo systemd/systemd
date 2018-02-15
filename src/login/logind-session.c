@@ -1000,27 +1000,27 @@ static void session_remove_fifo(Session *s) {
         }
 }
 
-bool session_check_gc(Session *s, bool drop_not_started) {
+bool session_may_gc(Session *s, bool drop_not_started) {
         assert(s);
 
         if (drop_not_started && !s->started)
-                return false;
+                return true;
 
         if (!s->user)
-                return false;
+                return true;
 
         if (s->fifo_fd >= 0) {
                 if (pipe_eof(s->fifo_fd) <= 0)
-                        return true;
+                        return false;
         }
 
         if (s->scope_job && manager_job_is_active(s->manager, s->scope_job))
-                return true;
+                return false;
 
         if (s->scope && manager_unit_is_active(s->manager, s->scope))
-                return true;
+                return false;
 
-        return false;
+        return true;
 }
 
 void session_add_to_gc_queue(Session *s) {

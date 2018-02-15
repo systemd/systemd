@@ -79,7 +79,7 @@ int seat_start(Seat *s);
 int seat_stop(Seat *s, bool force);
 int seat_stop_sessions(Seat *s, bool force);
 
-bool seat_check_gc(Seat *s, bool drop_not_started);
+bool seat_may_gc(Seat *s, bool drop_not_started);
 void seat_add_to_gc_queue(Seat *s);
 
 bool seat_name_is_valid(const char *name);

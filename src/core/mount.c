@@ -1233,12 +1233,15 @@ _pure_ static const char *mount_sub_state_to_string(Unit *u) {
         return mount_state_to_string(MOUNT(u)->state);
 }
 
-_pure_ static bool mount_check_gc(Unit *u) {
+_pure_ static bool mount_may_gc(Unit *u) {
         Mount *m = MOUNT(u);
 
         assert(m);
 
-        return m->from_proc_self_mountinfo;
+        if (m->from_proc_self_mountinfo)
+                return false;
+
+        return true;
 }
 
 static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
@@ -1994,7 +1997,7 @@ const UnitVTable mount_vtable = {
         .active_state = mount_active_state,
         .sub_state_to_string = mount_sub_state_to_string,
 
-        .check_gc = mount_check_gc,
+        .may_gc = mount_may_gc,
 
         .sigchld_event = mount_sigchld_event,
 

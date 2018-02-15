@@ -1038,7 +1038,7 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
         if (u->in_cleanup_queue)
                 goto bad;
 
-        if (unit_check_gc(u))
+        if (!unit_may_gc(u))
                 goto good;
 
         u->gc_marker = gc_marker + GC_OFFSET_IN_PATH;
@@ -1053,6 +1053,20 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
 
                 if (other->gc_marker != gc_marker + GC_OFFSET_BAD)
                         is_bad = false;
+        }
+
+        if (u->refs_by_target) {
+                const UnitRef *ref;
+
+                LIST_FOREACH(refs_by_target, ref, u->refs_by_target) {
+                        unit_gc_sweep(ref->source, gc_marker);
+
+                        if (ref->source->gc_marker == gc_marker + GC_OFFSET_GOOD)
+                                goto good;
+
+                        if (ref->source->gc_marker != gc_marker + GC_OFFSET_BAD)
+                                is_bad = false;
+                }
         }
 
         if (is_bad)
@@ -1125,7 +1139,7 @@ static unsigned manager_dispatch_gc_job_queue(Manager *m) {
 
                 n++;
 
-                if (job_check_gc(j))
+                if (!job_may_gc(j))
                         continue;
 
                 log_unit_debug(j->unit, "Collecting job.");
