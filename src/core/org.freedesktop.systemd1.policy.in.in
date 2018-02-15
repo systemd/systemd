@@ -19,8 +19,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.systemd1.reply-password">
-                <description>Send passphrase back to system</description>
-                <message>Authentication is required to send the entered passphrase back to the system.</message>
+                <description gettext-domain="systemd">Send passphrase back to system</description>
+                <message gettext-domain="systemd">Authentication is required to send the entered passphrase back to the system.</message>
                 <defaults>
                         <allow_any>no</allow_any>
                         <allow_inactive>no</allow_inactive>
@@ -30,8 +30,8 @@
         </action>
 
         <action id="org.freedesktop.systemd1.manage-units">
-                <description>Manage system services or other units</description>
-                <message>Authentication is required to manage system services or other units.</message>
+                <description gettext-domain="systemd">Manage system services or other units</description>
+                <message gettext-domain="systemd">Authentication is required to manage system services or other units.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -40,8 +40,8 @@
         </action>
 
         <action id="org.freedesktop.systemd1.manage-unit-files">
-                <description>Manage system service or unit files</description>
-                <message>Authentication is required to manage system service or unit files.</message>
+                <description gettext-domain="systemd">Manage system service or unit files</description>
+                <message gettext-domain="systemd">Authentication is required to manage system service or unit files.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -50,8 +50,8 @@
         </action>
 
         <action id="org.freedesktop.systemd1.set-environment">
-                <description>Set or unset system and service manager environment variables</description>
-                <message>Authentication is required to set or unset system and service manager environment variables.</message>
+                <description gettext-domain="systemd">Set or unset system and service manager environment variables</description>
+                <message gettext-domain="systemd">Authentication is required to set or unset system and service manager environment variables.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -60,8 +60,8 @@
         </action>
 
         <action id="org.freedesktop.systemd1.reload-daemon">
-                <description>Reload the systemd state</description>
-                <message>Authentication is required to reload the systemd state.</message>
+                <description gettext-domain="systemd">Reload the systemd state</description>
+                <message gettext-domain="systemd">Authentication is required to reload the systemd state.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>

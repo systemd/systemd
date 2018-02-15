@@ -19,8 +19,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.hostname1.set-hostname">
-                <description>Set host name</description>
-                <message>Authentication is required to set the local host name.</message>
+                <description gettext-domain="systemd">Set host name</description>
+                <message gettext-domain="systemd">Authentication is required to set the local host name.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -29,8 +29,8 @@
         </action>
 
         <action id="org.freedesktop.hostname1.set-static-hostname">
-                <description>Set static host name</description>
-                <message>Authentication is required to set the statically configured local host name, as well as the pretty host name.</message>
+                <description gettext-domain="systemd">Set static host name</description>
+                <message gettext-domain="systemd">Authentication is required to set the statically configured local host name, as well as the pretty host name.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -40,8 +40,8 @@
         </action>
 
         <action id="org.freedesktop.hostname1.set-machine-info">
-                <description>Set machine information</description>
-                <message>Authentication is required to set local machine information.</message>
+                <description gettext-domain="systemd">Set machine information</description>
+                <message gettext-domain="systemd">Authentication is required to set local machine information.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

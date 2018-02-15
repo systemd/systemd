@@ -165,14 +165,12 @@ if conf.get('ENABLE_RESOLVE') == 1
         install_data('resolv.conf',
                      install_dir : rootlibexecdir)
 
-        i18n.merge_file(
-                'org.freedesktop.resolve1.policy',
+        policy = configure_file(
                 input : 'org.freedesktop.resolve1.policy.in',
                 output : 'org.freedesktop.resolve1.policy',
-                po_dir : po_dir,
-                data_dirs : po_dir,
-                install : install_polkit,
-                install_dir : polkitpolicydir)
+                configuration : substs)
+        install_data(policy,
+                     install_dir : polkitpolicydir)
 endif
 
 tests += [

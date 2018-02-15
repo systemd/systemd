@@ -19,8 +19,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.locale1.set-locale">
-                <description>Set system locale</description>
-                <message>Authentication is required to set the system locale.</message>
+                <description gettext-domain="systemd">Set system locale</description>
+                <message gettext-domain="systemd">Authentication is required to set the system locale.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>
@@ -30,8 +30,8 @@
         </action>
 
         <action id="org.freedesktop.locale1.set-keyboard">
-                <description>Set system keyboard settings</description>
-                <message>Authentication is required to set the system keyboard settings.</message>
+                <description gettext-domain="systemd">Set system keyboard settings</description>
+                <message gettext-domain="systemd">Authentication is required to set the system keyboard settings.</message>
                 <defaults>
                         <allow_any>auth_admin_keep</allow_any>
                         <allow_inactive>auth_admin_keep</allow_inactive>

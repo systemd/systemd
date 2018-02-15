@@ -71,14 +71,12 @@ if conf.get('ENABLE_IMPORTD') == 1
         install_data('org.freedesktop.import1.service',
                      install_dir : dbussystemservicedir)
 
-        i18n.merge_file(
-                'org.freedesktop.import1.policy',
+        policy = configure_file(
                 input : 'org.freedesktop.import1.policy.in',
                 output : 'org.freedesktop.import1.policy',
-                po_dir : po_dir,
-                data_dirs : po_dir,
-                install : install_polkit,
-                install_dir : polkitpolicydir)
+                configuration : substs)
+        install_data(policy,
+                     install_dir : polkitpolicydir)
 
         install_data('import-pubring.gpg',
                      install_dir : rootlibexecdir)

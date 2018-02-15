@@ -19,8 +19,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.resolve1.register-service">
-                <description>Register a DNS-SD service</description>
-                <message>Authentication is required to register a DNS-SD service</message>
+                <description gettext-domain="systemd">Register a DNS-SD service</description>
+                <message gettext-domain="systemd">Authentication is required to register a DNS-SD service</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -30,8 +30,8 @@
         </action>
 
         <action id="org.freedesktop.resolve1.unregister-service">
-                <description>Unregister a DNS-SD service</description>
-                <message>Authentication is required to unregister a DNS-SD service</message>
+                <description gettext-domain="systemd">Unregister a DNS-SD service</description>
+                <message gettext-domain="systemd">Authentication is required to unregister a DNS-SD service</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>

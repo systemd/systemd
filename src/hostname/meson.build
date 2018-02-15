@@ -21,12 +21,10 @@ if conf.get('ENABLE_HOSTNAMED') == 1
         install_data('org.freedesktop.hostname1.service',
                      install_dir : dbussystemservicedir)
 
-        i18n.merge_file(
-                'org.freedesktop.hostname1.policy',
+        policy = configure_file(
                 input : 'org.freedesktop.hostname1.policy.in',
                 output : 'org.freedesktop.hostname1.policy',
-                po_dir : po_dir,
-                data_dirs : po_dir,
-                install : install_polkit,
-                install_dir : polkitpolicydir)
+                configuration : substs)
+        install_data(policy,
+                     install_dir : polkitpolicydir)
 endif
