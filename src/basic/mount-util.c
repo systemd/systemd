@@ -27,8 +27,12 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 
+/* Include later */
+#include <libmount.h>
+
 #include "alloc-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -872,5 +876,75 @@ int mount_propagation_flags_from_string(const char *name, unsigned long *ret) {
                 *ret = MS_PRIVATE;
         else
                 return -EINVAL;
+        return 0;
+}
+
+int mount_option_mangle(
+                const char *options,
+                unsigned long mount_flags,
+                unsigned long *ret_mount_flags,
+                char **ret_remaining_options) {
+
+        const struct libmnt_optmap *map;
+        _cleanup_free_ char *ret = NULL;
+        const char *p;
+        int r;
+
+        /* This extracts mount flags from the mount options, and store
+         * non-mount-flag options to '*ret_remaining_options'.
+         * E.g.,
+         * "rw,nosuid,nodev,relatime,size=1630748k,mode=700,uid=1000,gid=1000"
+         * is split to MS_NOSUID|MS_NODEV|MS_RELATIME and
+         * "size=1630748k,mode=700,uid=1000,gid=1000".
+         * See more examples in test-mount-utils.c.
+         *
+         * Note that if 'options' does not contain any non-mount-flag options,
+         * then '*ret_remaining_options' is set to NULL instread of empty string.
+         * Note that this does not check validity of options stored in
+         * '*ret_remaining_options'.
+         * Note that if 'options' is NULL, then this just copies 'mount_flags'
+         * to '*ret_mount_flags'. */
+
+        assert(ret_mount_flags);
+        assert(ret_remaining_options);
+
+        map = mnt_get_builtin_optmap(MNT_LINUX_MAP);
+        if (!map)
+                return -EINVAL;
+
+        p = options;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                const struct libmnt_optmap *ent;
+
+                r = extract_first_word(&p, &word, ",", EXTRACT_QUOTES);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                for (ent = map; ent->name; ent++) {
+                        /* All entries in MNT_LINUX_MAP do not take any argument.
+                         * Thus, ent->name does not contain "=" or "[=]". */
+                        if (!streq(word, ent->name))
+                                continue;
+
+                        if (!(ent->mask & MNT_INVERT))
+                                mount_flags |= ent->id;
+                        else if (mount_flags & ent->id)
+                                mount_flags ^= ent->id;
+
+                        break;
+                }
+
+                /* If 'word' is not a mount flag, then store it in '*ret_remaining_options'. */
+                if (!ent->name && !strextend_with_separator(&ret, ",", word, NULL))
+                        return -ENOMEM;
+        }
+
+        *ret_mount_flags = mount_flags;
+        *ret_remaining_options = ret;
+        ret = NULL;
+
         return 0;
 }

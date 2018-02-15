@@ -67,3 +67,9 @@ int umount_verbose(const char *where);
 
 const char *mount_propagation_flags_to_string(unsigned long flags);
 int mount_propagation_flags_from_string(const char *name, unsigned long *ret);
+
+int mount_option_mangle(
+                const char *options,
+                unsigned long mount_flags,
+                unsigned long *ret_mount_flags,
+                char **ret_remaining_options);

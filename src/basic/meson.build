@@ -317,6 +317,7 @@ libbasic = static_library(
         dependencies : [threads,
                         libcap,
                         libblkid,
+                        libmount,
                         libselinux],
         c_args : ['-fvisibility=default'],
         install : false)
