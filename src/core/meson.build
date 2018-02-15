@@ -186,7 +186,8 @@ systemd_shutdown_sources = files('''
 
 in_files = [['macros.systemd',   rpmmacrosdir],
             ['triggers.systemd', ''],
-            ['systemd.pc',       pkgconfigdatadir]]
+            ['systemd.pc',       pkgconfigdatadir],
+            ['system.conf',      pkgsysconfdir]]
 
 foreach item : in_files
         file = item[0]
@@ -225,8 +226,7 @@ i18n.merge_file(
         install : install_polkit,
         install_dir : polkitpolicydir)
 
-install_data('system.conf',
-             'user.conf',
+install_data('user.conf',
              install_dir : pkgsysconfdir)
 
 meson.add_install_script('sh', '-c', mkdir_p.format(systemshutdowndir))
