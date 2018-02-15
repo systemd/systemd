@@ -735,6 +735,7 @@ static int mount_entry_chase(
 
         char *chased;
         int r;
+        unsigned flags = 0;
 
         assert(m);
 
@@ -742,9 +743,19 @@ static int mount_entry_chase(
          * chase the symlinks on our own first. This is called for the destination path, as well as the source path (if
          * that applies). The result is stored in "location". */
 
-        r = chase_symlinks(path, root_directory,
-                           IN_SET(m->mode, BIND_MOUNT, BIND_MOUNT_RECURSIVE, PRIVATE_TMP, PRIVATE_VAR_TMP, PRIVATE_DEV, BIND_DEV, EMPTY_DIR, SYSFS, PROCFS) ? CHASE_NONEXISTENT : 0,
-                           &chased);
+        if (IN_SET(m->mode,
+                   BIND_MOUNT,
+                   BIND_MOUNT_RECURSIVE,
+                   PRIVATE_TMP,
+                   PRIVATE_VAR_TMP,
+                   PRIVATE_DEV,
+                   BIND_DEV,
+                   EMPTY_DIR,
+                   SYSFS,
+                   PROCFS))
+                flags |= CHASE_NONEXISTENT;
+
+        r = chase_symlinks(path, root_directory, flags, &chased);
         if (r == -ENOENT && m->ignore) {
                 log_debug_errno(r, "Path %s does not exist, ignoring.", path);
                 return 0;
