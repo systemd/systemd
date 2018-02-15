@@ -976,7 +976,7 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 /* Normally, this should make the session referenced
                  * again, if it doesn't then let's get rid of it
                  * immediately */
-                if (!session_check_gc(session, drop_not_started)) {
+                if (!session_check_gc(session, drop_not_started) || session->stopping)  {
                         session_finalize(session);
                         session_free(session);
                 }
