@@ -42,7 +42,7 @@ static int exec_list(struct udev_enumerate *udev_enumerate, const char *action, 
         udev_list_entry_foreach(entry, udev_enumerate_get_list_entry(udev_enumerate)) {
                 char filename[UTIL_PATH_SIZE];
                 const char *syspath;
-                int fd;
+                _cleanup_close_ int fd = -1;
 
                 syspath = udev_list_entry_get_name(entry);
                 if (verbose)
@@ -54,14 +54,15 @@ static int exec_list(struct udev_enumerate *udev_enumerate, const char *action, 
                 fd = open(filename, O_WRONLY|O_CLOEXEC);
                 if (fd < 0)
                         continue;
+
                 if (settle_set) {
                         r = set_put_strdup(settle_set, syspath);
                         if (r < 0)
                                 return log_oom();
                 }
+
                 if (write(fd, action, strlen(action)) < 0)
                         log_debug_errno(errno, "error writing '%s' to '%s': %m", action, filename);
-                close(fd);
         }
 
         return 0;
