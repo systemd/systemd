@@ -85,7 +85,7 @@ struct Machine {
 
 Machine* machine_new(Manager *manager, MachineClass class, const char *name);
 void machine_free(Machine *m);
-bool machine_check_gc(Machine *m, bool drop_not_started);
+bool machine_may_gc(Machine *m, bool drop_not_started);
 void machine_add_to_gc_queue(Machine *m);
 int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error);
 int machine_stop(Machine *m);

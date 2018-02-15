@@ -486,22 +486,22 @@ int machine_finalize(Machine *m) {
         return 0;
 }
 
-bool machine_check_gc(Machine *m, bool drop_not_started) {
+bool machine_may_gc(Machine *m, bool drop_not_started) {
         assert(m);
 
         if (m->class == MACHINE_HOST)
-                return true;
-
-        if (drop_not_started && !m->started)
                 return false;
 
-        if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
+        if (drop_not_started && !m->started)
                 return true;
+
+        if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
+                return false;
 
         if (m->unit && manager_unit_is_active(m->manager, m->unit))
-                return true;
+                return false;
 
-        return false;
+        return true;
 }
 
 void machine_add_to_gc_queue(Machine *m) {
