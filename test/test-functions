@@ -1058,6 +1058,7 @@ inst_rules() {
             fi
         done
         [[ $_found ]] || dinfo "Skipping udev rule: $_rule"
+        _found=
     done
 }
 
