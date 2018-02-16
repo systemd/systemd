@@ -244,7 +244,9 @@ static void test_config_parse_join_controllers(void) {
         /* Test special case of no mounted controllers */
         r = config_parse_join_controllers(NULL, "example.conf", 12, "Section", 10, "JoinControllers", 0, "", &c, NULL);
         assert_se(r == 0);
-        assert_se(c == NULL);
+        assert_se(c);
+        assert_se(strv_equal(c[0], STRV_MAKE_EMPTY));
+        assert_se(c[1] == NULL);
 
         /* Test merging of overlapping lists */
         r = config_parse_join_controllers(NULL, "example.conf", 13, "Section", 10, "JoinControllers", 0, "a,b b,c", &c, NULL);

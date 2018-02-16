@@ -253,6 +253,19 @@ int mount_cgroup_controllers(char ***join_controllers) {
 
         /* Mount all available cgroup controllers that are built into the kernel. */
 
+        if (!join_controllers)
+                /* The defaults:
+                 * mount "cpu" + "cpuacct" together, and "net_cls" + "net_prio".
+                 *
+                 * We'd like to add "cpuset" to the mix, but "cpuset" doesn't really
+                 * work for groups with no initialized attributes.
+                 */
+                join_controllers = (char**[]) {
+                        STRV_MAKE("cpu", "cpuacct"),
+                        STRV_MAKE("net_cls", "net_prio"),
+                        NULL,
+                };
+
         r = cg_kernel_controllers(&controllers);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate cgroup controllers: %m");
@@ -271,10 +284,9 @@ int mount_cgroup_controllers(char ***join_controllers) {
                 if (!controller)
                         break;
 
-                if (join_controllers)
-                        for (k = join_controllers; *k; k++)
-                                if (strv_find(*k, controller))
-                                        break;
+                for (k = join_controllers; *k; k++)
+                        if (strv_find(*k, controller))
+                                break;
 
                 if (k && *k) {
                         char **i, **j;

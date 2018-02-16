@@ -1213,32 +1213,6 @@ static void test_usr(void) {
                     "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
 }
 
-static int initialize_join_controllers(void) {
-        /* By default, mount "cpu" + "cpuacct" together, and "net_cls"
-         * + "net_prio". We'd like to add "cpuset" to the mix, but
-         * "cpuset" doesn't really work for groups with no initialized
-         * attributes. */
-
-        arg_join_controllers = new(char**, 3);
-        if (!arg_join_controllers)
-                return -ENOMEM;
-
-        arg_join_controllers[0] = strv_new("cpu", "cpuacct", NULL);
-        if (!arg_join_controllers[0])
-                goto oom;
-
-        arg_join_controllers[1] = strv_new("net_cls", "net_prio", NULL);
-        if (!arg_join_controllers[1])
-                goto oom;
-
-        arg_join_controllers[2] = NULL;
-        return 0;
-
-oom:
-        arg_join_controllers = strv_free_free(arg_join_controllers);
-        return -ENOMEM;
-}
-
 static int enforce_syscall_archs(Set *archs) {
 #if HAVE_SECCOMP
         int r;
@@ -1992,12 +1966,6 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
         int r;
 
         assert(ret_error_message);
-
-        r = initialize_join_controllers();
-        if (r < 0) {
-                *ret_error_message = "Failed to initialize cgroup controller joining table";
-                return r;
-        }
 
         arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
 

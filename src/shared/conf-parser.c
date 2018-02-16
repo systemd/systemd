@@ -1120,6 +1120,17 @@ int config_parse_join_controllers(
         if (!isempty(rvalue))
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
 
+        /* As a special case, return a single empty strv, to override the default */
+        if (!controllers) {
+                controllers = new(char**, 2);
+                if (!controllers)
+                        return log_oom();
+                controllers[0] = strv_new(NULL, NULL);
+                if (!controllers[0])
+                        return log_oom();
+                controllers[1] = NULL;
+        }
+
         strv_free_free(*ret);
         *ret = controllers;
         controllers = NULL;
