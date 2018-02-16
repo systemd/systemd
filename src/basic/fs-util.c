@@ -554,6 +554,17 @@ int tmp_dir(const char **ret) {
         return tmp_dir_internal("/tmp", ret);
 }
 
+int unlink_or_warn(const char *filename) {
+        if (unlink(filename) < 0 && errno != ENOENT)
+                /* If the file doesn't exist and the fs simply was read-only (in which
+                 * case unlink() returns EROFS even if the file doesn't exist), don't
+                 * complain */
+                if (errno != EROFS || access(filename, F_OK) >= 0)
+                        return log_error_errno(errno, "Failed to remove \"%s\": %m", filename);
+
+        return 0;
+}
+
 int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
         char path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
         int r;

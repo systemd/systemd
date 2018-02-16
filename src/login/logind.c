@@ -35,6 +35,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "logind.h"
 #include "process-util.h"
 #include "selinux-util.h"
@@ -183,7 +184,7 @@ static void manager_free(Manager *m) {
         udev_unref(m->udev);
 
         if (m->unlink_nologin)
-                (void) unlink("/run/nologin");
+                (void) unlink_or_warn("/run/nologin");
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 
