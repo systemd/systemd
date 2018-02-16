@@ -1521,7 +1521,7 @@ static int socket_address_listen_in_cgroup(
         r = bpf_firewall_supported();
         if (r < 0)
                 return r;
-        if (r == 0) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
+        if (r == BPF_FIREWALL_UNSUPPORTED) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
                 goto shortcut;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
@@ -2865,7 +2865,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         r = bpf_firewall_supported();
         if (r < 0)
                 return r;
-        if (r == 0)
+        if (r == BPF_FIREWALL_UNSUPPORTED)
                 goto shortcut;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)

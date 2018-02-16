@@ -156,7 +156,7 @@ int config_parse_ip_address_access(
                 r = bpf_firewall_supported();
                 if (r < 0)
                         return r;
-                if (r == 0) {
+                if (r == BPF_FIREWALL_UNSUPPORTED) {
                         static bool warned = false;
 
                         log_full(warned ? LOG_DEBUG : LOG_WARNING,

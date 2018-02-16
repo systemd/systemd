@@ -493,7 +493,7 @@ int bpf_firewall_compile(Unit *u) {
         r = bpf_firewall_supported();
         if (r < 0)
                 return r;
-        if (r == 0) {
+        if (r == BPF_FIREWALL_UNSUPPORTED) {
                 log_debug("BPF firewalling not supported on this manager, proceeding without.");
                 return -EOPNOTSUPP;
         }
@@ -555,7 +555,7 @@ int bpf_firewall_install(Unit *u) {
         r = bpf_firewall_supported();
         if (r < 0)
                 return r;
-        if (r == 0) {
+        if (r == BPF_FIREWALL_UNSUPPORTED) {
                 log_debug("BPF firewalling not supported on this manager, proceeding without.");
                 return -EOPNOTSUPP;
         }
@@ -667,7 +667,7 @@ int bpf_firewall_supported(void) {
 
         if (geteuid() != 0) {
                 log_debug("Not enough privileges, BPF firewalling is not supported.");
-                return supported = false;
+                return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
         r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
@@ -675,7 +675,7 @@ int bpf_firewall_supported(void) {
                 return log_error_errno(r, "Can't determine whether the unified hierarchy is used: %m");
         if (r == 0) {
                 log_debug("Not running with unified cgroups, BPF firewalling is not supported.");
-                return supported = false;
+                return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
         fd = bpf_map_new(BPF_MAP_TYPE_LPM_TRIE,
@@ -685,26 +685,26 @@ int bpf_firewall_supported(void) {
                          BPF_F_NO_PREALLOC);
         if (fd < 0) {
                 log_debug_errno(r, "Can't allocate BPF LPM TRIE map, BPF firewalling is not supported: %m");
-                return supported = false;
+                return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
         safe_close(fd);
 
         if (bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &program) < 0) {
                 log_debug_errno(r, "Can't allocate CGROUP SKB BPF program, BPF firewalling is not supported: %m");
-                return supported = false;
+                return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
         r = bpf_program_add_instructions(program, trivial, ELEMENTSOF(trivial));
         if (r < 0) {
                 log_debug_errno(r, "Can't add trivial instructions to CGROUP SKB BPF program, BPF firewalling is not supported: %m");
-                return supported = false;
+                return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
         r = bpf_program_load_kernel(program, NULL, 0);
         if (r < 0) {
                 log_debug_errno(r, "Can't load kernel CGROUP SKB BPF program, BPF firewalling is not supported: %m");
-                return supported = false;
+                return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
         /* Unfortunately the kernel allows us to create BPF_PROG_TYPE_CGROUP_SKB programs even when CONFIG_CGROUP_BPF
@@ -723,12 +723,44 @@ int bpf_firewall_supported(void) {
 
         r = bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
         if (r < 0) {
-                if (errno == EBADF) /* YAY! */
-                        return supported = true;
+                if (errno != EBADF) {
+                        log_debug_errno(errno, "Didn't get EBADF from BPF_PROG_ATTACH, BPF firewalling is not supported: %m");
+                        return supported = BPF_FIREWALL_UNSUPPORTED;
+                }
 
-                log_debug_errno(errno, "Didn't get EBADF from BPF_PROG_ATTACH, BPF firewalling is not supported: %m");
-        } else
-                log_debug("Wut? kernel accepted our invalid BPF_PROG_ATTACH call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
+                /* YAY! */
+        } else {
+                log_debug("Wut? Kernel accepted our invalid BPF_PROG_ATTACH call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
+                return supported = BPF_FIREWALL_UNSUPPORTED;
+        }
 
-        return supported = false;
+        /* So now we know that the BPF program is generally available, let's see if BPF_F_ALLOW_MULTI is also supported
+         * (which was added in kernel 4.15). We use a similar logic as before, but this time we use
+         * BPF_F_ALLOW_MULTI. Since the flags are checked early in the system call we'll get EINVAL if it's not
+         * supported, and EBADF as before if it is available. */
+
+        attr = (union bpf_attr) {
+                .attach_type = BPF_CGROUP_INET_EGRESS,
+                .target_fd = -1,
+                .attach_bpf_fd = -1,
+                .attach_flags = BPF_F_ALLOW_MULTI,
+        };
+
+        r = bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
+        if (r < 0) {
+                if (errno == EBADF) {
+                        log_debug_errno(errno, "Got EBADF when using BPF_F_ALLOW_MULTI, which indicates it is supported. Yay!");
+                        return supported = BPF_FIREWALL_SUPPORTED_WITH_MULTI;
+                }
+
+                if (errno == EINVAL)
+                        log_debug_errno(errno, "Got EINVAL error when using BPF_F_ALLOW_MULTI, which indicates it's not supported.");
+                else
+                        log_debug_errno(errno, "Got unexpected error when using BPF_F_ALLOW_MULTI, assuming it's not supported: %m");
+
+                return supported = BPF_FIREWALL_SUPPORTED;
+        } else {
+                log_debug("Wut? Kernel accepted our invalid BPF_PROG_ATTACH+BPF_F_ALLOW_MULTI call? Something is weird, assuming BPF firewalling is broken and hence not supported.");
+                return supported = BPF_FIREWALL_UNSUPPORTED;
+        }
 }
