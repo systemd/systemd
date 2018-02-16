@@ -70,12 +70,7 @@ if conf.get('ENABLE_IMPORTD') == 1
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.import1.service',
                      install_dir : dbussystemservicedir)
-
-        policy = configure_file(
-                input : 'org.freedesktop.import1.policy.in',
-                output : 'org.freedesktop.import1.policy',
-                configuration : substs)
-        install_data(policy,
+        install_data('org.freedesktop.import1.policy',
                      install_dir : polkitpolicydir)
 
         install_data('import-pubring.gpg',

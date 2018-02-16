@@ -87,12 +87,7 @@ if conf.get('ENABLE_LOGIND') == 1
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.login1.service',
                      install_dir : dbussystemservicedir)
-
-        policy = configure_file(
-                input : 'org.freedesktop.login1.policy.in',
-                output : 'org.freedesktop.login1.policy',
-                configuration : substs)
-        install_data(policy,
+        install_data('org.freedesktop.login1.policy',
                      install_dir : polkitpolicydir)
 
         install_data('70-power-switch.rules', install_dir : udevrulesdir)

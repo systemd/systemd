@@ -20,11 +20,6 @@ if conf.get('ENABLE_HOSTNAMED') == 1
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.hostname1.service',
                      install_dir : dbussystemservicedir)
-
-        policy = configure_file(
-                input : 'org.freedesktop.hostname1.policy.in',
-                output : 'org.freedesktop.hostname1.policy',
-                configuration : substs)
-        install_data(policy,
+        install_data('org.freedesktop.hostname1.policy',
                      install_dir : polkitpolicydir)
 endif

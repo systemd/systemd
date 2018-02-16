@@ -154,6 +154,8 @@ if conf.get('ENABLE_RESOLVE') == 1
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.resolve1.service',
                      install_dir : dbussystemservicedir)
+        install_data('org.freedesktop.resolve1.policy',
+                     install_dir : polkitpolicydir)
 
         resolved_conf = configure_file(
                 input : 'resolved.conf.in',
@@ -164,13 +166,6 @@ if conf.get('ENABLE_RESOLVE') == 1
 
         install_data('resolv.conf',
                      install_dir : rootlibexecdir)
-
-        policy = configure_file(
-                input : 'org.freedesktop.resolve1.policy.in',
-                output : 'org.freedesktop.resolve1.policy',
-                configuration : substs)
-        install_data(policy,
-                     install_dir : polkitpolicydir)
 endif
 
 tests += [

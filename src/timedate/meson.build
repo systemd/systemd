@@ -20,11 +20,6 @@ if conf.get('ENABLE_TIMEDATED') == 1
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.timedate1.service',
                      install_dir : dbussystemservicedir)
-
-        policy = configure_file(
-                input : 'org.freedesktop.timedate1.policy.in',
-                output : 'org.freedesktop.timedate1.policy',
-                configuration : substs)
-        install_data(policy,
+        install_data('org.freedesktop.timedate1.policy',
                      install_dir : polkitpolicydir)
 endif
