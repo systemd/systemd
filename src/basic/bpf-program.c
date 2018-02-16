@@ -117,11 +117,15 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
         return 0;
 }
 
-int bpf_program_cgroup_detach(int type, const char *path) {
+int bpf_program_cgroup_detach(BPFProgram *p, int type, const char *path) {
         _cleanup_close_ int fd = -1;
         union bpf_attr attr;
 
+        assert(type >= 0);
         assert(path);
+
+        /* Note that 'p' may be NULL, in which case any program is detached. However, note that if BPF_F_ALLOW_MULTI is
+         * used 'p' is not optional. */
 
         fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
         if (fd < 0)
@@ -130,6 +134,7 @@ int bpf_program_cgroup_detach(int type, const char *path) {
         attr = (union bpf_attr) {
                 .attach_type = type,
                 .target_fd = fd,
+                .attach_bpf_fd = p ? p->kernel_fd : -1,
         };
 
         if (bpf(BPF_PROG_DETACH, &attr, sizeof(attr)) < 0)

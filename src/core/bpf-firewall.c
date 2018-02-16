@@ -573,7 +573,7 @@ int bpf_firewall_install(Unit *u) {
                 if (r < 0)
                         return log_error_errno(r, "Attaching egress BPF program to cgroup %s failed: %m", path);
         } else {
-                r = bpf_program_cgroup_detach(BPF_CGROUP_INET_EGRESS, path);
+                r = bpf_program_cgroup_detach(NULL, BPF_CGROUP_INET_EGRESS, path);
                 if (r < 0)
                         return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
                                               "Detaching egress BPF program from cgroup failed: %m");
@@ -588,7 +588,7 @@ int bpf_firewall_install(Unit *u) {
                 if (r < 0)
                         return log_error_errno(r, "Attaching ingress BPF program to cgroup %s failed: %m", path);
         } else {
-                r = bpf_program_cgroup_detach(BPF_CGROUP_INET_INGRESS, path);
+                r = bpf_program_cgroup_detach(NULL, BPF_CGROUP_INET_INGRESS, path);
                 if (r < 0)
                         return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
                                               "Detaching ingress BPF program from cgroup failed: %m");
