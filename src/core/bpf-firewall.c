@@ -486,15 +486,24 @@ static int bpf_firewall_prepare_accounting_maps(bool enabled, int *fd_ingress, i
 
 int bpf_firewall_compile(Unit *u) {
         CGroupContext *cc;
-        int r;
+        int r, supported;
 
         assert(u);
 
-        r = bpf_firewall_supported();
-        if (r < 0)
-                return r;
-        if (r == BPF_FIREWALL_UNSUPPORTED) {
+        supported = bpf_firewall_supported();
+        if (supported < 0)
+                return supported;
+        if (supported == BPF_FIREWALL_UNSUPPORTED) {
                 log_debug("BPF firewalling not supported on this manager, proceeding without.");
+                return -EOPNOTSUPP;
+        }
+        if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI && u->type == UNIT_SLICE) {
+                /* If BPF_F_ALLOW_MULTI is not supported we don't support any BPF magic on inner nodes (i.e. on slice
+                 * units), since that would mean leaf nodes couldn't do any BPF anymore at all. Under the assumption
+                 * that BPF is more interesting on leaf nodes we hence avoid it on inner nodes in that case. This is
+                 * consistent with old systemd behaviour from before v238, where BPF wasn't supported in inner nodes at
+                 * all, either. */
+                log_debug("BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
                 return -EOPNOTSUPP;
         }
 
@@ -515,13 +524,21 @@ int bpf_firewall_compile(Unit *u) {
         if (!cc)
                 return -EINVAL;
 
-        r = bpf_firewall_prepare_access_maps(u, ACCESS_ALLOWED, &u->ipv4_allow_map_fd, &u->ipv6_allow_map_fd);
-        if (r < 0)
-                return log_error_errno(r, "Preparation of eBPF allow maps failed: %m");
+        if (u->type != UNIT_SLICE) {
+                /* In inner nodes we only do accounting, we do not actually bother with access control. However, leaf
+                 * nodes will incorporate all IP access rules set on all their parent nodes. This has the benefit that
+                 * they can optionally cancel out system-wide rules. Since inner nodes can't contain processes this
+                 * means that all configure IP access rules *will* take effect on processes, even though we never
+                 * compile them for inner nodes. */
 
-        r = bpf_firewall_prepare_access_maps(u, ACCESS_DENIED, &u->ipv4_deny_map_fd, &u->ipv6_deny_map_fd);
-        if (r < 0)
-                return log_error_errno(r, "Preparation of eBPF deny maps failed: %m");
+                r = bpf_firewall_prepare_access_maps(u, ACCESS_ALLOWED, &u->ipv4_allow_map_fd, &u->ipv6_allow_map_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Preparation of eBPF allow maps failed: %m");
+
+                r = bpf_firewall_prepare_access_maps(u, ACCESS_DENIED, &u->ipv4_deny_map_fd, &u->ipv6_deny_map_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Preparation of eBPF deny maps failed: %m");
+        }
 
         r = bpf_firewall_prepare_accounting_maps(cc->ip_accounting, &u->ip_accounting_ingress_map_fd, &u->ip_accounting_egress_map_fd);
         if (r < 0)
@@ -541,7 +558,8 @@ int bpf_firewall_compile(Unit *u) {
 int bpf_firewall_install(Unit *u) {
         _cleanup_free_ char *path = NULL;
         CGroupContext *cc;
-        int r;
+        uint32_t flags;
+        int r, supported;
 
         assert(u);
 
@@ -552,11 +570,15 @@ int bpf_firewall_install(Unit *u) {
         if (!cc)
                 return -EINVAL;
 
-        r = bpf_firewall_supported();
-        if (r < 0)
-                return r;
-        if (r == BPF_FIREWALL_UNSUPPORTED) {
+        supported = bpf_firewall_supported();
+        if (supported < 0)
+                return supported;
+        if (supported == BPF_FIREWALL_UNSUPPORTED) {
                 log_debug("BPF firewalling not supported on this manager, proceeding without.");
+                return -EOPNOTSUPP;
+        }
+        if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI && u->type == UNIT_SLICE) {
+                log_debug("BPF_F_ALLOW_MULTI is not supported on this manager, not doing BPF firewall on slice units.");
                 return -EOPNOTSUPP;
         }
 
@@ -564,12 +586,15 @@ int bpf_firewall_install(Unit *u) {
         if (r < 0)
                 return log_error_errno(r, "Failed to determine cgroup path: %m");
 
+        flags = (supported == BPF_FIREWALL_SUPPORTED_WITH_MULTI &&
+                 (u->type == UNIT_SLICE || unit_cgroup_delegate(u))) ? BPF_F_ALLOW_MULTI : 0;
+
         if (u->ip_bpf_egress) {
                 r = bpf_program_load_kernel(u->ip_bpf_egress, NULL, 0);
                 if (r < 0)
                         return log_error_errno(r, "Kernel upload of egress BPF program failed: %m");
 
-                r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path, unit_cgroup_delegate(u) ? BPF_F_ALLOW_OVERRIDE : 0);
+                r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path, flags);
                 if (r < 0)
                         return log_error_errno(r, "Attaching egress BPF program to cgroup %s failed: %m", path);
         } else {
@@ -584,7 +609,7 @@ int bpf_firewall_install(Unit *u) {
                 if (r < 0)
                         return log_error_errno(r, "Kernel upload of ingress BPF program failed: %m");
 
-                r = bpf_program_cgroup_attach(u->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path, unit_cgroup_delegate(u) ? BPF_F_ALLOW_OVERRIDE : 0);
+                r = bpf_program_cgroup_attach(u->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path, flags);
                 if (r < 0)
                         return log_error_errno(r, "Attaching ingress BPF program to cgroup %s failed: %m", path);
         } else {

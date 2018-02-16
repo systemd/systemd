@@ -693,20 +693,14 @@ static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_
 }
 
 static void cgroup_apply_firewall(Unit *u) {
-        int r;
-
         assert(u);
 
-        if (u->type == UNIT_SLICE) /* Skip this for slice units, they are inner cgroup nodes, and since bpf/cgroup is
-                                    * not recursive we don't ever touch the bpf on them */
-                return;
+        /* Best-effort: let's apply IP firewalling and/or accounting if that's enabled */
 
-        r = bpf_firewall_compile(u);
-        if (r < 0)
+        if (bpf_firewall_compile(u) < 0)
                 return;
 
         (void) bpf_firewall_install(u);
-        return;
 }
 
 static void cgroup_context_apply(
@@ -1226,11 +1220,6 @@ bool unit_get_needs_bpf(Unit *u) {
         CGroupContext *c;
         Unit *p;
         assert(u);
-
-        /* We never attach BPF to slice units, as they are inner cgroup nodes and cgroup/BPF is not recursive at the
-         * moment. */
-        if (u->type == UNIT_SLICE)
-                return false;
 
         c = unit_get_cgroup_context(u);
         if (!c)
@@ -2563,13 +2552,6 @@ int unit_get_ip_accounting(
         assert(metric >= 0);
         assert(metric < _CGROUP_IP_ACCOUNTING_METRIC_MAX);
         assert(ret);
-
-        /* IP accounting is currently not recursive, and hence we refuse to return any data for slice nodes. Slices are
-         * inner cgroup nodes and hence have no processes directly attached, hence their counters would be zero
-         * anyway. And if we block this now we can later open this up, if the kernel learns recursive BPF cgroup
-         * filters. */
-        if (u->type == UNIT_SLICE)
-                return -ENODATA;
 
         if (!UNIT_CGROUP_BOOL(u, ip_accounting))
                 return -ENODATA;
