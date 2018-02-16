@@ -2458,7 +2458,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 }
         }
 
-        /* Some names are special */
         if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
 
                 if (u->type == UNIT_SERVICE &&
