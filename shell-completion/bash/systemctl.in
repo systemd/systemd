@@ -205,8 +205,9 @@ _systemctl () {
                      [JOBS]='cancel'
                      [ENVS]='set-environment unset-environment import-environment'
                [STANDALONE]='daemon-reexec daemon-reload default
-                             emergency exit halt hibernate hybrid-sleep kexec list-jobs
-                             list-sockets list-timers list-units list-unit-files poweroff
+                             emergency exit halt hibernate hybrid-sleep
+                             suspend-to-hibernate kexec list-jobs list-sockets
+                             list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
                              is-system-running preset-all'
                      [FILE]='link switch-root'

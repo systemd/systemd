@@ -625,6 +625,7 @@ manpages = [
   '8',
   ['systemd-hibernate.service',
    'systemd-hybrid-sleep.service',
+   'systemd-suspend-to-hibernate.service',
    'systemd-sleep'],
   ''],
  ['systemd-sysctl.service', '8', ['systemd-sysctl'], ''],

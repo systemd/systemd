@@ -20,7 +20,9 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int parse_sleep_config(const char *verb, char ***modes, char ***states);
+#include "time-util.h"
+
+int parse_sleep_config(const char *verb, char ***modes, char ***states, usec_t *delay);
 
 int can_sleep(const char *verb);
 int can_sleep_disk(char **types);

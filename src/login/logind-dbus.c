@@ -1933,6 +1933,20 @@ static int method_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_e
                         error);
 }
 
+static int method_suspend_to_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        SPECIAL_SUSPEND_TO_HIBERNATE_TARGET,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.hibernate",
+                        "org.freedesktop.login1.hibernate-multiple-sessions",
+                        "org.freedesktop.login1.hibernate-ignore-inhibit",
+                        "hybrid-sleep",
+                        error);
+}
+
 static int nologin_timeout_handler(
                         sd_event_source *s,
                         uint64_t usec,
@@ -2386,6 +2400,19 @@ static int method_can_hybrid_sleep(sd_bus_message *message, void *userdata, sd_b
                         error);
 }
 
+static int method_can_suspend_to_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_can_shutdown_or_sleep(
+                        m, message,
+                        INHIBIT_SLEEP,
+                        "org.freedesktop.login1.hibernate",
+                        "org.freedesktop.login1.hibernate-multiple-sessions",
+                        "org.freedesktop.login1.hibernate-ignore-inhibit",
+                        "suspend-to-hibernate",
+                        error);
+}
+
 static int property_get_reboot_to_firmware_setup(
                 sd_bus *bus,
                 const char *path,
@@ -2706,12 +2733,14 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_METHOD("Suspend", "b", NULL, method_suspend, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Hibernate", "b", NULL, method_hibernate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("HybridSleep", "b", NULL, method_hybrid_sleep, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("SuspendToHibernate", "b", NULL, method_suspend_to_hibernate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanPowerOff", NULL, "s", method_can_poweroff, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanReboot", NULL, "s", method_can_reboot, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanHalt", NULL, "s", method_can_halt, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanSuspend", NULL, "s", method_can_suspend, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanHibernate", NULL, "s", method_can_hibernate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CanHybridSleep", NULL, "s", method_can_hybrid_sleep, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CanSuspendToHibernate", NULL, "s", method_can_suspend_to_hibernate, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("ScheduleShutdown", "st", NULL, method_schedule_shutdown, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("CancelScheduledShutdown", NULL, "b", method_cancel_scheduled_shutdown, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Inhibit", "ssss", "h", method_inhibit, SD_BUS_VTABLE_UNPRIVILEGED),
