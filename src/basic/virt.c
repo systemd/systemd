@@ -19,7 +19,7 @@
 ***/
 
 #if defined(__i386__) || defined(__x86_64__)
-#include <cpuid.h>
+#  include <cpuid.h>
 #endif
 #include <errno.h>
 #include <stdint.h>
@@ -442,6 +442,7 @@ int detect_container(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
         _cleanup_free_ char *m = NULL;
         const char *e = NULL;
+        struct stat st;
         unsigned j;
         int r;
 
@@ -486,8 +487,9 @@ int detect_container(void) {
         if (r < 0) /* This only works if we have CAP_SYS_PTRACE, hence let's better ignore failures here */
                 log_debug_errno(r, "Failed to read $container of PID 1, ignoring: %m");
 
-        /* Interestingly /proc/1/sched actually shows the host's PID for what we see as PID 1. Hence, if the PID shown
-         * there is not 1, we know we are in a PID namespace. and hence a container. */
+        /* /proc/1/sched actually showed the host's PID for what we see as PID 1, until kernel 4.14.
+         * Hence, if the PID shown there is not 1, we know we are in a PID namespace, and hence a container.
+         * See https://github.com/torvalds/linux/commit/74dc3384fc7983b78cc46ebb1824968a3db85eb1. */
         r = read_one_line_file("/proc/1/sched", &m);
         if (r >= 0) {
                 const char *t;
@@ -502,6 +504,15 @@ int detect_container(void) {
                 }
         } else if (r != -ENOENT)
                 return r;
+
+        /* The device number of an unnamespaced /proc always seems to be 3 or 4, while in a namespace it’s a
+         * higher number, apparently related to the number of mounted API virtual filesystems. Let's use this
+         * as the last resort. */
+        if (lstat("/proc", &st) == 0)
+                if (st.st_dev > 4) {
+                        r = VIRTUALIZATION_CONTAINER_OTHER;
+                        goto finish;
+                }
 
         /* If that didn't work, give up, assume no container manager. */
         r = VIRTUALIZATION_NONE;
