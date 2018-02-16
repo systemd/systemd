@@ -2710,7 +2710,6 @@ void manager_send_unit_plymouth(Manager *m, Unit *u) {
         }
 
         if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0) {
-
                 if (!IN_SET(errno, EPIPE, EAGAIN, ENOENT, ECONNREFUSED, ECONNRESET, ECONNABORTED))
                         log_error_errno(errno, "connect() failed: %m");
                 return;
