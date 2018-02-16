@@ -212,7 +212,7 @@ install_data('org.freedesktop.systemd1.service',
              install_dir : dbussystemservicedir)
 
 policy = configure_file(
-        input : 'org.freedesktop.systemd1.policy.in.in',
+        input : 'org.freedesktop.systemd1.policy.in',
         output : 'org.freedesktop.systemd1.policy',
         configuration : substs)
 install_data(policy,
