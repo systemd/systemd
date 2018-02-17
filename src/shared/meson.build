@@ -263,6 +263,7 @@ libshared_deps = [threads,
                   libidn,
                   libxz,
                   liblz4,
+                  libzstd,
                   libblkid]
 
 libshared_sym_path = '@0@/libshared.sym'.format(meson.current_source_dir())

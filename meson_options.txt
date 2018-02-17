@@ -281,6 +281,8 @@ option('xz', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'xz compression support')
 option('lz4', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'lz4 compression support')
+option('zstd', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'zstd compression support')
 option('xkbcommon', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'xkbcommon keymap support')
 option('pcre2', type : 'combo', choices : ['auto', 'true', 'false'],

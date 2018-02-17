@@ -385,7 +385,7 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         ordered_hashmap_free_free(f->chain_cache);
 
-#if HAVE_XZ || HAVE_LZ4
+#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
         free(f->compress_buffer);
 #endif
 
@@ -416,7 +416,8 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
 
         h.incompatible_flags |= htole32(
                 f->compress_xz * HEADER_INCOMPATIBLE_COMPRESSED_XZ |
-                f->compress_lz4 * HEADER_INCOMPATIBLE_COMPRESSED_LZ4);
+                f->compress_lz4 * HEADER_INCOMPATIBLE_COMPRESSED_LZ4 |
+                f->compress_zstd * HEADER_INCOMPATIBLE_COMPRESSED_ZSTD);
 
         h.compatible_flags = htole32(
                 f->seal * HEADER_COMPATIBLE_SEALED);
@@ -496,6 +497,8 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                                 strv[n++] = "xz-compressed";
                         if (!compatible && (flags & HEADER_INCOMPATIBLE_COMPRESSED_LZ4))
                                 strv[n++] = "lz4-compressed";
+                        if (!compatible && (flags & HEADER_INCOMPATIBLE_COMPRESSED_ZSTD))
+                                strv[n++] = "zstd-compressed";
                         strv[n] = NULL;
                         assert(n < ELEMENTSOF(strv));
 
@@ -592,6 +595,7 @@ static int journal_file_verify_header(JournalFile *f) {
 
         f->compress_xz = JOURNAL_HEADER_COMPRESSED_XZ(f->header);
         f->compress_lz4 = JOURNAL_HEADER_COMPRESSED_LZ4(f->header);
+        f->compress_zstd = JOURNAL_HEADER_COMPRESSED_ZSTD(f->header);
 
         f->seal = JOURNAL_HEADER_SEALED(f->header);
 
@@ -1345,7 +1349,7 @@ int journal_file_find_data_object_with_hash(
                         goto next;
 
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
-#if HAVE_XZ || HAVE_LZ4
+#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
                         uint64_t l;
                         size_t rsize = 0;
 
@@ -1509,7 +1513,7 @@ static int journal_file_append_data(
 
         o->data.hash = htole64(hash);
 
-#if HAVE_XZ || HAVE_LZ4
+#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
         if (JOURNAL_FILE_COMPRESS(f) && size >= f->compress_threshold_bytes) {
                 size_t rsize = 0;
 
@@ -3069,7 +3073,7 @@ void journal_file_print_header(JournalFile *f) {
                "Sequential Number ID: %s\n"
                "State: %s\n"
                "Compatible Flags:%s%s\n"
-               "Incompatible Flags:%s%s%s\n"
+               "Incompatible Flags:%s%s%s%s\n"
                "Header size: %"PRIu64"\n"
                "Arena size: %"PRIu64"\n"
                "Data Hash Table Size: %"PRIu64"\n"
@@ -3094,6 +3098,7 @@ void journal_file_print_header(JournalFile *f) {
                (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_ANY) ? " ???" : "",
                JOURNAL_HEADER_COMPRESSED_XZ(f->header) ? " COMPRESSED-XZ" : "",
                JOURNAL_HEADER_COMPRESSED_LZ4(f->header) ? " COMPRESSED-LZ4" : "",
+               JOURNAL_HEADER_COMPRESSED_ZSTD(f->header) ? " COMPRESSED-ZSTD" : "",
                (le32toh(f->header->incompatible_flags) & ~HEADER_INCOMPATIBLE_ANY) ? " ???" : "",
                le64toh(f->header->header_size),
                le64toh(f->header->arena_size),
@@ -3211,6 +3216,8 @@ int journal_file_open(
                 .compress_lz4 = compress,
 #elif HAVE_XZ
                 .compress_xz = compress,
+#elif HAVE_XZ
+                .compress_zstd = compress,
 #endif
                 .compress_threshold_bytes = compress_threshold_bytes == (uint64_t) -1 ?
                                             DEFAULT_COMPRESS_THRESHOLD :
@@ -3645,7 +3652,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return -E2BIG;
 
                 if (o->object.flags & OBJECT_COMPRESSION_MASK) {
-#if HAVE_XZ || HAVE_LZ4
+#if HAVE_XZ || HAVE_LZ4 || HAVE_ZSTD
                         size_t rsize = 0;
 
                         r = decompress_blob(o->object.flags & OBJECT_COMPRESSION_MASK,

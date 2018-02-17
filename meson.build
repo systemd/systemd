@@ -1115,6 +1115,18 @@ else
 endif
 conf.set10('HAVE_LZ4', have)
 
+want_zstd = get_option('zstd')
+if want_zstd != 'false'
+        libzstd = dependency('libzstd',
+                             required : want_zstd == 'true',
+                             version : '>= 1.3.1')
+        have = libzstd.found()
+else
+        have = false
+        libzstd = []
+endif
+conf.set10('HAVE_ZSTD', have)
+
 want_xkbcommon = get_option('xkbcommon')
 if want_xkbcommon != 'false' and not skip_deps
         libxkbcommon = dependency('xkbcommon',
@@ -1422,6 +1434,7 @@ libsystemd = shared_library(
         dependencies : [threads,
                         librt,
                         libxz,
+                        libzstd,
                         liblz4],
         link_depends : libsystemd_sym,
         install : true,
@@ -1445,6 +1458,7 @@ install_libsystemd_static = static_library(
         dependencies : [threads,
                         librt,
                         libxz,
+                        libzstd,
                         liblz4,
                         libcap,
                         libblkid,
@@ -1590,6 +1604,7 @@ executable('systemd-journald',
                         libshared],
            dependencies : [threads,
                            libxz,
+                           libzstd,
                            liblz4,
                            libselinux],
            install_rpath : rootlibexecdir,
@@ -1613,6 +1628,7 @@ exe = executable('journalctl',
                  dependencies : [threads,
                                  libqrencode,
                                  libxz,
+                                 libzstd,
                                  liblz4,
                                  libpcre2],
                  install_rpath : rootlibexecdir,
@@ -1759,6 +1775,7 @@ if conf.get('ENABLE_LOGIND') == 1
                          link_with : [libshared],
                          dependencies : [threads,
                                          liblz4,
+                                         libzstd,
                                          libxz],
                          install_rpath : rootlibexecdir,
                          install : true,
@@ -1884,6 +1901,7 @@ exe = executable('systemctl',
                                  libcap,
                                  libselinux,
                                  libxz,
+                                 libzstd,
                                  liblz4],
                  install_rpath : rootlibexecdir,
                  install : true,
@@ -2101,6 +2119,7 @@ if conf.get('ENABLE_MACHINED') == 1
                          link_with : [libshared],
                          dependencies : [threads,
                                          libxz,
+                                         libzstd,
                                          liblz4],
                          install_rpath : rootlibexecdir,
                          install : true,
@@ -2177,6 +2196,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_LIBCURL') == 1
                                          libcurl,
                                          libgnutls,
                                          libxz,
+                                         libzstd,
                                          liblz4],
                          install_rpath : rootlibexecdir,
                          install : true,
@@ -2194,6 +2214,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
                                                 libmicrohttpd,
                                                 libgnutls,
                                                 libxz,
+                                                libzstd,
                                                 liblz4],
                                 install_rpath : rootlibexecdir,
                                 install : true,
@@ -2207,6 +2228,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
                                                   libmicrohttpd,
                                                   libgnutls,
                                                   libxz,
+                                                  libzstd,
                                                   liblz4],
                                   install_rpath : rootlibexecdir,
                                   install : true,
@@ -2223,6 +2245,7 @@ if conf.get('ENABLE_COREDUMP') == 1
                                    libacl,
                                    libdw,
                                    libxz,
+                                   libzstd,
                                    liblz4],
                    install_rpath : rootlibexecdir,
                    install : true,
@@ -2234,6 +2257,7 @@ if conf.get('ENABLE_COREDUMP') == 1
                          link_with : [libshared],
                          dependencies : [threads,
                                          libxz,
+                                         libzstd,
                                          liblz4],
                          install_rpath : rootlibexecdir,
                          install : true)
@@ -3106,6 +3130,7 @@ foreach tuple : [
         ['SMACK'],
         ['zlib'],
         ['xz'],
+        ['zstd'],
         ['lz4'],
         ['bzip2'],
         ['ACL'],
