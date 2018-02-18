@@ -41,11 +41,11 @@ BuildPackages=
         docbook-xsl
         elfutils
         gcc
+        gettext
         git
         gnu-efi-libs
         gnutls
         gperf
-        intltool
         iptables
         kmod
         libcap

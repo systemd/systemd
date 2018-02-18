@@ -37,10 +37,10 @@ BuildPackages=
         docbook-xml
         docbook-xsl
         gcc
+        gettext
         git
         gnu-efi
         gperf
-        intltool
         iptables-dev
         libacl1-dev
         libaudit-dev

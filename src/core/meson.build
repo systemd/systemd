@@ -212,19 +212,12 @@ install_data('org.freedesktop.systemd1.conf',
 install_data('org.freedesktop.systemd1.service',
              install_dir : dbussystemservicedir)
 
-policy_in = configure_file(
-        input : 'org.freedesktop.systemd1.policy.in.in',
-        output : 'org.freedesktop.systemd1.policy.in',
-        configuration : substs)
-
-i18n.merge_file(
-        'org.freedesktop.systemd1.policy',
-        input : policy_in,
+policy = configure_file(
+        input : 'org.freedesktop.systemd1.policy.in',
         output : 'org.freedesktop.systemd1.policy',
-        po_dir : po_dir,
-        data_dirs : po_dir,
-        install : install_polkit,
-        install_dir : polkitpolicydir)
+        configuration : substs)
+install_data(policy,
+             install_dir : polkitpolicydir)
 
 install_data('user.conf',
              install_dir : pkgsysconfdir)

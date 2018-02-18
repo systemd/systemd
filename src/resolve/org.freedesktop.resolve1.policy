@@ -18,34 +18,26 @@
         <vendor>The systemd Project</vendor>
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
-        <action id="org.freedesktop.import1.import">
-                <description>Import a VM or container image</description>
-                <message>Authentication is required to import a VM or container image</message>
+        <action id="org.freedesktop.resolve1.register-service">
+                <description gettext-domain="systemd">Register a DNS-SD service</description>
+                <message gettext-domain="systemd">Authentication is required to register a DNS-SD service</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-resolve</annotate>
         </action>
 
-        <action id="org.freedesktop.import1.export">
-                <description>Export a VM or container image</description>
-                <message>Authentication is required to export a VM or container image</message>
+        <action id="org.freedesktop.resolve1.unregister-service">
+                <description gettext-domain="systemd">Unregister a DNS-SD service</description>
+                <message gettext-domain="systemd">Authentication is required to unregister a DNS-SD service</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
                         <allow_active>auth_admin_keep</allow_active>
                 </defaults>
-        </action>
-
-        <action id="org.freedesktop.import1.pull">
-                <description>Download a VM or container image</description>
-                <message>Authentication is required to download a VM or container image</message>
-                <defaults>
-                        <allow_any>auth_admin</allow_any>
-                        <allow_inactive>auth_admin</allow_inactive>
-                        <allow_active>auth_admin_keep</allow_active>
-                </defaults>
+                <annotate key="org.freedesktop.policykit.owner">unix-user:systemd-resolve</annotate>
         </action>
 
 </policyconfig>

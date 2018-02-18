@@ -28,15 +28,8 @@ if conf.get('ENABLE_LOCALED') == 1
                      install_dir : dbuspolicydir)
         install_data('org.freedesktop.locale1.service',
                      install_dir : dbussystemservicedir)
-
-        i18n.merge_file(
-                'org.freedesktop.locale1.policy',
-                input : 'org.freedesktop.locale1.policy.in',
-                output : 'org.freedesktop.locale1.policy',
-                po_dir : po_dir,
-                data_dirs : po_dir,
-                install : install_polkit,
-                install_dir : polkitpolicydir)
+        install_data('org.freedesktop.locale1.policy',
+                     install_dir : polkitpolicydir)
 endif
 
 # If you know a way that allows the same variables to be used
