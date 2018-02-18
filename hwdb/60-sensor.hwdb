@@ -186,6 +186,10 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
 sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:*:svnTobefilledbyO.E.M.:pnTW891:pvrTobefilledbyO.E.M.:rvnTobefilledbyO.E.M.:rnTW891:rvr1.0:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
+# I.T.Works TW701 7" windows tablet, same hw as Trekstor ST70416-6
+sensor:modalias:acpi:BMA250*:dmi:*:bvritWORKS.G.WI71C.JGBMRB*:*:svnInsyde:pni71c:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
 #########################################
 # iOTA 360
 #########################################
