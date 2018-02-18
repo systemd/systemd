@@ -5478,7 +5478,7 @@ static int show(int argc, char *argv[], void *userdata) {
         }
 
         if (ellipsized && !arg_quiet)
-                printf("Hint: Some lines were ellipsized, use -l to show in full.\n");
+                printf("Hint: Some lines were chopped, use -l to show in full.\n");
 
         return ret;
 }
@@ -7209,7 +7209,7 @@ static void systemctl_help(void) {
                "                      including dead/empty ones. To list all units installed on\n"
                "                      the system, use the 'list-unit-files' command instead.\n"
                "     --failed         Same as --state=failed\n"
-               "  -l --full           Don't ellipsize unit names on output\n"
+               "  -l --full           Don't chop unit names on output\n"
                "  -r --recursive      Show unit list of host and local containers\n"
                "     --reverse        Show reverse dependencies with 'list-dependencies'\n"
                "     --job-mode=MODE  Specify how to deal with already queued jobs, when\n"
