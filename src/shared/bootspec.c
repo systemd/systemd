@@ -79,8 +79,8 @@ int boot_entry_load(const char *path, BootEntry *entry) {
                 return log_error_errno(errno, "Failed to open \"%s\": %m", path);
 
         for (;;) {
-                _cleanup_free_ char *buf = NULL;
-                char *p;
+                _cleanup_free_ char *buf = NULL, *field = NULL;
+                const char *p;
 
                 r = read_line(f, LONG_LINE_MAX, &buf);
                 if (r == 0)
@@ -95,34 +95,37 @@ int boot_entry_load(const char *path, BootEntry *entry) {
                 if (IN_SET(*strstrip(buf), '#', '\0'))
                         continue;
 
-                p = strchr(buf, ' ');
-                if (!p) {
+                p = buf;
+                r = extract_first_word(&p, &field, " \t", 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse config file %s line %u: %m", path, line);
+                        continue;
+                }
+                if (r == 0) {
                         log_warning("%s:%u: Bad syntax", path, line);
                         continue;
                 }
-                *p = '\0';
-                p = strstrip(p + 1);
 
-                if (streq(buf, "title"))
+                if (streq(field, "title"))
                         r = free_and_strdup(&tmp.title, p);
-                else if (streq(buf, "version"))
+                else if (streq(field, "version"))
                         r = free_and_strdup(&tmp.version, p);
-                else if (streq(buf, "machine-id"))
+                else if (streq(field, "machine-id"))
                         r = free_and_strdup(&tmp.machine_id, p);
-                else if (streq(buf, "architecture"))
+                else if (streq(field, "architecture"))
                         r = free_and_strdup(&tmp.architecture, p);
-                else if (streq(buf, "options"))
+                else if (streq(field, "options"))
                         r = strv_extend(&tmp.options, p);
-                else if (streq(buf, "linux"))
+                else if (streq(field, "linux"))
                         r = free_and_strdup(&tmp.kernel, p);
-                else if (streq(buf, "efi"))
+                else if (streq(field, "efi"))
                         r = free_and_strdup(&tmp.efi, p);
-                else if (streq(buf, "initrd"))
+                else if (streq(field, "initrd"))
                         r = strv_extend(&tmp.initrd, p);
-                else if (streq(buf, "devicetree"))
+                else if (streq(field, "devicetree"))
                         r = free_and_strdup(&tmp.device_tree, p);
                 else {
-                        log_notice("%s:%u: Unknown line \"%s\"", path, line, buf);
+                        log_notice("%s:%u: Unknown line \"%s\"", path, line, field);
                         continue;
                 }
                 if (r < 0)
@@ -164,8 +167,8 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
                 return log_error_errno(errno, "Failed to open \"%s\": %m", path);
 
         for (;;) {
-                _cleanup_free_ char *buf = NULL;
-                char *p;
+                _cleanup_free_ char *buf = NULL, *field = NULL;
+                const char *p;
 
                 r = read_line(f, LONG_LINE_MAX, &buf);
                 if (r == 0)
@@ -180,22 +183,25 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
                 if (IN_SET(*strstrip(buf), '#', '\0'))
                         continue;
 
-                p = strchr(buf, ' ');
-                if (!p) {
+                p = buf;
+                r = extract_first_word(&p, &field, " \t", 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse config file %s line %u: %m", path, line);
+                        continue;
+                }
+                if (r == 0) {
                         log_warning("%s:%u: Bad syntax", path, line);
                         continue;
                 }
-                *p = '\0';
-                p = strstrip(p + 1);
 
-                if (streq(buf, "default"))
+                if (streq(field, "default"))
                         r = free_and_strdup(&config->default_pattern, p);
-                else if (streq(buf, "timeout"))
+                else if (streq(field, "timeout"))
                         r = free_and_strdup(&config->timeout, p);
-                else if (streq(buf, "editor"))
+                else if (streq(field, "editor"))
                         r = free_and_strdup(&config->editor, p);
                 else {
-                        log_notice("%s:%u: Unknown line \"%s\"", path, line, buf);
+                        log_notice("%s:%u: Unknown line \"%s\"", path, line, field);
                         continue;
                 }
                 if (r < 0)
