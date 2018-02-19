@@ -28,7 +28,7 @@
 #include "strv.h"
 #include "user-util.h"
 
-static int access_check_var_log_journal(sd_journal *j) {
+static int access_check_var_log_journal(sd_journal *j, bool want_other_users) {
 #if HAVE_ACL
         _cleanup_strv_free_ char **g = NULL;
         const char* dir;
@@ -81,22 +81,25 @@ static int access_check_var_log_journal(sd_journal *j) {
                 if (!s)
                         return log_oom();
 
-                log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
+                log_notice("Hint: You are currently not seeing messages from %s.\n"
                            "      Users in groups '%s' can see all messages.\n"
-                           "      Pass -q to turn off this notice.", s);
+                           "      Pass -q to turn off this notice.",
+                           want_other_users ? "other users and the system" : "the system",
+                           s);
                 return 1;
         }
 #endif
 
         /* If no ACLs were found, print a short version of the message. */
-        log_notice("Hint: You are currently not seeing messages from other users and the system.\n"
+        log_notice("Hint: You are currently not seeing messages from %s.\n"
                    "      Users in the 'systemd-journal' group can see all messages. Pass -q to\n"
-                   "      turn off this notice.");
+                   "      turn off this notice.",
+                   want_other_users ? "other users and the system" : "the system");
 
         return 1;
 }
 
-int journal_access_check_and_warn(sd_journal *j, bool quiet) {
+int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_users) {
         Iterator it;
         void *code;
         char *path;
@@ -113,7 +116,7 @@ int journal_access_check_and_warn(sd_journal *j, bool quiet) {
 
         if (hashmap_contains(j->errors, INT_TO_PTR(-EACCES))) {
                 if (!quiet)
-                        (void) access_check_var_log_journal(j);
+                        (void) access_check_var_log_journal(j, want_other_users);
 
                 if (ordered_hashmap_isempty(j->files))
                         r = log_error_errno(EACCES, "No journal files were opened due to insufficient permissions.");

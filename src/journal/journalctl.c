@@ -972,8 +972,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
-        if (!strv_isempty(arg_system_units) && (arg_journal_type == SD_JOURNAL_CURRENT_USER)) {
-
+        if (!strv_isempty(arg_system_units) && arg_journal_type == SD_JOURNAL_CURRENT_USER) {
                 /* Specifying --user and --unit= at the same time makes no sense (as the former excludes the user
                  * journal, but the latter excludes the system journal, thus resulting in empty output). Let's be nice
                  * to users, and automatically turn --unit= into --user-unit= if combined with --user. */
@@ -2241,7 +2240,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        r = journal_access_check_and_warn(j, arg_quiet);
+        r = journal_access_check_and_warn(j, arg_quiet,
+                                          !(arg_journal_type == SD_JOURNAL_CURRENT_USER || arg_user_units));
         if (r < 0)
                 goto finish;
 
