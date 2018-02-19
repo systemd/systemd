@@ -33,6 +33,7 @@
 #include "chattr-util.h"
 #include "compress.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -450,39 +451,6 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
 
         if (k != sizeof(h))
                 return -EIO;
-
-        return 0;
-}
-
-static int fsync_directory_of_file(int fd) {
-        _cleanup_free_ char *path = NULL, *dn = NULL;
-        _cleanup_close_ int dfd = -1;
-        struct stat st;
-        int r;
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISREG(st.st_mode))
-                return -EBADFD;
-
-        r = fd_get_path(fd, &path);
-        if (r < 0)
-                return r;
-
-        if (!path_is_absolute(path))
-                return -EINVAL;
-
-        dn = dirname_malloc(path);
-        if (!dn)
-                return -ENOMEM;
-
-        dfd = open(dn, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-        if (dfd < 0)
-                return -errno;
-
-        if (fsync(dfd) < 0)
-                return -errno;
 
         return 0;
 }

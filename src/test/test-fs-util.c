@@ -552,6 +552,15 @@ static void test_unlinkat_deallocate(void) {
         assert_se(st.st_nlink == 0);
 }
 
+static void test_fsync_directory_of_file(void) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open_tmpfile_unlinkable(NULL, O_RDWR);
+        assert_se(fd >= 0);
+
+        assert_se(fsync_directory_of_file(fd) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         test_unlink_noerrno();
         test_get_files_in_directory();
@@ -562,6 +571,7 @@ int main(int argc, char *argv[]) {
         test_access_fd();
         test_touch_file();
         test_unlinkat_deallocate();
+        test_fsync_directory_of_file();
 
         return 0;
 }
