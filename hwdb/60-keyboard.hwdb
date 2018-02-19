@@ -1264,6 +1264,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnVIA:pnK8N800:pvr*
  KEYBOARD_KEY_81=prog1
 
 ###########################################################
+# VIOS
+###########################################################
+
+evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:bd*:svnVIOS:pnLTH17:pvr*
+ KEYBOARD_KEY_70073=f21                                 # Touchpad toggle
+
+###########################################################
 # Zepto
 ###########################################################
 
