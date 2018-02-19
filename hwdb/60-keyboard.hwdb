@@ -1204,6 +1204,13 @@ evdev:name:Sony Vaio Keys:dmi:bvn*:bvr*:bd*:svnSony*:pnVPC*:pvr*
  KEYBOARD_KEY_0e=up                                     # Fn+F10 zoomin
 
 ###########################################################
+# T-bao
+###########################################################
+
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnT-bao:pnTbookair:pvr*
+ KEYBOARD_KEY_76=f21                                    # Touchpad toggle
+
+###########################################################
 # Toshiba
 ###########################################################
 
