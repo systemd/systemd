@@ -58,7 +58,6 @@ typedef enum MountMode {
         BIND_MOUNT,
         BIND_MOUNT_RECURSIVE,
         PRIVATE_TMP,
-        PRIVATE_VAR_TMP,
         PRIVATE_DEV,
         BIND_DEV,
         EMPTY_DIR,
@@ -747,7 +746,6 @@ static int mount_entry_chase(
                    BIND_MOUNT,
                    BIND_MOUNT_RECURSIVE,
                    PRIVATE_TMP,
-                   PRIVATE_VAR_TMP,
                    PRIVATE_DEV,
                    BIND_DEV,
                    EMPTY_DIR,
@@ -773,9 +771,7 @@ static int mount_entry_chase(
 
 static int apply_mount(
                 const char *root_directory,
-                MountEntry *m,
-                const char *tmp_dir,
-                const char *var_tmp_dir) {
+                MountEntry *m) {
 
         bool rbind = true, make = false;
         const char *what;
@@ -840,12 +836,7 @@ static int apply_mount(
                 return mount_empty_dir(m);
 
         case PRIVATE_TMP:
-                what = tmp_dir;
-                make = true;
-                break;
-
-        case PRIVATE_VAR_TMP:
-                what = var_tmp_dir;
+                what = mount_entry_source(m);
                 make = true;
                 break;
 
@@ -1101,13 +1092,15 @@ int setup_namespace(
                         *(m++) = (MountEntry) {
                                 .path_const = "/tmp",
                                 .mode = PRIVATE_TMP,
+                                .source_const = tmp_dir,
                         };
                 }
 
                 if (var_tmp_dir) {
                         *(m++) = (MountEntry) {
                                 .path_const = "/var/tmp",
-                                .mode = PRIVATE_VAR_TMP,
+                                .mode = PRIVATE_TMP,
+                                .source_const = var_tmp_dir,
                         };
                 }
 
@@ -1235,7 +1228,7 @@ int setup_namespace(
 
                 /* First round, add in all special mounts we need */
                 for (m = mounts; m < mounts + n_mounts; ++m) {
-                        r = apply_mount(root, m, tmp_dir, var_tmp_dir);
+                        r = apply_mount(root, m);
                         if (r < 0)
                                 goto finish;
                 }
