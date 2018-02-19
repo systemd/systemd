@@ -103,7 +103,15 @@ run_qemu() {
         if [[ "$LOOKS_LIKE_ARCH" ]]; then
             KERNEL_BIN=/boot/vmlinuz-linux
         else
-            KERNEL_BIN=/boot/vmlinuz-$KERNEL_VER
+            [ "$ARCH" ] || ARCH=$(uname -m)
+            case $ARCH in
+                ppc64*)
+                KERNEL_BIN=/boot/vmlinux-$KERNEL_VER
+                ;;
+                *)
+                KERNEL_BIN=/boot/vmlinuz-$KERNEL_VER
+                ;;
+            esac
         fi
     fi
 
