@@ -79,7 +79,7 @@ void udev_watch_restore(struct udev *udev) {
                         udev_watch_begin(udev, dev);
                         udev_device_unref(dev);
 unlink:
-                        unlinkat(dirfd(dir), ent->d_name, 0);
+                        (void) unlinkat(dirfd(dir), ent->d_name, 0);
                 }
 
                 closedir(dir);

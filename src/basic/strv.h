@@ -179,6 +179,7 @@ static inline bool strv_fnmatch_or_empty(char* const* patterns, const char *s, i
 }
 
 char ***strv_free_free(char ***l);
+DEFINE_TRIVIAL_CLEANUP_FUNC(char***, strv_free_free);
 
 char **strv_skip(char **l, size_t n);
 

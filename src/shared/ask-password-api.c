@@ -209,7 +209,7 @@ static void backspace_string(int ttyfd, const char *str) {
         if (ttyfd < 0)
                 return;
 
-        /* Backspaces back for enough characters to entirely undo printing of the specified string. */
+        /* Backspaces through enough characters to entirely undo printing of the specified string. */
 
         m = utf8_n_codepoints(str);
         if (m == (size_t) -1)

@@ -387,8 +387,8 @@ int acquire_terminal(
          *
          * Note: strictly speaking this actually watches for the device being closed, it does *not* really watch
          * whether a tty loses its controlling process. However, unless some rogue process uses TIOCNOTTY on /dev/tty
-         * *after* closing its tty otherwise this will not become a problem. As long as the administrator makes sure
-         * not configure any service on the same tty as an untrusted user this should not be a problem. (Which he
+         * *after* closing its tty otherwise this will not become a problem. As long as the administrator makes sure to
+         * not configure any service on the same tty as an untrusted user this should not be a problem. (Which they
          * probably should not do anyway.) */
 
         if ((flags & ~ACQUIRE_TERMINAL_PERMISSIVE) == ACQUIRE_TERMINAL_WAIT) {
@@ -731,7 +731,7 @@ int get_kernel_consoles(char ***ret) {
 
         assert(ret);
 
-        /* If we /sys is mounted read-only this means we are running in some kind of container environment. In that
+        /* If /sys is mounted read-only this means we are running in some kind of container environment. In that
          * case /sys would reflect the host system, not us, hence ignore the data we can read from it. */
         if (path_is_read_only_fs("/sys") > 0)
                 goto fallback;
@@ -1242,7 +1242,7 @@ bool terminal_is_dumb(void) {
 bool colors_enabled(void) {
 
         /* Returns true if colors are considered supported on our stdout. For that we check $SYSTEMD_COLORS first
-         * (which is the explicit way to turn off/on colors). If that didn't work we turn off colors unless we are on a
+         * (which is the explicit way to turn colors on/off). If that didn't work we turn colors off unless we are on a
          * TTY. And if we are on a TTY we turn it off if $TERM is set to "dumb". There's one special tweak though: if
          * we are PID 1 then we do not check whether we are connected to a TTY, because we don't keep /dev/console open
          * continously due to fear of SAK, and hence things are a bit weird. */
@@ -1270,8 +1270,8 @@ bool dev_console_colors_enabled(void) {
         /* Returns true if we assume that color is supported on /dev/console.
          *
          * For that we first check if we explicitly got told to use colors or not, by checking $SYSTEMD_COLORS. If that
-         * didn't tell us anything we check whether PID 1 has $TERM set, and if not whether $TERM is set on the kernel
-         * command line. If we find $TERM set we assume color if it's not set to "dumb", similar to regular
+         * isn't set we check whether PID 1 has $TERM set, and if not, whether TERM is set on the kernel command
+         * line. If we find $TERM set we assume color if it's not set to "dumb", similarly to how regular
          * colors_enabled() operates. */
 
         b = getenv_bool("SYSTEMD_COLORS");

@@ -2010,7 +2010,7 @@ static void reset_scheduled_shutdown(Manager *m) {
         m->shutdown_dry_run = false;
 
         if (m->unlink_nologin) {
-                (void) unlink("/run/nologin");
+                (void) unlink_or_warn("/run/nologin");
                 m->unlink_nologin = false;
         }
 

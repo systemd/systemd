@@ -23,12 +23,14 @@
 
 #include "fileio.h"
 #include "fileio-label.h"
+#include "fs-util.h"
 #include "log.h"
 #include "selinux-util.h"
 #include "string-util.h"
 #include "util.h"
 
 int main(int argc, char*argv[]) {
+        int r, k;
 
         if (argc != 2) {
                 log_error("This program requires one argument.");
@@ -44,30 +46,12 @@ int main(int argc, char*argv[]) {
         mac_selinux_init();
 
         if (streq(argv[1], "start")) {
-                int r = 0;
-
-                if (unlink("/run/nologin") < 0 && errno != ENOENT)
-                        r = log_error_errno(errno,
-                                            "Failed to remove /run/nologin file: %m");
-
-                if (unlink("/etc/nologin") < 0 && errno != ENOENT) {
-                        /* If the file doesn't exist and /etc simply
-                         * was read-only (in which case unlink()
-                         * returns EROFS even if the file doesn't
-                         * exist), don't complain */
-
-                        if (errno != EROFS || access("/etc/nologin", F_OK) >= 0) {
-                                log_error_errno(errno, "Failed to remove /etc/nologin file: %m");
-                                return EXIT_FAILURE;
-                        }
-                }
-
-                if (r < 0)
+                r = unlink_or_warn("/run/nologin");
+                k = unlink_or_warn("/etc/nologin");
+                if (r < 0 || k < 0)
                         return EXIT_FAILURE;
 
         } else if (streq(argv[1], "stop")) {
-                int r;
-
                 r = write_string_file_atomic_label("/run/nologin", "System is going down.");
                 if (r < 0) {
                         log_error_errno(r, "Failed to create /run/nologin: %m");

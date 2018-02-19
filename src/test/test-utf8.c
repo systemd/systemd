@@ -106,6 +106,15 @@ static void test_utf16_to_utf8(void) {
         free(a);
 }
 
+static void test_utf8_n_codepoints(void) {
+        assert_se(utf8_n_codepoints("abc") == 3);
+        assert_se(utf8_n_codepoints("zażółcić gęślą jaźń") == 19);
+        assert_se(utf8_n_codepoints("串") == 1);
+        assert_se(utf8_n_codepoints("") == 0);
+        assert_se(utf8_n_codepoints("…👊🔪💐…") == 5);
+        assert_se(utf8_n_codepoints("\xF1") == (size_t) -1);
+}
+
 int main(int argc, char *argv[]) {
         test_utf8_is_valid();
         test_utf8_is_printable();
@@ -114,6 +123,7 @@ int main(int argc, char *argv[]) {
         test_utf8_escaping();
         test_utf8_escaping_printable();
         test_utf16_to_utf8();
+        test_utf8_n_codepoints();
 
         return 0;
 }

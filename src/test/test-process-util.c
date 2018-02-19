@@ -100,7 +100,7 @@ static void test_get_process_comm(pid_t pid) {
         if (!detect_container())
                 assert_se(get_ctty_devnr(pid, &h) == -ENXIO || pid != 1);
 
-        getenv_for_pid(pid, "PATH", &i);
+        (void) getenv_for_pid(pid, "PATH", &i);
         log_info("PID"PID_FMT" $PATH: '%s'", pid, strna(i));
 }
 

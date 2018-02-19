@@ -35,6 +35,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "logind.h"
 #include "process-util.h"
 #include "selinux-util.h"
@@ -183,7 +184,7 @@ static void manager_free(Manager *m) {
         udev_unref(m->udev);
 
         if (m->unlink_nologin)
-                (void) unlink("/run/nologin");
+                (void) unlink_or_warn("/run/nologin");
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
 
@@ -322,7 +323,9 @@ static int manager_enumerate_seats(Manager *m) {
 
                 s = hashmap_get(m->seats, de->d_name);
                 if (!s) {
-                        unlinkat(dirfd(d), de->d_name, 0);
+                        if (unlinkat(dirfd(d), de->d_name, 0) < 0)
+                                log_warning("Failed to remove /run/systemd/seats/%s: %m",
+                                            de->d_name);
                         continue;
                 }
 
