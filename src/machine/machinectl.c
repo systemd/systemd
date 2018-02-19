@@ -2774,7 +2774,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -q --quiet                  Suppress output\n"
                "  -a --all                    Show all properties, including empty ones\n"
                "     --value                  When showing properties, only print the value\n"
-               "  -l --full                   Do not ellipsize output\n"
+               "  -l --full                   Do not chop output\n"
                "     --kill-who=WHO           Who to send signal to\n"
                "  -s --signal=SIGNAL          Which signal to send\n"
                "     --uid=USER               Specify user ID to invoke shell as\n"

@@ -164,7 +164,7 @@ _arguments -s \
     {-s+,--signal=}'[Which signal to send]:signal:_signals' \
     {-H+,--host=}'[Operate on remote host]:userathost:_sd_hosts_or_user_at_host' \
     {-M+,--machine=}'[Operate on local container]:machine:_sd_machines' \
-    {-l,--full}'[Do not ellipsize output]' \
+    {-l,--full}'[Do not chop output]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--no-legend[Do not show the headers and footers]' \
     '--no-ask-password[Do not ask for system passwords]' \

@@ -238,7 +238,7 @@
         <term><option>--full</option></term>
 
         <listitem>
-          <para>Do not ellipsize unit names, process tree entries,
+          <para>Do not chop unit names, process tree entries,
           journal output, or truncate unit descriptions in the output
           of <command>status</command>, <command>list-units</command>,
           <command>list-jobs</command>, and
@@ -906,7 +906,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             <para>This function is intended to generate human-readable
             output. If you are looking for computer-parsable output,
             use <command>show</command> instead. By default, this
-            function only shows 10 lines of output and ellipsizes
+            function only shows 10 lines of output and chops
             lines to fit in the terminal window. This can be changed
             with <option>--lines</option> and <option>--full</option>,
             see above. In addition, <command>journalctl

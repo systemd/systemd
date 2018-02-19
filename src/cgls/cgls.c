@@ -62,7 +62,7 @@ static void help(void) {
                "  -a --all            Show all groups, including empty\n"
                "  -u --unit           Show the subtrees of specifified system units\n"
                "     --user-unit      Show the subtrees of specifified user units\n"
-               "  -l --full           Do not ellipsize output\n"
+               "  -l --full           Do not chop output\n"
                "  -k                  Include kernel threads in output\n"
                "  -M --machine=       Show container\n"
                , program_invocation_short_name);
