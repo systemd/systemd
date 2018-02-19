@@ -1333,7 +1333,11 @@ fail:
         return r;
 }
 
-static int add_file(sd_journal *j, const char *prefix, const char *filename) {
+static int add_file_by_name(
+                sd_journal *j,
+                const char *prefix,
+                const char *filename) {
+
         const char *path;
 
         assert(j);
@@ -1350,7 +1354,11 @@ static int add_file(sd_journal *j, const char *prefix, const char *filename) {
         return add_any_file(j, -1, path);
 }
 
-static void remove_file(sd_journal *j, const char *prefix, const char *filename) {
+static void remove_file_by_name(
+                sd_journal *j,
+                const char *prefix,
+                const char *filename) {
+
         const char *path;
         JournalFile *f;
 
@@ -1370,7 +1378,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
         assert(j);
         assert(f);
 
-        ordered_hashmap_remove(j->files, f->path);
+        (void) ordered_hashmap_remove(j->files, f->path);
 
         log_debug("File %s removed.", f->path);
 
@@ -1463,8 +1471,9 @@ static void directory_enumerate(sd_journal *j, Directory *m, DIR *d) {
         assert(d);
 
         FOREACH_DIRENT_ALL(de, d, goto fail) {
+
                 if (dirent_is_journal_file(de))
-                        (void) add_file(j, m->path, de->d_name);
+                        (void) add_file_by_name(j, m->path, de->d_name);
 
                 if (m->is_root && dirent_is_id128_subdir(de))
                         (void) add_directory(j, m->path, de->d_name);
@@ -2499,9 +2508,9 @@ static void process_inotify_event(sd_journal *j, struct inotify_event *e) {
                         /* Event for a journal file */
 
                         if (e->mask & (IN_CREATE|IN_MOVED_TO|IN_MODIFY|IN_ATTRIB))
-                                (void) add_file(j, d->path, e->name);
+                                (void) add_file_by_name(j, d->path, e->name);
                         else if (e->mask & (IN_DELETE|IN_MOVED_FROM|IN_UNMOUNT))
-                                remove_file(j, d->path, e->name);
+                                remove_file_by_name(j, d->path, e->name);
 
                 } else if (!d->is_root && e->len == 0) {
 
