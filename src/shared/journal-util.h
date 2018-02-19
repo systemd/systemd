@@ -26,4 +26,4 @@
 
 bool journal_field_valid(const char *p, size_t l, bool allow_protected);
 
-int journal_access_check_and_warn(sd_journal *j, bool quiet);
+int journal_access_check_and_warn(sd_journal *j, bool quiet, bool want_other_users);

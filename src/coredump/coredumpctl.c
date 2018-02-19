@@ -1040,7 +1040,7 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        r = journal_access_check_and_warn(j, arg_quiet);
+        r = journal_access_check_and_warn(j, arg_quiet, true);
         if (r < 0)
                 goto end;
 
