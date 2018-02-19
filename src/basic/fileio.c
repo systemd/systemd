@@ -1187,6 +1187,10 @@ int fflush_sync_and_check(FILE *f) {
         if (fsync(fileno(f)) < 0)
                 return -errno;
 
+        r = fsync_directory_of_file(fileno(f));
+        if (r < 0)
+                return r;
+
         return 0;
 }
 

@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include "fd-util.h"
+#include "fs-util.h"
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
@@ -180,9 +181,13 @@ int id128_write_fd(int fd, Id128Format f, sd_id128_t id, bool do_sync) {
         if (do_sync) {
                 if (fsync(fd) < 0)
                         return -errno;
+
+                r = fsync_directory_of_file(fd);
+                if (r < 0)
+                        return r;
         }
 
-        return r;
+        return 0;
 }
 
 int id128_write(const char *p, Id128Format f, sd_id128_t id, bool do_sync) {
