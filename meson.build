@@ -656,8 +656,11 @@ system_uid_max = get_option('system-uid-max')
 if system_uid_max == ''
         system_uid_max = run_command(
                 awk,
-                'BEGIN { uid=999 } /^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }',
-                '/etc/login.defs').stdout()
+                '/^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }',
+                '/etc/login.defs').stdout().strip()
+        if system_uid_max == ''
+                system_uid_max = '999'
+        endif
 endif
 system_uid_max = system_uid_max.to_int()
 conf.set('SYSTEM_UID_MAX', system_uid_max)
@@ -668,8 +671,11 @@ system_gid_max = get_option('system-gid-max')
 if system_gid_max == ''
         system_gid_max = run_command(
                 awk,
-                'BEGIN { gid=999 } /^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }',
-                '/etc/login.defs').stdout()
+                '/^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }',
+                '/etc/login.defs').stdout().strip()
+        if system_gid_max == ''
+                system_gid_max = '999'
+        endif
 endif
 system_gid_max = system_gid_max.to_int()
 conf.set('SYSTEM_GID_MAX', system_gid_max)
