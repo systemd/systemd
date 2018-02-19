@@ -137,7 +137,7 @@ int loop_write(int fd, const void *buf, size_t nbytes, bool do_poll) {
         assert(fd >= 0);
         assert(buf);
 
-        if (nbytes > (size_t) SSIZE_MAX)
+        if (_unlikely_(nbytes > (size_t) SSIZE_MAX))
                 return -EINVAL;
 
         do {
