@@ -1243,6 +1243,16 @@ static bool path_has_prefix(sd_journal *j, const char *path, const char *prefix)
         return path_startswith(path, prefix);
 }
 
+static void track_file_disposition(sd_journal *j, JournalFile *f) {
+        assert(j);
+        assert(f);
+
+        if (!j->has_runtime_files && path_has_prefix(j, f->path, "/run"))
+                j->has_runtime_files = true;
+        else if (!j->has_persistent_files && path_has_prefix(j, f->path, "/var"))
+                j->has_persistent_files = true;
+}
+
 static const char *skip_slash(const char *p) {
 
         if (!p)
@@ -1254,81 +1264,120 @@ static const char *skip_slash(const char *p) {
         return p;
 }
 
-static int add_any_file(sd_journal *j, int fd, const char *path) {
-        JournalFile *f = NULL;
+static int add_any_file(
+                sd_journal *j,
+                int fd,
+                const char *path) {
+
         bool close_fd = false;
+        JournalFile *f;
+        struct stat st;
         int r, k;
 
         assert(j);
         assert(fd >= 0 || path);
 
-        if (path) {
-                f = ordered_hashmap_get(j->files, path);
-                if (f) {
-                        /* Mark this file as seen in this generation. This is used to GC old files in
-                         * process_q_overflow() to detect journal files that are still and discern them from those who
-                         * are gone. */
-                        f->last_seen_generation = j->generation;
-                        return 0;
+        if (fd < 0) {
+                if (j->toplevel_fd >= 0)
+                        /* If there's a top-level fd defined make the path relative, explicitly, since otherwise
+                         * openat() ignores the first argument. */
+
+                        fd = openat(j->toplevel_fd, skip_slash(path), O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                else
+                        fd = open(path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (fd < 0) {
+                        r = log_debug_errno(errno, "Failed to open journal file %s: %m", path);
+                        goto finish;
                 }
+
+                close_fd = true;
+
+                r = fd_nonblock(fd, false);
+                if (r < 0) {
+                        r = log_debug_errno(errno, "Failed to turn off O_NONBLOCK for %s: %m", path);
+                        goto finish;
+                }
+        }
+
+        if (fstat(fd, &st) < 0) {
+                r = log_debug_errno(errno, "Failed to fstat file '%s': %m", path);
+                goto finish;
+        }
+        if (S_ISDIR(st.st_mode)) {
+                log_debug("Uh, file '%s' is a directory? Refusing.", path);
+                r = -EISDIR;
+                goto finish;
+        }
+        if (!S_ISREG(st.st_mode)) {
+                log_debug("Uh, file '%s' is not a regular file? Refusing.", path);
+                r = -EBADFD;
+                goto finish;
+        }
+
+        f = ordered_hashmap_get(j->files, path);
+        if (f) {
+                if (f->last_stat.st_dev == st.st_dev &&
+                    f->last_stat.st_ino == st.st_ino) {
+
+                        /* We already track this file, under the same path and with the same device/inode numbers, it's
+                         * hence really the same. Mark this file as seen in this generation. This is used to GC old
+                         * files in process_q_overflow() to detect journal files that are still there and discern them
+                         * from those which are gone. */
+
+                        f->last_seen_generation = j->generation;
+                        r = 0;
+                        goto finish;
+                }
+
+                /* So we tracked a file under this name, but it has a different inode/device. In that case, it got
+                 * replaced (probably due to rotation?), let's drop it hence from our list. */
+                remove_file_real(j, f);
+                f = NULL;
         }
 
         if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {
                 log_debug("Too many open journal files, not adding %s.", path);
                 r = -ETOOMANYREFS;
-                goto fail;
-        }
-
-        if (fd < 0 && j->toplevel_fd >= 0) {
-
-                /* If there's a top-level fd defined, open the file relative to this now. (Make the path relative,
-                 * explicitly, since otherwise openat() ignores the first argument.) */
-
-                fd = openat(j->toplevel_fd, skip_slash(path), O_RDONLY|O_CLOEXEC);
-                if (fd < 0) {
-                        r = log_debug_errno(errno, "Failed to open journal file %s: %m", path);
-                        goto fail;
-                }
-
-                close_fd = true;
+                goto finish;
         }
 
         r = journal_file_open(fd, path, O_RDONLY, 0, false, false, NULL, j->mmap, NULL, NULL, &f);
         if (r < 0) {
-                if (close_fd)
-                        safe_close(fd);
                 log_debug_errno(r, "Failed to open journal file %s: %m", path);
-                goto fail;
+                goto finish;
         }
 
         /* journal_file_dump(f); */
 
         r = ordered_hashmap_put(j->files, f->path, f);
         if (r < 0) {
-                f->close_fd = close_fd;
+                f->close_fd = false; /* make sure journal_file_close() doesn't close the caller's fd (or our own). We'll let the caller do that, or ourselves */
                 (void) journal_file_close(f);
-                goto fail;
+                goto finish;
         }
+
+        close_fd = false; /* the fd is now owned by the JournalFile object */
 
         f->last_seen_generation = j->generation;
 
-        if (!j->has_runtime_files && path_has_prefix(j, f->path, "/run"))
-                j->has_runtime_files = true;
-        else if (!j->has_persistent_files && path_has_prefix(j, f->path, "/var"))
-                j->has_persistent_files = true;
-
-        log_debug("File %s added.", f->path);
-
+        track_file_disposition(j, f);
         check_network(j, f->fd);
 
         j->current_invalidate_counter++;
 
-        return 0;
+        log_debug("File %s added.", f->path);
 
-fail:
-        k = journal_put_error(j, r, path);
-        if (k < 0)
-                return k;
+        r = 0;
+
+finish:
+        if (close_fd)
+                safe_close(fd);
+
+        if (r < 0) {
+                k = journal_put_error(j, r, path);
+                if (k < 0)
+                        return k;
+        }
 
         return r;
 }
