@@ -75,3 +75,6 @@ int path_is_temporary_fs(const char *path);
  * signed/unsigned comparison, because the magic can be 32 bit unsigned.
  */
 #define F_TYPE_EQUAL(a, b) (a == (typeof(a)) b)
+
+int stat_verify_regular(const struct stat *st);
+int fd_verify_regular(int fd);

@@ -232,23 +232,18 @@ int btrfs_subvol_get_read_only_fd(int fd) {
 }
 
 int btrfs_reflink(int infd, int outfd) {
-        struct stat st;
         int r;
 
         assert(infd >= 0);
         assert(outfd >= 0);
 
-        /* Make sure we invoke the ioctl on a regular file, so that no
-         * device driver accidentally gets it. */
+        /* Make sure we invoke the ioctl on a regular file, so that no device driver accidentally gets it. */
 
-        if (fstat(outfd, &st) < 0)
-                return -errno;
-
-        if (!S_ISREG(st.st_mode))
-                return -EINVAL;
-
-        r = ioctl(outfd, BTRFS_IOC_CLONE, infd);
+        r = fd_verify_regular(outfd);
         if (r < 0)
+                return r;
+
+        if (ioctl(outfd, BTRFS_IOC_CLONE, infd) < 0)
                 return -errno;
 
         return 0;
@@ -261,21 +256,17 @@ int btrfs_clone_range(int infd, uint64_t in_offset, int outfd, uint64_t out_offs
                 .src_length = sz,
                 .dest_offset = out_offset,
         };
-        struct stat st;
         int r;
 
         assert(infd >= 0);
         assert(outfd >= 0);
         assert(sz > 0);
 
-        if (fstat(outfd, &st) < 0)
-                return -errno;
-
-        if (!S_ISREG(st.st_mode))
-                return -EINVAL;
-
-        r = ioctl(outfd, BTRFS_IOC_CLONE_RANGE, &args);
+        r = fd_verify_regular(outfd);
         if (r < 0)
+                return r;
+
+        if (ioctl(outfd, BTRFS_IOC_CLONE_RANGE, &args) < 0)
                 return -errno;
 
         return 0;
@@ -760,15 +751,13 @@ int btrfs_subvol_get_subtree_quota(const char *path, uint64_t subvol_id, BtrfsQu
 }
 
 int btrfs_defrag_fd(int fd) {
-        struct stat st;
+        int r;
 
         assert(fd >= 0);
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISREG(st.st_mode))
-                return -EINVAL;
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
 
         if (ioctl(fd, BTRFS_IOC_DEFRAG, NULL) < 0)
                 return -errno;

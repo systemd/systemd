@@ -1284,10 +1284,10 @@ static int unit_file_load(
                 info->type = UNIT_FILE_TYPE_MASKED;
                 return 0;
         }
-        if (S_ISDIR(st.st_mode))
-                return -EISDIR;
-        if (!S_ISREG(st.st_mode))
-                return -ENOTTY;
+
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return r;
 
         f = fdopen(fd, "re");
         if (!f)
@@ -2163,12 +2163,9 @@ int unit_file_link(
 
                 if (lstat(full, &st) < 0)
                         return -errno;
-                if (S_ISLNK(st.st_mode))
-                        return -ELOOP;
-                if (S_ISDIR(st.st_mode))
-                        return -EISDIR;
-                if (!S_ISREG(st.st_mode))
-                        return -ENOTTY;
+                r = stat_verify_regular(&st);
+                if (r < 0)
+                        return r;
 
                 q = in_search_path(&paths, *i);
                 if (q < 0)

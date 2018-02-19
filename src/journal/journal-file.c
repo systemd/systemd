@@ -42,6 +42,7 @@
 #include "random-util.h"
 #include "sd-event.h"
 #include "set.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "xattr-util.h"
@@ -643,6 +644,8 @@ static int journal_file_verify_header(JournalFile *f) {
 }
 
 static int journal_file_fstat(JournalFile *f) {
+        int r;
+
         assert(f);
         assert(f->fd >= 0);
 
@@ -652,10 +655,9 @@ static int journal_file_fstat(JournalFile *f) {
         f->last_stat_usec = now(CLOCK_MONOTONIC);
 
         /* Refuse dealing with with files that aren't regular */
-        if (S_ISDIR(f->last_stat.st_mode))
-                return -EISDIR;
-        if (!S_ISREG(f->last_stat.st_mode))
-                return -EBADFD;
+        r = stat_verify_regular(&f->last_stat);
+        if (r < 0)
+                return r;
 
         /* Refuse appending to files that are already deleted */
         if (f->last_stat.st_nlink <= 0)

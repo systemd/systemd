@@ -1303,14 +1303,10 @@ static int add_any_file(
                 r = log_debug_errno(errno, "Failed to fstat file '%s': %m", path);
                 goto finish;
         }
-        if (S_ISDIR(st.st_mode)) {
-                log_debug("Uh, file '%s' is a directory? Refusing.", path);
-                r = -EISDIR;
-                goto finish;
-        }
-        if (!S_ISREG(st.st_mode)) {
-                log_debug("Uh, file '%s' is not a regular file? Refusing.", path);
-                r = -EBADFD;
+
+        r = stat_verify_regular(&st);
+        if (r < 0) {
+                log_debug_errno(r, "Refusing to open '%s', as it is not a regular file.", path);
                 goto finish;
         }
 
@@ -2074,14 +2070,9 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
                         goto fail;
                 }
 
-                if (S_ISDIR(st.st_mode)) {
-                        r = -EISDIR;
+                r = stat_verify_regular(&st);
+                if (r < 0)
                         goto fail;
-                }
-                if (!S_ISREG(st.st_mode)) {
-                        r = -EBADFD;
-                        goto fail;
-                }
 
                 r = add_any_file(j, fds[i], NULL);
                 if (r < 0)
