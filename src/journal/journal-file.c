@@ -3298,6 +3298,8 @@ int journal_file_open(
                         goto fail;
                 }
         } else {
+                assert(fd >= 0);
+
                 /* If we don't know the path, fill in something explanatory and vaguely useful */
                 if (asprintf(&f->path, "/proc/self/%i", fd) < 0) {
                         r = -ENOMEM;
@@ -3312,7 +3314,11 @@ int journal_file_open(
         }
 
         if (f->fd < 0) {
-                f->fd = open(f->path, f->flags|O_CLOEXEC, f->mode);
+                /* We pass O_NONBLOCK here, so that in case somebody pointed us to some character device node or FIFO
+                 * or so, we likely fail quickly than block for long. For regular files O_NONBLOCK has no effect, hence
+                 * it doesn't hurt in that case. */
+
+                f->fd = open(f->path, f->flags|O_CLOEXEC|O_NONBLOCK, f->mode);
                 if (f->fd < 0) {
                         r = -errno;
                         goto fail;
@@ -3320,6 +3326,10 @@ int journal_file_open(
 
                 /* fds we opened here by us should also be closed by us. */
                 f->close_fd = true;
+
+                r = fd_nonblock(f->fd, false);
+                if (r < 0)
+                        goto fail;
         }
 
         f->cache_fd = mmap_cache_add_fd(f->mmap, f->fd);
