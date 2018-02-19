@@ -651,6 +651,12 @@ static int journal_file_fstat(JournalFile *f) {
 
         f->last_stat_usec = now(CLOCK_MONOTONIC);
 
+        /* Refuse dealing with with files that aren't regular */
+        if (S_ISDIR(f->last_stat.st_mode))
+                return -EISDIR;
+        if (!S_ISREG(f->last_stat.st_mode))
+                return -EBADFD;
+
         /* Refuse appending to files that are already deleted */
         if (f->last_stat.st_nlink <= 0)
                 return -EIDRM;

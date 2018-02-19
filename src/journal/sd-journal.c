@@ -2016,6 +2016,10 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
                         goto fail;
                 }
 
+                if (S_ISDIR(st.st_mode)) {
+                        r = -EISDIR;
+                        goto fail;
+                }
                 if (!S_ISREG(st.st_mode)) {
                         r = -EBADFD;
                         goto fail;
