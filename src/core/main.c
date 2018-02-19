@@ -2426,7 +2426,8 @@ int main(int argc, char *argv[]) {
                  * need to do that for user instances since they never log
                  * into the console. */
                 log_show_color(colors_enabled());
-                r = make_null_stdio();
+                if (detect_container() <= 0)
+                        r = make_null_stdio();
                 if (r < 0)
                         log_warning_errno(r, "Failed to redirect standard streams to /dev/null: %m");
         }
