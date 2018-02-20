@@ -28,6 +28,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "missing.h"
+#include "util.h"
 
 int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
         _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
@@ -58,6 +59,9 @@ int bpf_program_add_instructions(BPFProgram *p, const struct bpf_insn *instructi
 
         assert(p);
 
+        if (p->kernel_fd >= 0) /* don't allow modification after we uploaded things to the kernel */
+                return -EBUSY;
+
         if (!GREEDY_REALLOC(p->instructions, p->allocated, p->n_instructions + count))
                 return -ENOMEM;
 
@@ -72,8 +76,10 @@ int bpf_program_load_kernel(BPFProgram *p, char *log_buf, size_t log_size) {
 
         assert(p);
 
-        if (p->kernel_fd >= 0)
-                return -EBUSY;
+        if (p->kernel_fd >= 0) { /* make this idempotent */
+                memzero(log_buf, log_size);
+                return 0;
+        }
 
         attr = (union bpf_attr) {
                 .prog_type = p->prog_type,
