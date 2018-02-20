@@ -808,7 +808,7 @@ evdev:input:b0003v046DpC517*
  KEYBOARD_KEY_c104c=ejectclosecd
 
 # Cordless Wave Pro
-evdev:input:b0003v046DpC52[9B]*
+evdev:input:b0003v046DpC529*
  KEYBOARD_KEY_0c01b6=camera
  KEYBOARD_KEY_0c0183=media
  KEYBOARD_KEY_0c0184=wordprocessor
