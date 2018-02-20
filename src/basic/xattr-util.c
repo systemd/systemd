@@ -31,6 +31,7 @@
 #include "macro.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "time-util.h"
 #include "xattr-util.h"
 
@@ -111,11 +112,21 @@ ssize_t fgetxattrat_fake(int dirfd, const char *filename, const char *attribute,
 
         /* The kernel doesn't have a fgetxattrat() command, hence let's emulate one */
 
-        fd = openat(dirfd, filename, O_CLOEXEC|O_PATH|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
-        if (fd < 0)
-                return -errno;
+        if (flags & ~(AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH))
+                return -EINVAL;
 
-        xsprintf(fn, "/proc/self/fd/%i", fd);
+        if (isempty(filename)) {
+                if (!(flags & AT_EMPTY_PATH))
+                        return -EINVAL;
+
+                xsprintf(fn, "/proc/self/fd/%i", dirfd);
+        } else {
+                fd = openat(dirfd, filename, O_CLOEXEC|O_PATH|(flags & AT_SYMLINK_NOFOLLOW ? O_NOFOLLOW : 0));
+                if (fd < 0)
+                        return -errno;
+
+                xsprintf(fn, "/proc/self/fd/%i", fd);
+        }
 
         l = getxattr(fn, attribute, value, size);
         if (l < 0)
