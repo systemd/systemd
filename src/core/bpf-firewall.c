@@ -520,10 +520,6 @@ int bpf_firewall_compile(Unit *u) {
         u->ipv6_allow_map_fd = safe_close(u->ipv6_allow_map_fd);
         u->ipv6_deny_map_fd = safe_close(u->ipv6_deny_map_fd);
 
-        cc = unit_get_cgroup_context(u);
-        if (!cc)
-                return -EINVAL;
-
         if (u->type != UNIT_SLICE) {
                 /* In inner nodes we only do accounting, we do not actually bother with access control. However, leaf
                  * nodes will incorporate all IP access rules set on all their parent nodes. This has the benefit that
@@ -558,16 +554,17 @@ int bpf_firewall_compile(Unit *u) {
 int bpf_firewall_install(Unit *u) {
         _cleanup_free_ char *path = NULL;
         CGroupContext *cc;
-        uint32_t flags;
         int r, supported;
+        uint32_t flags;
 
         assert(u);
 
-        if (!u->cgroup_path)
-                return -EINVAL;
-
         cc = unit_get_cgroup_context(u);
         if (!cc)
+                return -EINVAL;
+        if (!u->cgroup_path)
+                return -EINVAL;
+        if (!u->cgroup_realized)
                 return -EINVAL;
 
         supported = bpf_firewall_supported();
@@ -589,34 +586,26 @@ int bpf_firewall_install(Unit *u) {
         flags = (supported == BPF_FIREWALL_SUPPORTED_WITH_MULTI &&
                  (u->type == UNIT_SLICE || unit_cgroup_delegate(u))) ? BPF_F_ALLOW_MULTI : 0;
 
-        if (u->ip_bpf_egress) {
-                r = bpf_program_load_kernel(u->ip_bpf_egress, NULL, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Kernel upload of egress BPF program failed: %m");
+        /* Unref the old BPF program (which will implicitly detach it) right before attaching the new program, to
+         * minimize the time window when we don't account for IP traffic. */
+        u->ip_bpf_egress_installed = bpf_program_unref(u->ip_bpf_egress_installed);
+        u->ip_bpf_ingress_installed = bpf_program_unref(u->ip_bpf_ingress_installed);
 
+        if (u->ip_bpf_egress) {
                 r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path, flags);
                 if (r < 0)
                         return log_error_errno(r, "Attaching egress BPF program to cgroup %s failed: %m", path);
-        } else {
-                r = bpf_program_cgroup_detach(NULL, BPF_CGROUP_INET_EGRESS, path);
-                if (r < 0)
-                        return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
-                                              "Detaching egress BPF program from cgroup failed: %m");
+
+                /* Remember that this BPF program is installed now. */
+                u->ip_bpf_egress_installed = bpf_program_ref(u->ip_bpf_egress);
         }
 
         if (u->ip_bpf_ingress) {
-                r = bpf_program_load_kernel(u->ip_bpf_ingress, NULL, 0);
-                if (r < 0)
-                        return log_error_errno(r, "Kernel upload of ingress BPF program failed: %m");
-
                 r = bpf_program_cgroup_attach(u->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path, flags);
                 if (r < 0)
                         return log_error_errno(r, "Attaching ingress BPF program to cgroup %s failed: %m", path);
-        } else {
-                r = bpf_program_cgroup_detach(NULL, BPF_CGROUP_INET_INGRESS, path);
-                if (r < 0)
-                        return log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_ERR, r,
-                                              "Detaching ingress BPF program from cgroup failed: %m");
+
+                u->ip_bpf_ingress_installed = bpf_program_ref(u->ip_bpf_ingress);
         }
 
         return 0;
@@ -664,7 +653,6 @@ int bpf_firewall_reset_accounting(int map_fd) {
         key = MAP_KEY_BYTES;
         return bpf_map_update_element(map_fd, &key, &value);
 }
-
 
 int bpf_firewall_supported(void) {
         struct bpf_insn trivial[] = {
