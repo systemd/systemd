@@ -41,9 +41,6 @@ Features:
   the entire system, with the exception of one specific service. See:
   https://lists.freedesktop.org/archives/systemd-devel/2018-February/040369.html
 
-* check what setting the login shell to /bin/false vs. /sbin/nologin means and
-  do the right thing in get_user_creds_clean() with it.
-
 * maybe rework get_user_creds() to query the user database if $SHELL is used
   for root, but only then.
 
