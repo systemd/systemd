@@ -433,6 +433,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (!arg_user && !arg_exec_user)
+                arg_exec_user = "root";
+
         if (arg_user && arg_transport != BUS_TRANSPORT_LOCAL) {
                 log_error("Execution in user context is not supported on non-local systems.");
                 return -EINVAL;

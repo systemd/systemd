@@ -208,8 +208,9 @@
         <term><option>--uid=</option></term>
         <term><option>--gid=</option></term>
 
-        <listitem><para>Runs the service process under the specified UNIX user and group. Also see
-        <varname>User=</varname> and <varname>Group=</varname> in
+        <listitem><para>Runs the service process under the specified UNIX user and group. Defaults to
+        <constant>root</constant>, if <option>--user</option> is not specified, or <option>--system</option> is specified.
+        Also see <varname>User=</varname> and <varname>Group=</varname> in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
