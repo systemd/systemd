@@ -383,3 +383,26 @@ static inline int bpf(int cmd, union bpf_attr *attr, size_t size) {
 #    endif
 #  endif
 #endif
+
+#if !HAVE_STATX
+#  ifndef __NR_statx
+#    if defined __i386__
+#      define __NR_bpf 383
+#    elif defined __x86_64__
+#      define __NR_bpf 332
+#    else
+#      warning "__NR_statx not defined for your architecture"
+#    endif
+#  endif
+
+struct statx;
+
+static inline ssize_t statx(int dfd, const char *filename, unsigned flags, unsigned int mask, struct statx *buffer) {
+#  ifdef __NR_statx
+        return syscall(__NR_statx, dfd, filename, flags, mask, buffer);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+#endif

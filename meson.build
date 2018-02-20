@@ -449,6 +449,8 @@ decl_headers = '''
 #include <uchar.h>
 #include <linux/ethtool.h>
 #include <linux/fib_rules.h>
+#include <linux/stat.h>
+#include <sys/stat.h>
 '''
 # FIXME: key_serial_t is only defined in keyutils.h, this is bound to fail
 
@@ -457,6 +459,7 @@ foreach decl : ['char16_t',
                 'key_serial_t',
                 'struct ethtool_link_settings',
                 'struct fib_rule_uid_range',
+                'struct statx',
                ]
 
         # We get -1 if the size cannot be determined
@@ -519,6 +522,9 @@ foreach ident : [
         ['bpf',               '''#include <sys/syscall.h>
                                  #include <unistd.h>'''],
         ['explicit_bzero' ,   '''#include <string.h>'''],
+        ['statx',             '''#include <sys/types.h>
+                                 #include <sys/stat.h>
+                                 #include <unistd.h>'''],
 ]
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')

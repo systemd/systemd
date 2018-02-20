@@ -3316,17 +3316,12 @@ int journal_file_open(
 
                 (void) journal_file_warn_btrfs(f);
 
-                /* Let's attach the creation time to the journal file,
-                 * so that the vacuuming code knows the age of this
-                 * file even if the file might end up corrupted one
-                 * day... Ideally we'd just use the creation time many
-                 * file systems maintain for each file, but there is
-                 * currently no usable API to query this, hence let's
-                 * emulate this via extended attributes. If extended
-                 * attributes are not supported we'll just skip this,
-                 * and rely solely on mtime/atime/ctime of the file. */
-
-                fd_setcrtime(f->fd, 0);
+                /* Let's attach the creation time to the journal file, so that the vacuuming code knows the age of this
+                 * file even if the file might end up corrupted one day... Ideally we'd just use the creation time many
+                 * file systems maintain for each file, but the API to query this is very new, hence let's emulate this
+                 * via extended attributes. If extended attributes are not supported we'll just skip this, and rely
+                 * solely on mtime/atime/ctime of the file. */
+                (void) fd_setcrtime(f->fd, 0);
 
 #if HAVE_GCRYPT
                 /* Try to load the FSPRG state, and if we can't, then

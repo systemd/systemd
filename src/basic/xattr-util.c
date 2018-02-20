@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/stat.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +30,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "macro.h"
+#include "missing.h"
 #include "sparse-endian.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -148,52 +150,66 @@ static int parse_crtime(le64_t le, usec_t *usec) {
         return 0;
 }
 
-int fd_getcrtime(int fd, usec_t *usec) {
+int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
+        struct statx sx;
+        usec_t a, b;
         le64_t le;
         ssize_t n;
+        int r;
 
-        assert(fd >= 0);
-        assert(usec);
+        assert(ret);
 
-        /* Until Linux gets a real concept of birthtime/creation time,
-         * let's fake one with xattrs */
+        if (flags & ~(AT_EMPTY_PATH|AT_SYMLINK_NOFOLLOW))
+                return -EINVAL;
 
-        n = fgetxattr(fd, "user.crtime_usec", &le, sizeof(le));
-        if (n < 0)
-                return -errno;
-        if (n != sizeof(le))
-                return -EIO;
+        /* So here's the deal: the creation/birth time (crtime/btime) of a file is a relatively newly supported concept
+         * on Linux (or more strictly speaking: a concept that only recently got supported in the API, it was
+         * implemented on various file systems on the lower level since a while, but never was accessible). However, we
+         * needed a concept like that for vaccuuming algorithms and such, hence we emulated it via a user xattr for a
+         * long time. Starting with Linux 4.11 there's statx() which exposes the timestamp to userspace for the first
+         * time, where it is available. Thius function will read it, but it tries to keep some compatibility with older
+         * systems: we try to read both the crtime/btime and the xattr, and then use whatever is older. After all the
+         * concept is useful for determining how "old" a file really is, and hence using the older of the two makes
+         * most sense. */
 
-        return parse_crtime(le, usec);
-}
-
-int fd_getcrtime_at(int dirfd, const char *name, usec_t *usec, int flags) {
-        le64_t le;
-        ssize_t n;
+        if (statx(dirfd, strempty(name), flags|AT_STATX_DONT_SYNC, STATX_BTIME, &sx) >= 0 &&
+            (sx.stx_mask & STATX_BTIME) &&
+            sx.stx_btime.tv_sec != 0)
+                a = (usec_t) sx.stx_btime.tv_sec * USEC_PER_SEC +
+                        (usec_t) sx.stx_btime.tv_nsec / NSEC_PER_USEC;
+        else
+                a = USEC_INFINITY;
 
         n = fgetxattrat_fake(dirfd, name, "user.crtime_usec", &le, sizeof(le), flags);
         if (n < 0)
-                return -errno;
-        if (n != sizeof(le))
-                return -EIO;
+                r = -errno;
+        else if (n != sizeof(le))
+                r = -EIO;
+        else
+                r = parse_crtime(le, &b);
+        if (r < 0) {
+                if (a != USEC_INFINITY) {
+                        *ret = a;
+                        return 0;
+                }
 
-        return parse_crtime(le, usec);
+                return r;
+        }
+
+        if (a != USEC_INFINITY)
+                *ret = MIN(a, b);
+        else
+                *ret = b;
+
+        return 0;
 }
 
-int path_getcrtime(const char *p, usec_t *usec) {
-        le64_t le;
-        ssize_t n;
+int fd_getcrtime(int fd, usec_t *ret) {
+        return fd_getcrtime_at(fd, NULL, ret, AT_EMPTY_PATH);
+}
 
-        assert(p);
-        assert(usec);
-
-        n = getxattr(p, "user.crtime_usec", &le, sizeof(le));
-        if (n < 0)
-                return -errno;
-        if (n != sizeof(le))
-                return -EIO;
-
-        return parse_crtime(le, usec);
+int path_getcrtime(const char *p, usec_t *ret) {
+        return fd_getcrtime_at(AT_FDCWD, p, ret, 0);
 }
 
 int fd_setcrtime(int fd, usec_t usec) {
@@ -201,7 +217,7 @@ int fd_setcrtime(int fd, usec_t usec) {
 
         assert(fd >= 0);
 
-        if (usec <= 0)
+        if (IN_SET(usec, 0, USEC_INFINITY))
                 usec = now(CLOCK_REALTIME);
 
         le = htole64((uint64_t) usec);
