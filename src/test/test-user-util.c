@@ -19,6 +19,7 @@
 ***/
 
 #include "alloc-util.h"
+#include "log.h"
 #include "macro.h"
 #include "string-util.h"
 #include "user-util.h"
@@ -28,12 +29,16 @@
 static void test_uid_to_name_one(uid_t uid, const char *name) {
         _cleanup_free_ char *t = NULL;
 
+        log_info("/* %s("UID_FMT", \"%s\") */", __func__, uid, name);
+
         assert_se(t = uid_to_name(uid));
         assert_se(streq_ptr(t, name));
 }
 
 static void test_gid_to_name_one(gid_t gid, const char *name) {
         _cleanup_free_ char *t = NULL;
+
+        log_info("/* %s("GID_FMT", \"%s\") */", __func__, gid, name);
 
         assert_se(t = gid_to_name(gid));
         assert_se(streq_ptr(t, name));
@@ -42,6 +47,8 @@ static void test_gid_to_name_one(gid_t gid, const char *name) {
 static void test_parse_uid(void) {
         int r;
         uid_t uid;
+
+        log_info("/* %s */", __func__);
 
         r = parse_uid("100", &uid);
         assert_se(r == 0);
@@ -55,6 +62,7 @@ static void test_parse_uid(void) {
 }
 
 static void test_uid_ptr(void) {
+        log_info("/* %s */", __func__);
 
         assert_se(UID_TO_PTR(0) != NULL);
         assert_se(UID_TO_PTR(1000) != NULL);
@@ -64,6 +72,8 @@ static void test_uid_ptr(void) {
 }
 
 static void test_valid_user_group_name(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(!valid_user_group_name(NULL));
         assert_se(!valid_user_group_name(""));
         assert_se(!valid_user_group_name("1"));
@@ -90,6 +100,8 @@ static void test_valid_user_group_name(void) {
 }
 
 static void test_valid_user_group_name_or_id(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(!valid_user_group_name_or_id(NULL));
         assert_se(!valid_user_group_name_or_id(""));
         assert_se(valid_user_group_name_or_id("0"));
@@ -119,6 +131,7 @@ static void test_valid_user_group_name_or_id(void) {
 }
 
 static void test_valid_gecos(void) {
+        log_info("/* %s */", __func__);
 
         assert_se(!valid_gecos(NULL));
         assert_se(valid_gecos(""));
@@ -129,6 +142,7 @@ static void test_valid_gecos(void) {
 }
 
 static void test_valid_home(void) {
+        log_info("/* %s */", __func__);
 
         assert_se(!valid_home(NULL));
         assert_se(!valid_home(""));
@@ -151,7 +165,12 @@ static void test_get_user_creds_one(const char *id, const char *name, uid_t uid,
         uid_t ruid;
         gid_t rgid;
 
+        log_info("/* %s(\"%s\", \"%s\", "UID_FMT", "GID_FMT", \"%s\", \"%s\") */",
+                 __func__, id, name, uid, gid, home, shell);
+
         assert_se(get_user_creds(&id, &ruid, &rgid, &rhome, &rshell) >= 0);
+        log_info("got \"%s\", "UID_FMT", "GID_FMT", \"%s\", \"%s\"",
+                 id, ruid, rgid, rhome, rshell);
         assert_se(streq_ptr(id, name));
         assert_se(ruid == uid);
         assert_se(rgid == gid);
@@ -162,13 +181,15 @@ static void test_get_user_creds_one(const char *id, const char *name, uid_t uid,
 static void test_get_group_creds_one(const char *id, const char *name, gid_t gid) {
         gid_t rgid;
 
+        log_info("/* %s(\"%s\", \"%s\", "GID_FMT") */", __func__, id, name, gid);
+
         assert_se(get_group_creds(&id, &rgid) >= 0);
+        log_info("got \"%s\", "GID_FMT, id, rgid);
         assert_se(streq_ptr(id, name));
         assert_se(rgid == gid);
 }
 
 int main(int argc, char*argv[]) {
-
         test_uid_to_name_one(0, "root");
         test_uid_to_name_one(UID_NOBODY, NOBODY_USER_NAME);
         test_uid_to_name_one(0xFFFF, "65535");
