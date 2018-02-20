@@ -120,6 +120,9 @@ static void service_init(Unit *u) {
         s->guess_main_pid = true;
 
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+
+        s->exec_context.keyring_mode = MANAGER_IS_SYSTEM(u->manager) ?
+                EXEC_KEYRING_PRIVATE : EXEC_KEYRING_INHERIT;
 }
 
 static void service_unwatch_control_pid(Service *s) {

@@ -631,8 +631,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         processes. In this modes multiple units running processes under the same user ID may share key material. Unless
         <option>inherit</option> is selected the unique invocation ID for the unit (see below) is added as a protected
         key by the name <literal>invocation_id</literal> to the newly created session keyring. Defaults to
-        <option>private</option> for the system service manager and to <option>inherit</option> for the user service
-        manager.</para></listitem>
+        <option>private</option> for services of the system service manager and to <option>inherit</option> for
+        non-service units and for services of the user service manager.</para></listitem>
       </varlistentry>
 
       <varlistentry>
