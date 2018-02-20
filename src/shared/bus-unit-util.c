@@ -1135,6 +1135,62 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return 1;
         }
 
+        if (streq(field, "TemporaryFileSystem")) {
+                const char *p = eq;
+
+                r = sd_bus_message_open_container(m, SD_BUS_TYPE_STRUCT, "sv");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append_basic(m, SD_BUS_TYPE_STRING, field);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'v', "a(ss)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_open_container(m, 'a', "(ss)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                for (;;) {
+                        _cleanup_free_ char *word = NULL, *path = NULL;
+                        const char *w;
+
+                        r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument: %m");
+                        if (r == 0)
+                                break;
+
+                        w = word;
+                        r = extract_first_word(&w, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse argument: %m");
+                        if (r == 0)
+                                return log_error("Failed to parse argument: %m");
+
+                        r = sd_bus_message_append(m, "(ss)", path, w);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         return 0;
 }
 
