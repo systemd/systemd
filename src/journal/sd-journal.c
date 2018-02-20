@@ -1264,13 +1264,15 @@ static int add_any_file(sd_journal *j, int fd, const char *path) {
 
         if (path) {
                 f = ordered_hashmap_get(j->files, path);
-                if (f) {
+
+                if (f && same_fd_path(f->fd, path)) {
                         /* Mark this file as seen in this generation. This is used to GC old files in
                          * process_q_overflow() to detect journal files that are still and discern them from those who
                          * are gone. */
                         f->last_seen_generation = j->generation;
                         return 0;
-                }
+                } else if (f)
+                        remove_file_real(j, f);
         }
 
         if (ordered_hashmap_size(j->files) >= JOURNAL_FILES_MAX) {

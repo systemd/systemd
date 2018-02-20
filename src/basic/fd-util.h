@@ -69,6 +69,7 @@ void stdio_unset_cloexec(void);
 int close_all_fds(const int except[], unsigned n_except);
 
 int same_fd(int a, int b);
+int same_fd_path(int a, const char *path);
 
 void cmsg_close_all(struct msghdr *mh);
 
