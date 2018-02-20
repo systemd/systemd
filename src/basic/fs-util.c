@@ -967,3 +967,33 @@ int unlinkat_deallocate(int fd, const char *name, int flags) {
 
         return 0;
 }
+
+int fsync_directory_of_file(int fd) {
+        _cleanup_free_ char *path = NULL, *dn = NULL;
+        _cleanup_close_ int dfd = -1;
+        int r;
+
+        r = fd_verify_regular(fd);
+        if (r < 0)
+                return r;
+
+        r = fd_get_path(fd, &path);
+        if (r < 0)
+                return r;
+
+        if (!path_is_absolute(path))
+                return -EINVAL;
+
+        dn = dirname_malloc(path);
+        if (!dn)
+                return -ENOMEM;
+
+        dfd = open(dn, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        if (dfd < 0)
+                return -errno;
+
+        if (fsync(dfd) < 0)
+                return -errno;
+
+        return 0;
+}

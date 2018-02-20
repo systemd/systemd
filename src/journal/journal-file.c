@@ -33,6 +33,7 @@
 #include "chattr-util.h"
 #include "compress.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "journal-authenticate.h"
 #include "journal-def.h"
 #include "journal-file.h"
@@ -42,6 +43,7 @@
 #include "random-util.h"
 #include "sd-event.h"
 #include "set.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "xattr-util.h"
@@ -453,39 +455,6 @@ static int journal_file_init_header(JournalFile *f, JournalFile *template) {
         return 0;
 }
 
-static int fsync_directory_of_file(int fd) {
-        _cleanup_free_ char *path = NULL, *dn = NULL;
-        _cleanup_close_ int dfd = -1;
-        struct stat st;
-        int r;
-
-        if (fstat(fd, &st) < 0)
-                return -errno;
-
-        if (!S_ISREG(st.st_mode))
-                return -EBADFD;
-
-        r = fd_get_path(fd, &path);
-        if (r < 0)
-                return r;
-
-        if (!path_is_absolute(path))
-                return -EINVAL;
-
-        dn = dirname_malloc(path);
-        if (!dn)
-                return -ENOMEM;
-
-        dfd = open(dn, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
-        if (dfd < 0)
-                return -errno;
-
-        if (fsync(dfd) < 0)
-                return -errno;
-
-        return 0;
-}
-
 static int journal_file_refresh_header(JournalFile *f) {
         sd_id128_t boot_id;
         int r;
@@ -643,6 +612,8 @@ static int journal_file_verify_header(JournalFile *f) {
 }
 
 static int journal_file_fstat(JournalFile *f) {
+        int r;
+
         assert(f);
         assert(f->fd >= 0);
 
@@ -650,6 +621,11 @@ static int journal_file_fstat(JournalFile *f) {
                 return -errno;
 
         f->last_stat_usec = now(CLOCK_MONOTONIC);
+
+        /* Refuse dealing with with files that aren't regular */
+        r = stat_verify_regular(&f->last_stat);
+        if (r < 0)
+                return r;
 
         /* Refuse appending to files that are already deleted */
         if (f->last_stat.st_nlink <= 0)
@@ -3292,6 +3268,8 @@ int journal_file_open(
                         goto fail;
                 }
         } else {
+                assert(fd >= 0);
+
                 /* If we don't know the path, fill in something explanatory and vaguely useful */
                 if (asprintf(&f->path, "/proc/self/%i", fd) < 0) {
                         r = -ENOMEM;
@@ -3306,7 +3284,11 @@ int journal_file_open(
         }
 
         if (f->fd < 0) {
-                f->fd = open(f->path, f->flags|O_CLOEXEC, f->mode);
+                /* We pass O_NONBLOCK here, so that in case somebody pointed us to some character device node or FIFO
+                 * or so, we likely fail quickly than block for long. For regular files O_NONBLOCK has no effect, hence
+                 * it doesn't hurt in that case. */
+
+                f->fd = open(f->path, f->flags|O_CLOEXEC|O_NONBLOCK, f->mode);
                 if (f->fd < 0) {
                         r = -errno;
                         goto fail;
@@ -3314,6 +3296,10 @@ int journal_file_open(
 
                 /* fds we opened here by us should also be closed by us. */
                 f->close_fd = true;
+
+                r = fd_nonblock(f->fd, false);
+                if (r < 0)
+                        goto fail;
         }
 
         f->cache_fd = mmap_cache_add_fd(f->mmap, f->fd);
@@ -3330,17 +3316,12 @@ int journal_file_open(
 
                 (void) journal_file_warn_btrfs(f);
 
-                /* Let's attach the creation time to the journal file,
-                 * so that the vacuuming code knows the age of this
-                 * file even if the file might end up corrupted one
-                 * day... Ideally we'd just use the creation time many
-                 * file systems maintain for each file, but there is
-                 * currently no usable API to query this, hence let's
-                 * emulate this via extended attributes. If extended
-                 * attributes are not supported we'll just skip this,
-                 * and rely solely on mtime/atime/ctime of the file. */
-
-                fd_setcrtime(f->fd, 0);
+                /* Let's attach the creation time to the journal file, so that the vacuuming code knows the age of this
+                 * file even if the file might end up corrupted one day... Ideally we'd just use the creation time many
+                 * file systems maintain for each file, but the API to query this is very new, hence let's emulate this
+                 * via extended attributes. If extended attributes are not supported we'll just skip this, and rely
+                 * solely on mtime/atime/ctime of the file. */
+                (void) fd_setcrtime(f->fd, 0);
 
 #if HAVE_GCRYPT
                 /* Try to load the FSPRG state, and if we can't, then
@@ -3691,7 +3672,7 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
         if (fstatvfs(fd, &ss) >= 0)
                 fs_size = ss.f_frsize * ss.f_blocks;
         else {
-                log_debug_errno(errno, "Failed to detremine disk size: %m");
+                log_debug_errno(errno, "Failed to determine disk size: %m");
                 fs_size = 0;
         }
 

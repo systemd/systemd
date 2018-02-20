@@ -27,6 +27,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "loop-util.h"
+#include "stat-util.h"
 
 int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         const struct loop_info64 info = {
@@ -37,7 +38,7 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
         _cleanup_free_ char *loopdev = NULL;
         struct stat st;
         LoopDevice *d;
-        int nr;
+        int nr, r;
 
         assert(fd >= 0);
         assert(ret);
@@ -69,8 +70,9 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
                 return 0;
         }
 
-        if (!S_ISREG(st.st_mode))
-                return -EINVAL;
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return r;
 
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (control < 0)

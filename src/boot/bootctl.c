@@ -434,11 +434,12 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
 
         (void) copy_times(fd_from, fd_to);
 
-        r = fsync(fd_to);
-        if (r < 0) {
+        if (fsync(fd_to) < 0) {
                 (void) unlink_noerrno(t);
                 return log_error_errno(errno, "Failed to copy data from \"%s\" to \"%s\": %m", from, t);
         }
+
+        (void) fsync_directory_of_file(fd_to);
 
         r = renameat(AT_FDCWD, t, AT_FDCWD, to);
         if (r < 0) {

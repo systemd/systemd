@@ -260,6 +260,8 @@ static int fix_permissions(
         if (fsync(fd) < 0)
                 return log_error_errno(errno, "Failed to sync coredump %s: %m", coredump_tmpfile_name(filename));
 
+        (void) fsync_directory_of_file(fd);
+
         r = link_tmpfile(fd, filename, target);
         if (r < 0)
                 return log_error_errno(r, "Failed to move coredump %s into place: %m", target);
