@@ -264,6 +264,46 @@ int close_all_fds(const int except[], unsigned n_except) {
         return r;
 }
 
+static bool same_file_by_stat(const struct stat *sta, const struct stat *stb) {
+        assert(sta && stb);
+
+        if ((sta->st_mode & S_IFMT) != (stb->st_mode & S_IFMT))
+                return false;
+
+        /* We consider all device fds different, since two device fds
+         * might refer to quite different device contexts even though
+         * they share the same inode and backing dev_t. */
+
+        if (S_ISCHR(sta->st_mode) || S_ISBLK(sta->st_mode))
+                return false;
+
+        if (sta->st_dev != stb->st_dev || sta->st_ino != stb->st_ino)
+                return false;
+
+        return true;
+}
+
+int same_fd_path(int a, const char *path) {
+        struct stat sta, stb;
+        int r, b;
+
+        assert(a >= 0);
+
+        r = fstat(a, &sta);
+        if (r < 0)
+                return -errno;
+
+        b = chase_symlinks(path, NULL, CHASE_OPEN, NULL);
+        if (b < 0)
+                return b;
+
+        r = fstat(b, &stb);
+        if (r < 0)
+                return -errno;
+
+        return same_file_by_stat(&sta, &stb);
+}
+
 int same_fd(int a, int b) {
         struct stat sta, stb;
         pid_t pid;
@@ -301,17 +341,7 @@ int same_fd(int a, int b) {
         if (fstat(b, &stb) < 0)
                 return -errno;
 
-        if ((sta.st_mode & S_IFMT) != (stb.st_mode & S_IFMT))
-                return false;
-
-        /* We consider all device fds different, since two device fds
-         * might refer to quite different device contexts even though
-         * they share the same inode and backing dev_t. */
-
-        if (S_ISCHR(sta.st_mode) || S_ISBLK(sta.st_mode))
-                return false;
-
-        if (sta.st_dev != stb.st_dev || sta.st_ino != stb.st_ino)
+        if (!same_file_by_stat(&sta, &stb))
                 return false;
 
         /* The fds refer to the same inode on disk, let's also check
