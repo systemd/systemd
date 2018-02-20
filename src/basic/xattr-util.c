@@ -151,7 +151,7 @@ static int parse_crtime(le64_t le, usec_t *usec) {
 }
 
 int fd_getcrtime_at(int dirfd, const char *name, usec_t *ret, int flags) {
-        struct statx sx;
+        struct_statx sx;
         usec_t a, b;
         le64_t le;
         ssize_t n;
