@@ -3677,7 +3677,7 @@ void journal_default_metrics(JournalMetrics *m, int fd) {
         if (fstatvfs(fd, &ss) >= 0)
                 fs_size = ss.f_frsize * ss.f_blocks;
         else {
-                log_debug_errno(errno, "Failed to detremine disk size: %m");
+                log_debug_errno(errno, "Failed to determine disk size: %m");
                 fs_size = 0;
         }
 
