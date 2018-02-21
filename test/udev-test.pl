@@ -606,9 +606,9 @@ EOF
                 desc            => "textual user id",
                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                 exp_name        => "node",
-                exp_perms       => "nobody::0600",
+                exp_perms       => "daemon::0600",
                 rules           => <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", OWNER="nobody"
+SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", OWNER="daemon"
 EOF
         },
         {
