@@ -933,6 +933,29 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>TemporaryFileSystem=</varname></term>
+
+        <listitem><para>Takes a space-separated list of mount points for temporary file systems (tmpfs). If set, a new file
+        system namespace is set up for executed processes, and a temporary file system is mounted on each mount point.
+        This option may be specified more than once, in which case temporary file systems are mounted on all listed mount
+        points. If the empty string is assigned to this option, the list is reset, and all prior assignments have no effect.
+        Each mount point may optionally be suffixed with a colon (<literal>:</literal>) and mount options such as
+        <literal>size=10%</literal> or <literal>ro</literal>. By default, each temporary file system is mounted
+        with <literal>nodev,strictatime,mode=0755</literal>. These can be disabled by explicitly specifying the corresponding
+        mount options, e.g., <literal>dev</literal> or <literal>nostrictatime</literal>.</para>
+
+        <para>This is useful to hide files or directories not relevant to the processes invoked by the unit, while necessary
+        files or directories can be still accessed by combining with <varname>BindPaths=</varname> or
+        <varname>BindReadOnlyPaths=</varname>. See the example below.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>TemporaryFileSystem=/var:ro
+BindReadOnlyPaths=/var/lib/systemd</programlisting>
+        then the invoked processes by the unit cannot see any files or directories under <filename>/var</filename> except for
+        <filename>/var/lib/systemd</filename> or its contents.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PrivateTmp=</varname></term>
 
         <listitem><para>Takes a boolean argument. If true, sets up a new file system namespace for the executed
