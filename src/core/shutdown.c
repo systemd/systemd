@@ -548,7 +548,7 @@ int main(int argc, char *argv[]) {
                 assert_not_reached("Unknown magic");
         }
 
-        reboot(cmd);
+        (void) reboot(cmd);
         if (errno == EPERM && in_container) {
                 /* If we are in a container, and we lacked
                  * CAP_SYS_BOOT just exit, this will kill our

@@ -93,7 +93,7 @@ int emergency_action(
                 }
 
                 log_info("Rebooting.");
-                reboot(RB_AUTOBOOT);
+                (void) reboot(RB_AUTOBOOT);
                 break;
 
         case EMERGENCY_ACTION_POWEROFF:
@@ -112,7 +112,7 @@ int emergency_action(
                 sync();
 
                 log_info("Powering off.");
-                reboot(RB_POWER_OFF);
+                (void) reboot(RB_POWER_OFF);
                 break;
 
         default:
