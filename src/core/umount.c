@@ -406,10 +406,12 @@ static int remount_with_timeout(MountPoint *m, char *options, int *n_failed) {
 
         r = wait_for_terminate_with_timeout(pid, DEFAULT_TIMEOUT_USEC);
         if (r == -ETIMEDOUT) {
-                log_error_errno(errno, "Remounting '%s' - timed out, issuing SIGKILL to PID "PID_FMT".", m->path, pid);
+                log_error_errno(r, "Remounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
                 (void) kill(pid, SIGKILL);
-        } else if (r < 0)
-                log_error_errno(r, "Failed to wait for process: %m");
+        } else if (r == -EPROTO)
+                log_error_errno(r, "Remounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
+        else if (r < 0)
+                log_error_errno(r, "Remounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", m->path, pid);
 
         return r;
 }
@@ -446,10 +448,12 @@ static int umount_with_timeout(MountPoint *m, bool *changed) {
 
         r = wait_for_terminate_with_timeout(pid, DEFAULT_TIMEOUT_USEC);
         if (r == -ETIMEDOUT) {
-                log_error_errno(errno, "Unmounting '%s' - timed out, issuing SIGKILL to PID "PID_FMT".", m->path, pid);
+                log_error_errno(r, "Unmounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
                 (void) kill(pid, SIGKILL);
-        } else if (r < 0)
-                log_error_errno(r, "Failed to wait for process: %m");
+        } else if (r == -EPROTO)
+                log_error_errno(r, "Unmounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
+        else if (r < 0)
+                log_error_errno(r, "Unmounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", m->path, pid);
 
         return r;
 }
