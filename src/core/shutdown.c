@@ -20,6 +20,7 @@
 
 #include <errno.h>
 #include <getopt.h>
+#include <linux/reboot.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -41,7 +42,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
-#include "raw-reboot.h"
+#include "reboot-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "switch-root.h"
@@ -517,22 +518,9 @@ int main(int argc, char *argv[]) {
 
                 cmd = RB_AUTOBOOT;
                 _fallthrough_;
+
         case RB_AUTOBOOT:
-
-                if (!in_container) {
-                        _cleanup_free_ char *param = NULL;
-
-                        r = read_one_line_file("/run/systemd/reboot-param", &param);
-                        if (r < 0 && r != -ENOENT)
-                                log_warning_errno(r, "Failed to read reboot parameter file: %m");
-
-                        if (!isempty(param)) {
-                                log_info("Rebooting with argument '%s'.", param);
-                                (void) raw_reboot(LINUX_REBOOT_CMD_RESTART2, param);
-                                log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
-                        }
-                }
-
+                (void) reboot_with_parameter(REBOOT_LOG);
                 log_info("Rebooting.");
                 break;
 

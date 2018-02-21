@@ -72,7 +72,6 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "raw-reboot.h"
 #include "reboot-util.h"
 #include "rlimit-util.h"
 #include "set.h"
@@ -8473,11 +8472,9 @@ static int start_with_fallback(void) {
 }
 
 static int halt_now(enum action a) {
-        int r;
 
-        /* The kernel will automaticall flush ATA disks and suchlike
-         * on reboot(), but the file systems need to be synce'd
-         * explicitly in advance. */
+        /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need to be
+         * synce'd explicitly in advance. */
         if (!arg_no_sync && !arg_dry_run)
                 (void) sync();
 
@@ -8504,29 +8501,10 @@ static int halt_now(enum action a) {
                 return -errno;
 
         case ACTION_KEXEC:
-        case ACTION_REBOOT: {
-                _cleanup_free_ char *param = NULL;
-
-                r = read_one_line_file("/run/systemd/reboot-param", &param);
-                if (r < 0 && r != -ENOENT)
-                        log_warning_errno(r, "Failed to read reboot parameter file: %m");
-
-                if (!isempty(param)) {
-                        if (!arg_quiet)
-                                log_info("Rebooting with argument '%s'.", param);
-                        if (!arg_dry_run) {
-                                (void) raw_reboot(LINUX_REBOOT_CMD_RESTART2, param);
-                                log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
-                        }
-                }
-
-                if (!arg_quiet)
-                        log_info("Rebooting.");
-                if (arg_dry_run)
-                        return 0;
-                (void) reboot(RB_AUTOBOOT);
-                return -errno;
-        }
+        case ACTION_REBOOT:
+                return reboot_with_parameter(REBOOT_FALLBACK |
+                                             (arg_quiet ? 0 : REBOOT_LOG) |
+                                             (arg_dry_run ? REBOOT_DRY_RUN : 0));
 
         default:
                 assert_not_reached("Unknown action.");
