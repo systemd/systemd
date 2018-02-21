@@ -73,6 +73,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "raw-reboot.h"
+#include "reboot-util.h"
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"

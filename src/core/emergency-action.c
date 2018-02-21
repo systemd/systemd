@@ -25,6 +25,7 @@
 #include "bus-util.h"
 #include "emergency-action.h"
 #include "raw-reboot.h"
+#include "reboot-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "terminal-util.h"
