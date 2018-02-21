@@ -2324,24 +2324,16 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
-                unsigned empty = true;
+                const char *source, *destination;
+                int ignore_enoent;
+                uint64_t mount_flags;
+                bool empty = true;
 
                 r = sd_bus_message_enter_container(message, 'a', "(ssbt)");
                 if (r < 0)
                         return r;
 
-                while ((r = sd_bus_message_enter_container(message, 'r', "ssbt")) > 0) {
-                        const char *source, *destination;
-                        int ignore_enoent;
-                        uint64_t mount_flags;
-
-                        r = sd_bus_message_read(message, "ssbt", &source, &destination, &ignore_enoent, &mount_flags);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_bus_message_exit_container(message);
-                        if (r < 0)
-                                return r;
+                while ((r = sd_bus_message_read(message, "(ssbt)", &source, &destination, &ignore_enoent, &mount_flags)) > 0) {
 
                         if (!path_is_absolute(source))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
