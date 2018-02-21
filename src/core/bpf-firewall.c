@@ -453,9 +453,10 @@ static int bpf_firewall_prepare_access_maps(
         return 0;
 }
 
-static int bpf_firewall_prepare_accounting_maps(bool enabled, int *fd_ingress, int *fd_egress) {
+static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, int *fd_ingress, int *fd_egress) {
         int r;
 
+        assert(u);
         assert(fd_ingress);
         assert(fd_egress);
 
@@ -476,9 +477,12 @@ static int bpf_firewall_prepare_accounting_maps(bool enabled, int *fd_ingress, i
 
                         *fd_egress = r;
                 }
+
         } else {
                 *fd_ingress = safe_close(*fd_ingress);
                 *fd_egress = safe_close(*fd_egress);
+
+                zero(u->ip_accounting_extra);
         }
 
         return 0;
@@ -489,6 +493,10 @@ int bpf_firewall_compile(Unit *u) {
         int r, supported;
 
         assert(u);
+
+        cc = unit_get_cgroup_context(u);
+        if (!cc)
+                return -EINVAL;
 
         supported = bpf_firewall_supported();
         if (supported < 0)
@@ -536,7 +544,7 @@ int bpf_firewall_compile(Unit *u) {
                         return log_error_errno(r, "Preparation of eBPF deny maps failed: %m");
         }
 
-        r = bpf_firewall_prepare_accounting_maps(cc->ip_accounting, &u->ip_accounting_ingress_map_fd, &u->ip_accounting_egress_map_fd);
+        r = bpf_firewall_prepare_accounting_maps(u, cc->ip_accounting, &u->ip_accounting_ingress_map_fd, &u->ip_accounting_egress_map_fd);
         if (r < 0)
                 return log_error_errno(r, "Preparation of eBPF accounting maps failed: %m");
 
