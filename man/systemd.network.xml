@@ -289,6 +289,26 @@
           if <literal>RequiredForOnline=no</literal>.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>ActivationMode=</varname></term>
+        <listitem>
+          <para>Sets the activation mode (whether the device should be brought
+          up automatically or not) for the device. Accepts
+          <literal>on</literal>, <literal>off</literal>, or
+          <literal>manual</literal>. Defaults to <literal>on</literal>.</para>
+
+          <para>When set to <literal>on</literal>, networkd manages the device
+          normally and will bring it online as appropriate.</para>
+
+          <para>When set to <literal>manual</literal>, the device will be
+          configured but will remain in the UP/DOWN state it was when discovered,
+          and changing its state will need to be done by the administrator, with
+          a command such as <literal>ip link set up/down</literal>.</para>
+
+          <para>When <literal>no</literal>, networkd will attempt to keep the
+          interface disabled at all times.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

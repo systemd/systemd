@@ -1490,6 +1490,30 @@ bool link_has_carrier(Link *link) {
         return false;
 }
 
+bool link_should_activate(Link *link) {
+        assert(link);
+
+        if (!link->network)
+                return true;
+
+        if (link->network->activation_mode == ACTIVATION_MODE_OFF)
+                return false;
+
+        return true;
+}
+
+bool link_is_manual(Link *link) {
+        assert(link);
+
+        if (!link->network)
+                return false;
+
+        if (link->network->activation_mode == ACTIVATION_MODE_MANUAL)
+                return true;
+
+        return false;
+}
+
 static int link_address_genmode_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         int r;
 
@@ -1683,9 +1707,12 @@ static int link_handle_bound_to_list(Link *link) {
 
         HASHMAP_FOREACH (l, link->bound_to_links, i)
                 if (link_has_carrier(l)) {
-                        required_up = true;
+                        required_up = link_should_activate(link);
                         break;
                 }
+
+        if (link_is_manual(link))
+                return 0;
 
         if (!required_up && link_is_up) {
                 r = link_down(link, NULL);
@@ -1975,11 +2002,19 @@ static int link_joined(Link *link) {
         assert(link);
         assert(link->network);
 
+        if (!link_should_activate(link)) {
+                log_link_debug(link, "shutting down link as requested by configuration");
+                r = link_down(link, NULL);
+                if (r < 0)
+                        return r;
+                return 0;
+        }
+
         if (!hashmap_isempty(link->bound_to_links)) {
                 r = link_handle_bound_to_list(link);
                 if (r < 0)
                         return r;
-        } else if (!(link->flags & IFF_UP)) {
+        } else if (link_should_activate(link) && !link_is_manual(link) && !(link->flags & IFF_UP)) {
                 r = link_up(link);
                 if (r < 0) {
                         link_enter_failed(link);
@@ -2639,7 +2674,7 @@ static int link_configure_after_setting_mtu(Link *link) {
         if (link->setting_mtu)
                 return 0;
 
-        if (link_has_carrier(link) || link->network->configure_without_carrier) {
+        if (link_should_activate(link) && (link_has_carrier(link) || link->network->configure_without_carrier)) {
                 r = link_acquire_conf(link);
                 if (r < 0)
                         return r;
@@ -3183,6 +3218,15 @@ static int link_carrier_gained(Link *link) {
         assert(link);
 
         if (IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
+                if (!link_should_activate(link)) {
+                        r = link_down(link, NULL);
+                        if (r < 0) {
+                                link_enter_failed(link);
+                                return r;
+                        }
+                        return 0;
+                }
+
                 r = link_acquire_conf(link);
                 if (r < 0) {
                         link_enter_failed(link);
@@ -3239,6 +3283,17 @@ static int link_carrier_lost(Link *link) {
         r = link_handle_bound_by_list(link);
         if (r < 0)
                 return r;
+
+        /* It may be that the administrator is trying to manage the interface
+         * outside systemd-networkd, but set ActivationMode=on. Try to bring
+         * the link up again in case it's not really a carrier change.
+         */
+        if (link_should_activate(link) && !link_is_manual(link)) {
+                log_link_debug(link, "bringing up link as requested by configuration");
+                r = link_up(link);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -3525,6 +3580,8 @@ int link_save(Link *link) {
 
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
                         yes_no(link->network->required_for_online));
+                fprintf(f, "ACTIVATION_MODE=%s\n",
+                        activation_mode_to_string(link->network->activation_mode));
 
                 fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s\n",
                         strempty(link_operstate_to_string(link->network->required_operstate_for_online)));

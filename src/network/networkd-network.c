@@ -435,6 +435,8 @@ int network_load_one(Manager *manager, const char *filename) {
 
                 .keep_configuration = _KEEP_CONFIGURATION_INVALID,
 
+                .activation_mode = ACTIVATION_MODE_ON,
+
                 .can_triple_sampling = -1,
         };
 
@@ -1259,3 +1261,13 @@ static const char* const keep_configuration_table[_KEEP_CONFIGURATION_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(keep_configuration, KeepConfiguration, KEEP_CONFIGURATION_YES);
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_activation_mode, activation_mode, ActivationMode, "Failed to parse ActivationMode= setting.");
+
+static const char* const activation_mode_table[_ACTIVATION_MODE_MAX] = {
+        [ACTIVATION_MODE_OFF] = "off",
+        [ACTIVATION_MODE_ON] = "on",
+        [ACTIVATION_MODE_MANUAL] = "manual",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(activation_mode, ActivationMode, ACTIVATION_MODE_ON);
