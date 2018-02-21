@@ -415,9 +415,9 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #if !HAVE_STATX
 #  ifndef __NR_statx
 #    if defined __i386__
-#      define __NR_bpf 383
+#      define __NR_statx 383
 #    elif defined __x86_64__
-#      define __NR_bpf 332
+#      define __NR_statx 332
 #    else
 #      warning "__NR_statx not defined for your architecture"
 #    endif
