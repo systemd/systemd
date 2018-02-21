@@ -27,7 +27,7 @@
 
 #if !HAVE_PIVOT_ROOT
 static inline int missing_pivot_root(const char *new_root, const char *put_old) {
-        return syscall(SYS_pivot_root, new_root, put_old);
+        return syscall(__NR_pivot_root, new_root, put_old);
 }
 
 #  define pivot_root missing_pivot_root
@@ -129,7 +129,7 @@ static inline int missing_getrandom(void *buffer, size_t count, unsigned flags) 
 
 #if !HAVE_GETTID
 static inline pid_t missing_gettid(void) {
-        return (pid_t) syscall(SYS_gettid);
+        return (pid_t) syscall(__NR_gettid);
 }
 
 #  define gettid missing_gettid
