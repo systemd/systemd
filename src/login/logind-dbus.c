@@ -1930,15 +1930,11 @@ static int nologin_timeout_handler(
                         void *userdata) {
 
         Manager *m = userdata;
-        int r;
 
         log_info("Creating /run/nologin, blocking further logins...");
 
-        r = write_string_file_atomic_label("/run/nologin", "System is going down.");
-        if (r < 0)
-                log_error_errno(r, "Failed to create /run/nologin: %m");
-        else
-                m->unlink_nologin = true;
+        m->unlink_nologin =
+                create_shutdown_run_nologin_or_warn() >= 0;
 
         return 0;
 }
