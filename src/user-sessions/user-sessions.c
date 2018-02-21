@@ -48,22 +48,19 @@ int main(int argc, char*argv[]) {
         if (streq(argv[1], "start")) {
                 r = unlink_or_warn("/run/nologin");
                 k = unlink_or_warn("/etc/nologin");
-                if (r < 0 || k < 0)
-                        return EXIT_FAILURE;
+                if (k < 0 && r >= 0)
+                        r = k;
 
         } else if (streq(argv[1], "stop")) {
                 r = write_string_file_atomic_label("/run/nologin", "System is going down.");
-                if (r < 0) {
+                if (r < 0)
                         log_error_errno(r, "Failed to create /run/nologin: %m");
-                        return EXIT_FAILURE;
-                }
 
         } else {
-                log_error("Unknown verb %s.", argv[1]);
-                return EXIT_FAILURE;
+                log_error("Unknown verb '%s'.", argv[1]);
+                r = -EINVAL;
         }
 
         mac_selinux_finish();
-
-        return EXIT_SUCCESS;
+        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
