@@ -4173,13 +4173,13 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         if (c->n_bind_mounts > 0)
-                for (i = 0; i < c->n_bind_mounts; i++) {
-                        fprintf(f, "%s%s: %s:%s:%s\n", prefix,
+                for (i = 0; i < c->n_bind_mounts; i++)
+                        fprintf(f, "%s%s: %s%s:%s:%s\n", prefix,
                                 c->bind_mounts[i].read_only ? "BindReadOnlyPaths" : "BindPaths",
+                                c->bind_mounts[i].ignore_enoent ? "-": "",
                                 c->bind_mounts[i].source,
                                 c->bind_mounts[i].destination,
                                 c->bind_mounts[i].recursive ? "rbind" : "norbind");
-                }
 
         if (c->utmp_id)
                 fprintf(f,

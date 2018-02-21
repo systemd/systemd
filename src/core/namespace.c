@@ -262,6 +262,7 @@ static int append_bind_mounts(MountEntry **p, const BindMount *binds, unsigned n
                         .mode = b->recursive ? BIND_MOUNT_RECURSIVE : BIND_MOUNT,
                         .read_only = b->read_only,
                         .source_const = b->source,
+                        .ignore = b->ignore_enoent,
                 };
         }
 
@@ -728,11 +729,11 @@ static int mount_entry_chase(
                 const char *root_directory,
                 const MountEntry *m,
                 const char *path,
+                bool chase_nonexistent,
                 char **location) {
 
         char *chased;
         int r;
-        unsigned flags = 0;
 
         assert(m);
 
@@ -740,18 +741,7 @@ static int mount_entry_chase(
          * chase the symlinks on our own first. This is called for the destination path, as well as the source path (if
          * that applies). The result is stored in "location". */
 
-        if (IN_SET(m->mode,
-                   BIND_MOUNT,
-                   BIND_MOUNT_RECURSIVE,
-                   PRIVATE_TMP,
-                   PRIVATE_DEV,
-                   BIND_DEV,
-                   EMPTY_DIR,
-                   SYSFS,
-                   PROCFS))
-                flags |= CHASE_NONEXISTENT;
-
-        r = chase_symlinks(path, root_directory, flags, &chased);
+        r = chase_symlinks(path, root_directory, chase_nonexistent ? CHASE_NONEXISTENT : 0, &chased);
         if (r == -ENOENT && m->ignore) {
                 log_debug_errno(r, "Path %s does not exist, ignoring.", path);
                 return 0;
@@ -777,7 +767,7 @@ static int apply_mount(
 
         assert(m);
 
-        r = mount_entry_chase(root_directory, m, mount_entry_path(m), &m->path_malloc);
+        r = mount_entry_chase(root_directory, m, mount_entry_path(m), !IN_SET(m->mode, INACCESSIBLE, READONLY, READWRITE), &m->path_malloc);
         if (r <= 0)
                 return r;
 
@@ -822,7 +812,7 @@ static int apply_mount(
         case BIND_MOUNT_RECURSIVE:
                 /* Also chase the source mount */
 
-                r = mount_entry_chase(root_directory, m, mount_entry_source(m), &m->source_malloc);
+                r = mount_entry_chase(root_directory, m, mount_entry_source(m), false, &m->source_malloc);
                 if (r <= 0)
                         return r;
 
