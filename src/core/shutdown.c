@@ -20,7 +20,6 @@
 
 #include <errno.h>
 #include <getopt.h>
-#include <linux/reboot.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -42,6 +41,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "raw-reboot.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "switch-root.h"
@@ -528,7 +528,7 @@ int main(int argc, char *argv[]) {
 
                         if (!isempty(param)) {
                                 log_info("Rebooting with argument '%s'.", param);
-                                syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
+                                (void) raw_reboot(LINUX_REBOOT_CMD_RESTART2, param);
                                 log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
                         }
                 }

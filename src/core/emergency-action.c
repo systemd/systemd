@@ -20,11 +20,11 @@
 ***/
 
 #include <sys/reboot.h>
-#include <linux/reboot.h>
 
 #include "bus-error.h"
 #include "bus-util.h"
 #include "emergency-action.h"
+#include "raw-reboot.h"
 #include "special.h"
 #include "string-table.h"
 #include "terminal-util.h"
@@ -88,7 +88,7 @@ int emergency_action(
 
                 if (!isempty(reboot_arg)) {
                         log_info("Rebooting with argument '%s'.", reboot_arg);
-                        syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, reboot_arg);
+                        (void) raw_reboot(LINUX_REBOOT_CMD_RESTART2, reboot_arg);
                         log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
                 }
 

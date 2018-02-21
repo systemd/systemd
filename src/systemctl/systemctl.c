@@ -22,7 +22,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <linux/reboot.h>
 #include <locale.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -57,8 +56,8 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
-#include "hostname-util.h"
 #include "hexdecoct.h"
+#include "hostname-util.h"
 #include "initreq.h"
 #include "install.h"
 #include "io-util.h"
@@ -73,6 +72,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "raw-reboot.h"
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
@@ -8514,8 +8514,7 @@ static int halt_now(enum action a) {
                         if (!arg_quiet)
                                 log_info("Rebooting with argument '%s'.", param);
                         if (!arg_dry_run) {
-                                (void) syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2,
-                                               LINUX_REBOOT_CMD_RESTART2, param);
+                                (void) raw_reboot(LINUX_REBOOT_CMD_RESTART2, param);
                                 log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
                         }
                 }
