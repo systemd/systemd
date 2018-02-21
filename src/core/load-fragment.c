@@ -4174,6 +4174,83 @@ int config_parse_namespace_path_strv(
         return 0;
 }
 
+int config_parse_temporary_filesystems(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = userdata;
+        ExecContext *c = data;
+        const char *cur;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                temporary_filesystem_free_many(c->temporary_filesystems, c->n_temporary_filesystems);
+                c->temporary_filesystems = NULL;
+                c->n_temporary_filesystems = 0;
+                return 0;
+        }
+
+        cur = rvalue;
+        for (;;) {
+                _cleanup_free_ char *word = NULL, *path = NULL, *resolved = NULL;
+                const char *w;
+
+                r = extract_first_word(&cur, &word, NULL, EXTRACT_QUOTES);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract first word, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                w = word;
+                r = extract_first_word(&w, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EINVAL;
+
+                r = unit_full_printf(u, path, &resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve specifiers in %s, ignoring: %m", word);
+                        continue;
+                }
+
+                if (!path_is_absolute(resolved)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute path, ignoring: %s", resolved);
+                        continue;
+                }
+
+                path_kill_slashes(resolved);
+
+                r = temporary_filesystem_add(&c->temporary_filesystems, &c->n_temporary_filesystems, path, w);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse mount options, ignoring: %s", word);
+                        continue;
+                }
+        }
+
+        return 0;
+}
+
 int config_parse_bind_paths(
                 const char *unit,
                 const char *filename,

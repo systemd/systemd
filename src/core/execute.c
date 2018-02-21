@@ -1793,6 +1793,9 @@ static bool exec_needs_mount_namespace(
         if (context->n_bind_mounts > 0)
                 return true;
 
+        if (context->n_temporary_filesystems > 0)
+                return true;
+
         if (context->mount_flags != 0)
                 return true;
 
@@ -2371,6 +2374,8 @@ static int apply_mount_namespace(
                             empty_directories,
                             bind_mounts,
                             n_bind_mounts,
+                            context->temporary_filesystems,
+                            context->n_temporary_filesystems,
                             tmp,
                             var,
                             needs_sandboxing ? context->protect_home : PROTECT_HOME_NO,
@@ -3623,6 +3628,9 @@ void exec_context_done(ExecContext *c) {
         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
         c->bind_mounts = NULL;
         c->n_bind_mounts = 0;
+        temporary_filesystem_free_many(c->temporary_filesystems, c->n_temporary_filesystems);
+        c->temporary_filesystems = NULL;
+        c->n_temporary_filesystems = 0;
 
         c->cpuset = cpu_set_mfree(c->cpuset);
 
@@ -4180,6 +4188,16 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                                 c->bind_mounts[i].source,
                                 c->bind_mounts[i].destination,
                                 c->bind_mounts[i].recursive ? "rbind" : "norbind");
+
+        if (c->n_temporary_filesystems > 0)
+                for (i = 0; i < c->n_temporary_filesystems; i++) {
+                        TemporaryFileSystem *t = c->temporary_filesystems + i;
+
+                        fprintf(f, "%sTemporaryFileSystem: %s%s%s\n", prefix,
+                                t->path,
+                                isempty(t->options) ? "" : ":",
+                                strempty(t->options));
+                }
 
         if (c->utmp_id)
                 fprintf(f,

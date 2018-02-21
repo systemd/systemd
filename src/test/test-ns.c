@@ -86,6 +86,7 @@ int main(int argc, char *argv[]) {
                             (char **) inaccessible,
                             NULL,
                             &(BindMount) { .source = (char*) "/usr/bin", .destination = (char*) "/etc/systemd", .read_only = true }, 1,
+                            &(TemporaryFileSystem) { .path = (char*) "/var", .options = (char*) "ro" }, 1,
                             tmp_dir,
                             var_tmp_dir,
                             PROTECT_HOME_NO,

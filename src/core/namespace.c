@@ -65,6 +65,7 @@ typedef enum MountMode {
         PROCFS,
         READONLY,
         READWRITE,
+        TMPFS,
 } MountMode;
 
 typedef struct MountEntry {
@@ -76,6 +77,9 @@ typedef struct MountEntry {
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
         const char *source_const; /* The source path, for bind mounts */
         char *source_malloc;
+        const char *options_const;/* Mount options for tmpfs */
+        char *options_malloc;
+        unsigned long flags;      /* Mount flags used by EMPTY_DIR and TMPFS. Do not include MS_RDONLY here, but please use read_only. */
 } MountEntry;
 
 /* If MountAPIVFS= is used, let's mount /sys and /proc into the it, but only as a fallback if the user hasn't mounted
@@ -185,11 +189,18 @@ static const char *mount_entry_source(const MountEntry *p) {
         return p->source_malloc ?: p->source_const;
 }
 
+static const char *mount_entry_options(const MountEntry *p) {
+        assert(p);
+
+        return p->options_malloc ?: p->options_const;
+}
+
 static void mount_entry_done(MountEntry *p) {
         assert(p);
 
         p->path_malloc = mfree(p->path_malloc);
         p->source_malloc = mfree(p->source_malloc);
+        p->options_malloc = mfree(p->options_malloc);
 }
 
 static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, bool forcibly_require_prefix) {
@@ -243,6 +254,8 @@ static int append_empty_dir_mounts(MountEntry **p, char **strv) {
                         .ignore = false,
                         .has_prefix = false,
                         .read_only = true,
+                        .options_const = "mode=755",
+                        .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME,
                 };
         }
 
@@ -264,6 +277,49 @@ static int append_bind_mounts(MountEntry **p, const BindMount *binds, unsigned n
                         .source_const = b->source,
                         .ignore = b->ignore_enoent,
                 };
+        }
+
+        return 0;
+}
+
+static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs, unsigned n) {
+        unsigned i;
+        int r;
+
+        assert(p);
+
+        for (i = 0; i < n; i++) {
+                const TemporaryFileSystem *t = tmpfs + i;
+                _cleanup_free_ char *o = NULL, *str = NULL;
+                unsigned long flags = MS_NODEV|MS_STRICTATIME;
+                bool ro = false;
+
+                if (!path_is_absolute(t->path))
+                        return -EINVAL;
+
+                if (!isempty(t->options)) {
+                        str = strjoin("mode=0755,", t->options);
+                        if (!str)
+                                return -ENOMEM;
+
+                        r = mount_option_mangle(str, MS_NODEV|MS_STRICTATIME, &flags, &o);
+                        if (r < 0)
+                                return r;
+
+                        ro = !!(flags & MS_RDONLY);
+                        if (ro)
+                                flags ^= MS_RDONLY;
+                }
+
+                *((*p)++) = (MountEntry) {
+                        .path_const = t->path,
+                        .mode = TMPFS,
+                        .read_only = ro,
+                        .options_malloc = o,
+                        .flags = flags,
+                };
+
+                o = NULL;
         }
 
         return 0;
@@ -711,15 +767,15 @@ static int mount_procfs(const MountEntry *m) {
         return 1;
 }
 
-static int mount_empty_dir(const MountEntry *m) {
+static int mount_tmpfs(const MountEntry *m) {
         assert(m);
 
-        /* First, get rid of everything that is below if there is anything. Then, overmount with our new empty dir */
+        /* First, get rid of everything that is below if there is anything. Then, overmount with our new tmpfs */
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
         (void) umount_recursive(mount_entry_path(m), 0);
 
-        if (mount("tmpfs", mount_entry_path(m), "tmpfs", MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_STRICTATIME, "mode=755") < 0)
+        if (mount("tmpfs", mount_entry_path(m), "tmpfs", m->flags, mount_entry_options(m)) < 0)
                 return log_debug_errno(errno, "Failed to mount %s: %m", mount_entry_path(m));
 
         return 1;
@@ -821,7 +877,8 @@ static int apply_mount(
                 break;
 
         case EMPTY_DIR:
-                return mount_empty_dir(m);
+        case TMPFS:
+                return mount_tmpfs(m);
 
         case PRIVATE_TMP:
                 what = mount_entry_source(m);
@@ -887,9 +944,15 @@ static int make_read_only(const MountEntry *m, char **blacklist, FILE *proc_self
         assert(m);
         assert(proc_self_mountinfo);
 
-        if (mount_entry_read_only(m))
-                r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), true, blacklist, proc_self_mountinfo);
-        else if (m->mode == PRIVATE_DEV) { /* Superblock can be readonly but the submounts can't */
+        if (mount_entry_read_only(m)) {
+                if (IN_SET(m->mode, EMPTY_DIR, TMPFS)) {
+                        /* Make superblock readonly */
+                        if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT | MS_RDONLY | m->flags, mount_entry_options(m)) < 0)
+                                r = -errno;
+                } else
+                        r = bind_remount_recursive_with_mountinfo(mount_entry_path(m), true, blacklist, proc_self_mountinfo);
+        } else if (m->mode == PRIVATE_DEV) {
+                /* Superblock can be readonly but the submounts can't */
                 if (mount(NULL, mount_entry_path(m), NULL, MS_REMOUNT|DEV_MOUNT_OPTIONS|MS_RDONLY, NULL) < 0)
                         r = -errno;
         } else
@@ -929,6 +992,7 @@ static unsigned namespace_calculate_mounts(
                 char** inaccessible_paths,
                 char** empty_directories,
                 unsigned n_bind_mounts,
+                unsigned n_temporary_filesystems,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 ProtectHome protect_home,
@@ -955,6 +1019,7 @@ static unsigned namespace_calculate_mounts(
                 strv_length(inaccessible_paths) +
                 strv_length(empty_directories) +
                 n_bind_mounts +
+                n_temporary_filesystems +
                 ns_info->private_dev +
                 (ns_info->protect_kernel_tunables ? ELEMENTSOF(protect_kernel_tunables_table) : 0) +
                 (ns_info->protect_control_groups ? 1 : 0) +
@@ -973,6 +1038,8 @@ int setup_namespace(
                 char** empty_directories,
                 const BindMount *bind_mounts,
                 unsigned n_bind_mounts,
+                const TemporaryFileSystem *temporary_filesystems,
+                unsigned n_temporary_filesystems,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 ProtectHome protect_home,
@@ -1024,7 +1091,7 @@ int setup_namespace(
 
         if (root_directory)
                 root = root_directory;
-        else if (root_image || n_bind_mounts > 0) {
+        else if (root_image || n_bind_mounts > 0 || n_temporary_filesystems > 0) {
 
                 /* If we are booting from an image, create a mount point for the image, if it's still missing. We use
                  * the same mount point for all images, which is safe, since they all live in their own namespaces
@@ -1046,6 +1113,7 @@ int setup_namespace(
                         inaccessible_paths,
                         empty_directories,
                         n_bind_mounts,
+                        n_temporary_filesystems,
                         tmp_dir, var_tmp_dir,
                         protect_home, protect_system);
 
@@ -1072,6 +1140,10 @@ int setup_namespace(
                         goto finish;
 
                 r = append_bind_mounts(&m, bind_mounts, n_bind_mounts);
+                if (r < 0)
+                        goto finish;
+
+                r = append_tmpfs_mounts(&m, temporary_filesystems, n_temporary_filesystems);
                 if (r < 0)
                         goto finish;
 
@@ -1302,6 +1374,57 @@ int bind_mount_add(BindMount **b, unsigned *n, const BindMount *item) {
         };
 
         s = d = NULL;
+        return 0;
+}
+
+void temporary_filesystem_free_many(TemporaryFileSystem *t, unsigned n) {
+        unsigned i;
+
+        assert(t || n == 0);
+
+        for (i = 0; i < n; i++) {
+                free(t[i].path);
+                free(t[i].options);
+        }
+
+        free(t);
+}
+
+int temporary_filesystem_add(
+                TemporaryFileSystem **t,
+                unsigned *n,
+                const char *path,
+                const char *options) {
+
+        _cleanup_free_ char *p = NULL, *o = NULL;
+        TemporaryFileSystem *c;
+
+        assert(t);
+        assert(n);
+        assert(path);
+
+        p = strdup(path);
+        if (!p)
+                return -ENOMEM;
+
+        if (!isempty(options)) {
+                o = strdup(options);
+                if (!o)
+                        return -ENOMEM;
+        }
+
+        c = realloc_multiply(*t, sizeof(TemporaryFileSystem), *n + 1);
+        if (!c)
+                return -ENOMEM;
+
+        *t = c;
+
+        c[(*n) ++] = (TemporaryFileSystem) {
+                .path = p,
+                .options = o,
+        };
+
+        p = o = NULL;
         return 0;
 }
 
