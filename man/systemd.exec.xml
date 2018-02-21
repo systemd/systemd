@@ -788,14 +788,24 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>ProtectHome=</varname></term>
 
-        <listitem><para>Takes a boolean argument or <literal>read-only</literal>. If true, the directories
-        <filename>/home</filename>, <filename>/root</filename> and <filename>/run/user</filename> are made inaccessible
-        and empty for processes invoked by this unit. If set to <literal>read-only</literal>, the three directories are
-        made read-only instead. It is recommended to enable this setting for all long-running services (in particular
-        network-facing ones), to ensure they cannot get access to private user data, unless the services actually
-        require access to the user's private data. This setting is implied if <varname>DynamicUser=</varname> is
-        set. For this setting the same restrictions regarding mount propagation and privileges apply as for
-        <varname>ReadOnlyPaths=</varname> and related calls, see below.</para></listitem>
+        <listitem><para>Takes a boolean argument or the special values <literal>read-only</literal> or
+        <literal>tmpfs</literal>. If true, the directories <filename>/home</filename>, <filename>/root</filename> and
+        <filename>/run/user</filename> are made inaccessible and empty for processes invoked by this unit. If set to
+        <literal>read-only</literal>, the three directories are made read-only instead. If set to <literal>tmpfs</literal>,
+        temporary file systems are mounted on the three directories in read-only mode. The value <literal>tmpfs</literal>
+        is useful to hide home directories not relevant to the processes invoked by the unit, while necessary directories
+        are still visible by combining with <varname>BindPaths=</varname> or <varname>BindReadOnlyPaths=</varname>.</para>
+
+        <para>Setting this to <literal>yes</literal> is mostly equivalent to set the three directories in
+        <varname>InaccessiblePaths=</varname>. Similary, <literal>read-only</literal> is mostly equivalent to
+        <varname>ReadOnlyPaths=</varname>, and <literal>tmpfs</literal> is mostly equivalent to
+        <varname>TemporaryFileSystem=</varname>.</para>
+
+        <para> It is recommended to enable this setting for all long-running services (in particular network-facing ones),
+        to ensure they cannot get access to private user data, unless the services actually require access to the user's
+        private data. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same
+        restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related
+        calls, see below.</para></listitem>
       </varlistentry>
 
       <varlistentry>

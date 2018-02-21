@@ -34,6 +34,7 @@ typedef enum ProtectHome {
         PROTECT_HOME_NO,
         PROTECT_HOME_YES,
         PROTECT_HOME_READ_ONLY,
+        PROTECT_HOME_TMPFS,
         _PROTECT_HOME_MAX,
         _PROTECT_HOME_INVALID = -1
 } ProtectHome;

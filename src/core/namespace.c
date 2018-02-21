@@ -128,6 +128,13 @@ static const MountEntry protect_home_read_only_table[] = {
         { "/root",               READONLY,     true  },
 };
 
+/* ProtectHome=tmpfs table */
+static const MountEntry protect_home_tmpfs_table[] = {
+        { "/home",               TMPFS,        true, .read_only = true, .options_const = "mode=0755", .flags = MS_NODEV|MS_STRICTATIME },
+        { "/run/user",           TMPFS,        true, .read_only = true, .options_const = "mode=0755", .flags = MS_NODEV|MS_STRICTATIME },
+        { "/root",               TMPFS,        true, .read_only = true, .options_const = "mode=0700", .flags = MS_NODEV|MS_STRICTATIME },
+};
+
 /* ProtectHome=yes table */
 static const MountEntry protect_home_yes_table[] = {
         { "/home",               INACCESSIBLE, true  },
@@ -353,6 +360,9 @@ static int append_protect_home(MountEntry **p, ProtectHome protect_home, bool ig
 
         case PROTECT_HOME_READ_ONLY:
                 return append_static_mounts(p, protect_home_read_only_table, ELEMENTSOF(protect_home_read_only_table), ignore_protect);
+
+        case PROTECT_HOME_TMPFS:
+                return append_static_mounts(p, protect_home_tmpfs_table, ELEMENTSOF(protect_home_tmpfs_table), ignore_protect);
 
         case PROTECT_HOME_YES:
                 return append_static_mounts(p, protect_home_yes_table, ELEMENTSOF(protect_home_yes_table), ignore_protect);
@@ -1011,7 +1021,9 @@ static unsigned namespace_calculate_mounts(
                 (protect_home == PROTECT_HOME_YES ?
                  ELEMENTSOF(protect_home_yes_table) :
                  ((protect_home == PROTECT_HOME_READ_ONLY) ?
-                  ELEMENTSOF(protect_home_read_only_table) : 0));
+                  ELEMENTSOF(protect_home_read_only_table) :
+                  ((protect_home == PROTECT_HOME_TMPFS) ?
+                   ELEMENTSOF(protect_home_tmpfs_table) : 0)));
 
         return !!tmp_dir + !!var_tmp_dir +
                 strv_length(read_write_paths) +
@@ -1576,6 +1588,7 @@ static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
         [PROTECT_HOME_NO] = "no",
         [PROTECT_HOME_YES] = "yes",
         [PROTECT_HOME_READ_ONLY] = "read-only",
+        [PROTECT_HOME_TMPFS] = "tmpfs",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(protect_home, ProtectHome);
