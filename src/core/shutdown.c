@@ -485,12 +485,9 @@ int main(int argc, char *argv[]) {
 
         if (streq(arg_verb, "exit")) {
                 if (in_container)
-                        exit(arg_exit_code);
-                else {
-                        /* We cannot exit() on the host, fallback on another
-                         * method. */
-                        cmd = RB_POWER_OFF;
-                }
+                        return arg_exit_code;
+
+                cmd = RB_POWER_OFF; /* We cannot exit() on the host, fallback on another method. */
         }
 
         switch (cmd) {
@@ -542,7 +539,7 @@ int main(int argc, char *argv[]) {
                  * CAP_SYS_BOOT just exit, this will kill our
                  * container for good. */
                 log_info("Exiting container.");
-                exit(EXIT_SUCCESS);
+                return EXIT_SUCCESS;
         }
 
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");
