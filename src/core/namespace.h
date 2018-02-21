@@ -23,6 +23,7 @@
 
 typedef struct NamespaceInfo NamespaceInfo;
 typedef struct BindMount BindMount;
+typedef struct TemporaryFileSystem TemporaryFileSystem;
 
 #include <stdbool.h>
 
@@ -33,6 +34,7 @@ typedef enum ProtectHome {
         PROTECT_HOME_NO,
         PROTECT_HOME_YES,
         PROTECT_HOME_READ_ONLY,
+        PROTECT_HOME_TMPFS,
         _PROTECT_HOME_MAX,
         _PROTECT_HOME_INVALID = -1
 } ProtectHome;
@@ -75,6 +77,11 @@ struct BindMount {
         bool ignore_enoent:1;
 };
 
+struct TemporaryFileSystem {
+        char *path;
+        char *options;
+};
+
 int setup_namespace(
                 const char *root_directory,
                 const char *root_image,
@@ -85,6 +92,8 @@ int setup_namespace(
                 char **empty_directories,
                 const BindMount *bind_mounts,
                 unsigned n_bind_mounts,
+                const TemporaryFileSystem *temporary_filesystems,
+                unsigned n_temporary_filesystems,
                 const char *tmp_dir,
                 const char *var_tmp_dir,
                 ProtectHome protect_home,
@@ -109,6 +118,10 @@ ProtectSystem parse_protect_system_or_bool(const char *s);
 
 void bind_mount_free_many(BindMount *b, unsigned n);
 int bind_mount_add(BindMount **b, unsigned *n, const BindMount *item);
+
+void temporary_filesystem_free_many(TemporaryFileSystem *t, unsigned n);
+int temporary_filesystem_add(TemporaryFileSystem **t, unsigned *n,
+                             const char *path, const char *options);
 
 const char* namespace_type_to_string(NamespaceType t) _const_;
 NamespaceType namespace_type_from_string(const char *s) _pure_;

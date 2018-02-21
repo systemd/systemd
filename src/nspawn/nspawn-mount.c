@@ -545,21 +545,21 @@ int mount_all(const char *dest,
                 { "/proc/sys",           "/proc/sys",           NULL,    NULL,        MS_BIND,                                                   MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ... */
                 { "/proc/sys/net",       "/proc/sys/net",       NULL,    NULL,        MS_BIND,                                                   MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO|MOUNT_APPLY_APIVFS_NETNS }, /* (except for this) */
                 { NULL,                  "/proc/sys",           NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* ... then, make it r/o */
-                { "/proc/sysrq-trigger", "/proc/sysrq-trigger", NULL,    NULL,        MS_BIND,                                                               MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ... */
-                { NULL,                  "/proc/sysrq-trigger", NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,             MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* ... then, make it r/o */
+                { "/proc/sysrq-trigger", "/proc/sysrq-trigger", NULL,    NULL,        MS_BIND,                                                   MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },  /* Bind mount first ... */
+                { NULL,                  "/proc/sysrq-trigger", NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },  /* ... then, make it r/o */
 
                 /* outer child mounts */
-                { "tmpfs",               "/tmp",                "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                                            MOUNT_FATAL },
+                { "tmpfs",               "/tmp",                "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         MOUNT_FATAL },
                 { "tmpfs",               "/sys",                "tmpfs", "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV,                              MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS },
                 { "sysfs",               "/sys",                "sysfs", NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,                    MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO },    /* skipped if above was mounted */
-                { "sysfs",               "/sys",                "sysfs", NULL,                  MS_NOSUID|MS_NOEXEC|MS_NODEV,                    MOUNT_FATAL },                          /* skipped if above was mounted */
+                { "sysfs",               "/sys",                "sysfs", NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,                              MOUNT_FATAL },                          /* skipped if above was mounted */
 
                 { "tmpfs",               "/dev",                "tmpfs", "mode=755",  MS_NOSUID|MS_STRICTATIME,                                  MOUNT_FATAL },
                 { "tmpfs",               "/dev/shm",            "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         MOUNT_FATAL },
                 { "tmpfs",               "/run",                "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         MOUNT_FATAL },
 #if HAVE_SELINUX
-                { "/sys/fs/selinux",     "/sys/fs/selinux",     NULL,     NULL,       MS_BIND,                                                   0 },  /* Bind mount first */
-                { NULL,                  "/sys/fs/selinux",     NULL,     NULL,       MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, 0 },  /* Then, make it r/o */
+                { "/sys/fs/selinux",     "/sys/fs/selinux",     NULL,    NULL,        MS_BIND,                                                   0 },  /* Bind mount first */
+                { NULL,                  "/sys/fs/selinux",     NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, 0 },  /* Then, make it r/o */
 #endif
         };
 
@@ -634,55 +634,14 @@ int mount_all(const char *dest,
         return 0;
 }
 
-static int parse_mount_bind_options(const char *options, unsigned long *mount_flags, char **mount_opts) {
-        const char *p = options;
-        unsigned long flags = *mount_flags;
-        char *opts = NULL;
-        int r;
-
-        assert(options);
-
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-
-                r = extract_first_word(&p, &word, ",", 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract mount option: %m");
-                if (r == 0)
-                        break;
-
-                if (streq(word, "rbind"))
-                        flags |= MS_REC;
-                else if (streq(word, "norbind"))
-                        flags &= ~MS_REC;
-                else {
-                        log_error("Invalid bind mount option: %s", word);
-                        return -EINVAL;
-                }
-        }
-
-        *mount_flags = flags;
-        /* in the future mount_opts will hold string options for mount(2) */
-        *mount_opts = opts;
-
-        return 0;
-}
-
 static int mount_bind(const char *dest, CustomMount *m) {
 
-        _cleanup_free_ char *mount_opts = NULL, *where = NULL;
-        unsigned long mount_flags = MS_BIND | MS_REC;
+        _cleanup_free_ char *where = NULL;
         struct stat source_st, dest_st;
         int r;
 
         assert(dest);
         assert(m);
-
-        if (m->options) {
-                r = parse_mount_bind_options(m->options, &mount_flags, &mount_opts);
-                if (r < 0)
-                        return r;
-        }
 
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
@@ -723,7 +682,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
 
         }
 
-        r = mount_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
+        r = mount_verbose(LOG_ERR, m->source, where, NULL, MS_BIND | MS_REC, m->options);
         if (r < 0)
                 return r;
 

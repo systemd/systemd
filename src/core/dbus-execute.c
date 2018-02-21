@@ -781,6 +781,42 @@ static int property_get_bind_paths(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_temporary_filesystems(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecContext *c = userdata;
+        unsigned i;
+        int r;
+
+        assert(bus);
+        assert(c);
+        assert(property);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "(ss)");
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < c->n_temporary_filesystems; i++) {
+                TemporaryFileSystem *t = c->temporary_filesystems + i;
+
+                r = sd_bus_message_append(
+                                reply, "(ss)",
+                                t->path,
+                                t->options);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int property_get_log_extra_fields(
                 sd_bus *bus,
                 const char *path,
@@ -934,6 +970,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RestrictNamespaces", "t", bus_property_get_ulong, offsetof(ExecContext, restrict_namespaces), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BindReadOnlyPaths", "a(ssbt)", property_get_bind_paths, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("TemporaryFileSystem", "a(ss)", property_get_temporary_filesystems, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountAPIVFS", "b", bus_property_get_bool, offsetof(ExecContext, mount_apivfs), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("KeyringMode", "s", property_get_exec_keyring_mode, offsetof(ExecContext, keyring_mode), SD_BUS_VTABLE_PROPERTY_CONST),
 
@@ -2293,11 +2330,7 @@ int bus_exec_context_set_transient_property(
                 int ignore;
                 const char *s;
 
-                r = sd_bus_message_enter_container(message, 'r', "bs");
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_read(message, "bs", &ignore, &s);
+                r = sd_bus_message_read(message, "(bs)", &ignore, &s);
                 if (r < 0)
                         return r;
 
@@ -2328,24 +2361,16 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "BindPaths", "BindReadOnlyPaths")) {
-                unsigned empty = true;
+                const char *source, *destination;
+                int ignore_enoent;
+                uint64_t mount_flags;
+                bool empty = true;
 
                 r = sd_bus_message_enter_container(message, 'a', "(ssbt)");
                 if (r < 0)
                         return r;
 
-                while ((r = sd_bus_message_enter_container(message, 'r', "ssbt")) > 0) {
-                        const char *source, *destination;
-                        int ignore_enoent;
-                        uint64_t mount_flags;
-
-                        r = sd_bus_message_read(message, "ssbt", &source, &destination, &ignore_enoent, &mount_flags);
-                        if (r < 0)
-                                return r;
-
-                        r = sd_bus_message_exit_container(message);
-                        if (r < 0)
-                                return r;
+                while ((r = sd_bus_message_read(message, "(ssbt)", &source, &destination, &ignore_enoent, &mount_flags)) > 0) {
 
                         if (!path_is_absolute(source))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
@@ -2389,6 +2414,51 @@ int bus_exec_context_set_transient_property(
                         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
                         c->bind_mounts = NULL;
                         c->n_bind_mounts = 0;
+
+                        unit_write_settingf(u, flags, name, "%s=", name);
+                }
+
+                return 1;
+
+        } else if (streq(name, "TemporaryFileSystem")) {
+                const char *path, *options;
+                bool empty = true;
+
+                r = sd_bus_message_enter_container(message, 'a', "(ss)");
+                if (r < 0)
+                        return r;
+
+                while ((r = sd_bus_message_read(message, "(ss)", &path, &options)) > 0) {
+
+                        if (!path_is_absolute(path))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Mount point %s is not absolute.", path);
+
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                r = temporary_filesystem_add(&c->temporary_filesystems, &c->n_temporary_filesystems, path, options);
+                                if (r < 0)
+                                        return r;
+
+                                unit_write_settingf(
+                                                u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                                "%s=%s:%s",
+                                                name,
+                                                path,
+                                                options);
+                        }
+
+                        empty = false;
+                }
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return r;
+
+                if (empty) {
+                        temporary_filesystem_free_many(c->temporary_filesystems, c->n_temporary_filesystems);
+                        c->temporary_filesystems = NULL;
+                        c->n_temporary_filesystems = 0;
 
                         unit_write_settingf(u, flags, name, "%s=", name);
                 }

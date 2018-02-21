@@ -170,6 +170,7 @@ All execution-related settings are available for transient units.
 ✓ InaccessiblePaths=
 ✓ BindPaths=
 ✓ BindReadOnlyPaths=
+✓ TemporaryFileSystem=
 ✓ PrivateTmp=
 ✓ PrivateDevices=
 ✓ ProtectKernelTunables=

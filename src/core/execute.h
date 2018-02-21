@@ -219,6 +219,8 @@ struct ExecContext {
         unsigned long mount_flags;
         BindMount *bind_mounts;
         unsigned n_bind_mounts;
+        TemporaryFileSystem *temporary_filesystems;
+        unsigned n_temporary_filesystems;
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;

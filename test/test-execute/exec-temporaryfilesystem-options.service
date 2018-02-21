@@ -1,0 +1,11 @@
+[Unit]
+Description=Test for TemporaryFileSystem with mount options
+
+[Service]
+Type=oneshot
+
+# Check /proc/self/mountinfo
+ExecStart=/bin/sh -c 'test $$(awk \'$$5 == "/var" { print $$6 }\' /proc/self/mountinfo) = "ro,nodev,relatime"'
+ExecStart=/bin/sh -c 'test $$(awk \'$$5 == "/var" { print $$11 }\' /proc/self/mountinfo) = "ro,mode=700"'
+
+TemporaryFileSystem=/var:ro,mode=0700,nostrictatime

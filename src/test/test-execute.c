@@ -276,6 +276,14 @@ static void test_exec_inaccessiblepaths(Manager *m) {
         test(m, "exec-inaccessiblepaths-mount-propagation.service", 0, CLD_EXITED);
 }
 
+static void test_exec_temporaryfilesystem(Manager *m) {
+
+        test(m, "exec-temporaryfilesystem-options.service", 0, CLD_EXITED);
+        test(m, "exec-temporaryfilesystem-ro.service", 0, CLD_EXITED);
+        test(m, "exec-temporaryfilesystem-rw.service", 0, CLD_EXITED);
+        test(m, "exec-temporaryfilesystem-usr.service", 0, CLD_EXITED);
+}
+
 static void test_exec_systemcallfilter(Manager *m) {
 #if HAVE_SECCOMP
         if (!is_seccomp_available()) {
@@ -569,6 +577,7 @@ int main(int argc, char *argv[]) {
                 test_exec_supplementarygroups,
                 test_exec_systemcallerrornumber,
                 test_exec_systemcallfilter,
+                test_exec_temporaryfilesystem,
                 test_exec_umask,
                 test_exec_unsetenvironment,
                 test_exec_user,
