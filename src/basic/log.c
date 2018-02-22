@@ -613,22 +613,16 @@ int log_dispatch_internal(
                                        LOG_TARGET_JOURNAL)) {
 
                         k = write_to_journal(level, error, file, line, func, object_field, object, extra_field, extra, buffer);
-                        if (k < 0) {
-                                if (k != -EAGAIN)
-                                        log_close_journal();
-                                log_open_kmsg();
-                        }
+                        if (k < 0 && k != -EAGAIN)
+                                log_close_journal();
                 }
 
                 if (IN_SET(log_target, LOG_TARGET_SYSLOG_OR_KMSG,
                                        LOG_TARGET_SYSLOG)) {
 
                         k = write_to_syslog(level, error, file, line, func, buffer);
-                        if (k < 0) {
-                                if (k != -EAGAIN)
-                                        log_close_syslog();
-                                log_open_kmsg();
-                        }
+                        if (k < 0 && k != -EAGAIN)
+                                log_close_syslog();
                 }
 
                 if (k <= 0 &&
@@ -636,6 +630,9 @@ int log_dispatch_internal(
                                        LOG_TARGET_SYSLOG_OR_KMSG,
                                        LOG_TARGET_JOURNAL_OR_KMSG,
                                        LOG_TARGET_KMSG)) {
+
+                        if (k < 0)
+                                log_open_kmsg();
 
                         k = write_to_kmsg(level, error, file, line, func, buffer);
                         if (k < 0) {

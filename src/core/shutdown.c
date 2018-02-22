@@ -93,14 +93,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LOG_LEVEL:
                         r = log_set_max_level_from_string(optarg);
                         if (r < 0)
-                                log_error("Failed to parse log level %s, ignoring.", optarg);
+                                log_error_errno(r, "Failed to parse log level %s, ignoring.", optarg);
 
                         break;
 
                 case ARG_LOG_TARGET:
                         r = log_set_target_from_string(optarg);
                         if (r < 0)
-                                log_error("Failed to parse log target %s, ignoring", optarg);
+                                log_error_errno(r, "Failed to parse log target %s, ignoring", optarg);
 
                         break;
 
@@ -109,7 +109,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = log_show_color_from_string(optarg);
                                 if (r < 0)
-                                        log_error("Failed to parse log color setting %s, ignoring", optarg);
+                                        log_error_errno(r, "Failed to parse log color setting %s, ignoring", optarg);
                         } else
                                 log_show_color(true);
 
@@ -119,7 +119,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = log_show_location_from_string(optarg);
                                 if (r < 0)
-                                        log_error("Failed to parse log location setting %s, ignoring", optarg);
+                                        log_error_errno(r, "Failed to parse log location setting %s, ignoring", optarg);
                         } else
                                 log_show_location(true);
 
@@ -128,14 +128,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_EXIT_CODE:
                         r = safe_atou8(optarg, &arg_exit_code);
                         if (r < 0)
-                                log_error("Failed to parse exit code %s, ignoring", optarg);
+                                log_error_errno(r, "Failed to parse exit code %s, ignoring", optarg);
 
                         break;
 
                 case ARG_TIMEOUT:
                         r = parse_sec(optarg, &arg_timeout);
                         if (r < 0)
-                                log_error("Failed to parse shutdown timeout %s, ignoring", optarg);
+                                log_error_errno(r, "Failed to parse shutdown timeout %s, ignoring", optarg);
 
                         break;
 
@@ -276,15 +276,18 @@ int main(int argc, char *argv[]) {
         static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
         char *watchdog_device;
 
+        /* The log target defaults to console, but the original systemd process will pass its log target in through a
+         * command line argument, which will override this default. Also, ensure we'll never log to the journal or
+         * syslog, as these logging daemons are either already dead or will die very soon. */
+
+        log_set_target(LOG_TARGET_CONSOLE);
+        log_set_prohibit_ipc(true);
         log_parse_environment();
+
         r = parse_argv(argc, argv);
         if (r < 0)
                 goto error;
 
-        /* journald will die if not gone yet. The log target defaults
-         * to console, but may have been changed by command line options. */
-
-        log_set_prohibit_ipc(true);
         log_open();
 
         umask(0022);
@@ -306,8 +309,8 @@ int main(int argc, char *argv[]) {
         else if (streq(arg_verb, "exit"))
                 cmd = 0; /* ignored, just checking that arg_verb is valid */
         else {
-                r = -EINVAL;
                 log_error("Unknown action '%s'.", arg_verb);
+                r = -EINVAL;
                 goto error;
         }
 
@@ -324,7 +327,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* Lock us into memory */
-        mlockall(MCL_CURRENT|MCL_FUTURE);
+        (void) mlockall(MCL_CURRENT|MCL_FUTURE);
 
         /* Synchronize everything that is not written to disk yet at this point already. This is a good idea so that
          * slow IO is processed here already and the final process killing spree is not impacted by processes

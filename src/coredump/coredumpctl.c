@@ -932,6 +932,7 @@ static int run_gdb(sd_journal *j) {
                 goto finish;
         if (r == 0) {
                 execlp("gdb", "gdb", exe, path, NULL);
+                log_open();
                 log_error_errno(errno, "Failed to invoke gdb: %m");
                 _exit(EXIT_FAILURE);
         }

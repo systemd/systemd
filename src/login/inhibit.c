@@ -272,6 +272,7 @@ int main(int argc, char *argv[]) {
                 if (r == 0) {
                         /* Child */
                         execvp(argv[optind], argv + optind);
+                        log_open();
                         log_error_errno(errno, "Failed to execute %s: %m", argv[optind]);
                         _exit(EXIT_FAILURE);
                 }
