@@ -551,6 +551,7 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         static const test_function_t user_tests[] = {
                 test_exec_bindpaths,
                 test_exec_capabilityambientset,
@@ -611,7 +612,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_TEST_SKIP;
         }
 
-        assert_se(setenv("XDG_RUNTIME_DIR", "/tmp/", 1) == 0);
+        assert_se(runtime_dir = setup_fake_runtime_dir());
         assert_se(set_unit_path(get_testdata_dir("/test-execute")) >= 0);
 
         /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test
