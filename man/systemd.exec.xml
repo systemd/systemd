@@ -794,7 +794,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <literal>read-only</literal>, the three directories are made read-only instead. If set to <literal>tmpfs</literal>,
         temporary file systems are mounted on the three directories in read-only mode. The value <literal>tmpfs</literal>
         is useful to hide home directories not relevant to the processes invoked by the unit, while necessary directories
-        are still visible by combining with <varname>BindPaths=</varname> or <varname>BindReadOnlyPaths=</varname>.</para>
+        are still visible by combining with <varname>ReadWritePaths=</varname>, <varname>ReadOnlyPaths=</varname>,
+        <varname>BindPaths=</varname>, or <varname>BindReadOnlyPaths=</varname>. See the example below.</para>
 
         <para>Setting this to <literal>yes</literal> is mostly equivalent to set the three directories in
         <varname>InaccessiblePaths=</varname>. Similary, <literal>read-only</literal> is mostly equivalent to
@@ -805,7 +806,16 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         to ensure they cannot get access to private user data, unless the services actually require access to the user's
         private data. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same
         restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related
-        calls, see below.</para></listitem>
+        calls, see below.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>ProtectHome=tmpfs
+ReadWritePaths=/home/data</programlisting>
+        then the invoked processes by the unit cannot see any files or directories under <filename>/home</filename> except for
+        <filename>/home/data</filename> or its contents. Note that the above example does not work if
+        <varname>RootDirectory=</varname> is set. In such a case, use
+        <varname>BindPaths=</varname>/<varname>BindReadOnlyPaths=</varname> instead of
+        <varname>ReadWritePaths=</varname>/<varname>ReadOnlyPaths=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -955,14 +965,18 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         mount options, e.g., <literal>dev</literal> or <literal>nostrictatime</literal>.</para>
 
         <para>This is useful to hide files or directories not relevant to the processes invoked by the unit, while necessary
-        files or directories can be still accessed by combining with <varname>BindPaths=</varname> or
-        <varname>BindReadOnlyPaths=</varname>. See the example below.</para>
+        files or directories can be still accessed by combining with <varname>ReadWritePaths=</varname>,
+        <varname>ReadOnlyPaths=</varname>, <varname>BindPaths=</varname>, or <varname>BindReadOnlyPaths=</varname>.
+        See the example below.</para>
 
         <para>Example: if a unit has the following,
         <programlisting>TemporaryFileSystem=/var:ro
-BindReadOnlyPaths=/var/lib/systemd</programlisting>
+ReadOnlyPaths=/var/lib/systemd</programlisting>
         then the invoked processes by the unit cannot see any files or directories under <filename>/var</filename> except for
-        <filename>/var/lib/systemd</filename> or its contents.</para></listitem>
+        <filename>/var/lib/systemd</filename> or its contents. Note that the above example does not work if
+        <varname>RootDirectory=</varname> is set. In such a case, use
+        <varname>BindPaths=</varname>/<varname>BindReadOnlyPaths=</varname> instead of
+        <varname>ReadWritePaths=</varname>/<varname>ReadOnlyPaths=</varname>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
