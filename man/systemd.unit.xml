@@ -1093,6 +1093,7 @@
         <varname>xen</varname>,
         <varname>bochs</varname>,
         <varname>uml</varname>,
+        <varname>qnx</varname>,
         <varname>openvz</varname>,
         <varname>lxc</varname>,
         <varname>lxc-libvirt</varname>,
