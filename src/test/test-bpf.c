@@ -71,11 +71,16 @@ int main(int argc, char *argv[]) {
         }
 
         r = bpf_firewall_supported();
-        if (r == 0) {
+        if (r == BPF_FIREWALL_UNSUPPORTED) {
                 log_notice("BPF firewalling not supported, skipping");
                 return EXIT_TEST_SKIP;
         }
         assert_se(r > 0);
+
+        if (r == BPF_FIREWALL_SUPPORTED_WITH_MULTI)
+                log_notice("BPF firewalling with BPF_F_ALLOW_MULTI supported. Yay!");
+        else
+                log_notice("BPF firewalling (though without BPF_F_ALLOW_MULTI) supported. Good.");
 
         r = bpf_program_load_kernel(p, log_buf, ELEMENTSOF(log_buf));
         assert(r >= 0);

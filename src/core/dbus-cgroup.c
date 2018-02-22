@@ -1167,7 +1167,7 @@ int bus_cgroup_set_property(
                                 r = bpf_firewall_supported();
                                 if (r < 0)
                                         return r;
-                                if (r == 0) {
+                                if (r == BPF_FIREWALL_UNSUPPORTED) {
                                         static bool warned = false;
 
                                         log_full(warned ? LOG_DEBUG : LOG_WARNING,

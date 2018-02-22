@@ -287,8 +287,8 @@ struct Unit {
         int ipv4_deny_map_fd;
         int ipv6_deny_map_fd;
 
-        BPFProgram *ip_bpf_ingress;
-        BPFProgram *ip_bpf_egress;
+        BPFProgram *ip_bpf_ingress, *ip_bpf_ingress_installed;
+        BPFProgram *ip_bpf_egress, *ip_bpf_egress_installed;
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 

@@ -12,7 +12,7 @@ ExecStart=/bin/sh -c 'test -f /var/lib/private/waldo/yay'
 ExecStart=/bin/sh -c 'test -f /var/lib/private/quux/pief/yayyay'
 
 # Make sure that /var/lib/private/waldo is really the only writable directory besides the obvious candidates
-ExecStart=/bin/sh -x -c 'test $$(find / -type d -writable 2> /dev/null | egrep -v -e \'^(/var/tmp$$|/tmp$$|/proc/|/dev/mqueue$$|/dev/shm$$)\' | sort -u | tr -d '\\\\n') = /var/lib/private/quux/pief/var/lib/private/waldo'
+ExecStart=/bin/sh -x -c 'test $$(find / -type d -writable 2> /dev/null | egrep -v -e \'^(/var/tmp$$|/tmp$$|/proc/|/dev/mqueue$$|/dev/shm$$|/sys/fs/bpf$$)\' | sort -u | tr -d '\\\\n') = /var/lib/private/quux/pief/var/lib/private/waldo'
 
 Type=oneshot
 DynamicUser=yes
