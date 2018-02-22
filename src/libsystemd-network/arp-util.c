@@ -49,12 +49,12 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ARPOP_REPLY, 1, 0),                        /* protocol == reply ? */
                 BPF_STMT(BPF_RET + BPF_K, 0),                                                  /* ignore */
                 /* Sender Hardware Address must be different from our own */
-                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_ne32(&eth_mac->ether_addr_octet[0])),/* A <- 4 bytes of client's MAC */
+                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be32(&eth_mac->ether_addr_octet[0])),/* A <- 4 bytes of client's MAC */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                               /* X <- A */
                 BPF_STMT(BPF_LD + BPF_W + BPF_ABS, offsetof(struct ether_arp, arp_sha)),       /* A <- 4 bytes of SHA */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                        /* A xor X */
                 BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0, 0, 6),                                  /* A == 0 ? */
-                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_ne16(&eth_mac->ether_addr_octet[4])),/* A <- remainder of client's MAC */
+                BPF_STMT(BPF_LD + BPF_IMM, unaligned_read_be16(&eth_mac->ether_addr_octet[4])),/* A <- remainder of client's MAC */
                 BPF_STMT(BPF_MISC + BPF_TAX, 0),                                               /* X <- A */
                 BPF_STMT(BPF_LD + BPF_H + BPF_ABS, offsetof(struct ether_arp, arp_sha) + 4),   /* A <- remainder of SHA */
                 BPF_STMT(BPF_ALU + BPF_XOR + BPF_X, 0),                                        /* A xor X */
