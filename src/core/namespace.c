@@ -220,7 +220,7 @@ static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, boo
 
         STRV_FOREACH(i, strv) {
                 bool ignore = false, needs_prefix = false;
-                const char *e = *i;
+                const char *e = *i, *s = NULL;
 
                 /* Look for any prefixes */
                 if (startswith(e, "-")) {
@@ -232,11 +232,18 @@ static int append_access_mounts(MountEntry **p, char **strv, MountMode mode, boo
                         needs_prefix = true;
                 }
 
+                /* If the path is _not_ prefixed with '+', neither RootDirectory= is specified.
+                 * then Read{Write,Only}Paths= is mostly equivalent to
+                 * Bind{ReadOnly}Paths=path:root-prefixed-path. */
+                if (!needs_prefix && forcibly_require_prefix && IN_SET(mode, READONLY, READWRITE))
+                        s = e;
+
                 if (!path_is_absolute(e))
                         return -EINVAL;
 
                 *((*p)++) = (MountEntry) {
                         .path_const = e,
+                        .source_const = s,
                         .mode = mode,
                         .ignore = ignore,
                         .has_prefix = !needs_prefix && !forcibly_require_prefix,
@@ -834,7 +841,9 @@ static int apply_mount(
 
         assert(m);
 
-        r = mount_entry_chase(root_directory, m, mount_entry_path(m), !IN_SET(m->mode, INACCESSIBLE, READONLY, READWRITE), &m->path_malloc);
+        r = mount_entry_chase(root_directory, m, mount_entry_path(m),
+                              mount_entry_source(m) || !IN_SET(m->mode, READONLY, READWRITE, INACCESSIBLE),
+                              &m->path_malloc);
         if (r <= 0)
                 return r;
 
@@ -864,12 +873,21 @@ static int apply_mount(
         case READONLY:
         case READWRITE:
                 r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
-                if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", mount_entry_path(m));
                 if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY bit for the mount point if needed. */
                         return 0;
+
                 /* This isn't a mount point yet, let's make it one. */
-                what = mount_entry_path(m);
+                if (mount_entry_source(m)) {
+                        r = mount_entry_chase(root_directory, m, mount_entry_source(m), false, &m->source_malloc);
+                        if (r <= 0)
+                                return r;
+
+                        what = mount_entry_source(m);
+                        make = true;
+                } else
+                        what = mount_entry_path(m);
                 break;
 
         case BIND_MOUNT:
