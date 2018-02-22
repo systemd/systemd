@@ -54,6 +54,8 @@ int safe_atou8(const char *s, uint8_t *ret);
 int safe_atou16(const char *s, uint16_t *ret);
 int safe_atoi16(const char *s, int16_t *ret);
 
+int safe_atoux16(const char *s, uint16_t *ret);
+
 static inline int safe_atou32(const char *s, uint32_t *ret_u) {
         assert_cc(sizeof(uint32_t) == sizeof(unsigned));
         return safe_atou(s, (unsigned*) ret_u);
