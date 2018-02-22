@@ -16,6 +16,12 @@ CHANGES WITH 238 in spe:
           kernels is a necessity, -Dmemory-accounting-default=false can be used
           to revert this change.
 
+        * systemd no longer creates /run/nologin during boot, delaying user
+          logins. /run/nologin is still created during shutdown, to prevent
+          users from logging in when the machine is going down. Previous
+          behaviour can be restored with the tmpfiles snippet from
+          https://github.com/systemd/systemd/blob/v237/tmpfiles.d/systemd-nologin.conf
+
 CHANGES WITH 237:
 
         * Some keyboards come with a zoom see-saw or rocker which until now got

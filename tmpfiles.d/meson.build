@@ -19,7 +19,6 @@ enable_tmpfiles = conf.get('ENABLE_TMPFILES') == 1
 
 tmpfiles = [['home.conf',            ''],
             ['journal-nocow.conf',   ''],
-            ['systemd-nologin.conf', ''],
             ['systemd-nspawn.conf',  ''],
             ['tmp.conf',             ''],
             ['x11.conf',             ''],
