@@ -57,6 +57,7 @@ static int detect_vm_cpuid(void) {
                 { "Microsoft Hv", VIRTUALIZATION_MICROSOFT },
                 /* https://wiki.freebsd.org/bhyve */
                 { "bhyve bhyve ", VIRTUALIZATION_BHYVE     },
+                { "QNXQVMBSQG",   VIRTUALIZATION_QNX       },
         };
 
         uint32_t eax, ebx, ecx, edx;
@@ -628,6 +629,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_ZVM] = "zvm",
         [VIRTUALIZATION_PARALLELS] = "parallels",
         [VIRTUALIZATION_BHYVE] = "bhyve",
+        [VIRTUALIZATION_QNX] = "qnx",
         [VIRTUALIZATION_VM_OTHER] = "vm-other",
 
         [VIRTUALIZATION_SYSTEMD_NSPAWN] = "systemd-nspawn",
