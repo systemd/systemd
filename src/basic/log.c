@@ -365,7 +365,7 @@ static int write_to_console(
         highlight = LOG_PRI(level) <= LOG_ERR && show_color;
 
         if (show_location) {
-                xsprintf(location, "(%s:%i) ", file, line);
+                snprintf(location, sizeof(location), "(%s:%i) ", file, line);
                 iovec[n++] = IOVEC_MAKE_STRING(location);
         }
 
@@ -800,7 +800,7 @@ static void log_assert(
                 return;
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        xsprintf(buffer, format, text, file, line, func);
+        snprintf(buffer, sizeof buffer, format, text, file, line, func);
         REENABLE_WARNING;
 
         log_abort_msg = buffer;

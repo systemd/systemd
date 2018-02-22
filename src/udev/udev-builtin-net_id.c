@@ -275,7 +275,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 goto out;
         }
 
-        xsprintf(slots, "%s/slots", udev_device_get_syspath(pci));
+        snprintf(slots, sizeof slots, "%s/slots", udev_device_get_syspath(pci));
         dir = opendir(slots);
         if (!dir) {
                 err = -errno;
@@ -294,7 +294,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 if (i < 1)
                         continue;
 
-                xsprintf(str, "%s/%s/address", slots, dent->d_name);
+                snprintf(str, sizeof str, "%s/%s/address", slots, dent->d_name);
                 if (read_one_line_file(str, &address) >= 0) {
                         /* match slot address with device by stripping the function */
                         if (strneq(address, udev_device_get_sysname(names->pcidev), strlen(address)))
