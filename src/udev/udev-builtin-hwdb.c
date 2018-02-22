@@ -27,6 +27,7 @@
 
 #include "alloc-util.h"
 #include "hwdb-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "udev.h"
@@ -63,7 +64,7 @@ int udev_builtin_hwdb_lookup(struct udev_device *dev,
 
 static const char *modalias_usb(struct udev_device *dev, char *s, size_t size) {
         const char *v, *p;
-        int vn, pn;
+        uint16_t vn, pn;
 
         v = udev_device_get_sysattr_value(dev, "idVendor");
         if (!v)
@@ -71,12 +72,10 @@ static const char *modalias_usb(struct udev_device *dev, char *s, size_t size) {
         p = udev_device_get_sysattr_value(dev, "idProduct");
         if (!p)
                 return NULL;
-        vn = strtol(v, NULL, 16);
-        if (vn <= 0)
-                return NULL;
-        pn = strtol(p, NULL, 16);
-        if (pn <= 0)
-                return NULL;
+        if (safe_atoux16(v, &vn) < 0)
+		return NULL;
+        if (safe_atoux16(p, &pn) < 0)
+		return NULL;
         snprintf(s, size, "usb:v%04Xp%04X*", vn, pn);
         return s;
 }

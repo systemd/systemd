@@ -468,6 +468,44 @@ static void test_safe_atoi16(void) {
         assert_se(r == -EINVAL);
 }
 
+static void test_safe_atoux16(void) {
+        int r;
+        uint16_t l;
+
+        r = safe_atoux16("1234", &l);
+        assert_se(r == 0);
+        assert_se(l == 0x1234);
+
+        r = safe_atoux16("abcd", &l);
+        assert_se(r == 0);
+        assert_se(l == 0xabcd);
+
+        r = safe_atoux16("  1234", &l);
+        assert_se(r == 0);
+        assert_se(l == 0x1234);
+
+        r = safe_atoux16("12345", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atoux16("-1", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atoux16("  -1", &l);
+        assert_se(r == -ERANGE);
+
+        r = safe_atoux16("junk", &l);
+        assert_se(r == -EINVAL);
+
+        r = safe_atoux16("123x", &l);
+        assert_se(r == -EINVAL);
+
+        r = safe_atoux16("12.3", &l);
+        assert_se(r == -EINVAL);
+
+        r = safe_atoux16("", &l);
+        assert_se(r == -EINVAL);
+}
+
 static void test_safe_atou64(void) {
         int r;
         uint64_t l;
@@ -745,6 +783,7 @@ int main(int argc, char *argv[]) {
         test_safe_atolli();
         test_safe_atou16();
         test_safe_atoi16();
+        test_safe_atoux16();
         test_safe_atou64();
         test_safe_atoi64();
         test_safe_atod();
