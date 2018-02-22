@@ -58,7 +58,7 @@
       <command>systemctl</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">COMMAND</arg>
-      <arg choice="opt" rep="repeat">NAME</arg>
+      <arg choice="opt" rep="repeat">UNIT</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -835,7 +835,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>isolate <replaceable>NAME</replaceable></command></term>
+          <term><command>isolate <replaceable>UNIT</replaceable></command></term>
 
           <listitem>
             <para>Start the unit specified on the command line and its dependencies
@@ -1004,7 +1004,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>set-property <replaceable>NAME</replaceable> <replaceable>ASSIGNMENT</replaceable>…</command></term>
+          <term><command>set-property <replaceable>UNIT</replaceable> <replaceable>ASSIGNMENT</replaceable>…</command></term>
 
           <listitem>
             <para>Set the specified unit properties at runtime where
@@ -1059,7 +1059,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <varlistentry>
           <term>
             <command>list-dependencies</command>
-            <optional><replaceable>NAME</replaceable></optional>
+            <optional><replaceable>UNIT</replaceable></optional>
           </term>
 
           <listitem>
@@ -1101,7 +1101,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>enable <replaceable>NAME</replaceable>…</command></term>
+          <term><command>enable <replaceable>UNIT</replaceable>…</command></term>
           <term><command>enable <replaceable>PATH</replaceable>…</command></term>
 
           <listitem>
@@ -1152,7 +1152,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>disable <replaceable>NAME</replaceable>…</command></term>
+          <term><command>disable <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Disables one or more units. This removes all symlinks to the unit files backing the specified units
@@ -1184,7 +1184,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>reenable <replaceable>NAME</replaceable>…</command></term>
+          <term><command>reenable <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Reenable one or more units, as specified on the command line. This is a combination of
@@ -1195,7 +1195,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>preset <replaceable>NAME</replaceable>…</command></term>
+          <term><command>preset <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Reset the enable/disable status one or more unit files, as specified on
@@ -1208,7 +1208,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             enabled and disabled, or only enabled, or only disabled.</para>
 
             <para>If the unit carries no install information, it will be silently ignored
-            by this command. <replaceable>NAME</replaceable> must be the real unit name,
+            by this command. <replaceable>UNIT</replaceable> must be the real unit name,
             any alias names are ignored silently.</para>
 
             <para>For more information on the preset policy format, see
@@ -1233,7 +1233,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>is-enabled <replaceable>NAME</replaceable>…</command></term>
+          <term><command>is-enabled <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Checks whether any of the specified unit files are
@@ -1320,7 +1320,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>mask <replaceable>NAME</replaceable>…</command></term>
+          <term><command>mask <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Mask one or more units, as specified on the command line. This will link these unit files to
@@ -1334,7 +1334,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>unmask <replaceable>NAME</replaceable>…</command></term>
+          <term><command>unmask <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Unmask one or more unit files, as specified on the command line. This will undo the effect of
@@ -1355,7 +1355,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>revert <replaceable>NAME</replaceable>…</command></term>
+          <term><command>revert <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Revert one or more unit files to their vendor versions. This command removes drop-in configuration
@@ -1378,9 +1378,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <varlistentry>
           <term><command>add-wants <replaceable>TARGET</replaceable>
-          <replaceable>NAME</replaceable>…</command></term>
+          <replaceable>UNIT</replaceable>…</command></term>
           <term><command>add-requires <replaceable>TARGET</replaceable>
-          <replaceable>NAME</replaceable>…</command></term>
+          <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Adds <literal>Wants=</literal> or <literal>Requires=</literal>
@@ -1396,7 +1396,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>edit <replaceable>NAME</replaceable>…</command></term>
+          <term><command>edit <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Edit a drop-in snippet or a whole replacement file if
@@ -1446,7 +1446,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>set-default <replaceable>NAME</replaceable></command></term>
+          <term><command>set-default <replaceable>TARGET</replaceable></command></term>
 
           <listitem>
             <para>Set the default target to boot into. This sets
@@ -1869,7 +1869,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
     <refsect2>
       <title>Parameter Syntax</title>
 
-      <para>Unit commands listed above take either a single unit name (designated as <replaceable>NAME</replaceable>),
+      <para>Unit commands listed above take either a single unit name (designated as <replaceable>UNIT</replaceable>),
       or multiple unit specifications (designated as <replaceable>PATTERN</replaceable>…). In the first case, the
       unit name with or without a suffix must be given. If the suffix is not specified (unit name is "abbreviated"),
       systemctl will append a suitable suffix, <literal>.service</literal> by default, and a type-specific suffix in
@@ -1906,7 +1906,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       in memory are not considered for glob expansion.
       </para>
 
-      <para>For unit file commands, the specified <replaceable>NAME</replaceable> should be the name of the unit file
+      <para>For unit file commands, the specified <replaceable>UNIT</replaceable> should be the name of the unit file
       (possibly abbreviated, see above), or the absolute path to the unit file:
       <programlisting># systemctl enable foo.service</programlisting>
       or
