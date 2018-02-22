@@ -449,6 +449,26 @@ static void test_unit_name_path_unescape(void) {
         test_unit_name_path_unescape_one("", NULL, -EINVAL);
 }
 
+static void test_unit_name_to_prefix_one(const char *input, int ret, const char *output) {
+        _cleanup_free_ char *k = NULL;
+
+        assert_se(unit_name_to_prefix(input, &k) == ret);
+        assert_se(streq_ptr(k, output));
+}
+
+static void test_unit_name_to_prefix(void) {
+        test_unit_name_to_prefix_one("foobar.service", 0, "foobar");
+        test_unit_name_to_prefix_one("", -EINVAL, NULL);
+        test_unit_name_to_prefix_one("foobar", -EINVAL, NULL);
+        test_unit_name_to_prefix_one(".service", -EINVAL, NULL);
+        test_unit_name_to_prefix_one("quux.quux", -EINVAL, NULL);
+        test_unit_name_to_prefix_one("quux.mount", 0, "quux");
+        test_unit_name_to_prefix_one("quux-quux.mount", 0, "quux-quux");
+        test_unit_name_to_prefix_one("quux@bar.mount", 0, "quux");
+        test_unit_name_to_prefix_one("quux-@.mount", 0, "quux-");
+        test_unit_name_to_prefix_one("@.mount", -EINVAL, NULL);
+}
+
 int main(int argc, char* argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         int r, rc = 0;
@@ -482,6 +502,7 @@ int main(int argc, char* argv[]) {
         test_unit_name_escape();
         test_unit_name_template();
         test_unit_name_path_unescape();
+        test_unit_name_to_prefix();
 
         return rc;
 }

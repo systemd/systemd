@@ -241,10 +241,31 @@ int unit_name_change_suffix(const char *n, const char *suffix, char **ret) {
 }
 
 int unit_name_build(const char *prefix, const char *instance, const char *suffix, char **ret) {
-        char *s;
+        UnitType type;
 
         assert(prefix);
         assert(suffix);
+        assert(ret);
+
+        if (isempty(suffix))
+                return -EINVAL;
+        if (suffix[0] != '.')
+                return -EINVAL;
+
+        type = unit_type_from_string(suffix + 1);
+        if (type < 0)
+                return -EINVAL;
+
+        return unit_name_build_from_type(prefix, instance, type, ret);
+}
+
+int unit_name_build_from_type(const char *prefix, const char *instance, UnitType type, char **ret) {
+        const char *ut;
+        char *s;
+
+        assert(prefix);
+        assert(type >= 0);
+        assert(type < _UNIT_TYPE_MAX);
         assert(ret);
 
         if (!unit_prefix_is_valid(prefix))
@@ -253,13 +274,12 @@ int unit_name_build(const char *prefix, const char *instance, const char *suffix
         if (instance && !unit_instance_is_valid(instance))
                 return -EINVAL;
 
-        if (!unit_suffix_is_valid(suffix))
-                return -EINVAL;
+        ut = unit_type_to_string(type);
 
         if (!instance)
-                s = strappend(prefix, suffix);
+                s = strjoin(prefix, ".", ut);
         else
-                s = strjoin(prefix, "@", instance, suffix);
+                s = strjoin(prefix, "@", instance, ".", ut);
         if (!s)
                 return -ENOMEM;
 
