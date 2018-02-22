@@ -381,6 +381,13 @@ evdev:name:AlpsPS/2 ALPS GlidePoint*:dmi:bvn*:bvr*:bd*:svnLENOVO*:pvrFlex3-15*
  EVDEV_ABS_01=::28
  EVDEV_ABS_35=::38
  EVDEV_ABS_36=::28
+ 
+# Lenovo ThinkPad Edge 13 (02173BG)
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*02173BG*:*pvrThinkPadEdge*
+ EVDEV_ABS_00=916:6077:55
+ EVDEV_ABS_01=653:5395:116
+ EVDEV_ABS_35=916:6077:55
+ EVDEV_ABS_36=653:5395:116
 
 #########################################
 # Samsung
