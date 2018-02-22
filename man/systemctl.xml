@@ -1004,7 +1004,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>set-property <replaceable>UNIT</replaceable> <replaceable>ASSIGNMENT</replaceable>…</command></term>
+          <term><command>set-property <replaceable>UNIT</replaceable> <replaceable>PROPERTY</replaceable>=<replaceable>VALUE</replaceable>…</command></term>
 
           <listitem>
             <para>Set the specified unit properties at runtime where
@@ -1013,7 +1013,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             runtime. Not all properties may be changed at runtime, but
             many resource control settings (primarily those in
             <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
-            may. The changes are applied instantly, and stored on disk
+            may. The changes are applied immediately, and stored on disk
             for future boots, unless <option>--runtime</option> is
             passed, in which case the settings only apply until the
             next reboot. The syntax of the property assignment follows
@@ -1028,9 +1028,9 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>Note that this command allows changing multiple
             properties at the same time, which is preferable over
-            setting them individually. Like unit file configuration
-            settings, assigning the empty list to list parameters will
-            reset the list.</para>
+            setting them individually. Like with unit file configuration
+            settings, assigning an empty list will reset the property.
+            </para>
           </listitem>
         </varlistentry>
 
