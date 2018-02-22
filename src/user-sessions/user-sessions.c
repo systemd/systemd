@@ -51,12 +51,9 @@ int main(int argc, char*argv[]) {
                 if (k < 0 && r >= 0)
                         r = k;
 
-        } else if (streq(argv[1], "stop")) {
-                r = write_string_file_atomic_label("/run/nologin", "System is going down.");
-                if (r < 0)
-                        log_error_errno(r, "Failed to create /run/nologin: %m");
-
-        } else {
+        } else if (streq(argv[1], "stop"))
+                r = create_shutdown_run_nologin_or_warn();
+        else {
                 log_error("Unknown verb '%s'.", argv[1]);
                 r = -EINVAL;
         }
