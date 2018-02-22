@@ -498,38 +498,40 @@ static int log_do_header(
                 const char *file, int line, const char *func,
                 const char *object_field, const char *object,
                 const char *extra_field, const char *extra) {
+        int r;
 
-        snprintf(header, size,
-                 "PRIORITY=%i\n"
-                 "SYSLOG_FACILITY=%i\n"
-                 "%s%s%s"
-                 "%s%.*i%s"
-                 "%s%s%s"
-                 "%s%.*i%s"
-                 "%s%s%s"
-                 "%s%s%s"
-                 "SYSLOG_IDENTIFIER=%s\n",
-                 LOG_PRI(level),
-                 LOG_FAC(level),
-                 isempty(file) ? "" : "CODE_FILE=",
-                 isempty(file) ? "" : file,
-                 isempty(file) ? "" : "\n",
-                 line ? "CODE_LINE=" : "",
-                 line ? 1 : 0, line, /* %.0d means no output too, special case for 0 */
-                 line ? "\n" : "",
-                 isempty(func) ? "" : "CODE_FUNC=",
-                 isempty(func) ? "" : func,
-                 isempty(func) ? "" : "\n",
-                 error ? "ERRNO=" : "",
-                 error ? 1 : 0, error,
-                 error ? "\n" : "",
-                 isempty(object) ? "" : object_field,
-                 isempty(object) ? "" : object,
-                 isempty(object) ? "" : "\n",
-                 isempty(extra) ? "" : extra_field,
-                 isempty(extra) ? "" : extra,
-                 isempty(extra) ? "" : "\n",
-                 program_invocation_short_name);
+        r = snprintf(header, size,
+                     "PRIORITY=%i\n"
+                     "SYSLOG_FACILITY=%i\n"
+                     "%s%.256s%s"        /* CODE_FILE */
+                     "%s%.*i%s"          /* CODE_LINE */
+                     "%s%.256s%s"        /* CODE_FUNC */
+                     "%s%.*i%s"          /* ERRNO */
+                     "%s%.256s%s"        /* object */
+                     "%s%.256s%s"        /* extra */
+                     "SYSLOG_IDENTIFIER=%.256s\n",
+                     LOG_PRI(level),
+                     LOG_FAC(level),
+                     isempty(file) ? "" : "CODE_FILE=",
+                     isempty(file) ? "" : file,
+                     isempty(file) ? "" : "\n",
+                     line ? "CODE_LINE=" : "",
+                     line ? 1 : 0, line, /* %.0d means no output too, special case for 0 */
+                     line ? "\n" : "",
+                     isempty(func) ? "" : "CODE_FUNC=",
+                     isempty(func) ? "" : func,
+                     isempty(func) ? "" : "\n",
+                     error ? "ERRNO=" : "",
+                     error ? 1 : 0, error,
+                     error ? "\n" : "",
+                     isempty(object) ? "" : object_field,
+                     isempty(object) ? "" : object,
+                     isempty(object) ? "" : "\n",
+                     isempty(extra) ? "" : extra_field,
+                     isempty(extra) ? "" : extra,
+                     isempty(extra) ? "" : "\n",
+                     program_invocation_short_name);
+        assert((size_t) r < size);
 
         return 0;
 }
