@@ -518,29 +518,6 @@ uint64_t system_tasks_max_scale(uint64_t v, uint64_t max) {
         return m / max;
 }
 
-int update_reboot_parameter_and_warn(const char *param) {
-        int r;
-
-        if (isempty(param)) {
-                if (unlink("/run/systemd/reboot-param") < 0) {
-                        if (errno == ENOENT)
-                                return 0;
-
-                        return log_warning_errno(errno, "Failed to unlink reboot parameter file: %m");
-                }
-
-                return 0;
-        }
-
-        RUN_WITH_UMASK(0022) {
-                r = write_string_file("/run/systemd/reboot-param", param, WRITE_STRING_FILE_CREATE);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to write reboot parameter file: %m");
-        }
-
-        return 0;
-}
-
 int version(void) {
         puts(PACKAGE_STRING "\n"
              SYSTEMD_FEATURES);

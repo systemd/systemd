@@ -42,6 +42,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "reboot-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "switch-root.h"
@@ -484,12 +485,9 @@ int main(int argc, char *argv[]) {
 
         if (streq(arg_verb, "exit")) {
                 if (in_container)
-                        exit(arg_exit_code);
-                else {
-                        /* We cannot exit() on the host, fallback on another
-                         * method. */
-                        cmd = RB_POWER_OFF;
-                }
+                        return arg_exit_code;
+
+                cmd = RB_POWER_OFF; /* We cannot exit() on the host, fallback on another method. */
         }
 
         switch (cmd) {
@@ -517,22 +515,9 @@ int main(int argc, char *argv[]) {
 
                 cmd = RB_AUTOBOOT;
                 _fallthrough_;
+
         case RB_AUTOBOOT:
-
-                if (!in_container) {
-                        _cleanup_free_ char *param = NULL;
-
-                        r = read_one_line_file("/run/systemd/reboot-param", &param);
-                        if (r < 0 && r != -ENOENT)
-                                log_warning_errno(r, "Failed to read reboot parameter file: %m");
-
-                        if (!isempty(param)) {
-                                log_info("Rebooting with argument '%s'.", param);
-                                syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
-                                log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
-                        }
-                }
-
+                (void) reboot_with_parameter(REBOOT_LOG);
                 log_info("Rebooting.");
                 break;
 
@@ -548,13 +533,13 @@ int main(int argc, char *argv[]) {
                 assert_not_reached("Unknown magic");
         }
 
-        reboot(cmd);
+        (void) reboot(cmd);
         if (errno == EPERM && in_container) {
                 /* If we are in a container, and we lacked
                  * CAP_SYS_BOOT just exit, this will kill our
                  * container for good. */
                 log_info("Exiting container.");
-                exit(EXIT_SUCCESS);
+                return EXIT_SUCCESS;
         }
 
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");

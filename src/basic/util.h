@@ -186,8 +186,6 @@ uint64_t physical_memory_scale(uint64_t v, uint64_t max);
 uint64_t system_tasks_max(void);
 uint64_t system_tasks_max_scale(uint64_t v, uint64_t max);
 
-int update_reboot_parameter_and_warn(const char *param);
-
 int version(void);
 
 int str_verscmp(const char *s1, const char *s2);

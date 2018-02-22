@@ -27,7 +27,7 @@
 
 #if !HAVE_PIVOT_ROOT
 static inline int missing_pivot_root(const char *new_root, const char *put_old) {
-        return syscall(SYS_pivot_root, new_root, put_old);
+        return syscall(__NR_pivot_root, new_root, put_old);
 }
 
 #  define pivot_root missing_pivot_root
@@ -129,7 +129,7 @@ static inline int missing_getrandom(void *buffer, size_t count, unsigned flags) 
 
 #if !HAVE_GETTID
 static inline pid_t missing_gettid(void) {
-        return (pid_t) syscall(SYS_gettid);
+        return (pid_t) syscall(__NR_gettid);
 }
 
 #  define gettid missing_gettid
@@ -415,9 +415,9 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 #if !HAVE_STATX
 #  ifndef __NR_statx
 #    if defined __i386__
-#      define __NR_bpf 383
+#      define __NR_statx 383
 #    elif defined __x86_64__
-#      define __NR_bpf 332
+#      define __NR_statx 332
 #    else
 #      warning "__NR_statx not defined for your architecture"
 #    endif
