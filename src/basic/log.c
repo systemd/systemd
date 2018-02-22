@@ -577,8 +577,8 @@ int log_dispatch_internal(
                 const char *func,
                 const char *object_field,
                 const char *object,
-                const char *extra,
                 const char *extra_field,
+                const char *extra,
                 char *buffer) {
 
         assert(buffer);
