@@ -279,8 +279,11 @@ static void test_exec_inaccessiblepaths(Manager *m) {
 static void test_exec_temporaryfilesystem(Manager *m) {
 
         test(m, "exec-temporaryfilesystem-options.service", 0, CLD_EXITED);
+        test(m, "exec-temporaryfilesystem-ro-bind.service", 0, CLD_EXITED);
         test(m, "exec-temporaryfilesystem-ro.service", 0, CLD_EXITED);
+        test(m, "exec-temporaryfilesystem-rw-bind.service", 0, CLD_EXITED);
         test(m, "exec-temporaryfilesystem-rw.service", 0, CLD_EXITED);
+        test(m, "exec-temporaryfilesystem-usr-bind.service", 0, CLD_EXITED);
         test(m, "exec-temporaryfilesystem-usr.service", 0, CLD_EXITED);
 }
 
