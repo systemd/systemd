@@ -142,7 +142,12 @@ static int unit_file_find_dirs(
                 const char *suffix,
                 char ***dirs) {
 
+        _cleanup_free_ char *prefix = NULL, *instance = NULL, *built = NULL;
+        bool is_instance, chopped;
+        const char *dash;
+        UnitType type;
         char *path;
+        size_t n;
         int r;
 
         assert(unit_path);
@@ -150,26 +155,76 @@ static int unit_file_find_dirs(
         assert(suffix);
 
         path = strjoina(unit_path, "/", name, suffix);
-
         if (!unit_path_cache || set_get(unit_path_cache, path)) {
                 r = unit_file_find_dir(original_root, path, dirs);
                 if (r < 0)
                         return r;
         }
 
-        if (unit_name_is_valid(name, UNIT_NAME_INSTANCE)) {
-                /* Also try the template dir */
-
+        is_instance = unit_name_is_valid(name, UNIT_NAME_INSTANCE);
+        if (is_instance) { /* Also try the template dir */
                 _cleanup_free_ char *template = NULL;
 
                 r = unit_name_template(name, &template);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate template from unit name: %m");
 
-                return unit_file_find_dirs(original_root, unit_path_cache, unit_path, template, suffix, dirs);
+                r = unit_file_find_dirs(original_root, unit_path_cache, unit_path, template, suffix, dirs);
+                if (r < 0)
+                        return r;
         }
 
-        return 0;
+        /* Let's see if there's a "-" prefix for this unit name. If so, let's invoke ourselves for it. This will then
+         * recursively do the same for all our prefixes. i.e. this means given "foo-bar-waldo.service" we'll also
+         * search "foo-bar-.service" and "foo-.service".
+         *
+         * Note the order in which we do it: we traverse up adding drop-ins on each step. This means the more specific
+         * drop-ins may override the more generic drop-ins, which is the intended behaviour. */
+
+        r = unit_name_to_prefix(name, &prefix);
+        if (r < 0)
+                return log_error_errno(r, "Failed to derive unit name prefix from unit name: %m");
+
+        chopped = false;
+        for (;;) {
+                dash = strrchr(prefix, '-');
+                if (!dash) /* No dash? if so we are done */
+                        return 0;
+
+                n = (size_t) (dash - prefix);
+                if (n == 0) /* Leading dash? If so, we are done */
+                        return 0;
+
+                if (prefix[n+1] != 0 || chopped) {
+                        prefix[n+1] = 0;
+                        break;
+                }
+
+                /* Trailing dash? If so, chop it off and try again, but not more than once. */
+                prefix[n] = 0;
+                chopped = true;
+        }
+
+        if (!unit_prefix_is_valid(prefix))
+                return 0;
+
+        type = unit_name_to_type(name);
+        if (type < 0) {
+                log_error("Failed to to derive unit type from unit name: %m");
+                return -EINVAL;
+        }
+
+        if (is_instance) {
+                r = unit_name_to_instance(name, &instance);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to derive unit name instance from unit name: %m");
+        }
+
+        r = unit_name_build_from_type(prefix, instance, type, &built);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build prefix unit name: %m");
+
+        return unit_file_find_dirs(original_root, unit_path_cache, unit_path, built, suffix, dirs);
 }
 
 int unit_file_find_dropin_paths(
@@ -182,15 +237,15 @@ int unit_file_find_dropin_paths(
                 char ***ret) {
 
         _cleanup_strv_free_ char **dirs = NULL;
-        Iterator i;
         char *t, **p;
+        Iterator i;
         int r;
 
         assert(ret);
 
         SET_FOREACH(t, names, i)
                 STRV_FOREACH(p, lookup_path)
-                        unit_file_find_dirs(original_root, unit_path_cache, *p, t, dir_suffix, &dirs);
+                        (void) unit_file_find_dirs(original_root, unit_path_cache, *p, t, dir_suffix, &dirs);
 
         if (strv_isempty(dirs)) {
                 *ret = NULL;
