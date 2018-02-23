@@ -211,6 +211,10 @@ static int parse_line(
                         return 0;
                 }
 
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           ".include directives are deprecated, and support for them will be removed in a future version of systemd. "
+                           "Please use drop-in files instead.");
+
                 fn = file_in_same_dir(filename, strstrip(l+9));
                 if (!fn)
                         return -ENOMEM;
