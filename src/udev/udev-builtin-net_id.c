@@ -115,6 +115,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev.h"
+#include "udev-util.h"
 
 #define ONBOARD_INDEX_MAX (16*1024-1)
 
@@ -236,11 +237,11 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         size_t l;
         char *s;
         const char *attr, *port_name;
-        struct udev_device *pci = NULL;
+        _cleanup_udev_device_unref_ struct udev_device *pci = NULL;
         char slots[PATH_MAX];
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
-        int hotplug_slot = 0, err = 0;
+        int hotplug_slot = 0;
 
         if (sscanf(udev_device_get_sysname(names->pcidev), "%x:%x:%x.%u", &domain, &bus, &slot, &func) != 4)
                 return -ENOENT;
@@ -270,21 +271,18 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
 
         /* ACPI _SUN  — slot user number */
         pci = udev_device_new_from_subsystem_sysname(udev, "subsystem", "pci");
-        if (!pci) {
-                err = -ENOENT;
-                goto out;
-        }
+        if (!pci)
+                return -ENOENT;
 
         snprintf(slots, sizeof slots, "%s/slots", udev_device_get_syspath(pci));
         dir = opendir(slots);
-        if (!dir) {
-                err = -errno;
-                goto out;
-        }
+        if (!dir)
+                return -errno;
 
         FOREACH_DIRENT_ALL(dent, dir, break) {
                 int i;
-                char *rest, *address, str[PATH_MAX];
+                char *rest, str[PATH_MAX];
+                _cleanup_free_ char *address = NULL;
 
                 if (dent->d_name[0] == '.')
                         continue;
@@ -299,7 +297,6 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                         /* match slot address with device by stripping the function */
                         if (strneq(address, udev_device_get_sysname(names->pcidev), strlen(address)))
                                 hotplug_slot = i;
-                        free(address);
                 }
 
                 if (hotplug_slot > 0)
@@ -321,9 +318,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 if (l == 0)
                         names->pci_slot[0] = '\0';
         }
-out:
-        udev_device_unref(pci);
-        return err;
+
+        return 0;
 }
 
 static int names_vio(struct udev_device *dev, struct netnames *names) {
