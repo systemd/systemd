@@ -94,7 +94,7 @@ static int prepare(char *dir, char *filename)
         if (r < 0 && errno != EEXIST)
                 return -errno;
 
-        xsprintf(buf, "%s/%s", dir, filename);
+        snprintf(buf, sizeof buf, "%s/%s", dir, filename);
 
         fd = open(buf, O_RDWR|O_CREAT|O_CLOEXEC, S_IRUSR|S_IWUSR);
         if (fd < 0)
