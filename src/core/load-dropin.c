@@ -18,26 +18,21 @@
 #include "unit.h"
 
 static int unit_name_compatible(const char *a, const char *b) {
-        _cleanup_free_ char *prefix = NULL;
+        _cleanup_free_ char *template = NULL;
         int r;
 
-        /* the straightforward case: the symlink name matches the target */
+        /* The straightforward case: the symlink name matches the target */
         if (streq(a, b))
                 return 1;
 
-        r = unit_name_template(a, &prefix);
+        r = unit_name_template(a, &template);
         if (r == -EINVAL)
-                /* not a template */
-                return 0;
+                return 0; /* Not a template */
         if (r < 0)
-                /* oom, or some other failure. Just skip the warning. */
-                return r;
+                return r; /* OOM, or some other failure. Just skip the warning. */
 
-        /* an instance name points to a target that is just the template name */
-        if (streq(prefix, b))
-                return 1;
-
-        return 0;
+        /* An instance name points to a target that is just the template name */
+        return streq(template, b);
 }
 
 static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suffix) {
