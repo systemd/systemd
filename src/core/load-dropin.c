@@ -51,8 +51,8 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
                 return r;
 
         STRV_FOREACH(p, paths) {
-                const char *entry;
                 _cleanup_free_ char *target = NULL;
+                const char *entry;
 
                 entry = basename(*p);
 
