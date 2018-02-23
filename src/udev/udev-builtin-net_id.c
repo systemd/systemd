@@ -274,7 +274,9 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         if (!pci)
                 return -ENOENT;
 
-        snprintf(slots, sizeof slots, "%s/slots", udev_device_get_syspath(pci));
+        if (!snprintf_ok(slots, sizeof slots, "%s/slots", udev_device_get_syspath(pci)))
+                return -ENAMETOOLONG;
+
         dir = opendir(slots);
         if (!dir)
                 return -errno;
@@ -292,12 +294,11 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 if (i < 1)
                         continue;
 
-                snprintf(str, sizeof str, "%s/%s/address", slots, dent->d_name);
-                if (read_one_line_file(str, &address) >= 0) {
+                if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
+                    read_one_line_file(str, &address) >= 0)
                         /* match slot address with device by stripping the function */
-                        if (strneq(address, udev_device_get_sysname(names->pcidev), strlen(address)))
+                        if (streq(address, udev_device_get_sysname(names->pcidev)))
                                 hotplug_slot = i;
-                }
 
                 if (hotplug_slot > 0)
                         break;
@@ -513,7 +514,6 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
         const char *bus_id, *subsys;
         size_t bus_id_len;
         size_t bus_id_start;
-        int rc;
 
         assert(dev);
         assert(names);
@@ -555,9 +555,9 @@ static int names_ccw(struct  udev_device *dev, struct netnames *names) {
         bus_id += bus_id_start < bus_id_len ? bus_id_start : bus_id_len - 1;
 
         /* Store the CCW bus-ID for use as network device name */
-        rc = snprintf(names->ccw_busid, sizeof(names->ccw_busid), "c%s", bus_id);
-        if (rc >= 0 && rc < (int)sizeof(names->ccw_busid))
+        if (snprintf_ok(names->ccw_busid, sizeof(names->ccw_busid), "c%s", bus_id))
                 names->type = NET_CCW;
+
         return 0;
 }
 
@@ -670,7 +670,7 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (err >= 0 && names.type == NET_CCW) {
                 char str[IFNAMSIZ];
 
-                if (snprintf(str, sizeof(str), "%s%s", prefix, names.ccw_busid) < (int)sizeof(str))
+                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.ccw_busid))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
                 goto out;
         }
@@ -680,7 +680,7 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (err >= 0 && names.type == NET_VIO) {
                 char str[IFNAMSIZ];
 
-                if (snprintf(str, sizeof(str), "%s%s", prefix, names.vio_slot) < (int)sizeof(str))
+                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.vio_slot))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
@@ -690,7 +690,7 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (err >= 0 && names.type == NET_PLATFORM) {
                 char str[IFNAMSIZ];
 
-                if (snprintf(str, sizeof(str), "%s%s", prefix, names.platform_path) < (int)sizeof(str))
+                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.platform_path))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
                 goto out;
         }
@@ -704,21 +704,21 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (names.type == NET_PCI) {
                 char str[IFNAMSIZ];
 
-                if (names.pci_onboard[0])
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_onboard) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
+                if (names.pci_onboard[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_onboard))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_ONBOARD", str);
 
-                if (names.pci_onboard_label)
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_onboard_label) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
+                if (names.pci_onboard_label &&
+                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_onboard_label))
+                        udev_builtin_add_property(dev, test, "ID_NET_LABEL_ONBOARD", str);
 
-                if (names.pci_path[0])
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_path) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                if (names.pci_path[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_path))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
 
-                if (names.pci_slot[0])
-                        if (snprintf(str, sizeof(str), "%s%s", prefix, names.pci_slot) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                if (names.pci_slot[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s", prefix, names.pci_slot))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
 
@@ -727,13 +727,13 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (err >= 0 && names.type == NET_USB) {
                 char str[IFNAMSIZ];
 
-                if (names.pci_path[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_path, names.usb_ports) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                if (names.pci_path[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_path, names.usb_ports))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
 
-                if (names.pci_slot[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.usb_ports) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                if (names.pci_slot[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.usb_ports))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
 
@@ -742,13 +742,13 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
         if (err >= 0 && names.type == NET_BCMA) {
                 char str[IFNAMSIZ];
 
-                if (names.pci_path[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_path, names.bcma_core) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
+                if (names.pci_path[0] &&
+                    snprintf_ok(str, sizeof str, "%s%s%s", prefix, names.pci_path, names.bcma_core))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
 
-                if (names.pci_slot[0])
-                        if (snprintf(str, sizeof(str), "%s%s%s", prefix, names.pci_slot, names.bcma_core) < (int)sizeof(str))
-                                udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                if (names.pci_slot[0] &&
+                    snprintf(str, sizeof str, "%s%s%s", prefix, names.pci_slot, names.bcma_core))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
                 goto out;
         }
 out:
