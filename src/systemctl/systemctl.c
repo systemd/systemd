@@ -2942,7 +2942,8 @@ static int start_unit_one(
                 log_error("Failed to %s %s: %s", verb, name, bus_error_message(error, r));
 
                 if (!sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) &&
-                    !sd_bus_error_has_name(error, BUS_ERROR_UNIT_MASKED))
+                    !sd_bus_error_has_name(error, BUS_ERROR_UNIT_MASKED) &&
+                    !sd_bus_error_has_name(error, BUS_ERROR_JOB_TYPE_NOT_APPLICABLE))
                         log_error("See %s logs and 'systemctl%s status%s %s' for details.",
                                    arg_scope == UNIT_FILE_SYSTEM ? "system" : "user",
                                    arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
