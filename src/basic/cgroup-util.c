@@ -1062,13 +1062,11 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                                 continue;
 
                         *e = 0;
-                        FOREACH_WORD_SEPARATOR(word, k, l, ",", state) {
+                        FOREACH_WORD_SEPARATOR(word, k, l, ",", state)
                                 if (k == cs && memcmp(word, controller_str, cs) == 0) {
                                         found = true;
                                         break;
                                 }
-                        }
-
                         if (!found)
                                 continue;
                 }
