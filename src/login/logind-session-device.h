@@ -39,9 +39,9 @@ struct SessionDevice {
         dev_t dev;
         char *node;
         int fd;
-        bool active;
-        DeviceType type;
-        bool pushed_fd;
+        DeviceType type:3;
+        bool active:1;
+        bool pushed_fd:1;
 
         LIST_FIELDS(struct SessionDevice, sd_by_device);
 };
