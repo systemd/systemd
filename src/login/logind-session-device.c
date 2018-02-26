@@ -455,13 +455,14 @@ void session_device_resume_all(Session *s) {
         assert(s);
 
         HASHMAP_FOREACH(sd, s->devices, i) {
-                if (!sd->active) {
-                        if (session_device_start(sd) < 0)
-                                continue;
-                        if (session_device_save(sd) < 0)
-                                continue;
-                        session_device_notify(sd, SESSION_DEVICE_RESUME);
-                }
+                if (sd->active)
+                        continue;
+
+                if (session_device_start(sd) < 0)
+                        continue;
+                if (session_device_save(sd) < 0)
+                        continue;
+                session_device_notify(sd, SESSION_DEVICE_RESUME);
         }
 }
 
@@ -472,25 +473,27 @@ void session_device_pause_all(Session *s) {
         assert(s);
 
         HASHMAP_FOREACH(sd, s->devices, i) {
-                if (sd->active) {
-                        session_device_stop(sd);
-                        session_device_notify(sd, SESSION_DEVICE_PAUSE);
-                }
+                if (!sd->active)
+                        continue;
+
+                session_device_stop(sd);
+                session_device_notify(sd, SESSION_DEVICE_PAUSE);
         }
 }
 
 unsigned int session_device_try_pause_all(Session *s) {
+        unsigned num_pending = 0;
         SessionDevice *sd;
         Iterator i;
-        unsigned int num_pending = 0;
 
         assert(s);
 
         HASHMAP_FOREACH(sd, s->devices, i) {
-                if (sd->active) {
-                        session_device_notify(sd, SESSION_DEVICE_TRY_PAUSE);
-                        ++num_pending;
-                }
+                if (!sd->active)
+                        continue;
+
+                session_device_notify(sd, SESSION_DEVICE_TRY_PAUSE);
+                num_pending++;
         }
 
         return num_pending;
