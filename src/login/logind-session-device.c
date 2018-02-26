@@ -420,7 +420,7 @@ void session_device_free(SessionDevice *sd) {
 
         session_device_stop(sd);
         session_device_notify(sd, SESSION_DEVICE_RELEASE);
-        close_nointr(sd->fd);
+        safe_close(sd->fd);
 
         LIST_REMOVE(sd_by_device, sd->device->session_devices, sd);
 
