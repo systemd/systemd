@@ -516,6 +516,10 @@ int unit_name_from_path(const char *path, const char *suffix, char **ret) {
         if (!unit_suffix_is_valid(suffix))
                 return -EINVAL;
 
+        /* path must be absolute, but we accept "" to mean "/". */
+        if (!path_is_absolute(path) && !isempty(path))
+                return -EINVAL;
+
         r = unit_name_path_escape(path, &p);
         if (r < 0)
                 return r;

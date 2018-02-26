@@ -328,11 +328,6 @@ static int add_mount(
         if (streq_ptr(fstype, "autofs"))
                 return 0;
 
-        if (!is_path(where)) {
-                log_warning("Mount point %s is not a valid path, ignoring.", where);
-                return 0;
-        }
-
         if (mount_point_is_api(where) ||
             mount_point_ignore(where))
                 return 0;
@@ -536,7 +531,7 @@ static int parse_fstab(bool initrd) {
 
         while ((me = getmntent(f))) {
                 _cleanup_free_ char *where = NULL, *what = NULL, *canonical_where = NULL;
-                bool makefs, growfs, noauto, nofail;
+                bool swap, makefs, growfs, noauto, nofail;
                 int k;
 
                 if (initrd && !mount_in_initrd(me))
@@ -555,7 +550,13 @@ static int parse_fstab(bool initrd) {
                 if (!where)
                         return log_oom();
 
-                if (is_path(where)) {
+                swap = streq(me->mnt_type, "swap");
+                if (!swap) {
+                        if (!path_is_absolute(where)) {
+                                log_warning("Mount point %s is not a valid path, ignoring.", where);
+                                continue;
+                        }
+
                         path_kill_slashes(where);
                         /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
                          * mount units, but causes problems since it historically worked to have symlinks in e.g.
@@ -573,8 +574,33 @@ static int parse_fstab(bool initrd) {
                                 if (streq(canonical_where, where))
                                         canonical_where = mfree(canonical_where);
                                 else
-                                        log_debug("Canonicalized what=%s where=%s to %s",
-                                                  what, where, canonical_where);
+                                        log_debug("Canonicalized where=%s to %s (for what=%s)",
+                                                  where, canonical_where, what);
+                        }
+                }
+
+                if (fstab_test_option(me->mnt_opts, "bind\0" "rbind\0") ||
+                    STR_IN_SET(me->mnt_type, "bind", "rbind")) {
+
+                        _cleanup_free_ char *canonical_what = NULL;
+
+                        path_kill_slashes(what);
+
+                        /* Similarly, canonicalize the source directory of bind mounts.
+                         * In particular this makes a best-effort attempt to keep the
+                         * source outside of the initrd, e.g. if "/.." is specified. */
+                        r = chase_symlinks(what, initrd ? "/sysroot" : NULL,
+                                           CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
+                                           &canonical_what);
+                        if (r < 0)
+                                /* In this case for now we continue on as if it wasn't a symlink */
+                                log_warning_errno(r, "Failed to read symlink target for %s: %m", what);
+                        else {
+                                if (!streq(canonical_what, what)) {
+                                        log_debug("Canonicalized what=%s to %s (for where=%s)",
+                                                  what, canonical_what, where);
+                                        free_and_replace(what, canonical_what);
+                                }
                         }
                 }
 
@@ -587,7 +613,7 @@ static int parse_fstab(bool initrd) {
                           yes_no(makefs),
                           yes_no(noauto), yes_no(nofail));
 
-                if (streq(me->mnt_type, "swap"))
+                if (swap)
                         k = add_swap(what, me,
                                      makefs*MAKEFS | growfs*GROWFS | noauto*NOAUTO | nofail*NOFAIL);
                 else {
