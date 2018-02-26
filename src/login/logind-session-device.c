@@ -527,7 +527,7 @@ int session_device_save(SessionDevice *sd) {
 }
 
 void session_device_attach_fd(SessionDevice *sd, int fd, bool active) {
-        assert(fd > 0);
+        assert(fd >= 0);
         assert(sd);
         assert(sd->fd < 0);
         assert(!sd->active);

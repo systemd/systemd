@@ -316,7 +316,7 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         int r;
 
         assert(server);
-        assert(server->fd > 0);
+        assert(server->fd >= 0);
         assert(message);
         assert(len > sizeof(DHCPMessage));
 
