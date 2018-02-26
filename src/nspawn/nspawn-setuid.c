@@ -48,11 +48,13 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
         r = safe_fork("(getent)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
-        if (r < 0)
+        if (r < 0) {
+                safe_close_pair(pipe_fds);
                 return r;
+        }
         if (r == 0) {
-                int nullfd;
                 char *empty_env = NULL;
+                int nullfd;
 
                 if (dup3(pipe_fds[1], STDOUT_FILENO, 0) < 0)
                         _exit(EXIT_FAILURE);
