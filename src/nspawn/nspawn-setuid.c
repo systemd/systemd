@@ -57,10 +57,8 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                 if (dup3(pipe_fds[1], STDOUT_FILENO, 0) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (pipe_fds[0] > 2)
-                        safe_close(pipe_fds[0]);
-                if (pipe_fds[1] > 2)
-                        safe_close(pipe_fds[1]);
+                safe_close_above_stdio(pipe_fds[0]);
+                safe_close_above_stdio(pipe_fds[1]);
 
                 nullfd = open("/dev/null", O_RDWR);
                 if (nullfd < 0)
@@ -72,8 +70,7 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
                 if (dup3(nullfd, STDERR_FILENO, 0) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (nullfd > 2)
-                        safe_close(nullfd);
+                safe_close_above_stdio(nullfd);
 
                 close_all_fds(NULL, 0);
 

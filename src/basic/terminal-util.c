@@ -917,8 +917,7 @@ int make_stdio(int fd) {
         if (dup2(fd, STDERR_FILENO) < 0 && r >= 0)
                 r = -errno;
 
-        if (fd >= 3)
-                safe_close(fd);
+        safe_close_above_stdio(fd);
 
         /* Explicitly unset O_CLOEXEC, since if fd was < 3, then dup2() was a NOP and the bit hence possibly set. */
         stdio_unset_cloexec();

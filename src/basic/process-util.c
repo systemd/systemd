@@ -1428,8 +1428,7 @@ int fork_agent(const char *name, const int except[], unsigned n_except, pid_t *r
                         _exit(EXIT_FAILURE);
                 }
 
-                if (fd > STDERR_FILENO)
-                        close(fd);
+                safe_close_above_stdio(fd);
         }
 
         /* Count arguments */
