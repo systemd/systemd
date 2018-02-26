@@ -990,8 +990,9 @@ static inline sd_login_monitor* FD_TO_MONITOR(int fd) {
 }
 
 _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
-        int fd, k;
+        _cleanup_close_ int fd = -1;
         bool good = false;
+        int k;
 
         assert_return(m, -EINVAL);
 
@@ -1001,50 +1002,42 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
 
         if (!category || streq(category, "seat")) {
                 k = inotify_add_watch(fd, "/run/systemd/seats/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0) {
-                        safe_close(fd);
+                if (k < 0)
                         return -errno;
-                }
 
                 good = true;
         }
 
         if (!category || streq(category, "session")) {
                 k = inotify_add_watch(fd, "/run/systemd/sessions/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0) {
-                        safe_close(fd);
+                if (k < 0)
                         return -errno;
-                }
 
                 good = true;
         }
 
         if (!category || streq(category, "uid")) {
                 k = inotify_add_watch(fd, "/run/systemd/users/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0) {
-                        safe_close(fd);
+                if (k < 0)
                         return -errno;
-                }
 
                 good = true;
         }
 
         if (!category || streq(category, "machine")) {
                 k = inotify_add_watch(fd, "/run/systemd/machines/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0) {
-                        safe_close(fd);
+                if (k < 0)
                         return -errno;
-                }
 
                 good = true;
         }
 
-        if (!good) {
-                close_nointr(fd);
+        if (!good)
                 return -EINVAL;
-        }
 
         *m = FD_TO_MONITOR(fd);
+        fd = -1;
+
         return 0;
 }
 
