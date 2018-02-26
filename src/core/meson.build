@@ -184,8 +184,8 @@ libcore = static_library(
 systemd_sources = files('main.c')
 
 in_files = [['macros.systemd',   rpmmacrosdir],
-            ['system.conf',      pkgsysconfdir],
-            ['user.conf',        pkgsysconfdir],
+            ['system.conf',      factorypkgconfdir],
+            ['user.conf',        factorypkgconfdir],
             ['systemd.pc',       pkgconfigdatadir],
             ['triggers.systemd', '']]
 
@@ -217,6 +217,6 @@ meson.add_install_script('sh', '-c', mkdir_p.format(systemsleepdir))
 meson.add_install_script('sh', '-c', mkdir_p.format(systemgeneratordir))
 meson.add_install_script('sh', '-c', mkdir_p.format(usergeneratordir))
 
-meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(pkgsysconfdir, 'system')))
-meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(pkgsysconfdir, 'user')))
-meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(sysconfdir, 'xdg/systemd')))
+meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(factorypkgconfdir, 'system')))
+meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(factorypkgconfdir, 'user')))
+meson.add_install_script('sh', '-c', mkdir_p.format(join_paths(factorypkgconfdir, 'xdg/systemd')))

@@ -30,5 +30,5 @@ if conf.get('ENABLE_OOMD') == 1
                      install_dir : dbussystemservicedir)
 
         install_data('oomd.conf',
-                     install_dir : pkgsysconfdir)
+                     install_dir : factoryconfdir)
 endif

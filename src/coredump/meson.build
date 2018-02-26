@@ -15,7 +15,7 @@ coredumpctl_sources = files('coredumpctl.c')
 
 if conf.get('ENABLE_COREDUMP') == 1
         install_data('coredump.conf',
-                     install_dir : pkgsysconfdir)
+                     install_dir : factorypkgconfdir)
 endif
 
 tests += [

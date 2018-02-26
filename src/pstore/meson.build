@@ -6,5 +6,5 @@ systemd_pstore_sources = files('''
 
 if conf.get('ENABLE_PSTORE') == 1
         install_data('pstore.conf',
-                     install_dir : pkgsysconfdir)
+                     install_dir : factorypkgconfdir)
 endif

@@ -58,5 +58,5 @@ endforeach
 if enable_tmpfiles
         meson.add_install_script(
                 'sh', '-c',
-                mkdir_p.format(join_paths(sysconfdir, 'tmpfiles.d')))
+                mkdir_p.format(join_paths(factoryconfdir, 'tmpfiles.d')))
 endif

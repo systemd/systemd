@@ -186,7 +186,7 @@ foreach prog : [['ata_id/ata_id.c'],
 endforeach
 
 install_data('udev.conf',
-             install_dir : join_paths(sysconfdir, 'udev'))
+             install_dir : join_paths(factoryconfdir, 'udev'))
 
 configure_file(
         input : 'udev.pc.in',
@@ -195,7 +195,7 @@ configure_file(
         install_dir : pkgconfigdatadir == 'no' ? '' : pkgconfigdatadir)
 
 meson.add_install_script('sh', '-c',
-                         mkdir_p.format(join_paths(sysconfdir, 'udev/rules.d')))
+                         mkdir_p.format(join_paths(factoryconfdir, 'udev/rules.d')))
 
 fuzzers += [
         [['src/udev/net/fuzz-link-parser.c',

@@ -237,7 +237,7 @@ if conf.get('ENABLE_NETWORKD') == 1
         endif
 
         install_data('networkd.conf',
-                     install_dir : pkgsysconfdir)
+                     install_dir : factorypkgconfdir)
 
         fuzzers += [
     [['src/network/fuzz-netdev-parser.c',

@@ -180,6 +180,8 @@ option('pamconfdir', type : 'string',
        description : 'directory for PAM configuration ["no" disables]')
 option('docdir', type : 'string',
        description : 'documentation directory')
+option('stateless-etc', type : 'boolean', value : false,
+       description : 'put systemd configuration in $prefix/factory/')
 
 option('fallback-hostname', type : 'string', value : 'localhost',
        description : 'the hostname used if none configured')

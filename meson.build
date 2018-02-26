@@ -126,6 +126,8 @@ if rootlibdir == ''
         rootlibdir = join_paths(rootprefixdir, libdir.split('/')[-1])
 endif
 
+stateless_etc = get_option('stateless-etc')
+
 # Dirs of external packages
 pkgconfigdatadir = get_option('pkgconfigdatadir') == '' ? join_paths(datadir, 'pkgconfig') : get_option('pkgconfigdatadir')
 pkgconfiglibdir = get_option('pkgconfiglibdir') == '' ? join_paths(libdir, 'pkgconfig') : get_option('pkgconfiglibdir')
@@ -166,6 +168,16 @@ udevhwdbdir = join_paths(udevlibexecdir, 'hwdb.d')
 catalogdir = join_paths(prefixdir, 'lib/systemd/catalog')
 kernelinstalldir = join_paths(prefixdir, 'lib/kernel/install.d')
 factorydir = join_paths(datadir, 'factory')
+if stateless_etc
+        factoryconfdir = join_paths(factorydir, 'etc')
+        factorypkgconfdir = join_paths(factorydir, 'etc/systemd')
+        factoryxinitrcdir = join_paths(factorydir, 'etc/X11/xinit/xinitrc.d')
+else
+        factoryconfdir = sysconfdir
+        factorypkgconfdir = pkgsysconfdir
+        factoryxinitrcdir = join_paths(sysconfdir, 'X11/xinit/xinitrc.d')
+endif
+docdir = get_option('docdir')
 bootlibdir = join_paths(prefixdir, 'lib/systemd/boot/efi')
 testsdir = join_paths(prefixdir, 'lib/systemd/tests')
 systemdstatedir = join_paths(localstatedir, 'lib/systemd')
@@ -2777,7 +2789,7 @@ if conf.get('ENABLE_BINFMT') == 1
         meson.add_install_script('sh', '-c',
                                  mkdir_p.format(binfmtdir))
         meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(join_paths(sysconfdir, 'binfmt.d')))
+                                 mkdir_p.format(join_paths(factoryconfdir, 'binfmt.d')))
 endif
 
 if conf.get('ENABLE_REPART') == 1
@@ -2892,7 +2904,7 @@ executable(
         install_dir : rootlibexecdir)
 
 install_data('src/sleep/sleep.conf',
-             install_dir : pkgsysconfdir)
+             install_dir : factorypkgconfdir)
 
 public_programs += executable(
         'systemd-sysctl',
@@ -3244,7 +3256,7 @@ if conf.get('HAVE_KMOD') == 1
         meson.add_install_script('sh', '-c',
                                  mkdir_p.format(modulesloaddir))
         meson.add_install_script('sh', '-c',
-                                 mkdir_p.format(join_paths(sysconfdir, 'modules-load.d')))
+                                 mkdir_p.format(join_paths(factoryconfdir, 'modules-load.d')))
 endif
 
 public_programs += executable(
@@ -3490,7 +3502,7 @@ install_subdir('factory/etc',
                install_dir : factorydir)
 
 install_data('xorg/50-systemd-user.sh',
-             install_dir : xinitrcdir)
+             install_dir : factoryxinitrcdir)
 install_data('modprobe.d/systemd.conf',
              install_dir : modprobedir)
 install_data('LICENSE.GPL2',

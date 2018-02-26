@@ -108,7 +108,7 @@ if conf.get('ENABLE_HOMED') == 1
                      install_dir : polkitpolicydir)
 
         install_data('homed.conf',
-                     install_dir : pkgsysconfdir)
+                     install_dir : factoryconfdir)
 endif
 
 tests += [

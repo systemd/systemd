@@ -75,7 +75,7 @@ if conf.get('ENABLE_LOGIND') == 1
                 output : 'logind.conf',
                 configuration : substs)
         install_data(logind_conf,
-                     install_dir : pkgsysconfdir)
+                     install_dir : factorypkgconfdir)
 
         install_data('org.freedesktop.login1.conf',
                      install_dir : dbuspolicydir)
