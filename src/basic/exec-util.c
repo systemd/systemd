@@ -65,7 +65,7 @@ static int do_spawn(const char *path, char *argv[], int stdout_fd, pid_t *pid) {
                         /* If the fd happens to be in the right place, go along with that */
                         if (stdout_fd != STDOUT_FILENO &&
                             dup2(stdout_fd, STDOUT_FILENO) < 0)
-                                return -errno;
+                                _exit(EXIT_FAILURE);
 
                         (void) fd_cloexec(STDOUT_FILENO, false);
                 }
