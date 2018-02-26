@@ -233,10 +233,8 @@ int change_uid_gid(const char *user, char **_home) {
                         return log_oom();
 
                 r = parse_uid(c, &uids[n_uids++]);
-                if (r < 0) {
-                        log_error("Failed to parse group data from getent.");
-                        return -EIO;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse group data from getent: %m");
         }
 
         r = mkdir_parents(home, 0775);
