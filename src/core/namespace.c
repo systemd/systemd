@@ -1372,7 +1372,7 @@ int bind_mount_add(BindMount **b, unsigned *n, const BindMount *item) {
         if (!d)
                 return -ENOMEM;
 
-        c = realloc_multiply(*b, sizeof(BindMount), *n + 1);
+        c = reallocarray(*b, *n + 1, sizeof(BindMount));
         if (!c)
                 return -ENOMEM;
 
@@ -1426,7 +1426,7 @@ int temporary_filesystem_add(
                         return -ENOMEM;
         }
 
-        c = realloc_multiply(*t, sizeof(TemporaryFileSystem), *n + 1);
+        c = reallocarray(*t, *n + 1, sizeof(TemporaryFileSystem));
         if (!c)
                 return -ENOMEM;
 
