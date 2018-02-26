@@ -137,8 +137,11 @@ test_data_files = '''
         test-execute/exec-systemcallfilter-with-errno-name.service
         test-execute/exec-systemcallfilter-with-errno-number.service
         test-execute/exec-temporaryfilesystem-options.service
+        test-execute/exec-temporaryfilesystem-ro-bind.service
         test-execute/exec-temporaryfilesystem-ro.service
+        test-execute/exec-temporaryfilesystem-rw-bind.service
         test-execute/exec-temporaryfilesystem-rw.service
+        test-execute/exec-temporaryfilesystem-usr-bind.service
         test-execute/exec-temporaryfilesystem-usr.service
         test-execute/exec-umask-0177.service
         test-execute/exec-umask-default.service

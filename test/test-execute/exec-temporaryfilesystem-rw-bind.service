@@ -1,0 +1,33 @@
+[Unit]
+Description=Test for TemporaryFileSystem (bind)
+
+[Service]
+Type=oneshot
+
+# Check directories exist
+ExecStart=/bin/sh -c 'test -d /var/test-exec-temporaryfilesystem/rw && test -d /var/test-exec-temporaryfilesystem/ro'
+
+# Check TemporaryFileSystem= are empty
+ExecStart=/bin/sh -c 'for i in $$(ls -A /var); do test $$i = test-exec-temporaryfilesystem || false; done'
+
+# Create a file in /var
+ExecStart=/bin/sh -c 'touch /var/hoge'
+
+# Create a file in /var/test-exec-temporaryfilesystem/rw
+ExecStart=/bin/sh -c 'touch /var/test-exec-temporaryfilesystem/rw/thisisasimpletest-temporaryfilesystem-rw-bind'
+
+# Then, the file can be access through /tmp
+ExecStart=/bin/sh -c 'test -f /tmp/thisisasimpletest-temporaryfilesystem-rw-bind'
+
+# Also, through /var/test-exec-temporaryfilesystem/ro
+ExecStart=/bin/sh -c 'test -f /var/test-exec-temporaryfilesystem/ro/thisisasimpletest-temporaryfilesystem-rw-bind'
+
+# The file cannot modify through /var/test-exec-temporaryfilesystem/ro
+ExecStart=/bin/sh -c '! touch /var/test-exec-temporaryfilesystem/ro/thisisasimpletest-temporaryfilesystem-rw-bind'
+
+# Cleanup
+ExecStart=/bin/sh -c 'rm /tmp/thisisasimpletest-temporaryfilesystem-rw-bind'
+
+TemporaryFileSystem=/var
+BindPaths=/tmp:/var/test-exec-temporaryfilesystem/rw
+BindReadOnlyPaths=/tmp:/var/test-exec-temporaryfilesystem/ro

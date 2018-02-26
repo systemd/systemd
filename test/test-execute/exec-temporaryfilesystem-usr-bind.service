@@ -1,5 +1,5 @@
 [Unit]
-Description=Test for TemporaryFileSystem on /usr
+Description=Test for TemporaryFileSystem on /usr (bind)
 
 [Service]
 Type=oneshot
@@ -15,4 +15,4 @@ ExecStart=/bin/sh -c '! touch /usr/bin/hoge'
 ExecStart=/usr/bin/test -x /usr/bin/test
 
 TemporaryFileSystem=/usr:ro
-ReadOnlyPaths=-/usr/lib -/usr/lib64 /usr/bin /usr/sbin
+BindReadOnlyPaths=-/usr/lib -/usr/lib64 /usr/bin /usr/sbin
