@@ -74,20 +74,25 @@ static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotificati
                 return r;
 
         switch (type) {
+
         case SESSION_DEVICE_RESUME:
                 r = sd_bus_message_append(m, "uuh", major, minor, sd->fd);
                 if (r < 0)
                         return r;
                 break;
+
         case SESSION_DEVICE_TRY_PAUSE:
                 t = "pause";
                 break;
+
         case SESSION_DEVICE_PAUSE:
                 t = "force";
                 break;
+
         case SESSION_DEVICE_RELEASE:
                 t = "gone";
                 break;
+
         default:
                 return -EINVAL;
         }
@@ -120,24 +125,18 @@ static int sd_eviocrevoke(int fd) {
 }
 
 static int sd_drmsetmaster(int fd) {
-        int r;
-
         assert(fd >= 0);
 
-        r = ioctl(fd, DRM_IOCTL_SET_MASTER, 0);
-        if (r < 0)
+        if (ioctl(fd, DRM_IOCTL_SET_MASTER, 0) < 0)
                 return -errno;
 
         return 0;
 }
 
 static int sd_drmdropmaster(int fd) {
-        int r;
-
         assert(fd >= 0);
 
-        r = ioctl(fd, DRM_IOCTL_DROP_MASTER, 0);
-        if (r < 0)
+        if (ioctl(fd, DRM_IOCTL_DROP_MASTER, 0) < 0)
                 return -errno;
 
         return 0;
@@ -146,7 +145,9 @@ static int sd_drmdropmaster(int fd) {
 static int session_device_open(SessionDevice *sd, bool active) {
         int fd, r;
 
+        assert(sd);
         assert(sd->type != DEVICE_TYPE_UNKNOWN);
+        assert(sd->node);
 
         /* open device and try to get an udev_device from it */
         fd = open(sd->node, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
@@ -154,28 +155,27 @@ static int session_device_open(SessionDevice *sd, bool active) {
                 return -errno;
 
         switch (sd->type) {
+
         case DEVICE_TYPE_DRM:
                 if (active) {
-                        /* Weird legacy DRM semantics might return an error
-                         * even though we're master. No way to detect that so
-                         * fail at all times and let caller retry in inactive
-                         * state. */
+                        /* Weird legacy DRM semantics might return an error even though we're master. No way to detect
+                         * that so fail at all times and let caller retry in inactive state. */
                         r = sd_drmsetmaster(fd);
                         if (r < 0) {
                                 close_nointr(fd);
                                 return r;
                         }
-                } else {
-                        /* DRM-Master is granted to the first user who opens a
-                         * device automatically (ughh, racy!). Hence, we just
-                         * drop DRM-Master in case we were the first. */
+                } else
+                        /* DRM-Master is granted to the first user who opens a device automatically (ughh,
+                         * racy!). Hence, we just drop DRM-Master in case we were the first. */
                         sd_drmdropmaster(fd);
-                }
                 break;
+
         case DEVICE_TYPE_EVDEV:
                 if (!active)
                         sd_eviocrevoke(fd);
                 break;
+
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices wihout synchronizations */
@@ -195,26 +195,27 @@ static int session_device_start(SessionDevice *sd) {
                 return 0;
 
         switch (sd->type) {
+
         case DEVICE_TYPE_DRM:
-                /* Device is kept open. Simply call drmSetMaster() and hope
-                 * there is no-one else. In case it fails, we keep the device
-                 * paused. Maybe at some point we have a drmStealMaster(). */
+                /* Device is kept open. Simply call drmSetMaster() and hope there is no-one else. In case it fails, we
+                 * keep the device paused. Maybe at some point we have a drmStealMaster(). */
                 r = sd_drmsetmaster(sd->fd);
                 if (r < 0)
                         return r;
                 break;
+
         case DEVICE_TYPE_EVDEV:
-                /* Evdev devices are revoked while inactive. Reopen it and we
-                 * are fine. */
+                /* Evdev devices are revoked while inactive. Reopen it and we are fine. */
                 r = session_device_open(sd, true);
                 if (r < 0)
                         return r;
-                /* For evdev devices, the file descriptor might be left
-                 * uninitialized. This might happen while resuming into a
-                 * session and logind has been restarted right before. */
+
+                /* For evdev devices, the file descriptor might be left uninitialized. This might happen while resuming
+                 * into a session and logind has been restarted right before. */
                 safe_close(sd->fd);
                 sd->fd = r;
                 break;
+
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices wihout synchronizations */

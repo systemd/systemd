@@ -455,7 +455,7 @@ static int manager_attach_fds(Manager *m) {
 
                 sd = hashmap_get(s->devices, &st.st_rdev);
                 if (!sd) {
-                        /* Weird we got an fd for a session device which wasn't
+                        /* Weird, we got an fd for a session device which wasn't
                         * recorded in the session state file... */
                         log_warning("Got fd for missing session device [%u:%u] in session %s",
                                     major(st.st_rdev), minor(st.st_rdev), s->id);

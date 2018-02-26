@@ -618,6 +618,8 @@ bool manager_is_on_external_power(void) {
 }
 
 bool manager_all_buttons_ignored(Manager *m) {
+        assert(m);
+
         if (m->handle_power_key != HANDLE_IGNORE)
                 return false;
         if (m->handle_suspend_key != HANDLE_IGNORE)
@@ -631,5 +633,6 @@ bool manager_all_buttons_ignored(Manager *m) {
                 return false;
         if (m->handle_lid_switch_docked != HANDLE_IGNORE)
                 return false;
+
         return true;
 }
