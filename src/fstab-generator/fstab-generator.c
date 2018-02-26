@@ -555,6 +555,8 @@ static int parse_fstab(bool initrd) {
                 if (!where)
                         return log_oom();
 
+                noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
+
                 if (is_path(where)) {
                         path_kill_slashes(where);
                         /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
@@ -566,10 +568,11 @@ static int parse_fstab(bool initrd) {
                         r = chase_symlinks(where, initrd ? "/sysroot" : NULL,
                                            CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
                                            &canonical_where);
-                        if (r < 0)
+                        if (r < 0) {
                                 /* In this case for now we continue on as if it wasn't a symlink */
-                                log_warning_errno(r, "Failed to read symlink target for %s: %m", where);
-                        else {
+                                if (!noauto)
+                                        log_warning_errno(r, "Failed to read symlink target for %s: %m", where);
+                        } else {
                                 if (streq(canonical_where, where))
                                         canonical_where = mfree(canonical_where);
                                 else
@@ -580,7 +583,6 @@ static int parse_fstab(bool initrd) {
 
                 makefs = fstab_test_option(me->mnt_opts, "x-systemd.makefs\0");
                 growfs = fstab_test_option(me->mnt_opts, "x-systemd.growfs\0");
-                noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
                 nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
                 log_debug("Found entry what=%s where=%s type=%s makefs=%s nofail=%s noauto=%s",
                           what, where, me->mnt_type,
