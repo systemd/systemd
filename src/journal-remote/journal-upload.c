@@ -328,9 +328,7 @@ static size_t fd_input_callback(void *buf, size_t size, size_t nmemb, void *user
 static void close_fd_input(Uploader *u) {
         assert(u);
 
-        if (u->input >= 0)
-                close_nointr(u->input);
-        u->input = -1;
+        u->input = safe_close(u->input);
         u->timeout = 0;
 }
 
