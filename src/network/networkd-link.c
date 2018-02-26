@@ -2964,7 +2964,7 @@ network_file_fail:
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to add route: %m");
 
-                        if (lifetime != USEC_INFINITY) {
+                        if (lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
                                 r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(), lifetime,
                                                       0, route_expire_handler, route);
                                 if (r < 0)

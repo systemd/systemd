@@ -582,7 +582,11 @@ static const NLType rtnl_route_types[] = {
         RTA_NEWDST,
 */
         [RTA_PREF]              = { .type = NETLINK_TYPE_U8 },
-
+/*
+        RTA_ENCAP_TYPE,
+        RTA_ENCAP,
+ */
+        [RTA_EXPIRES]           = { .type = NETLINK_TYPE_U32 },
 };
 
 static const NLTypeSystem rtnl_route_type_system = {

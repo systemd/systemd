@@ -18,6 +18,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "condition.h"
 #include "conf-parser.h"
 #include "networkd-util.h"
 #include "parse-util.h"
@@ -98,4 +99,24 @@ int config_parse_address_family_boolean_with_kernel(
         *fwd = s;
 
         return 0;
+}
+
+/* Router lifetime can be set with netlink interface since kernel >= 4.5
+ * so for the supported kernel we dont need to expire routes in userspace */
+int kernel_route_expiration_supported(void) {
+        static int cached = -1;
+        int r;
+
+        if (cached < 0) {
+                Condition c = {
+                        .type = CONDITION_KERNEL_VERSION,
+                        .parameter = (char *) ">= 4.5"
+                };
+                r = condition_test(&c);
+                if (r < 0)
+                        return r;
+
+                cached = r;
+        }
+        return cached;
 }
