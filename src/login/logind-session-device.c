@@ -370,10 +370,8 @@ int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **
                 goto error;
 
         r = hashmap_put(s->devices, &sd->dev, sd);
-        if (r < 0) {
-                r = -ENOMEM;
+        if (r < 0)
                 goto error;
-        }
 
         if (open_device) {
                 /* Open the device for the first time. We need a valid fd to pass back
