@@ -453,6 +453,12 @@ static int manager_attach_fds(Manager *m) {
                         continue;
                 }
 
+                if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
+                        log_debug("Device fd doesn't actually point to device node: %m");
+                        close_nointr(fd);
+                        continue;
+                }
+
                 sd = hashmap_get(s->devices, &st.st_rdev);
                 if (!sd) {
                         /* Weird, we got an fd for a session device which wasn't
