@@ -35,12 +35,15 @@ int main(int argc, char *argv[]) {
 
         assert_se(khash_new(&h, NULL) == -EINVAL);
         assert_se(khash_new(&h, "") == -EINVAL);
-        r = khash_new(&h, "foobar");
-        if (r == -EAFNOSUPPORT) {
+
+        r = khash_supported();
+        assert_se(r >= 0);
+        if (r == 0) {
                 puts("khash not supported on this kernel, skipping");
                 return EXIT_TEST_SKIP;
         }
-        assert_se(r == -EOPNOTSUPP);
+
+        assert_se(khash_new(&h, "foobar") == -EOPNOTSUPP); /* undefined hash function */
 
         assert_se(khash_new(&h, "sha256") >= 0);
         assert_se(khash_get_size(h) == 32);

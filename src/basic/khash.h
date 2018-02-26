@@ -28,6 +28,8 @@
 
 typedef struct khash khash;
 
+int khash_supported(void);
+
 /* For plain hash functions. Hash functions commonly supported on today's kernels are: crc32c, crct10dif, crc32,
  * sha224, sha256, sha512, sha384, sha1, md5, md4, sha3-224, sha3-256, sha3-384, sha3-512, and more. */
 int khash_new(khash **ret, const char *algorithm);

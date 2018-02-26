@@ -156,9 +156,9 @@ int main(int argc, char *argv[]) {
         assert_se(sd_id128_equal(id, id2));
 
         r = sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id);
-        if (r == -EAFNOSUPPORT) {
+        if (r == -EOPNOTSUPP)
                 log_info("khash not supported on this kernel, skipping sd_id128_get_machine_app_specific() checks");
-        } else {
+        else {
                 assert_se(r >= 0);
                 assert_se(sd_id128_get_machine_app_specific(SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e), &id2) >= 0);
                 assert_se(sd_id128_equal(id, id2));
