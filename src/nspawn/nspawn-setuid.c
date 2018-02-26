@@ -32,6 +32,7 @@
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "user-util.h"
 #include "util.h"
 
@@ -104,7 +105,7 @@ int change_uid_gid(const char *user, char **_home) {
 
         assert(_home);
 
-        if (!user || streq(user, "root") || streq(user, "0")) {
+        if (!user || STR_IN_SET(user, "root", "0")) {
                 /* Reset everything fully to 0, just in case */
 
                 r = reset_uid_gid();
