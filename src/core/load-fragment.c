@@ -2580,7 +2580,7 @@ int config_parse_log_extra_fields(
                         continue;
                 }
 
-                t = realloc_multiply(c->log_extra_fields, sizeof(struct iovec), c->n_log_extra_fields+1);
+                t = reallocarray(c->log_extra_fields, c->n_log_extra_fields+1, sizeof(struct iovec));
                 if (!t)
                         return log_oom();
 

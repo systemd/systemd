@@ -1319,13 +1319,13 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
                                 if (val < 0)
                                         return log_error_errno(r, "Invalid status or signal %s in %s: %m", word, field);
 
-                                signal = realloc_multiply(signal, sizeof(int), sz_signal + 1);
+                                signal = reallocarray(signal, sz_signal + 1, sizeof(int));
                                 if (!signal)
                                         return log_oom();
 
                                 signal[sz_signal++] = val;
                         } else {
-                                status = realloc_multiply(status, sizeof(int), sz_status + 1);
+                                status = reallocarray(status, sz_status + 1, sizeof(int));
                                 if (!status)
                                         return log_oom();
 

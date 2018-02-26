@@ -595,7 +595,7 @@ _public_ int sd_bus_error_add_map(const sd_bus_error_map *map) {
                         if (additional_error_maps[n] == map)
                                 return 0;
 
-        maps = realloc_multiply(additional_error_maps, sizeof(struct sd_bus_error_map*), n + 2);
+        maps = reallocarray(additional_error_maps, n + 2, sizeof(struct sd_bus_error_map*));
         if (!maps)
                 return -ENOMEM;
 

@@ -407,7 +407,7 @@ int strv_push(char ***l, char *value) {
         if (m < n)
                 return -ENOMEM;
 
-        c = realloc_multiply(*l, sizeof(char*), m);
+        c = reallocarray(*l, m, sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -432,7 +432,7 @@ int strv_push_pair(char ***l, char *a, char *b) {
         if (m < n)
                 return -ENOMEM;
 
-        c = realloc_multiply(*l, sizeof(char*), m);
+        c = reallocarray(*l, m, sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
@@ -546,7 +546,7 @@ int strv_extend_front(char ***l, const char *value) {
         if (!v)
                 return -ENOMEM;
 
-        c = realloc_multiply(*l, sizeof(char*), m);
+        c = reallocarray(*l, m, sizeof(char*));
         if (!c) {
                 free(v);
                 return -ENOMEM;
