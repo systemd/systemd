@@ -23,8 +23,10 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "def.h"
 #include "errno.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "mkdir.h"
 #include "nspawn-setuid.h"
 #include "process-util.h"
@@ -87,10 +89,10 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
 }
 
 int change_uid_gid(const char *user, char **_home) {
-        char line[LINE_MAX], *x, *u, *g, *h;
+        char *x, *u, *g, *h;
         const char *word, *state;
         _cleanup_free_ uid_t *uids = NULL;
-        _cleanup_free_ char *home = NULL;
+        _cleanup_free_ char *home = NULL, *line = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_close_ int fd = -1;
         unsigned n_uids = 0;
@@ -118,21 +120,18 @@ int change_uid_gid(const char *user, char **_home) {
         if (fd < 0)
                 return fd;
 
-        f = fdopen(fd, "r");
+        f = fdopen(fd, "re");
         if (!f)
                 return log_oom();
         fd = -1;
 
-        if (!fgets(line, sizeof(line), f)) {
-                if (!ferror(f)) {
-                        log_error("Failed to resolve user %s.", user);
-                        return -ESRCH;
-                }
-
-                return log_error_errno(errno, "Failed to read from getent: %m");
+        r = read_line(f, LONG_LINE_MAX, &line);
+        if (r == 0) {
+                log_error("Failed to resolve user %s.", user);
+                return -ESRCH;
         }
-
-        truncate_nl(line);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read from getent: %m");
 
         (void) wait_for_terminate_and_check("getent passwd", pid, WAIT_LOG);
 
@@ -195,27 +194,26 @@ int change_uid_gid(const char *user, char **_home) {
         if (!home)
                 return log_oom();
 
+        f = safe_fclose(f);
+        line = mfree(line);
+
         /* Second, get group memberships */
         fd = spawn_getent("initgroups", user, &pid);
         if (fd < 0)
                 return fd;
 
-        fclose(f);
-        f = fdopen(fd, "r");
+        f = fdopen(fd, "re");
         if (!f)
                 return log_oom();
         fd = -1;
 
-        if (!fgets(line, sizeof(line), f)) {
-                if (!ferror(f)) {
-                        log_error("Failed to resolve user %s.", user);
-                        return -ESRCH;
-                }
-
-                return log_error_errno(errno, "Failed to read from getent: %m");
+        r = read_line(f, LONG_LINE_MAX, &line);
+        if (r == 0) {
+                log_error("Failed to resolve user %s.", user);
+                return -ESRCH;
         }
-
-        truncate_nl(line);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read from getent: %m");
 
         (void) wait_for_terminate_and_check("getent initgroups", pid, WAIT_LOG);
 
