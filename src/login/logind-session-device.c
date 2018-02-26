@@ -107,17 +107,15 @@ static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotificati
 }
 
 static int sd_eviocrevoke(int fd) {
-        static bool warned;
-        int r;
+        static bool warned = false;
 
         assert(fd >= 0);
 
-        r = ioctl(fd, EVIOCREVOKE, NULL);
-        if (r < 0) {
-                r = -errno;
-                if (r == -EINVAL && !warned) {
+        if (ioctl(fd, EVIOCREVOKE, NULL) < 0) {
+
+                if (errno == EINVAL && !warned) {
+                        log_warning_errno(errno, "Kernel does not support evdev-revocation: %m");
                         warned = true;
-                        log_warning("kernel does not support evdev-revocation");
                 }
         }
 
