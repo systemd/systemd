@@ -14,7 +14,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"PO-Revision-Date: 2018-02-23 08:43-0500\n"
+"PO-Revision-Date: 2018-02-27 04:18-0500\n"
 "Last-Translator: Robert Antoni Buj Gelonch <rbuj@fedoraproject.org>\n"
 "Language-Team: Català <ubuntu-l10n-ca@lists.ubuntu.com>\n"
 "Language: ca\n"
@@ -176,22 +176,22 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
-msgstr "Permet a les aplicacions inhibir el repós del sistema"
+msgstr "Permet a les aplicacions inhibir el repòs del sistema"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
 msgstr ""
-"Es requereix autenticació perquè una aplicació inhibeixi el repós del "
+"Es requereix autenticació perquè una aplicació inhibeixi el repòs del "
 "sistema."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
-msgstr "Permet a les aplicacions endarrerir el repós del sistema"
+msgstr "Permet a les aplicacions endarrerir el repòs del sistema"
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
 msgstr ""
-"Es requereix autenticació perquè una aplicació endarrereixi el repós del "
+"Es requereix autenticació perquè una aplicació endarrereixi el repòs del "
 "sistema."
 
 #: src/login/org.freedesktop.login1.policy:65
@@ -372,7 +372,7 @@ msgstr "Atura el sistema"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid "Authentication is required for halting the system."
-msgstr "Es requereix autenticació per aturar el sistema"
+msgstr "Es requereix autenticació per aturar el sistema."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system while other users are logged in"
@@ -405,7 +405,7 @@ msgstr "Suspèn el sistema"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid "Authentication is required for suspending the system."
-msgstr "Es requereix autenticació per suspendre el sistema"
+msgstr "Es requereix autenticació per suspendre el sistema."
 
 #: src/login/org.freedesktop.login1.policy:267
 msgid "Suspend the system while other users are logged in"
@@ -535,11 +535,11 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
-msgstr "Adquireix un shell a l'anfitrió local"
+msgstr "Adquireix un shell a l'amfitrió local"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr "Es requereix autenticació per adquirir un shell a l'anfitrió local."
+msgstr "Es requereix autenticació per adquirir un shell a l'amfitrió local."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
@@ -625,7 +625,7 @@ msgid ""
 "UTC time."
 msgstr ""
 "Es requereix autenticació per controlar si el rellotge del sistema "
-"emmagatzema l'hora locals o de l'UTC."
+"emmagatzema l'hora local o l'UTC."
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
 msgid "Turn network time synchronization on or off"
