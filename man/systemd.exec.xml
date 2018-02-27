@@ -916,9 +916,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         reading only, writing will be refused even if the usual file access controls would permit this. Nest
         <varname>ReadWritePaths=</varname> inside of <varname>ReadOnlyPaths=</varname> in order to provide writable
         subdirectories within read-only directories. Use <varname>ReadWritePaths=</varname> in order to whitelist
-        specific paths for write access if <varname>ProtectSystem=strict</varname> is used. Paths listed in
-        <varname>InaccessiblePaths=</varname> will be made inaccessible for processes inside the namespace (along with
-        everything below them in the file system hierarchy).</para>
+        specific paths for write access if <varname>ProtectSystem=strict</varname> is used.</para>
+
+        <para>Paths listed in <varname>InaccessiblePaths=</varname> will be made inaccessible for processes inside
+        the namespace along with everything below them in the file system hierarchy. This may be more restrictive than
+        desired, because it is not possible to nest <varname>ReadWritePaths=</varname>, <varname>ReadOnlyPaths=</varname>,
+        <varname>BindPaths=</varname>, or <varname>BindReadOnlyPaths=</varname> inside it. For a more flexible option,
+        see <varname>TemporaryFileSystem=</varname>.</para>
 
         <para>Note that restricting access with these options does not extend to submounts of a directory that are
         created later on.  Non-directory paths may be specified as well. These options may be specified more than once,
