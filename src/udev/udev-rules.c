@@ -803,9 +803,9 @@ static int get_key(struct udev *udev, char **line, char **key, enum operation_ty
                 if (linepos[i] == '\0')
                         return -1;
 
-                /* double quotes can be escaped */
+                /* double quotes and backslashes can be escaped */
                 if (linepos[i] == '\\')
-                        if (linepos[i+1] == '"')
+                        if (linepos[i+1] == '"' || linepos[i+1] == '\')
                                 i++;
 
                 linepos[j] = linepos[i];
