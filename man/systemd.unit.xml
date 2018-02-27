@@ -982,9 +982,7 @@
         <term><varname>SuccessAction=</varname></term>
         <listitem><para>Configure the action to take when the unit stops and enters a failed state or inactive
         state. Takes the same values as the setting <varname>StartLimitAction=</varname> setting and executes the same
-        actions (see
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>). Both options
-        default to <option>none</option>.</para></listitem>
+        actions. Both options default to <option>none</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
