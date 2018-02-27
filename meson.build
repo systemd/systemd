@@ -1632,6 +1632,10 @@ if conf.get('ENABLE_RESOLVE') == 1
                          install_rpath : rootlibexecdir,
                          install : true)
         public_programs += [exe]
+
+        meson.add_install_script(meson_make_symlink,
+                         join_paths(bindir, 'systemd-resolve'),
+                         join_paths(rootsbindir, 'resolvconf'))
 endif
 
 if conf.get('ENABLE_LOGIND') == 1

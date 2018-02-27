@@ -36,18 +36,21 @@
 #include "netlink-util.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "resolvconf-compat.h"
+#include "resolve-tool.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
 #include "strv.h"
 #include "terminal-util.h"
 
 static int arg_family = AF_UNSPEC;
-static int arg_ifindex = 0;
+int arg_ifindex = 0;
 static uint16_t arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
 static uint64_t arg_flags = 0;
 static bool arg_no_pager = false;
+bool arg_ifindex_permissive = false; /* If true, don't generate an error if the specified interface index doesn't exist */
 
 typedef enum ServiceFamily {
         SERVICE_FAMILY_TCP,
@@ -64,24 +67,11 @@ typedef enum RawType {
 } RawType;
 static RawType arg_raw = RAW_NONE;
 
-static enum {
-        MODE_RESOLVE_HOST,
-        MODE_RESOLVE_RECORD,
-        MODE_RESOLVE_SERVICE,
-        MODE_RESOLVE_OPENPGP,
-        MODE_RESOLVE_TLSA,
-        MODE_STATISTICS,
-        MODE_RESET_STATISTICS,
-        MODE_FLUSH_CACHES,
-        MODE_RESET_SERVER_FEATURES,
-        MODE_STATUS,
-        MODE_SET_LINK,
-        MODE_REVERT_LINK,
-} arg_mode = MODE_RESOLVE_HOST;
+ExecutionMode arg_mode = MODE_RESOLVE_HOST;
 
-static struct in_addr_data *arg_set_dns = NULL;
-static size_t arg_n_set_dns = 0;
-static char **arg_set_domain = NULL;
+struct in_addr_data *arg_set_dns = NULL;
+size_t arg_n_set_dns = 0;
+char **arg_set_domain = NULL;
 static char *arg_set_llmnr = NULL;
 static char *arg_set_mdns = NULL;
 static char *arg_set_dnssec = NULL;
@@ -1609,6 +1599,9 @@ static int set_link(sd_bus *bus) {
                 if (q < 0) {
                         if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
                                 goto is_managed;
+                        if (arg_ifindex_permissive &&
+                            sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                                return 0;
 
                         log_error_errno(q, "Failed to set DNS configuration: %s", bus_error_message(&error, q));
                         if (r == 0)
@@ -1655,6 +1648,9 @@ static int set_link(sd_bus *bus) {
                 if (q < 0) {
                         if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
                                 goto is_managed;
+                        if (arg_ifindex_permissive &&
+                            sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                                return 0;
 
                         log_error_errno(q, "Failed to set domain configuration: %s", bus_error_message(&error, q));
                         if (r == 0)
@@ -1777,8 +1773,13 @@ static int revert_link(sd_bus *bus) {
                                &error,
                                NULL,
                                "i", arg_ifindex);
-        if (r < 0)
+        if (r < 0) {
+                if (arg_ifindex_permissive &&
+                    sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
+                        return 0;
+
                 return log_error_errno(r, "Failed to revert interface configuration: %s", bus_error_message(&error, r));
+        }
 
         return 0;
 }
@@ -1815,7 +1816,7 @@ static void help_dns_classes(void) {
         }
 }
 
-static void help(void) {
+static void native_help(void) {
         printf("%1$s [OPTIONS...] HOSTNAME|ADDRESS...\n"
                "%1$s [OPTIONS...] --service [[NAME] TYPE] DOMAIN\n"
                "%1$s [OPTIONS...] --openpgp EMAIL@DOMAIN...\n"
@@ -1858,7 +1859,7 @@ static void help(void) {
                , program_invocation_short_name);
 }
 
-static int parse_argv(int argc, char *argv[]) {
+static int native_parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_LEGEND,
@@ -1926,7 +1927,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch(c) {
 
                 case 'h':
-                        help();
+                        native_help();
                         return 0; /* done */;
 
                 case ARG_VERSION:
@@ -2234,7 +2235,10 @@ int main(int argc, char **argv) {
         log_parse_environment();
         log_open();
 
-        r = parse_argv(argc, argv);
+        if (streq(program_invocation_short_name, "resolvconf"))
+                r = resolvconf_parse_argv(argc, argv);
+        else
+                r = native_parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
 
@@ -2435,6 +2439,9 @@ int main(int argc, char **argv) {
 
                 r = revert_link(bus);
                 break;
+
+        case _MODE_INVALID:
+                assert_not_reached("invalid mode");
         }
 
 finish:
