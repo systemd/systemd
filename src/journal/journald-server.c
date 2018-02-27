@@ -280,9 +280,9 @@ static int open_journal(
         assert(ret);
 
         if (reliably)
-                r = journal_file_open_reliably(fname, flags, 0640, s->compress, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
+                r = journal_file_open_reliably(fname, flags, 0640, s->compress, (uint64_t) -1, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
         else
-                r = journal_file_open(-1, fname, flags, 0640, s->compress, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
+                r = journal_file_open(-1, fname, flags, 0640, s->compress, (uint64_t) -1, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
         if (r < 0)
                 return r;
 
@@ -463,7 +463,7 @@ static int do_rotate(
         if (!*f)
                 return -EINVAL;
 
-        r = journal_file_rotate(f, s->compress, seal, s->deferred_closes);
+        r = journal_file_rotate(f, s->compress, (uint64_t) -1, seal, s->deferred_closes);
         if (r < 0) {
                 if (*f)
                         return log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);

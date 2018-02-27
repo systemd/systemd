@@ -51,7 +51,8 @@
 #define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
 #define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))
 
-#define COMPRESSION_SIZE_THRESHOLD (512ULL)
+#define DEFAULT_COMPRESS_THRESHOLD (512ULL)
+#define MIN_COMPRESS_THRESHOLD (8ULL)
 
 /* This is the minimum journal file size */
 #define JOURNAL_FILE_SIZE_MIN (512ULL*1024ULL)                 /* 512 KiB */
@@ -1552,7 +1553,7 @@ static int journal_file_append_data(
         o->data.hash = htole64(hash);
 
 #if HAVE_XZ || HAVE_LZ4
-        if (JOURNAL_FILE_COMPRESS(f) && size >= COMPRESSION_SIZE_THRESHOLD) {
+        if (JOURNAL_FILE_COMPRESS(f) && size >= f->compress_threshold_bytes) {
                 size_t rsize = 0;
 
                 compression = compress_blob(data, size, o->data.payload, size - 1, &rsize);
@@ -3211,6 +3212,7 @@ int journal_file_open(
                 int flags,
                 mode_t mode,
                 bool compress,
+                uint64_t compress_threshold_bytes,
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
@@ -3222,6 +3224,7 @@ int journal_file_open(
         JournalFile *f;
         void *h;
         int r;
+        char bytes[FORMAT_BYTES_MAX];
 
         assert(ret);
         assert(fd >= 0 || fname);
@@ -3247,9 +3250,19 @@ int journal_file_open(
 #elif HAVE_XZ
         f->compress_xz = compress;
 #endif
+
+        if (compress_threshold_bytes == (uint64_t) -1)
+                f->compress_threshold_bytes = DEFAULT_COMPRESS_THRESHOLD;
+        else
+                f->compress_threshold_bytes = MAX(MIN_COMPRESS_THRESHOLD, compress_threshold_bytes);
+
 #if HAVE_GCRYPT
         f->seal = seal;
 #endif
+
+        log_debug("Journal effective settings seal=%s compress=%s compress_threshold_bytes=%s",
+                  yes_no(f->seal), yes_no(JOURNAL_FILE_COMPRESS(f)),
+                  format_bytes(bytes, sizeof(bytes), f->compress_threshold_bytes));
 
         if (mmap_cache)
                 f->mmap = mmap_cache_ref(mmap_cache);
@@ -3435,7 +3448,7 @@ fail:
         return r;
 }
 
-int journal_file_rotate(JournalFile **f, bool compress, bool seal, Set *deferred_closes) {
+int journal_file_rotate(JournalFile **f, bool compress, uint64_t compress_threshold_bytes, bool seal, Set *deferred_closes) {
         _cleanup_free_ char *p = NULL;
         size_t l;
         JournalFile *old_file, *new_file = NULL;
@@ -3489,7 +3502,9 @@ int journal_file_rotate(JournalFile **f, bool compress, bool seal, Set *deferred
          * we archive them */
         old_file->defrag_on_close = true;
 
-        r = journal_file_open(-1, old_file->path, old_file->flags, old_file->mode, compress, seal, NULL, old_file->mmap, deferred_closes, old_file, &new_file);
+        r = journal_file_open(-1, old_file->path, old_file->flags, old_file->mode, compress,
+                              compress_threshold_bytes, seal, NULL, old_file->mmap, deferred_closes,
+                              old_file, &new_file);
 
         if (deferred_closes &&
             set_put(deferred_closes, old_file) >= 0)
@@ -3506,6 +3521,7 @@ int journal_file_open_reliably(
                 int flags,
                 mode_t mode,
                 bool compress,
+                uint64_t compress_threshold_bytes,
                 bool seal,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
@@ -3517,7 +3533,8 @@ int journal_file_open_reliably(
         size_t l;
         _cleanup_free_ char *p = NULL;
 
-        r = journal_file_open(-1, fname, flags, mode, compress, seal, metrics, mmap_cache, deferred_closes, template, ret);
+        r = journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics, mmap_cache,
+                              deferred_closes, template, ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
                     -ENODATA,           /* Truncated */
@@ -3559,7 +3576,8 @@ int journal_file_open_reliably(
 
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        return journal_file_open(-1, fname, flags, mode, compress, seal, metrics, mmap_cache, deferred_closes, template, ret);
+        return journal_file_open(-1, fname, flags, mode, compress, compress_threshold_bytes, seal, metrics, mmap_cache,
+                                 deferred_closes, template, ret);
 }
 
 int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {
