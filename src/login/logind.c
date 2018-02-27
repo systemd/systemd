@@ -453,9 +453,15 @@ static int manager_attach_fds(Manager *m) {
                         continue;
                 }
 
+                if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
+                        log_debug("Device fd doesn't actually point to device node: %m");
+                        close_nointr(fd);
+                        continue;
+                }
+
                 sd = hashmap_get(s->devices, &st.st_rdev);
                 if (!sd) {
-                        /* Weird we got an fd for a session device which wasn't
+                        /* Weird, we got an fd for a session device which wasn't
                         * recorded in the session state file... */
                         log_warning("Got fd for missing session device [%u:%u] in session %s",
                                     major(st.st_rdev), minor(st.st_rdev), s->id);
