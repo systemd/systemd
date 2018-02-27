@@ -612,7 +612,7 @@ manpages = [
   'ENABLE_RANDOMSEED'],
  ['systemd-rc-local-generator', '8', [], ''],
  ['systemd-remount-fs.service', '8', ['systemd-remount-fs'], ''],
- ['systemd-resolve', '1', [], 'ENABLE_RESOLVE'],
+ ['systemd-resolve', '1', ['resolvconf'], 'ENABLE_RESOLVE'],
  ['systemd-resolved.service', '8', ['systemd-resolved'], 'ENABLE_RESOLVE'],
  ['systemd-rfkill.service',
   '8',

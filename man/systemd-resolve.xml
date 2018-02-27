@@ -47,7 +47,8 @@
 
   <refnamediv>
     <refname>systemd-resolve</refname>
-    <refpurpose>Resolve domain names, IPV4 and IPv6 addresses, DNS resource records, and services</refpurpose>
+    <refname>resolvconf</refname>
+    <refpurpose>Resolve domain names, IPV4 and IPv6 addresses, DNS resource records, and services; introspect and reconfigure the DNS resolver</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -132,6 +133,18 @@
       <command>systemd-resolve</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <command> --revert</command>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>resolvconf</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <command> -a <replaceable>INTERFACE</replaceable> &lt; <replaceable>FILE</replaceable></command>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>resolvconf</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <command> -d <replaceable>INTERFACE</replaceable></command>
     </cmdsynopsis>
 
   </refsynopsisdiv>
@@ -400,6 +413,82 @@
   </refsect1>
 
   <refsect1>
+    <title>Compatibility with <citerefentry><refentrytitle>resolvconf</refentrytitle><manvolnum>8</manvolnum></citerefentry></title>
+
+    <para><command>systemd-resolve</command> is a multi-call binary. When invoked as <literal>resolvconf</literal>
+    (generally achieved by means of a symbolic link of this name to the <command>systemd-resolve</command> binary) it
+    is run in a limited <citerefentry><refentrytitle>resolvconf</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    compatibility mode. It accepts mostly the same arguments and pushes all data into
+    <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    similar to how <option>--set-dns=</option> and <option>--set-domain=</option> operate. Note that
+    <command>systemd-resolved.service</command> is the only supported backend, which is different from other
+    implementations of this command. Note that not all operations supported by other implementations are supported
+    natively. Specifically:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-a</option></term>
+        <listitem><para>Registers per-interface DNS configuration data with
+        <command>systemd-resolved</command>. Expects a network interface name as only command line argument. Reads
+        <citerefentry><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> compatible DNS
+        configuration data from its standard input. Relevant fields are <literal>nameserver</literal> and
+        <literal>domain</literal>/<literal>search</literal>. This command is mostly identical to invoking
+        <command>systemd-resolve</command> with a combination of <option>--set-dns=</option> and
+        <option>--set-domain=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-d</option></term>
+        <listitem><para>Unregisters per-interface DNS configuration data with <command>systemd-resolved</command>. This
+        command is mostly identical to invoking <command>systemd-resolve</command> with
+        <option>--revert</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-f</option></term>
+
+        <listitem><para>When specified <option>-a</option> and <option>-d</option> will not complain about missing
+        network interfaces and will silently execute no operation in that case.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-x</option></term>
+
+        <listitem><para>This switch for "exclusive" operation is supported only partially. It is mapped to an
+        additional configured search domain of <literal>~.</literal> — i.e. ensures that DNS traffic is preferably
+        routed to the DNS servers on this interface, unless there are other, more specific domains configured on other
+        interfaces.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-m</option></term>
+        <term><option>-p</option></term>
+
+        <listitem><para>These switches are not supported and are silently ignored.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-u</option></term>
+        <term><option>-I</option></term>
+        <term><option>-i</option></term>
+        <term><option>-l</option></term>
+        <term><option>-R</option></term>
+        <term><option>-r</option></term>
+        <term><option>-v</option></term>
+        <term><option>-V</option></term>
+        <term><option>--enable-updates</option></term>
+        <term><option>--disable-updates</option></term>
+        <term><option>--are-updates-enabled</option></term>
+
+        <listitem><para>These switches are not supported and the command will fail if used.</para></listitem>
+      </varlistentry>
+
+    </variablelist>
+
+    <para>See <citerefentry><refentrytitle>resolvconf</refentrytitle><manvolnum>8</manvolnum></citerefentry> for details on this command line options.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Examples</title>
 
     <example>
@@ -477,7 +566,8 @@ _443._tcp.fedoraproject.org IN TLSA 0 0 1 19400be5b7a31fb733917700789d2f0a2471c0
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.dnssd</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>resolvconf</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
 </refentry>
