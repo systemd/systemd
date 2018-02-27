@@ -557,31 +557,28 @@ static int parse_fstab(bool initrd) {
 
                 if (is_path(where)) {
                         path_kill_slashes(where);
+
                         /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
                          * mount units, but causes problems since it historically worked to have symlinks in e.g.
                          * /etc/fstab. So we canonicalize here. Note that we use CHASE_NONEXISTENT to handle the case
                          * where a symlink refers to another mount target; this works assuming the sub-mountpoint
-                         * target is the final directory.
-                         */
+                         * target is the final directory. */
                         r = chase_symlinks(where, initrd ? "/sysroot" : NULL,
                                            CHASE_PREFIX_ROOT | CHASE_NONEXISTENT,
                                            &canonical_where);
-                        if (r < 0)
-                                /* In this case for now we continue on as if it wasn't a symlink */
-                                log_warning_errno(r, "Failed to read symlink target for %s: %m", where);
-                        else {
-                                if (streq(canonical_where, where))
-                                        canonical_where = mfree(canonical_where);
-                                else
-                                        log_debug("Canonicalized what=%s where=%s to %s",
-                                                  what, where, canonical_where);
-                        }
+                        if (r < 0) /* If we can't canonicalize we continue on as if it wasn't a symlink */
+                                log_debug_errno(r, "Failed to read symlink target for %s, ignoring: %m", where);
+                        else if (streq(canonical_where, where)) /* If it was fully canonicalized, suppress the change */
+                                canonical_where = mfree(canonical_where);
+                        else
+                                log_debug("Canonicalized what=%s where=%s to %s", what, where, canonical_where);
                 }
 
                 makefs = fstab_test_option(me->mnt_opts, "x-systemd.makefs\0");
                 growfs = fstab_test_option(me->mnt_opts, "x-systemd.growfs\0");
                 noauto = fstab_test_yes_no_option(me->mnt_opts, "noauto\0" "auto\0");
                 nofail = fstab_test_yes_no_option(me->mnt_opts, "nofail\0" "fail\0");
+
                 log_debug("Found entry what=%s where=%s type=%s makefs=%s nofail=%s noauto=%s",
                           what, where, me->mnt_type,
                           yes_no(makefs),
