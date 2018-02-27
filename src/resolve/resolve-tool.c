@@ -2131,8 +2131,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = dns_name_is_valid(p);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to validate specified domain %s: %m", p);
-                        if (r == 0)
-                                return log_error_errno(r, "Domain not valid: %s", p);
+                        if (r == 0) {
+                                log_error("Domain not valid: %s", p);
+                                return -EINVAL;
+                        }
 
                         r = strv_extend(&arg_set_domain, optarg);
                         if (r < 0)
@@ -2170,8 +2172,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = dns_name_is_valid(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to validate specified domain %s: %m", optarg);
-                        if (r == 0)
-                                return log_error_errno(r, "Domain not valid: %s", optarg);
+                        if (r == 0) {
+                                log_error("Domain not valid: %s", optarg);
+                                return -EINVAL;
+                        }
 
                         r = strv_extend(&arg_set_nta, optarg);
                         if (r < 0)
