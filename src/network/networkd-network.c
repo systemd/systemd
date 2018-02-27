@@ -1072,7 +1072,7 @@ int config_parse_dhcp_server_dns(
                         continue;
                 }
 
-                m = realloc(n->dhcp_server_dns, (n->n_dhcp_server_dns + 1) * sizeof(struct in_addr));
+                m = reallocarray(n->dhcp_server_dns, n->n_dhcp_server_dns + 1, sizeof(struct in_addr));
                 if (!m)
                         return log_oom();
 
@@ -1120,7 +1120,7 @@ int config_parse_radv_dns(
                 if (in_addr_from_string(AF_INET6, w, &a) >= 0) {
                         struct in6_addr *m;
 
-                        m = realloc(n->router_dns, (n->n_router_dns + 1) * sizeof(struct in6_addr));
+                        m = reallocarray(n->router_dns, n->n_router_dns + 1, sizeof(struct in6_addr));
                         if (!m)
                                 return log_oom();
 
@@ -1223,7 +1223,7 @@ int config_parse_dhcp_server_ntp(
                         continue;
                 }
 
-                m = realloc(n->dhcp_server_ntp, (n->n_dhcp_server_ntp + 1) * sizeof(struct in_addr));
+                m = reallocarray(n->dhcp_server_ntp, n->n_dhcp_server_ntp + 1, sizeof(struct in_addr));
                 if (!m)
                         return log_oom();
 
@@ -1273,7 +1273,7 @@ int config_parse_dns(
                         continue;
                 }
 
-                m = realloc(n->dns, (n->n_dns + 1) * sizeof(struct in_addr_data));
+                m = reallocarray(n->dns, n->n_dns + 1, sizeof(struct in_addr_data));
                 if (!m)
                         return log_oom();
 

@@ -214,7 +214,7 @@ int strv_extend_strv(char ***a, char **b, bool filter_duplicates) {
         p = strv_length(*a);
         q = strv_length(b);
 
-        t = realloc(*a, sizeof(char*) * (p + q + 1));
+        t = reallocarray(*a, p + q + 1, sizeof(char *));
         if (!t)
                 return -ENOMEM;
 
@@ -861,7 +861,7 @@ int strv_extend_n(char ***l, const char *value, size_t n) {
 
         k = strv_length(*l);
 
-        nl = realloc(*l, sizeof(char*) * (k + n + 1));
+        nl = reallocarray(*l, k + n + 1, sizeof(char *));
         if (!nl)
                 return -ENOMEM;
 

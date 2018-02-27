@@ -1254,7 +1254,7 @@ static int service_collect_fds(Service *s,
                         } else {
                                 int *t;
 
-                                t = realloc(rfds, (rn_socket_fds + cn_fds) * sizeof(int));
+                                t = reallocarray(rfds, rn_socket_fds + cn_fds, sizeof(int));
                                 if (!t)
                                         return -ENOMEM;
 
@@ -1276,13 +1276,13 @@ static int service_collect_fds(Service *s,
                 char **nl;
                 int *t;
 
-                t = realloc(rfds, (rn_socket_fds + s->n_fd_store) * sizeof(int));
+                t = reallocarray(rfds, rn_socket_fds + s->n_fd_store, sizeof(int));
                 if (!t)
                         return -ENOMEM;
 
                 rfds = t;
 
-                nl = realloc(rfd_names, (rn_socket_fds + s->n_fd_store + 1) * sizeof(char*));
+                nl = reallocarray(rfd_names, rn_socket_fds + s->n_fd_store + 1, sizeof(char *));
                 if (!nl)
                         return -ENOMEM;
 

@@ -103,7 +103,7 @@ static int node_add_child(struct trie *trie, struct trie_node *node, struct trie
         struct trie_child_entry *child;
 
         /* extend array, add new entry, sort for bisection */
-        child = realloc(node->children, (node->children_count + 1) * sizeof(struct trie_child_entry));
+        child = reallocarray(node->children, node->children_count + 1, sizeof(struct trie_child_entry));
         if (!child)
                 return -ENOMEM;
 
@@ -197,7 +197,7 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
         }
 
         /* extend array, add new entry, sort for bisection */
-        val = realloc(node->values, (node->values_count + 1) * sizeof(struct trie_value_entry));
+        val = reallocarray(node->values, node->values_count + 1, sizeof(struct trie_value_entry));
         if (!val)
                 return -ENOMEM;
         trie->values_count++;

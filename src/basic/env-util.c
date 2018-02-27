@@ -721,7 +721,7 @@ char **replace_env_argv(char **argv, char **env) {
                         q = strv_length(m);
                         l = l + q - 1;
 
-                        w = realloc(ret, sizeof(char*) * (l+1));
+                        w = reallocarray(ret, l + 1, sizeof(char *));
                         if (!w) {
                                 ret[k] = NULL;
                                 strv_free(ret);

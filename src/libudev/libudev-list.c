@@ -140,8 +140,7 @@ static int list_search(struct udev_list *list, const char *name)
         return -(first+1);
 }
 
-struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *name, const char *value)
-{
+struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *name, const char *value) {
         struct udev_list_entry *entry;
         int i = 0;
 
@@ -152,12 +151,12 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                         entry = list->entries[i];
 
                         free(entry->value);
-                        if (value == NULL) {
+                        if (!value) {
                                 entry->value = NULL;
                                 return entry;
                         }
                         entry->value = strdup(value);
-                        if (entry->value == NULL)
+                        if (!entry->value)
                                 return NULL;
                         return entry;
                 }
@@ -165,16 +164,16 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
 
         /* add new name */
         entry = new0(struct udev_list_entry, 1);
-        if (entry == NULL)
+        if (!entry)
                 return NULL;
 
         entry->name = strdup(name);
-        if (entry->name == NULL)
+        if (!entry->name)
                 return mfree(entry);
 
-        if (value != NULL) {
+        if (value) {
                 entry->value = strdup(value);
-                if (entry->value == NULL) {
+                if (!entry->value) {
                         free(entry->name);
                         return mfree(entry);
                 }
@@ -189,8 +188,8 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                         add = list->entries_max;
                         if (add < 1)
                                 add = 64;
-                        entries = realloc(list->entries, (list->entries_max + add) * sizeof(struct udev_list_entry *));
-                        if (entries == NULL) {
+                        entries = reallocarray(list->entries, list->entries_max + add, sizeof(struct udev_list_entry *));
+                        if (!entries) {
                                 free(entry->name);
                                 free(entry->value);
                                 return mfree(entry);
@@ -213,9 +212,8 @@ struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *
                         (list->entries_cur - i) * sizeof(struct udev_list_entry *));
                 list->entries[i] = entry;
                 list->entries_cur++;
-        } else {
+        } else
                 udev_list_entry_append(entry, list);
-        }
 
         return entry;
 }
