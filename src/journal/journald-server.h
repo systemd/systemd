@@ -52,6 +52,11 @@ typedef enum SplitMode {
         _SPLIT_INVALID = -1
 } SplitMode;
 
+typedef struct JournalCompressOptions {
+        bool enabled;
+        uint64_t threshold_bytes;
+} JournalCompressOptions;
+
 typedef struct JournalStorageSpace {
         usec_t   timestamp;
 
@@ -113,7 +118,7 @@ struct Server {
         JournalStorage runtime_storage;
         JournalStorage system_storage;
 
-        bool compress;
+        JournalCompressOptions compress;
         bool seal;
         bool read_kmsg;
 
@@ -205,6 +210,7 @@ const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TY
 
 int config_parse_storage(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_line_max(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_compress(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 const char *storage_to_string(Storage s) _const_;
 Storage storage_from_string(const char *s) _pure_;

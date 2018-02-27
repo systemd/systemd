@@ -725,6 +725,13 @@ tests += [
           libxz,
           liblz4]],
 
+        [['src/journal/test-journal-config.c'],
+         [libjournal_core,
+          libshared],
+         [libxz,
+          liblz4,
+          libselinux]],
+
         [['src/journal/test-journal-verify.c'],
          [libjournal_core,
           libshared],

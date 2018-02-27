@@ -280,9 +280,12 @@ static int open_journal(
         assert(ret);
 
         if (reliably)
-                r = journal_file_open_reliably(fname, flags, 0640, s->compress, (uint64_t) -1, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
+                r = journal_file_open_reliably(fname, flags, 0640, s->compress.enabled, s->compress.threshold_bytes,
+                                               seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
         else
-                r = journal_file_open(-1, fname, flags, 0640, s->compress, (uint64_t) -1, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
+                r = journal_file_open(-1, fname, flags, 0640, s->compress.enabled, s->compress.threshold_bytes, seal,
+                                      metrics, s->mmap, s->deferred_closes, NULL, &f);
+
         if (r < 0)
                 return r;
 
@@ -463,7 +466,7 @@ static int do_rotate(
         if (!*f)
                 return -EINVAL;
 
-        r = journal_file_rotate(f, s->compress, (uint64_t) -1, seal, s->deferred_closes);
+        r = journal_file_rotate(f, s->compress.enabled, s->compress.threshold_bytes, seal, s->deferred_closes);
         if (r < 0) {
                 if (*f)
                         return log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
@@ -1695,7 +1698,8 @@ int server_init(Server *s) {
 
         zero(*s);
         s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = s->notify_fd = -1;
-        s->compress = true;
+        s->compress.enabled = true;
+        s->compress.threshold_bytes = (uint64_t) -1;
         s->seal = true;
         s->read_kmsg = true;
 
@@ -2035,6 +2039,40 @@ int config_parse_line_max(
                 } else
                         *sz = (size_t) v;
         }
+
+        return 0;
+}
+
+int config_parse_compress(const char* unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
+        JournalCompressOptions* compress = data;
+        int r;
+
+        if (streq(rvalue, "1")) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Compress= ambiguously specified as 1, enabling compression with default threshold");
+                compress->enabled = true;
+        } else if (streq(rvalue, "0")) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Compress= ambiguously specified as 0, disabling compression");
+                compress->enabled = false;
+        } else if ((r = parse_boolean(rvalue)) >= 0)
+                compress->enabled = r;
+        else if (parse_size(rvalue, 1024, &compress->threshold_bytes) == 0)
+                compress->enabled = true;
+        else if (isempty(rvalue)) {
+                compress->enabled = true;
+                compress->threshold_bytes = (uint64_t) -1;
+        } else
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Compress= value, ignoring: %s", rvalue);
 
         return 0;
 }
