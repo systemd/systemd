@@ -248,7 +248,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                          * requries 32 per glyph, regardless of the actual height - see the comment above #define
                          * max_font_size 65536 in drivers/tty/vt/vt.c for more details.
                          */
-                        fontbuf = malloc((cfo.width + 7) / 8 * 32 * cfo.charcount);
+                        fontbuf = malloc_multiply((cfo.width + 7) / 8 * 32, cfo.charcount);
                         if (!fontbuf) {
                                 log_oom();
                                 return;

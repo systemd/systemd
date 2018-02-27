@@ -1544,7 +1544,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
         udev_list_init(udev, &file_list, true);
 
         /* init token array and string buffer */
-        rules->tokens = malloc(PREALLOC_TOKEN * sizeof(struct token));
+        rules->tokens = malloc_multiply(PREALLOC_TOKEN, sizeof(struct token));
         if (rules->tokens == NULL)
                 return udev_rules_unref(rules);
         rules->token_max = PREALLOC_TOKEN;
