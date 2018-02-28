@@ -8285,7 +8285,7 @@ static int parse_argv(int argc, char *argv[]) {
                 } else if (strstr(program_invocation_short_name, "shutdown")) {
                         arg_action = ACTION_POWEROFF;
                         return shutdown_parse_argv(argc, argv);
-                } else if (strstr(program_invocation_short_name, "init")) {
+                } else if (strstr(program_invocation_short_name, "telinit")) {
 
                         if (sd_booted() > 0) {
                                 arg_action = _ACTION_INVALID;
