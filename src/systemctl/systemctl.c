@@ -8268,28 +8268,43 @@ static int parse_argv(int argc, char *argv[]) {
                 if (strstr(program_invocation_short_name, "halt")) {
                         arg_action = ACTION_HALT;
                         return halt_parse_argv(argc, argv);
+
                 } else if (strstr(program_invocation_short_name, "poweroff")) {
                         arg_action = ACTION_POWEROFF;
                         return halt_parse_argv(argc, argv);
+
                 } else if (strstr(program_invocation_short_name, "reboot")) {
                         if (kexec_loaded())
                                 arg_action = ACTION_KEXEC;
                         else
                                 arg_action = ACTION_REBOOT;
                         return halt_parse_argv(argc, argv);
+
                 } else if (strstr(program_invocation_short_name, "shutdown")) {
                         arg_action = ACTION_POWEROFF;
                         return shutdown_parse_argv(argc, argv);
+
                 } else if (strstr(program_invocation_short_name, "init")) {
+
+                        /* Matches invocations as "init" as well as "telinit", which are synonymous when run as PID !=
+                         * 1 on SysV.
+                         *
+                         * On SysV "telinit" was the official command to communicate with PID 1, but "init" would
+                         * redirect itself to "telinit" if called with PID != 1. We follow the same logic here still,
+                         * though we add one level of indirection, as we implement "telinit" in "systemctl". Hence, for
+                         * us if you invoke "init" you get "systemd", but it will execve() "systemctl" immediately with
+                         * argv[] unmodified if PID is != 1. If you invoke "telinit" you directly get "systemctl". In
+                         * both cases we shall do the same thing, which is why we do strstr(p_i_s_n, "init") here, as a
+                         * quick way to match both.
+                         *
+                         * Also see redirect_telinit() in src/core/main.c. */
 
                         if (sd_booted() > 0) {
                                 arg_action = _ACTION_INVALID;
                                 return telinit_parse_argv(argc, argv);
                         } else {
-                                /* Hmm, so some other init system is
-                                 * running, we need to forward this
-                                 * request to it. For now we simply
-                                 * guess that it is Upstart. */
+                                /* Hmm, so some other init system is running, we need to forward this request to
+                                 * it. For now we simply guess that it is Upstart. */
 
                                 execv(TELINIT, argv);
 
