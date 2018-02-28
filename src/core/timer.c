@@ -379,10 +379,17 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         /* If we know the last time this was
                          * triggered, schedule the job based relative
-                         * to that. If we don't just start from
-                         * now. */
+                         * to that. If we don't, just start from
+                         * the activation time. */
 
-                        b = t->last_trigger.realtime > 0 ? t->last_trigger.realtime : ts.realtime;
+                        if (t->last_trigger.realtime > 0)
+                                b = t->last_trigger.realtime;
+                        else {
+                                if (state_translation_table[t->state] == UNIT_ACTIVE)
+                                        b = UNIT(t)->inactive_exit_timestamp.realtime;
+                                else
+                                        b = ts.realtime;
+                        }
 
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
