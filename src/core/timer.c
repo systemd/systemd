@@ -354,7 +354,6 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         bool found_monotonic = false, found_realtime = false;
         bool leave_around = false;
         triple_timestamp ts;
-        usec_t base = 0;
         TimerValue *v;
         Unit *trigger;
         int r;
@@ -372,7 +371,6 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         t->next_elapse_monotonic_or_boottime = t->next_elapse_realtime = 0;
 
         LIST_FOREACH(value, v, t->values) {
-
                 if (v->disabled)
                         continue;
 
@@ -397,7 +395,8 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         found_realtime = true;
 
-                } else  {
+                } else {
+                        usec_t base;
 
                         switch (v->base) {
 
