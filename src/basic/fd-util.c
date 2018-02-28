@@ -191,12 +191,6 @@ int fd_cloexec(int fd, bool cloexec) {
         return 0;
 }
 
-void stdio_unset_cloexec(void) {
-        (void) fd_cloexec(STDIN_FILENO, false);
-        (void) fd_cloexec(STDOUT_FILENO, false);
-        (void) fd_cloexec(STDERR_FILENO, false);
-}
-
 _pure_ static bool fd_in_set(int fd, const int fdset[], unsigned n_fdset) {
         unsigned i;
 
