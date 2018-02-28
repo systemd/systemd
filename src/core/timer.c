@@ -813,11 +813,20 @@ static void timer_reset_failed(Unit *u) {
 
 static void timer_time_change(Unit *u) {
         Timer *t = TIMER(u);
+        usec_t ts;
 
         assert(u);
 
         if (t->state != TIMER_WAITING)
                 return;
+
+        /* If we appear to have triggered in the future, the system clock must
+         * have been set backwards.  So let's rewind our own clock and allow
+         * the future trigger(s) to happen again :).  Exactly the same as when
+         * you start a timer unit with Persistent=yes. */
+        ts = now(CLOCK_REALTIME);
+        if (t->last_trigger.realtime > ts)
+                t->last_trigger.realtime = ts;
 
         log_unit_debug(u, "Time change, recalculating next elapse.");
         timer_enter_waiting(t, false);
