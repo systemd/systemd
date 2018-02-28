@@ -950,13 +950,11 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
         return 0;
 }
 
-int seccomp_parse_syscall_filter_internal(
-                bool invert,
+int seccomp_parse_syscall_filter_full(
                 const char *name,
                 int errno_num,
                 Hashmap *filter,
-                bool whitelist,
-                bool warn,
+                SeccompParseFlags flags,
                 const char *unit,
                 const char *filename,
                 unsigned line) {
@@ -972,15 +970,20 @@ int seccomp_parse_syscall_filter_internal(
 
                 set = syscall_filter_set_find(name);
                 if (!set) {
-                        if (warn) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown system call group, ignoring: %s", name);
-                                return 0;
-                        } else
+                        if (!(flags & SECCOMP_PARSE_PERMISSIVE))
                                 return -EINVAL;
+
+                        log_syntax(unit, flags & SECCOMP_PARSE_LOG ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
+                                   "Unknown system call group, ignoring: %s", name);
+                        return 0;
                 }
 
                 NULSTR_FOREACH(i, set->value) {
-                        r = seccomp_parse_syscall_filter_internal(invert, i, errno_num, filter, whitelist, warn, unit, filename, line);
+                        /* Call ourselves again, for the group to parse. Note that we downgrade logging here (i.e. take
+                         * away the SECCOMP_PARSE_LOG flag) since any issues in the group table are our own problem,
+                         * not a problem in user configuration data and we shouldn't pretend otherwise by complaining
+                         * about them. */
+                        r = seccomp_parse_syscall_filter_full(i, errno_num, filter, flags &~ SECCOMP_PARSE_LOG, unit, filename, line);
                         if (r < 0)
                                 return r;
                 }
@@ -989,19 +992,20 @@ int seccomp_parse_syscall_filter_internal(
 
                 id = seccomp_syscall_resolve_name(name);
                 if (id == __NR_SCMP_ERROR) {
-                        if (warn) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse system call, ignoring: %s", name);
-                                return 0;
-                        } else
+                        if (!(flags & SECCOMP_PARSE_PERMISSIVE))
                                 return -EINVAL;
+
+                        log_syntax(unit, flags & SECCOMP_PARSE_LOG ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
+                                   "Failed to parse system call, ignoring: %s", name);
+                        return 0;
                 }
 
                 /* If we previously wanted to forbid a syscall and now
                  * we want to allow it, then remove it from the list. */
-                if (!invert == whitelist) {
+                if (!(flags & SECCOMP_PARSE_INVERT) == !!(flags & SECCOMP_PARSE_WHITELIST)) {
                         r = hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
                         if (r < 0)
-                                return warn ? log_oom() : -ENOMEM;
+                                return flags & SECCOMP_PARSE_LOG ? log_oom() : -ENOMEM;
                 } else
                         (void) hashmap_remove(filter, INT_TO_PTR(id + 1));
         }

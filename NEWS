@@ -373,8 +373,8 @@ CHANGES WITH 236:
           store again, ahead of POLLHUP or POLLERR when they are removed
           anyway.
 
-        * A new document UIDS-GIDS.md has been added to the source tree, that
-          documents the UID/GID range and assignment assumptions and
+        * A new document doc/UIDS-GIDS.md has been added to the source tree,
+          that documents the UID/GID range and assignment assumptions and
           requirements of systemd.
 
         * The watchdog device PID 1 will ping may now be configured through the
@@ -1106,7 +1106,7 @@ CHANGES WITH 233:
         * Documentation has been added that lists all of systemd's low-level
           environment variables:
 
-          https://github.com/systemd/systemd/blob/master/ENVIRONMENT.md
+          https://github.com/systemd/systemd/blob/master/doc/ENVIRONMENT.md
 
         * sd-daemon gained a new API sd_is_socket_sockaddr() for determining
           whether a specific socket file descriptor matches a specified socket
@@ -1817,7 +1817,7 @@ CHANGES WITH 231:
           booted up with "systemd-nspawn -b -i", qemu-kvm or on any physical
           UEFI PC. This functionality is particularly useful to easily test
           local changes made to systemd in a pristine, defined environment. See
-          HACKING for details.
+          doc/HACKING for details.
 
         * configure learned the --with-support-url= option to specify the
           distribution's bugtracker.

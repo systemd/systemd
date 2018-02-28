@@ -11,7 +11,7 @@ usage() {
     exit 1
 }
 
-ROOT=
+unset ROOT
 
 # parse options
 eval set -- "$(getopt -o r: --long root: -- "$@")"

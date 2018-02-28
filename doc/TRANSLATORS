@@ -1,12 +1,12 @@
 Notes for translators
 =====================
 
-Systemd depends on gettext for multilingual support.
+systemd depends on gettext for multilingual support.
 In po/ directory you'll find the needed files.
 
 POT (Portable Object Template)
 ------------------------------
-A text file with .pot extension, with all the extracted labels from code. 
+A text file with .pot extension, with all the extracted labels from code.
 
 To update the template:
 
