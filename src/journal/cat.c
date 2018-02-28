@@ -141,9 +141,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if (fd >= 3)
-                safe_close(fd);
-        fd = -1;
+        fd = safe_close_above_stdio(fd);
 
         if (argc <= optind)
                 (void) execl("/bin/cat", "/bin/cat", NULL);

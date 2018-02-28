@@ -94,14 +94,7 @@ static char *log_abort_msg = NULL;
         } while (false)
 
 static void log_close_console(void) {
-
-        if (console_fd < 0)
-                return;
-
-        if (console_fd >= 3)
-                safe_close(console_fd);
-
-        console_fd = -1;
+        console_fd = safe_close_above_stdio(console_fd);
 }
 
 static int log_open_console(void) {
