@@ -104,6 +104,36 @@
       <command> --reset-statistics</command>
     </cmdsynopsis>
 
+    <cmdsynopsis>
+      <command>systemd-resolve</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <command> --flush-caches</command>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-resolve</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <command> --reset-server-features</command>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-resolve</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <command> --status</command>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-resolve</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <command> --set-dns=<replaceable>SERVER</replaceable></command> <command> --set-domain=<replaceable>DOMAIN</replaceable> --set-llmnr=<replaceable>MODE</replaceable> --set-mdns=<replaceable>MODE</replaceable> --set-dnssec=<replaceable>MODE</replaceable> --set-nta=<replaceable>DOMAIN</replaceable></command>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>systemd-resolve</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <command> --revert</command>
+    </cmdsynopsis>
+
   </refsynopsisdiv>
 
   <refsect1>
