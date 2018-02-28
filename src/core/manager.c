@@ -102,6 +102,13 @@
 #define JOBS_IN_PROGRESS_PERIOD_USEC (USEC_PER_SEC / 3)
 #define JOBS_IN_PROGRESS_PERIOD_DIVISOR 3
 
+/* If there are more than 1K bus messages queue across our API and direct busses, then let's not add more on top until
+ * the queue gets more empty. */
+#define MANAGER_BUS_BUSY_THRESHOLD 1024LU
+
+/* How many units and jobs to process of the bus queue before returning to the event loop. */
+#define MANAGER_BUS_MESSAGE_BUDGET 100U
+
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_cgroups_agent_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -1886,41 +1893,65 @@ static int manager_dispatch_run_queue(sd_event_source *source, void *userdata) {
 }
 
 static unsigned manager_dispatch_dbus_queue(Manager *m) {
-        Job *j;
+        unsigned n = 0, budget;
         Unit *u;
-        unsigned n = 0;
+        Job *j;
 
         assert(m);
 
         if (m->dispatching_dbus_queue)
                 return 0;
 
+        /* Anything to do at all? */
+        if (!m->dbus_unit_queue && !m->dbus_job_queue && !m->send_reloading_done && !m->queued_message)
+                return 0;
+
+        /* Do we have overly many messages queued at the moment? If so, let's not enqueue more on top, let's sit this
+         * cycle out, and process things in a later cycle when the queues got a bit emptier. */
+        if (manager_bus_n_queued_write(m) > MANAGER_BUS_BUSY_THRESHOLD)
+                return 0;
+
+        /* Only process a certain number of units/jobs per event loop iteration. Even if the bus queue wasn't overly
+         * full before this call we shouldn't increase it in size too wildly in one step, and we shouldn't monopolize
+         * CPU time with generating these messages. Note the difference in counting of this "budget" and the
+         * "threshold" above: the "budget" is decreased only once per generated message, regardless how many
+         * busses/direct connections it is enqueued on, while the "threshold" is applied to each queued instance of bus
+         * message, i.e. if the same message is enqueued to five busses/direct connections it will be counted five
+         * times. This difference in counting ("references" vs. "instances") is primarily a result of the fact that
+         * it's easier to implement it this way, however it also reflects the thinking that the "threshold" should put
+         * a limit on used queue memory, i.e. space, while the "budget" should put a limit on time. Also note that
+         * the "threshold" is currently chosen much higher than the "budget". */
+        budget = MANAGER_BUS_MESSAGE_BUDGET;
+
         m->dispatching_dbus_queue = true;
 
-        while ((u = m->dbus_unit_queue)) {
+        while (budget > 0 && (u = m->dbus_unit_queue)) {
+
                 assert(u->in_dbus_queue);
 
                 bus_unit_send_change_signal(u);
-                n++;
+                n++, budget--;
         }
 
-        while ((j = m->dbus_job_queue)) {
+        while (budget > 0 && (j = m->dbus_job_queue)) {
                 assert(j->in_dbus_queue);
 
                 bus_job_send_change_signal(j);
-                n++;
+                n++, budget--;
         }
 
         m->dispatching_dbus_queue = false;
 
-        if (m->send_reloading_done) {
+        if (budget > 0 && m->send_reloading_done) {
                 m->send_reloading_done = false;
-
                 bus_manager_send_reloading(m, false);
+                n++, budget--;
         }
 
-        if (m->queued_message)
+        if (budget > 0 && m->queued_message) {
                 bus_send_queued_message(m);
+                n++;
+        }
 
         return n;
 }

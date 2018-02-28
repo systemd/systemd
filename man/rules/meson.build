@@ -186,6 +186,7 @@ manpages = [
   ['SD_BUS_ERROR_END', 'SD_BUS_ERROR_MAP', 'sd_bus_error_map'],
   ''],
  ['sd_bus_get_fd', '3', [], ''],
+ ['sd_bus_get_n_queued_read', '3', ['sd_bus_get_n_queued_write'], ''],
  ['sd_bus_is_open', '3', ['sd_bus_is_ready'], ''],
  ['sd_bus_message_append', '3', ['sd_bus_message_appendv'], ''],
  ['sd_bus_message_append_array',
