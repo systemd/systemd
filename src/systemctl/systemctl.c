@@ -7488,7 +7488,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_FAILED,
                 ARG_RUNTIME,
-                ARG_FORCE,
                 ARG_PLAIN,
                 ARG_STATE,
                 ARG_JOB_MODE,
@@ -7528,7 +7527,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "dry-run",             no_argument,       NULL, ARG_DRY_RUN             },
                 { "quiet",               no_argument,       NULL, 'q'                     },
                 { "root",                required_argument, NULL, ARG_ROOT                },
-                { "force",               no_argument,       NULL, ARG_FORCE               },
+                { "force",               no_argument,       NULL, 'f'                     },
                 { "no-reload",           no_argument,       NULL, ARG_NO_RELOAD           },
                 { "kill-who",            required_argument, NULL, ARG_KILL_WHO            },
                 { "signal",              required_argument, NULL, 's'                     },
@@ -7741,10 +7740,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case 'q':
                         arg_quiet = true;
-                        break;
-
-                case ARG_FORCE:
-                        arg_force++;
                         break;
 
                 case 'f':
