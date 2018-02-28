@@ -100,3 +100,5 @@ int acquire_data_fd(const void *data, size_t size, unsigned flags);
         IN_SET(r, ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE, ENETUNREACH)
 
 int fd_move_above_stdio(int fd);
+
+int rearrange_stdio(int original_input_fd, int original_output_fd, int original_error_fd);
