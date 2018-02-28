@@ -90,8 +90,6 @@ bool tty_is_console(const char *tty) _pure_;
 int vtnr_from_tty(const char *tty);
 const char *default_term_for_tty(const char *tty);
 
-int make_stdio(int fd);
-int make_null_stdio(void);
 int make_console_stdio(void);
 
 int fd_columns(int fd);

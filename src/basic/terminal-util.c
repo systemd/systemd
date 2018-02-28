@@ -628,9 +628,9 @@ int make_console_stdio(void) {
         if (r < 0)
                 log_warning_errno(r, "Failed to reset terminal, ignoring: %m");
 
-        r = make_stdio(fd);
+        r = rearrange_stdio(fd, fd, fd); /* This invalidates 'fd' both on success and on failure. */
         if (r < 0)
-                return log_error_errno(r, "Failed to duplicate terminal fd: %m");
+                return log_error_errno(r, "Failed to make terminal stdin/stdout/stderr: %m");
 
         reset_terminal_feature_caches();
 
@@ -903,40 +903,6 @@ bool on_tty(void) {
                 cached_on_tty = isatty(STDOUT_FILENO) > 0;
 
         return cached_on_tty;
-}
-
-int make_stdio(int fd) {
-        int r = 0;
-
-        assert(fd >= 0);
-
-        if (dup2(fd, STDIN_FILENO) < 0)
-                r = -errno;
-        if (dup2(fd, STDOUT_FILENO) < 0 && r >= 0)
-                r = -errno;
-        if (dup2(fd, STDERR_FILENO) < 0 && r >= 0)
-                r = -errno;
-
-        safe_close_above_stdio(fd);
-
-        /* Explicitly unset O_CLOEXEC, since if fd was < 3, then dup2() was a NOP and the bit hence possibly set. */
-        stdio_unset_cloexec();
-
-        return r;
-}
-
-int make_null_stdio(void) {
-        int null_fd, r;
-
-        null_fd = open("/dev/null", O_RDWR|O_NOCTTY|O_CLOEXEC);
-        if (null_fd < 0)
-                return -errno;
-
-        r = make_stdio(null_fd);
-
-        reset_terminal_feature_caches();
-
-        return r;
 }
 
 int getttyname_malloc(int fd, char **ret) {
