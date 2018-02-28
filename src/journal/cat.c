@@ -135,13 +135,12 @@ int main(int argc, char *argv[]) {
 
         saved_stderr = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
 
-        if (dup3(fd, STDOUT_FILENO, 0) < 0 ||
-            dup3(fd, STDERR_FILENO, 0) < 0) {
-                r = log_error_errno(errno, "Failed to duplicate fd: %m");
+        r = rearrange_stdio(STDIN_FILENO, fd, fd); /* Invalidates fd on succcess + error! */
+        fd = -1;
+        if (r < 0) {
+                log_error_errno(r, "Failed to rearrange stdout/stderr: %m");
                 goto finish;
         }
-
-        fd = safe_close_above_stdio(fd);
 
         if (argc <= optind)
                 (void) execl("/bin/cat", "/bin/cat", NULL);

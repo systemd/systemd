@@ -395,56 +395,13 @@ static int transfer_start(Transfer *t) {
 
                 pipefd[0] = safe_close(pipefd[0]);
 
-                if (dup2(pipefd[1], STDERR_FILENO) != STDERR_FILENO) {
-                        log_error_errno(errno, "Failed to dup2() fd: %m");
+                r = rearrange_stdio(t->stdin_fd,
+                                    t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd,
+                                    pipefd[1]);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set stdin/stdout/stderr: %m");
                         _exit(EXIT_FAILURE);
                 }
-
-                if (t->stdout_fd >= 0) {
-                        if (dup2(t->stdout_fd, STDOUT_FILENO) != STDOUT_FILENO) {
-                                log_error_errno(errno, "Failed to dup2() fd: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (t->stdout_fd != STDOUT_FILENO)
-                                safe_close(t->stdout_fd);
-                } else {
-                        if (dup2(pipefd[1], STDOUT_FILENO) != STDOUT_FILENO) {
-                                log_error_errno(errno, "Failed to dup2() fd: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-                }
-
-                if (!IN_SET(pipefd[1], STDOUT_FILENO, STDERR_FILENO))
-                        pipefd[1] = safe_close(pipefd[1]);
-
-                if (t->stdin_fd >= 0) {
-                        if (dup2(t->stdin_fd, STDIN_FILENO) != STDIN_FILENO) {
-                                log_error_errno(errno, "Failed to dup2() fd: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (t->stdin_fd != STDIN_FILENO)
-                                safe_close(t->stdin_fd);
-                } else {
-                        int null_fd;
-
-                        null_fd = open("/dev/null", O_RDONLY|O_NOCTTY);
-                        if (null_fd < 0) {
-                                log_error_errno(errno, "Failed to open /dev/null: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (dup2(null_fd, STDIN_FILENO) != STDIN_FILENO) {
-                                log_error_errno(errno, "Failed to dup2() fd: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (null_fd != STDIN_FILENO)
-                                safe_close(null_fd);
-                }
-
-                stdio_unset_cloexec();
 
                 if (setenv("SYSTEMD_LOG_TARGET", "console-prefixed", 1) < 0 ||
                     setenv("NOTIFY_SOCKET", "/run/systemd/import/notify", 1) < 0) {

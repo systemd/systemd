@@ -96,23 +96,20 @@ static int spawn_child(const char* child, char** argv) {
 
         /* In the child */
         if (r == 0) {
+                safe_close(fd[0]);
 
-                r = dup2(fd[1], STDOUT_FILENO);
+                r = rearrange_stdio(STDIN_FILENO, fd[1], STDERR_FILENO);
                 if (r < 0) {
-                        log_error_errno(errno, "Failed to dup pipe to stdout: %m");
+                        log_error_errno(r, "Failed to dup pipe to stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
-
-                safe_close_pair(fd);
 
                 execvp(child, argv);
                 log_error_errno(errno, "Failed to exec child %s: %m", child);
                 _exit(EXIT_FAILURE);
         }
 
-        r = close(fd[1]);
-        if (r < 0)
-                log_warning_errno(errno, "Failed to close write end of pipe: %m");
+        safe_close(fd[1]);
 
         r = fd_nonblock(fd[0], true);
         if (r < 0)

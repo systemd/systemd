@@ -199,15 +199,10 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
         if (arg_inetd) {
                 assert(n_fds == 1);
 
-                r = dup2(start_fd, STDIN_FILENO);
+                r = rearrange_stdio(start_fd, start_fd, STDERR_FILENO); /* invalidates start_fd on success + error */
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to dup connection to stdin: %m");
+                        return log_error_errno(errno, "Failed to move fd to stdin+stdout: %m");
 
-                r = dup2(start_fd, STDOUT_FILENO);
-                if (r < 0)
-                        return log_error_errno(errno, "Failed to dup connection to stdout: %m");
-
-                start_fd = safe_close(start_fd);
         } else {
                 if (start_fd != SD_LISTEN_FDS_START) {
                         assert(n_fds == 1);

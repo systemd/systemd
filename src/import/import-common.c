@@ -87,7 +87,6 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                int null_fd;
                 uint64_t retain =
                         (1ULL << CAP_CHOWN) |
                         (1ULL << CAP_FOWNER) |
@@ -100,25 +99,11 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
 
                 pipefd[1] = safe_close(pipefd[1]);
 
-                r = move_fd(pipefd[0], STDIN_FILENO, false);
+                r = rearrange_stdio(pipefd[0], -1, STDERR_FILENO);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to move fd: %m");
+                        log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
-
-                null_fd = open("/dev/null", O_WRONLY|O_NOCTTY);
-                if (null_fd < 0) {
-                        log_error_errno(errno, "Failed to open /dev/null: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = move_fd(null_fd, STDOUT_FILENO, false);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to move fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                stdio_unset_cloexec();
 
                 if (unshare(CLONE_NEWNET) < 0)
                         log_error_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
@@ -156,32 +141,17 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                int null_fd;
                 uint64_t retain = (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
 
                 pipefd[0] = safe_close(pipefd[0]);
 
-                r = move_fd(pipefd[1], STDOUT_FILENO, false);
+                r = rearrange_stdio(-1, pipefd[1], STDERR_FILENO);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to move fd: %m");
+                        log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
-
-                null_fd = open("/dev/null", O_RDONLY|O_NOCTTY);
-                if (null_fd < 0) {
-                        log_error_errno(errno, "Failed to open /dev/null: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = move_fd(null_fd, STDIN_FILENO, false);
-                if (r < 0) {
-                        log_error_errno(errno, "Failed to move fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                stdio_unset_cloexec();
 
                 if (unshare(CLONE_NEWNET) < 0)
                         log_error_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
