@@ -1202,28 +1202,6 @@ static int add_group(Item *i) {
         return 0;
 }
 
-static int process_item(Item *i) {
-        int r;
-
-        assert(i);
-
-        switch (i->type) {
-
-        case ADD_USER:
-                r = add_group(i);
-                if (r < 0)
-                        return r;
-
-                return add_user(i);
-
-        case ADD_GROUP:
-                return add_group(i);
-
-        default:
-                assert_not_reached("Unknown item type");
-        }
-}
-
 static void item_free(Item *i) {
 
         if (!i)
@@ -1243,16 +1221,59 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Item*, item_free);
 static int add_implicit(void) {
         char *g, **l;
         Iterator iterator;
+        Item *i;
         int r;
 
-        /* Implicitly create additional users and groups, if they were listed in "m" lines */
+        /* Implicitly create additional groups, if they were listed in "u" lines */
+        ORDERED_HASHMAP_FOREACH_KEY(i, g, users, iterator) {
+                Item *existing;
 
+                existing = ordered_hashmap_get(groups, g);
+                if (!existing) {
+                        _cleanup_(item_freep) Item *j = NULL;
+
+                        r = ordered_hashmap_ensure_allocated(&groups, &string_hash_ops);
+                        if (r < 0)
+                                return log_oom();
+
+                        j = new0(Item, 1);
+                        if (!j)
+                                return log_oom();
+
+                        j->type = ADD_GROUP;
+                        j->name = strdup(g);
+                        if (!j->name)
+                                return log_oom();
+
+                        if (i->uid_path) {
+                                j->gid_path = strdup(i->uid_path);
+                                if (!j->gid_path)
+                                        return log_oom();
+                        }
+
+                        j->uid = i->uid;
+                        j->uid_set = i->uid_set;
+
+                        j->gid = i->gid;
+                        j->gid_set = i->gid_set;
+                        j->id_set_strict = i->id_set_strict;
+
+                        r = ordered_hashmap_put(groups, j->name, j);
+                        if (r < 0)
+                                return log_oom();
+
+                        log_debug("Adding implicit group '%s' due to u line", j->name);
+                        j = NULL;
+                }
+        }
+
+        /* Implicitly create additional users and groups, if they were listed in "m" lines */
         ORDERED_HASHMAP_FOREACH_KEY(l, g, members, iterator) {
-                Item *i;
+                Item *existing;
                 char **m;
 
-                i = ordered_hashmap_get(groups, g);
-                if (!i) {
+                existing = ordered_hashmap_get(groups, g);
+                if (!existing) {
                         _cleanup_(item_freep) Item *j = NULL;
 
                         r = ordered_hashmap_ensure_allocated(&groups, &string_hash_ops);
@@ -1959,11 +1980,15 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        ORDERED_HASHMAP_FOREACH(i, groups, iterator)
-                process_item(i);
+        ORDERED_HASHMAP_FOREACH(i, groups, iterator) {
+                assert(i->type == ADD_GROUP);
+                (void) add_group(i);
+        }
 
-        ORDERED_HASHMAP_FOREACH(i, users, iterator)
-                process_item(i);
+        ORDERED_HASHMAP_FOREACH(i, users, iterator) {
+                assert(i->type == ADD_USER);
+                (void) add_user(i);
+        }
 
         r = write_files();
         if (r < 0)
