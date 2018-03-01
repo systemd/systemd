@@ -1209,12 +1209,25 @@ static int process_item(Item *i) {
 
         switch (i->type) {
 
-        case ADD_USER:
-                r = add_group(i);
-                if (r < 0)
-                        return r;
+        case ADD_USER: {
+                Item *j;
+
+                j = ordered_hashmap_get(groups, i->name);
+                if (j && j->todo_group) {
+                        /* When the group with the same name is already in queue,
+                         * use the information about the group and do not create
+                         * duplicated group entry. */
+                        i->gid_set = j->gid_set;
+                        i->gid = j->gid;
+                        i->id_set_strict = true;
+                } else {
+                        r = add_group(i);
+                        if (r < 0)
+                                return r;
+                }
 
                 return add_user(i);
+        }
 
         case ADD_GROUP:
                 return add_group(i);
