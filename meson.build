@@ -59,13 +59,16 @@ if get_option('split-usr') == 'auto'
 else
         split_usr = get_option('split-usr') == 'true'
 endif
-conf.set10('HAVE_SPLIT_USR', split_usr)
+conf.set10('HAVE_SPLIT_USR', split_usr,
+           description : '/usr/bin and /bin directories are separate')
 
 if get_option('split-bin') == 'auto'
         split_bin = run_command('test', '-L', '/usr/sbin').returncode() != 0
 else
         split_bin = get_option('split-bin') == 'true'
 endif
+conf.set10('HAVE_SPLIT_BIN', split_bin,
+           description : 'bin and sbin directories are separate')
 
 rootprefixdir = get_option('rootprefix')
 # Unusual rootprefixdir values are used by some distros
