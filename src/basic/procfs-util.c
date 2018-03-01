@@ -155,8 +155,7 @@ static uint64_t calc_gcd64(uint64_t a, uint64_t b) {
 
 int procfs_cpu_get_usage(nsec_t *ret) {
         _cleanup_free_ char *first_line = NULL;
-        unsigned long user_ticks = 0, nice_ticks = 0, system_ticks = 0,
-                irq_ticks = 0, softirq_ticks = 0,
+        unsigned long user_ticks, nice_ticks, system_ticks, irq_ticks, softirq_ticks,
                 guest_ticks = 0, guest_nice_ticks = 0;
         long ticks_per_second;
         uint64_t sum, gcd, a, b;
