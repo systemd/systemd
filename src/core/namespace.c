@@ -152,7 +152,9 @@ static const MountEntry protect_system_yes_table[] = {
         { "/lib",                READONLY,     true  },
         { "/lib64",              READONLY,     true  },
         { "/bin",                READONLY,     true  },
+#  if HAVE_SPLIT_BIN
         { "/sbin",               READONLY,     true  },
+#  endif
 #endif
 };
 
@@ -166,7 +168,9 @@ static const MountEntry protect_system_full_table[] = {
         { "/lib",                READONLY,     true  },
         { "/lib64",              READONLY,     true  },
         { "/bin",                READONLY,     true  },
+#  if HAVE_SPLIT_BIN
         { "/sbin",               READONLY,     true  },
+#  endif
 #endif
 };
 

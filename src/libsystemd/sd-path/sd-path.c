@@ -478,6 +478,12 @@ static int search_from_environment(
         return 0;
 }
 
+#if HAVE_SPLIT_BIN
+#  define ARRAY_SBIN_BIN(x) x "sbin", x "bin"
+#else
+#  define ARRAY_SBIN_BIN(x) x "bin"
+#endif
+
 static int get_search(uint64_t type, char ***list) {
 
         assert(list);
@@ -490,13 +496,10 @@ static int get_search(uint64_t type, char ***list) {
                                                ".local/bin",
                                                "PATH",
                                                true,
-                                               "/usr/local/sbin",
-                                               "/usr/local/bin",
-                                               "/usr/sbin",
-                                               "/usr/bin",
+                                               ARRAY_SBIN_BIN("/usr/local/"),
+                                               ARRAY_SBIN_BIN("/usr/"),
 #if HAVE_SPLIT_USR
-                                               "/sbin",
-                                               "/bin",
+                                               ARRAY_SBIN_BIN("/"),
 #endif
                                                NULL);
 
