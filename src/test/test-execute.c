@@ -514,6 +514,8 @@ static void test_exec_runtimedirectory(Manager *m) {
                 test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
         else if (streq(NOBODY_GROUP_NAME, "nfsnobody"))
                 test(m, "exec-runtimedirectory-owner-nfsnobody.service", 0, CLD_EXITED);
+        else if (streq(NOBODY_GROUP_NAME, "nogroup"))
+                test(m, "exec-runtimedirectory-owner-nogroup.service", 0, CLD_EXITED);
         else
                 log_error("Unsupported nobody group name '%s', skipping %s", NOBODY_GROUP_NAME, __func__);
 }

@@ -113,6 +113,7 @@ test_data_files = '''
         test-execute/exec-restrictnamespaces-yes.service
         test-execute/exec-runtimedirectory-mode.service
         test-execute/exec-runtimedirectory-owner-nfsnobody.service
+        test-execute/exec-runtimedirectory-owner-nogroup.service
         test-execute/exec-runtimedirectory-owner.service
         test-execute/exec-runtimedirectory.service
         test-execute/exec-specifier-interpolation.service
