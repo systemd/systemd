@@ -75,18 +75,18 @@
     <para>
       <function>sd_bus_get_n_queued_read()</function> may be used to query the number of bus messages in the read queue
       of a bus connection object. The read queue contains all messages read from the transport medium (e.g. network
-      socket) but not yet processed locally. The function expects two arguments: the bus object to query the number of
-      queued messages of, and a pointer to a 64bit counter variable to write the current queue size to. Use
-      <function>sd_bus_process()</function> in order to process queued messages, i.e. to reduce the size of the read
-      queue (as well as, in fact, the write queue, see below) when it is non-zero.
+      socket) but not yet processed locally. The function expects two arguments: the bus object to query, and a pointer
+      to a 64bit counter variable to write the current queue size to. Use <function>sd_bus_process()</function> in
+      order to process queued messages, i.e. to reduce the size of the read queue (as well as, in fact, the write
+      queue, see below).
     </para>
 
     <para>
-      Similar, <function>sd_bus_get_n_queued_write()</function> may be used to query the number of currently pending
+      Similarly, <function>sd_bus_get_n_queued_write()</function> may be used to query the number of currently pending
       bus messages in the write queue of a bus connection object. The write queue contains all messages enqueued into
       the connection with a call such as <function>sd_bus_send()</function> but not yet written to the transport
-      medium. The expected arguments are similar to the ones of <function>sd_bus_get_n_queued_read()</function>. Here
-      too, use <function>sd_bus_process()</function> to reduce the size of the write queue. Alternatively, use
+      medium. The expected arguments are similar to <function>sd_bus_get_n_queued_read()</function>. Here too, use
+      <function>sd_bus_process()</function> to reduce the size of the write queue. Alternatively, use
       <function>sd_bus_flush()</function> to synchronously write out any pending bus messages until the write queue is
       empty.
     </para>
@@ -108,7 +108,7 @@
       <varlistentry>
         <term><constant>-ECHILD</constant></term>
 
-        <listitem><para>The bus connection has been created in a different process.</para></listitem>
+        <listitem><para>The bus connection was created in a different process.</para></listitem>
       </varlistentry>
 
     </variablelist>
