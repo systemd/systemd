@@ -18,6 +18,6 @@ Type=notify
 ExecStart=-@rootlibexecdir@/systemd --user
 Slice=user-%i.slice
 KillMode=mixed
-Delegate=pids cpu
+Delegate=pids memory
 TasksMax=infinity
 TimeoutStopSec=120s
