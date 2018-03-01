@@ -2042,7 +2042,7 @@ int cg_get_keyed_attribute(
         _cleanup_free_ char *filename = NULL, *contents = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *p;
-        size_t n, i;
+        size_t n, i, n_done = 0;
         char **v;
         int r;
 
@@ -2069,42 +2069,31 @@ int cg_get_keyed_attribute(
 
         for (p = contents; *p;) {
                 const char *w = NULL;
-                size_t n_done = 0;
 
-                for (i = 0; i < n; i++) {
-                        if (v[i])
-                                n_done ++;
-                        else {
+                for (i = 0; i < n; i++)
+                        if (!v[i]) {
                                 w = first_word(p, keys[i]);
                                 if (w)
                                         break;
                         }
-                }
 
                 if (w) {
-                        char *c;
                         size_t l;
 
                         l = strcspn(w, NEWLINE);
-                        c = strndup(w, l);
-                        if (!c) {
+                        v[i] = strndup(w, l);
+                        if (!v[i]) {
                                 r = -ENOMEM;
                                 goto fail;
                         }
 
-                        v[i] = c;
                         n_done++;
-
                         if (n_done >= n)
                                 goto done;
 
                         p = w + l;
-                } else {
-                        if (n_done >= n)
-                                goto done;
-
+                } else
                         p += strcspn(p, NEWLINE);
-                }
 
                 p += strspn(p, NEWLINE);
         }

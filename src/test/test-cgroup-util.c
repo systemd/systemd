@@ -30,6 +30,7 @@
 #include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "test-helper.h"
 #include "user-util.h"
 #include "util.h"
@@ -404,6 +405,45 @@ static void test_cg_tests(void) {
                 assert_se(!systemd);
 }
 
+static void test_cg_get_keyed_attribute(void) {
+        _cleanup_free_ char *val = NULL;
+        char *vals3[3] = {}, *vals3a[3] = {};
+        int i;
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val) == -ENOENT);
+        assert_se(val == NULL);
+
+        if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0) {
+                log_info_errno(errno, "Skipping most of %s, /init.scope/cpu.stat not accessible: %m", __func__);
+                return;
+        }
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
+        assert_se(val == NULL);
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
+        log_info("cpu /init.scope cpu.stat [usage_usec] → \"%s\"", val);
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "usage_usec"), vals3) == -ENXIO);
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
+                                         STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
+        log_info("cpu /init.scope cpu.stat [usage_usec user_usec system_usec] → \"%s\", \"%s\", \"%s\"",
+                 vals3[0], vals3[1], vals3[2]);
+
+        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
+                                         STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
+        log_info("cpu /init.scope cpu.stat [system_usec user_usec usage_usec] → \"%s\", \"%s\", \"%s\"",
+                 vals3a[0], vals3a[1], vals3a[2]);
+
+        for (i = 0; i < 3; i++) {
+                free(vals3[i]);
+                free(vals3a[i]);
+        }
+}
+
 int main(void) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
@@ -429,6 +469,7 @@ int main(void) {
         test_is_wanted_print(false); /* run twice to test caching */
         test_is_wanted();
         test_cg_tests();
+        test_cg_get_keyed_attribute();
 
         return 0;
 }
