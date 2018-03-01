@@ -1515,7 +1515,7 @@ static int test_calendar(int argc, char *argv[], void *userdata) {
 
                 r = calendar_spec_to_string(spec, &t);
                 if (r < 0) {
-                        ret = log_error_errno(r, "Failed to fomat calendar specification '%s': %m", *p);
+                        ret = log_error_errno(r, "Failed to format calendar specification '%s': %m", *p);
                         continue;
                 }
 

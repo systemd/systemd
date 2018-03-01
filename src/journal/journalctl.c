@@ -494,7 +494,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:c:S:U:t:u:NF:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:u:NF:xrM:", options, NULL)) >= 0)
 
                 switch (c) {
 

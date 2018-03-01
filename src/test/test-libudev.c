@@ -372,7 +372,7 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
 
-        while ((c = getopt_long(argc, argv, "p:s:dhV", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "p:s:dhVm", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'p':
