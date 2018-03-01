@@ -46,6 +46,7 @@
 #include "terminal-util.h"
 #include "unit-name.h"
 #include "util.h"
+#include "virt.h"
 
 typedef struct Group {
         char *path;
@@ -125,6 +126,30 @@ static const char *maybe_format_bytes(char *buf, size_t l, bool is_valid, uint64
         return format_bytes(buf, l, t);
 }
 
+static bool is_root_cgroup(const char *path) {
+
+        /* Returns true if the specified path belongs to the root cgroup. The root cgroup is special on cgroupsv2 as it
+         * carries only very few attributes in order not to export multiple truth about system state as most
+         * information is available elsewhere in /proc anyway. We need to be able to deal with that, and need to get
+         * our data from different sources in that case.
+         *
+         * There's one extra complication in all of this, though 😣: if the path to the cgroup indicates we are in the
+         * root cgroup this might actually not be the case, because cgroup namespacing might be in effect
+         * (CLONE_NEWCGROUP). Since there's no nice way to distuingish a real cgroup root from a fake namespaced one we
+         * do an explicit container check here, under the assumption that CLONE_NEWCGROUP is generally used when
+         * container managers are used too.
+         *
+         * Note that checking for a container environment is kinda ugly, since in theory people could use cgtop from
+         * inside a container where cgroup namespacing is turned off to watch the host system. However, that's mostly a
+         * theoretic usecase, and if people actually try all they'll lose is accounting for the top-level cgroup. Which
+         * isn't too bad. */
+
+        if (detect_container() > 0)
+                return false;
+
+        return isempty(path) || path_equal(path, "/");
+}
+
 static int process(
                 const char *controller,
                 const char *path,
@@ -172,7 +197,8 @@ static int process(
                 }
         }
 
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) && IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
+        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER) &&
+            IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t pid;
 
@@ -196,7 +222,7 @@ static int process(
 
         } else if (streq(controller, "pids") && arg_count == COUNT_PIDS) {
 
-                if (isempty(path) || path_equal(path, "/")) {
+                if (is_root_cgroup(path)) {
                         r = procfs_tasks_get_current(&g->n_tasks);
                         if (r < 0)
                                 return r;
@@ -226,15 +252,18 @@ static int process(
                 uint64_t new_usage;
                 nsec_t timestamp;
 
-                if (all_unified) {
-                        const char *keys[] = { "usage_usec", NULL };
+                if (is_root_cgroup(path)) {
+                        r = procfs_cpu_get_usage(&new_usage);
+                        if (r < 0)
+                                return r;
+                } else if (all_unified) {
                         _cleanup_free_ char *val = NULL;
 
                         if (!streq(controller, "cpu"))
                                 return 0;
 
-                        r = cg_get_keyed_attribute("cpu", path, "cpu.stat", keys, &val);
-                        if (r == -ENOENT)
+                        r = cg_get_keyed_attribute("cpu", path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
+                        if (IN_SET(r, -ENOENT, -ENXIO))
                                 return 0;
                         if (r < 0)
                                 return r;
@@ -284,24 +313,31 @@ static int process(
                 g->cpu_iteration = iteration;
 
         } else if (streq(controller, "memory")) {
-                _cleanup_free_ char *p = NULL, *v = NULL;
 
-                if (all_unified)
-                        r = cg_get_path(controller, path, "memory.current", &p);
-                else
-                        r = cg_get_path(controller, path, "memory.usage_in_bytes", &p);
-                if (r < 0)
-                        return r;
+                if (is_root_cgroup(path)) {
+                        r = procfs_memory_get_current(&g->memory);
+                        if (r < 0)
+                                return r;
+                } else {
+                        _cleanup_free_ char *p = NULL, *v = NULL;
 
-                r = read_one_line_file(p, &v);
-                if (r == -ENOENT)
-                        return 0;
-                if (r < 0)
-                        return r;
+                        if (all_unified)
+                                r = cg_get_path(controller, path, "memory.current", &p);
+                        else
+                                r = cg_get_path(controller, path, "memory.usage_in_bytes", &p);
+                        if (r < 0)
+                                return r;
 
-                r = safe_atou64(v, &g->memory);
-                if (r < 0)
-                        return r;
+                        r = read_one_line_file(p, &v);
+                        if (r == -ENOENT)
+                                return 0;
+                        if (r < 0)
+                                return r;
+
+                        r = safe_atou64(v, &g->memory);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (g->memory > 0)
                         g->memory_valid = true;
@@ -506,6 +542,10 @@ static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration)
         return 0;
 }
 
+static const char *empty_to_slash(const char *p) {
+        return isempty(p) ? "/" : p;
+}
+
 static int group_compare(const void*a, const void *b) {
         const Group *x = *(Group**)a, *y = *(Group**)b;
 
@@ -515,9 +555,9 @@ static int group_compare(const void*a, const void *b) {
                  * recursive summing is off, since that is actually
                  * not accumulative for all children. */
 
-                if (path_startswith(y->path, x->path))
+                if (path_startswith(empty_to_slash(y->path), empty_to_slash(x->path)))
                         return -1;
-                if (path_startswith(x->path, y->path))
+                if (path_startswith(empty_to_slash(x->path), empty_to_slash(y->path)))
                         return 1;
         }
 
@@ -666,7 +706,7 @@ static void display(Hashmap *a) {
 
                 g = array[j];
 
-                path = isempty(g->path) ? "/" : g->path;
+                path = empty_to_slash(g->path);
                 ellipsized = ellipsize(path, path_columns, 33);
                 printf("%-*s", path_columns, ellipsized ?: path);
 
@@ -709,6 +749,7 @@ static void help(void) {
                "     --recursive=BOOL Sum up process count recursively\n"
                "  -d --delay=DELAY    Delay between updates\n"
                "  -n --iterations=N   Run for N iterations before exiting\n"
+               "  -1                  Shortcut for --iterations=1\n"
                "  -b --batch          Run in batch mode, accepting no input\n"
                "     --depth=DEPTH    Maximum traversal depth (default: %u)\n"
                "  -M --machine=       Show container\n"
@@ -745,7 +786,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 1);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hptcmin:brd:kPM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hptcmin:brd:kPM:1", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -773,17 +814,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DEPTH:
                         r = safe_atou(optarg, &arg_depth);
-                        if (r < 0) {
-                                log_error("Failed to parse depth parameter.");
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse depth parameter: %s", optarg);
 
                         break;
 
                 case 'd':
                         r = parse_sec(optarg, &arg_delay);
                         if (r < 0 || arg_delay <= 0) {
-                                log_error("Failed to parse delay parameter.");
+                                log_error("Failed to parse delay parameter: %s", optarg);
                                 return -EINVAL;
                         }
 
@@ -791,11 +830,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'n':
                         r = safe_atou(optarg, &arg_iterations);
-                        if (r < 0) {
-                                log_error("Failed to parse iterations parameter.");
-                                return -EINVAL;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse iterations parameter: %s", optarg);
 
+                        break;
+
+                case '1':
+                        arg_iterations = 1;
                         break;
 
                 case 'b':
@@ -853,10 +894,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_RECURSIVE:
                         r = parse_boolean(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse --recursive= argument: %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --recursive= argument: %s", optarg);
 
                         arg_recursive = r;
                         arg_recursive_unset = r == 0;

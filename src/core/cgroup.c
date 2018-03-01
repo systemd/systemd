@@ -38,19 +38,34 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "virt.h"
 
 #define CGROUP_CPU_QUOTA_PERIOD_USEC ((usec_t) 100 * USEC_PER_MSEC)
+
+bool manager_owns_root_cgroup(Manager *m) {
+        assert(m);
+
+        /* Returns true if we are managing the root cgroup. Note that it isn't sufficient to just check whether the
+         * group root path equals "/" since that will also be the case if CLONE_NEWCGROUP is in the mix. Since there's
+         * appears to be no nice way to detect whether we are in a CLONE_NEWCGROUP namespace we instead just check if
+         * we run in any kind of container virtualization. */
+
+        if (detect_container() > 0)
+                return false;
+
+        return isempty(m->cgroup_root) || path_equal(m->cgroup_root, "/");
+}
 
 bool unit_has_root_cgroup(Unit *u) {
         assert(u);
 
-        /* Returns whether this unit manages the root cgroup. Note that this is different from being named "-.slice",
-         * as inside of containers the root slice won't be identical to the root cgroup. */
+        /* Returns whether this unit manages the root cgroup. This will return true if this unit is the root slice and
+         * the manager manages the root cgroup. */
 
-        if (!u->cgroup_path)
+        if (!manager_owns_root_cgroup(u->manager))
                 return false;
 
-        return isempty(u->cgroup_path) || path_equal(u->cgroup_path, "/");
+        return unit_has_name(u, SPECIAL_ROOT_SLICE);
 }
 
 static void cgroup_compat_warn(void) {
@@ -59,7 +74,9 @@ static void cgroup_compat_warn(void) {
         if (cgroup_compat_warned)
                 return;
 
-        log_warning("cgroup compatibility translation between legacy and unified hierarchy settings activated. See cgroup-compat debug messages for details.");
+        log_warning("cgroup compatibility translation between legacy and unified hierarchy settings activated. "
+                    "See cgroup-compat debug messages for details.");
+
         cgroup_compat_warned = true;
 }
 
@@ -2406,6 +2423,10 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
         if (!u->cgroup_path)
                 return -ENODATA;
 
+        /* The root cgroup doesn't expose this information, let's get it from /proc instead */
+        if (unit_has_root_cgroup(u))
+                return procfs_memory_get_current(ret);
+
         if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
                 return -ENODATA;
 
@@ -2437,12 +2458,12 @@ int unit_get_tasks_current(Unit *u, uint64_t *ret) {
         if (!u->cgroup_path)
                 return -ENODATA;
 
-        if ((u->cgroup_realized_mask & CGROUP_MASK_PIDS) == 0)
-                return -ENODATA;
-
         /* The root cgroup doesn't expose this information, let's get it from /proc instead */
         if (unit_has_root_cgroup(u))
                 return procfs_tasks_get_current(ret);
+
+        if ((u->cgroup_realized_mask & CGROUP_MASK_PIDS) == 0)
+                return -ENODATA;
 
         r = cg_get_attribute("pids", u->cgroup_path, "pids.current", &v);
         if (r == -ENOENT)
@@ -2464,20 +2485,25 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
         if (!u->cgroup_path)
                 return -ENODATA;
 
+        /* The root cgroup doesn't expose this information, let's get it from /proc instead */
+        if (unit_has_root_cgroup(u))
+                return procfs_cpu_get_usage(ret);
+
         r = cg_all_unified();
         if (r < 0)
                 return r;
         if (r > 0) {
-                const char *keys[] = { "usage_usec", NULL };
                 _cleanup_free_ char *val = NULL;
                 uint64_t us;
 
                 if ((u->cgroup_realized_mask & CGROUP_MASK_CPU) == 0)
                         return -ENODATA;
 
-                r = cg_get_keyed_attribute("cpu", u->cgroup_path, "cpu.stat", keys, &val);
+                r = cg_get_keyed_attribute("cpu", u->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
                 if (r < 0)
                         return r;
+                if (IN_SET(r, -ENOENT, -ENXIO))
+                        return -ENODATA;
 
                 r = safe_atou64(val, &us);
                 if (r < 0)
