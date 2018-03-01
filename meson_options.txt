@@ -18,6 +18,8 @@
 
 option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'],
        description : '''/bin, /sbin aren't symlinks into /usr''')
+option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : '''sbin is not a symlink to bin''')
 option('rootlibdir', type : 'string',
        description : '''[/usr]/lib/x86_64-linux-gnu or such''')
 option('rootprefix', type : 'string',
