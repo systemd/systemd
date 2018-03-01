@@ -298,6 +298,14 @@ option('slow-tests', type : 'boolean', value : 'false',
 option('install-tests', type : 'boolean', value : 'false',
        description : 'install test executables')
 
+option('ok-color', type: 'combo',
+       choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
+                  'white', 'highlight_black', 'highlight_red', 'highlight_green',
+                  'highlight_yellow', 'highlight_blue', 'highlight_magenta',
+                  'highlight_cyan', 'highlight_white'],
+       value : 'green',
+       description: 'color of the "OK" status message')
+
 option('oss-fuzz', type : 'boolean', value : 'false',
        description : 'build against oss-fuzz')
 option('llvm-fuzz', type : 'boolean', value : 'false',

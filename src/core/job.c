@@ -696,7 +696,7 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
 static const struct {
         const char *color, *word;
 } job_print_status_messages [_JOB_RESULT_MAX] = {
-        [JOB_DONE]        = { ANSI_GREEN,            "  OK  " },
+        [JOB_DONE]        = { ANSI_OK_COLOR,         "  OK  " },
         [JOB_TIMEOUT]     = { ANSI_HIGHLIGHT_RED,    " TIME " },
         [JOB_FAILED]      = { ANSI_HIGHLIGHT_RED,    "FAILED" },
         [JOB_DEPENDENCY]  = { ANSI_HIGHLIGHT_YELLOW, "DEPEND" },
