@@ -54,8 +54,18 @@ endif
 
 #####################################################################
 
-split_usr = get_option('split-usr')
+if get_option('split-usr') == 'auto'
+        split_usr = run_command('test', '-L', '/bin').returncode() != 0
+else
+        split_usr = get_option('split-usr') == 'true'
+endif
 conf.set10('HAVE_SPLIT_USR', split_usr)
+
+if get_option('split-bin') == 'auto'
+        split_bin = run_command('test', '-L', '/usr/sbin').returncode() != 0
+else
+        split_bin = get_option('split-bin') == 'true'
+endif
 
 rootprefixdir = get_option('rootprefix')
 # Unusual rootprefixdir values are used by some distros
@@ -87,7 +97,7 @@ datadir = join_paths(prefixdir, get_option('datadir'))
 localstatedir = join_paths('/', get_option('localstatedir'))
 
 rootbindir = join_paths(rootprefixdir, 'bin')
-rootsbindir = join_paths(rootprefixdir, 'sbin')
+rootsbindir = join_paths(rootprefixdir, split_bin ? 'sbin' : 'bin')
 rootlibexecdir = join_paths(rootprefixdir, 'lib/systemd')
 
 rootlibdir = get_option('rootlibdir')
@@ -2738,6 +2748,8 @@ run_target(
 status = [
         '@0@ @1@'.format(meson.project_name(), meson.project_version()),
 
+        'split /usr:                        @0@'.format(split_usr),
+        'split bin-sbin:                    @0@'.format(split_bin),
         'prefix directory:                  @0@'.format(prefixdir),
         'rootprefix directory:              @0@'.format(rootprefixdir),
         'sysconf directory:                 @0@'.format(sysconfdir),
@@ -2874,7 +2886,6 @@ foreach tuple : [
         ['man pages',        want_man],
         ['html pages',       want_html],
         ['man page indices', want_man and have_lxml],
-        ['split /usr',       conf.get('HAVE_SPLIT_USR') == 1],
         ['SysV compat'],
         ['utmp'],
         ['ldconfig'],

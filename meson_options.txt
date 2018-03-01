@@ -16,8 +16,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-option('split-usr', type : 'boolean', value : false,
-       description : '''assume that /bin, /sbin aren't symlinks into /usr''')
+option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : '''/bin, /sbin aren't symlinks into /usr''')
+option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : '''sbin is not a symlink to bin''')
 option('rootlibdir', type : 'string',
        description : '''[/usr]/lib/x86_64-linux-gnu or such''')
 option('rootprefix', type : 'string',
