@@ -354,7 +354,6 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         bool found_monotonic = false, found_realtime = false;
         bool leave_around = false;
         triple_timestamp ts;
-        usec_t base = 0;
         TimerValue *v;
         Unit *trigger;
         int r;
@@ -372,7 +371,6 @@ static void timer_enter_waiting(Timer *t, bool initial) {
         t->next_elapse_monotonic_or_boottime = t->next_elapse_realtime = 0;
 
         LIST_FOREACH(value, v, t->values) {
-
                 if (v->disabled)
                         continue;
 
@@ -381,10 +379,17 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         /* If we know the last time this was
                          * triggered, schedule the job based relative
-                         * to that. If we don't just start from
-                         * now. */
+                         * to that. If we don't, just start from
+                         * the activation time. */
 
-                        b = t->last_trigger.realtime > 0 ? t->last_trigger.realtime : ts.realtime;
+                        if (t->last_trigger.realtime > 0)
+                                b = t->last_trigger.realtime;
+                        else {
+                                if (state_translation_table[t->state] == UNIT_ACTIVE)
+                                        b = UNIT(t)->inactive_exit_timestamp.realtime;
+                                else
+                                        b = ts.realtime;
+                        }
 
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
@@ -397,7 +402,8 @@ static void timer_enter_waiting(Timer *t, bool initial) {
 
                         found_realtime = true;
 
-                } else  {
+                } else {
+                        usec_t base;
 
                         switch (v->base) {
 
@@ -807,11 +813,20 @@ static void timer_reset_failed(Unit *u) {
 
 static void timer_time_change(Unit *u) {
         Timer *t = TIMER(u);
+        usec_t ts;
 
         assert(u);
 
         if (t->state != TIMER_WAITING)
                 return;
+
+        /* If we appear to have triggered in the future, the system clock must
+         * have been set backwards.  So let's rewind our own clock and allow
+         * the future trigger(s) to happen again :).  Exactly the same as when
+         * you start a timer unit with Persistent=yes. */
+        ts = now(CLOCK_REALTIME);
+        if (t->last_trigger.realtime > ts)
+                t->last_trigger.realtime = ts;
 
         log_unit_debug(u, "Time change, recalculating next elapse.");
         timer_enter_waiting(t, false);
