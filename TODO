@@ -27,8 +27,6 @@ Features:
 * add proper dbus APIs for the various sd_notify() commands, such as MAINPID=1
   and so on, which would mean we could report errors and such.
 
-* block setrlimit(RLIMIT_NOPROC) (and other per-user limits) in nspawn when userns is not on
-
 * nss-systemd: implement enumeration, that shows all dynamic users plus the
   synthesized ones if necessary, so that "getent passwd" shows useful data.
 
@@ -47,16 +45,13 @@ Features:
 * maybe rework get_user_creds() to query the user database if $SHELL is used
   for root, but only then.
 
-* there should be path_hash_ops and we should use it in tmpfiles' hashmap object to deal with identical but differently spelt paths
-
 * be stricter with fds we receive for the fdstore: close them asynchronously
 
 * calenderspec: add support for week numbers and day numbers within a
   year. This would allow us to define "bi-weekly" triggers safely.
 
-* add support for recursive bpf firewalling as supported by the newest kernel
-
-* add bpf-based implementation of devices cgroup controller logic for compat with cgroupsv2 as supported by newest kernel
+* add bpf-based implementation of devices cgroup controller logic for compat
+  with cgroupsv2 as supported by newest kernel
 
 * introduce sd_id128_get_boot_app_specific() which is like
   sd_id128_get_machine_app_specific(). After all on long-running systems both
@@ -64,8 +59,6 @@ Features:
 
 * sd-bus: add vtable flag, that may be used to request client creds implicitly
   and asynchronously before dispatching the operation
-
-* implement transient socket unit.
 
 * make use of ethtool veth peer info in machined, for automatically finding out
   host-side interface pointing to the container.
@@ -76,7 +69,7 @@ Features:
   systemd-journald writes to /var/log/journal, which could be useful when we
   doing disk usage calculations and so on.
 
-* taint systemd if there are fewer than 65536 users assigned to the system.
+* taint systemd if there are fewer than 65536 users assigned (userns) to the system.
 
 * deprecate PermissionsStartOnly= and RootDirectoryStartOnly= in favour of the ExecStart= prefix chars
 
