@@ -424,7 +424,7 @@ int deserialize_in_addrs(struct in_addr **ret, const char *string) {
                 if (r == 0)
                         break;
 
-                new_addresses = realloc(addresses, (size + 1) * sizeof(struct in_addr));
+                new_addresses = reallocarray(addresses, size + 1, sizeof(struct in_addr));
                 if (!new_addresses)
                         return -ENOMEM;
                 else
@@ -478,7 +478,7 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
                 if (r == 0)
                         break;
 
-                new_addresses = realloc(addresses, (size + 1) * sizeof(struct in6_addr));
+                new_addresses = reallocarray(addresses, size + 1, sizeof(struct in6_addr));
                 if (!new_addresses)
                         return -ENOMEM;
                 else

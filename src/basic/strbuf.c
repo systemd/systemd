@@ -190,7 +190,7 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
         node_child->value_len = len;
 
         /* extend array, add new entry, sort for bisection */
-        child = realloc(node->children, (node->children_count + 1) * sizeof(struct strbuf_child_entry));
+        child = reallocarray(node->children, node->children_count + 1, sizeof(struct strbuf_child_entry));
         if (!child) {
                 free(node_child);
                 return -ENOMEM;

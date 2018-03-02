@@ -311,7 +311,7 @@ int unit_file_changes_add(
         if (!changes)
                 return 0;
 
-        c = realloc(*changes, (*n_changes + 1) * sizeof(UnitFileChange));
+        c = reallocarray(*changes, *n_changes + 1, sizeof(UnitFileChange));
         if (!c)
                 return -ENOMEM;
         *changes = c;

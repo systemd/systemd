@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "macro.h"
 #include "uid-range.h"
 #include "user-util.h"
@@ -109,7 +110,7 @@ int uid_range_add(UidRange **p, unsigned *n, uid_t start, uid_t nr) {
         } else {
                 UidRange *t;
 
-                t = realloc(*p, sizeof(UidRange) * (*n + 1));
+                t = reallocarray(*p, *n + 1, sizeof(UidRange));
                 if (!t)
                         return -ENOMEM;
 

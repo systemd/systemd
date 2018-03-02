@@ -2113,7 +2113,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse DNS server address: %s", optarg);
 
-                        n = realloc(arg_set_dns, sizeof(struct in_addr_data) * (arg_n_set_dns + 1));
+                        n = reallocarray(arg_set_dns, arg_n_set_dns + 1, sizeof(struct in_addr_data));
                         if (!n)
                                 return log_oom();
                         arg_set_dns = n;

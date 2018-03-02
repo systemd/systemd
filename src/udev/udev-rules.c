@@ -465,7 +465,7 @@ static int add_token(struct udev_rules *rules, struct token *token) {
                 if (add < 8)
                         add = 8;
 
-                tokens = realloc(rules->tokens, (rules->token_max + add ) * sizeof(struct token));
+                tokens = reallocarray(rules->tokens, rules->token_max + add, sizeof(struct token));
                 if (tokens == NULL)
                         return -1;
                 rules->tokens = tokens;
@@ -511,7 +511,7 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
                 if (add < 1)
                         add = 8;
 
-                uids = realloc(rules->uids, (rules->uids_max + add ) * sizeof(struct uid_gid));
+                uids = reallocarray(rules->uids, rules->uids_max + add, sizeof(struct uid_gid));
                 if (uids == NULL)
                         return uid;
                 rules->uids = uids;
@@ -554,7 +554,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
                 if (add < 1)
                         add = 8;
 
-                gids = realloc(rules->gids, (rules->gids_max + add ) * sizeof(struct uid_gid));
+                gids = reallocarray(rules->gids, rules->gids_max + add, sizeof(struct uid_gid));
                 if (gids == NULL)
                         return gid;
                 rules->gids = gids;
@@ -1544,7 +1544,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names) {
         udev_list_init(udev, &file_list, true);
 
         /* init token array and string buffer */
-        rules->tokens = malloc(PREALLOC_TOKEN * sizeof(struct token));
+        rules->tokens = malloc_multiply(PREALLOC_TOKEN, sizeof(struct token));
         if (rules->tokens == NULL)
                 return udev_rules_unref(rules);
         rules->token_max = PREALLOC_TOKEN;

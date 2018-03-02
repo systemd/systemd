@@ -1223,7 +1223,7 @@ int bus_socket_read_message(sd_bus *bus) {
                                         return -EIO;
                                 }
 
-                                f = realloc(bus->fds, sizeof(int) * (bus->n_fds + n));
+                                f = reallocarray(bus->fds, bus->n_fds + n, sizeof(int));
                                 if (!f) {
                                         close_many((int*) CMSG_DATA(cmsg), n);
                                         return -ENOMEM;
