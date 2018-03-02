@@ -40,6 +40,7 @@
 #include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
+#include "user-util.h"
 #include "util.h"
 #include "virt.h"
 
@@ -73,6 +74,51 @@ static void check(Manager *m, Unit *unit, int status_expected, int code_expected
         exec_status_dump(&service->main_exec_status, stdout, "\t");
         assert_se(service->main_exec_status.status == status_expected);
         assert_se(service->main_exec_status.code == code_expected);
+}
+
+static bool check_nobody_user_and_group(void) {
+        static int cache = -1;
+        struct passwd *p;
+        struct group *g;
+
+        if (cache >= 0)
+                return !!cache;
+
+        if (!synthesize_nobody())
+                goto invalid;
+
+        p = getpwnam(NOBODY_USER_NAME);
+        if (!p ||
+            !streq(p->pw_name, NOBODY_USER_NAME) ||
+            p->pw_uid != UID_NOBODY ||
+            p->pw_gid != GID_NOBODY)
+                goto invalid;
+
+        p = getpwuid(UID_NOBODY);
+        if (!p ||
+            !streq(p->pw_name, NOBODY_USER_NAME) ||
+            p->pw_uid != UID_NOBODY ||
+            p->pw_gid != GID_NOBODY)
+                goto invalid;
+
+        g = getgrnam(NOBODY_GROUP_NAME);
+        if (!g ||
+            !streq(g->gr_name, NOBODY_GROUP_NAME) ||
+            g->gr_gid != GID_NOBODY)
+                goto invalid;
+
+        g = getgrgid(GID_NOBODY);
+        if (!g ||
+            !streq(g->gr_name, NOBODY_GROUP_NAME) ||
+            g->gr_gid != GID_NOBODY)
+                goto invalid;
+
+        cache = 1;
+        return true;
+
+invalid:
+        cache = 0;
+        return false;
 }
 
 static bool is_inaccessible_available(void) {
@@ -332,33 +378,53 @@ static void test_exec_systemcallfilter_system(Manager *m) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (getpwnam("nobody"))
-                test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
-        else if (getpwnam("nfsnobody"))
-                test(m, "exec-systemcallfilter-system-user-nfsnobody.service", 0, CLD_EXITED);
-        else
-                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody user: %m", __func__);
+
+        test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
+
+        if (!check_nobody_user_and_group()) {
+                log_error_errno(errno, "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                return;
+        }
+
+        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
+                log_error("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                return;
+        }
+
+        test(m, "exec-systemcallfilter-system-user-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
 #endif
 }
 
 static void test_exec_user(Manager *m) {
-        if (getpwnam("nobody"))
-                test(m, "exec-user.service", 0, CLD_EXITED);
-        else if (getpwnam("nfsnobody"))
-                test(m, "exec-user-nfsnobody.service", 0, CLD_EXITED);
-        else
-                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody user: %m", __func__);
+        test(m, "exec-user.service", 0, CLD_EXITED);
+
+        if (!check_nobody_user_and_group()) {
+                log_error_errno(errno, "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                return;
+        }
+
+        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
+                log_error("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                return;
+        }
+
+        test(m, "exec-user-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
 }
 
 static void test_exec_group(Manager *m) {
-        if (getgrnam("nobody"))
-                test(m, "exec-group.service", 0, CLD_EXITED);
-        else if (getgrnam("nfsnobody"))
-                test(m, "exec-group-nfsnobody.service", 0, CLD_EXITED);
-        else if (getgrnam("nogroup"))
-                test(m, "exec-group-nogroup.service", 0, CLD_EXITED);
-        else
-                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody/nogroup group: %m", __func__);
+        test(m, "exec-group.service", 0, CLD_EXITED);
+
+        if (!check_nobody_user_and_group()) {
+                log_error_errno(errno, "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                return;
+        }
+
+        if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
+                log_error("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
+                return;
+        }
+
+        test(m, "exec-group-" NOBODY_GROUP_NAME ".service", 0, CLD_EXITED);
 }
 
 static void test_exec_supplementarygroups(Manager *m) {
@@ -442,12 +508,19 @@ static void test_exec_umask(Manager *m) {
 static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory.service", 0, CLD_EXITED);
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
-        if (getgrnam("nobody"))
-                test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
-        else if (getgrnam("nfsnobody"))
-                test(m, "exec-runtimedirectory-owner-nfsnobody.service", 0, CLD_EXITED);
-        else
-                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody group: %m", __func__);
+        test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+
+        if (!check_nobody_user_and_group()) {
+                log_error_errno(errno, "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                return;
+        }
+
+        if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
+                log_error("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
+                return;
+        }
+
+        test(m, "exec-runtimedirectory-owner-" NOBODY_GROUP_NAME ".service", 0, CLD_EXITED);
 }
 
 static void test_exec_capabilityboundingset(Manager *m) {
@@ -478,14 +551,21 @@ static void test_exec_capabilityambientset(Manager *m) {
                 return;
         }
 
-        if (getpwnam("nobody")) {
-                test(m, "exec-capabilityambientset.service", 0, CLD_EXITED);
-                test(m, "exec-capabilityambientset-merge.service", 0, CLD_EXITED);
-        } else if (getpwnam("nfsnobody")) {
-                test(m, "exec-capabilityambientset-nfsnobody.service", 0, CLD_EXITED);
-                test(m, "exec-capabilityambientset-merge-nfsnobody.service", 0, CLD_EXITED);
-        } else
-                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody user: %m", __func__);
+        test(m, "exec-capabilityambientset.service", 0, CLD_EXITED);
+        test(m, "exec-capabilityambientset-merge.service", 0, CLD_EXITED);
+
+        if (!check_nobody_user_and_group()) {
+                log_error_errno(errno, "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                return;
+        }
+
+        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
+                log_error("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                return;
+        }
+
+        test(m, "exec-capabilityambientset-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
+        test(m, "exec-capabilityambientset-merge-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
 }
 
 static void test_exec_privatenetwork(Manager *m) {

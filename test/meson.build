@@ -47,8 +47,10 @@ test_data_files = '''
         sysinit.target
         test-execute/exec-bindpaths.service
         test-execute/exec-capabilityambientset-merge-nfsnobody.service
+        test-execute/exec-capabilityambientset-merge-nobody.service
         test-execute/exec-capabilityambientset-merge.service
         test-execute/exec-capabilityambientset-nfsnobody.service
+        test-execute/exec-capabilityambientset-nobody.service
         test-execute/exec-capabilityambientset.service
         test-execute/exec-capabilityboundingset-invert.service
         test-execute/exec-capabilityboundingset-merge.service
@@ -68,6 +70,7 @@ test_data_files = '''
         test-execute/exec-environment.service
         test-execute/exec-environmentfile.service
         test-execute/exec-group-nfsnobody.service
+        test-execute/exec-group-nobody.service
         test-execute/exec-group-nogroup.service
         test-execute/exec-group.service
         test-execute/exec-ignoresigpipe-no.service
@@ -113,6 +116,8 @@ test_data_files = '''
         test-execute/exec-restrictnamespaces-yes.service
         test-execute/exec-runtimedirectory-mode.service
         test-execute/exec-runtimedirectory-owner-nfsnobody.service
+        test-execute/exec-runtimedirectory-owner-nobody.service
+        test-execute/exec-runtimedirectory-owner-nogroup.service
         test-execute/exec-runtimedirectory-owner.service
         test-execute/exec-runtimedirectory.service
         test-execute/exec-specifier-interpolation.service
@@ -133,6 +138,7 @@ test_data_files = '''
         test-execute/exec-systemcallfilter-not-failing.service
         test-execute/exec-systemcallfilter-not-failing2.service
         test-execute/exec-systemcallfilter-system-user-nfsnobody.service
+        test-execute/exec-systemcallfilter-system-user-nobody.service
         test-execute/exec-systemcallfilter-system-user.service
         test-execute/exec-systemcallfilter-with-errno-name.service
         test-execute/exec-systemcallfilter-with-errno-number.service
@@ -144,6 +150,7 @@ test_data_files = '''
         test-execute/exec-umask-default.service
         test-execute/exec-unsetenvironment.service
         test-execute/exec-user-nfsnobody.service
+        test-execute/exec-user-nobody.service
         test-execute/exec-user.service
         test-execute/exec-workingdirectory.service
         test-path/basic.target
