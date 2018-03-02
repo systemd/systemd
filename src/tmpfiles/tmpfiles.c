@@ -777,7 +777,7 @@ static bool dangerous_hardlinks(void) {
         return cached;
 }
 
-static bool hardlink_vulnerable(struct stat *st) {
+static bool hardlink_vulnerable(const struct stat *st) {
         assert(st);
 
         return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && dangerous_hardlinks();
