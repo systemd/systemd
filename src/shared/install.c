@@ -1461,6 +1461,9 @@ static int unit_file_search(
                 return -ENOENT;
         }
 
+        if (info->type == UNIT_FILE_TYPE_MASKED)
+                return result;
+
         /* Search for drop-in directories */
 
         dropin_dir_name = strjoina(info->name, ".d");
