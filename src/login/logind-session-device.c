@@ -164,7 +164,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
                 } else
                         /* DRM-Master is granted to the first user who opens a device automatically (ughh,
                          * racy!). Hence, we just drop DRM-Master in case we were the first. */
-                        sd_drmdropmaster(fd);
+                        (void) sd_drmdropmaster(fd);
                 break;
 
         case DEVICE_TYPE_EVDEV:
