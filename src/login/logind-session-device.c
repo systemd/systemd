@@ -222,7 +222,7 @@ static int session_device_start(SessionDevice *sd) {
 
         case DEVICE_TYPE_UNKNOWN:
         default:
-                /* fallback for devices wihout synchronizations */
+                /* fallback for devices without synchronizations */
                 break;
         }
 
@@ -237,6 +237,7 @@ static void session_device_stop(SessionDevice *sd) {
                 return;
 
         switch (sd->type) {
+
         case DEVICE_TYPE_DRM:
                 /* On DRM devices we simply drop DRM-Master but keep it open.
                  * This allows the user to keep resources allocated. The
@@ -244,6 +245,7 @@ static void session_device_stop(SessionDevice *sd) {
                  * circumventing this. */
                 sd_drmdropmaster(sd->fd);
                 break;
+
         case DEVICE_TYPE_EVDEV:
                 /* Revoke access on evdev file-descriptors during deactivation.
                  * This will basically prevent any operations on the fd and
@@ -251,6 +253,7 @@ static void session_device_stop(SessionDevice *sd) {
                  * protection this way. */
                 sd_eviocrevoke(sd->fd);
                 break;
+
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices without synchronization */
@@ -468,6 +471,7 @@ void session_device_resume_all(Session *s) {
                         continue;
                 if (session_device_save(sd) < 0)
                         continue;
+
                 session_device_notify(sd, SESSION_DEVICE_RESUME);
         }
 }
