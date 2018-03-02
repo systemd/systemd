@@ -483,27 +483,14 @@ int pull_verify(PullJob *main_job,
                         NULL  /* trailing NULL */
                 };
                 unsigned k = ELEMENTSOF(cmd) - 6;
-                int null_fd;
 
                 /* Child */
 
                 gpg_pipe[1] = safe_close(gpg_pipe[1]);
 
-                r = move_fd(gpg_pipe[0], STDIN_FILENO, false);
+                r = rearrange_stdio(gpg_pipe[0], -1, STDERR_FILENO);
                 if (r < 0) {
-                        log_error_errno(errno, "Failed to move fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                null_fd = open("/dev/null", O_WRONLY|O_NOCTTY);
-                if (null_fd < 0) {
-                        log_error_errno(errno, "Failed to open /dev/null: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = move_fd(null_fd, STDOUT_FILENO, false);
-                if (r < 0) {
-                        log_error_errno(errno, "Failed to move fd: %m");
+                        log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -523,8 +510,6 @@ int pull_verify(PullJob *main_job,
                         cmd[k++] = "-";
                         cmd[k++] = NULL;
                 }
-
-                stdio_unset_cloexec();
 
                 execvp("gpg2", (char * const *) cmd);
                 execvp("gpg", (char * const *) cmd);

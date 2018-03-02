@@ -54,25 +54,11 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
         }
         if (r == 0) {
                 char *empty_env = NULL;
-                int nullfd;
 
-                if (dup3(pipe_fds[1], STDOUT_FILENO, 0) < 0)
+                safe_close(pipe_fds[0]);
+
+                if (rearrange_stdio(-1, pipe_fds[1], -1) < 0)
                         _exit(EXIT_FAILURE);
-
-                safe_close_above_stdio(pipe_fds[0]);
-                safe_close_above_stdio(pipe_fds[1]);
-
-                nullfd = open("/dev/null", O_RDWR);
-                if (nullfd < 0)
-                        _exit(EXIT_FAILURE);
-
-                if (dup3(nullfd, STDIN_FILENO, 0) < 0)
-                        _exit(EXIT_FAILURE);
-
-                if (dup3(nullfd, STDERR_FILENO, 0) < 0)
-                        _exit(EXIT_FAILURE);
-
-                safe_close_above_stdio(nullfd);
 
                 close_all_fds(NULL, 0);
 

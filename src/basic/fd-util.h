@@ -71,7 +71,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DIR*, closedir);
 
 int fd_nonblock(int fd, bool nonblock);
 int fd_cloexec(int fd, bool cloexec);
-void stdio_unset_cloexec(void);
 
 int close_all_fds(const int except[], unsigned n_except);
 
@@ -100,3 +99,9 @@ int acquire_data_fd(const void *data, size_t size, unsigned flags);
         IN_SET(r, ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE, ENETUNREACH)
 
 int fd_move_above_stdio(int fd);
+
+int rearrange_stdio(int original_input_fd, int original_output_fd, int original_error_fd);
+
+static inline int make_null_stdio(void) {
+        return rearrange_stdio(-1, -1, -1);
+}

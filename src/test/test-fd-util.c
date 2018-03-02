@@ -25,6 +25,8 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "macro.h"
+#include "path-util.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "string-util.h"
 #include "util.h"
@@ -173,6 +175,72 @@ static void test_fd_move_above_stdio(void) {
         assert_se(close_nointr(new_fd) != EBADF);
 }
 
+static void test_rearrange_stdio(void) {
+        pid_t pid;
+        int r;
+
+        r = safe_fork("rearrange", FORK_WAIT|FORK_LOG, &pid);
+        assert_se(r >= 0);
+
+        if (r == 0) {
+                _cleanup_free_ char *path = NULL;
+                char buffer[10];
+
+                /* Child */
+
+                safe_close(STDERR_FILENO); /* Let's close an fd < 2, to make it more interesting */
+
+                assert_se(rearrange_stdio(-1, -1, -1) >= 0);
+
+                assert_se(fd_get_path(STDIN_FILENO, &path) >= 0);
+                assert_se(path_equal(path, "/dev/null"));
+                path = mfree(path);
+
+                assert_se(fd_get_path(STDOUT_FILENO, &path) >= 0);
+                assert_se(path_equal(path, "/dev/null"));
+                path = mfree(path);
+
+                assert_se(fd_get_path(STDOUT_FILENO, &path) >= 0);
+                assert_se(path_equal(path, "/dev/null"));
+                path = mfree(path);
+
+                safe_close(STDIN_FILENO);
+                safe_close(STDOUT_FILENO);
+                safe_close(STDERR_FILENO);
+
+                {
+                        int pair[2];
+                        assert_se(pipe(pair) >= 0);
+                        assert_se(pair[0] == 0);
+                        assert_se(pair[1] == 1);
+                        assert_se(fd_move_above_stdio(0) == 3);
+                }
+                assert_se(open("/dev/full", O_WRONLY|O_CLOEXEC) == 0);
+                assert_se(acquire_data_fd("foobar", 6, 0) == 2);
+
+                assert_se(rearrange_stdio(2, 0, 1) >= 0);
+
+                assert_se(write(1, "x", 1) < 0 && errno == ENOSPC);
+                assert_se(write(2, "z", 1) == 1);
+                assert_se(read(3, buffer, sizeof(buffer)) == 1);
+                assert_se(buffer[0] == 'z');
+                assert_se(read(0, buffer, sizeof(buffer)) == 6);
+                assert_se(memcmp(buffer, "foobar", 6) == 0);
+
+                assert_se(rearrange_stdio(-1, 1, 2) >= 0);
+                assert_se(write(1, "a", 1) < 0 && errno == ENOSPC);
+                assert_se(write(2, "y", 1) == 1);
+                assert_se(read(3, buffer, sizeof(buffer)) == 1);
+                assert_se(buffer[0] == 'y');
+
+                assert_se(fd_get_path(0, &path) >= 0);
+                assert_se(path_equal(path, "/dev/null"));
+                path = mfree(path);
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_close_many();
         test_close_nointr();
@@ -180,6 +248,7 @@ int main(int argc, char *argv[]) {
         test_open_serialization_fd();
         test_acquire_data_fd();
         test_fd_move_above_stdio();
+        test_rearrange_stdio();
 
         return 0;
 }

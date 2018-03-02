@@ -765,15 +765,10 @@ static int setup_confirm_stdio(const char *vc, int *_saved_stdin, int *_saved_st
         if (r < 0)
                 return r;
 
-        if (dup2(fd, STDIN_FILENO) < 0)
-                return -errno;
-
-        if (dup2(fd, STDOUT_FILENO) < 0)
-                return -errno;
-
-        if (fd >= 2)
-                safe_close(fd);
+        r = rearrange_stdio(fd, fd, STDERR_FILENO);
         fd = -1;
+        if (r < 0)
+                return r;
 
         *_saved_stdin = saved_stdin;
         *_saved_stdout = saved_stdout;
