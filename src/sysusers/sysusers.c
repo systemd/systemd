@@ -1599,11 +1599,12 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                                         i->id_set_strict = true;
                                         free_and_replace(resolved_id, uid);
                                 }
-                                r = parse_uid(resolved_id, &i->uid);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse UID: '%s': %m", id);
-
-                                i->uid_set = true;
+                                if (!streq(resolved_id, "-")) {
+                                        r = parse_uid(resolved_id, &i->uid);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse UID: '%s': %m", id);
+                                        i->uid_set = true;
+                                }
                         }
                 }
 
