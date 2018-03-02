@@ -300,9 +300,9 @@ option('install-tests', type : 'boolean', value : 'false',
 
 option('ok-color', type: 'combo',
        choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
-                  'white', 'highlight_black', 'highlight_red', 'highlight_green',
-                  'highlight_yellow', 'highlight_blue', 'highlight_magenta',
-                  'highlight_cyan', 'highlight_white'],
+                  'white', 'highlight-black', 'highlight-red', 'highlight-green',
+                  'highlight-yellow', 'highlight-blue', 'highlight-magenta',
+                  'highlight-cyan', 'highlight-white'],
        value : 'green',
        description: 'color of the "OK" status message')
 
