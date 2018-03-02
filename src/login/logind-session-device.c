@@ -106,7 +106,7 @@ static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotificati
         return sd_bus_send(sd->session->manager->bus, m, NULL);
 }
 
-static int sd_eviocrevoke(int fd) {
+static void sd_eviocrevoke(int fd) {
         static bool warned = false;
 
         assert(fd >= 0);
@@ -118,8 +118,6 @@ static int sd_eviocrevoke(int fd) {
                         warned = true;
                 }
         }
-
-        return 0;
 }
 
 static int sd_drmsetmaster(int fd) {
@@ -166,7 +164,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
                 } else
                         /* DRM-Master is granted to the first user who opens a device automatically (ughh,
                          * racy!). Hence, we just drop DRM-Master in case we were the first. */
-                        sd_drmdropmaster(fd);
+                        (void) sd_drmdropmaster(fd);
                 break;
 
         case DEVICE_TYPE_EVDEV:
@@ -195,11 +193,19 @@ static int session_device_start(SessionDevice *sd) {
         switch (sd->type) {
 
         case DEVICE_TYPE_DRM:
-                /* Device is kept open. Simply call drmSetMaster() and hope there is no-one else. In case it fails, we
-                 * keep the device paused. Maybe at some point we have a drmStealMaster(). */
-                r = sd_drmsetmaster(sd->fd);
-                if (r < 0)
-                        return r;
+
+                if (sd->fd < 0) {
+                        /* Open device if it isn't open yet */
+                        sd->fd = session_device_open(sd, true);
+                        if (sd->fd < 0)
+                                return sd->fd;
+                } else {
+                        /* Device is kept open. Simply call drmSetMaster() and hope there is no-one else. In case it fails, we
+                         * keep the device paused. Maybe at some point we have a drmStealMaster(). */
+                        r = sd_drmsetmaster(sd->fd);
+                        if (r < 0)
+                                return r;
+                }
                 break;
 
         case DEVICE_TYPE_EVDEV:
@@ -216,7 +222,7 @@ static int session_device_start(SessionDevice *sd) {
 
         case DEVICE_TYPE_UNKNOWN:
         default:
-                /* fallback for devices wihout synchronizations */
+                /* fallback for devices without synchronizations */
                 break;
         }
 
@@ -231,6 +237,7 @@ static void session_device_stop(SessionDevice *sd) {
                 return;
 
         switch (sd->type) {
+
         case DEVICE_TYPE_DRM:
                 /* On DRM devices we simply drop DRM-Master but keep it open.
                  * This allows the user to keep resources allocated. The
@@ -238,6 +245,7 @@ static void session_device_stop(SessionDevice *sd) {
                  * circumventing this. */
                 sd_drmdropmaster(sd->fd);
                 break;
+
         case DEVICE_TYPE_EVDEV:
                 /* Revoke access on evdev file-descriptors during deactivation.
                  * This will basically prevent any operations on the fd and
@@ -245,6 +253,7 @@ static void session_device_stop(SessionDevice *sd) {
                  * protection this way. */
                 sd_eviocrevoke(sd->fd);
                 break;
+
         case DEVICE_TYPE_UNKNOWN:
         default:
                 /* fallback for devices without synchronization */
@@ -462,6 +471,7 @@ void session_device_resume_all(Session *s) {
                         continue;
                 if (session_device_save(sd) < 0)
                         continue;
+
                 session_device_notify(sd, SESSION_DEVICE_RESUME);
         }
 }
