@@ -3,8 +3,16 @@ set -eu
 
 cd "$1"
 
+unset permissive
+if [ "$2" = "-p" ]; then
+        permissive=1
+        shift
+fi
+
 if [ "${2:-}" != "-n" ]; then (
+        [ -z "$permissive" ] || set +e
         set -x
+
         curl -L -o usb.ids 'http://www.linux-usb.org/usb.ids'
         curl -L -o pci.ids 'http://pci-ids.ucw.cz/v2.2/pci.ids'
         curl -L -o ma-large.txt 'http://standards-oui.ieee.org/oui/oui.txt'
