@@ -193,11 +193,19 @@ static int session_device_start(SessionDevice *sd) {
         switch (sd->type) {
 
         case DEVICE_TYPE_DRM:
-                /* Device is kept open. Simply call drmSetMaster() and hope there is no-one else. In case it fails, we
-                 * keep the device paused. Maybe at some point we have a drmStealMaster(). */
-                r = sd_drmsetmaster(sd->fd);
-                if (r < 0)
-                        return r;
+
+                if (sd->fd < 0) {
+                        /* Open device if it isn't open yet */
+                        sd->fd = session_device_open(sd, true);
+                        if (sd->fd < 0)
+                                return sd->fd;
+                } else {
+                        /* Device is kept open. Simply call drmSetMaster() and hope there is no-one else. In case it fails, we
+                         * keep the device paused. Maybe at some point we have a drmStealMaster(). */
+                        r = sd_drmsetmaster(sd->fd);
+                        if (r < 0)
+                                return r;
+                }
                 break;
 
         case DEVICE_TYPE_EVDEV:
