@@ -1,0 +1,5 @@
+# check that 'm' lines do not conflicts 'u' line
+#
+#Type Name ID  GECOS HOMEDIR
+u     u1   300 -     -
+m     u2   u1

@@ -1209,12 +1209,25 @@ static int process_item(Item *i) {
 
         switch (i->type) {
 
-        case ADD_USER:
-                r = add_group(i);
-                if (r < 0)
-                        return r;
+        case ADD_USER: {
+                Item *j;
+
+                j = ordered_hashmap_get(groups, i->name);
+                if (j && j->todo_group) {
+                        /* When the group with the same name is already in queue,
+                         * use the information about the group and do not create
+                         * duplicated group entry. */
+                        i->gid_set = j->gid_set;
+                        i->gid = j->gid;
+                        i->id_set_strict = true;
+                } else {
+                        r = add_group(i);
+                        if (r < 0)
+                                return r;
+                }
 
                 return add_user(i);
+        }
 
         case ADD_GROUP:
                 return add_group(i);
@@ -1246,40 +1259,11 @@ static int add_implicit(void) {
         int r;
 
         /* Implicitly create additional users and groups, if they were listed in "m" lines */
-
         ORDERED_HASHMAP_FOREACH_KEY(l, g, members, iterator) {
-                Item *i;
                 char **m;
 
-                i = ordered_hashmap_get(groups, g);
-                if (!i) {
-                        _cleanup_(item_freep) Item *j = NULL;
-
-                        r = ordered_hashmap_ensure_allocated(&groups, &string_hash_ops);
-                        if (r < 0)
-                                return log_oom();
-
-                        j = new0(Item, 1);
-                        if (!j)
-                                return log_oom();
-
-                        j->type = ADD_GROUP;
-                        j->name = strdup(g);
-                        if (!j->name)
-                                return log_oom();
-
-                        r = ordered_hashmap_put(groups, j->name, j);
-                        if (r < 0)
-                                return log_oom();
-
-                        log_debug("Adding implicit group '%s' due to m line", j->name);
-                        j = NULL;
-                }
-
-                STRV_FOREACH(m, l) {
-
-                        i = ordered_hashmap_get(users, *m);
-                        if (!i) {
+                STRV_FOREACH(m, l)
+                        if (!ordered_hashmap_get(users, *m)) {
                                 _cleanup_(item_freep) Item *j = NULL;
 
                                 r = ordered_hashmap_ensure_allocated(&users, &string_hash_ops);
@@ -1302,6 +1286,30 @@ static int add_implicit(void) {
                                 log_debug("Adding implicit user '%s' due to m line", j->name);
                                 j = NULL;
                         }
+
+                if (!(ordered_hashmap_get(users, g) ||
+                      ordered_hashmap_get(groups, g))) {
+                        _cleanup_(item_freep) Item *j = NULL;
+
+                        r = ordered_hashmap_ensure_allocated(&groups, &string_hash_ops);
+                        if (r < 0)
+                                return log_oom();
+
+                        j = new0(Item, 1);
+                        if (!j)
+                                return log_oom();
+
+                        j->type = ADD_GROUP;
+                        j->name = strdup(g);
+                        if (!j->name)
+                                return log_oom();
+
+                        r = ordered_hashmap_put(groups, j->name, j);
+                        if (r < 0)
+                                return log_oom();
+
+                        log_debug("Adding implicit group '%s' due to m line", j->name);
+                        j = NULL;
                 }
         }
 
