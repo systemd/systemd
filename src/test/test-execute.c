@@ -538,7 +538,7 @@ static void test_exec_capabilityboundingset(Manager *m) {
         test(m, "exec-capabilityboundingset-invert.service", 0, CLD_EXITED);
 }
 
-static void test_exec_capabilityambientset(Manager *m) {
+static void test_exec_ambientcapabilities(Manager *m) {
         int r;
 
         /* Check if the kernel has support for ambient capabilities. Run
@@ -551,8 +551,8 @@ static void test_exec_capabilityambientset(Manager *m) {
                 return;
         }
 
-        test(m, "exec-capabilityambientset.service", 0, CLD_EXITED);
-        test(m, "exec-capabilityambientset-merge.service", 0, CLD_EXITED);
+        test(m, "exec-ambientcapabilities.service", 0, CLD_EXITED);
+        test(m, "exec-ambientcapabilities-merge.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
                 log_error_errno(errno, "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
@@ -564,8 +564,8 @@ static void test_exec_capabilityambientset(Manager *m) {
                 return;
         }
 
-        test(m, "exec-capabilityambientset-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
-        test(m, "exec-capabilityambientset-merge-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
+        test(m, "exec-ambientcapabilities-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
+        test(m, "exec-ambientcapabilities-merge-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
 }
 
 static void test_exec_privatenetwork(Manager *m) {
@@ -633,8 +633,8 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         static const test_function_t user_tests[] = {
+                test_exec_ambientcapabilities,
                 test_exec_bindpaths,
-                test_exec_capabilityambientset,
                 test_exec_capabilityboundingset,
                 test_exec_cpuaffinity,
                 test_exec_environment,
