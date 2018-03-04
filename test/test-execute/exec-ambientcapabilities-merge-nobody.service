@@ -2,8 +2,8 @@
 Description=Test for AmbientCapabilities
 
 [Service]
-ExecStart=/bin/sh -x -c 'c=$$(grep "CapAmb:" /proc/self/status); test "$$c" = "CapAmb:	0000000000003000"'
+ExecStart=/bin/sh -x -c 'c=$$(grep "CapAmb:" /proc/self/status); test "$$c" = "CapAmb:	0000000000002001"'
 Type=oneshot
 User=nobody
-AmbientCapabilities=CAP_NET_ADMIN
+AmbientCapabilities=CAP_CHOWN
 AmbientCapabilities=CAP_NET_RAW

@@ -559,7 +559,7 @@ static void test_exec_ambientcapabilities(Manager *m) {
                 return;
         }
 
-        if (have_effective_cap(CAP_NET_ADMIN) <= 0 ||
+        if (have_effective_cap(CAP_CHOWN) <= 0 ||
             have_effective_cap(CAP_NET_RAW) <= 0) {
                 log_notice("Skipping %s, this process does not have enough capabilities", __func__);
                 return;
