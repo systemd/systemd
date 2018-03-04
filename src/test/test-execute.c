@@ -248,7 +248,7 @@ static void test_exec_privatedevices(Manager *m) {
          * properly set, so be sure that it exists */
         r = find_binary("capsh", NULL);
         if (r < 0) {
-                log_error_errno(r, "Could not find capsh binary, skipping remaining tests in %s: %m", __func__);
+                log_notice_errno(r, "Could not find capsh binary, skipping remaining tests in %s: %m", __func__);
                 return;
         }
 
@@ -272,7 +272,7 @@ static void test_exec_protectkernelmodules(Manager *m) {
 
         r = find_binary("capsh", NULL);
         if (r < 0) {
-                log_error_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
+                log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
                 return;
         }
 
@@ -382,12 +382,12 @@ static void test_exec_systemcallfilter_system(Manager *m) {
         test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_error_errno(errno, "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_error("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
                 return;
         }
 
@@ -399,12 +399,12 @@ static void test_exec_user(Manager *m) {
         test(m, "exec-user.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_error_errno(errno, "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_error("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
                 return;
         }
 
@@ -415,12 +415,12 @@ static void test_exec_group(Manager *m) {
         test(m, "exec-group.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_error_errno(errno, "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
-                log_error("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
+                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
                 return;
         }
 
@@ -511,12 +511,12 @@ static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_error_errno(errno, "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
-                log_error("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
+                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
                 return;
         }
 
@@ -528,7 +528,7 @@ static void test_exec_capabilityboundingset(Manager *m) {
 
         r = find_binary("capsh", NULL);
         if (r < 0) {
-                log_error_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
+                log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
                 return;
         }
 
@@ -547,7 +547,7 @@ static void test_exec_ambientcapabilities(Manager *m) {
          * in the first place for the tests. */
         r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
         if (r < 0 && IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS)) {
-                log_error("Skipping %s, the kernel does not support ambient capabilities", __func__);
+                log_notice("Skipping %s, the kernel does not support ambient capabilities", __func__);
                 return;
         }
 
@@ -555,12 +555,12 @@ static void test_exec_ambientcapabilities(Manager *m) {
         test(m, "exec-ambientcapabilities-merge.service", 0, CLD_EXITED);
 
         if (!check_nobody_user_and_group()) {
-                log_error_errno(errno, "nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
                 return;
         }
 
         if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
-                log_error("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
                 return;
         }
 
@@ -573,7 +573,7 @@ static void test_exec_privatenetwork(Manager *m) {
 
         r = find_binary("ip", NULL);
         if (r < 0) {
-                log_error_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
+                log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
                 return;
         }
 
