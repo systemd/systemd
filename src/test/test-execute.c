@@ -24,6 +24,7 @@
 #include <sys/prctl.h>
 #include <sys/types.h>
 
+#include "capability-util.h"
 #include "cpu-set-util.h"
 #include "errno-list.h"
 #include "fileio.h"
@@ -532,6 +533,13 @@ static void test_exec_capabilityboundingset(Manager *m) {
                 return;
         }
 
+        if (have_effective_cap(CAP_CHOWN) <= 0 ||
+            have_effective_cap(CAP_FOWNER) <= 0 ||
+            have_effective_cap(CAP_KILL) <= 0) {
+                log_notice("Skipping %s, this process does not have enough capabilities", __func__);
+                return;
+        }
+
         test(m, "exec-capabilityboundingset-simple.service", 0, CLD_EXITED);
         test(m, "exec-capabilityboundingset-reset.service", 0, CLD_EXITED);
         test(m, "exec-capabilityboundingset-merge.service", 0, CLD_EXITED);
@@ -548,6 +556,12 @@ static void test_exec_ambientcapabilities(Manager *m) {
         r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
         if (r < 0 && IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS)) {
                 log_notice("Skipping %s, the kernel does not support ambient capabilities", __func__);
+                return;
+        }
+
+        if (have_effective_cap(CAP_NET_ADMIN) <= 0 ||
+            have_effective_cap(CAP_NET_RAW) <= 0) {
+                log_notice("Skipping %s, this process does not have enough capabilities", __func__);
                 return;
         }
 
