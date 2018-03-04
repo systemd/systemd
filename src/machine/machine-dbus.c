@@ -1204,7 +1204,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 
                 containerfd = open(container_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
                 if (containerfd < 0) {
-                        r = log_error_errno(errno, "Failed top open destination directory: %m");
+                        r = log_error_errno(errno, "Failed to open destination directory: %m");
                         goto child_fail;
                 }
 

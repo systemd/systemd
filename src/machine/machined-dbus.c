@@ -1327,7 +1327,7 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
                 xsprintf(p, "/proc/" UID_FMT "/uid_map", machine->leader);
                 f = fopen(p, "re");
                 if (!f) {
-                        log_warning_errno(errno, "Failed top open %s, ignoring,", p);
+                        log_warning_errno(errno, "Failed to open %s, ignoring,", p);
                         continue;
                 }
 
@@ -1445,7 +1445,7 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
                 xsprintf(p, "/proc/" GID_FMT "/gid_map", machine->leader);
                 f = fopen(p, "re");
                 if (!f) {
-                        log_warning_errno(errno, "Failed top open %s, ignoring,", p);
+                        log_warning_errno(errno, "Failed to open %s, ignoring,", p);
                         continue;
                 }
 

@@ -468,7 +468,7 @@ static bool wall_tty_match(const char *path, void *userdata) {
 
         fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                log_debug_errno(errno, "Failed top open the wall pipe: %m");
+                log_debug_errno(errno, "Failed to open the wall pipe: %m");
                 return 1;
         }
 
