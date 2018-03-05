@@ -408,9 +408,15 @@ static void test_cg_tests(void) {
 static void test_cg_get_keyed_attribute(void) {
         _cleanup_free_ char *val = NULL;
         char *vals3[3] = {}, *vals3a[3] = {};
-        int i;
+        int i, r;
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val) == -ENOENT);
+        r = cg_get_keyed_attribute("cpu", "/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
+        if (r == -ENOMEDIUM) {
+                log_info_errno(r, "Skipping most of %s, /sys/fs/cgroup not accessible: %m", __func__);
+                return;
+        }
+
+        assert_se(r == -ENOENT);
         assert_se(val == NULL);
 
         if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0) {
