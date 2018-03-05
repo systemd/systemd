@@ -406,7 +406,7 @@ static void test_capeff(void) {
 
 static void test_write_string_stream(void) {
         char fn[] = "/tmp/test-write_string_stream-XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
+        FILE *f = NULL;
         int fd;
         char buf[64];
 
@@ -416,8 +416,9 @@ static void test_write_string_stream(void) {
         f = fdopen(fd, "r");
         assert_se(f);
         assert_se(write_string_stream(f, "boohoo", 0) < 0);
+        f = safe_fclose(f);
 
-        f = freopen(fn, "r+", f);
+        f = fopen(fn, "r+");
         assert_se(f);
 
         assert_se(write_string_stream(f, "boohoo", 0) == 0);
@@ -425,8 +426,9 @@ static void test_write_string_stream(void) {
 
         assert_se(fgets(buf, sizeof(buf), f));
         assert_se(streq(buf, "boohoo\n"));
+        f = safe_fclose(f);
 
-        f = freopen(fn, "w+", f);
+        f = fopen(fn, "w+");
         assert_se(f);
 
         assert_se(write_string_stream(f, "boohoo", WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
@@ -435,6 +437,7 @@ static void test_write_string_stream(void) {
         assert_se(fgets(buf, sizeof(buf), f));
         printf(">%s<", buf);
         assert_se(streq(buf, "boohoo"));
+        f = safe_fclose(f);
 
         unlink(fn);
 }
