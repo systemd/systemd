@@ -16,7 +16,7 @@
 # along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 project('systemd', 'c',
-        version : '237',
+        version : '238',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu99',
@@ -27,8 +27,8 @@ project('systemd', 'c',
         meson_version : '>= 0.41',
        )
 
-libsystemd_version = '0.21.0'
-libudev_version = '1.6.9'
+libsystemd_version = '0.22.0'
+libudev_version = '1.6.10'
 
 # We need the same data in three different formats, ugh!
 # Also, for hysterical reasons, we use different variable
