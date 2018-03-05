@@ -16,6 +16,127 @@ CHANGES WITH 238 in spe:
           kernels is a necessity, -Dmemory-accounting-default=false can be used
           to revert this change.
 
+        * rpm scriptlets to update the udev hwdb and rules (%udev_hwdb_update,
+          %udev_rules_update) and the journal catalog (%journal_catalog_update)
+          from the upgrade scriptlets of individual packages now do nothing.
+          Transfiletriggers have been added which will perform those updates
+          once at the end of the transaction.
+
+          Similar transfiletriggers have been added to execute any sysctl.d
+          and binfmt.d rules. Thus, it should be unnecessary to provide any
+          scriptlets to execute this configuration from package installation
+          scripts.
+
+        * systemd-sysusers gained a mode where the configuration to execute is
+          specified on the command line, but this configuration is not executed
+          directly, but instead it is merged with the configuration on disk,
+          and the result is executed. This is useful for package installation
+          scripts which want to create the user before installing any files on
+          disk (in case some of those files are owned by that user), while
+          still allowing local admin overrides.
+
+          This functionality is exposed to rpm scriplets through a new
+          %sysusers_create_package macro. Old %sysusers_create and
+          %sysusers_create_inline macros are deprecated.
+
+          A transfiletrigger for sysusers.d configuration is now installed,
+          which means that it should be uncessary to call systemd-sysusers from
+          package installation scripts, unless the package installs any files
+          owned by those newly-created users, in which case
+          %sysusers_create_package should be used.
+
+        * Analogous change has been done for systemd-tmpfiles: it gained a mode
+          where the command-line configuration is merged with the configuration
+          on disk. This is exposed as the new %tmpfiles_create_package macro,
+          and %tmpfiles_create is deprecated. A transfiletrigger is installed
+          for tmpfiles.d, hence it should be unnecessary to call systemd-tmpfiles
+          from package installation scripts.
+
+        * sysusers.d configuration for a user may now also specify the group
+          number, in addition to the user number ("u username 123:456"), or
+          without the user number ("u username -:456").
+
+        * Configution items for systemd-sysusers can now be specified as
+          positional arguments when the new --inline switch is used.
+
+        * The login shell of users created through sysusers.d may now be
+          specified (previously, it was always /bin/sh for root and
+          /sbin/nologin for other users).
+
+        * systemd-analyze gained a new --global switch to look at global user
+          configuration. It also gained a unit-paths verb to list the unit load
+          paths that are compiled into systemd (which can be used with
+          --systemd, --user, or --global).
+
+        * udevadm trigger gained a new --settle/-w option to wait for any
+          triggered events to finish (but just those, and not any other events
+          which are triggered meanwhile).
+
+        * The action that systemd-logind takes when the lid is closed and the
+          machine is connected to external power can now be configured using
+          HandleLidSwitchExternalPower= in logind.conf. Previously, this action
+          was determined by HandleLidSwitch=, and, for backwards compatibility,
+          is still is, if HandleLidSwitchExternalPower= is not explicitly set.
+
+        * journalctl will periodically call sd_journal_process() to make it
+          resilient against inotify queue overruns when journal files are
+          rotated very quickly.
+
+        * Two new functions in libsystemd — sd_bus_get_n_queued_read and
+          sd_bus_get_n_queued_write — may be used to check the number of
+          pending bus messages.
+
+        * systemd gained a new
+          org.freedesktop.systemd1.Manager.AttachProcessesToUnit dbus call
+          which can be used to migrate foreign processes to scope and service
+          units. The primary user for this new API is systemd itself: the
+          systemd --user instance uses this call of the systemd --system
+          instance to migrate processes if it itself gets the request to
+          migrate processes and the kernel refuses this due to access
+          restrictions.  Thanks to this "systemd-run --scope --user …" works
+          again in pure cgroups v2 environments when invoked from the user
+          session scope.
+
+        * A new TemporaryFileSystem= setting can be used to mask out part of
+          the real file system tree with tmpfs mounts. This may be combined
+          with BindPaths= and BindReadOnlyPaths= to hide files or directories
+          not relevant to the unit, while still allowing some paths lower in
+          the tree to be accessed.
+
+          ProtectHome=tmpfs may now be used to hide user home and runtime
+          directories from units, in a way that is mostly equivalent to
+          "TemporaryFileSystem=/home /run/user /root".
+
+        * Non-service units are now started with KeyringMode=shared by default.
+          This means that mount and swapon and other mount tools have access
+          to keys in the main keyring.
+
+        * /sys/fs/bpf is now mounted automatically.
+
+        * QNX virtualization is now detected by systemd-detect-virt and may
+          be used in ConditionVirtualization=.
+
+        * IPAccounting= may now be enabled also for slice units.
+
+        * A new -Dsplit-bin= build configuration switch may be used to specify
+          whether bin and sbin directories are merged, or if they should be
+          included separately in $PATH and various listings of executable
+          directories. The build configuration scripts will try to autodetect
+          the proper values of -Dsplit-usr= and -Dsplit-bin= based on build
+          system, but distributions are encouraged to configure this
+          explicitly.
+
+        * A new -Dok-color= build configuration switch may be used to change
+          the colour of "OK" status messages.
+
+        * UPGRADE ISSUE: serialization of units using JoinsNamespaceOf= with
+          PrivateNetwork=yes was buggy in previous versions of systemd. This
+          means that after the upgrade and daemon-reexec, any such units must
+          be restarted.
+
+        * INCOMPATIBILITY: as announced in the NEWS for 237, systemd-tmpfiles
+          will not exclude read-only files owned by root from cleanup.
+
 CHANGES WITH 237:
 
         * Some keyboards come with a zoom see-saw or rocker which until now got

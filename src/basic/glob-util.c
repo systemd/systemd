@@ -29,7 +29,7 @@
 #include "path-util.h"
 #include "strv.h"
 
-static void _closedir(void* v) {
+static void closedir_wrapper(void* v) {
         (void) closedir(v);
 }
 
@@ -40,7 +40,7 @@ int safe_glob(const char *path, int flags, glob_t *pglob) {
         assert(!(flags & GLOB_ALTDIRFUNC));
 
         if (!pglob->gl_closedir)
-                pglob->gl_closedir = _closedir;
+                pglob->gl_closedir = closedir_wrapper;
         if (!pglob->gl_readdir)
                 pglob->gl_readdir = (struct dirent *(*)(void *)) readdir_no_dot;
         if (!pglob->gl_opendir)
