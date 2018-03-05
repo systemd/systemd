@@ -94,10 +94,7 @@ static int add_match(sd_journal *j, const char *match) {
         else
                 prefix = "COREDUMP_COMM=";
 
-        pattern = strjoin(prefix, match);
-        if (!pattern)
-                return log_oom();
-
+        pattern = strjoina(prefix, match);
         log_debug("Adding match: %s", pattern);
         r = sd_journal_add_match(j, pattern, 0);
         if (r < 0)
