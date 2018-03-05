@@ -45,13 +45,13 @@ test_data_files = '''
         sockets.target
         son.service
         sysinit.target
+        test-execute/exec-ambientcapabilities-merge-nfsnobody.service
+        test-execute/exec-ambientcapabilities-merge-nobody.service
+        test-execute/exec-ambientcapabilities-merge.service
+        test-execute/exec-ambientcapabilities-nfsnobody.service
+        test-execute/exec-ambientcapabilities-nobody.service
+        test-execute/exec-ambientcapabilities.service
         test-execute/exec-bindpaths.service
-        test-execute/exec-capabilityambientset-merge-nfsnobody.service
-        test-execute/exec-capabilityambientset-merge-nobody.service
-        test-execute/exec-capabilityambientset-merge.service
-        test-execute/exec-capabilityambientset-nfsnobody.service
-        test-execute/exec-capabilityambientset-nobody.service
-        test-execute/exec-capabilityambientset.service
         test-execute/exec-capabilityboundingset-invert.service
         test-execute/exec-capabilityboundingset-merge.service
         test-execute/exec-capabilityboundingset-reset.service
