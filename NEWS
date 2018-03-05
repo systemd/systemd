@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 238 in spe:
+CHANGES WITH 238:
 
         * The MemoryAccounting= unit property now defaults to on. After
           discussions with the upstream control group maintainers we learnt
@@ -136,6 +136,25 @@ CHANGES WITH 238 in spe:
 
         * INCOMPATIBILITY: as announced in the NEWS for 237, systemd-tmpfiles
           will not exclude read-only files owned by root from cleanup.
+
+        Contributions from: Alan Jenkins, Alexander F Rødseth, Alexis Jeandet,
+        Andika Triwidada, Andrei Gherzan, Ansgar Burchardt, antizealot1337,
+        Batuhan Osman Taşkaya, Beniamino Galvani, Bill Yodlowsky, Caio Marcelo
+        de Oliveira Filho, CuBiC, Daniele Medri, Daniel Mouritzen, Daniel
+        Rusek, Davide Cavalca, Dimitri John Ledkov, Douglas Christman, Evgeny
+        Vereshchagin, Faalagorn, Filipe Brandenburger, Franck Bui, futpib,
+        Giacomo Longo, Gunnar Hjalmarsson, Hans de Goede, Hermann Gausterer,
+        Iago López Galeiras, Jakub Filak, Jan Synacek, Jason A. Donenfeld,
+        Javier Martinez Canillas, Jérémy Rosen, Lennart Poettering, Lucas
+        Werkmeister, Mao Huang, Marco Gulino, Michael Biebl, Michael Vogt,
+        MilhouseVH, Neal Gompa (ニール・ゴンパ), Oleander Reis, Olof Mogren,
+        Patrick Uiterwijk, Peter Hutterer, Peter Portante, Piotr Drąg, Robert
+        Antoni Buj Gelonch, Sergey Ptashnick, Shawn Landden, Shuang Liu, Simon
+        Fowler, SjonHortensius, snorreflorre, Susant Sahani, Sylvain
+        Plantefève, Thomas Blume, Thomas Haller, Vito Caputo, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek, Марко М. Костић (Marko M. Kostić)
+
+        — Warsaw, 2018-03-05
 
 CHANGES WITH 237:
 
