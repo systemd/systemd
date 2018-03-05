@@ -610,7 +610,8 @@ static void test_writing_tmpfile(void) {
         char name[] = "/tmp/test-systemd_writing_tmpfile.XXXXXX";
         _cleanup_free_ char *contents = NULL;
         size_t size;
-        int fd, r;
+        int r;
+        _cleanup_close_ int fd = -1;
         struct iovec iov[3];
 
         iov[0] = IOVEC_MAKE_STRING("abc\n");
