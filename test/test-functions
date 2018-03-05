@@ -1383,8 +1383,8 @@ inst_libdir_file() {
 }
 
 setup_suse() {
-    ln -s ../usr/bin/systemctl $initdir/bin/systemctl
-    ln -s ../usr/lib/systemd $initdir/lib/systemd
+    ln -fs ../usr/bin/systemctl $initdir/bin/
+    ln -fs ../usr/lib/systemd $initdir/lib/
     inst_simple "/usr/lib/systemd/system/haveged.service"
 }
 
