@@ -526,7 +526,7 @@ int session_device_save(SessionDevice *sd) {
                 return 0;
 
         m = strjoina("FDSTORE=1\n"
-                     "FDNAME=session", sd->session->id);
+                     "FDNAME=session-", sd->session->id);
 
         r = sd_pid_notify_with_fds(0, false, m, &sd->fd, 1);
         if (r < 0)
@@ -543,5 +543,6 @@ void session_device_attach_fd(SessionDevice *sd, int fd, bool active) {
         assert(!sd->active);
 
         sd->fd = fd;
+        sd->pushed_fd = true;
         sd->active = active;
 }
