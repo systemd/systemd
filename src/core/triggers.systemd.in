@@ -84,7 +84,7 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -P 100500 --  @tmpfilesdir@
+%transfiletriggerin -P 100500 -p <lua> -- @tmpfilesdir@
 -- This script will process files installed in @tmpfilesdir@ to create
 -- tmpfiles automatically. The priority is set such that it will run
 -- after the sysusers file trigger, but before any other triggers.
@@ -97,7 +97,7 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin --  @udevhwdbdir@
+%transfiletriggerin -p <lua> -- @udevhwdbdir@
 -- This script will automatically invoke hwdb update if files have been
 -- installed or updated in @udevhwdbdir@.
 if posix.access("/run/systemd/system") then
@@ -109,7 +109,7 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin --  @catalogdir@
+%transfiletriggerin -p <lua> -- @catalogdir@
 -- This script will automatically invoke journal catalog update if files
 -- have been installed or updated in @catalogdir@.
 if posix.access("/run/systemd/system") then
@@ -121,7 +121,7 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -- @udevrulesdir@
+%transfiletriggerin -p <lua> -- @udevrulesdir@
 -- This script will automatically update udev with new rules if files
 -- have been installed or updated in @udevrulesdir@.
 if posix.access("/run/systemd/system") then
@@ -133,7 +133,7 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -- @sysctldir@
+%transfiletriggerin -p <lua> -- @sysctldir@
 -- This script will automatically apply sysctl rules if files have been
 -- installed or updated in @sysctldir@.
 if posix.access("/run/systemd/system") then
@@ -145,7 +145,7 @@ if posix.access("/run/systemd/system") then
     end
 end
 
-%transfiletriggerin -- @binfmtdir@
+%transfiletriggerin -p <lua> -- @binfmtdir@
 -- This script will automatically apply binfmt rules if files have been
 -- installed or updated in @binfmtdir@.
 if posix.access("/run/systemd/system") then
