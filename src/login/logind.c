@@ -453,8 +453,8 @@ static int manager_attach_fds(Manager *m) {
                         continue;
                 }
 
-                if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
-                        log_debug("Device fd doesn't actually point to device node: %m");
+                if (!S_ISCHR(st.st_mode)) {
+                        log_debug("Device fd doesn't point to a character device node");
                         close_nointr(fd);
                         continue;
                 }
