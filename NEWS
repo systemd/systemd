@@ -11,7 +11,7 @@ CHANGES WITH 238:
           other forms of resource accounting (CPU, IO, IP) remain off for now,
           because it's not clear yet that their impact is small enough to move
           from opt-in to opt-out. We recommend downstreams to leave memory
-          accounting on by default if kernel 4.14 or higher is are primarily
+          accounting on by default if kernel 4.14 or higher is primarily
           used. On very resource constrained systems or when support for old
           kernels is a necessity, -Dmemory-accounting-default=false can be used
           to revert this change.
@@ -35,12 +35,12 @@ CHANGES WITH 238:
           disk (in case some of those files are owned by that user), while
           still allowing local admin overrides.
 
-          This functionality is exposed to rpm scriplets through a new
+          This functionality is exposed to rpm scriptlets through a new
           %sysusers_create_package macro. Old %sysusers_create and
           %sysusers_create_inline macros are deprecated.
 
           A transfiletrigger for sysusers.d configuration is now installed,
-          which means that it should be uncessary to call systemd-sysusers from
+          which means that it should be unnecessary to call systemd-sysusers from
           package installation scripts, unless the package installs any files
           owned by those newly-created users, in which case
           %sysusers_create_package should be used.
