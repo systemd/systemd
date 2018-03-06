@@ -193,19 +193,16 @@ static int session_device_start(SessionDevice *sd) {
         switch (sd->type) {
 
         case DEVICE_TYPE_DRM:
-
                 if (sd->fd < 0) {
-                        /* Open device if it isn't open yet */
-                        sd->fd = session_device_open(sd, true);
-                        if (sd->fd < 0)
-                                return sd->fd;
-                } else {
-                        /* Device is kept open. Simply call drmSetMaster() and hope there is no-one else. In case it fails, we
-                         * keep the device paused. Maybe at some point we have a drmStealMaster(). */
-                        r = sd_drmsetmaster(sd->fd);
-                        if (r < 0)
-                                return r;
+                        log_error("Failed to re-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
+                        return -EBADF;
                 }
+
+                /* Device is kept open. Simply call drmSetMaster() and hope there is no-one else. In case it fails, we
+                 * keep the device paused. Maybe at some point we have a drmStealMaster(). */
+                r = sd_drmsetmaster(sd->fd);
+                if (r < 0)
+                        return r;
                 break;
 
         case DEVICE_TYPE_EVDEV:
@@ -239,6 +236,11 @@ static void session_device_stop(SessionDevice *sd) {
         switch (sd->type) {
 
         case DEVICE_TYPE_DRM:
+                if (sd->fd < 0) {
+                        log_error("Failed to de-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
+                        return;
+                }
+
                 /* On DRM devices we simply drop DRM-Master but keep it open.
                  * This allows the user to keep resources allocated. The
                  * CAP_SYS_ADMIN restriction to DRM-Master prevents users from
