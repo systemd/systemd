@@ -2038,7 +2038,6 @@ int cg_get_keyed_attribute(
                 char **ret_values) {
 
         _cleanup_free_ char *filename = NULL, *contents = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         const char *p;
         size_t n, i, n_done = 0;
         char **v;
