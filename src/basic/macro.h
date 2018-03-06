@@ -428,7 +428,6 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
         static inline void func##p(type *p) {                   \
                 if (*p)                                         \
                         func(*p);                               \
-        }                                                       \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #include "log.h"

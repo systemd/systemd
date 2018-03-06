@@ -48,8 +48,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_IS_VALID(function, bus_type, type, cast_type, fmt, check) \
         int bus_set_transient_##function(                               \
@@ -80,8 +79,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_TO_STRING(function, bus_type, type, cast_type, fmt, to_string) \
         int bus_set_transient_##function(                               \
@@ -114,8 +112,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(function, bus_type, type, cast_type, fmt, to_string) \
         int bus_set_transient_##function(                               \
@@ -150,8 +147,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_PARSE(function, type, parse)           \
         int bus_set_transient_##function(                               \
@@ -184,8 +180,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(function, type, parse)       \
         int bus_set_transient_##function(                               \
@@ -218,8 +213,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(function, check)     \
         int bus_set_transient_##function(                               \
@@ -253,8 +247,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_CGROUP_WEIGHT(function, mask, check, val, str)   \
         int bus_cgroup_set_##function(                                  \
@@ -291,8 +284,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_CGROUP_SCALE(function, mask, scale)              \
         int bus_cgroup_set_##function##_scale(                          \
@@ -333,8 +325,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 int bus_set_transient_mode_t(Unit *u, const char *name, mode_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 int bus_set_transient_unsigned(Unit *u, const char *name, unsigned *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);

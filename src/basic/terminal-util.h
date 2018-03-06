@@ -133,16 +133,13 @@ bool dev_console_colors_enabled(void);
 #define DEFINE_ANSI_FUNC(name, NAME)                            \
         static inline const char *ansi_##name(void) {           \
                 return colors_enabled() ? ANSI_##NAME : "";     \
-        }                                                       \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME, REPLACEMENT)             \
         static inline const char *ansi_##name(void) {                   \
                 return underline_enabled() ? ANSI_##NAME :              \
                         colors_enabled() ? ANSI_##REPLACEMENT : "";     \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
-
+        }
 
 DEFINE_ANSI_FUNC(highlight,                  HIGHLIGHT);
 DEFINE_ANSI_FUNC(highlight_red,              HIGHLIGHT_RED);
