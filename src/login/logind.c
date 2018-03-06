@@ -37,6 +37,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "logind.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -411,6 +412,38 @@ static int manager_enumerate_users(Manager *m) {
         return r;
 }
 
+static int parse_fdname(const char *fdname, char **session_id, dev_t *dev) {
+        _cleanup_strv_free_ char **parts = NULL;
+        _cleanup_free_ char *id = NULL;
+        unsigned int major, minor;
+        int r;
+
+        parts = strv_split(fdname, "-");
+        if (!parts)
+                return -ENOMEM;
+        if (strv_length(parts) != 5)
+                return -EINVAL;
+
+        if (!streq(parts[0], "session"))
+                return -EINVAL;
+        id = strdup(parts[1]);
+        if (!id)
+                return -ENOMEM;
+
+        if (!streq(parts[2], "device"))
+                return -EINVAL;
+        r = safe_atou(parts[3], &major) ||
+            safe_atou(parts[4], &minor);
+        if (r < 0)
+                return r;
+
+        *dev = makedev(major, minor);
+        *session_id = id;
+        id = NULL;
+
+        return 0;
+}
+
 static int manager_attach_fds(Manager *m) {
         _cleanup_strv_free_ char **fdnames = NULL;
         int n, i, fd;
@@ -424,16 +457,21 @@ static int manager_attach_fds(Manager *m) {
                 return n;
 
         for (i = 0; i < n; i++) {
+                _cleanup_free_ char *id = NULL;
+                dev_t dev;
                 struct stat st;
                 SessionDevice *sd;
                 Session *s;
-                char *id;
+                int r;
 
                 fd = SD_LISTEN_FDS_START + i;
 
-                id = startswith(fdnames[i], "session-");
-                if (!id)
+                r = parse_fdname(fdnames[i], &id, &dev);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse fd name %s: %m", fdnames[i]);
+                        close_nointr(fd);
                         continue;
+                }
 
                 s = hashmap_get(m->sessions, id);
                 if (!s) {
@@ -453,24 +491,24 @@ static int manager_attach_fds(Manager *m) {
                         continue;
                 }
 
-                if (!S_ISCHR(st.st_mode)) {
-                        log_debug("Device fd doesn't point to a character device node");
+                if (!S_ISCHR(st.st_mode) || st.st_rdev != dev) {
+                        log_debug("Device fd doesn't point to the expected character device node");
                         close_nointr(fd);
                         continue;
                 }
 
-                sd = hashmap_get(s->devices, &st.st_rdev);
+                sd = hashmap_get(s->devices, &dev);
                 if (!sd) {
                         /* Weird, we got an fd for a session device which wasn't
-                        * recorded in the session state file... */
+                         * recorded in the session state file... */
                         log_warning("Got fd for missing session device [%u:%u] in session %s",
-                                    major(st.st_rdev), minor(st.st_rdev), s->id);
+                                    major(dev), minor(dev), s->id);
                         close_nointr(fd);
                         continue;
                 }
 
                 log_debug("Attaching fd to session device [%u:%u] for session %s",
-                          major(st.st_rdev), minor(st.st_rdev), s->id);
+                          major(dev), minor(dev), s->id);
 
                 session_device_attach_fd(sd, fd, s->was_active);
         }
