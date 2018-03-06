@@ -34,6 +34,11 @@
 #include "user-util.h"
 #include "util.h"
 
+#define DYNAMIC_USER_GECOS       "Dynamic User"
+#define DYNAMIC_USER_PASSWD      "*" /* locked */
+#define DYNAMIC_USER_DIR         "/"
+#define DYNAMIC_USER_SHELL       "/sbin/nologin"
+
 static const struct passwd root_passwd = {
         .pw_name = (char*) "root",
         .pw_passwd = (char*) "x", /* see shadow file */
@@ -197,10 +202,10 @@ enum nss_status _nss_systemd_getpwnam_r(
         pwd->pw_name = buffer;
         pwd->pw_uid = (uid_t) translated;
         pwd->pw_gid = (uid_t) translated;
-        pwd->pw_gecos = (char*) "Dynamic User";
-        pwd->pw_passwd = (char*) "*"; /* locked */
-        pwd->pw_dir = (char*) "/";
-        pwd->pw_shell = (char*) "/sbin/nologin";
+        pwd->pw_gecos = (char*) DYNAMIC_USER_GECOS;
+        pwd->pw_passwd = (char*) DYNAMIC_USER_PASSWD;
+        pwd->pw_dir = (char*) DYNAMIC_USER_DIR;
+        pwd->pw_shell = (char*) DYNAMIC_USER_SHELL;
 
         *errnop = 0;
         return NSS_STATUS_SUCCESS;
@@ -303,10 +308,10 @@ enum nss_status _nss_systemd_getpwuid_r(
         pwd->pw_name = buffer;
         pwd->pw_uid = uid;
         pwd->pw_gid = uid;
-        pwd->pw_gecos = (char*) "Dynamic User";
-        pwd->pw_passwd = (char*) "*"; /* locked */
-        pwd->pw_dir = (char*) "/";
-        pwd->pw_shell = (char*) "/sbin/nologin";
+        pwd->pw_gecos = (char*) DYNAMIC_USER_GECOS;
+        pwd->pw_passwd = (char*) DYNAMIC_USER_PASSWD;
+        pwd->pw_dir = (char*) DYNAMIC_USER_DIR;
+        pwd->pw_shell = (char*) DYNAMIC_USER_SHELL;
 
         *errnop = 0;
         return NSS_STATUS_SUCCESS;
@@ -407,7 +412,7 @@ enum nss_status _nss_systemd_getgrnam_r(
 
         gr->gr_name = buffer + sizeof(char*);
         gr->gr_gid = (gid_t) translated;
-        gr->gr_passwd = (char*) "*"; /* locked */
+        gr->gr_passwd = (char*) DYNAMIC_USER_PASSWD;
         gr->gr_mem = (char**) buffer;
 
         *errnop = 0;
@@ -511,7 +516,7 @@ enum nss_status _nss_systemd_getgrgid_r(
 
         gr->gr_name = buffer + sizeof(char*);
         gr->gr_gid = gid;
-        gr->gr_passwd = (char*) "*"; /* locked */
+        gr->gr_passwd = (char*) DYNAMIC_USER_PASSWD;
         gr->gr_mem = (char**) buffer;
 
         *errnop = 0;
