@@ -859,7 +859,8 @@ int config_parse_dhcp(
 
 static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
         [DHCP_CLIENT_ID_MAC] = "mac",
-        [DHCP_CLIENT_ID_DUID] = "duid"
+        [DHCP_CLIENT_ID_DUID] = "duid",
+        [DHCP_CLIENT_ID_DUID_ONLY] = "duid-only",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_client_identifier, DHCPClientIdentifier);

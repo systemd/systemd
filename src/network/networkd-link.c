@@ -3282,6 +3282,17 @@ int link_update(Link *link, sd_netlink_message *m) {
                                                 return log_link_warning_errno(link, r, "Could not update DUID/IAID in DHCP client: %m");
                                         break;
                                 }
+                                case DHCP_CLIENT_ID_DUID_ONLY: {
+                                        const DUID *duid = link_duid(link);
+
+                                        r = sd_dhcp_client_set_duid(link->dhcp_client,
+                                                                    duid->type,
+                                                                    duid->raw_data_len > 0 ? duid->raw_data : NULL,
+                                                                    duid->raw_data_len);
+                                        if (r < 0)
+                                                return log_link_warning_errno(link, r, "Could not update DUID in DHCP client: %m");
+                                        break;
+                                }
                                 case DHCP_CLIENT_ID_MAC:
                                         r = sd_dhcp_client_set_client_id(link->dhcp_client,
                                                                          ARPHRD_ETHER,
