@@ -419,7 +419,7 @@ void session_device_free(SessionDevice *sd) {
         if (sd->pushed_fd) {
                 const char *m;
 
-                /* Remove the pushed fd again, just in case. */
+                /* Make sure to remove the pushed fd. */
 
                 m = strjoina("FDSTOREREMOVE=1\n"
                              "FDNAME=session-", sd->session->id);
