@@ -179,7 +179,10 @@ static EFIAPI EFI_STATUS security_policy_authentication (const EFI_SECURITY_PROT
         dev_path_str = DevicePathToStr(dev_path);
         FreePool(dev_path);
 
-        file_size = file_read(root, dev_path_str, 0, 0, &file_buffer);
+        status = file_read(root, dev_path_str, 0, 0, &file_buffer, &file_size);
+        if (EFI_ERROR(status))
+                return status;
+
         FreePool(dev_path_str);
         uefi_call_wrapper(root->Close, 1, root);
 

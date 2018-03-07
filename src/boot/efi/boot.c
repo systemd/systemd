@@ -68,7 +68,9 @@ typedef struct {
         CHAR16 *entry_default_pattern;
         CHAR16 *entry_oneshot;
         CHAR16 *options_edit;
-        BOOLEAN no_editor;
+        BOOLEAN editor;
+        BOOLEAN auto_entries;
+        BOOLEAN auto_firmware;
 } Config;
 
 static VOID cursor_left(UINTN *cursor, UINTN *first) {
@@ -392,7 +394,9 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
                 Print(L"OsIndicationsSupported: %d\n", (UINT64)*b);
                 FreePool(b);
         }
-        Print(L"\n");
+
+        Print(L"\n--- press key ---\n\n");
+        console_key_read(&key, TRUE);
 
         Print(L"timeout:                %d\n", config->timeout_sec);
         if (config->timeout_sec_efivar >= 0)
@@ -400,7 +404,9 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         Print(L"timeout (config):       %d\n", config->timeout_sec_config);
         if (config->entry_default_pattern)
                 Print(L"default pattern:        '%s'\n", config->entry_default_pattern);
-        Print(L"editor:                 %s\n", yes_no(!config->no_editor));
+        Print(L"editor:                 %s\n", yes_no(config->editor));
+        Print(L"auto-entries:           %s\n", yes_no(config->auto_entries));
+        Print(L"auto-firmware:          %s\n", yes_no(config->auto_firmware));
         Print(L"\n");
 
         Print(L"config entry count:     %d\n", config->entry_count);
@@ -774,7 +780,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
 
                 case KEYPRESS(0, 0, 'e'):
                         /* only the options of configured entries can be edited */
-                        if (config->no_editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
+                        if (!config->editor || config->entries[idx_highlight]->type == LOADER_UNDEFINED)
                                 break;
                         uefi_call_wrapper(ST->ConOut->SetAttribute, 2, ST->ConOut, EFI_LIGHTGRAY|EFI_BACKGROUND_BLACK);
                         uefi_call_wrapper(ST->ConOut->SetCursorPosition, 3, ST->ConOut, 0, y_max-1);
@@ -1006,7 +1012,23 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
 
                         if (EFI_ERROR(parse_boolean(value, &on)))
                                 continue;
-                        config->no_editor = !on;
+                        config->editor = on;
+                }
+
+                if (strcmpa((CHAR8 *)"auto-entries", key) == 0) {
+                        BOOLEAN on;
+
+                        if (EFI_ERROR(parse_boolean(value, &on)))
+                                continue;
+                        config->auto_entries = on;
+                }
+
+                if (strcmpa((CHAR8 *)"auto-firmware", key) == 0) {
+                        BOOLEAN on;
+
+                        if (EFI_ERROR(parse_boolean(value, &on)))
+                                continue;
+                        config->auto_firmware = on;
                 }
         }
 }
@@ -1142,11 +1164,14 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
 static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
         CHAR8 *content = NULL;
         UINTN sec;
-        UINTN len;
         EFI_STATUS err;
 
-        len = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content);
-        if (len > 0)
+        config->editor = TRUE;
+        config->auto_entries = TRUE;
+        config->auto_firmware = TRUE;
+
+        err = file_read(root_dir, L"\\loader\\loader.conf", 0, 0, &content, NULL);
+        if (!EFI_ERROR(err))
                 config_defaults_load_from_file(config, content);
         FreePool(content);
 
@@ -1190,8 +1215,8 @@ static VOID config_load_entries(Config *config, EFI_HANDLE *device, EFI_FILE *ro
                         if (StrnCmp(f->FileName, L"auto-", 5) == 0)
                                 continue;
 
-                        len = file_read(entries_dir, f->FileName, 0, 0, &content);
-                        if (len > 0)
+                        err = file_read(entries_dir, f->FileName, 0, 0, &content, NULL);
+                        if (!EFI_ERROR(err))
                                 config_entry_add_from_file(config, device, f->FileName, content, loaded_image_path);
                         FreePool(content);
                 }
@@ -1429,9 +1454,32 @@ static BOOLEAN config_entry_add_loader_auto(Config *config, EFI_HANDLE *device, 
         ConfigEntry *entry;
         EFI_STATUS err;
 
-        /* do not add an entry for ourselves */
-        if (loaded_image_path && StriCmp(loader, loaded_image_path) == 0)
+        if (!config->auto_entries)
                 return FALSE;
+
+        /* do not add an entry for ourselves */
+        if (loaded_image_path) {
+                UINTN len;
+                CHAR8 *content;
+
+                if (StriCmp(loader, loaded_image_path) == 0)
+                        return FALSE;
+
+                /* look for systemd-boot magic string */
+                err = file_read(root_dir, loader, 0, 100*1024, &content, &len);
+                if (!EFI_ERROR(err)) {
+                        CHAR8 *start = content;
+                        CHAR8 *last = content + len - sizeof(magic) - 1;
+
+                        for (; start <= last; start++)
+                                if (start[0] == magic[0] && CompareMem(start, magic, sizeof(magic) - 1) == 0) {
+                                        FreePool(content);
+                                        return FALSE;
+                                }
+
+                        FreePool(content);
+                }
+        }
 
         /* check existence */
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &handle, loader, EFI_FILE_MODE_READ, 0ULL);
@@ -1453,6 +1501,9 @@ static VOID config_entry_add_osx(Config *config) {
         EFI_STATUS err;
         UINTN handle_count = 0;
         EFI_HANDLE *handles = NULL;
+
+        if (!config->auto_entries)
+                return;
 
         err = LibLocateHandle(ByProtocol, &FileSystemProtocol, NULL, &handle_count, &handles);
         if (!EFI_ERROR(err)) {
@@ -1476,118 +1527,120 @@ static VOID config_entry_add_osx(Config *config) {
         }
 }
 
-static VOID config_entry_add_linux( Config *config, EFI_LOADED_IMAGE *loaded_image, EFI_FILE *root_dir) {
+static VOID config_entry_add_linux(Config *config, EFI_LOADED_IMAGE *loaded_image, EFI_FILE *root_dir) {
         EFI_FILE_HANDLE linux_dir;
         EFI_STATUS err;
         ConfigEntry *entry;
 
         err = uefi_call_wrapper(root_dir->Open, 5, root_dir, &linux_dir, L"\\EFI\\Linux", EFI_FILE_MODE_READ, 0ULL);
-        if (!EFI_ERROR(err)) {
-                for (;;) {
-                        CHAR16 buf[256];
-                        UINTN bufsize;
-                        EFI_FILE_INFO *f;
-                        CHAR8 *sections[] = {
-                                (UINT8 *)".osrel",
-                                (UINT8 *)".cmdline",
-                                NULL
-                        };
-                        UINTN offs[ELEMENTSOF(sections)-1] = {};
-                        UINTN szs[ELEMENTSOF(sections)-1] = {};
-                        UINTN addrs[ELEMENTSOF(sections)-1] = {};
-                        CHAR8 *content = NULL;
-                        UINTN len;
-                        CHAR8 *line;
-                        UINTN pos = 0;
-                        CHAR8 *key, *value;
-                        CHAR16 *os_name = NULL;
-                        CHAR16 *os_id = NULL;
-                        CHAR16 *os_version = NULL;
-                        CHAR16 *os_build = NULL;
+        if (EFI_ERROR(err))
+                return;
 
-                        bufsize = sizeof(buf);
-                        err = uefi_call_wrapper(linux_dir->Read, 3, linux_dir, &bufsize, buf);
-                        if (bufsize == 0 || EFI_ERROR(err))
-                                break;
+        for (;;) {
+                CHAR16 buf[256];
+                UINTN bufsize = sizeof buf;
+                EFI_FILE_INFO *f;
+                CHAR8 *sections[] = {
+                        (UINT8 *)".osrel",
+                        (UINT8 *)".cmdline",
+                        NULL
+                };
+                UINTN offs[ELEMENTSOF(sections)-1] = {};
+                UINTN szs[ELEMENTSOF(sections)-1] = {};
+                UINTN addrs[ELEMENTSOF(sections)-1] = {};
+                CHAR8 *content = NULL;
+                UINTN len;
+                CHAR8 *line;
+                UINTN pos = 0;
+                CHAR8 *key, *value;
+                CHAR16 *os_name = NULL;
+                CHAR16 *os_id = NULL;
+                CHAR16 *os_version = NULL;
+                CHAR16 *os_build = NULL;
 
-                        f = (EFI_FILE_INFO *) buf;
-                        if (f->FileName[0] == '.')
+                err = uefi_call_wrapper(linux_dir->Read, 3, linux_dir, &bufsize, buf);
+                if (bufsize == 0 || EFI_ERROR(err))
+                        break;
+
+                f = (EFI_FILE_INFO *) buf;
+                if (f->FileName[0] == '.')
+                        continue;
+                if (f->Attribute & EFI_FILE_DIRECTORY)
+                        continue;
+                len = StrLen(f->FileName);
+                if (len < 5)
+                        continue;
+                if (StriCmp(f->FileName + len - 4, L".efi") != 0)
+                        continue;
+
+                /* look for .osrel and .cmdline sections in the .efi binary */
+                err = pe_file_locate_sections(linux_dir, f->FileName, sections, addrs, offs, szs);
+                if (EFI_ERROR(err))
+                        continue;
+
+                err = file_read(linux_dir, f->FileName, offs[0], szs[0], &content, NULL);
+                if (EFI_ERROR(err))
+                        continue;
+
+                /* read properties from the embedded os-release file */
+                line = content;
+                while ((line = line_get_key_value(content, (CHAR8 *)"=", &pos, &key, &value))) {
+                        if (strcmpa((CHAR8 *)"PRETTY_NAME", key) == 0) {
+                                FreePool(os_name);
+                                os_name = stra_to_str(value);
                                 continue;
-                        if (f->Attribute & EFI_FILE_DIRECTORY)
-                                continue;
-                        len = StrLen(f->FileName);
-                        if (len < 5)
-                                continue;
-                        if (StriCmp(f->FileName + len - 4, L".efi") != 0)
-                                continue;
-
-                        /* look for .osrel and .cmdline sections in the .efi binary */
-                        err = pe_file_locate_sections(linux_dir, f->FileName, sections, addrs, offs, szs);
-                        if (EFI_ERROR(err))
-                                continue;
-
-                        len = file_read(linux_dir, f->FileName, offs[0], szs[0], &content);
-                        if (len <= 0)
-                                continue;
-
-                        /* read properties from the embedded os-release file */
-                        line = content;
-                        while ((line = line_get_key_value(content, (CHAR8 *)"=", &pos, &key, &value))) {
-                                if (strcmpa((CHAR8 *)"PRETTY_NAME", key) == 0) {
-                                        FreePool(os_name);
-                                        os_name = stra_to_str(value);
-                                        continue;
-                                }
-
-                                if (strcmpa((CHAR8 *)"ID", key) == 0) {
-                                        FreePool(os_id);
-                                        os_id = stra_to_str(value);
-                                        continue;
-                                }
-
-                                if (strcmpa((CHAR8 *)"VERSION_ID", key) == 0) {
-                                        FreePool(os_version);
-                                        os_version = stra_to_str(value);
-                                        continue;
-                                }
-
-                                if (strcmpa((CHAR8 *)"BUILD_ID", key) == 0) {
-                                        FreePool(os_build);
-                                        os_build = stra_to_str(value);
-                                        continue;
-                                }
                         }
 
-                        if (os_name && os_id && (os_version || os_build)) {
-                                CHAR16 *conf;
-                                CHAR16 *path;
-                                CHAR16 *cmdline;
-
-                                conf = PoolPrint(L"%s-%s", os_id, os_version ? : os_build);
-                                path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
-                                entry = config_entry_add_loader(config, loaded_image->DeviceHandle, LOADER_LINUX, conf, 'l', os_name, path);
-
-                                FreePool(content);
-                                /* read the embedded cmdline file */
-                                len = file_read(linux_dir, f->FileName, offs[1], szs[1] - 1 , &content);
-                                if (len > 0) {
-                                        cmdline = stra_to_str(content);
-                                        entry->options = cmdline;
-                                        cmdline = NULL;
-                                }
-                                FreePool(cmdline);
-                                FreePool(conf);
-                                FreePool(path);
+                        if (strcmpa((CHAR8 *)"ID", key) == 0) {
+                                FreePool(os_id);
+                                os_id = stra_to_str(value);
+                                continue;
                         }
 
-                        FreePool(os_name);
-                        FreePool(os_id);
-                        FreePool(os_version);
-                        FreePool(os_build);
-                        FreePool(content);
+                        if (strcmpa((CHAR8 *)"VERSION_ID", key) == 0) {
+                                FreePool(os_version);
+                                os_version = stra_to_str(value);
+                                continue;
+                        }
+
+                        if (strcmpa((CHAR8 *)"BUILD_ID", key) == 0) {
+                                FreePool(os_build);
+                                os_build = stra_to_str(value);
+                                continue;
+                        }
                 }
-                uefi_call_wrapper(linux_dir->Close, 1, linux_dir);
+
+                if (os_name && os_id && (os_version || os_build)) {
+                        CHAR16 *conf;
+                        CHAR16 *path;
+                        CHAR16 *cmdline;
+
+                        conf = PoolPrint(L"%s-%s", os_id, os_version ? : os_build);
+                        path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
+                        entry = config_entry_add_loader(config, loaded_image->DeviceHandle, LOADER_LINUX, conf, 'l', os_name, path);
+
+                        FreePool(content);
+                        content = NULL;
+                        /* read the embedded cmdline file */
+                        err = file_read(linux_dir, f->FileName, offs[1], szs[1] - 1, &content, NULL);
+                        if (!EFI_ERROR(err)) {
+                                cmdline = stra_to_str(content);
+                                entry->options = cmdline;
+                                cmdline = NULL;
+                        }
+                        FreePool(cmdline);
+                        FreePool(conf);
+                        FreePool(path);
+                }
+
+                FreePool(os_name);
+                FreePool(os_id);
+                FreePool(os_version);
+                FreePool(os_build);
+                FreePool(content);
         }
+
+        uefi_call_wrapper(linux_dir->Close, 1, linux_dir);
 }
 
 static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, const ConfigEntry *entry) {
@@ -1753,15 +1806,15 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         config_sort_entries(&config);
 
         /* if we find some well-known loaders, add them to the end of the list */
-        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
+        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
                                      L"auto-windows", 'w', L"Windows Boot Manager", L"\\EFI\\Microsoft\\Boot\\bootmgfw.efi");
-        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
+        config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, NULL,
                                      L"auto-efi-shell", 's', L"EFI Shell", L"\\shell" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_loader_auto(&config, loaded_image->DeviceHandle, root_dir, loaded_image_path,
                                      L"auto-efi-default", '\0', L"EFI Default Loader", L"\\EFI\\Boot\\boot" EFI_MACHINE_TYPE_NAME ".efi");
         config_entry_add_osx(&config);
 
-        if (efivar_get_raw(&global_guid, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
+        if (config.auto_firmware && efivar_get_raw(&global_guid, L"OsIndicationsSupported", &b, &size) == EFI_SUCCESS) {
                 UINT64 osind = (UINT64)*b;
 
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)

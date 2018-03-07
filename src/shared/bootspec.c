@@ -145,6 +145,8 @@ void boot_config_free(BootConfig *config) {
         free(config->default_pattern);
         free(config->timeout);
         free(config->editor);
+        free(config->auto_entries);
+        free(config->auto_firmware);
 
         free(config->entry_oneshot);
         free(config->entry_default);
@@ -200,6 +202,10 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
                         r = free_and_strdup(&config->timeout, p);
                 else if (streq(field, "editor"))
                         r = free_and_strdup(&config->editor, p);
+                else if (streq(buf, "auto-entries"))
+                        r = free_and_strdup(&config->auto_entries, p);
+                else if (streq(buf, "auto-firmware"))
+                        r = free_and_strdup(&config->auto_firmware, p);
                 else {
                         log_notice("%s:%u: Unknown line \"%s\"", path, line, field);
                         continue;
