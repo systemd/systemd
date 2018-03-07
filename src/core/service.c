@@ -3742,6 +3742,16 @@ static bool service_notify_message_authorized(Service *s, pid_t pid, char **tags
         return true;
 }
 
+static void service_force_watchdog(Service *s) {
+        if (!UNIT(s)->manager->service_watchdogs)
+                return;
+
+        log_unit_error(UNIT(s), "Watchdog request (last status: %s)!",
+                       s->status_text ? s->status_text : "<unset>");
+
+        service_enter_signal(s, SERVICE_STOP_WATCHDOG, SERVICE_FAILURE_WATCHDOG);
+}
+
 static void service_notify_message(
                 Unit *u,
                 const struct ucred *ucred,
@@ -3888,8 +3898,15 @@ static void service_notify_message(
         }
 
         /* Interpret WATCHDOG= */
-        if (strv_find(tags, "WATCHDOG=1"))
-                service_reset_watchdog(s);
+        e = strv_find_startswith(tags, "WATCHDOG=");
+        if (e) {
+                if (streq(e, "1"))
+                        service_reset_watchdog(s);
+                else if (streq(e, "trigger"))
+                        service_force_watchdog(s);
+                else
+                        log_unit_warning(u, "Passed WATCHDOG= field is invalid, ignoring.");
+        }
 
         e = strv_find_startswith(tags, "WATCHDOG_USEC=");
         if (e) {
