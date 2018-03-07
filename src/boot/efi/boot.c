@@ -71,6 +71,8 @@ typedef struct {
         BOOLEAN editor;
         BOOLEAN auto_entries;
         BOOLEAN auto_firmware;
+        UINTN console_mode;
+        enum console_mode_change_type console_mode_change;
 } Config;
 
 static VOID cursor_left(UINTN *cursor, UINTN *first) {
@@ -497,6 +499,7 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
         BOOLEAN exit = FALSE;
         BOOLEAN run = TRUE;
         BOOLEAN wait = FALSE;
+        BOOLEAN cleared_screen = FALSE;
 
         graphics_mode(FALSE);
         uefi_call_wrapper(ST->ConIn->Reset, 2, ST->ConIn, FALSE);
@@ -505,7 +508,18 @@ static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *load
 
         /* draw a single character to make ClearScreen work on some firmware */
         uefi_call_wrapper(ST->ConOut->OutputString, 2, ST->ConOut, L" ");
-        uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+
+        if (config->console_mode_change != CONSOLE_MODE_KEEP) {
+                err = console_set_mode(&config->console_mode, config->console_mode_change);
+                if (!EFI_ERROR(err))
+                        cleared_screen = TRUE;
+        }
+
+        if (!cleared_screen)
+                uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
+
+        if (config->console_mode_change != CONSOLE_MODE_KEEP && EFI_ERROR(err))
+                Print(L"Error switching console mode to %ld: %r.\r", (UINT64)config->console_mode, err);
 
         err = uefi_call_wrapper(ST->ConOut->QueryMode, 4, ST->ConOut, ST->ConOut->Mode->Mode, &x_max, &y_max);
         if (EFI_ERROR(err)) {
@@ -1030,6 +1044,26 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
                                 continue;
                         config->auto_firmware = on;
                 }
+
+                if (strcmpa((CHAR8 *)"console-mode", key) == 0) {
+                        CHAR16 *s;
+
+                        if (strcmpa((CHAR8 *)"auto", value) == 0)
+                                config->console_mode_change = CONSOLE_MODE_AUTO;
+                        else if (strcmpa((CHAR8 *)"max", value) == 0)
+                                config->console_mode_change = CONSOLE_MODE_MAX;
+                        else if (strcmpa((CHAR8 *)"keep", value)  == 0)
+                                config->console_mode_change = CONSOLE_MODE_KEEP;
+                        else {
+                                s = stra_to_str(value);
+                                config->console_mode = Atoi(s);
+                                config->console_mode_change = CONSOLE_MODE_SET;
+                                FreePool(s);
+                        }
+
+                        continue;
+                }
+
         }
 }
 

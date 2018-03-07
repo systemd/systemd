@@ -206,6 +206,8 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
                         r = free_and_strdup(&config->auto_entries, p);
                 else if (streq(buf, "auto-firmware"))
                         r = free_and_strdup(&config->auto_firmware, p);
+                else if (streq(buf, "console-mode"))
+                        r = free_and_strdup(&config->console_mode, p);
                 else {
                         log_notice("%s:%u: Unknown line \"%s\"", path, line, field);
                         continue;
