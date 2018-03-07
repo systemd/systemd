@@ -148,6 +148,12 @@ sensor:modalias:acpi:ACCE0001*:dmi:*svnEndless*:*pnELT-NL3*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 0, 0, -1; -1, 0, 0
 
 #########################################
+# Eve Technology
+#########################################
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnEVE*:pnEveV:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
 # GP-electronic
 #########################################
 sensor:modalias:acpi:KIOX000A*:dmi:bvnINSYDECorp.:bvrBYT70A.YNCHENG.WIN.007:*:svnInsyde:pnT701:*
