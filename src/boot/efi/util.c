@@ -327,16 +327,15 @@ EFI_STATUS file_read(EFI_FILE_HANDLE dir, CHAR16 *name, UINTN off, UINTN size, C
                         return err;
         }
 
-        buf = AllocatePool(size);
+        buf = AllocatePool(size + 1);
         err = uefi_call_wrapper(handle->Read, 3, handle, &size, buf);
         if (!EFI_ERROR(err)) {
                 buf[size] = '\0';
                 *content = buf;
                 if (content_size)
                         *content_size = size;
-        } else {
+        } else
                 FreePool(buf);
-        }
 
         uefi_call_wrapper(handle->Close, 1, handle);
         return err;
