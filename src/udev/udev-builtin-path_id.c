@@ -420,10 +420,10 @@ static struct udev_device *handle_scsi_hyperv(struct udev_device *parent, char *
         if (!guid_str)
                 return NULL;
 
-        if (strlen(guid_str) < 37 || guid_str[0] != '{' || guid_str[36] != '}')
+        if (strlen(guid_str) < 38 || guid_str[0] != '{' || guid_str[37] != '}')
                 return NULL;
 
-        for (i = 1, k = 0; i < 36; i++) {
+        for (i = 1, k = 0; i < 37; i++) {
                 if (guid_str[i] == '-')
                         continue;
                 guid[k++] = guid_str[i];
@@ -471,7 +471,7 @@ static struct udev_device *handle_scsi(struct udev_device *parent, char **path, 
         if (strstr(name, "/ata"))
                 return handle_scsi_ata(parent, path);
 
-        if (strstr(name, "/vmbus_"))
+        if (strstr(name, "/VMBUS"))
                 return handle_scsi_hyperv(parent, path);
 
         return handle_scsi_default(parent, path);
