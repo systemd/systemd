@@ -520,7 +520,7 @@ static int transient_cgroup_set_properties(sd_bus_message *m) {
         if (!isempty(arg_slice)) {
                 _cleanup_free_ char *slice = NULL;
 
-                r = unit_name_mangle_with_suffix(arg_slice, UNIT_NAME_NOGLOB, ".slice", &slice);
+                r = unit_name_mangle_with_suffix(arg_slice, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, ".slice", &slice);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle name '%s': %m", arg_slice);
 
@@ -983,7 +983,7 @@ static int start_transient_service(
         }
 
         if (arg_unit) {
-                r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, ".service", &service);
+                r = unit_name_mangle_with_suffix(arg_unit, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, ".service", &service);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle unit name: %m");
         } else {
@@ -1186,7 +1186,7 @@ static int start_transient_scope(
                 return log_oom();
 
         if (arg_unit) {
-                r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, ".scope", &scope);
+                r = unit_name_mangle_with_suffix(arg_unit, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, ".scope", &scope);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle scope name: %m");
         } else {
@@ -1357,11 +1357,11 @@ static int start_transient_trigger(
                         break;
 
                 default:
-                        r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, ".service", &service);
+                        r = unit_name_mangle_with_suffix(arg_unit, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, ".service", &service);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
-                        r = unit_name_mangle_with_suffix(arg_unit, UNIT_NAME_NOGLOB, suffix, &trigger);
+                        r = unit_name_mangle_with_suffix(arg_unit, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, suffix, &trigger);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to mangle unit name: %m");
 

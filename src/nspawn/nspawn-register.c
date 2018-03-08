@@ -293,7 +293,7 @@ int allocate_scope(
         if (r < 0)
                 return log_error_errno(r, "Could not watch job: %m");
 
-        r = unit_name_mangle_with_suffix(machine_name, UNIT_NAME_NOGLOB, ".scope", &scope);
+        r = unit_name_mangle_with_suffix(machine_name, 0, ".scope", &scope);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 

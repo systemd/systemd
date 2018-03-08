@@ -296,7 +296,7 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
                 } else {
                         /* If this is not a template, then let's mangle it so, that it becomes a valid unit name. */
 
-                        r = unit_name_mangle(word, UNIT_NAME_NOGLOB, &k);
+                        r = unit_name_mangle(word, UNIT_NAME_MANGLE_WARN, &k);
                         if (r < 0)
                                 return log_unit_error_errno(u, r, "Failed to mangle unit name \"%s\": %m", word);
                 }

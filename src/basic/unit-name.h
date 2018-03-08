@@ -68,14 +68,14 @@ int unit_name_from_path_instance(const char *prefix, const char *path, const cha
 int unit_name_to_path(const char *name, char **ret);
 
 typedef enum UnitNameMangle {
-        UNIT_NAME_NOGLOB,
-        UNIT_NAME_GLOB,
+        UNIT_NAME_MANGLE_GLOB = 1,
+        UNIT_NAME_MANGLE_WARN = 2,
 } UnitNameMangle;
 
-int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, const char *suffix, char **ret);
+int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const char *suffix, char **ret);
 
-static inline int unit_name_mangle(const char *name, UnitNameMangle allow_globs, char **ret) {
-        return unit_name_mangle_with_suffix(name, allow_globs, ".service", ret);
+static inline int unit_name_mangle(const char *name, UnitNameMangle flags, char **ret) {
+        return unit_name_mangle_with_suffix(name, flags, ".service", ret);
 }
 
 int slice_build_parent_slice(const char *slice, char **ret);

@@ -569,28 +569,32 @@ int unit_name_to_path(const char *name, char **ret) {
         return unit_name_path_unescape(prefix, ret);
 }
 
-static char *do_escape_mangle(const char *f, UnitNameMangle allow_globs, char *t) {
+static bool do_escape_mangle(const char *f, bool allow_globs, char *t) {
         const char *valid_chars;
+        bool mangled = false;
 
         assert(f);
-        assert(IN_SET(allow_globs, UNIT_NAME_GLOB, UNIT_NAME_NOGLOB));
         assert(t);
 
-        /* We'll only escape the obvious characters here, to play
-         * safe. */
+        /* We'll only escape the obvious characters here, to play safe.
+         *
+         * Returns true if any characters were mangled, false otherwise.
+         */
 
-        valid_chars = allow_globs == UNIT_NAME_GLOB ? VALID_CHARS_GLOB : VALID_CHARS_WITH_AT;
+        valid_chars = allow_globs ? VALID_CHARS_GLOB : VALID_CHARS_WITH_AT;
 
-        for (; *f; f++) {
-                if (*f == '/')
+        for (; *f; f++)
+                if (*f == '/') {
                         *(t++) = '-';
-                else if (!strchr(valid_chars, *f))
+                        mangled = true;
+                } else if (!strchr(valid_chars, *f)) {
                         t = do_escape_char(*f, t);
-                else
+                        mangled = true;
+                } else
                         *(t++) = *f;
-        }
+        *t = 0;
 
-        return t;
+        return mangled;
 }
 
 /**
@@ -600,9 +604,10 @@ static char *do_escape_mangle(const char *f, UnitNameMangle allow_globs, char *t
  *
  *  If @allow_globs, globs characters are preserved. Otherwise, they are escaped.
  */
-int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, const char *suffix, char **ret) {
-        char *s, *t;
+int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const char *suffix, char **ret) {
+        char *s;
         int r;
+        bool mangled;
 
         assert(name);
         assert(suffix);
@@ -619,7 +624,7 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, c
                 goto good;
 
         /* Already a fully valid globbing expression? If so, no mangling is necessary either... */
-        if (allow_globs == UNIT_NAME_GLOB &&
+        if ((flags & UNIT_NAME_MANGLE_GLOB) &&
             string_is_glob(name) &&
             in_charset(name, VALID_CHARS_GLOB))
                 goto good;
@@ -644,13 +649,16 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, c
         if (!s)
                 return -ENOMEM;
 
-        t = do_escape_mangle(name, allow_globs, s);
-        *t = 0;
+        mangled = do_escape_mangle(name, flags & UNIT_NAME_MANGLE_GLOB, s);
+        if (mangled)
+                log_full(flags & UNIT_NAME_MANGLE_WARN ? LOG_NOTICE : LOG_DEBUG,
+                         "Invalid unit name \"%s\" was escaped as \"%s\" (maybe you should use systemd-escape?)",
+                         name, s);
 
         /* Append a suffix if it doesn't have any, but only if this is not a glob, so that we can allow "foo.*" as a
          * valid glob. */
-        if ((allow_globs != UNIT_NAME_GLOB || !string_is_glob(s)) && unit_name_to_type(s) < 0)
-                strcpy(t, suffix);
+        if ((!(flags & UNIT_NAME_MANGLE_GLOB) || !string_is_glob(s)) && unit_name_to_type(s) < 0)
+                strcat(s, suffix);
 
         *ret = s;
         return 1;

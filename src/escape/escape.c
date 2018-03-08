@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
                         break;
 
                 case ACTION_MANGLE:
-                        r = unit_name_mangle(*i, UNIT_NAME_NOGLOB, &e);
+                        r = unit_name_mangle(*i, 0, &e);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to mangle name: %m");
                                 goto finish;

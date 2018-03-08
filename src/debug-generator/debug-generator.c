@@ -45,7 +45,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = unit_name_mangle(value, UNIT_NAME_NOGLOB, &n);
+                r = unit_name_mangle(value, UNIT_NAME_MANGLE_WARN, &n);
                 if (r < 0)
                         return log_error_errno(r, "Failed to glob unit name: %m");
 
@@ -59,7 +59,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = unit_name_mangle(value, UNIT_NAME_NOGLOB, &n);
+                r = unit_name_mangle(value, UNIT_NAME_MANGLE_WARN, &n);
                 if (r < 0)
                         return log_error_errno(r, "Failed to glob unit name: %m");
 
