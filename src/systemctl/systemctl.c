@@ -3483,6 +3483,9 @@ static int load_kexec_kernel(void) {
                 return 0;
         }
 
+        if (access(KEXEC, X_OK) < 0)
+                return log_error_errno(errno, KEXEC" is not available: %m");
+
         r = find_esp_and_warn(arg_esp_path, false, &where, NULL, NULL, NULL, NULL);
         if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn about this case */
                 return log_error_errno(r, "Cannot find the ESP partition mount point.");
