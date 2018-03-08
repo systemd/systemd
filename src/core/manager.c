@@ -759,11 +759,9 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         if (r < 0)
                 goto fail;
 
-        if (test_run_flags == 0) {
-                r = manager_setup_cgroup(m);
-                if (r < 0)
-                        goto fail;
-        }
+        r = manager_setup_cgroup(m);
+        if (r < 0)
+                goto fail;
 
         r = manager_setup_time_change(m);
         if (r < 0)
