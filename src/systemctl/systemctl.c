@@ -3524,7 +3524,6 @@ static int load_kexec_kernel(void) {
         if (r < 0)
                 return r;
         if (r == 0) {
-
                 const char* const args[] = {
                         KEXEC,
                         "--load", kernel,
@@ -3537,7 +3536,13 @@ static int load_kexec_kernel(void) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_check("kexec", pid, WAIT_LOG);
+        r = wait_for_terminate_and_check("kexec", pid, WAIT_LOG);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                /* Command failed */
+                return -EPROTO;
+        return 0;
 }
 
 static int set_exit_code(uint8_t code) {
