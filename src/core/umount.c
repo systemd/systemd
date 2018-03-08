@@ -48,7 +48,8 @@
 
 typedef struct MountPoint {
         char *path;
-        char *options;
+        char *remount_options;
+        unsigned long remount_flags;
         bool try_remount_ro;
         dev_t devnum;
         LIST_FIELDS(struct MountPoint, mount_point);
@@ -61,7 +62,7 @@ static void mount_point_free(MountPoint **head, MountPoint *m) {
         LIST_REMOVE(mount_point, *head, m);
 
         free(m->path);
-        free(m->options);
+        free(m->remount_options);
         free(m);
 }
 
@@ -84,7 +85,7 @@ static int mount_points_list_get(MountPoint **head) {
                 return -errno;
 
         for (i = 1;; i++) {
-                _cleanup_free_ char *path = NULL, *options = NULL, *type = NULL, *p = NULL;
+                _cleanup_free_ char *path = NULL, *options = NULL, *flags = NULL, *type = NULL, *p = NULL;
                 MountPoint *m;
                 int k;
 
@@ -94,15 +95,15 @@ static int mount_points_list_get(MountPoint **head) {
                            "%*s "       /* (3) major:minor */
                            "%*s "       /* (4) root */
                            "%ms "       /* (5) mount point */
-                           "%*s"        /* (6) mount flags */
+                           "%ms"        /* (6) mount flags */
                            "%*[^-]"     /* (7) optional fields */
                            "- "         /* (8) separator */
                            "%ms "       /* (9) file system type */
                            "%*s"        /* (10) mount source */
                            "%ms"        /* (11) mount options */
                            "%*[^\n]",   /* some rubbish at the end */
-                           &path, &type, &options);
-                if (k != 3) {
+                           &path, &flags, &type, &options);
+                if (k != 4) {
                         if (k == EOF)
                                 break;
 
@@ -132,6 +133,8 @@ static int mount_points_list_get(MountPoint **head) {
                 if (!m)
                         return -ENOMEM;
 
+                free_and_replace(m->path, p);
+
                 /* If we are in a container, don't attempt to
                  * read-only mount anything as that brings no real
                  * benefits, but might confuse the host, as we remount
@@ -146,8 +149,28 @@ static int mount_points_list_get(MountPoint **head) {
                                     !fstype_is_network(type) &&
                                     !fstab_test_yes_no_option(options, "ro\0rw\0");
 
-                free_and_replace(m->path, p);
-                free_and_replace(m->options, options);
+                if (m->try_remount_ro) {
+                        _cleanup_free_ char *unknown_flags = NULL;
+
+                        /* mount(2) states that mount flags and options need to be exactly the same
+                         * as they were when the filesystem was mounted, except for the desired
+                         * changes. So we reconstruct both here and adjust them for the later
+                         * remount call too. */
+
+                        r = mount_option_mangle(flags, 0, &m->remount_flags, &unknown_flags);
+                        if (r < 0)
+                                return r;
+                        if (!isempty(unknown_flags))
+                                log_warning("Ignoring unknown mount flags '%s'.", unknown_flags);
+
+                        r = mount_option_mangle(options, m->remount_flags, &m->remount_flags, &m->remount_options);
+                        if (r < 0)
+                                return r;
+
+                        /* MS_BIND is special. If it is provided it will only make the mount-point
+                         * read-only. If left out, the super block itself is remounted, which we want. */
+                        m->remount_flags = (m->remount_flags|MS_REMOUNT|MS_RDONLY) & ~MS_BIND;
+                }
 
                 LIST_PREPEND(mount_point, *head, m);
         }
@@ -389,14 +412,13 @@ static bool nonunmountable_path(const char *path) {
                 || path_startswith(path, "/run/initramfs");
 }
 
-static int remount_with_timeout(MountPoint *m, char *options) {
+static int remount_with_timeout(MountPoint *m) {
         pid_t pid;
         int r;
 
         BLOCK_SIGNALS(SIGCHLD);
 
         assert(m);
-        assert(options);
 
         /* Due to the possiblity of a remount operation hanging, we
          * fork a child process and set a timeout. If the timeout
@@ -406,10 +428,10 @@ static int remount_with_timeout(MountPoint *m, char *options) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_info("Remounting '%s' read-only in with options '%s'.", m->path, options);
+                log_info("Remounting '%s' read-only in with options '%s'.", m->path, m->remount_options);
 
                 /* Start the mount operation here in the child */
-                r = mount(NULL, m->path, NULL, MS_REMOUNT|MS_RDONLY, options);
+                r = mount(NULL, m->path, NULL, m->remount_flags, m->remount_options);
                 if (r < 0)
                         log_error_errno(errno, "Failed to remount '%s' read-only: %m", m->path);
 
@@ -474,7 +496,6 @@ static int umount_with_timeout(MountPoint *m) {
 
 /* This includes remounting readonly, which changes the kernel mount options.
  * Therefore the list passed to this function is invalidated, and should not be reused. */
-
 static int mount_points_list_umount(MountPoint **head, bool *changed) {
         MountPoint *m;
         int n_failed = 0;
@@ -484,14 +505,6 @@ static int mount_points_list_umount(MountPoint **head, bool *changed) {
 
         LIST_FOREACH(mount_point, m, *head) {
                 if (m->try_remount_ro) {
-                        _cleanup_free_ char *options = NULL;
-                        /* MS_REMOUNT requires that the data parameter
-                         * should be the same from the original mount
-                         * except for the desired changes. Since we want
-                         * to remount read-only, we should filter out
-                         * rw (and ro too, because it confuses the kernel) */
-                        (void) fstab_filter_options(m->options, "rw\0ro\0", NULL, NULL, &options);
-
                         /* We always try to remount directories
                          * read-only first, before we go on and umount
                          * them.
@@ -512,7 +525,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed) {
                          * Since the remount can hang in the instance of
                          * remote filesystems, we remount asynchronously
                          * and skip the subsequent umount if it fails */
-                        if (remount_with_timeout(m, options) < 0) {
+                        if (remount_with_timeout(m) < 0) {
                                 if (nonunmountable_path(m->path))
                                         n_failed++;
                                 continue;
