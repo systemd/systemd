@@ -147,6 +147,8 @@ static int mount_points_list_get(MountPoint **head) {
                  * hang because of the network being down. */
                 m->try_remount_ro = detect_container() <= 0 &&
                                     !fstype_is_network(type) &&
+                                    !fstype_is_api_vfs(type) &&
+                                    !fstype_is_ro(type) &&
                                     !fstab_test_yes_no_option(options, "ro\0rw\0");
 
                 if (m->try_remount_ro) {
