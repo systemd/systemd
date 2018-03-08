@@ -960,8 +960,6 @@ int bus_socket_exec(sd_bus *b) {
         if (r == 0) {
                 /* Child */
 
-                safe_close(s[0]);
-
                 if (rearrange_stdio(s[1], s[1], STDERR_FILENO) < 0)
                         _exit(EXIT_FAILURE);
 
