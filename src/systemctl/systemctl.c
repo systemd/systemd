@@ -3511,9 +3511,12 @@ static int load_kexec_kernel(void) {
         if (!options)
                 return log_oom();
 
-        log_debug("%s kexec kernel %s initrd %s options \"%s\".",
-                  arg_dry_run ? "Would load" : "loading",
-                  kernel, initrd, options);
+        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                 "%s "KEXEC" --load \"%s\" --append \"%s\"%s%s%s",
+                 arg_dry_run ? "Would run" : "Running",
+                 kernel,
+                 options,
+                 initrd ? " --initrd \"" : NULL, strempty(initrd), initrd ? "\"" : "");
         if (arg_dry_run)
                 return 0;
 
