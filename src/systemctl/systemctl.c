@@ -2915,8 +2915,8 @@ static int start_unit_one(
                         return log_error_errno(r, "Failed to request match for PropertiesChanged signal: %m");
         }
 
-        log_debug("%s manager for %s on %s, %s",
-                  arg_dry_run ? "Would call" : "Calling",
+        log_debug("%s dbus call org.freedesktop.systemd1.Manager %s(%s, %s)",
+                  arg_dry_run ? "Would execute" : "Executing",
                   method, name, mode);
         if (arg_dry_run)
                 return 0;
@@ -3215,6 +3215,10 @@ static int logind_set_wall_message(void) {
         if (!m)
                 return log_oom();
 
+        log_debug("%s wall message \"%s\".", arg_dry_run ? "Would set" : "Setting", m);
+        if (arg_dry_run)
+                return 0;
+
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
@@ -3284,6 +3288,10 @@ static int logind_reboot(enum action a) {
 
         polkit_agent_open_maybe();
         (void) logind_set_wall_message();
+
+        log_debug("%s org.freedesktop.login1.Manager %s dbus call.", arg_dry_run ? "Would execute" : "Executing", method);
+        if (arg_dry_run)
+                return 0;
 
         r = sd_bus_call_method(
                         bus,
