@@ -60,7 +60,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd</command> supports three general
+    <para><command>systemd</command> supports four general
     power-saving modes:</para>
 
     <variablelist>
@@ -102,6 +102,17 @@
         suspend-to-both by the kernel.
         </para></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>suspend-to-hibernate</term>
+
+        <listitem><para>A low power state where the system is initially suspended
+        (the state is stored in RAM). If not interrupted within the delay specified by
+        <command>HibernateDelaySec=</command>, the system will be woken using an RTC
+        alarm and hibernated (the state is then stored on disk).
+        </para></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>Settings in these files determine what strings
@@ -134,8 +145,9 @@
         <filename>/sys/power/disk</filename> by,
         respectively,
         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
-        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+        <citerefentry><refentrytitle>systemd-suspend-to-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating
         multiple values with whitespace. They will be tried
         in turn, until one is written without error. If
@@ -152,12 +164,22 @@
         <filename>/sys/power/state</filename> by,
         respectively,
         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
-        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
+        <citerefentry><refentrytitle>systemd-suspend-to-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating
         multiple values with whitespace. They will be tried
         in turn, until one is written without error. If
         neither succeeds, the operation will be aborted.
+        </para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>HibernateDelaySec=</varname></term>
+
+        <listitem><para>The amount of time in seconds
+        that will pass before the system is automatically
+        put into hibernate when using
+        <citerefentry><refentrytitle>systemd-suspend-to-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
     </variablelist>
@@ -180,6 +202,7 @@ SuspendState=freeze</programlisting></para>
       <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-suspend-to-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>

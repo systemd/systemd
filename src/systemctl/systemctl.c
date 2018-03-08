@@ -160,6 +160,7 @@ static enum action {
         ACTION_SUSPEND,
         ACTION_HIBERNATE,
         ACTION_HYBRID_SLEEP,
+        ACTION_SUSPEND_TO_HIBERNATE,
         ACTION_RUNLEVEL2,
         ACTION_RUNLEVEL3,
         ACTION_RUNLEVEL4,
@@ -3033,21 +3034,22 @@ static const struct {
         const char *verb;
         const char *mode;
 } action_table[_ACTION_MAX] = {
-        [ACTION_HALT]         = { SPECIAL_HALT_TARGET,         "halt",         "replace-irreversibly" },
-        [ACTION_POWEROFF]     = { SPECIAL_POWEROFF_TARGET,     "poweroff",     "replace-irreversibly" },
-        [ACTION_REBOOT]       = { SPECIAL_REBOOT_TARGET,       "reboot",       "replace-irreversibly" },
-        [ACTION_KEXEC]        = { SPECIAL_KEXEC_TARGET,        "kexec",        "replace-irreversibly" },
-        [ACTION_RUNLEVEL2]    = { SPECIAL_MULTI_USER_TARGET,   NULL,           "isolate" },
-        [ACTION_RUNLEVEL3]    = { SPECIAL_MULTI_USER_TARGET,   NULL,           "isolate" },
-        [ACTION_RUNLEVEL4]    = { SPECIAL_MULTI_USER_TARGET,   NULL,           "isolate" },
-        [ACTION_RUNLEVEL5]    = { SPECIAL_GRAPHICAL_TARGET,    NULL,           "isolate" },
-        [ACTION_RESCUE]       = { SPECIAL_RESCUE_TARGET,       "rescue",       "isolate" },
-        [ACTION_EMERGENCY]    = { SPECIAL_EMERGENCY_TARGET,    "emergency",    "isolate" },
-        [ACTION_DEFAULT]      = { SPECIAL_DEFAULT_TARGET,      "default",      "isolate" },
-        [ACTION_EXIT]         = { SPECIAL_EXIT_TARGET,         "exit",         "replace-irreversibly" },
-        [ACTION_SUSPEND]      = { SPECIAL_SUSPEND_TARGET,      "suspend",      "replace-irreversibly" },
-        [ACTION_HIBERNATE]    = { SPECIAL_HIBERNATE_TARGET,    "hibernate",    "replace-irreversibly" },
-        [ACTION_HYBRID_SLEEP] = { SPECIAL_HYBRID_SLEEP_TARGET, "hybrid-sleep", "replace-irreversibly" },
+        [ACTION_HALT]                 = { SPECIAL_HALT_TARGET,                 "halt",                 "replace-irreversibly" },
+        [ACTION_POWEROFF]             = { SPECIAL_POWEROFF_TARGET,             "poweroff",             "replace-irreversibly" },
+        [ACTION_REBOOT]               = { SPECIAL_REBOOT_TARGET,               "reboot",               "replace-irreversibly" },
+        [ACTION_KEXEC]                = { SPECIAL_KEXEC_TARGET,                "kexec",                "replace-irreversibly" },
+        [ACTION_RUNLEVEL2]            = { SPECIAL_MULTI_USER_TARGET,           NULL,                   "isolate" },
+        [ACTION_RUNLEVEL3]            = { SPECIAL_MULTI_USER_TARGET,           NULL,                   "isolate" },
+        [ACTION_RUNLEVEL4]            = { SPECIAL_MULTI_USER_TARGET,           NULL,                   "isolate" },
+        [ACTION_RUNLEVEL5]            = { SPECIAL_GRAPHICAL_TARGET,            NULL,                   "isolate" },
+        [ACTION_RESCUE]               = { SPECIAL_RESCUE_TARGET,               "rescue",               "isolate" },
+        [ACTION_EMERGENCY]            = { SPECIAL_EMERGENCY_TARGET,            "emergency",            "isolate" },
+        [ACTION_DEFAULT]              = { SPECIAL_DEFAULT_TARGET,              "default",              "isolate" },
+        [ACTION_EXIT]                 = { SPECIAL_EXIT_TARGET,                 "exit",                 "replace-irreversibly" },
+        [ACTION_SUSPEND]              = { SPECIAL_SUSPEND_TARGET,              "suspend",              "replace-irreversibly" },
+        [ACTION_HIBERNATE]            = { SPECIAL_HIBERNATE_TARGET,            "hibernate",            "replace-irreversibly" },
+        [ACTION_HYBRID_SLEEP]         = { SPECIAL_HYBRID_SLEEP_TARGET,         "hybrid-sleep",         "replace-irreversibly" },
+        [ACTION_SUSPEND_TO_HIBERNATE] = { SPECIAL_SUSPEND_TO_HIBERNATE_TARGET, "suspend-to-hibernate", "replace-irreversibly" },
 };
 
 static enum action verb_to_action(const char *verb) {
@@ -3276,6 +3278,11 @@ static int logind_reboot(enum action a) {
         case ACTION_HYBRID_SLEEP:
                 method = "HybridSleep";
                 description = "put system into hybrid sleep";
+                break;
+
+        case ACTION_SUSPEND_TO_HIBERNATE:
+                method = "SuspendToHibernate";
+                description = "put system into suspend followed by hibernate";
                 break;
 
         default:
@@ -3629,7 +3636,8 @@ static int start_special(int argc, char *argv[], void *userdata) {
                            ACTION_HALT,
                            ACTION_SUSPEND,
                            ACTION_HIBERNATE,
-                           ACTION_HYBRID_SLEEP)) {
+                           ACTION_HYBRID_SLEEP,
+                           ACTION_SUSPEND_TO_HIBERNATE)) {
 
                         r = logind_reboot(a);
                         if (r >= 0)
@@ -7326,7 +7334,9 @@ static void systemctl_help(void) {
                "  switch-root ROOT [INIT]             Change to a different root file system\n"
                "  suspend                             Suspend the system\n"
                "  hibernate                           Hibernate the system\n"
-               "  hybrid-sleep                        Hibernate and suspend the system\n",
+               "  hybrid-sleep                        Hibernate and suspend the system\n"
+               "  suspend-to-hibernate                Suspend the system, wake after a period of\n"
+               "                                      time and put it into hibernate\n",
                program_invocation_short_name);
 }
 
@@ -8423,6 +8433,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "suspend",               VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
                 { "hibernate",             VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
                 { "hybrid-sleep",          VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
+                { "suspend-to-hibernate",  VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
                 { "default",               VERB_ANY, 1,        VERB_ONLINE_ONLY, start_special        },
                 { "rescue",                VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
                 { "emergency",             VERB_ANY, 1,        VERB_ONLINE_ONLY, start_system_special },
@@ -8754,6 +8765,7 @@ int main(int argc, char*argv[]) {
         case ACTION_SUSPEND:
         case ACTION_HIBERNATE:
         case ACTION_HYBRID_SLEEP:
+        case ACTION_SUSPEND_TO_HIBERNATE:
         case ACTION_EMERGENCY:
         case ACTION_DEFAULT:
                 /* systemctl verbs with no equivalent in the legacy commands.
