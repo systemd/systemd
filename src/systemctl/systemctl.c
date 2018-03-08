@@ -3603,7 +3603,9 @@ static int start_special(int argc, char *argv[], void *userdata) {
 
         } else if (a == ACTION_KEXEC) {
                 r = load_kexec_kernel();
-                if (r < 0)
+                if (r < 0 && arg_force >= 1)
+                        log_notice("Failed to load kexec kernel, continuing without.");
+                else if (r < 0)
                         return r;
 
         } else if (a == ACTION_EXIT && argc > 1) {
