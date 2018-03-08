@@ -18,12 +18,42 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <linux/fiemap.h>
 #include <stdio.h>
 
+#include "fd-util.h"
 #include "log.h"
 #include "sleep-config.h"
 #include "strv.h"
 #include "util.h"
+
+static int test_fiemap(const char *path) {
+        _cleanup_free_ struct fiemap *fiemap = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        fd = open(path, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+        if (fd < 0)
+                return log_error_errno(errno, "failed to open %s: %m", path);
+        r = read_fiemap(fd, &fiemap);
+        if (r == -ENOTSUP) {
+                log_info("Skipping test, not supported");
+                exit(EXIT_TEST_SKIP);
+        }
+        if (r < 0)
+                return log_error_errno(r, "Unable to read extent map for '%s': %m", path);
+        log_info("extent map information for %s:", path);
+        log_info("\t start: %llu", fiemap->fm_start);
+        log_info("\t length: %llu", fiemap->fm_length);
+        log_info("\t flags: %u", fiemap->fm_flags);
+        log_info("\t number of mapped extents: %u", fiemap->fm_mapped_extents);
+        log_info("\t extent count: %u", fiemap->fm_extent_count);
+        if (fiemap->fm_extent_count > 0)
+                log_info("\t first extent location: %llu",
+                         fiemap->fm_extents[0].fe_physical / page_size());
+
+        return 0;
+}
 
 static void test_sleep(void) {
         _cleanup_strv_free_ char
@@ -52,6 +82,8 @@ static void test_sleep(void) {
 }
 
 int main(int argc, char* argv[]) {
+        int i, r = 0, k;
+
         log_parse_environment();
         log_open();
 
@@ -60,5 +92,14 @@ int main(int argc, char* argv[]) {
 
         test_sleep();
 
-        return 0;
+        if (argc <= 1)
+                assert_se(test_fiemap(argv[0]) == 0);
+        else
+                for (i = 1; i < argc; i++) {
+                        k = test_fiemap(argv[i]);
+                        if (r == 0)
+                                r = k;
+                }
+
+        return r;
 }
