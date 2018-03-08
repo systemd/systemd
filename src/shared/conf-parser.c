@@ -515,8 +515,7 @@ int config_parse_many(
                                    #type, rvalue);                      \
                                                                         \
                 return 0;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 DEFINE_PARSER(int, int, safe_atoi);
 DEFINE_PARSER(long, long, safe_atoli);

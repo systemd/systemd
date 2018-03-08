@@ -116,8 +116,7 @@ enum nss_status _nss_##module##_gethostbyname_r(        \
                         NULL,                           \
                         NULL);                          \
        return ret;                                      \
-}                                                       \
-struct __useless_struct_to_allow_trailing_semicolon__
+}
 
 #define NSS_GETHOSTBYADDR_FALLBACKS(module)             \
 enum nss_status _nss_##module##_gethostbyaddr_r(        \
@@ -133,8 +132,7 @@ enum nss_status _nss_##module##_gethostbyaddr_r(        \
                         buffer, buflen,                 \
                         errnop, h_errnop,               \
                         NULL);                          \
-}                                                       \
-struct __useless_struct_to_allow_trailing_semicolon__
+}
 
 #define NSS_GETPW_PROTOTYPES(module)                    \
 enum nss_status _nss_##module##_getpwnam_r(             \

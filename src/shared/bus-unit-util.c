@@ -91,8 +91,7 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
                         return bus_log_create_error(r);                 \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define DEFINE_BUS_APPEND_PARSE(bus_type, parse_func)                   \
         static int bus_append_##parse_func(                             \
@@ -113,8 +112,7 @@ int bus_parse_unit_info(sd_bus_message *message, UnitInfo *u) {
                         return bus_log_create_error(r);                 \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 DEFINE_BUS_APPEND_PARSE("b", parse_boolean);
 DEFINE_BUS_APPEND_PARSE("i", ioprio_class_from_string);

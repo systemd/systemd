@@ -93,13 +93,11 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 
 #define _DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                    \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
-        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)        \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)
 
 #define _DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(name,type,yes,scope)   \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
-        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(name,type,yes,scope) \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(name,type,yes,scope)
 
 #define DEFINE_STRING_TABLE_LOOKUP(name,type) _DEFINE_STRING_TABLE_LOOKUP(name,type,)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP(name,type) _DEFINE_STRING_TABLE_LOOKUP(name,type,static)
@@ -111,8 +109,7 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
 /* For string conversions where numbers are also acceptable */
 #define DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(name,type,max)         \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max,)  \
-        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,) \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,)
 
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max) \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max,static)
