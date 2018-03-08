@@ -519,16 +519,19 @@ static int mount_points_list_umount(MountPoint **head, bool *changed) {
                          * somehwere else via a bind mount. If we
                          * explicitly remount the super block of that
                          * alias read-only we hence should be
-                         * relatively safe regarding keeping dirty an fs
+                         * relatively safe regarding keeping a dirty fs
                          * we cannot otherwise see.
                          *
                          * Since the remount can hang in the instance of
                          * remote filesystems, we remount asynchronously
-                         * and skip the subsequent umount if it fails */
+                         * and skip the subsequent umount if it fails. */
                         if (remount_with_timeout(m) < 0) {
-                                if (nonunmountable_path(m->path))
+                                /* Remount failed, but try unmounting anyway,
+                                 * unless this is a mount point we want to skip. */
+                                if (nonunmountable_path(m->path)) {
                                         n_failed++;
-                                continue;
+                                        continue;
+                                }
                         }
                 }
 
