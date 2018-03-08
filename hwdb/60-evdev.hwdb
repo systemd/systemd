@@ -144,6 +144,20 @@ evdev:name:AlpsPS/2 ALPS GlidePoint*:dmi:bvn*:bvr*:bd*:svnDellInc.:pnVostro1510*
  EVDEV_ABS_00=::14
  EVDEV_ABS_01=::18
 
+# Dell Inspiron 3537 - PS/2
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnDellInc.:pnInspiron3537*
+ EVDEV_ABS_00=1268:5675:41
+ EVDEV_ABS_01=1101:4792:61
+ EVDEV_ABS_35=1268:5675:41
+ EVDEV_ABS_36=1101:4792:61
+
+# Dell Inspiron 3537 - RMI4
+evdev:name:Synaptics TM2382-001:dmi:*svnDellInc.:pnInspiron3537*
+ EVDEV_ABS_00=::24
+ EVDEV_ABS_01=::34
+ EVDEV_ABS_35=::24
+ EVDEV_ABS_36=::34
+
 # Dell Inspiron N5040
 evdev:name:AlpsPS/2 ALPS DualPoint TouchPad:dmi:bvn*:bvr*:bd*:svnDellInc.:pnInspironN5040*
  EVDEV_ABS_00=25:2000:22
