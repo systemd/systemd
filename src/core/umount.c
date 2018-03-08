@@ -49,7 +49,7 @@
 typedef struct MountPoint {
         char *path;
         char *options;
-        char *type;
+        bool try_remount_ro;
         dev_t devnum;
         LIST_FIELDS(struct MountPoint, mount_point);
 } MountPoint;
@@ -62,7 +62,6 @@ static void mount_point_free(MountPoint **head, MountPoint *m) {
 
         free(m->path);
         free(m->options);
-        free(m->type);
         free(m);
 }
 
@@ -85,8 +84,7 @@ static int mount_points_list_get(MountPoint **head) {
                 return -errno;
 
         for (i = 1;; i++) {
-                _cleanup_free_ char *path = NULL, *options = NULL, *type = NULL;
-                char *p = NULL;
+                _cleanup_free_ char *path = NULL, *options = NULL, *type = NULL, *p = NULL;
                 MountPoint *m;
                 int k;
 
@@ -127,22 +125,29 @@ static int mount_points_list_get(MountPoint **head) {
                     mount_point_ignore(p) ||
                     path_startswith(p, "/dev") ||
                     path_startswith(p, "/sys") ||
-                    path_startswith(p, "/proc")) {
-                        free(p);
+                    path_startswith(p, "/proc"))
                         continue;
-                }
 
                 m = new0(MountPoint, 1);
-                if (!m) {
-                        free(p);
+                if (!m)
                         return -ENOMEM;
-                }
 
-                m->path = p;
-                m->options = options;
-                options = NULL;
-                m->type = type;
-                type = NULL;
+                /* If we are in a container, don't attempt to
+                 * read-only mount anything as that brings no real
+                 * benefits, but might confuse the host, as we remount
+                 * the superblock here, not the bind mount.
+                 *
+                 * If the filesystem is a network fs, also skip the
+                 * remount. It brings no value (we cannot leave
+                 * a "dirty fs") and could hang if the network is down.
+                 * Note that umount2() is more careful and will not
+                 * hang because of the network being down. */
+                m->try_remount_ro = detect_container() <= 0 &&
+                                    !fstype_is_network(type) &&
+                                    !fstab_test_yes_no_option(options, "ro\0rw\0");
+
+                free_and_replace(m->path, p);
+                free_and_replace(m->options, options);
 
                 LIST_PREPEND(mount_point, *head, m);
         }
@@ -478,22 +483,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed) {
         assert(changed);
 
         LIST_FOREACH(mount_point, m, *head) {
-                bool mount_is_readonly;
-
-                mount_is_readonly = fstab_test_yes_no_option(m->options, "ro\0rw\0");
-
-                /* If we are in a container, don't attempt to
-                   read-only mount anything as that brings no real
-                   benefits, but might confuse the host, as we remount
-                   the superblock here, not the bind mount.
-                   If the filesystem is a network fs, also skip the
-                   remount.  It brings no value (we cannot leave
-                   a "dirty fs") and could hang if the network is down.
-                   Note that umount2() is more careful and will not
-                   hang because of the network being down. */
-                if (detect_container() <= 0 &&
-                    !fstype_is_network(m->type) &&
-                    !mount_is_readonly) {
+                if (m->try_remount_ro) {
                         _cleanup_free_ char *options = NULL;
                         /* MS_REMOUNT requires that the data parameter
                          * should be the same from the original mount
