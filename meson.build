@@ -796,6 +796,7 @@ substs.set('GROUP_RENDER_MODE', get_option('group-render-mode'))
 
 kill_user_processes = get_option('default-kill-user-processes')
 conf.set10('KILL_USER_PROCESSES', kill_user_processes)
+conf.set_quoted('KILL_USER_PROCESSES_YES_NO', kill_user_processes ? 'yes' : 'no')
 substs.set('KILL_USER_PROCESSES', kill_user_processes ? 'yes' : 'no')
 
 dns_servers = get_option('dns-servers')
