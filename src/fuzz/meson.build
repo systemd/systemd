@@ -22,9 +22,14 @@ fuzzers += [
          [libgcrypt,
           libgpg_error,
           libm]],
-        [['src/fuzz/fuzz-dhcp-server.c',
-          ],
+
+        [['src/fuzz/fuzz-dhcp-server.c'],
          [libsystemd_network,
           libshared],
-          []]
+         []],
+
+        [['src/fuzz/fuzz-unit-file.c'],
+         [libcore,
+          libshared],
+         [libmount]],
 ]
