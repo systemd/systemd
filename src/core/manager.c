@@ -667,7 +667,7 @@ static int manager_setup_sigchld_event_source(Manager *m) {
 }
 
 int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
-        Manager *m;
+        _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         assert(_m);
@@ -729,62 +729,60 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
 
         r = manager_default_environment(m);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = hashmap_ensure_allocated(&m->units, &string_hash_ops);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = hashmap_ensure_allocated(&m->jobs, NULL);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = hashmap_ensure_allocated(&m->cgroup_unit, &path_hash_ops);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = hashmap_ensure_allocated(&m->watch_bus, &string_hash_ops);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = sd_event_default(&m->event);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = manager_setup_run_queue(m);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = manager_setup_signals(m);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = manager_setup_cgroup(m);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = manager_setup_time_change(m);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = manager_setup_sigchld_event_source(m);
         if (r < 0)
-                goto fail;
+                return r;
 
         m->udev = udev_new();
-        if (!m->udev) {
-                r = -ENOMEM;
-                goto fail;
-        }
+        if (!m->udev)
+                return -ENOMEM;
 
         r = manager_setup_prefix(m);
         if (r < 0)
-                goto fail;
+                return r;
 
         if (MANAGER_IS_SYSTEM(m) && test_run_flags == 0) {
                 r = mkdir_label("/run/systemd/units", 0755);
                 if (r < 0 && r != -EEXIST)
-                        goto fail;
+                        return r;
         }
 
         m->taint_usr =
@@ -795,11 +793,8 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
          * since they might have gotten serialized across the reexec. */
 
         *_m = m;
+        m = NULL;
         return 0;
-
-fail:
-        manager_free(m);
-        return r;
 }
 
 static int manager_setup_notify(Manager *m) {

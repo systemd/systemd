@@ -28,7 +28,7 @@
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         Unit *idle_ok, *idle_bad, *rr_ok, *rr_bad, *rr_sched;
         Service *ser;
         FILE *serial = NULL;
@@ -97,8 +97,6 @@ int main(int argc, char *argv[]) {
         ser = SERVICE(rr_sched);
         assert_se(ser->exec_context.cpu_sched_policy == SCHED_RR);
         assert_se(ser->exec_context.cpu_sched_priority == 99);
-
-        manager_free(m);
 
         return EXIT_SUCCESS;
 }

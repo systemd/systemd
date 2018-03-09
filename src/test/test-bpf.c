@@ -41,7 +41,7 @@ int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         CGroupContext *cc = NULL;
         _cleanup_(bpf_program_unrefp) BPFProgram *p = NULL;
-        Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         char log_buf[65535];
         int r;
@@ -128,11 +128,9 @@ int main(int argc, char *argv[]) {
         unit_dump(u, stdout, NULL);
 
         r = bpf_firewall_compile(u);
-        if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM )) {
+        if (IN_SET(r, -ENOTTY, -ENOSYS, -EPERM ))
                 /* Kernel doesn't support the necessary bpf bits, or masked out via seccomp? */
-                manager_free(m);
                 return EXIT_TEST_SKIP;
-        }
         assert_se(r >= 0);
 
         assert(u->ip_bpf_ingress);
@@ -166,8 +164,6 @@ int main(int argc, char *argv[]) {
 
         assert_se(SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.code != CLD_EXITED ||
                   SERVICE(u)->exec_command[SERVICE_EXEC_START]->command_next->exec_status.status != EXIT_SUCCESS);
-
-        manager_free(m);
 
         return 0;
 }

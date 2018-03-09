@@ -199,11 +199,10 @@ static void test_unit_name_mangle(void) {
 }
 
 static int test_unit_printf(void) {
-        Manager *m = NULL;
+        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u, *u2;
         int r;
-
-        _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
 
         assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
         assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
@@ -276,8 +275,6 @@ static int test_unit_printf(void) {
         expect(u2, "%b", bid);
         expect(u2, "%H", host);
         expect(u2, "%t", "/run/user/*");
-
-        manager_free(m);
 #undef expect
 
         return 0;

@@ -623,7 +623,7 @@ static void test_exec_standardinput(Manager *m) {
 
 static int run_tests(UnitFileScope scope, const test_function_t *tests) {
         const test_function_t *test = NULL;
-        Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         assert_se(tests);
@@ -638,8 +638,6 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
 
         for (test = tests; test && *test; test++)
                 (*test)(m);
-
-        manager_free(m);
 
         return 0;
 }
