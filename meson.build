@@ -844,8 +844,7 @@ if not libcap.found()
 endif
 
 libmount = dependency('mount',
-                      version : '>= 2.30',
-                      required : not fuzzer_build)
+                      version : fuzzer_build ? '>= 0' : '>= 2.30')
 
 want_seccomp = get_option('seccomp')
 if want_seccomp != 'false' and not fuzzer_build
@@ -2904,8 +2903,9 @@ foreach tuple : [
         ['debug mmap cache'],
 ]
 
-        cond = tuple.get(1, '')
-        if cond == ''
+        if tuple.length() >= 2
+                cond = tuple[1]
+        else
                 ident1 = 'HAVE_' + tuple[0].underscorify().to_upper()
                 ident2 = 'ENABLE_' + tuple[0].underscorify().to_upper()
                 cond = conf.get(ident1, 0) == 1 or conf.get(ident2, 0) == 1
