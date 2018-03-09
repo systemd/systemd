@@ -142,6 +142,12 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni16:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
+# Cytrix (Mytrix)
+#########################################
+sensor:modalias:acpi:*KIOX000A*:dmi:*svn*CytrixTechnology:*pn*Complex11t*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
 # Endless
 #########################################
 sensor:modalias:acpi:ACCE0001*:dmi:*svnEndless*:*pnELT-NL3*
@@ -179,6 +185,12 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
 # the whole dmi modalias, except for the BIOS version/date
 sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:*:svnTobefilledbyO.E.M.:pnTW891:pvrTobefilledbyO.E.M.:rvnTobefilledbyO.E.M.:rnTW891:rvr1.0:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
+# iOTA 360
+#########################################
+sensor:modalias:acpi:KIOX000A*:dmi:*svn*iOTA*:*pn*IOTA2210*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
 # Jumper
@@ -261,16 +273,3 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnX98PlusII:*
 sensor:modalias:acpi:BMA250*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnInsyde:pnST70416-6:*
 sensor:modalias:acpi:BMA250*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnTrekStor:pnSurfTabwintron7.0ST70416-6:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-#########################################
-# Cytrix (Mytrix)
-#########################################
-sensor:modalias:acpi:*KIOX000A*:dmi:*svn*CytrixTechnology:*pn*Complex11t*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
-
-#########################################
-# iOTA 360
-#########################################
-sensor:modalias:acpi:KIOX000A*:dmi:*svn*iOTA*:*pn*IOTA2210*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
