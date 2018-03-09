@@ -49,7 +49,7 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states, usec_t
                 **hibernate_mode = NULL, **hibernate_state = NULL,
                 **hybrid_mode = NULL, **hybrid_state = NULL;
         char **modes, **states;
-        usec_t delay;
+        usec_t delay = 180 * USEC_PER_MINUTE;
 
         const ConfigTableItem items[] = {
                 { "Sleep",   "SuspendMode",      config_parse_strv,  0, &suspend_mode  },
@@ -97,13 +97,13 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states, usec_t
                         USE(states, hybrid_state);
                 else
                         states = strv_new("disk", NULL);
-        } else if (streq(verb, "suspend-to-hibernate")) {
-                if (delay == 0)
-                        delay = 180 * USEC_PER_MINUTE;
-        } else
+
+        } else if (streq(verb, "suspend-to-hibernate"))
+                modes = states = NULL;
+        else
                 assert_not_reached("what verb");
 
-        if ((!modes && (streq(verb, "hibernate") || streq(verb, "hybrid-sleep"))) ||
+        if ((!modes && STR_IN_SET(verb, "hibernate", "hybrid-sleep")) ||
             (!states && !streq(verb, "suspend-to-hibernate"))) {
                 strv_free(modes);
                 strv_free(states);
@@ -300,10 +300,7 @@ int can_sleep(const char *verb) {
         _cleanup_strv_free_ char **modes = NULL, **states = NULL;
         int r;
 
-        assert(streq(verb, "suspend") ||
-               streq(verb, "hibernate") ||
-               streq(verb, "hybrid-sleep") ||
-               streq(verb, "suspend-to-hibernate"));
+        assert(STR_IN_SET(verb, "suspend", "hibernate", "hybrid-sleep", "suspend-to-hibernate"));
 
         if (streq(verb, "suspend-to-hibernate"))
                 return can_s2h();
