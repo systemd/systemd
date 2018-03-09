@@ -426,6 +426,8 @@ static int enable_special_signals(Manager *m) {
         return 0;
 }
 
+#define RTSIG_IF_AVAILABLE(signum) (signum <= SIGRTMAX ? signum : -1)
+
 static int manager_setup_signals(Manager *m) {
         struct sigaction sa = {
                 .sa_handler = SIG_DFL,
@@ -479,22 +481,22 @@ static int manager_setup_signals(Manager *m) {
 
                         /* .. one free signal here ... */
 
-#if !defined(__hppa64__) && !defined(__hppa__)
-                        /* Apparently Linux on hppa has fewer RT
-                         * signals (SIGRTMAX is SIGRTMIN+25 there),
-                         * hence let's not try to make use of them
-                         * here. Since these commands are accessible
-                         * by different means and only really a safety
-                         * net, the missing functionality on hppa
-                         * shouldn't matter. */
+                        /* Apparently Linux on hppa had fewer RT signals until v3.18,
+                         * SIGRTMAX was SIGRTMIN+25, and then SIGRTMIN was lowered,
+                         * see commit v3.17-7614-g1f25df2eff.
+                         *
+                         * We cannot unconditionally make use of those signals here,
+                         * so let's use a runtime check. Since these commands are
+                         * accessible by different means and only really a safety
+                         * net, the missing functionality on hppa shouldn't matter.
+                         */
 
-                        SIGRTMIN+26, /* systemd: set log target to journal-or-kmsg */
-                        SIGRTMIN+27, /* systemd: set log target to console */
-                        SIGRTMIN+28, /* systemd: set log target to kmsg */
-                        SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg (obsolete) */
+                        RTSIG_IF_AVAILABLE(SIGRTMIN+26), /* systemd: set log target to journal-or-kmsg */
+                        RTSIG_IF_AVAILABLE(SIGRTMIN+27), /* systemd: set log target to console */
+                        RTSIG_IF_AVAILABLE(SIGRTMIN+28), /* systemd: set log target to kmsg */
+                        RTSIG_IF_AVAILABLE(SIGRTMIN+29), /* systemd: set log target to syslog-or-kmsg (obsolete) */
 
                         /* ... one free signal here SIGRTMIN+30 ... */
-#endif
                         -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
