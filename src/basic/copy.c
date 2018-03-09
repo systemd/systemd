@@ -65,6 +65,10 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
         assert(fdf >= 0);
         assert(fdt >= 0);
 
+        /* Tries to copy bytes from the file descriptor 'fdf' to 'fdt' in the smartest possible way. Copies a maximum
+         * of 'max_bytes', which may be specified as UINT64_MAX, in which no maximum is applied. Returns negative on
+         * error, zero if EOF is hit before the bytes limit is hit and positive otherwise. */
+
         /* Try btrfs reflinks first. */
         if ((copy_flags & COPY_REFLINK) &&
             max_bytes == (uint64_t) -1 &&
