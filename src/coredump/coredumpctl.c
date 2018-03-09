@@ -67,8 +67,7 @@ static bool arg_quiet = false;
 
 static int add_match(sd_journal *j, const char *match) {
         _cleanup_free_ char *p = NULL;
-        char *pattern = NULL;
-        const char* prefix;
+        const char* prefix, *pattern;
         pid_t pid;
         int r;
 
@@ -91,6 +90,7 @@ static int add_match(sd_journal *j, const char *match) {
         r = sd_journal_add_match(j, pattern, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to add match \"%s\": %m", match);
+
         return 0;
 }
 
