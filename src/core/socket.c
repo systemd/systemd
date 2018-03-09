@@ -1439,7 +1439,9 @@ fail:
 }
 
 static int socket_determine_selinux_label(Socket *s, char **ret) {
+        Service *service;
         ExecCommand *c;
+        const char *path;
         int r;
 
         assert(s);
@@ -1461,11 +1463,13 @@ static int socket_determine_selinux_label(Socket *s, char **ret) {
                 if (!UNIT_ISSET(s->service))
                         goto no_label;
 
-                c = SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START];
+                service = SERVICE(UNIT_DEREF(s->service));
+                c = service->exec_command[SERVICE_EXEC_START];
                 if (!c)
                         goto no_label;
 
-                r = mac_selinux_get_create_label_from_exe(c->path, ret);
+                path = prefix_roota(service->exec_context.root_directory, c->path);
+                r = mac_selinux_get_create_label_from_exe(path, ret);
                 if (IN_SET(r, -EPERM, -EOPNOTSUPP))
                         goto no_label;
         }
