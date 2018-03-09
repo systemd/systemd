@@ -80,12 +80,8 @@ static void test_mnt_id(void) {
                 int mnt_id = PTR_TO_INT(k), mnt_id2;
 
                 r = path_get_mnt_id(p, &mnt_id2);
-                if (r == -EOPNOTSUPP) { /* kernel or file system too old? */
-                        log_debug("%s doesn't support mount IDs\n", p);
-                        continue;
-                }
-                if (IN_SET(r, -EACCES, -EPERM)) {
-                        log_debug("Can't access %s\n", p);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get the mnt id of %s: %m\n", p);
                         continue;
                 }
 
