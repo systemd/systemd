@@ -3345,7 +3345,8 @@ int config_parse_memory_limit(
                 } else
                         bytes = physical_memory_scale(r, 100U);
 
-                if (bytes <= 0 || bytes >= UINT64_MAX) {
+                if (bytes >= UINT64_MAX ||
+                    (bytes <= 0 && !streq(lvalue, "MemorySwapMax"))) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Memory limit '%s' out of range. Ignoring.", rvalue);
                         return 0;
                 }
