@@ -1696,6 +1696,7 @@ int manager_load_unit_prepare(
                 sd_bus_error *e,
                 Unit **_ret) {
 
+        _cleanup_(unit_freep) Unit *cleanup_ret = NULL;
         Unit *ret;
         UnitType t;
         int r;
@@ -1728,29 +1729,26 @@ int manager_load_unit_prepare(
                 return 1;
         }
 
-        ret = unit_new(m, unit_vtable[t]->object_size);
+        ret = cleanup_ret = unit_new(m, unit_vtable[t]->object_size);
         if (!ret)
                 return -ENOMEM;
 
         if (path) {
                 ret->fragment_path = strdup(path);
-                if (!ret->fragment_path) {
-                        unit_free(ret);
+                if (!ret->fragment_path)
                         return -ENOMEM;
-                }
         }
 
         r = unit_add_name(ret, name);
-        if (r < 0) {
-                unit_free(ret);
+        if (r < 0)
                 return r;
-        }
 
         unit_add_to_load_queue(ret);
         unit_add_to_dbus_queue(ret);
         unit_add_to_gc_queue(ret);
 
         *_ret = ret;
+        cleanup_ret = NULL;
 
         return 0;
 }

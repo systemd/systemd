@@ -114,7 +114,7 @@ static void test_config_parse_exec(void) {
         ExecCommand *c = NULL, *c1;
         const char *ccc;
         _cleanup_(manager_freep) Manager *m = NULL;
-        Unit *u = NULL;
+        _cleanup_(unit_freep) Unit *u = NULL;
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (MANAGER_SKIP_TEST(r)) {
@@ -441,8 +441,6 @@ static void test_config_parse_exec(void) {
         assert_se(c == NULL);
 
         exec_command_free_list(c);
-
-        unit_free(u);
 }
 
 static void test_config_parse_log_extra_fields(void) {
@@ -461,7 +459,7 @@ static void test_config_parse_log_extra_fields(void) {
         int r;
 
         _cleanup_(manager_freep) Manager *m = NULL;
-        Unit *u = NULL;
+        _cleanup_(unit_freep) Unit *u = NULL;
         ExecContext c = {};
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
@@ -505,8 +503,6 @@ static void test_config_parse_log_extra_fields(void) {
         assert_se(c.n_log_extra_fields == 0);
 
         exec_context_free_log_extra_fields(&c);
-
-        unit_free(u);
 
         log_info("/* %s – bye */", __func__);
 }
