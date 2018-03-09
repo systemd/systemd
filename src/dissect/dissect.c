@@ -202,31 +202,9 @@ int main(int argc, char *argv[]) {
                 }
         }
 
-        r = dissect_image(d->fd, arg_root_hash, arg_root_hash_size, arg_flags, &m);
-        if (r == -ENOPKG) {
-                log_error_errno(r, "Couldn't identify a suitable partition table or file system in %s.", arg_image);
+        r = dissect_image_and_warn(d->fd, arg_image, arg_root_hash, arg_root_hash_size, arg_flags, &m);
+        if (r < 0)
                 goto finish;
-        }
-        if (r == -EADDRNOTAVAIL) {
-                log_error_errno(r, "No root partition for specified root hash found in %s.", arg_image);
-                goto finish;
-        }
-        if (r == -ENOTUNIQ) {
-                log_error_errno(r, "Multiple suitable root partitions found in image %s.", arg_image);
-                goto finish;
-        }
-        if (r == -ENXIO) {
-                log_error_errno(r, "No suitable root partition found in image %s.", arg_image);
-                goto finish;
-        }
-        if (r == -EPROTONOSUPPORT) {
-                log_error_errno(r, "Device %s is loopback block device with partition scanning turned off, please turn it on.", arg_image);
-                goto finish;
-        }
-        if (r < 0) {
-                log_error_errno(r, "Failed to dissect image: %m");
-                goto finish;
-        }
 
         switch (arg_action) {
 

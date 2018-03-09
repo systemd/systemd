@@ -126,10 +126,6 @@ Features:
 * In DynamicUser= mode: before selecting a UID, use disk quota APIs on relevant
   disks to see if the UID is already in use.
 
-* add dissect_image_warn() as a wrapper around dissect_image() that prints
-  friendly log messages for the returned errors, so that we don't have to
-  duplicate that in nspawn, systemd-dissect and PID 1.
-
 * add "systemctl wait" or so, which does what "systemd-run --wait" does, but
   for all units. It should be both a way to pin units into memory as well as a
   wait to retrieve their exit data.
