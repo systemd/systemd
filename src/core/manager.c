@@ -747,6 +747,14 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         if (r < 0)
                 return r;
 
+        r = manager_setup_prefix(m);
+        if (r < 0)
+                return r;
+
+        m->udev = udev_new();
+        if (!m->udev)
+                return -ENOMEM;
+
         r = sd_event_default(&m->event);
         if (r < 0)
                 return r;
@@ -755,29 +763,27 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         if (r < 0)
                 return r;
 
-        r = manager_setup_signals(m);
-        if (r < 0)
-                return r;
+        if (test_run_flags == MANAGER_TEST_RUN_MINIMAL) {
+                m->cgroup_root = strdup("");
+                if (!m->cgroup_root)
+                        return -ENOMEM;
+        } else {
+                r = manager_setup_signals(m);
+                if (r < 0)
+                        return r;
 
-        r = manager_setup_cgroup(m);
-        if (r < 0)
-                return r;
+                r = manager_setup_cgroup(m);
+                if (r < 0)
+                        return r;
 
-        r = manager_setup_time_change(m);
-        if (r < 0)
-                return r;
+                r = manager_setup_time_change(m);
+                if (r < 0)
+                        return r;
 
-        r = manager_setup_sigchld_event_source(m);
-        if (r < 0)
-                return r;
-
-        m->udev = udev_new();
-        if (!m->udev)
-                return -ENOMEM;
-
-        r = manager_setup_prefix(m);
-        if (r < 0)
-                return r;
+                r = manager_setup_sigchld_event_source(m);
+                if (r < 0)
+                        return r;
+        }
 
         if (MANAGER_IS_SYSTEM(m) && test_run_flags == 0) {
                 r = mkdir_label("/run/systemd/units", 0755);

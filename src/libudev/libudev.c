@@ -85,8 +85,7 @@ _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
 /**
  * udev_new:
  *
- * Create udev library context. This reads the udev configuration
- * file, and fills in the default values.
+ * Create udev library context. This only allocates the basic data structure.
  *
  * The initial refcount is 1, and needs to be decremented to
  * release the resources of the udev library context.
