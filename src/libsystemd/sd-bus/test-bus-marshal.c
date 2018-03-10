@@ -217,6 +217,7 @@ int main(int argc, char *argv[]) {
         free(h);
 
 #if HAVE_GLIB
+#ifndef __SANITIZE_ADDRESS__
         {
                 GDBusMessage *g;
                 char *p;
@@ -231,6 +232,7 @@ int main(int argc, char *argv[]) {
                 g_free(p);
                 g_object_unref(g);
         }
+#endif
 #endif
 
 #if HAVE_DBUS
