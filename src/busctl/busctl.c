@@ -364,8 +364,6 @@ static void print_subtree(const char *prefix, const char *path, char **l) {
 
 static void print_tree(const char *prefix, char **l) {
 
-        pager_open(arg_no_pager, false);
-
         prefix = strempty(prefix);
 
         if (arg_list) {
