@@ -2194,6 +2194,10 @@ static int generic_array_bisect(
                  * backwards in the chain, so let's check that
                  * first. */
 
+                if (ci->begin == 0) {
+                    return -EBADMSG;
+                }
+
                 r = test_object(f, ci->begin, needle);
                 if (r < 0)
                         return r;
