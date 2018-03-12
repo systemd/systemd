@@ -411,6 +411,17 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*02173BG*:*pvrThinkPadEd
  EVDEV_ABS_36=653:5395:116
 
 #########################################
+# Razer
+#########################################
+
+# Razer Blade Stealth
+evdev:name:1A586753:00 06CB:8323 Touchpad:dmi:*svnRazer:pnBladeStealth:*
+ EVDEV_ABS_00=::12:8
+ EVDEV_ABS_01=::11:8
+ EVDEV_ABS_35=::12:8
+ EVDEV_ABS_36=::11:8
+
+#########################################
 # Samsung
 #########################################
 
