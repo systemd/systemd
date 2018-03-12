@@ -414,7 +414,7 @@ static bool nonunmountable_path(const char *path) {
                 || path_startswith(path, "/run/initramfs");
 }
 
-static int remount_with_timeout(MountPoint *m) {
+static int remount_with_timeout(MountPoint *m, int umount_log_level) {
         pid_t pid;
         int r;
 
@@ -435,7 +435,7 @@ static int remount_with_timeout(MountPoint *m) {
                 /* Start the mount operation here in the child */
                 r = mount(NULL, m->path, NULL, m->remount_flags, m->remount_options);
                 if (r < 0)
-                        log_error_errno(errno, "Failed to remount '%s' read-only: %m", m->path);
+                        log_full_errno(umount_log_level, errno, "Failed to remount '%s' read-only: %m", m->path);
 
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
@@ -445,14 +445,14 @@ static int remount_with_timeout(MountPoint *m) {
                 log_error_errno(r, "Remounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
                 (void) kill(pid, SIGKILL);
         } else if (r == -EPROTO)
-                log_error_errno(r, "Remounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
+                log_debug_errno(r, "Remounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
         else if (r < 0)
                 log_error_errno(r, "Remounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", m->path, pid);
 
         return r;
 }
 
-static int umount_with_timeout(MountPoint *m) {
+static int umount_with_timeout(MountPoint *m, int umount_log_level) {
         pid_t pid;
         int r;
 
@@ -479,7 +479,7 @@ static int umount_with_timeout(MountPoint *m) {
                  * then return EBUSY).*/
                 r = umount2(m->path, MNT_FORCE);
                 if (r < 0)
-                        log_error_errno(errno, "Failed to unmount %s: %m", m->path);
+                        log_full_errno(umount_log_level, errno, "Failed to unmount %s: %m", m->path);
 
                 _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
@@ -489,7 +489,7 @@ static int umount_with_timeout(MountPoint *m) {
                 log_error_errno(r, "Unmounting '%s' timed out, issuing SIGKILL to PID " PID_FMT ".", m->path, pid);
                 (void) kill(pid, SIGKILL);
         } else if (r == -EPROTO)
-                log_error_errno(r, "Unmounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
+                log_debug_errno(r, "Unmounting '%s' failed abnormally, child process " PID_FMT " aborted or exited non-zero.", m->path, pid);
         else if (r < 0)
                 log_error_errno(r, "Unmounting '%s' failed unexpectedly, couldn't wait for child process " PID_FMT ": %m", m->path, pid);
 
@@ -498,7 +498,7 @@ static int umount_with_timeout(MountPoint *m) {
 
 /* This includes remounting readonly, which changes the kernel mount options.
  * Therefore the list passed to this function is invalidated, and should not be reused. */
-static int mount_points_list_umount(MountPoint **head, bool *changed) {
+static int mount_points_list_umount(MountPoint **head, bool *changed, int umount_log_level) {
         MountPoint *m;
         int n_failed = 0;
 
@@ -527,7 +527,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed) {
                          * Since the remount can hang in the instance of
                          * remote filesystems, we remount asynchronously
                          * and skip the subsequent umount if it fails. */
-                        if (remount_with_timeout(m) < 0) {
+                        if (remount_with_timeout(m, umount_log_level) < 0) {
                                 /* Remount failed, but try unmounting anyway,
                                  * unless this is a mount point we want to skip. */
                                 if (nonunmountable_path(m->path)) {
@@ -544,7 +544,7 @@ static int mount_points_list_umount(MountPoint **head, bool *changed) {
                         continue;
 
                 /* Trying to umount */
-                if (umount_with_timeout(m) < 0)
+                if (umount_with_timeout(m, umount_log_level) < 0)
                         n_failed++;
                 else
                         *changed = true;
@@ -574,7 +574,7 @@ static int swap_points_list_off(MountPoint **head, bool *changed) {
         return n_failed;
 }
 
-static int loopback_points_list_detach(MountPoint **head, bool *changed) {
+static int loopback_points_list_detach(MountPoint **head, bool *changed, int umount_log_level) {
         MountPoint *m, *n;
         int n_failed = 0, k;
         struct stat root_st;
@@ -604,7 +604,7 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed) {
 
                         mount_point_free(head, m);
                 } else {
-                        log_warning_errno(errno, "Could not detach loopback %s: %m", m->path);
+                        log_full_errno(umount_log_level, errno, "Could not detach loopback %s: %m", m->path);
                         n_failed++;
                 }
         }
@@ -612,7 +612,7 @@ static int loopback_points_list_detach(MountPoint **head, bool *changed) {
         return n_failed;
 }
 
-static int dm_points_list_detach(MountPoint **head, bool *changed) {
+static int dm_points_list_detach(MountPoint **head, bool *changed, int umount_log_level) {
         MountPoint *m, *n;
         int n_failed = 0, r;
         dev_t rootdev;
@@ -637,7 +637,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
                         *changed = true;
                         mount_point_free(head, m);
                 } else {
-                        log_warning_errno(errno, "Could not detach DM %s: %m", m->path);
+                        log_full_errno(umount_log_level, errno, "Could not detach DM %s: %m", m->path);
                         n_failed++;
                 }
         }
@@ -645,7 +645,7 @@ static int dm_points_list_detach(MountPoint **head, bool *changed) {
         return n_failed;
 }
 
-static int umount_all_once(bool *changed) {
+static int umount_all_once(bool *changed, int umount_log_level) {
         int r;
         LIST_HEAD(MountPoint, mp_list_head);
 
@@ -656,7 +656,7 @@ static int umount_all_once(bool *changed) {
         if (r < 0)
                 goto end;
 
-        r = mount_points_list_umount(&mp_list_head, changed);
+        r = mount_points_list_umount(&mp_list_head, changed, umount_log_level);
 
   end:
         mount_points_list_free(&mp_list_head);
@@ -664,7 +664,7 @@ static int umount_all_once(bool *changed) {
         return r;
 }
 
-int umount_all(bool *changed) {
+int umount_all(bool *changed, int umount_log_level) {
         bool umount_changed;
         int r;
 
@@ -676,7 +676,7 @@ int umount_all(bool *changed) {
         do {
                 umount_changed = false;
 
-                r = umount_all_once(&umount_changed);
+                r = umount_all_once(&umount_changed, umount_log_level);
                 if (umount_changed)
                         *changed = true;
         } while (umount_changed);
@@ -704,7 +704,7 @@ int swapoff_all(bool *changed) {
         return r;
 }
 
-int loopback_detach_all(bool *changed) {
+int loopback_detach_all(bool *changed, int umount_log_level) {
         int r;
         LIST_HEAD(MountPoint, loopback_list_head);
 
@@ -716,7 +716,7 @@ int loopback_detach_all(bool *changed) {
         if (r < 0)
                 goto end;
 
-        r = loopback_points_list_detach(&loopback_list_head, changed);
+        r = loopback_points_list_detach(&loopback_list_head, changed, umount_log_level);
 
   end:
         mount_points_list_free(&loopback_list_head);
@@ -724,7 +724,7 @@ int loopback_detach_all(bool *changed) {
         return r;
 }
 
-int dm_detach_all(bool *changed) {
+int dm_detach_all(bool *changed, int umount_log_level) {
         int r;
         LIST_HEAD(MountPoint, dm_list_head);
 
@@ -736,7 +736,7 @@ int dm_detach_all(bool *changed) {
         if (r < 0)
                 goto end;
 
-        r = dm_points_list_detach(&dm_list_head, changed);
+        r = dm_points_list_detach(&dm_list_head, changed, umount_log_level);
 
   end:
         mount_points_list_free(&dm_list_head);
