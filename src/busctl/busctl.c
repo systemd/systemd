@@ -190,6 +190,9 @@ static int list_bus_names(int argc, char **argv, void *userdata) {
         }
 
         merged = new(char*, hashmap_size(names) + 1);
+        if (!merged)
+                return log_oom();
+
         HASHMAP_FOREACH_KEY(v, k, names, iterator)
                 merged[n++] = k;
 
