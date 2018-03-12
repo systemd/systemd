@@ -753,7 +753,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int hwdb_main(int argc, char *argv[]) {
-        const Verb verbs[] = {
+        static const Verb verbs[] = {
                 { "update", 1, 1, 0, hwdb_update },
                 { "query",  2, 2, 0, hwdb_query  },
                 {},
