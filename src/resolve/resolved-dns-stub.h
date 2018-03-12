@@ -22,8 +22,5 @@
 
 #include "resolved-manager.h"
 
-/* 127.0.0.53 in native endian */
-#define INADDR_DNS_STUB ((in_addr_t) 0x7f000035U)
-
 void manager_dns_stub_stop(Manager *m);
 int manager_dns_stub_start(Manager *m);
