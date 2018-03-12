@@ -91,10 +91,10 @@ function and add it to the list in src/fuzz/meson.build.
 Whenever possible, a seed corpus and a dictionary should also be added with new
 fuzz targets. The dictionary should be named src/fuzz/fuzz-foo.dict and the seed
 corpus should be built and exported as $OUT/fuzz-foo_seed_corpus.zip in
-scripts/oss-fuzz.sh.
+tools/oss-fuzz.sh.
 
 The fuzzers can be built locally if you have libFuzzer installed by running
-scripts/oss-fuzz.sh. You should also confirm that the fuzzer runs in the
+tools/oss-fuzz.sh. You should also confirm that the fuzzer runs in the
 OSS-Fuzz environment by checking out the OSS-Fuzz repo, and then running
 commands like this:
 
