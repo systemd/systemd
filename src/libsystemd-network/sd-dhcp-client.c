@@ -354,9 +354,10 @@ int sd_dhcp_client_set_client_id(
  * without further modification. Otherwise, if duid_type is supported, DUID
  * is set based on that type. Otherwise, an error is returned.
  */
-int sd_dhcp_client_set_iaid_duid(
+static int dhcp_client_set_iaid_duid(
                 sd_dhcp_client *client,
                 uint32_t iaid,
+                bool append_iaid,
                 uint16_t duid_type,
                 const void *duid,
                 size_t duid_len) {
@@ -377,15 +378,17 @@ int sd_dhcp_client_set_iaid_duid(
         zero(client->client_id);
         client->client_id.type = 255;
 
-        /* If IAID is not configured, generate it. */
-        if (iaid == 0) {
-                r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr,
-                                             client->mac_addr_len,
-                                             &client->client_id.ns.iaid);
-                if (r < 0)
-                        return r;
-        } else
-                client->client_id.ns.iaid = htobe32(iaid);
+        if (append_iaid) {
+                /* If IAID is not configured, generate it. */
+                if (iaid == 0) {
+                        r = dhcp_identifier_set_iaid(client->ifindex, client->mac_addr,
+                                                     client->mac_addr_len,
+                                                     &client->client_id.ns.iaid);
+                        if (r < 0)
+                                return r;
+                } else
+                        client->client_id.ns.iaid = htobe32(iaid);
+        }
 
         if (duid != NULL) {
                 client->client_id.ns.duid.type = htobe16(duid_type);
@@ -399,7 +402,7 @@ int sd_dhcp_client_set_iaid_duid(
                 return -EOPNOTSUPP;
 
         client->client_id_len = sizeof(client->client_id.type) + len +
-                                sizeof(client->client_id.ns.iaid);
+                                (append_iaid ? sizeof(client->client_id.ns.iaid) : 0);
 
         if (!IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_STOPPED)) {
                 log_dhcp_client(client, "Configured IAID+DUID, restarting.");
@@ -408,6 +411,23 @@ int sd_dhcp_client_set_iaid_duid(
         }
 
         return 0;
+}
+
+int sd_dhcp_client_set_iaid_duid(
+                sd_dhcp_client *client,
+                uint32_t iaid,
+                uint16_t duid_type,
+                const void *duid,
+                size_t duid_len) {
+        return dhcp_client_set_iaid_duid(client, iaid, true, duid_type, duid, duid_len);
+}
+
+int sd_dhcp_client_set_duid(
+                sd_dhcp_client *client,
+                uint16_t duid_type,
+                const void *duid,
+                size_t duid_len) {
+        return dhcp_client_set_iaid_duid(client, 0, false, duid_type, duid, duid_len);
 }
 
 int sd_dhcp_client_set_hostname(

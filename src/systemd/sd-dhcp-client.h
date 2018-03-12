@@ -132,6 +132,11 @@ int sd_dhcp_client_set_iaid_duid(
                 uint16_t duid_type,
                 const void *duid,
                 size_t duid_len);
+int sd_dhcp_client_set_duid(
+                sd_dhcp_client *client,
+                uint16_t duid_type,
+                const void *duid,
+                size_t duid_len);
 int sd_dhcp_client_get_client_id(
                 sd_dhcp_client *client,
                 uint8_t *type,

@@ -49,6 +49,11 @@
 typedef enum DHCPClientIdentifier {
         DHCP_CLIENT_ID_MAC,
         DHCP_CLIENT_ID_DUID,
+        /* The following option may not be good for RFC regarding DHCP (3315 and 4361).
+         * But some setups require this. E.g., Sky Broadband, the second largest provider in the UK
+         * requires the client id to be set to a custom string, reported at
+         * https://github.com/systemd/systemd/issues/7828 */
+        DHCP_CLIENT_ID_DUID_ONLY,
         _DHCP_CLIENT_ID_MAX,
         _DHCP_CLIENT_ID_INVALID = -1,
 } DHCPClientIdentifier;

@@ -1236,8 +1236,11 @@
         <varlistentry>
           <term><varname>ClientIdentifier=</varname></term>
           <listitem>
-            <para>The DHCPv4 client identifier to use. Either <literal>mac</literal> to use the MAC address of the link
-            or <literal>duid</literal> (the default, see below) to use an RFC4361-compliant Client ID.</para>
+            <para>The DHCPv4 client identifier to use. Takes one of <literal>mac</literal>, <literal>duid</literal> or <literal>duid-only</literal>.
+            If set to <literal>mac</literal>, the MAC address of the link is used.
+            If set to <literal>duid</literal>, an RFC4361-compliant Client ID, which is the combination of IAID and DUID (see below), is used.
+            If set to <literal>duid-only</literal>, only DUID is used, this may not be RFC compliant, but some setups may require to use this.
+            Defaults to <literal>duid</literal>.</para>
           </listitem>
         </varlistentry>
 
