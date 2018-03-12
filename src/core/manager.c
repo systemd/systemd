@@ -667,7 +667,7 @@ static int manager_setup_sigchld_event_source(Manager *m) {
 }
 
 int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
-        Manager *m;
+        _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         assert(_m);
@@ -729,62 +729,66 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
 
         r = manager_default_environment(m);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = hashmap_ensure_allocated(&m->units, &string_hash_ops);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = hashmap_ensure_allocated(&m->jobs, NULL);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = hashmap_ensure_allocated(&m->cgroup_unit, &path_hash_ops);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = hashmap_ensure_allocated(&m->watch_bus, &string_hash_ops);
         if (r < 0)
-                goto fail;
-
-        r = sd_event_default(&m->event);
-        if (r < 0)
-                goto fail;
-
-        r = manager_setup_run_queue(m);
-        if (r < 0)
-                goto fail;
-
-        r = manager_setup_signals(m);
-        if (r < 0)
-                goto fail;
-
-        r = manager_setup_cgroup(m);
-        if (r < 0)
-                goto fail;
-
-        r = manager_setup_time_change(m);
-        if (r < 0)
-                goto fail;
-
-        r = manager_setup_sigchld_event_source(m);
-        if (r < 0)
-                goto fail;
-
-        m->udev = udev_new();
-        if (!m->udev) {
-                r = -ENOMEM;
-                goto fail;
-        }
+                return r;
 
         r = manager_setup_prefix(m);
         if (r < 0)
-                goto fail;
+                return r;
+
+        m->udev = udev_new();
+        if (!m->udev)
+                return -ENOMEM;
+
+        r = sd_event_default(&m->event);
+        if (r < 0)
+                return r;
+
+        r = manager_setup_run_queue(m);
+        if (r < 0)
+                return r;
+
+        if (test_run_flags == MANAGER_TEST_RUN_MINIMAL) {
+                m->cgroup_root = strdup("");
+                if (!m->cgroup_root)
+                        return -ENOMEM;
+        } else {
+                r = manager_setup_signals(m);
+                if (r < 0)
+                        return r;
+
+                r = manager_setup_cgroup(m);
+                if (r < 0)
+                        return r;
+
+                r = manager_setup_time_change(m);
+                if (r < 0)
+                        return r;
+
+                r = manager_setup_sigchld_event_source(m);
+                if (r < 0)
+                        return r;
+        }
 
         if (MANAGER_IS_SYSTEM(m) && test_run_flags == 0) {
                 r = mkdir_label("/run/systemd/units", 0755);
                 if (r < 0 && r != -EEXIST)
-                        goto fail;
+                        return r;
         }
 
         m->taint_usr =
@@ -795,11 +799,8 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
          * since they might have gotten serialized across the reexec. */
 
         *_m = m;
+        m = NULL;
         return 0;
-
-fail:
-        manager_free(m);
-        return r;
 }
 
 static int manager_setup_notify(Manager *m) {
@@ -1701,6 +1702,7 @@ int manager_load_unit_prepare(
                 sd_bus_error *e,
                 Unit **_ret) {
 
+        _cleanup_(unit_freep) Unit *cleanup_ret = NULL;
         Unit *ret;
         UnitType t;
         int r;
@@ -1733,29 +1735,26 @@ int manager_load_unit_prepare(
                 return 1;
         }
 
-        ret = unit_new(m, unit_vtable[t]->object_size);
+        ret = cleanup_ret = unit_new(m, unit_vtable[t]->object_size);
         if (!ret)
                 return -ENOMEM;
 
         if (path) {
                 ret->fragment_path = strdup(path);
-                if (!ret->fragment_path) {
-                        unit_free(ret);
+                if (!ret->fragment_path)
                         return -ENOMEM;
-                }
         }
 
         r = unit_add_name(ret, name);
-        if (r < 0) {
-                unit_free(ret);
+        if (r < 0)
                 return r;
-        }
 
         unit_add_to_load_queue(ret);
         unit_add_to_dbus_queue(ret);
         unit_add_to_gc_queue(ret);
 
         *_ret = ret;
+        cleanup_ret = NULL;
 
         return 0;
 }

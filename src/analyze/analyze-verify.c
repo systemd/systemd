@@ -254,7 +254,8 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         Unit *units[strv_length(filenames)];
         int i, count = 0;
-        const uint8_t flags = MANAGER_TEST_RUN_ENV_GENERATORS |
+        const uint8_t flags = MANAGER_TEST_RUN_BASIC |
+                              MANAGER_TEST_RUN_ENV_GENERATORS |
                               run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         if (strv_isempty(filenames))

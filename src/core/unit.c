@@ -128,7 +128,7 @@ Unit *unit_new(Manager *m, size_t size) {
 }
 
 int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret) {
-        Unit *u;
+        _cleanup_(unit_freep) Unit *u = NULL;
         int r;
 
         u = unit_new(m, size);
@@ -136,12 +136,11 @@ int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret) {
                 return -ENOMEM;
 
         r = unit_add_name(u, name);
-        if (r < 0) {
-                unit_free(u);
+        if (r < 0)
                 return r;
-        }
 
         *ret = u;
+        u = NULL;
         return r;
 }
 

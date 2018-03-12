@@ -96,10 +96,11 @@ typedef enum ManagerTimestamp {
 
 enum {
         /* 0 = run normally */
-        MANAGER_TEST_RUN_MINIMAL = 1,        /* run test w/o generators */
-        MANAGER_TEST_RUN_ENV_GENERATORS = 2, /* also run env generators  */
-        MANAGER_TEST_RUN_GENERATORS = 4,     /* also run unit generators */
-        MANAGER_TEST_FULL = MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
+        MANAGER_TEST_RUN_MINIMAL        = 1 << 1,  /* create basic data structures */
+        MANAGER_TEST_RUN_BASIC          = 1 << 2,  /* interact with the environment */
+        MANAGER_TEST_RUN_ENV_GENERATORS = 1 << 3,  /* also run env generators  */
+        MANAGER_TEST_RUN_GENERATORS     = 1 << 4,  /* also run unit generators */
+        MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
 };
 assert_cc((MANAGER_TEST_FULL & UINT8_MAX) == MANAGER_TEST_FULL);
 
@@ -379,6 +380,7 @@ struct Manager {
 
 int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **m);
 Manager* manager_free(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
 void manager_enumerate(Manager *m);
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds);

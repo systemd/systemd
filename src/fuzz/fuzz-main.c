@@ -33,6 +33,9 @@ int main(int argc, char **argv) {
         char *name;
 
         log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
+        log_open();
+
         for (i = 1; i < argc; i++) {
                 _cleanup_free_ char *buf = NULL;
 
@@ -47,5 +50,6 @@ int main(int argc, char **argv) {
                 (void) LLVMFuzzerTestOneInput((uint8_t*)buf, size);
                 printf("ok\n");
         }
+
         return EXIT_SUCCESS;
 }

@@ -623,12 +623,12 @@ static void test_exec_standardinput(Manager *m) {
 
 static int run_tests(UnitFileScope scope, const test_function_t *tests) {
         const test_function_t *test = NULL;
-        Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         assert_se(tests);
 
-        r = manager_new(scope, MANAGER_TEST_RUN_MINIMAL, &m);
+        r = manager_new(scope, MANAGER_TEST_RUN_BASIC, &m);
         if (MANAGER_SKIP_TEST(r)) {
                 log_notice_errno(r, "Skipping test: manager_new: %m");
                 return EXIT_TEST_SKIP;
@@ -638,8 +638,6 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
 
         for (test = tests; test && *test; test++)
                 (*test)(m);
-
-        manager_free(m);
 
         return 0;
 }

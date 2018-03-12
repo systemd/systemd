@@ -20,13 +20,20 @@ set -ex
 
 export LC_CTYPE=C.UTF-8
 
+export CC=${CC:-clang}
+export CXX=${CXX:-clang++}
+clang_version="$($CC --version | sed -nr 's/.*version ([^ ]+?) .*/\1/p' | sed -r 's/-$//')"
+
 SANITIZER=${SANITIZER:-address -fsanitize-address-use-after-scope}
 flags="-O1 -fno-omit-frame-pointer -gline-tables-only -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION -fsanitize=$SANITIZER -fsanitize-coverage=trace-pc-guard,trace-cmp"
 
+clang_lib="/usr/lib64/clang/${clang_version}/lib/linux"
+[ -d "$clang_lib" ] || clang_lib="/usr/lib/clang/${clang_version}/lib/linux"
+
 export CFLAGS=${CFLAGS:-$flags}
 export CXXFLAGS=${CXXFLAGS:-$flags}
-export CC=${CC:-clang}
-export CXX=${CXX:-clang++}
+export LDFLAGS=${LDFLAGS:--L${clang_lib}}
+
 export WORK=${WORK:-$(pwd)}
 export OUT=${OUT:-$(pwd)/out}
 mkdir -p $OUT

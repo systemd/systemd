@@ -52,7 +52,7 @@ static int setup_test(Manager **m) {
                 return -EXIT_TEST_SKIP;
         }
 
-        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &tmp);
+        r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_BASIC, &tmp);
         if (MANAGER_SKIP_TEST(r)) {
                 log_notice_errno(r, "Skipping test: manager_new: %m");
                 return -EXIT_TEST_SKIP;
