@@ -20,10 +20,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-int umount_all(bool *changed);
+int umount_all(bool *changed, int umount_log_level);
 
 int swapoff_all(bool *changed);
 
-int loopback_detach_all(bool *changed);
+int loopback_detach_all(bool *changed, int umount_log_level);
 
-int dm_detach_all(bool *changed);
+int dm_detach_all(bool *changed, int umount_log_level);
