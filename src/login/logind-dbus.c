@@ -756,10 +756,6 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 }
         }
 
-        r = sd_bus_message_enter_container(message, 'a', "(sv)");
-        if (r < 0)
-                return r;
-
         if (t == _SESSION_TYPE_INVALID) {
                 if (!isempty(display))
                         t = SESSION_X11;
@@ -915,7 +911,15 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         goto fail;
         }
 
-        r = session_start(session);
+        r = sd_bus_message_enter_container(message, 'a', "(sv)");
+        if (r < 0)
+                return r;
+
+        r = session_start(session, message);
+        if (r < 0)
+                goto fail;
+
+        r = sd_bus_message_exit_container(message);
         if (r < 0)
                 goto fail;
 
@@ -3034,7 +3038,7 @@ int manager_start_scope(
                 const char *description,
                 const char *after,
                 const char *after2,
-                uint64_t tasks_max,
+                sd_bus_message *more_properties,
                 sd_bus_error *error,
                 char **job) {
 
@@ -3098,9 +3102,17 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", tasks_max);
+        /* disable TasksMax= for the session scope, rely on the slice setting for it */
+        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", (uint64_t)-1);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
+
+        if (more_properties) {
+                /* If TasksMax also appears here, it will overwrite the default value set above */
+                r = sd_bus_message_copy(m, more_properties, true);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
