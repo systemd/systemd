@@ -195,7 +195,7 @@ bool is_clean_exit(int code, int status, ExitClean clean, ExitStatusSet *success
         if (code == CLD_EXITED)
                 return status == 0 ||
                        (success_status &&
-                       set_contains(success_status->status, INT_TO_PTR(status)));
+                        set_contains(success_status->status, INT_TO_PTR(status)));
 
         /* If a daemon does not implement handlers for some of the signals that's not considered an unclean shutdown */
         if (code == CLD_KILLED)
