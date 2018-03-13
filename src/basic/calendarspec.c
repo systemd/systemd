@@ -581,7 +581,8 @@ static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
         CalendarComponent *year = NULL, *month = NULL, *day = NULL, *hour = NULL, *minute = NULL, *us = NULL;
         int r;
 
-        assert_se(gmtime_r(&time, &tm));
+        if (!gmtime_r(&time, &tm))
+                return -ERANGE;
 
         r = const_chain(tm.tm_year + 1900, &year);
         if (r < 0)
