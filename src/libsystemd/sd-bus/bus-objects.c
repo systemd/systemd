@@ -1076,10 +1076,6 @@ static int object_manager_serialize_path(
                         if (r < 0)
                                 return r;
 
-                        r = sd_bus_message_append(reply, "{sa{sv}}", "org.freedesktop.DBus.ObjectManager", 0);
-                        if (r < 0)
-                                return r;
-
                         found_something = true;
                 }
 
@@ -2304,9 +2300,6 @@ static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *p
         r = sd_bus_message_append(m, "{sa{sv}}", "org.freedesktop.DBus.Properties", 0);
         if (r < 0)
                 return r;
-        r = sd_bus_message_append(m, "{sa{sv}}", "org.freedesktop.DBus.ObjectManager", 0);
-        if (r < 0)
-                return r;
 
         r = object_added_append_all_prefix(bus, m, s, path, path, false);
         if (r < 0)
@@ -2473,9 +2466,6 @@ static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char 
         if (r < 0)
                 return r;
         r = sd_bus_message_append(m, "s", "org.freedesktop.DBus.Properties");
-        if (r < 0)
-                return r;
-        r = sd_bus_message_append(m, "s", "org.freedesktop.DBus.ObjectManager");
         if (r < 0)
                 return r;
 
