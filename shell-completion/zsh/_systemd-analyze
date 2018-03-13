@@ -33,12 +33,13 @@ _systemd_analyze_command(){
         'plot:Output SVG graphic showing service initialization'
         'dot:Dump dependency graph (in dot(1) format)'
         'dump:Dump server status'
-        'unit-paths':List unit load paths'
+        'unit-paths:List unit load paths'
         'log-level:Get/set systemd log threshold'
         'log-target:Get/set systemd log target'
         'service-watchdogs:Get/set service watchdog status'
         'syscall-filter:List syscalls in seccomp filter'
         'verify:Check unit files for correctness'
+        'calendar:Validate repetitive calendar time events'
     )
 
     if (( CURRENT == 1 )); then
