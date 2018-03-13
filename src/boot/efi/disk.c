@@ -20,12 +20,12 @@
 
 EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, CHAR16 uuid[37]) {
         EFI_DEVICE_PATH *device_path;
-        EFI_STATUS r = EFI_NOT_FOUND;
 
         /* export the device path this image is started from */
         device_path = DevicePathFromHandle(handle);
         if (device_path) {
-                EFI_DEVICE_PATH *path, *paths;
+                _cleanup_freepool_ EFI_DEVICE_PATH *paths = NULL;
+                EFI_DEVICE_PATH *path;
 
                 paths = UnpackDevicePath(device_path);
                 for (path = paths; !IsDevicePathEnd(path); path = NextDevicePathNode(path)) {
@@ -40,11 +40,9 @@ EFI_STATUS disk_get_part_uuid(EFI_HANDLE *handle, CHAR16 uuid[37]) {
                                 continue;
 
                         GuidToString(uuid, (EFI_GUID *)&drive->Signature);
-                        r = EFI_SUCCESS;
-                        break;
+                        return EFI_SUCCESS;
                 }
-                FreePool(paths);
         }
 
-        return r;
+        return EFI_NOT_FOUND;
 }

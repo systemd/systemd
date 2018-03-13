@@ -30,7 +30,7 @@ static const EFI_GUID global_guid = EFI_GLOBAL_VARIABLE;
 
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         EFI_LOADED_IMAGE *loaded_image;
-        CHAR8 *b;
+        _cleanup_freepool_ CHAR8 *b = NULL;
         UINTN size;
         BOOLEAN secure = FALSE;
         CHAR8 *sections[] = {
@@ -58,11 +58,10 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 return err;
         }
 
-        if (efivar_get_raw(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS) {
+        if (efivar_get_raw(&global_guid, L"SecureBoot", &b, &size) == EFI_SUCCESS)
                 if (*b > 0)
                         secure = TRUE;
-                FreePool(b);
-        }
+
         err = pe_memory_locate_sections(loaded_image->ImageBase, sections, addrs, offs, szs);
         if (EFI_ERROR(err)) {
                 Print(L"Unable to locate embedded .linux section: %r ", err);
@@ -106,22 +105,26 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
 
         /* if LoaderImageIdentifier is not set, assume the image with this stub was loaded directly from UEFI */
         if (efivar_get_raw(&global_guid, L"LoaderImageIdentifier", &b, &size) != EFI_SUCCESS) {
-                CHAR16 *loaded_image_path = DevicePathToStr(loaded_image->FilePath);
-                efivar_set(L"LoaderImageIdentifier", loaded_image_path, FALSE);
-                FreePool(loaded_image_path);
+                _cleanup_freepool_ CHAR16 *s;
+
+                s = DevicePathToStr(loaded_image->FilePath);
+                efivar_set(L"LoaderImageIdentifier", s, FALSE);
         }
 
         /* if LoaderFirmwareInfo is not set, let's set it */
         if (efivar_get_raw(&global_guid, L"LoaderFirmwareInfo", &b, &size) != EFI_SUCCESS) {
-                CHAR16 *loader_firmware_info = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
-                efivar_set(L"LoaderFirmwareInfo", loader_firmware_info, FALSE);
-                FreePool(loader_firmware_info);
+                _cleanup_freepool_ CHAR16 *s;
+
+                s = PoolPrint(L"%s %d.%02d", ST->FirmwareVendor, ST->FirmwareRevision >> 16, ST->FirmwareRevision & 0xffff);
+                efivar_set(L"LoaderFirmwareInfo", s, FALSE);
         }
+
         /* ditto for LoaderFirmwareType */
         if (efivar_get_raw(&global_guid, L"LoaderFirmwareType", &b, &size) != EFI_SUCCESS) {
-                CHAR16 *loader_firmware_type = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
-                efivar_set(L"LoaderFirmwareType", loader_firmware_type, FALSE);
-                FreePool(loader_firmware_type);
+                _cleanup_freepool_ CHAR16 *s;
+
+                s = PoolPrint(L"UEFI %d.%02d", ST->Hdr.Revision >> 16, ST->Hdr.Revision & 0xffff);
+                efivar_set(L"LoaderFirmwareType", s, FALSE);
         }
 
         /* add StubInfo */
