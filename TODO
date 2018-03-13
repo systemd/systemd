@@ -528,6 +528,7 @@ Features:
 * maybe add a generator that looks for "systemd.run=" on the kernel cmdline for container usercases...
 
 * test/:
+  - add unit tests for config_parse_device_allow()
 
 * seems that when we follow symlinks to units we prefer the symlink
   destination path over /etc and /usr. We should not do that. Instead

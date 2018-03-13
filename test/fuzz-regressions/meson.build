@@ -30,4 +30,5 @@ fuzz_regression_tests = '''
         fuzz-dns-packet/oss-fuzz-5465
         fuzz-dns-packet/issue-7888
         fuzz-unit-file/oss-fuzz-6884
+        fuzz-unit-file/oss-fuzz-6885
 '''.split()

@@ -410,7 +410,6 @@ int config_parse_socket_listen(const char *unit,
                 if (r < 0) {
                         if (r != -EAFNOSUPPORT)
                                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse address value, ignoring: %s", rvalue);
-
                         return 0;
                 }
 
@@ -3511,6 +3510,7 @@ int config_parse_device_allow(
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to resolve specifiers in %s, ignoring: %m",
                            rvalue);
+                return 0;
         }
 
         n = strcspn(t, WHITESPACE);
