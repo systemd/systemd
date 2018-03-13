@@ -42,6 +42,7 @@
 #include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
+#include "verbs.h"
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;
@@ -68,7 +69,82 @@ static usec_t arg_timeout = 0;
 #define NAME_IS_ACQUIRED INT_TO_PTR(1)
 #define NAME_IS_ACTIVATABLE INT_TO_PTR(2)
 
-static int list_bus_names(sd_bus *bus, char **argv) {
+static int acquire_bus(bool set_monitor, sd_bus **ret) {
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        int r;
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate bus: %m");
+
+        if (set_monitor) {
+                r = sd_bus_set_monitor(bus, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set monitor mode: %m");
+
+                r = sd_bus_negotiate_creds(bus, true, _SD_BUS_CREDS_ALL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable credentials: %m");
+
+                r = sd_bus_negotiate_timestamp(bus, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable timestamps: %m");
+
+                r = sd_bus_negotiate_fds(bus, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable fds: %m");
+        }
+
+        r = sd_bus_set_bus_client(bus, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set bus client: %m");
+
+        r = sd_bus_set_watch_bind(bus, arg_watch_bind);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set watch-bind setting to '%s': %m", yes_no(arg_watch_bind));
+
+        if (arg_address)
+                r = sd_bus_set_address(bus, arg_address);
+        else {
+                switch (arg_transport) {
+
+                case BUS_TRANSPORT_LOCAL:
+                        if (arg_user) {
+                                bus->is_user = true;
+                                r = bus_set_address_user(bus);
+                        } else {
+                                bus->is_system = true;
+                                r = bus_set_address_system(bus);
+                        }
+                        break;
+
+                case BUS_TRANSPORT_REMOTE:
+                        r = bus_set_address_system_remote(bus, arg_host);
+                        break;
+
+                case BUS_TRANSPORT_MACHINE:
+                        r = bus_set_address_system_machine(bus, arg_host);
+                        break;
+
+                default:
+                        assert_not_reached("Hmm, unknown transport type.");
+                }
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to set address: %m");
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to bus: %m");
+
+        *ret = bus;
+        bus = NULL;
+
+        return 0;
+}
+
+static int list_bus_names(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
         _cleanup_free_ char **merged = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
@@ -80,10 +156,12 @@ static int list_bus_names(sd_bus *bus, char **argv) {
         char *k;
         Iterator iterator;
 
-        assert(bus);
-
         if (!arg_unique && !arg_acquired && !arg_activatable)
                 arg_unique = arg_acquired = arg_activatable = true;
+
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_list_names(bus, (arg_acquired || arg_unique) ? &acquired : NULL, arg_activatable ? &activatable : NULL);
         if (r < 0)
@@ -417,14 +495,19 @@ static int tree_one(sd_bus *bus, const char *service, const char *prefix, bool m
         return r;
 }
 
-static int tree(sd_bus *bus, char **argv) {
+static int tree(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         char **i;
         int r = 0;
 
         if (!arg_unique && !arg_acquired)
                 arg_acquired = true;
 
-        if (strv_length(argv) <= 1) {
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
+
+        if (argc <= 1) {
                 _cleanup_strv_free_ char **names = NULL;
                 bool not_first = false;
 
@@ -848,7 +931,7 @@ static const char *strdash(const char *x) {
         return isempty(x) ? "-" : x;
 }
 
-static int introspect(sd_bus *bus, char **argv) {
+static int introspect(int argc, char **argv, void *userdata) {
         static const struct hash_ops member_hash_ops = {
                 .hash = member_hash_func,
                 .compare = member_compare_func,
@@ -861,27 +944,19 @@ static int introspect(sd_bus *bus, char **argv) {
                 .on_property = on_property,
         };
 
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_xml = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(member_set_freep) Set *members = NULL;
+        unsigned name_width, type_width, signature_width, result_width, j, k = 0;
+        Member *m, **sorted = NULL;
         Iterator i;
-        Member *m;
         const char *xml;
         int r;
-        unsigned name_width,  type_width, signature_width, result_width;
-        Member **sorted = NULL;
-        unsigned k = 0, j, n_args;
 
-        n_args = strv_length(argv);
-        if (n_args < 3) {
-                log_error("Requires service and object path argument.");
-                return -EINVAL;
-        }
-
-        if (n_args > 4) {
-                log_error("Too many arguments.");
-                return -EINVAL;
-        }
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
 
         members = set_new(&member_hash_ops);
         if (!members)
@@ -1071,7 +1146,8 @@ static int message_pcap(sd_bus_message *m, FILE *f) {
         return bus_message_pcap_frame(m, arg_snaplen, f);
 }
 
-static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FILE *f)) {
+static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f)) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char **i;
@@ -1079,6 +1155,10 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
         const char *unique_name;
         bool is_monitor = false;
         int r;
+
+        r = acquire_bus(true, &bus);
+        if (r < 0)
+                return r;
 
         /* upgrade connection; it's not used for anything else after this call */
         r = sd_bus_message_new_method_call(bus, &message, "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.Monitoring", "BecomeMonitor");
@@ -1186,7 +1266,11 @@ static int monitor(sd_bus *bus, char *argv[], int (*dump)(sd_bus_message *m, FIL
         }
 }
 
-static int capture(sd_bus *bus, char *argv[]) {
+static int verb_monitor(int argc, char **argv, void *userdata) {
+        return monitor(argc, argv, message_dump);
+}
+
+static int verb_capture(int argc, char **argv, void *userdata) {
         int r;
 
         if (isatty(fileno(stdout)) > 0) {
@@ -1196,7 +1280,7 @@ static int capture(sd_bus *bus, char *argv[]) {
 
         bus_pcap_header(arg_snaplen, stdout);
 
-        r = monitor(bus, argv, message_pcap);
+        r = monitor(argc, argv, message_pcap);
         if (r < 0)
                 return r;
 
@@ -1208,19 +1292,17 @@ static int capture(sd_bus *bus, char *argv[]) {
         return r;
 }
 
-static int status(sd_bus *bus, char *argv[]) {
+static int status(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         pid_t pid;
         int r;
 
-        assert(bus);
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
 
-        if (strv_length(argv) > 2) {
-                log_error("Expects no or one argument.");
-                return -EINVAL;
-        }
-
-        if (argv[1]) {
+        if (!isempty(argv[1])) {
                 r = parse_pid(argv[1], &pid);
                 if (r < 0)
                         r = sd_bus_get_name_creds(
@@ -1515,17 +1597,15 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
         return 0;
 }
 
-static int call(sd_bus *bus, char *argv[]) {
+static int call(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         int r;
 
-        assert(bus);
-
-        if (strv_length(argv) < 5) {
-                log_error("Expects at least four arguments.");
-                return -EINVAL;
-        }
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_new_method_call(bus, &m, argv[1], argv[2], argv[3], argv[4]);
         if (r < 0)
@@ -1602,19 +1682,15 @@ static int call(sd_bus *bus, char *argv[]) {
         return 0;
 }
 
-static int get_property(sd_bus *bus, char *argv[]) {
+static int get_property(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        unsigned n;
         char **i;
         int r;
 
-        assert(bus);
-
-        n = strv_length(argv);
-        if (n < 5) {
-                log_error("Expects at least four arguments.");
-                return -EINVAL;
-        }
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
 
         STRV_FOREACH(i, argv + 4) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -1660,20 +1736,16 @@ static int get_property(sd_bus *bus, char *argv[]) {
         return 0;
 }
 
-static int set_property(sd_bus *bus, char *argv[]) {
+static int set_property(int argc, char **argv, void *userdata) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        unsigned n;
         char **p;
         int r;
 
-        assert(bus);
-
-        n = strv_length(argv);
-        if (n < 6) {
-                log_error("Expects at least five arguments.");
-                return -EINVAL;
-        }
+        r = acquire_bus(false, &bus);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_new_method_call(bus, &m, argv[1], argv[2], "org.freedesktop.DBus.Properties", "Set");
         if (r < 0)
@@ -1687,7 +1759,7 @@ static int set_property(sd_bus *bus, char *argv[]) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        p = argv+6;
+        p = argv + 6;
         r = message_append_cmdline(m, argv[5], &p);
         if (r < 0)
                 return r;
@@ -1756,6 +1828,10 @@ static int help(void) {
                , program_invocation_short_name);
 
         return 0;
+}
+
+static int verb_help(int argc, char **argv, void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -1978,46 +2054,26 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int busctl_main(sd_bus *bus, int argc, char *argv[]) {
-        assert(bus);
+static int busctl_main(int argc, char *argv[]) {
 
-        if (optind >= argc ||
-            streq(argv[optind], "list"))
-                return list_bus_names(bus, argv + optind);
+        static const Verb verbs[] = {
+                { "list",         VERB_ANY, 1,        VERB_DEFAULT, list_bus_names },
+                { "status",       VERB_ANY, 2,        0,            status         },
+                { "monitor",      VERB_ANY, VERB_ANY, 0,            verb_monitor   },
+                { "capture",      VERB_ANY, VERB_ANY, 0,            verb_capture   },
+                { "tree",         VERB_ANY, VERB_ANY, 0,            tree           },
+                { "introspect",   3,        4,        0,            introspect     },
+                { "call",         5,        VERB_ANY, 0,            call           },
+                { "get-property", 5,        VERB_ANY, 0,            get_property   },
+                { "set-property", 6,        VERB_ANY, 0,            set_property   },
+                { "help",         VERB_ANY, VERB_ANY, 0,            verb_help      },
+                {}
+        };
 
-        if (streq(argv[optind], "monitor"))
-                return monitor(bus, argv + optind, message_dump);
-
-        if (streq(argv[optind], "capture"))
-                return capture(bus, argv + optind);
-
-        if (streq(argv[optind], "status"))
-                return status(bus, argv + optind);
-
-        if (streq(argv[optind], "tree"))
-                return tree(bus, argv + optind);
-
-        if (streq(argv[optind], "introspect"))
-                return introspect(bus, argv + optind);
-
-        if (streq(argv[optind], "call"))
-                return call(bus, argv + optind);
-
-        if (streq(argv[optind], "get-property"))
-                return get_property(bus, argv + optind);
-
-        if (streq(argv[optind], "set-property"))
-                return set_property(bus, argv + optind);
-
-        if (streq(argv[optind], "help"))
-                return help();
-
-        log_error("Unknown command '%s'", argv[optind]);
-        return -EINVAL;
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 int main(int argc, char *argv[]) {
-        sd_bus *bus = NULL;
         int r;
 
         log_parse_environment();
@@ -2027,98 +2083,14 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        r = sd_bus_new(&bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to allocate bus: %m");
-                goto finish;
-        }
-
-        if (STRPTR_IN_SET(argv[optind], "monitor", "capture")) {
-
-                r = sd_bus_set_monitor(bus, true);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to set monitor mode: %m");
-                        goto finish;
-                }
-
-                r = sd_bus_negotiate_creds(bus, true, _SD_BUS_CREDS_ALL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enable credentials: %m");
-                        goto finish;
-                }
-
-                r = sd_bus_negotiate_timestamp(bus, true);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enable timestamps: %m");
-                        goto finish;
-                }
-
-                r = sd_bus_negotiate_fds(bus, true);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enable fds: %m");
-                        goto finish;
-                }
-        }
-
-        r = sd_bus_set_bus_client(bus, true);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set bus client: %m");
-                goto finish;
-        }
-
-        r = sd_bus_set_watch_bind(bus, arg_watch_bind);
-        if (r < 0) {
-                log_error_errno(r, "Failed to set watch-bind setting to '%s': %m", yes_no(arg_watch_bind));
-                goto finish;
-        }
-
-        if (arg_address)
-                r = sd_bus_set_address(bus, arg_address);
-        else {
-                switch (arg_transport) {
-
-                case BUS_TRANSPORT_LOCAL:
-                        if (arg_user) {
-                                bus->is_user = true;
-                                r = bus_set_address_user(bus);
-                        } else {
-                                bus->is_system = true;
-                                r = bus_set_address_system(bus);
-                        }
-                        break;
-
-                case BUS_TRANSPORT_REMOTE:
-                        r = bus_set_address_system_remote(bus, arg_host);
-                        break;
-
-                case BUS_TRANSPORT_MACHINE:
-                        r = bus_set_address_system_machine(bus, arg_host);
-                        break;
-
-                default:
-                        assert_not_reached("Hmm, unknown transport type.");
-                }
-        }
-        if (r < 0) {
-                log_error_errno(r, "Failed to set address: %m");
-                goto finish;
-        }
-
-        r = sd_bus_start(bus);
-        if (r < 0) {
-                log_error_errno(r, "Failed to connect to bus: %m");
-                goto finish;
-        }
-
-        r = busctl_main(bus, argc, argv);
+        r = busctl_main(argc, argv);
 
 finish:
         /* make sure we terminate the bus connection first, and then close the
          * pager, see issue #3543 for the details. */
-        sd_bus_flush_close_unref(bus);
         pager_close();
 
-        strv_free(arg_matches);
+        arg_matches = strv_free(arg_matches);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
