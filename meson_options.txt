@@ -26,6 +26,8 @@ option('rootprefix', type : 'string',
        description : '''override the root prefix''')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udev and its helpers to libsystemd-shared.so')
+option('sysrpath', type : 'string',
+       description : 'append this to install_rpath')
 
 option('sysvinit-path', type : 'string', value : '/etc/init.d',
        description : 'the directory where the SysV init scripts are located')
