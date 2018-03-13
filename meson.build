@@ -102,7 +102,10 @@ localstatedir = join_paths('/', get_option('localstatedir'))
 rootbindir = join_paths(rootprefixdir, 'bin')
 rootsbindir = join_paths(rootprefixdir, split_bin ? 'sbin' : 'bin')
 rootlibexecdir = join_paths(rootprefixdir, 'lib/systemd')
-sysrpath = rootlibexecdir + ':' + get_option('sysrpath')
+sysrpath = rootlibexecdir
+if get_option('sysrpath') != ''
+	sysrpath += ':' + get_option('sysrpath')
+endif
 
 rootlibdir = get_option('rootlibdir')
 if rootlibdir == ''
