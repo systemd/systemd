@@ -34,6 +34,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
+#include "verbs.h"
 
 static bool arg_no_pager = false;
 static bool arg_ask_password = true;
@@ -143,7 +144,7 @@ static void print_status_info(const StatusInfo *i) {
                        "         'timedatectl set-local-rtc 0'.%s\n", ansi_highlight(), ansi_normal());
 }
 
-static int show_status(sd_bus *bus, char **args, unsigned n) {
+static int show_status(int argc, char **argv, void *userdata) {
         _cleanup_(status_info_clear) StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
                 { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone) },
@@ -157,6 +158,7 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
         int r;
 
         assert(bus);
@@ -175,22 +177,18 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
         return r;
 }
 
-static int set_time(sd_bus *bus, char **args, unsigned n) {
+static int set_time(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool relative = false, interactive = arg_ask_password;
+        sd_bus *bus = userdata;
         usec_t t;
         int r;
 
-        assert(args);
-        assert(n == 2);
-
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = parse_timestamp(args[1], &t);
-        if (r < 0) {
-                log_error("Failed to parse time specification: %s", args[1]);
-                return r;
-        }
+        r = parse_timestamp(argv[1], &t);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse time specification '%s': %m", argv[1]);
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.timedate1",
@@ -199,19 +197,17 @@ static int set_time(sd_bus *bus, char **args, unsigned n) {
                                "SetTime",
                                &error,
                                NULL,
-                               "xbb", (int64_t)t, relative, interactive);
+                               "xbb", (int64_t) t, relative, interactive);
         if (r < 0)
-                log_error("Failed to set time: %s", bus_error_message(&error, -r));
+                log_error("Failed to set time: %s", bus_error_message(&error, r));
 
         return r;
 }
 
-static int set_timezone(sd_bus *bus, char **args, unsigned n) {
+static int set_timezone(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
         int r;
-
-        assert(args);
-        assert(n == 2);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
@@ -222,27 +218,23 @@ static int set_timezone(sd_bus *bus, char **args, unsigned n) {
                                "SetTimezone",
                                &error,
                                NULL,
-                               "sb", args[1], arg_ask_password);
+                               "sb", argv[1], arg_ask_password);
         if (r < 0)
-                log_error("Failed to set time zone: %s", bus_error_message(&error, -r));
+                log_error("Failed to set time zone: %s", bus_error_message(&error, r));
 
         return r;
 }
 
-static int set_local_rtc(sd_bus *bus, char **args, unsigned n) {
+static int set_local_rtc(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
         int r, b;
-
-        assert(args);
-        assert(n == 2);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        b = parse_boolean(args[1]);
-        if (b < 0) {
-                log_error("Failed to parse local RTC setting: %s", args[1]);
-                return b;
-        }
+        b = parse_boolean(argv[1]);
+        if (b < 0)
+                return log_error_errno(b, "Failed to parse local RTC setting '%s': %m", argv[1]);
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.timedate1",
@@ -253,25 +245,21 @@ static int set_local_rtc(sd_bus *bus, char **args, unsigned n) {
                                NULL,
                                "bbb", b, arg_adjust_system_clock, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set local RTC: %s", bus_error_message(&error, -r));
+                log_error("Failed to set local RTC: %s", bus_error_message(&error, r));
 
         return r;
 }
 
-static int set_ntp(sd_bus *bus, char **args, unsigned n) {
+static int set_ntp(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
         int b, r;
-
-        assert(args);
-        assert(n == 2);
 
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        b = parse_boolean(args[1]);
-        if (b < 0) {
-                log_error("Failed to parse NTP setting: %s", args[1]);
-                return b;
-        }
+        b = parse_boolean(argv[1]);
+        if (b < 0)
+                return log_error_errno(b, "Failed to parse NTP setting '%s': %m", argv[1]);
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.timedate1",
@@ -282,17 +270,14 @@ static int set_ntp(sd_bus *bus, char **args, unsigned n) {
                                NULL,
                                "bb", b, arg_ask_password);
         if (r < 0)
-                log_error("Failed to set ntp: %s", bus_error_message(&error, -r));
+                log_error("Failed to set ntp: %s", bus_error_message(&error, r));
 
         return r;
 }
 
-static int list_timezones(sd_bus *bus, char **args, unsigned n) {
+static int list_timezones(int argc, char **argv, void *userdata) {
         _cleanup_strv_free_ char **zones = NULL;
         int r;
-
-        assert(args);
-        assert(n == 1);
 
         r = get_timezones(&zones);
         if (r < 0)
@@ -304,7 +289,7 @@ static int list_timezones(sd_bus *bus, char **args, unsigned n) {
         return 0;
 }
 
-static void help(void) {
+static int help(void) {
         printf("%s [OPTIONS...] COMMAND ...\n\n"
                "Query or change system time and date settings.\n\n"
                "  -h --help                Show this help message\n"
@@ -322,6 +307,12 @@ static void help(void) {
                "  set-local-rtc BOOL       Control whether RTC is in local time\n"
                "  set-ntp BOOL             Enable or disable network time synchronization\n",
                program_invocation_short_name);
+
+        return 0;
+}
+
+static int verb_help(int argc, char **argv, void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -354,8 +345,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help();
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -394,82 +384,18 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
 
-        static const struct {
-                const char* verb;
-                const enum {
-                        MORE,
-                        LESS,
-                        EQUAL
-                } argc_cmp;
-                const int argc;
-                int (* const dispatch)(sd_bus *bus, char **args, unsigned n);
-        } verbs[] = {
-                { "status",                LESS,   1, show_status      },
-                { "set-time",              EQUAL,  2, set_time         },
-                { "set-timezone",          EQUAL,  2, set_timezone     },
-                { "list-timezones",        EQUAL,  1, list_timezones   },
-                { "set-local-rtc",         EQUAL,  2, set_local_rtc    },
-                { "set-ntp",               EQUAL,  2, set_ntp,         },
+        static const Verb verbs[] = {
+                { "status",         VERB_ANY, 1,        VERB_DEFAULT, show_status    },
+                { "set-time",       2,        2,        0,            set_time       },
+                { "set-timezone",   2,        2,        0,            set_timezone   },
+                { "list-timezones", VERB_ANY, 1,        0,            list_timezones },
+                { "set-local-rtc",  2,        2,        0,            set_local_rtc  },
+                { "set-ntp",        2,        2,        0,            set_ntp        },
+                { "help",           VERB_ANY, VERB_ANY, 0,            verb_help      }, /* Not documented, but supported since it is created. */
+                {}
         };
 
-        int left;
-        unsigned i;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        left = argc - optind;
-
-        if (left <= 0)
-                /* Special rule: no arguments means "status" */
-                i = 0;
-        else {
-                if (streq(argv[optind], "help")) {
-                        help();
-                        return 0;
-                }
-
-                for (i = 0; i < ELEMENTSOF(verbs); i++)
-                        if (streq(argv[optind], verbs[i].verb))
-                                break;
-
-                if (i >= ELEMENTSOF(verbs)) {
-                        log_error("Unknown operation %s", argv[optind]);
-                        return -EINVAL;
-                }
-        }
-
-        switch (verbs[i].argc_cmp) {
-
-        case EQUAL:
-                if (left != verbs[i].argc) {
-                        log_error("Invalid number of arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        case MORE:
-                if (left < verbs[i].argc) {
-                        log_error("Too few arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        case LESS:
-                if (left > verbs[i].argc) {
-                        log_error("Too many arguments.");
-                        return -EINVAL;
-                }
-
-                break;
-
-        default:
-                assert_not_reached("Unknown comparison operator.");
-        }
-
-        return verbs[i].dispatch(bus, argv + optind, left);
+        return dispatch_verb(argc, argv, verbs, bus);
 }
 
 int main(int argc, char *argv[]) {
