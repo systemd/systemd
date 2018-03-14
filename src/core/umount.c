@@ -180,43 +180,39 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
 }
 
 int swap_list_get(const char *swaps, MountPoint **head) {
-        _cleanup_fclose_ FILE *proc_swaps = NULL;
-        unsigned int i;
+        _cleanup_(mnt_free_tablep) struct libmnt_table *t = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *i = NULL;
         int r;
 
         assert(head);
 
-        proc_swaps = fopen(swaps ?: "/proc/swaps", "re");
-        if (!proc_swaps)
-                return (errno == ENOENT) ? 0 : -errno;
+        t = mnt_new_table();
+        i = mnt_new_iter(MNT_ITER_FORWARD);
+        if (!t || !i)
+                return log_oom();
 
-        (void) fscanf(proc_swaps, "%*s %*s %*s %*s %*s\n");
+        r = mnt_table_parse_swaps(t, swaps);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s: %m", swaps);
 
-        for (i = 2;; i++) {
+        for (;;) {
+                struct libmnt_fs *fs;
+
                 MountPoint *swap;
-                _cleanup_free_ char *dev = NULL, *d = NULL;
-                int k;
+                const char *source;
+                _cleanup_free_ char *d = NULL;
 
-                k = fscanf(proc_swaps,
-                           "%ms " /* device/file */
-                           "%*s " /* type of swap */
-                           "%*s " /* swap size */
-                           "%*s " /* used */
-                           "%*s\n", /* priority */
-                           &dev);
+                r = mnt_table_next_fs(t, i, &fs);
+                if (r == 1)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get next entry from %s: %m", swaps);
 
-                if (k != 1) {
-                        if (k == EOF)
-                                break;
-
-                        log_warning("Failed to parse /proc/swaps:%u.", i);
-                        continue;
-                }
-
-                if (endswith(dev, " (deleted)"))
+                source = mnt_fs_get_source(fs);
+                if (!source)
                         continue;
 
-                r = cunescape(dev, UNESCAPE_RELAX, &d);
+                r = cunescape(source, UNESCAPE_RELAX, &d);
                 if (r < 0)
                         return r;
 

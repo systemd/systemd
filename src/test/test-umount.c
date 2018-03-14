@@ -28,7 +28,7 @@ static void test_swap_list(const char *fname) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
         MountPoint *m;
 
-        log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/self/mountinfo");
+        log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/swaps");
 
         LIST_HEAD_INIT(mp_list_head);
         assert_se(swap_list_get(fname, &mp_list_head) >= 0);
