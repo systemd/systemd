@@ -118,6 +118,9 @@ static void test_socket_address_parse_netlink(void) {
         assert_se(socket_address_parse_netlink(&a, "route 10") >= 0);
         assert_se(a.sockaddr.sa.sa_family == AF_NETLINK);
         assert_se(a.protocol == NETLINK_ROUTE);
+
+        /* oss-fuzz #6884 */
+        assert_se(socket_address_parse_netlink(&a, "\xff") < 0);
 }
 
 static void test_socket_address_equal(void) {

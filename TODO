@@ -528,8 +528,7 @@ Features:
 * maybe add a generator that looks for "systemd.run=" on the kernel cmdline for container usercases...
 
 * test/:
-  - add 'set -e' to scripts in test/
-  - make stuff in test/ work with separate output dir
+  - add unit tests for config_parse_device_allow()
 
 * seems that when we follow symlinks to units we prefer the symlink
   destination path over /etc and /usr. We should not do that. Instead
@@ -773,8 +772,6 @@ Features:
 
 * hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
   https://bugs.freedesktop.org/show_bug.cgi?id=54712
-
-* create /sbin/init symlinks from the build system
 
 * add a dependency on standard-conf.xml and other included files to man pages
 

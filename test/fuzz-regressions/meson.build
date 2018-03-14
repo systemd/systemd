@@ -24,7 +24,12 @@ sanitize_address = custom_target(
                    'fuzzers',
                    '-Db_lundef=false -Db_sanitize=address'])
 
+sanitizers = [['address', sanitize_address]]
+
 fuzz_regression_tests = '''
-        address/fuzz-dns-packet/oss-fuzz-5465
-        address/fuzz-dns-packet/issue-7888
+        fuzz-dns-packet/oss-fuzz-5465
+        fuzz-dns-packet/issue-7888
+        fuzz-unit-file/oss-fuzz-6884
+        fuzz-unit-file/oss-fuzz-6885
+        fuzz-unit-file/oss-fuzz-6886
 '''.split()
