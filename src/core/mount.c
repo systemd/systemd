@@ -1608,11 +1608,8 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         assert(m);
 
         t = mnt_new_table();
-        if (!t)
-                return log_oom();
-
         i = mnt_new_iter(MNT_ITER_FORWARD);
-        if (!i)
+        if (!t || !i)
                 return log_oom();
 
         r = mnt_table_parse_mtab(t, NULL);
@@ -1621,9 +1618,9 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
 
         r = 0;
         for (;;) {
+                struct libmnt_fs *fs;
                 const char *device, *path, *options, *fstype;
                 _cleanup_free_ char *d = NULL, *p = NULL;
-                struct libmnt_fs *fs;
                 int k;
 
                 k = mnt_table_next_fs(t, i, &fs);

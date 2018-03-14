@@ -2404,6 +2404,7 @@ executable('systemd-shutdown',
            systemd_shutdown_sources,
            include_directories : includes,
            link_with : [libshared],
+           dependencies : [libmount],
            install_rpath : rootlibexecdir,
            install : true,
            install_dir : rootlibexecdir)

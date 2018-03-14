@@ -25,6 +25,9 @@
 #include <sys/mount.h>
 #include <sys/swap.h>
 
+/* This needs to be after sys/mount.h :( */
+#include <libmount.h>
+
 #include "libudev.h"
 
 #include "alloc-util.h"
@@ -45,6 +48,9 @@
 #include "umount.h"
 #include "util.h"
 #include "virt.h"
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_table*, mnt_free_table);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
 
 typedef struct MountPoint {
         char *path;
@@ -74,46 +80,45 @@ static void mount_points_list_free(MountPoint **head) {
 }
 
 static int mount_points_list_get(MountPoint **head) {
-        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
-        unsigned int i;
+        _cleanup_(mnt_free_tablep) struct libmnt_table *t = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *i = NULL;
         int r;
 
         assert(head);
 
-        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
-        if (!proc_self_mountinfo)
-                return -errno;
+        t = mnt_new_table();
+        i = mnt_new_iter(MNT_ITER_FORWARD);
+        if (!t || !i)
+                return log_oom();
 
-        for (i = 1;; i++) {
-                _cleanup_free_ char *path = NULL, *options = NULL, *flags = NULL, *type = NULL, *p = NULL;
+        r = mnt_table_parse_mtab(t, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+
+        for (;;) {
+                struct libmnt_fs *fs;
+                const char *path, *options, *fstype;
+                _cleanup_free_ char *d = NULL, *p = NULL;
+                unsigned long remount_flags = 0u;
+                _cleanup_free_ char *remount_options = NULL;
+                bool try_remount_ro;
                 MountPoint *m;
-                int k;
 
-                k = fscanf(proc_self_mountinfo,
-                           "%*s "       /* (1) mount id */
-                           "%*s "       /* (2) parent id */
-                           "%*s "       /* (3) major:minor */
-                           "%*s "       /* (4) root */
-                           "%ms "       /* (5) mount point */
-                           "%ms"        /* (6) mount flags */
-                           "%*[^-]"     /* (7) optional fields */
-                           "- "         /* (8) separator */
-                           "%ms "       /* (9) file system type */
-                           "%*s"        /* (10) mount source */
-                           "%ms"        /* (11) mount options */
-                           "%*[^\n]",   /* some rubbish at the end */
-                           &path, &flags, &type, &options);
-                if (k != 4) {
-                        if (k == EOF)
-                                break;
-
-                        log_warning("Failed to parse /proc/self/mountinfo:%u.", i);
-                        continue;
-                }
-
-                r = cunescape(path, UNESCAPE_RELAX, &p);
+                r = mnt_table_next_fs(t, i, &fs);
+                if (r == 1)
+                        break;
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+
+                path = mnt_fs_get_target(fs);
+                if (!path)
+                        continue;
+
+                if (cunescape(path, UNESCAPE_RELAX, &p) < 0)
+                        return log_oom();
+
+                options = mnt_fs_get_options(fs);
+                fstype = mnt_fs_get_fstype(fs);
 
                 /* Ignore mount points we can't unmount because they
                  * are API or because we are keeping them open (like
@@ -129,11 +134,6 @@ static int mount_points_list_get(MountPoint **head) {
                     path_startswith(p, "/proc"))
                         continue;
 
-                m = new0(MountPoint, 1);
-                if (!m)
-                        return -ENOMEM;
-
-                free_and_replace(m->path, p);
 
                 /* If we are in a container, don't attempt to
                  * read-only mount anything as that brings no real
@@ -145,34 +145,43 @@ static int mount_points_list_get(MountPoint **head) {
                  * a "dirty fs") and could hang if the network is down.
                  * Note that umount2() is more careful and will not
                  * hang because of the network being down. */
-                m->try_remount_ro = detect_container() <= 0 &&
-                                    !fstype_is_network(type) &&
-                                    !fstype_is_api_vfs(type) &&
-                                    !fstype_is_ro(type) &&
-                                    !fstab_test_yes_no_option(options, "ro\0rw\0");
+                try_remount_ro = detect_container() <= 0 &&
+                                 !fstype_is_network(fstype) &&
+                                 !fstype_is_api_vfs(fstype) &&
+                                 !fstype_is_ro(fstype) &&
+                                 !fstab_test_yes_no_option(options, "ro\0rw\0");
 
-                if (m->try_remount_ro) {
-                        _cleanup_free_ char *unknown_flags = NULL;
-
+                if (try_remount_ro) {
                         /* mount(2) states that mount flags and options need to be exactly the same
                          * as they were when the filesystem was mounted, except for the desired
                          * changes. So we reconstruct both here and adjust them for the later
                          * remount call too. */
 
-                        r = mount_option_mangle(flags, 0, &m->remount_flags, &unknown_flags);
-                        if (r < 0)
-                                return r;
-                        if (!isempty(unknown_flags))
-                                log_warning("Ignoring unknown mount flags '%s'.", unknown_flags);
+                        r = mnt_fs_get_propagation(fs, &remount_flags);
+                        if (r < 0) {
+                                log_warning_errno(r, "mnt_fs_get_propagation() failed for %s, ignoring: %m", path);
+                                continue;
+                        }
 
-                        r = mount_option_mangle(options, m->remount_flags, &m->remount_flags, &m->remount_options);
-                        if (r < 0)
-                                return r;
+                        r = mount_option_mangle(options, remount_flags, &remount_flags, &remount_options);
+                        if (r < 0) {
+                                log_warning_errno(r, "mount_option_mangle failed for %s, ignoring: %m", path);
+                                continue;
+                        }
 
                         /* MS_BIND is special. If it is provided it will only make the mount-point
                          * read-only. If left out, the super block itself is remounted, which we want. */
-                        m->remount_flags = (m->remount_flags|MS_REMOUNT|MS_RDONLY) & ~MS_BIND;
+                        remount_flags = (remount_flags|MS_REMOUNT|MS_RDONLY) & ~MS_BIND;
                 }
+
+                m = new0(MountPoint, 1);
+                if (!m)
+                        return log_oom();
+
+                free_and_replace(m->path, p);
+                free_and_replace(m->remount_options, remount_options);
+                m->remount_flags = remount_flags;
+                m->try_remount_ro = try_remount_ro;
 
                 LIST_PREPEND(mount_point, *head, m);
         }
