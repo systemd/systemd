@@ -98,6 +98,10 @@
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
 
     <para>The following commands are understood:</para>
 
@@ -109,6 +113,7 @@
         including whether network time synchronization through
         <filename>systemd-timesyncd.service</filename> is active. Even if it is
         inactive, a different service might still synchronize the clock.
+        If no command is specified, this is the implied default.
         </para></listitem>
       </varlistentry>
 
