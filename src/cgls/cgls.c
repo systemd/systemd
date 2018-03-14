@@ -176,11 +176,9 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (!arg_no_pager) {
-                r = pager_open(arg_no_pager, false);
-                if (r > 0 && arg_full < 0)
-                        arg_full = true;
-        }
+        r = pager_open(arg_no_pager, false);
+        if (r > 0 && arg_full < 0)
+                arg_full = true;
 
         output_flags =
                 arg_all * OUTPUT_SHOW_ALL |

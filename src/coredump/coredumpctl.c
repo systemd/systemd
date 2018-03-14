@@ -658,7 +658,7 @@ static int dump_list(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         /* The coredumps are likely to compressed, and for just
          * listing them we don't need to decompress them, so let's

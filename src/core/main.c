@@ -2326,7 +2326,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS))
-                pager_open(arg_no_pager, false);
+                (void) pager_open(arg_no_pager, false);
 
         if (arg_action != ACTION_RUN)
                 skip_setup = true;

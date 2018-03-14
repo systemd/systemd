@@ -283,7 +283,7 @@ static int list_timezones(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read list of time zones: %m");
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
         strv_print(zones);
 
         return 0;
