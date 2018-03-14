@@ -179,14 +179,14 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
         return 0;
 }
 
-static int swap_list_get(MountPoint **head) {
+int swap_list_get(const char *swaps, MountPoint **head) {
         _cleanup_fclose_ FILE *proc_swaps = NULL;
         unsigned int i;
         int r;
 
         assert(head);
 
-        proc_swaps = fopen("/proc/swaps", "re");
+        proc_swaps = fopen(swaps ?: "/proc/swaps", "re");
         if (!proc_swaps)
                 return (errno == ENOENT) ? 0 : -errno;
 
@@ -680,7 +680,7 @@ int swapoff_all(bool *changed) {
 
         LIST_HEAD_INIT(swap_list_head);
 
-        r = swap_list_get(&swap_list_head);
+        r = swap_list_get(NULL, &swap_list_head);
         if (r < 0)
                 return r;
 

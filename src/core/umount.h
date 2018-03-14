@@ -42,3 +42,4 @@ typedef struct MountPoint {
 
 int mount_points_list_get(const char *mountinfo, MountPoint **head);
 void mount_points_list_free(MountPoint **head);
+int swap_list_get(const char *swaps, MountPoint **head);
