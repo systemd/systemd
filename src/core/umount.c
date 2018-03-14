@@ -37,7 +37,6 @@
 #include "fd-util.h"
 #include "fstab-util.h"
 #include "linux-3.13/dm-ioctl.h"
-#include "list.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "path-util.h"
@@ -52,15 +51,6 @@
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_table*, mnt_free_table);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct libmnt_iter*, mnt_free_iter);
 
-typedef struct MountPoint {
-        char *path;
-        char *remount_options;
-        unsigned long remount_flags;
-        bool try_remount_ro;
-        dev_t devnum;
-        LIST_FIELDS(struct MountPoint, mount_point);
-} MountPoint;
-
 static void mount_point_free(MountPoint **head, MountPoint *m) {
         assert(head);
         assert(m);
@@ -72,14 +62,14 @@ static void mount_point_free(MountPoint **head, MountPoint *m) {
         free(m);
 }
 
-static void mount_points_list_free(MountPoint **head) {
+void mount_points_list_free(MountPoint **head) {
         assert(head);
 
         while (*head)
                 mount_point_free(head, *head);
 }
 
-static int mount_points_list_get(MountPoint **head) {
+int mount_points_list_get(const char *mountinfo, MountPoint **head) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *t = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *i = NULL;
         int r;
@@ -91,9 +81,9 @@ static int mount_points_list_get(MountPoint **head) {
         if (!t || !i)
                 return log_oom();
 
-        r = mnt_table_parse_mtab(t, NULL);
+        r = mnt_table_parse_mtab(t, mountinfo);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
+                return log_error_errno(r, "Failed to parse %s: %m", mountinfo);
 
         for (;;) {
                 struct libmnt_fs *fs;
@@ -108,7 +98,7 @@ static int mount_points_list_get(MountPoint **head) {
                 if (r == 1)
                         break;
                 if (r < 0)
-                        return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
+                        return log_error_errno(r, "Failed to get next entry from %s: %m", mountinfo);
 
                 path = mnt_fs_get_target(fs);
                 if (!path)
@@ -661,7 +651,7 @@ static int umount_all_once(bool *changed, int umount_log_level) {
         assert(changed);
 
         LIST_HEAD_INIT(mp_list_head);
-        r = mount_points_list_get(&mp_list_head);
+        r = mount_points_list_get(NULL, &mp_list_head);
         if (r < 0)
                 goto end;
 
