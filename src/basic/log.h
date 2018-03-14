@@ -186,7 +186,7 @@ int log_dump_internal(
                 char *buffer);
 
 /* Logging for various assertions */
-noreturn void log_assert_failed_realm(
+_noreturn_ void log_assert_failed_realm(
                 LogRealm realm,
                 const char *text,
                 const char *file,
@@ -195,7 +195,7 @@ noreturn void log_assert_failed_realm(
 #define log_assert_failed(text, ...) \
         log_assert_failed_realm(LOG_REALM, (text), __VA_ARGS__)
 
-noreturn void log_assert_failed_unreachable_realm(
+_noreturn_ void log_assert_failed_unreachable_realm(
                 LogRealm realm,
                 const char *text,
                 const char *file,
