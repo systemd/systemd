@@ -265,10 +265,9 @@ static int loopback_list_get(MountPoint **head) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                MountPoint *lb;
                 _cleanup_udev_device_unref_ struct udev_device *d;
-                char *loop;
                 const char *dn;
+                _cleanup_free_ MountPoint *lb = NULL;
 
                 d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
                 if (!d)
@@ -278,18 +277,16 @@ static int loopback_list_get(MountPoint **head) {
                 if (!dn)
                         continue;
 
-                loop = strdup(dn);
-                if (!loop)
-                        return -ENOMEM;
-
                 lb = new0(MountPoint, 1);
-                if (!lb) {
-                        free(loop);
+                if (!lb)
                         return -ENOMEM;
-                }
 
-                lb->path = loop;
+                r = free_and_strdup(&lb->path, dn);
+                if (r < 0)
+                        return r;
+
                 LIST_PREPEND(mount_point, *head, lb);
+                lb = NULL;
         }
 
         return 0;
@@ -325,11 +322,10 @@ static int dm_list_get(MountPoint **head) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                MountPoint *m;
                 _cleanup_udev_device_unref_ struct udev_device *d;
                 dev_t devnum;
-                char *node;
                 const char *dn;
+                _cleanup_free_ MountPoint *m = NULL;
 
                 d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
                 if (!d)
@@ -340,19 +336,17 @@ static int dm_list_get(MountPoint **head) {
                 if (major(devnum) == 0 || !dn)
                         continue;
 
-                node = strdup(dn);
-                if (!node)
-                        return -ENOMEM;
-
                 m = new0(MountPoint, 1);
-                if (!m) {
-                        free(node);
+                if (!m)
                         return -ENOMEM;
-                }
 
-                m->path = node;
                 m->devnum = devnum;
+                r = free_and_strdup(&m->path, dn);
+                if (r < 0)
+                        return r;
+
                 LIST_PREPEND(mount_point, *head, m);
+                m = NULL;
         }
 
         return 0;
@@ -646,21 +640,16 @@ static int dm_points_list_detach(MountPoint **head, bool *changed, int umount_lo
 
 static int umount_all_once(bool *changed, int umount_log_level) {
         int r;
-        LIST_HEAD(MountPoint, mp_list_head);
+        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
 
         assert(changed);
 
         LIST_HEAD_INIT(mp_list_head);
         r = mount_points_list_get(NULL, &mp_list_head);
         if (r < 0)
-                goto end;
+                return r;
 
-        r = mount_points_list_umount(&mp_list_head, changed, umount_log_level);
-
-  end:
-        mount_points_list_free(&mp_list_head);
-
-        return r;
+        return mount_points_list_umount(&mp_list_head, changed, umount_log_level);
 }
 
 int umount_all(bool *changed, int umount_log_level) {
@@ -684,8 +673,8 @@ int umount_all(bool *changed, int umount_log_level) {
 }
 
 int swapoff_all(bool *changed) {
+        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, swap_list_head);
         int r;
-        LIST_HEAD(MountPoint, swap_list_head);
 
         assert(changed);
 
@@ -693,19 +682,14 @@ int swapoff_all(bool *changed) {
 
         r = swap_list_get(&swap_list_head);
         if (r < 0)
-                goto end;
+                return r;
 
-        r = swap_points_list_off(&swap_list_head, changed);
-
-  end:
-        mount_points_list_free(&swap_list_head);
-
-        return r;
+        return swap_points_list_off(&swap_list_head, changed);
 }
 
 int loopback_detach_all(bool *changed, int umount_log_level) {
+        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, loopback_list_head);
         int r;
-        LIST_HEAD(MountPoint, loopback_list_head);
 
         assert(changed);
 
@@ -713,19 +697,14 @@ int loopback_detach_all(bool *changed, int umount_log_level) {
 
         r = loopback_list_get(&loopback_list_head);
         if (r < 0)
-                goto end;
+                return r;
 
-        r = loopback_points_list_detach(&loopback_list_head, changed, umount_log_level);
-
-  end:
-        mount_points_list_free(&loopback_list_head);
-
-        return r;
+        return loopback_points_list_detach(&loopback_list_head, changed, umount_log_level);
 }
 
 int dm_detach_all(bool *changed, int umount_log_level) {
+        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, dm_list_head);
         int r;
-        LIST_HEAD(MountPoint, dm_list_head);
 
         assert(changed);
 
@@ -733,12 +712,7 @@ int dm_detach_all(bool *changed, int umount_log_level) {
 
         r = dm_list_get(&dm_list_head);
         if (r < 0)
-                goto end;
+                return r;
 
-        r = dm_points_list_detach(&dm_list_head, changed, umount_log_level);
-
-  end:
-        mount_points_list_free(&dm_list_head);
-
-        return r;
+        return dm_points_list_detach(&dm_list_head, changed, umount_log_level);
 }

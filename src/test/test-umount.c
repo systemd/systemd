@@ -7,7 +7,7 @@
 #include "util.h"
 
 static void test_mount_points_list(const char *fname) {
-        LIST_HEAD(MountPoint, mp_list_head);
+        _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
         MountPoint *m;
 
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/self/mountinfo");
@@ -22,8 +22,6 @@ static void test_mount_points_list(const char *fname) {
                           m->remount_flags,
                           yes_no(m->try_remount_ro),
                           major(m->devnum), minor(m->devnum));
-
-        mount_points_list_free(&mp_list_head);
 }
 
 int main(int argc, char **argv) {
