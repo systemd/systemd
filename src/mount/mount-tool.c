@@ -1529,7 +1529,7 @@ static int list_devices(void) {
 
         qsort_safe(items, n, sizeof(struct item), compare_item);
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         fputs(ansi_underline(), stdout);
         for (c = 0; c < _COLUMN_MAX; c++) {

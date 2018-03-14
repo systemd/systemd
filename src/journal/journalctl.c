@@ -316,7 +316,7 @@ static int parse_boot_descriptor(const char *x, sd_id128_t *boot_id, int *offset
 
 static void help(void) {
 
-        pager_open(arg_no_pager, arg_pager_end);
+        (void) pager_open(arg_no_pager, arg_pager_end);
 
         printf("%s [OPTIONS...] [MATCHES...]\n\n"
                "Query the journal.\n\n"
@@ -1369,7 +1369,7 @@ static int list_boots(sd_journal *j) {
         if (count == 0)
                 return count;
 
-        pager_open(arg_no_pager, arg_pager_end);
+        (void) pager_open(arg_no_pager, arg_pager_end);
 
         /* numbers are one less, but we need an extra char for the sign */
         w = DECIMAL_STR_WIDTH(count - 1) + 1;
@@ -2135,7 +2135,7 @@ int main(int argc, char *argv[]) {
                 } else {
                         bool oneline = arg_action == ACTION_LIST_CATALOG;
 
-                        pager_open(arg_no_pager, arg_pager_end);
+                        (void) pager_open(arg_no_pager, arg_pager_end);
 
                         if (optind < argc)
                                 r = catalog_list_items(stdout, database, oneline, argv + optind);
@@ -2492,7 +2492,7 @@ int main(int argc, char *argv[]) {
                 need_seek = true;
 
         if (!arg_follow)
-                pager_open(arg_no_pager, arg_pager_end);
+                (void) pager_open(arg_no_pager, arg_pager_end);
 
         if (!arg_quiet && (arg_lines != 0 || arg_follow)) {
                 usec_t start, end;

@@ -1027,7 +1027,7 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
         }
         unit_times_hashmap = h;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         puts("The time after the unit is active or started is printed after the \"@\" character.\n"
              "The time the unit takes to start is printed after the \"+\" character.\n");
@@ -1060,7 +1060,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
 
         qsort(times, n, sizeof(struct unit_times), compare_unit_time);
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         for (i = 0; i < (unsigned) n; i++) {
                 char ts[FORMAT_TIMESPAN_MAX];
@@ -1283,7 +1283,7 @@ static int dump(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         r = sd_bus_call_method(
                         bus,
@@ -1445,7 +1445,7 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
 static int dump_syscall_filters(int argc, char *argv[], void *userdata) {
         bool first = true;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         if (strv_isempty(strv_skip(argv, 1))) {
                 int i;
@@ -1607,7 +1607,7 @@ static int do_verify(int argc, char *argv[], void *userdata) {
 
 static int help(int argc, char *argv[], void *userdata) {
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Profile systemd, show unit dependencies, check unit files.\n\n"

@@ -1241,7 +1241,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empt
                 goto finish;
         }
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         if (*empty_line)
                 fputc('\n', stdout);
@@ -1450,7 +1450,7 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                 goto finish;
         }
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
         STRV_FOREACH(i, global_info.dns) {
