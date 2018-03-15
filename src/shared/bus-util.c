@@ -917,6 +917,71 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                         }
 
                         return 1;
+
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Sessions")) {
+                        const char *s;
+                        bool space = false;
+
+                        r = sd_bus_message_enter_container(property, SD_BUS_TYPE_ARRAY, "(so)");
+                        if (r < 0)
+                                return r;
+
+                        if (!value)
+                                printf("%s=", name);
+
+                        while ((r = sd_bus_message_read(property, "(so)", &s, NULL)) > 0) {
+                                printf("%s%s", space ? " " : "", s);
+                                space = true;
+                        }
+
+                        if (space || !value)
+                                printf("\n");
+
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(property);
+                        if (r < 0)
+                                return r;
+
+                        return 1;
+                }
+
+                break;
+
+        case SD_BUS_TYPE_STRUCT:
+
+                if (STR_IN_SET(name, "Display", "Seat", "ActiveSession")) {
+                        const char *s;
+
+                        r = sd_bus_message_read(property, "(so)", &s, NULL);
+                        if (r < 0)
+                                return r;
+
+                        if (all || !isempty(s)) {
+                                bool good;
+
+                                /* This property has a single value, so we need to take
+                                 * care not to print a new line, everything else is OK. */
+                                good = !strchr(s, '\n');
+                                print_property(name, "%s", good ? s : "[unprintable]");
+                        }
+
+                        return 1;
+
+                } else if (streq(name, "User")) {
+                        uint32_t uid;
+
+                        r = sd_bus_message_read(property, "(uo)", &uid, NULL);
+                        if (r < 0)
+                                return r;
+
+                        if (uid_is_valid(uid))
+                                print_property(name, UID_FMT, uid);
+                        else
+                                print_property(name, "%s", "[invalid]");
+
+                        return 1;
                 }
 
                 break;
