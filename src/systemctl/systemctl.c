@@ -1652,91 +1652,72 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
 
 static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, char ***deps) {
 
-        static const char *dependencies[_DEPENDENCY_MAX] = {
-                [DEPENDENCY_FORWARD] = "Requires\0"
-                                       "Requisite\0"
-                                       "Wants\0"
-                                       "ConsistsOf\0"
-                                       "BindsTo\0",
-                [DEPENDENCY_REVERSE] = "RequiredBy\0"
-                                       "RequisiteOf\0"
-                                       "WantedBy\0"
-                                       "PartOf\0"
-                                       "BoundBy\0",
-                [DEPENDENCY_AFTER]   = "After\0",
-                [DEPENDENCY_BEFORE]  = "Before\0",
+        struct DependencyStatusInfo {
+                char **dep[5];
+        } info = {};
+
+        static const struct bus_properties_map map[_DEPENDENCY_MAX][6] = {
+                [DEPENDENCY_FORWARD] = {
+                        { "Requires",    "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
+                        { "Requisite",   "as", NULL, offsetof(struct DependencyStatusInfo, dep[1]) },
+                        { "Wants",       "as", NULL, offsetof(struct DependencyStatusInfo, dep[2]) },
+                        { "ConsistsOf",  "as", NULL, offsetof(struct DependencyStatusInfo, dep[3]) },
+                        { "BindsTo",     "as", NULL, offsetof(struct DependencyStatusInfo, dep[4]) },
+                        {}
+                },
+                [DEPENDENCY_REVERSE] = {
+                        { "RequiredBy",  "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
+                        { "RequisiteOf", "as", NULL, offsetof(struct DependencyStatusInfo, dep[1]) },
+                        { "WantedBy",    "as", NULL, offsetof(struct DependencyStatusInfo, dep[2]) },
+                        { "PartOf",      "as", NULL, offsetof(struct DependencyStatusInfo, dep[3]) },
+                        { "BoundBy",     "as", NULL, offsetof(struct DependencyStatusInfo, dep[4]) },
+                        {}
+                },
+                [DEPENDENCY_AFTER] = {
+                        { "After",       "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
+                        {}
+                },
+                [DEPENDENCY_BEFORE] = {
+                        { "Before",      "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
+                        {}
+                },
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **ret = NULL;
         _cleanup_free_ char *path = NULL;
-        int r;
+        int i, r;
 
         assert(bus);
         assert(name);
         assert(deps);
-        assert_cc(ELEMENTSOF(dependencies) == _DEPENDENCY_MAX);
 
         path = unit_dbus_path_from_name(name);
         if (!path)
                 return log_oom();
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &error,
-                        &reply,
-                        "s", "org.freedesktop.systemd1.Unit");
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.systemd1",
+                                   path,
+                                   map[arg_dependency],
+                                   &error,
+                                   &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties of %s: %s", name, bus_error_message(&error, r));
 
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        while ((r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
-                const char *prop;
-
-                r = sd_bus_message_read(reply, "s", &prop);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (!nulstr_contains(dependencies[arg_dependency], prop)) {
-                        r = sd_bus_message_skip(reply, "v");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-                } else {
-
-                        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_VARIANT, "as");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = bus_message_read_strv_extend(reply, &ret);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = sd_bus_message_exit_container(reply);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-                }
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
+        if (IN_SET(arg_dependency, DEPENDENCY_AFTER, DEPENDENCY_BEFORE)) {
+                *deps = info.dep[0];
+                return 0;
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
 
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
+        for (i = 0; i < 5; i++) {
+                r = strv_extend_strv(&ret, info.dep[i], true);
+                if (r < 0)
+                        return log_oom();
+                info.dep[i] = strv_free(info.dep[i]);
+        }
 
-        *deps = strv_uniq(ret);
+        *deps = ret;
         ret = NULL;
 
         return 0;
