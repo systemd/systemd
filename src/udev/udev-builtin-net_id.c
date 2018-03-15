@@ -297,7 +297,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
                 if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
                     read_one_line_file(str, &address) >= 0)
                         /* match slot address with device by stripping the function */
-                        if (streq(address, udev_device_get_sysname(names->pcidev)))
+                        if (startswith(udev_device_get_sysname(names->pcidev), address))
                                 hotplug_slot = i;
 
                 if (hotplug_slot > 0)
