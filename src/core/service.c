@@ -396,6 +396,9 @@ static void service_done(Unit *u) {
 
         s->bus_name_owner = mfree(s->bus_name_owner);
 
+        s->usb_function_descriptors = mfree(s->usb_function_descriptors);
+        s->usb_function_strings = mfree(s->usb_function_strings);
+
         service_close_socket_fd(s);
         s->peer = socket_peer_unref(s->peer);
 

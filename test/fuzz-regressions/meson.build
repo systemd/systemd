@@ -33,4 +33,5 @@ fuzz_regression_tests = '''
         fuzz-unit-file/oss-fuzz-6885
         fuzz-unit-file/oss-fuzz-6886
         fuzz-unit-file/oss-fuzz-6917
+        fuzz-unit-file/oss-fuzz-6892
 '''.split()
