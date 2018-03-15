@@ -10,6 +10,13 @@ test_setup() {
         mkdir -p $TESTDIR/etc/sysusers.d $TESTDIR/usr/lib/sysusers.d $TESTDIR/tmp
 }
 
+prepare_testdir() {
+        rm -f $TESTDIR/etc/*{passwd,group,shadow}
+        for i in $1.initial-{passwd,group,shadow}; do
+                test -f $i && cp $i $TESTDIR/etc/${i#*.initial-}
+        done
+}
+
 preprocess() {
     in="$1"
 
@@ -41,7 +48,7 @@ test_run() {
         # happy tests
         for f in test-*.input; do
                 echo "*** Running $f"
-                rm -f $TESTDIR/etc/*{passwd,group,shadow}
+                prepare_testdir ${f%.input}
                 cp $f $TESTDIR/usr/lib/sysusers.d/test.conf
                 systemd-sysusers --root=$TESTDIR
 
@@ -50,7 +57,7 @@ test_run() {
 
         for f in test-*.input; do
                 echo "*** Running $f on stdin"
-                rm -f $TESTDIR/etc/*{passwd,group,shadow}
+                prepare_testdir ${f%.input}
                 touch $TESTDIR/etc/sysusers.d/test.conf
                 cat $f | systemd-sysusers --root=$TESTDIR -
 
@@ -59,7 +66,7 @@ test_run() {
 
         for f in test-*.input; do
                 echo "*** Running $f on stdin with --replace"
-                rm -f $TESTDIR/etc/*{passwd,group,shadow}
+                prepare_testdir ${f%.input}
                 touch $TESTDIR/etc/sysusers.d/test.conf
                 # this overrides test.conf which is masked on disk
                 cat $f | systemd-sysusers --root=$TESTDIR --replace=/etc/sysusers.d/test.conf -
@@ -71,7 +78,7 @@ test_run() {
 
         # test --inline
         echo "*** Testing --inline"
-        rm -f $TESTDIR/etc/*{passwd,group,shadow}
+        prepare_testdir
         # copy a random file to make sure it is ignored
         cp $f $TESTDIR/etc/sysusers.d/confuse.conf
         systemd-sysusers --root=$TESTDIR --inline \
@@ -82,7 +89,7 @@ test_run() {
 
         # test --replace
         echo "*** Testing --inline with --replace"
-        rm -f $TESTDIR/etc/*{passwd,group,shadow}
+        prepare_testdir
         # copy a random file to make sure it is ignored
         cp $f $TESTDIR/etc/sysusers.d/confuse.conf
         systemd-sysusers --root=$TESTDIR \
@@ -98,7 +105,7 @@ test_run() {
         # tests for error conditions
         for f in unhappy-*.input; do
                 echo "*** Running test $f"
-                rm -f $TESTDIR/etc/*{passwd,group,shadow}
+                prepare_testdir ${f%.input}
                 cp $f $TESTDIR/usr/lib/sysusers.d/test.conf
                 systemd-sysusers --root=$TESTDIR 2> /dev/null
                 journalctl -t systemd-sysusers -o cat | tail -n1 > $TESTDIR/tmp/err
