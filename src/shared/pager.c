@@ -47,7 +47,7 @@ static int stored_stderr = -1;
 static bool stdout_redirected = false;
 static bool stderr_redirected = false;
 
-noreturn static void pager_fallback(void) {
+_noreturn_ static void pager_fallback(void) {
         int r;
 
         r = copy_bytes(STDIN_FILENO, STDOUT_FILENO, (uint64_t) -1, 0);
