@@ -466,7 +466,8 @@ static void test_exec_environmentfile(Manager *m) {
                 "; comment2\n"
                 " ; # comment3\n"
                 "line without an equal\n"
-                "VAR3='$word 5 6'\n";
+                "VAR3='$word 5 6'\n"
+                "VAR4='new\nline'\n";
         int r;
 
         r = write_string_file("/tmp/test-exec_environmentfile.conf", e, WRITE_STRING_FILE_CREATE);
@@ -492,12 +493,14 @@ static void test_exec_passenvironment(Manager *m) {
         assert_se(setenv("VAR1", "word1 word2", 1) == 0);
         assert_se(setenv("VAR2", "word3", 1) == 0);
         assert_se(setenv("VAR3", "$word 5 6", 1) == 0);
+        assert_se(setenv("VAR4", "new\nline", 1) == 0);
         test(m, "exec-passenvironment.service", 0, CLD_EXITED);
         test(m, "exec-passenvironment-repeated.service", 0, CLD_EXITED);
         test(m, "exec-passenvironment-empty.service", 0, CLD_EXITED);
         assert_se(unsetenv("VAR1") == 0);
         assert_se(unsetenv("VAR2") == 0);
         assert_se(unsetenv("VAR3") == 0);
+        assert_se(unsetenv("VAR4") == 0);
         test(m, "exec-passenvironment-absent.service", 0, CLD_EXITED);
 }
 
