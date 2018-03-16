@@ -1977,6 +1977,14 @@ int cg_slice_to_path(const char *unit, char **ret) {
                 _cleanup_free_ char *escaped = NULL;
                 char n[dash - p + sizeof(".slice")];
 
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+                /* msan doesn't instrument stpncpy, so it thinks
+                 * n is later used unitialized:
+                 * https://github.com/google/sanitizers/issues/926
+                 */
+                zero(n);
+#endif
+
                 /* Don't allow trailing or double dashes */
                 if (IN_SET(dash[1], 0, '-'))
                         return -EINVAL;
