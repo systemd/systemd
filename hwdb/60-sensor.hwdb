@@ -15,7 +15,7 @@
 #   /etc/udev/hwdb.d/61-sensor-local.hwdb
 # and add your rules there. To load the new rules execute (as root):
 #   systemd-hwdb update
-#   udevadm trigger -y `dirname $(udevadm info -n "/dev/iio:deviceXXX" -q path)`
+#   udevadm trigger -v -p DEVNAME=/dev/iio:deviceXXX
 # where /dev/iio:deviceXXX is the device in question.
 #
 # If your changes are generally applicable, preferably send them as a pull
