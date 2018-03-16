@@ -541,8 +541,33 @@ static void test_pid_to_ptr(void) {
 #endif
 }
 
-int main(int argc, char *argv[]) {
+static void test_ioprio_class_from_to_string_one(const char *val, int expected) {
+        assert_se(ioprio_class_from_string(val) == expected);
+        if (expected >= 0) {
+                _cleanup_free_ char *s = NULL;
+                unsigned ret;
 
+                assert_se(ioprio_class_to_string_alloc(expected, &s) == 0);
+                /* We sometimes get a class number and sometimes a number back */
+                assert_se(streq(s, val) ||
+                          safe_atou(val, &ret) == 0);
+        }
+}
+
+static void test_ioprio_class_from_to_string(void) {
+        test_ioprio_class_from_to_string_one("none", IOPRIO_CLASS_NONE);
+        test_ioprio_class_from_to_string_one("realtime", IOPRIO_CLASS_RT);
+        test_ioprio_class_from_to_string_one("best-effort", IOPRIO_CLASS_BE);
+        test_ioprio_class_from_to_string_one("idle", IOPRIO_CLASS_IDLE);
+        test_ioprio_class_from_to_string_one("0", 0);
+        test_ioprio_class_from_to_string_one("1", 1);
+        test_ioprio_class_from_to_string_one("7", 7);
+        test_ioprio_class_from_to_string_one("8", 8);
+        test_ioprio_class_from_to_string_one("9", -1);
+        test_ioprio_class_from_to_string_one("-1", -1);
+}
+
+int main(int argc, char *argv[]) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
         log_open();
@@ -569,6 +594,7 @@ int main(int argc, char *argv[]) {
         test_getpid_measure();
         test_safe_fork();
         test_pid_to_ptr();
+        test_ioprio_class_from_to_string();
 
         return 0;
 }
