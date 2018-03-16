@@ -250,21 +250,6 @@ static void release_busses(void) {
                 busses[w] = sd_bus_flush_close_unref(busses[w]);
 }
 
-static int map_string_no_copy(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        char *s;
-        const char **p = userdata;
-        int r;
-
-        r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &s);
-        if (r < 0)
-                return r;
-
-        if (!isempty(s))
-                *p = s;
-
-        return 0;
-}
-
 static void ask_password_agent_open_if_enabled(void) {
 
         /* Open the password agent as a child process if necessary */
@@ -1696,14 +1681,19 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
         if (!path)
                 return log_oom();
 
+        printf("begin: %s\n", path);
+
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.systemd1",
                                    path,
                                    map[arg_dependency],
                                    &error,
+                                   NULL,
                                    &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties of %s: %s", name, bus_error_message(&error, r));
+
+        printf("done: %s\n", path);
 
         if (IN_SET(arg_dependency, DEPENDENCY_AFTER, DEPENDENCY_BEFORE)) {
                 *deps = info.dep[0];
@@ -1905,7 +1895,7 @@ static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
                 bus = container;
         }
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, NULL, mi);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, NULL, NULL, mi);
         if (r < 0)
                 return r;
 
@@ -5098,8 +5088,8 @@ static int show_one(
                 bool *ellipsized) {
 
         static const struct bus_properties_map property_map[] = {
-                { "LoadState",   "s", map_string_no_copy, offsetof(UnitStatusInfo, load_state)   },
-                { "ActiveState", "s", map_string_no_copy, offsetof(UnitStatusInfo, active_state) },
+                { "LoadState",   "s", NULL, offsetof(UnitStatusInfo, load_state)   },
+                { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state) },
                 {}
         };
 
@@ -5138,7 +5128,7 @@ static int show_one(
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
         if (unit) {
-                r = bus_message_map_all_properties(reply, property_map, &error, &info);
+                r = bus_message_map_all_properties(reply, property_map, false, &error, &info);
                 if (r < 0)
                         return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
@@ -5320,7 +5310,7 @@ static int show_system_status(sd_bus *bus) {
         if (!hn)
                 return log_oom();
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, &error, &mi);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, &error, NULL, &mi);
         if (r < 0)
                 return log_error_errno(r, "Failed to read server status: %s", bus_error_message(&error, r));
 
@@ -6235,10 +6225,11 @@ static int normalize_names(char **names, bool warn_if_path) {
 
 static int unit_exists(LookupPaths *lp, const char *unit) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *path = NULL;
         static const struct bus_properties_map property_map[] = {
-                { "LoadState",   "s", map_string_no_copy, offsetof(UnitStatusInfo, load_state)  },
-                { "ActiveState", "s", map_string_no_copy, offsetof(UnitStatusInfo, active_state)},
+                { "LoadState",   "s", NULL, offsetof(UnitStatusInfo, load_state)  },
+                { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state)},
                 {},
         };
         UnitStatusInfo info = {};
@@ -6256,7 +6247,7 @@ static int unit_exists(LookupPaths *lp, const char *unit) {
         if (r < 0)
                 return r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, property_map, &error, &info);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, property_map, &error, &m, &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
