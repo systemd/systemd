@@ -2483,7 +2483,7 @@ static int cg_unified_update(void) {
                 return 0;
 
         if (statfs("/sys/fs/cgroup/", &fs) < 0)
-                return log_debug_errno(errno, "statfs(\"/sys/fs/cgroup/\" failed: %m");
+                return log_debug_errno(errno, "statfs(\"/sys/fs/cgroup/\") failed: %m");
 
         if (F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC)) {
                 log_debug("Found cgroup2 on /sys/fs/cgroup/, full unified hierarchy");
