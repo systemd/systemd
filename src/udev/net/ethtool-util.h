@@ -55,7 +55,6 @@ typedef enum NetDevFeature {
         NET_DEV_FEAT_LRO,
         NET_DEV_FEAT_TSO,
         NET_DEV_FEAT_TSO6,
-        NET_DEV_FEAT_UFO,
         _NET_DEV_FEAT_MAX,
         _NET_DEV_FEAT_INVALID = -1
 } NetDevFeature;

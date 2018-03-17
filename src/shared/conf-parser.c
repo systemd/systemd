@@ -822,6 +822,37 @@ int config_parse_strv(
         return 0;
 }
 
+int config_parse_warn_compat(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Disabled reason = ltype;
+
+        switch(reason) {
+        case DISABLED_CONFIGURATION:
+                log_syntax(unit, LOG_DEBUG, filename, line, 0,
+                           "Support for option %s= has been disabled at compile time and it is ignored", lvalue);
+                break;
+        case DISABLED_LEGACY:
+                log_syntax(unit, LOG_INFO, filename, line, 0,
+                           "Support for option %s= has been removed and it is ignored", lvalue);
+                break;
+        case DISABLED_EXPERIMENTAL:
+                log_syntax(unit, LOG_INFO, filename, line, 0,
+                           "Support for option %s= has not yet been enabled and it is ignored", lvalue);
+                break;
+        };
+
+        return 0;
+}
+
 int config_parse_log_facility(
                 const char *unit,
                 const char *filename,

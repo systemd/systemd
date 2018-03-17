@@ -522,14 +522,6 @@
           Defaults to "unset".</para>
         </listitem>
       </varlistentry>
-      <varlistentry>
-        <term><varname>UDPSegmentationOffload=</varname></term>
-        <listitem>
-          <para>The UDP Segmentation Offload (USO) when true enables
-          UDP segmentation offload. Takes a boolean value.
-          Defaults to "unset".</para>
-        </listitem>
-      </varlistentry>
     <varlistentry>
         <term><varname>GenericReceiveOffload=</varname></term>
         <listitem>

@@ -72,7 +72,6 @@ static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
         [NET_DEV_FEAT_LRO]  = "rx-lro",
         [NET_DEV_FEAT_TSO]  = "tx-tcp-segmentation",
         [NET_DEV_FEAT_TSO6] = "tx-tcp6-segmentation",
-        [NET_DEV_FEAT_UFO]  = "tx-udp-fragmentation",
 };
 
 int ethtool_connect(int *ret) {
