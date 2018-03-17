@@ -2501,8 +2501,11 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
                 }
         }
 
-        manager_recheck_journal(m);
-        manager_recheck_dbus(m);
+        if (!MANAGER_IS_RELOADING(u->manager)) {
+                manager_recheck_journal(m);
+                manager_recheck_dbus(m);
+        }
+
         unit_trigger_notify(u);
 
         if (!MANAGER_IS_RELOADING(u->manager)) {

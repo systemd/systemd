@@ -2334,8 +2334,7 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
         case SIGTERM:
                 if (MANAGER_IS_SYSTEM(m)) {
-                        /* This is for compatibility with the
-                         * original sysvinit */
+                        /* This is for compatibility with the original sysvinit */
                         r = verify_run_space_and_log("Refusing to reexecute");
                         if (r >= 0)
                                 m->exit_code = MANAGER_REEXECUTE;
@@ -2352,21 +2351,20 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                 break;
 
         case SIGWINCH:
+                /* This is a nop on non-init */
                 if (MANAGER_IS_SYSTEM(m))
                         manager_start_target(m, SPECIAL_KBREQUEST_TARGET, JOB_REPLACE);
 
-                /* This is a nop on non-init */
                 break;
 
         case SIGPWR:
+                /* This is a nop on non-init */
                 if (MANAGER_IS_SYSTEM(m))
                         manager_start_target(m, SPECIAL_SIGPWR_TARGET, JOB_REPLACE);
 
-                /* This is a nop on non-init */
                 break;
 
         case SIGUSR1:
-
                 if (manager_dbus_is_running(m, false)) {
                         log_info("Trying to reconnect to bus...");
 
