@@ -216,6 +216,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>NoNewPrivileges=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, ensures that PID 1
+        and all its children can never gain new privileges through
+        <citerefentry project='man-pages'><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        (e.g. via setuid or setgid bits, or filesystem capabilities).
+        Defaults to false. General purpose distributions commonly rely
+        on executables with setuid or setgid bits and will thus not
+        function properly with this option enabled. Individual units
+        cannot disable this option.
+        Also see <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SystemCallArchitectures=</varname></term>
 
         <listitem><para>Takes a space-separated list of architecture

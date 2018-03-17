@@ -27,6 +27,7 @@
 #RuntimeWatchdogSec=0
 #ShutdownWatchdogSec=10min
 #CapabilityBoundingSet=
+#NoNewPrivileges=no
 #SystemCallArchitectures=
 #TimerSlackNSec=
 #DefaultTimerAccuracySec=1min

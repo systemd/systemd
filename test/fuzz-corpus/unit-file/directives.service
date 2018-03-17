@@ -809,6 +809,7 @@ MountFlags=
 NAME=
 NAutoVTs=
 Nice=
+NoNewPrivileges=
 NotifyReady=
 OOMScoreAdjust=
 Overlay=
