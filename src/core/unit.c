@@ -4564,7 +4564,8 @@ int unit_kill_context(
 }
 
 int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) {
-        char prefix[strlen(path) + 1], *p;
+        _cleanup_free_ char *p = NULL;
+        char *prefix;
         UnitDependencyInfo di;
         int r;
 
@@ -4587,34 +4588,30 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         if (!p)
                 return -ENOMEM;
 
-        path_kill_slashes(p);
+        path = path_kill_slashes(p);
 
-        if (!path_is_normalized(p)) {
-                free(p);
+        if (!path_is_normalized(path))
                 return -EPERM;
-        }
 
-        if (hashmap_contains(u->requires_mounts_for, p)) {
-                free(p);
+        if (hashmap_contains(u->requires_mounts_for, path))
                 return 0;
-        }
 
         di = (UnitDependencyInfo) {
                 .origin_mask = mask
         };
 
-        r = hashmap_put(u->requires_mounts_for, p, di.data);
-        if (r < 0) {
-                free(p);
+        r = hashmap_put(u->requires_mounts_for, path, di.data);
+        if (r < 0)
                 return r;
-        }
+        p = NULL;
 
-        PATH_FOREACH_PREFIX_MORE(prefix, p) {
+        prefix = alloca(strlen(path) + 1);
+        PATH_FOREACH_PREFIX_MORE(prefix, path) {
                 Set *x;
 
                 x = hashmap_get(u->manager->units_requiring_mounts_for, prefix);
                 if (!x) {
-                        char *q;
+                        _cleanup_free_ char *q = NULL;
 
                         r = hashmap_ensure_allocated(&u->manager->units_requiring_mounts_for, &path_hash_ops);
                         if (r < 0)
@@ -4625,17 +4622,15 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
                                 return -ENOMEM;
 
                         x = set_new(NULL);
-                        if (!x) {
-                                free(q);
+                        if (!x)
                                 return -ENOMEM;
-                        }
 
                         r = hashmap_put(u->manager->units_requiring_mounts_for, q, x);
                         if (r < 0) {
-                                free(q);
                                 set_free(x);
                                 return r;
                         }
+                        q = NULL;
                 }
 
                 r = set_put(x, u);

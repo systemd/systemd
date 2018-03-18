@@ -259,6 +259,7 @@ int main(int argc, char* argv[]) {
         assert_se(calendar_spec_from_string("00:00/60", &c) < 0);
         assert_se(calendar_spec_from_string("00:00:2300", &c) < 0);
         assert_se(calendar_spec_from_string("00:00:18446744073709551615", &c) < 0);
+        assert_se(calendar_spec_from_string("@88588582097858858", &c) == -ERANGE);
 
         test_timestamp();
         test_hourly_bug_4031();

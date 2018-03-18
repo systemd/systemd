@@ -1977,6 +1977,14 @@ int cg_slice_to_path(const char *unit, char **ret) {
                 _cleanup_free_ char *escaped = NULL;
                 char n[dash - p + sizeof(".slice")];
 
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+                /* msan doesn't instrument stpncpy, so it thinks
+                 * n is later used unitialized:
+                 * https://github.com/google/sanitizers/issues/926
+                 */
+                zero(n);
+#endif
+
                 /* Don't allow trailing or double dashes */
                 if (IN_SET(dash[1], 0, '-'))
                         return -EINVAL;
@@ -2475,7 +2483,7 @@ static int cg_unified_update(void) {
                 return 0;
 
         if (statfs("/sys/fs/cgroup/", &fs) < 0)
-                return log_debug_errno(errno, "statfs(\"/sys/fs/cgroup/\" failed: %m");
+                return log_debug_errno(errno, "statfs(\"/sys/fs/cgroup/\") failed: %m");
 
         if (F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC)) {
                 log_debug("Found cgroup2 on /sys/fs/cgroup/, full unified hierarchy");

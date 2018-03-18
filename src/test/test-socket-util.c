@@ -119,6 +119,16 @@ static void test_socket_address_parse_netlink(void) {
         assert_se(a.sockaddr.sa.sa_family == AF_NETLINK);
         assert_se(a.protocol == NETLINK_ROUTE);
 
+        /* With spaces and tabs */
+        assert_se(socket_address_parse_netlink(&a, " kobject-uevent ") >= 0);
+        assert_se(socket_address_parse_netlink(&a, " \t kobject-uevent \t 10 \t") >= 0);
+        assert_se(a.sockaddr.sa.sa_family == AF_NETLINK);
+        assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
+
+        assert_se(socket_address_parse_netlink(&a, "kobject-uevent\t10") >= 0);
+        assert_se(a.sockaddr.sa.sa_family == AF_NETLINK);
+        assert_se(a.protocol == NETLINK_KOBJECT_UEVENT);
+
         /* oss-fuzz #6884 */
         assert_se(socket_address_parse_netlink(&a, "\xff") < 0);
 }

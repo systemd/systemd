@@ -43,6 +43,12 @@
 #define MIN_YEAR 1970
 #define MAX_YEAR 2199
 
+/* An arbitrary limit on the length of the chains of components. We don't want to
+ * build a very long linked list, which would be slow to iterate over and might cause
+ * our stack to overflow. It's unlikely that legitimate uses require more than a few
+ * linked compenents anyway. */
+#define CALENDARSPEC_COMPONENTS_MAX 240
+
 static void free_chain(CalendarComponent *c) {
         CalendarComponent *n;
 
@@ -618,15 +624,16 @@ static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
         return 0;
 }
 
-static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
+static int prepend_component(const char **p, bool usec, unsigned nesting, CalendarComponent **c) {
         int r, start, stop = -1, repeat = 0;
         CalendarComponent *cc;
-        const char *e;
+        const char *e = *p;
 
         assert(p);
         assert(c);
 
-        e = *p;
+        if (nesting > CALENDARSPEC_COMPONENTS_MAX)
+                return -ENOBUFS;
 
         r = parse_component_decimal(&e, usec, &start);
         if (r < 0)
@@ -668,7 +675,7 @@ static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
 
         if (*e ==',') {
                 *p += 1;
-                return prepend_component(p, usec, c);
+                return prepend_component(p, usec, nesting + 1, c);
         }
 
         return 0;
@@ -697,7 +704,7 @@ static int parse_chain(const char **p, bool usec, CalendarComponent **c) {
                 return 0;
         }
 
-        r = prepend_component(&t, usec, &cc);
+        r = prepend_component(&t, usec, 0, &cc);
         if (r < 0) {
                 free_chain(cc);
                 return r;

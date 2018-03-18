@@ -18,6 +18,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
         const char *name;
+        long offset;
 
         if (size == 0)
                 return 0;
@@ -34,6 +35,23 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         if (!unit_vtable[t]->load)
                 return 0;
+
+        offset = ftell(f);
+        assert_se(offset >= 0);
+
+        for (;;) {
+                _cleanup_free_ char *l = NULL;
+
+                if (read_line(f, LINE_MAX, &l) <= 0)
+                        break;
+
+                if (startswith(l, "ListenNetlink="))
+                        /* ListenNetlink causes a false positive in msan,
+                         * let's skip this for now. */
+                        return 0;
+        }
+
+        assert_se(fseek(f, offset, SEEK_SET) == 0);
 
         /* We don't want to fill the logs with messages about parse errors.
          * Disable most logging if not running standalone */
