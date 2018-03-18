@@ -1,0 +1,5 @@
+root:x:0:0:root:/root:/bin/bash
+systemd-network:x:492:492:Systemd Network Management:/:/usr/sbin/nologin
+systemd-resolve:x:491:491:Systemd Resolver:/:/usr/sbin/nologin
+systemd-timesync:x:493:493:Systemd Time Synchronization:/:/usr/sbin/nologin
++::::::
