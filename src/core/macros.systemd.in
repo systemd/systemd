@@ -101,7 +101,9 @@ systemd-sysusers %{?*} >/dev/null 2>&1 || : \
 %{nil}
 
 %sysusers_create_inline() \
-echo %{?*} | systemd-sysusers - >/dev/null 2>&1 || : \
+systemd-sysusers - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
+%(cat %2) \
+SYSTEMD_INLINE_EOF \
 %{nil}
 
 # This should be used by package installation scripts which require users or
@@ -118,7 +120,9 @@ echo %{?*} | systemd-sysusers - >/dev/null 2>&1 || : \
 #   %files
 #   %{_sysusersdir}/%{name}.conf
 %sysusers_create_package() \
-echo "%(cat %2)" | systemd-sysusers --replace=%_sysusersdir/%1.conf - >/dev/null 2>&1 || : \
+systemd-sysusers --replace=%_sysusersdir/%1.conf - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
+%(cat %2) \
+SYSTEMD_INLINE_EOF \
 %{nil}
 
 # This may be used by package installation scripts to create files according to
@@ -135,7 +139,9 @@ echo "%(cat %2)" | systemd-sysusers --replace=%_sysusersdir/%1.conf - >/dev/null
 #   %files
 #   %{_tmpfilesdir}/%{name}.conf
 %tmpfiles_create_package() \
-echo "%(cat %2)" | systemd-tmpfiles --replace=%_tmpfilesdir/%1.conf --create - >/dev/null 2>&1 || : \
+systemd-tmpfiles --replace=%_tmpfilesdir/%1.conf --create - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
+%(cat %2) \
+SYSTEMD_INLINE_EOF \
 %{nil}
 
 %sysctl_apply() \
