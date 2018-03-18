@@ -84,9 +84,9 @@ bool env_value_is_valid(const char *e) {
         if (!utf8_is_valid(e))
                 return false;
 
-        /* bash allows tabs in environment variables, and so should
-         * we */
-        if (string_has_cc(e, "\t"))
+        /* bash allows tabs and newlines in environment variables, and so
+         * should we */
+        if (string_has_cc(e, "\t\n"))
                 return false;
 
         /* POSIX says the overall size of the environment block cannot

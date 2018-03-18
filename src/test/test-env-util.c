@@ -277,8 +277,9 @@ static void test_env_clean(void) {
         assert_se(streq(e[1], "X="));
         assert_se(streq(e[2], "F=F"));
         assert_se(streq(e[3], "abcd=äöüß"));
-        assert_se(streq(e[4], "another=final one"));
-        assert_se(e[5] == NULL);
+        assert_se(streq(e[4], "xyz=xyz\n"));
+        assert_se(streq(e[5], "another=final one"));
+        assert_se(e[6] == NULL);
 }
 
 static void test_env_name_is_valid(void) {
@@ -297,6 +298,8 @@ static void test_env_value_is_valid(void) {
         assert_se(env_value_is_valid(""));
         assert_se(env_value_is_valid("głąb kapuściany"));
         assert_se(env_value_is_valid("printf \"\\x1b]0;<mock-chroot>\\x07<mock-chroot>\""));
+        assert_se(env_value_is_valid("tab\tcharacter"));
+        assert_se(env_value_is_valid("new\nline"));
 }
 
 static void test_env_assignment_is_valid(void) {
@@ -304,6 +307,8 @@ static void test_env_assignment_is_valid(void) {
         assert_se(env_assignment_is_valid("b=głąb kapuściany"));
         assert_se(env_assignment_is_valid("c=\\007\\009\\011"));
         assert_se(env_assignment_is_valid("e=printf \"\\x1b]0;<mock-chroot>\\x07<mock-chroot>\""));
+        assert_se(env_assignment_is_valid("f=tab\tcharacter"));
+        assert_se(env_assignment_is_valid("g=new\nline"));
 
         assert_se(!env_assignment_is_valid("="));
         assert_se(!env_assignment_is_valid("a b="));
