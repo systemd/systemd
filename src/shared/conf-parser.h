@@ -151,6 +151,7 @@ int config_parse_strv(GENERIC_PARSER_ARGS);
 int config_parse_sec(GENERIC_PARSER_ARGS);
 int config_parse_nsec(GENERIC_PARSER_ARGS);
 int config_parse_mode(GENERIC_PARSER_ARGS);
+int config_parse_warn_compat(GENERIC_PARSER_ARGS);
 int config_parse_log_facility(GENERIC_PARSER_ARGS);
 int config_parse_log_level(GENERIC_PARSER_ARGS);
 int config_parse_signal(GENERIC_PARSER_ARGS);
@@ -158,6 +159,12 @@ int config_parse_personality(GENERIC_PARSER_ARGS);
 int config_parse_ifname(GENERIC_PARSER_ARGS);
 int config_parse_ip_port(GENERIC_PARSER_ARGS);
 int config_parse_join_controllers(GENERIC_PARSER_ARGS);
+
+typedef enum Disabled {
+        DISABLED_CONFIGURATION,
+        DISABLED_LEGACY,
+        DISABLED_EXPERIMENTAL,
+} Disabled;
 
 #define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
         int function(GENERIC_PARSER_ARGS) {                             \
