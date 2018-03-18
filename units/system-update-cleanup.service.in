@@ -14,6 +14,7 @@ After=system-update.target
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=shutdown.target
+SuccessAction=reboot
 
 # system-update-generator uses laccess("/system-update"), while a plain
 # ConditionPathExists=/system-update uses access("/system-update"), so
@@ -32,4 +33,3 @@ ConditionPathIsSymbolicLink=|/system-update
 [Service]
 Type=oneshot
 ExecStart=/bin/rm -fv /system-update
-SuccessAction=reboot
