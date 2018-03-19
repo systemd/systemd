@@ -50,23 +50,17 @@ static bool arg_convert = true;
 
 typedef struct StatusInfo {
         char **locale;
-        char *vconsole_keymap;
-        char *vconsole_keymap_toggle;
-        char *x11_layout;
-        char *x11_model;
-        char *x11_variant;
-        char *x11_options;
+        const char *vconsole_keymap;
+        const char *vconsole_keymap_toggle;
+        const char *x11_layout;
+        const char *x11_model;
+        const char *x11_variant;
+        const char *x11_options;
 } StatusInfo;
 
 static void status_info_clear(StatusInfo *info) {
         if (info) {
                 strv_free(info->locale);
-                free(info->vconsole_keymap);
-                free(info->vconsole_keymap_toggle);
-                free(info->x11_layout);
-                free(info->x11_model);
-                free(info->x11_variant);
-                free(info->x11_options);
                 zero(*info);
         }
 }
@@ -158,6 +152,7 @@ static int show_status(int argc, char **argv, void *userdata) {
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus *bus = userdata;
         int r;
 
@@ -168,6 +163,7 @@ static int show_status(int argc, char **argv, void *userdata) {
                                    "/org/freedesktop/locale1",
                                    map,
                                    &error,
+                                   &m,
                                    &info);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));

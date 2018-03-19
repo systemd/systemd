@@ -876,6 +876,7 @@ static int run_context_update(RunContext *c, const char *path) {
                                    path,
                                    map,
                                    &error,
+                                   NULL,
                                    c);
         if (r < 0) {
                 sd_event_exit(c->event, EXIT_FAILURE);

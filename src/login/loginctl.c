@@ -307,77 +307,52 @@ static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit
 }
 
 typedef struct SessionStatusInfo {
-        char *id;
+        const char *id;
         uid_t uid;
-        char *name;
+        const char *name;
         struct dual_timestamp timestamp;
         unsigned int vtnr;
-        char *seat;
-        char *tty;
-        char *display;
-        int remote;
-        char *remote_host;
-        char *remote_user;
-        char *service;
+        const char *seat;
+        const char *tty;
+        const char *display;
+        bool remote;
+        const char *remote_host;
+        const char *remote_user;
+        const char *service;
         pid_t leader;
-        char *type;
-        char *class;
-        char *state;
-        char *scope;
-        char *desktop;
+        const char *type;
+        const char *class;
+        const char *state;
+        const char *scope;
+        const char *desktop;
 } SessionStatusInfo;
 
 typedef struct UserStatusInfo {
         uid_t uid;
-        int linger;
-        char *name;
+        bool linger;
+        const char *name;
         struct dual_timestamp timestamp;
-        char *state;
+        const char *state;
         char **sessions;
-        char *display;
-        char *slice;
+        const char *display;
+        const char *slice;
 } UserStatusInfo;
 
 typedef struct SeatStatusInfo {
-        char *id;
-        char *active_session;
+        const char *id;
+        const char *active_session;
         char **sessions;
 } SeatStatusInfo;
 
-static void session_status_info_clear(SessionStatusInfo *info) {
-        if (info) {
-                free(info->id);
-                free(info->name);
-                free(info->seat);
-                free(info->tty);
-                free(info->display);
-                free(info->remote_host);
-                free(info->remote_user);
-                free(info->service);
-                free(info->type);
-                free(info->class);
-                free(info->state);
-                free(info->scope);
-                free(info->desktop);
-                zero(*info);
-        }
-}
-
 static void user_status_info_clear(UserStatusInfo *info) {
         if (info) {
-                free(info->name);
-                free(info->state);
                 strv_free(info->sessions);
-                free(info->display);
-                free(info->slice);
                 zero(*info);
         }
 }
 
 static void seat_status_info_clear(SeatStatusInfo *info) {
         if (info) {
-                free(info->id);
-                free(info->active_session);
                 strv_free(info->sessions);
                 zero(*info);
         }
@@ -395,22 +370,9 @@ static int prop_map_first_of_struct(sd_bus *bus, const char *member, sd_bus_mess
         if (r < 0)
                 return r;
 
-        if (IN_SET(contents[0], 's', 'o')) {
-                const char *s;
-                char **p = (char **) userdata;
-
-                r = sd_bus_message_read_basic(m, contents[0], &s);
-                if (r < 0)
-                        return r;
-
-                r = free_and_strdup(p, s);
-                if (r < 0)
-                        return r;
-        } else {
-                r = sd_bus_message_read_basic(m, contents[0], userdata);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_bus_message_read_basic(m, contents[0], userdata);
+        if (r < 0)
+                return r;
 
         r = sd_bus_message_skip(m, contents+1);
         if (r < 0)
@@ -471,12 +433,13 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
-        _cleanup_(session_status_info_clear) SessionStatusInfo i = {};
+        SessionStatusInfo i = {};
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &i);
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
@@ -601,12 +564,13 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
         char since2[FORMAT_TIMESTAMP_MAX], *s2;
         _cleanup_(user_status_info_clear) UserStatusInfo i = {};
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &i);
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
@@ -676,10 +640,11 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(seat_status_info_clear) SeatStatusInfo i = {};
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &i);
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 

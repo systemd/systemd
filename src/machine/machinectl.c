@@ -639,12 +639,12 @@ static int print_uid_shift(sd_bus *bus, const char *name) {
 }
 
 typedef struct MachineStatusInfo {
-        char *name;
+        const char *name;
         sd_id128_t id;
-        char *class;
-        char *service;
-        char *unit;
-        char *root_directory;
+        const char *class;
+        const char *service;
+        const char *unit;
+        const char *root_directory;
         pid_t leader;
         struct dual_timestamp timestamp;
         int *netif;
@@ -653,11 +653,6 @@ typedef struct MachineStatusInfo {
 
 static void machine_status_info_clear(MachineStatusInfo *info) {
         if (info) {
-                free(info->name);
-                free(info->class);
-                free(info->service);
-                free(info->unit);
-                free(info->root_directory);
                 free(info->netif);
                 zero(*info);
         }
@@ -803,6 +798,7 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(machine_status_info_clear) MachineStatusInfo info = {};
         int r;
 
@@ -816,6 +812,7 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                                    path,
                                    map,
                                    &error,
+                                   &m,
                                    &info);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
@@ -994,10 +991,10 @@ static int print_image_machine_info(sd_bus *bus, const char *name) {
 }
 
 typedef struct ImageStatusInfo {
-        char *name;
-        char *path;
-        char *type;
-        int read_only;
+        const char *name;
+        const char *path;
+        const char *type;
+        bool read_only;
         usec_t crtime;
         usec_t mtime;
         uint64_t usage;
@@ -1005,16 +1002,6 @@ typedef struct ImageStatusInfo {
         uint64_t usage_exclusive;
         uint64_t limit_exclusive;
 } ImageStatusInfo;
-
-static void image_status_info_clear(ImageStatusInfo *info) {
-        if (!info)
-                return;
-
-        free(info->name);
-        free(info->path);
-        free(info->type);
-        zero(*info);
-}
 
 static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
         char ts_relative[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
@@ -1093,7 +1080,8 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(image_status_info_clear) ImageStatusInfo info = {};
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        ImageStatusInfo info = {};
         int r;
 
         assert(bus);
@@ -1105,6 +1093,7 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
                                    path,
                                    map,
                                    &error,
+                                   &m,
                                    &info);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
@@ -1119,19 +1108,10 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
 }
 
 typedef struct PoolStatusInfo {
-        char *path;
+        const char *path;
         uint64_t usage;
         uint64_t limit;
 } PoolStatusInfo;
-
-static void pool_status_info_clear(PoolStatusInfo *info) {
-        if (info) {
-                free(info->path);
-                zero(*info);
-                info->usage = -1;
-                info->limit = -1;
-        }
-}
 
 static void print_pool_status_info(sd_bus *bus, PoolStatusInfo *i) {
         char bs[FORMAT_BYTES_MAX], *s;
@@ -1157,12 +1137,13 @@ static int show_pool_info(sd_bus *bus) {
                 {}
         };
 
-        _cleanup_(pool_status_info_clear) PoolStatusInfo info = {
+        PoolStatusInfo info = {
                 .usage = (uint64_t) -1,
                 .limit = (uint64_t) -1,
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -1172,6 +1153,7 @@ static int show_pool_info(sd_bus *bus) {
                                    "/org/freedesktop/machine1",
                                    map,
                                    &error,
+                                   &m,
                                    &info);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
