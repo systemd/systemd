@@ -273,7 +273,7 @@ static int list_links(int argc, char *argv[], void *userdata) {
         if (c < 0)
                 return c;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         if (arg_legend)
                 printf("%3s %-16s %-18s %-11s %-10s\n",
@@ -897,7 +897,7 @@ static int link_status(int argc, char *argv[], void *userdata) {
         _cleanup_free_ LinkInfo *links = NULL;
         int r, c, i;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -993,7 +993,7 @@ static int link_lldp_status(int argc, char *argv[], void *userdata) {
         if (c < 0)
                 return c;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         if (arg_legend)
                 printf("%-16s %-17s %-16s %-11s %-17s %-16s\n",
@@ -1156,11 +1156,11 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int networkctl_main(int argc, char *argv[]) {
-        const Verb verbs[] = {
-                { "list",   VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links       },
-                { "status", VERB_ANY, VERB_ANY, 0,            link_status      },
-                { "lldp",   VERB_ANY, VERB_ANY, 0,            link_lldp_status },
-                { "label",  VERB_ANY, VERB_ANY, 0,            list_address_labels},
+        static const Verb verbs[] = {
+                { "list",   VERB_ANY, VERB_ANY, VERB_DEFAULT, list_links          },
+                { "status", VERB_ANY, VERB_ANY, 0,            link_status         },
+                { "lldp",   VERB_ANY, VERB_ANY, 0,            link_lldp_status    },
+                { "label",  VERB_ANY, VERB_ANY, 0,            list_address_labels },
                 {}
         };
 

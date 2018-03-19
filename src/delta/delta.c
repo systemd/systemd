@@ -662,7 +662,7 @@ int main(int argc, char *argv[]) {
         else if (arg_diff)
                 arg_flags |= SHOW_OVERRIDDEN;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         if (optind < argc) {
                 int i;

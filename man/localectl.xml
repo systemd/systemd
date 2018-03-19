@@ -118,6 +118,10 @@
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
 
     <para>The following commands are understood:</para>
 
@@ -125,8 +129,8 @@
       <varlistentry>
         <term><command>status</command></term>
 
-        <listitem><para>Show current settings of the system locale and
-        keyboard mapping.</para></listitem>
+        <listitem><para>Show current settings of the system locale and keyboard mapping.
+        If no command is specified, this is the implied default.</para></listitem>
       </varlistentry>
 
       <varlistentry>
