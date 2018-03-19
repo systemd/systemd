@@ -102,7 +102,7 @@ systemd-sysusers %{?*} >/dev/null 2>&1 || : \
 
 %sysusers_create_inline() \
 systemd-sysusers - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
-%(cat %2) \
+%{?*} \
 SYSTEMD_INLINE_EOF \
 %{nil}
 
