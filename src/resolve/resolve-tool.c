@@ -1417,12 +1417,20 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                 char **dns;
                 char **domains;
                 char **ntas;
+                const char *llmnr;
+                const char *mdns;
+                const char *dnssec;
+                bool dnssec_supported;
         } global_info = {};
 
         static const struct bus_properties_map property_map[] = {
-                { "DNS",                        "a(iiay)", map_global_dns_servers, offsetof(struct global_info, dns)     },
-                { "Domains",                    "a(isb)",  map_global_domains,     offsetof(struct global_info, domains) },
-                { "DNSSECNegativeTrustAnchors", "as",      NULL,                   offsetof(struct global_info, ntas)    },
+                { "DNS",                        "a(iiay)", map_global_dns_servers, offsetof(struct global_info, dns)              },
+                { "Domains",                    "a(isb)",  map_global_domains,     offsetof(struct global_info, domains)          },
+                { "DNSSECNegativeTrustAnchors", "as",      NULL,                   offsetof(struct global_info, ntas)             },
+                { "LLMNR",                      "s",       NULL,                   offsetof(struct global_info, llmnr)            },
+                { "MulticastDNS",               "s",       NULL,                   offsetof(struct global_info, mdns)             },
+                { "DNSSEC",                     "s",       NULL,                   offsetof(struct global_info, dnssec)           },
+                { "DNSSECSupported",            "b",       NULL,                   offsetof(struct global_info, dnssec_supported) },
                 {}
         };
 
@@ -1454,6 +1462,16 @@ static int status_global(sd_bus *bus, bool *empty_line) {
         pager_open(arg_no_pager, false);
 
         printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
+
+        printf("       LLMNR setting: %s\n"
+               "MulticastDNS setting: %s\n"
+               "      DNSSEC setting: %s\n"
+               "    DNSSEC supported: %s\n",
+               strna(global_info.llmnr),
+               strna(global_info.mdns),
+               strna(global_info.dnssec),
+               yes_no(global_info.dnssec_supported));
+
         STRV_FOREACH(i, global_info.dns) {
                 printf("         %s %s\n",
                        i == global_info.dns ? "DNS Servers:" : "            ",
