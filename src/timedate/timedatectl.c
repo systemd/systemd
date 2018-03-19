@@ -43,22 +43,15 @@ static bool arg_adjust_system_clock = false;
 
 typedef struct StatusInfo {
         usec_t time;
-        char *timezone;
+        const char *timezone;
 
         usec_t rtc_time;
-        int rtc_local;
+        bool rtc_local;
 
-        int ntp_enabled;
-        int ntp_capable;
-        int ntp_synced;
+        bool ntp_enabled;
+        bool ntp_capable;
+        bool ntp_synced;
 } StatusInfo;
-
-static void status_info_clear(StatusInfo *info) {
-        if (info) {
-                free(info->timezone);
-                zero(*info);
-        }
-}
 
 static void print_status_info(const StatusInfo *i) {
         char a[LINE_MAX];
@@ -144,7 +137,7 @@ static void print_status_info(const StatusInfo *i) {
 }
 
 static int show_status(sd_bus *bus, char **args, unsigned n) {
-        _cleanup_(status_info_clear) StatusInfo info = {};
+        StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
                 { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone) },
                 { "LocalRTC",        "b", NULL, offsetof(StatusInfo, rtc_local) },
@@ -157,6 +150,7 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -166,6 +160,7 @@ static int show_status(sd_bus *bus, char **args, unsigned n) {
                                    "/org/freedesktop/timedate1",
                                    map,
                                    &error,
+                                   &m,
                                    &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to query server: %s", bus_error_message(&error, r));

@@ -917,6 +917,71 @@ int bus_print_property(const char *name, sd_bus_message *property, bool value, b
                         }
 
                         return 1;
+
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Sessions")) {
+                        const char *s;
+                        bool space = false;
+
+                        r = sd_bus_message_enter_container(property, SD_BUS_TYPE_ARRAY, "(so)");
+                        if (r < 0)
+                                return r;
+
+                        if (!value)
+                                printf("%s=", name);
+
+                        while ((r = sd_bus_message_read(property, "(so)", &s, NULL)) > 0) {
+                                printf("%s%s", space ? " " : "", s);
+                                space = true;
+                        }
+
+                        if (space || !value)
+                                printf("\n");
+
+                        if (r < 0)
+                                return r;
+
+                        r = sd_bus_message_exit_container(property);
+                        if (r < 0)
+                                return r;
+
+                        return 1;
+                }
+
+                break;
+
+        case SD_BUS_TYPE_STRUCT:
+
+                if (STR_IN_SET(name, "Display", "Seat", "ActiveSession")) {
+                        const char *s;
+
+                        r = sd_bus_message_read(property, "(so)", &s, NULL);
+                        if (r < 0)
+                                return r;
+
+                        if (all || !isempty(s)) {
+                                bool good;
+
+                                /* This property has a single value, so we need to take
+                                 * care not to print a new line, everything else is OK. */
+                                good = !strchr(s, '\n');
+                                print_property(name, "%s", good ? s : "[unprintable]");
+                        }
+
+                        return 1;
+
+                } else if (streq(name, "User")) {
+                        uint32_t uid;
+
+                        r = sd_bus_message_read(property, "(uo)", &uid, NULL);
+                        if (r < 0)
+                                return r;
+
+                        if (uid_is_valid(uid))
+                                print_property(name, UID_FMT, uid);
+                        else
+                                print_property(name, "%s", "[invalid]");
+
+                        return 1;
                 }
 
                 break;
@@ -1020,7 +1085,7 @@ int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_err
         return 0;
 }
 
-static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata, bool copy_string) {
         char type;
         int r;
 
@@ -1031,7 +1096,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
         switch (type) {
 
         case SD_BUS_TYPE_STRING: {
-                char **p = userdata;
+                const char **p = userdata;
                 const char *s;
 
                 r = sd_bus_message_read_basic(m, type, &s);
@@ -1041,7 +1106,11 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
                 if (isempty(s))
                         s = NULL;
 
-                return free_and_strdup(p, s);
+                if (copy_string)
+                        return free_and_strdup((char **) userdata, s);
+
+                *p = s;
+                return 0;
         }
 
         case SD_BUS_TYPE_ARRAY: {
@@ -1060,13 +1129,13 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
 
         case SD_BUS_TYPE_BOOLEAN: {
                 unsigned b;
-                int *p = userdata;
+                bool *p = userdata;
 
                 r = sd_bus_message_read_basic(m, type, &b);
                 if (r < 0)
                         return r;
 
-                *p = b;
+                *p = !!b;
                 return 0;
         }
 
@@ -1111,6 +1180,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
 int bus_message_map_all_properties(
                 sd_bus_message *m,
                 const struct bus_properties_map *map,
+                bool copy_string,
                 sd_bus_error *error,
                 void *userdata) {
 
@@ -1153,7 +1223,7 @@ int bus_message_map_all_properties(
                         if (map[i].set)
                                 r = prop->set(sd_bus_message_get_bus(m), member, m, error, v);
                         else
-                                r = map_basic(sd_bus_message_get_bus(m), member, m, error, v);
+                                r = map_basic(sd_bus_message_get_bus(m), member, m, error, v, copy_string);
                         if (r < 0)
                                 return r;
 
@@ -1179,6 +1249,7 @@ int bus_message_map_all_properties(
 int bus_message_map_properties_changed(
                 sd_bus_message *m,
                 const struct bus_properties_map *map,
+                bool copy_string,
                 sd_bus_error *error,
                 void *userdata) {
 
@@ -1188,7 +1259,7 @@ int bus_message_map_properties_changed(
         assert(m);
         assert(map);
 
-        r = bus_message_map_all_properties(m, map, error, userdata);
+        r = bus_message_map_all_properties(m, map, copy_string, error, userdata);
         if (r < 0)
                 return r;
 
@@ -1219,6 +1290,7 @@ int bus_map_all_properties(
                 const char *path,
                 const struct bus_properties_map *map,
                 sd_bus_error *error,
+                sd_bus_message **reply,
                 void *userdata) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
@@ -1241,7 +1313,14 @@ int bus_map_all_properties(
         if (r < 0)
                 return r;
 
-        return bus_message_map_all_properties(m, map, error, userdata);
+        r = bus_message_map_all_properties(m, map, !reply, error, userdata);
+        if (r < 0)
+                return r;
+
+        if (reply)
+                *reply = sd_bus_message_ref(m);
+
+        return r;
 }
 
 int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **ret) {

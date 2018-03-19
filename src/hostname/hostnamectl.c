@@ -43,19 +43,19 @@ static bool arg_pretty = false;
 static bool arg_static = false;
 
 typedef struct StatusInfo {
-        char *hostname;
-        char *static_hostname;
-        char *pretty_hostname;
-        char *icon_name;
-        char *chassis;
-        char *deployment;
-        char *location;
-        char *kernel_name;
-        char *kernel_release;
-        char *os_pretty_name;
-        char *os_cpe_name;
-        char *virtualization;
-        char *architecture;
+        const char *hostname;
+        const char *static_hostname;
+        const char *pretty_hostname;
+        const char *icon_name;
+        const char *chassis;
+        const char *deployment;
+        const char *location;
+        const char *kernel_name;
+        const char *kernel_release;
+        const char *os_pretty_name;
+        const char *os_cpe_name;
+        const char *virtualization;
+        const char *architecture;
 } StatusInfo;
 
 static void print_status_info(StatusInfo *i) {
@@ -162,6 +162,7 @@ static int show_all_names(sd_bus *bus, sd_bus_error *error) {
                 {}
         };
 
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *host_message = NULL, *manager_message = NULL;
         int r;
 
         r = bus_map_all_properties(bus,
@@ -169,33 +170,20 @@ static int show_all_names(sd_bus *bus, sd_bus_error *error) {
                                    "/org/freedesktop/hostname1",
                                    hostname_map,
                                    error,
+                                   &host_message,
                                    &info);
         if (r < 0)
-                goto fail;
+                return r;
 
-        bus_map_all_properties(bus,
-                               "org.freedesktop.systemd1",
-                               "/org/freedesktop/systemd1",
-                               manager_map,
-                               error,
-                               &info);
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.systemd1",
+                                   "/org/freedesktop/systemd1",
+                                   manager_map,
+                                   error,
+                                   &manager_message,
+                                   &info);
 
         print_status_info(&info);
-
-fail:
-        free(info.hostname);
-        free(info.static_hostname);
-        free(info.pretty_hostname);
-        free(info.icon_name);
-        free(info.chassis);
-        free(info.deployment);
-        free(info.location);
-        free(info.kernel_name);
-        free(info.kernel_release);
-        free(info.os_pretty_name);
-        free(info.os_cpe_name);
-        free(info.virtualization);
-        free(info.architecture);
 
         return r;
 }

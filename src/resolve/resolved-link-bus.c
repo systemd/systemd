@@ -28,8 +28,6 @@
 #include "resolved-resolv-conf.h"
 #include "strv.h"
 
-static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_resolve_support, resolve_support, ResolveSupport);
-
 static int property_get_dnssec_mode(
                 sd_bus *bus,
                 const char *path,
@@ -533,8 +531,8 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("ScopesMask", "t", property_get_scopes_mask, 0, 0),
         SD_BUS_PROPERTY("DNS", "a(iay)", property_get_dns, 0, 0),
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
-        SD_BUS_PROPERTY("LLMNR", "s", property_get_resolve_support, offsetof(Link, llmnr_support), 0),
-        SD_BUS_PROPERTY("MulticastDNS", "s", property_get_resolve_support, offsetof(Link, mdns_support), 0),
+        SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Link, llmnr_support), 0),
+        SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Link, mdns_support), 0),
         SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
         SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
