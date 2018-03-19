@@ -202,11 +202,11 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
                         r = free_and_strdup(&config->timeout, p);
                 else if (streq(field, "editor"))
                         r = free_and_strdup(&config->editor, p);
-                else if (streq(buf, "auto-entries"))
+                else if (streq(field, "auto-entries"))
                         r = free_and_strdup(&config->auto_entries, p);
-                else if (streq(buf, "auto-firmware"))
+                else if (streq(field, "auto-firmware"))
                         r = free_and_strdup(&config->auto_firmware, p);
-                else if (streq(buf, "console-mode"))
+                else if (streq(field, "console-mode"))
                         r = free_and_strdup(&config->console_mode, p);
                 else {
                         log_notice("%s:%u: Unknown line \"%s\"", path, line, field);

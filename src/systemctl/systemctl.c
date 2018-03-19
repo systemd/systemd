@@ -2916,8 +2916,8 @@ static int start_unit_one(
                         return log_error_errno(r, "Failed to request match for PropertiesChanged signal: %m");
         }
 
-        log_debug("%s manager for %s on %s, %s",
-                  arg_dry_run ? "Would call" : "Calling",
+        log_debug("%s dbus call org.freedesktop.systemd1.Manager %s(%s, %s)",
+                  arg_dry_run ? "Would execute" : "Executing",
                   method, name, mode);
         if (arg_dry_run)
                 return 0;
@@ -3217,6 +3217,10 @@ static int logind_set_wall_message(void) {
         if (!m)
                 return log_oom();
 
+        log_debug("%s wall message \"%s\".", arg_dry_run ? "Would set" : "Setting", m);
+        if (arg_dry_run)
+                return 0;
+
         r = sd_bus_call_method(
                         bus,
                         "org.freedesktop.login1",
@@ -3291,6 +3295,10 @@ static int logind_reboot(enum action a) {
 
         polkit_agent_open_maybe();
         (void) logind_set_wall_message();
+
+        log_debug("%s org.freedesktop.login1.Manager %s dbus call.", arg_dry_run ? "Would execute" : "Executing", method);
+        if (arg_dry_run)
+                return 0;
 
         r = sd_bus_call_method(
                         bus,
@@ -3490,6 +3498,9 @@ static int load_kexec_kernel(void) {
                 return 0;
         }
 
+        if (access(KEXEC, X_OK) < 0)
+                return log_error_errno(errno, KEXEC" is not available: %m");
+
         r = find_esp_and_warn(arg_esp_path, false, &where, NULL, NULL, NULL, NULL);
         if (r == -ENOKEY) /* find_esp_and_warn() doesn't warn about this case */
                 return log_error_errno(r, "Cannot find the ESP partition mount point.");
@@ -3518,9 +3529,12 @@ static int load_kexec_kernel(void) {
         if (!options)
                 return log_oom();
 
-        log_debug("%s kexec kernel %s initrd %s options \"%s\".",
-                  arg_dry_run ? "Would load" : "loading",
-                  kernel, initrd, options);
+        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                 "%s "KEXEC" --load \"%s\" --append \"%s\"%s%s%s",
+                 arg_dry_run ? "Would run" : "Running",
+                 kernel,
+                 options,
+                 initrd ? " --initrd \"" : NULL, strempty(initrd), initrd ? "\"" : "");
         if (arg_dry_run)
                 return 0;
 
@@ -3528,7 +3542,6 @@ static int load_kexec_kernel(void) {
         if (r < 0)
                 return r;
         if (r == 0) {
-
                 const char* const args[] = {
                         KEXEC,
                         "--load", kernel,
@@ -3541,7 +3554,13 @@ static int load_kexec_kernel(void) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_check("kexec", pid, WAIT_LOG);
+        r = wait_for_terminate_and_check("kexec", pid, WAIT_LOG);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                /* Command failed */
+                return -EPROTO;
+        return 0;
 }
 
 static int set_exit_code(uint8_t code) {
@@ -3599,7 +3618,9 @@ static int start_special(int argc, char *argv[], void *userdata) {
 
         } else if (a == ACTION_KEXEC) {
                 r = load_kexec_kernel();
-                if (r < 0)
+                if (r < 0 && arg_force >= 1)
+                        log_notice("Failed to load kexec kernel, continuing without.");
+                else if (r < 0)
                         return r;
 
         } else if (a == ACTION_EXIT && argc > 1) {
