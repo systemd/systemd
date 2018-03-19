@@ -51,9 +51,9 @@ struct bus_properties_map {
 
 int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
 
-int bus_message_map_all_properties(sd_bus_message *m, const struct bus_properties_map *map, sd_bus_error *error, void *userdata);
-int bus_message_map_properties_changed(sd_bus_message *m, const struct bus_properties_map *map, sd_bus_error *error, void *userdata);
-int bus_map_all_properties(sd_bus *bus, const char *destination, const char *path, const struct bus_properties_map *map, sd_bus_error *error, void *userdata);
+int bus_message_map_all_properties(sd_bus_message *m, const struct bus_properties_map *map, bool copy_string, sd_bus_error *error, void *userdata);
+int bus_message_map_properties_changed(sd_bus_message *m, const struct bus_properties_map *map, bool copy_string, sd_bus_error *error, void *userdata);
+int bus_map_all_properties(sd_bus *bus, const char *destination, const char *path, const struct bus_properties_map *map, sd_bus_error *error, sd_bus_message **reply, void *userdata);
 
 int bus_async_unregister_and_exit(sd_event *e, sd_bus *bus, const char *name);
 
@@ -76,8 +76,11 @@ int bus_connect_user_systemd(sd_bus **_bus);
 int bus_connect_transport(BusTransport transport, const char *host, bool user, sd_bus **bus);
 int bus_connect_transport_systemd(BusTransport transport, const char *host, bool user, sd_bus **bus);
 
+typedef int (*bus_message_print_t) (const char *name, sd_bus_message *m, bool value, bool all);
+
 int bus_print_property(const char *name, sd_bus_message *property, bool value, bool all);
-int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, char **filter, bool value, bool all);
+int bus_message_print_all_properties(sd_bus_message *m, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties);
+int bus_print_all_properties(sd_bus *bus, const char *dest, const char *path, bus_message_print_t func, char **filter, bool value, bool all, Set **found_properties);
 
 int bus_property_get_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 int bus_property_set_bool(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *value, void *userdata, sd_bus_error *error);

@@ -82,6 +82,7 @@
 #include "spawn-polkit-agent.h"
 #include "special.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-def.h"
@@ -248,21 +249,6 @@ static void release_busses(void) {
 
         for (w = 0; w < _BUS_FOCUS_MAX; w++)
                 busses[w] = sd_bus_flush_close_unref(busses[w]);
-}
-
-static int map_string_no_copy(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        char *s;
-        const char **p = userdata;
-        int r;
-
-        r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &s);
-        if (r < 0)
-                return r;
-
-        if (!isempty(s))
-                *p = s;
-
-        return 0;
 }
 
 static void ask_password_agent_open_if_enabled(void) {
@@ -791,7 +777,7 @@ static int list_units(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         r = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
         if (r < 0)
@@ -1003,7 +989,7 @@ static int list_sockets(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         n = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
         if (n < 0)
@@ -1310,7 +1296,7 @@ static int list_timers(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         n = get_unit_list_recursive(bus, strv_skip(argv, 1), &unit_infos, &replies, &machines);
         if (n < 0)
@@ -1599,7 +1585,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                         return bus_log_parse_error(r);
         }
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         qsort_safe(units, c, sizeof(UnitFileList), compare_unit_file_list);
         output_unit_file_list(units, c);
@@ -1652,91 +1638,73 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
 
 static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, char ***deps) {
 
-        static const char *dependencies[_DEPENDENCY_MAX] = {
-                [DEPENDENCY_FORWARD] = "Requires\0"
-                                       "Requisite\0"
-                                       "Wants\0"
-                                       "ConsistsOf\0"
-                                       "BindsTo\0",
-                [DEPENDENCY_REVERSE] = "RequiredBy\0"
-                                       "RequisiteOf\0"
-                                       "WantedBy\0"
-                                       "PartOf\0"
-                                       "BoundBy\0",
-                [DEPENDENCY_AFTER]   = "After\0",
-                [DEPENDENCY_BEFORE]  = "Before\0",
+        struct DependencyStatusInfo {
+                char **dep[5];
+        } info = {};
+
+        static const struct bus_properties_map map[_DEPENDENCY_MAX][6] = {
+                [DEPENDENCY_FORWARD] = {
+                        { "Requires",    "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
+                        { "Requisite",   "as", NULL, offsetof(struct DependencyStatusInfo, dep[1]) },
+                        { "Wants",       "as", NULL, offsetof(struct DependencyStatusInfo, dep[2]) },
+                        { "ConsistsOf",  "as", NULL, offsetof(struct DependencyStatusInfo, dep[3]) },
+                        { "BindsTo",     "as", NULL, offsetof(struct DependencyStatusInfo, dep[4]) },
+                        {}
+                },
+                [DEPENDENCY_REVERSE] = {
+                        { "RequiredBy",  "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
+                        { "RequisiteOf", "as", NULL, offsetof(struct DependencyStatusInfo, dep[1]) },
+                        { "WantedBy",    "as", NULL, offsetof(struct DependencyStatusInfo, dep[2]) },
+                        { "PartOf",      "as", NULL, offsetof(struct DependencyStatusInfo, dep[3]) },
+                        { "BoundBy",     "as", NULL, offsetof(struct DependencyStatusInfo, dep[4]) },
+                        {}
+                },
+                [DEPENDENCY_AFTER] = {
+                        { "After",       "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
+                        {}
+                },
+                [DEPENDENCY_BEFORE] = {
+                        { "Before",      "as", NULL, offsetof(struct DependencyStatusInfo, dep[0]) },
+                        {}
+                },
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **ret = NULL;
         _cleanup_free_ char *path = NULL;
-        int r;
+        int i, r;
 
         assert(bus);
         assert(name);
         assert(deps);
-        assert_cc(ELEMENTSOF(dependencies) == _DEPENDENCY_MAX);
 
         path = unit_dbus_path_from_name(name);
         if (!path)
                 return log_oom();
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &error,
-                        &reply,
-                        "s", "org.freedesktop.systemd1.Unit");
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.systemd1",
+                                   path,
+                                   map[arg_dependency],
+                                   &error,
+                                   NULL,
+                                   &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties of %s: %s", name, bus_error_message(&error, r));
 
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        while ((r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
-                const char *prop;
-
-                r = sd_bus_message_read(reply, "s", &prop);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (!nulstr_contains(dependencies[arg_dependency], prop)) {
-                        r = sd_bus_message_skip(reply, "v");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-                } else {
-
-                        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_VARIANT, "as");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = bus_message_read_strv_extend(reply, &ret);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = sd_bus_message_exit_container(reply);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-                }
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
+        if (IN_SET(arg_dependency, DEPENDENCY_AFTER, DEPENDENCY_BEFORE)) {
+                *deps = info.dep[0];
+                return 0;
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
 
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
+        for (i = 0; i < 5; i++) {
+                r = strv_extend_strv(&ret, info.dep[i], true);
+                if (r < 0)
+                        return log_oom();
+                info.dep[i] = strv_free(info.dep[i]);
+        }
 
-        *deps = strv_uniq(ret);
+        *deps = ret;
         ret = NULL;
 
         return 0;
@@ -1854,7 +1822,7 @@ static int list_dependencies(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         puts(u);
 
@@ -1924,7 +1892,7 @@ static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
                 bus = container;
         }
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, NULL, mi);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, NULL, NULL, mi);
         if (r < 0)
                 return r;
 
@@ -2086,7 +2054,7 @@ static int list_machines(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         qsort_safe(machine_infos, r, sizeof(struct machine_info), compare_machine_info);
         output_machines_list(machine_infos, r);
@@ -2258,7 +2226,7 @@ static void output_jobs_list(sd_bus *bus, const struct job_info* jobs, unsigned 
                 return;
         }
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         id_len = STRLEN("JOB");
         unit_len = STRLEN("UNIT");
@@ -2373,7 +2341,7 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         output_jobs_list(bus, jobs, c, skipped);
         return 0;
@@ -4425,354 +4393,165 @@ static void show_unit_help(UnitStatusInfo *i) {
                         log_info("Can't show: %s", *p);
 }
 
-static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *i, const char *contents) {
+static int map_main_pid(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        UnitStatusInfo *i = userdata;
+        uint32_t u;
         int r;
 
-        assert(name);
-        assert(m);
-        assert(i);
-
-        switch (contents[0]) {
-
-        case SD_BUS_TYPE_STRING: {
-                const char *s;
-
-                r = sd_bus_message_read(m, "s", &s);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (!isempty(s)) {
-                        if (streq(name, "Id"))
-                                i->id = s;
-                        else if (streq(name, "LoadState"))
-                                i->load_state = s;
-                        else if (streq(name, "ActiveState"))
-                                i->active_state = s;
-                        else if (streq(name, "SubState"))
-                                i->sub_state = s;
-                        else if (streq(name, "Description"))
-                                i->description = s;
-                        else if (streq(name, "FragmentPath"))
-                                i->fragment_path = s;
-                        else if (streq(name, "SourcePath"))
-                                i->source_path = s;
-#ifndef NOLEGACY
-                        else if (streq(name, "DefaultControlGroup")) {
-                                const char *e;
-                                e = startswith(s, SYSTEMD_CGROUP_CONTROLLER ":");
-                                if (e)
-                                        i->control_group = e;
-                        }
-#endif
-                        else if (streq(name, "ControlGroup"))
-                                i->control_group = s;
-                        else if (streq(name, "StatusText"))
-                                i->status_text = s;
-                        else if (streq(name, "PIDFile"))
-                                i->pid_file = s;
-                        else if (streq(name, "SysFSPath"))
-                                i->sysfs_path = s;
-                        else if (streq(name, "Where"))
-                                i->where = s;
-                        else if (streq(name, "What"))
-                                i->what = s;
-                        else if (streq(name, "Following"))
-                                i->following = s;
-                        else if (streq(name, "UnitFileState"))
-                                i->unit_file_state = s;
-                        else if (streq(name, "UnitFilePreset"))
-                                i->unit_file_preset = s;
-                        else if (streq(name, "Result"))
-                                i->result = s;
-                }
-
-                break;
-        }
-
-        case SD_BUS_TYPE_BOOLEAN: {
-                int b;
-
-                r = sd_bus_message_read(m, "b", &b);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (streq(name, "Accept"))
-                        i->accept = b;
-                else if (streq(name, "NeedDaemonReload"))
-                        i->need_daemon_reload = b;
-                else if (streq(name, "ConditionResult"))
-                        i->condition_result = b;
-                else if (streq(name, "AssertResult"))
-                        i->assert_result = b;
-                else if (streq(name, "Transient"))
-                        i->transient = b;
-
-                break;
-        }
-
-        case SD_BUS_TYPE_UINT32: {
-                uint32_t u;
-
-                r = sd_bus_message_read(m, "u", &u);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (streq(name, "MainPID")) {
-                        if (u > 0) {
-                                i->main_pid = (pid_t) u;
-                                i->running = true;
-                        }
-                } else if (streq(name, "ControlPID"))
-                        i->control_pid = (pid_t) u;
-                else if (streq(name, "ExecMainPID")) {
-                        if (u > 0)
-                                i->main_pid = (pid_t) u;
-                } else if (streq(name, "NAccepted"))
-                        i->n_accepted = u;
-                else if (streq(name, "NConnections"))
-                        i->n_connections = u;
-
-                break;
-        }
-
-        case SD_BUS_TYPE_INT32: {
-                int32_t j;
-
-                r = sd_bus_message_read(m, "i", &j);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (streq(name, "ExecMainCode"))
-                        i->exit_code = (int) j;
-                else if (streq(name, "ExecMainStatus"))
-                        i->exit_status = (int) j;
-                else if (streq(name, "StatusErrno"))
-                        i->status_errno = (int) j;
-
-                break;
-        }
-
-        case SD_BUS_TYPE_UINT64: {
-                uint64_t u;
-
-                r = sd_bus_message_read(m, "t", &u);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (streq(name, "ExecMainStartTimestamp"))
-                        i->start_timestamp = (usec_t) u;
-                else if (streq(name, "ExecMainExitTimestamp"))
-                        i->exit_timestamp = (usec_t) u;
-                else if (streq(name, "ActiveEnterTimestamp"))
-                        i->active_enter_timestamp = (usec_t) u;
-                else if (streq(name, "InactiveEnterTimestamp"))
-                        i->inactive_enter_timestamp = (usec_t) u;
-                else if (streq(name, "InactiveExitTimestamp"))
-                        i->inactive_exit_timestamp = (usec_t) u;
-                else if (streq(name, "InactiveExitTimestampMonotonic"))
-                        i->inactive_exit_timestamp_monotonic = (usec_t) u;
-                else if (streq(name, "ActiveExitTimestamp"))
-                        i->active_exit_timestamp = (usec_t) u;
-                else if (streq(name, "ConditionTimestamp"))
-                        i->condition_timestamp = (usec_t) u;
-                else if (streq(name, "AssertTimestamp"))
-                        i->assert_timestamp = (usec_t) u;
-                else if (streq(name, "MemoryCurrent"))
-                        i->memory_current = u;
-                else if (streq(name, "MemoryLow"))
-                        i->memory_low = u;
-                else if (streq(name, "MemoryHigh"))
-                        i->memory_high = u;
-                else if (streq(name, "MemoryMax"))
-                        i->memory_max = u;
-                else if (streq(name, "MemorySwapMax"))
-                        i->memory_swap_max = u;
-                else if (streq(name, "MemoryLimit"))
-                        i->memory_limit = u;
-                else if (streq(name, "TasksCurrent"))
-                        i->tasks_current = u;
-                else if (streq(name, "TasksMax"))
-                        i->tasks_max = u;
-                else if (streq(name, "CPUUsageNSec"))
-                        i->cpu_usage_nsec = u;
-                else if (streq(name, "NextElapseUSecMonotonic"))
-                        i->next_elapse_monotonic = u;
-                else if (streq(name, "NextElapseUSecRealtime"))
-                        i->next_elapse_real = u;
-                else if (streq(name, "IPIngressBytes"))
-                        i->ip_ingress_bytes = u;
-                else if (streq(name, "IPEgressBytes"))
-                        i->ip_egress_bytes = u;
-
-                break;
-        }
-
-        case SD_BUS_TYPE_ARRAY:
-
-                if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && startswith(name, "Exec")) {
-                        _cleanup_free_ ExecStatusInfo *info = NULL;
-
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sasbttttuii)");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        info = new0(ExecStatusInfo, 1);
-                        if (!info)
-                                return log_oom();
-
-                        while ((r = exec_status_info_deserialize(m, info)) > 0) {
-
-                                info->name = strdup(name);
-                                if (!info->name)
-                                        return log_oom();
-
-                                LIST_PREPEND(exec, i->exec, info);
-
-                                info = new0(ExecStatusInfo, 1);
-                                if (!info)
-                                        return log_oom();
-                        }
-
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = sd_bus_message_exit_container(m);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        return 0;
-
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Listen")) {
-                        const char *type, *path;
-
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0) {
-
-                                r = strv_extend(&i->listen, type);
-                                if (r < 0)
-                                        return r;
-
-                                r = strv_extend(&i->listen, path);
-                                if (r < 0)
-                                        return r;
-                        }
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = sd_bus_message_exit_container(m);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        return 0;
-
-                } else if (contents[1] == SD_BUS_TYPE_STRING && streq(name, "DropInPaths")) {
-
-                        r = sd_bus_message_read_strv(m, &i->dropin_paths);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                } else if (contents[1] == SD_BUS_TYPE_STRING && streq(name, "Documentation")) {
-
-                        r = sd_bus_message_read_strv(m, &i->documentation);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Conditions")) {
-                        const char *cond, *param;
-                        int trigger, negate;
-                        int32_t state;
-
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sbbsi)");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
-                                _cleanup_(unit_condition_freep) UnitCondition *c = NULL;
-
-                                log_debug("%s trigger=%d negate=%d %s →%d", cond, trigger, negate, param, state);
-
-                                c = new0(UnitCondition, 1);
-                                if (!c)
-                                        return log_oom();
-
-                                c->name = strdup(cond);
-                                c->param = strdup(param);
-                                if (!c->name || !c->param)
-                                        return log_oom();
-
-                                c->trigger = trigger;
-                                c->negate = negate;
-                                c->tristate = state;
-
-                                LIST_PREPEND(conditions, i->conditions, c);
-                                c = NULL;
-                        }
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = sd_bus_message_exit_container(m);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Asserts")) {
-                        const char *cond, *param;
-                        int trigger, negate;
-                        int32_t state;
-
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sbbsi)");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
-                                log_debug("%s %d %d %s %d", cond, trigger, negate, param, state);
-                                if (state < 0 && (!trigger || !i->failed_assert)) {
-                                        i->failed_assert = cond;
-                                        i->failed_assert_trigger = trigger;
-                                        i->failed_assert_negate = negate;
-                                        i->failed_assert_parameter = param;
-                                }
-                        }
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = sd_bus_message_exit_container(m);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                } else
-                        goto skip;
-
-                break;
-
-        case SD_BUS_TYPE_STRUCT_BEGIN:
-
-                if (streq(name, "LoadError")) {
-                        const char *n, *message;
-
-                        r = sd_bus_message_read(m, "(ss)", &n, &message);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        if (!isempty(message))
-                                i->load_error = message;
-                } else
-                        goto skip;
-
-                break;
-
-        default:
-                goto skip;
-        }
+        r = sd_bus_message_read(m, "u", &u);
+        if (r < 0)
+                return r;
+
+        i->main_pid = (pid_t) u;
+        i->running = u > 0;
 
         return 0;
+}
 
-skip:
-        r = sd_bus_message_skip(m, contents);
+static int map_load_error(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        const char *n, *message;
+        const char **p = userdata;
+        int r;
+
+        r = sd_bus_message_read(m, "(ss)", &n, &message);
         if (r < 0)
-                return bus_log_parse_error(r);
+                return r;
+
+        if (!isempty(message))
+                *p = message;
+
+        return 0;
+}
+
+static int map_listen(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        const char *type, *path;
+        char ***p = userdata;
+        int r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0) {
+
+                r = strv_extend(p, type);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend(p, path);
+                if (r < 0)
+                        return r;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int map_conditions(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        UnitStatusInfo *i = userdata;
+        const char *cond, *param;
+        int trigger, negate;
+        int32_t state;
+        int r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sbbsi)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
+                _cleanup_(unit_condition_freep) UnitCondition *c = NULL;
+
+                c = new0(UnitCondition, 1);
+                if (!c)
+                        return -ENOMEM;
+
+                c->name = strdup(cond);
+                c->param = strdup(param);
+                if (!c->name || !c->param)
+                        return -ENOMEM;
+
+                c->trigger = trigger;
+                c->negate = negate;
+                c->tristate = state;
+
+                LIST_PREPEND(conditions, i->conditions, c);
+                c = NULL;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int map_asserts(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        UnitStatusInfo *i = userdata;
+        const char *cond, *param;
+        int trigger, negate;
+        int32_t state;
+        int r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sbbsi)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
+                if (state < 0 && (!trigger || !i->failed_assert)) {
+                        i->failed_assert = cond;
+                        i->failed_assert_trigger = trigger;
+                        i->failed_assert_negate = negate;
+                        i->failed_assert_parameter = param;
+                }
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        _cleanup_free_ ExecStatusInfo *info = NULL;
+        UnitStatusInfo *i = userdata;
+        int r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sasbttttuii)");
+        if (r < 0)
+                return r;
+
+        info = new0(ExecStatusInfo, 1);
+        if (!info)
+                return -ENOMEM;
+
+        while ((r = exec_status_info_deserialize(m, info)) > 0) {
+
+                info->name = strdup(member);
+                if (!info->name)
+                        return -ENOMEM;
+
+                LIST_PREPEND(exec, i->exec, info);
+
+                info = new0(ExecStatusInfo, 1);
+                if (!info)
+                        return -ENOMEM;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -4785,7 +4564,9 @@ skip:
                         printf("%s=" fmt "\n", name, __VA_ARGS__);      \
         } while (0)
 
-static int print_property(const char *name, sd_bus_message *m, const char *contents) {
+static int print_property(const char *name, sd_bus_message *m, bool value, bool all) {
+        char bus_type;
+        const char *contents;
         int r;
 
         assert(name);
@@ -4794,17 +4575,15 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
         /* This is a low-level property printer, see
          * print_status_info() for the nicer output */
 
-        if (arg_properties && !strv_find(arg_properties, name)) {
-                /* skip what we didn't read */
-                r = sd_bus_message_skip(m, contents);
+        r = sd_bus_message_peek_type(m, &bus_type, &contents);
+        if (r < 0)
                 return r;
-        }
 
-        switch (contents[0]) {
+        switch (bus_type) {
 
-        case SD_BUS_TYPE_STRUCT_BEGIN:
+        case SD_BUS_TYPE_STRUCT:
 
-                if (contents[1] == SD_BUS_TYPE_UINT32 && streq(name, "Job")) {
+                if (contents[0] == SD_BUS_TYPE_UINT32 && streq(name, "Job")) {
                         uint32_t u;
 
                         r = sd_bus_message_read(m, "(uo)", &u, NULL);
@@ -4813,34 +4592,34 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                         if (u > 0)
                                 print_prop(name, "%"PRIu32, u);
-                        else if (arg_all)
+                        else if (all)
                                 print_prop(name, "%s", "");
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRING && streq(name, "Unit")) {
+                } else if (contents[0] == SD_BUS_TYPE_STRING && streq(name, "Unit")) {
                         const char *s;
 
                         r = sd_bus_message_read(m, "(so)", &s, NULL);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (arg_all || !isempty(s))
+                        if (all || !isempty(s))
                                 print_prop(name, "%s", s);
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRING && streq(name, "LoadError")) {
+                } else if (contents[0] == SD_BUS_TYPE_STRING && streq(name, "LoadError")) {
                         const char *a = NULL, *b = NULL;
 
                         r = sd_bus_message_read(m, "(ss)", &a, &b);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (arg_all || !isempty(a) || !isempty(b))
+                        if (all || !isempty(a) || !isempty(b))
                                 print_prop(name, "%s \"%s\"", strempty(a), strempty(b));
 
-                        return 0;
+                        return 1;
                 } else if (streq_ptr(name, "SystemCallFilter")) {
                         _cleanup_strv_free_ char **l = NULL;
                         int whitelist;
@@ -4861,11 +4640,11 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (arg_all || whitelist || !strv_isempty(l)) {
+                        if (all || whitelist || !strv_isempty(l)) {
                                 bool first = true;
                                 char **i;
 
-                                if (!arg_value) {
+                                if (!value) {
                                         fputs(name, stdout);
                                         fputc('=', stdout);
                                 }
@@ -4884,14 +4663,14 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 fputc('\n', stdout);
                         }
 
-                        return 0;
+                        return 1;
                 }
 
                 break;
 
         case SD_BUS_TYPE_ARRAY:
 
-                if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "EnvironmentFiles")) {
+                if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "EnvironmentFiles")) {
                         const char *path;
                         int ignore;
 
@@ -4909,9 +4688,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Paths")) {
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Paths")) {
                         const char *type, *path;
 
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
@@ -4927,9 +4706,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Listen")) {
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Listen")) {
                         const char *type, *path;
 
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
@@ -4945,21 +4724,21 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "TimersMonotonic")) {
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "TimersMonotonic")) {
                         const char *base;
-                        uint64_t value, next_elapse;
+                        uint64_t v, next_elapse;
 
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(stt)");
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        while ((r = sd_bus_message_read(m, "(stt)", &base, &value, &next_elapse)) > 0) {
+                        while ((r = sd_bus_message_read(m, "(stt)", &base, &v, &next_elapse)) > 0) {
                                 char timespan1[FORMAT_TIMESPAN_MAX], timespan2[FORMAT_TIMESPAN_MAX];
 
                                 print_prop(name, "{ %s=%s ; next_elapse=%s }", base,
-                                           format_timespan(timespan1, sizeof(timespan1), value, 0),
+                                           format_timespan(timespan1, sizeof(timespan1), v, 0),
                                            format_timespan(timespan2, sizeof(timespan2), next_elapse, 0));
                         }
                         if (r < 0)
@@ -4969,9 +4748,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "TimersCalendar")) {
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "TimersCalendar")) {
                         const char *base, *spec;
                         uint64_t next_elapse;
 
@@ -4992,9 +4771,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && startswith(name, "Exec")) {
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && startswith(name, "Exec")) {
                         ExecStatusInfo info = {};
 
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sasbttttuii)");
@@ -5029,9 +4808,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "DeviceAllow")) {
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "DeviceAllow")) {
                         const char *path, *rwm;
 
                         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
@@ -5047,9 +4826,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN &&
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
                            STR_IN_SET(name, "IODeviceWeight", "BlockIODeviceWeight")) {
                         const char *path;
                         uint64_t weight;
@@ -5067,9 +4846,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN &&
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
                            (cgroup_io_limit_type_from_string(name) >= 0 ||
                             STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth"))) {
                         const char *path;
@@ -5088,9 +4867,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_BYTE && streq(name, "StandardInputData")) {
+                } else if (contents[0] == SD_BUS_TYPE_BYTE && streq(name, "StandardInputData")) {
                         _cleanup_free_ char *h = NULL;
                         const void *p;
                         size_t sz;
@@ -5106,40 +4885,110 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
 
                         print_prop(name, "%s", h);
 
-                        return 0;
+                        return 1;
                 }
 
                 break;
         }
 
-        r = bus_print_property(name, m, arg_value, arg_all);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        if (r == 0) {
-                r = sd_bus_message_skip(m, contents);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (arg_all)
-                        printf("%s=[unprintable]\n", name);
-        }
-
         return 0;
 }
 
+typedef enum SystemctlShowMode{
+        SYSTEMCTL_SHOW_PROPERTIES,
+        SYSTEMCTL_SHOW_STATUS,
+        SYSTEMCTL_SHOW_HELP,
+        _SYSTEMCTL_SHOW_MODE_MAX,
+        _SYSTEMCTL_SHOW_MODE_INVALID = -1,
+} SystemctlShowMode;
+
+static const char* const systemctl_show_mode_table[] = {
+        [SYSTEMCTL_SHOW_PROPERTIES] = "show",
+        [SYSTEMCTL_SHOW_STATUS] = "status",
+        [SYSTEMCTL_SHOW_HELP] = "help",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(systemctl_show_mode, SystemctlShowMode);
+
 static int show_one(
-                const char *verb,
                 sd_bus *bus,
                 const char *path,
                 const char *unit,
-                bool show_properties,
+                SystemctlShowMode show_mode,
                 bool *new_line,
                 bool *ellipsized) {
 
         static const struct bus_properties_map property_map[] = {
-                { "LoadState",   "s", map_string_no_copy, offsetof(UnitStatusInfo, load_state)   },
-                { "ActiveState", "s", map_string_no_copy, offsetof(UnitStatusInfo, active_state) },
+                { "LoadState",                      "s",              NULL,           offsetof(UnitStatusInfo, load_state)                        },
+                { "ActiveState",                    "s",              NULL,           offsetof(UnitStatusInfo, active_state)                      },
+                { "Documentation",                  "as",             NULL,           offsetof(UnitStatusInfo, documentation)                     },
+                {}
+        }, status_map[] = {
+                { "Id",                             "s",              NULL,           offsetof(UnitStatusInfo, id)                                },
+                { "LoadState",                      "s",              NULL,           offsetof(UnitStatusInfo, load_state)                        },
+                { "ActiveState",                    "s",              NULL,           offsetof(UnitStatusInfo, active_state)                      },
+                { "SubState",                       "s",              NULL,           offsetof(UnitStatusInfo, sub_state)                         },
+                { "UnitFileState",                  "s",              NULL,           offsetof(UnitStatusInfo, unit_file_state)                   },
+                { "UnitFilePreset",                 "s",              NULL,           offsetof(UnitStatusInfo, unit_file_preset)                  },
+                { "Description",                    "s",              NULL,           offsetof(UnitStatusInfo, description)                       },
+                { "Following",                      "s",              NULL,           offsetof(UnitStatusInfo, following)                         },
+                { "Documentation",                  "as",             NULL,           offsetof(UnitStatusInfo, documentation)                     },
+                { "FragmentPath",                   "s",              NULL,           offsetof(UnitStatusInfo, fragment_path)                     },
+                { "SourcePath",                     "s",              NULL,           offsetof(UnitStatusInfo, source_path)                       },
+                { "ControlGroup",                   "s",              NULL,           offsetof(UnitStatusInfo, control_group)                     },
+                { "DropInPaths",                    "as",             NULL,           offsetof(UnitStatusInfo, dropin_paths)                      },
+                { "LoadError",                      "(ss)",           map_load_error, offsetof(UnitStatusInfo, load_error)                        },
+                { "Result",                         "s",              NULL,           offsetof(UnitStatusInfo, result)                            },
+                { "InactiveExitTimestamp",          "t",              NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp)           },
+                { "InactiveExitTimestampMonotonic", "t",              NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp_monotonic) },
+                { "ActiveEnterTimestamp",           "t",              NULL,           offsetof(UnitStatusInfo, active_enter_timestamp)            },
+                { "ActiveExitTimestamp",            "t",              NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)             },
+                { "InactiveEnterTimestamp",         "t",              NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)          },
+                { "NeedDaemonReload",               "b",              NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                },
+                { "Transient",                      "b",              NULL,           offsetof(UnitStatusInfo, transient)                         },
+                { "ExecMainPID",                    "u",              NULL,           offsetof(UnitStatusInfo, main_pid)                          },
+                { "MainPID",                        "u",              map_main_pid,   0                                                           },
+                { "ControlPID",                     "u",              NULL,           offsetof(UnitStatusInfo, control_pid)                       },
+                { "StatusText",                     "s",              NULL,           offsetof(UnitStatusInfo, status_text)                       },
+                { "PIDFile",                        "s",              NULL,           offsetof(UnitStatusInfo, pid_file)                          },
+                { "StatusErrno",                    "i",              NULL,           offsetof(UnitStatusInfo, status_errno)                      },
+                { "ExecMainStartTimestamp",         "t",              NULL,           offsetof(UnitStatusInfo, start_timestamp)                   },
+                { "ExecMainExitTimestamp",          "t",              NULL,           offsetof(UnitStatusInfo, exit_timestamp)                    },
+                { "ExecMainCode",                   "i",              NULL,           offsetof(UnitStatusInfo, exit_code)                         },
+                { "ExecMainStatus",                 "i",              NULL,           offsetof(UnitStatusInfo, exit_status)                       },
+                { "ConditionTimestamp",             "t",              NULL,           offsetof(UnitStatusInfo, condition_timestamp)               },
+                { "ConditionResult",                "b",              NULL,           offsetof(UnitStatusInfo, condition_result)                  },
+                { "Conditions",                     "a(sbbsi)",       map_conditions, 0                                                           },
+                { "AssertTimestamp",                "t",              NULL,           offsetof(UnitStatusInfo, assert_timestamp)                  },
+                { "AssertResult",                   "b",              NULL,           offsetof(UnitStatusInfo, assert_result)                     },
+                { "Asserts",                        "a(sbbsi)",       map_asserts,    0                                                           },
+                { "NextElapseUSecRealtime",         "t",              NULL,           offsetof(UnitStatusInfo, next_elapse_real)                  },
+                { "NextElapseUSecMonotonic",        "t",              NULL,           offsetof(UnitStatusInfo, next_elapse_monotonic)             },
+                { "NAccepted",                      "u",              NULL,           offsetof(UnitStatusInfo, n_accepted)                        },
+                { "NConnections",                   "u",              NULL,           offsetof(UnitStatusInfo, n_connections)                     },
+                { "Accept",                         "b",              NULL,           offsetof(UnitStatusInfo, accept)                            },
+                { "Listen",                         "a(ss)",          map_listen,     offsetof(UnitStatusInfo, listen)                            },
+                { "SysFSPath",                      "s",              NULL,           offsetof(UnitStatusInfo, sysfs_path)                        },
+                { "Where",                          "s",              NULL,           offsetof(UnitStatusInfo, where)                             },
+                { "What",                           "s",              NULL,           offsetof(UnitStatusInfo, what)                              },
+                { "MemoryCurrent",                  "t",              NULL,           offsetof(UnitStatusInfo, memory_current)                    },
+                { "MemoryLow",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_low)                        },
+                { "MemoryHigh",                     "t",              NULL,           offsetof(UnitStatusInfo, memory_high)                       },
+                { "MemoryMax",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_max)                        },
+                { "MemorySwapMax",                  "t",              NULL,           offsetof(UnitStatusInfo, memory_swap_max)                   },
+                { "MemoryLimit",                    "t",              NULL,           offsetof(UnitStatusInfo, memory_limit)                      },
+                { "CPUUsageNSec",                   "t",              NULL,           offsetof(UnitStatusInfo, cpu_usage_nsec)                    },
+                { "TasksCurrent",                   "t",              NULL,           offsetof(UnitStatusInfo, tasks_current)                     },
+                { "TasksMax",                       "t",              NULL,           offsetof(UnitStatusInfo, tasks_max)                         },
+                { "IPIngressBytes",                 "t",              NULL,           offsetof(UnitStatusInfo, ip_ingress_bytes)                  },
+                { "IPEgressBytes",                  "t",              NULL,           offsetof(UnitStatusInfo, ip_egress_bytes)                   },
+                { "ExecStartPre",                   "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecStart",                      "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecStartPost",                  "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecReload",                     "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecStopPre",                    "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecStop",                       "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecStopPost",                   "a(sasbttttuii)", map_exec,       0                                                           },
                 {}
         };
 
@@ -5158,6 +5007,7 @@ static int show_one(
                 .ip_ingress_bytes = (uint64_t) -1,
                 .ip_egress_bytes = (uint64_t) -1,
         };
+        char **pp;
         int r;
 
         assert(path);
@@ -5165,113 +5015,58 @@ static int show_one(
 
         log_debug("Showing one %s", path);
 
-        r = sd_bus_call_method(
+        r = bus_map_all_properties(
                         bus,
                         "org.freedesktop.systemd1",
                         path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
+                        show_mode == SYSTEMCTL_SHOW_STATUS ? status_map : property_map,
                         &error,
                         &reply,
-                        "s", "");
+                        &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
-        if (unit) {
-                r = bus_message_map_all_properties(reply, property_map, &error, &info);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
+        if (unit && streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive")) {
+                log_full(show_mode == SYSTEMCTL_SHOW_STATUS ? LOG_ERR : LOG_DEBUG,
+                         "Unit %s could not be found.", unit);
 
-                if (streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive")) {
-                        log_full(streq(verb, "status") ? LOG_ERR : LOG_DEBUG,
-                                 "Unit %s could not be found.", unit);
-
-                        if (streq(verb, "status"))
-                                return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
-
-                        if (!streq(verb, "show"))
-                                return -ENOENT;
-                }
-
-                r = sd_bus_message_rewind(reply, true);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
+                if (show_mode == SYSTEMCTL_SHOW_STATUS)
+                        return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
+                else if (show_mode == SYSTEMCTL_SHOW_HELP)
+                        return -ENOENT;
         }
-
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         if (*new_line)
                 printf("\n");
 
         *new_line = true;
 
-        while ((r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
-                const char *name, *contents;
-
-                r = sd_bus_message_read(reply, "s", &name);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_peek_type(reply, NULL, &contents);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_VARIANT, contents);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (show_properties) {
-                        r = set_ensure_allocated(&found_properties, &string_hash_ops);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = set_put(found_properties, name);
-                        if (r < 0 && r != EEXIST)
-                                return log_oom();
-
-                        r = print_property(name, reply, contents);
-                } else
-                        r = status_property(name, reply, &info, contents);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-        }
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = 0;
-        if (show_properties) {
-                char **pp;
-
-                STRV_FOREACH(pp, arg_properties)
-                        if (!set_contains(found_properties, *pp))
-                                log_debug("Property %s does not exist.", *pp);
-
-        } else if (streq(verb, "help"))
-                show_unit_help(&info);
-        else if (streq(verb, "status")) {
+        if (show_mode == SYSTEMCTL_SHOW_STATUS) {
                 print_status_info(bus, &info, ellipsized);
 
                 if (info.active_state && !STR_IN_SET(info.active_state, "active", "reloading"))
-                        r = EXIT_PROGRAM_NOT_RUNNING;
-                else
-                        r = EXIT_PROGRAM_RUNNING_OR_SERVICE_OK;
+                        return EXIT_PROGRAM_NOT_RUNNING;
+
+                return EXIT_PROGRAM_RUNNING_OR_SERVICE_OK;
+
+        } else if (show_mode == SYSTEMCTL_SHOW_HELP) {
+                show_unit_help(&info);
+                return 0;
         }
 
-        return r;
+        r = sd_bus_message_rewind(reply, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
+
+        r = bus_message_print_all_properties(reply, print_property, arg_properties, arg_value, arg_all, &found_properties);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        STRV_FOREACH(pp, arg_properties)
+                if (!set_contains(found_properties, *pp))
+                        log_debug("Property %s does not exist.", *pp);
+
+        return 0;
 }
 
 static int get_unit_dbus_path_by_pid(
@@ -5309,9 +5104,7 @@ static int get_unit_dbus_path_by_pid(
 }
 
 static int show_all(
-                const char* verb,
                 sd_bus *bus,
-                bool show_properties,
                 bool *new_line,
                 bool *ellipsized) {
 
@@ -5325,7 +5118,7 @@ static int show_all(
         if (r < 0)
                 return r;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         c = (unsigned) r;
 
@@ -5338,7 +5131,7 @@ static int show_all(
                 if (!p)
                         return log_oom();
 
-                r = show_one(verb, bus, p, u->id, show_properties, new_line, ellipsized);
+                r = show_one(bus, p, u->id, SYSTEMCTL_SHOW_STATUS, new_line, ellipsized);
                 if (r < 0)
                         return r;
                 else if (r > 0 && ret == 0)
@@ -5360,7 +5153,7 @@ static int show_system_status(sd_bus *bus) {
         if (!hn)
                 return log_oom();
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, &error, &mi);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, &error, NULL, &mi);
         if (r < 0)
                 return log_error_errno(r, "Failed to read server status: %s", bus_error_message(&error, r));
 
@@ -5407,18 +5200,20 @@ static int show_system_status(sd_bus *bus) {
 }
 
 static int show(int argc, char *argv[], void *userdata) {
-        bool show_properties, show_status, show_help, new_line = false;
-        bool ellipsized = false;
+        bool new_line = false, ellipsized = false;
+        SystemctlShowMode show_mode;
         int r, ret = 0;
         sd_bus *bus;
 
         assert(argv);
 
-        show_properties = streq(argv[0], "show");
-        show_status = streq(argv[0], "status");
-        show_help = streq(argv[0], "help");
+        show_mode = systemctl_show_mode_from_string(argv[0]);
+        if (show_mode < 0) {
+                log_error("Invalid argument.");
+                return -EINVAL;
+        }
 
-        if (show_help && argc <= 1) {
+        if (show_mode == SYSTEMCTL_SHOW_HELP && argc <= 1) {
                 log_error("This command expects one or more unit names. Did you mean --help?");
                 return -EINVAL;
         }
@@ -5427,25 +5222,25 @@ static int show(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
-        if (show_status)
+        if (show_mode == SYSTEMCTL_SHOW_STATUS)
                 /* Increase max number of open files to 16K if we can, we
                  * might needs this when browsing journal files, which might
                  * be split up into many files. */
                 setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
 
         /* If no argument is specified inspect the manager itself */
-        if (show_properties && argc <= 1)
-                return show_one(argv[0], bus, "/org/freedesktop/systemd1", NULL, show_properties, &new_line, &ellipsized);
+        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES && argc <= 1)
+                return show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
 
-        if (show_status && argc <= 1) {
+        if (show_mode == SYSTEMCTL_SHOW_STATUS && argc <= 1) {
 
                 show_system_status(bus);
                 new_line = true;
 
                 if (arg_all)
-                        ret = show_all(argv[0], bus, false, &new_line, &ellipsized);
+                        ret = show_all(bus, &new_line, &ellipsized);
         } else {
                 _cleanup_free_ char **patterns = NULL;
                 char **name;
@@ -5459,7 +5254,7 @@ static int show(int argc, char *argv[], void *userdata) {
                                         return log_oom();
 
                                 continue;
-                        } else if (show_properties) {
+                        } else if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
                                 /* Interpret as job id */
                                 if (asprintf(&path, "/org/freedesktop/systemd1/job/%u", id) < 0)
                                         return log_oom();
@@ -5477,7 +5272,7 @@ static int show(int argc, char *argv[], void *userdata) {
                                         return log_oom();
                         }
 
-                        r = show_one(argv[0], bus, path, unit, show_properties, &new_line, &ellipsized);
+                        r = show_one(bus, path, unit, show_mode, &new_line, &ellipsized);
                         if (r < 0)
                                 return r;
                         else if (r > 0 && ret == 0)
@@ -5498,7 +5293,7 @@ static int show(int argc, char *argv[], void *userdata) {
                                 if (!path)
                                         return log_oom();
 
-                                r = show_one(argv[0], bus, path, *name, show_properties, &new_line, &ellipsized);
+                                r = show_one(bus, path, *name, show_mode, &new_line, &ellipsized);
                                 if (r < 0)
                                         return r;
                                 if (r > 0 && ret == 0)
@@ -5555,7 +5350,7 @@ static int cat(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *fragment_path = NULL;
@@ -5834,7 +5629,7 @@ static int show_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         r = sd_bus_get_property(
                         bus,
@@ -6275,10 +6070,11 @@ static int normalize_names(char **names, bool warn_if_path) {
 
 static int unit_exists(LookupPaths *lp, const char *unit) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *path = NULL;
         static const struct bus_properties_map property_map[] = {
-                { "LoadState",   "s", map_string_no_copy, offsetof(UnitStatusInfo, load_state)  },
-                { "ActiveState", "s", map_string_no_copy, offsetof(UnitStatusInfo, active_state)},
+                { "LoadState",   "s", NULL, offsetof(UnitStatusInfo, load_state)  },
+                { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state)},
                 {},
         };
         UnitStatusInfo info = {};
@@ -6296,7 +6092,7 @@ static int unit_exists(LookupPaths *lp, const char *unit) {
         if (r < 0)
                 return r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, property_map, &error, &info);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, property_map, &error, &m, &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
@@ -7220,7 +7016,7 @@ end:
 
 static void systemctl_help(void) {
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
                "Query or send control commands to the systemd manager.\n\n"

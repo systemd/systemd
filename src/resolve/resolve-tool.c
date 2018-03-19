@@ -1185,13 +1185,13 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empt
 
         struct link_info {
                 uint64_t scopes_mask;
-                char *llmnr;
-                char *mdns;
-                char *dnssec;
+                const char *llmnr;
+                const char *mdns;
+                const char *dnssec;
                 char **dns;
                 char **domains;
                 char **ntas;
-                int dnssec_supported;
+                bool dnssec_supported;
         } link_info = {};
 
         static const struct bus_properties_map property_map[] = {
@@ -1207,6 +1207,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empt
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ifi = NULL, *p = NULL;
         char ifname[IF_NAMESIZE] = "";
         char **i;
@@ -1235,13 +1236,14 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empt
                                    p,
                                    property_map,
                                    &error,
+                                   &m,
                                    &link_info);
         if (r < 0) {
                 log_error_errno(r, "Failed to get link data for %i: %s", ifindex, bus_error_message(&error, r));
                 goto finish;
         }
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         if (*empty_line)
                 fputc('\n', stdout);
@@ -1293,9 +1295,6 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empt
 finish:
         strv_free(link_info.dns);
         strv_free(link_info.domains);
-        free(link_info.llmnr);
-        free(link_info.mdns);
-        free(link_info.dnssec);
         strv_free(link_info.ntas);
         return r;
 }
@@ -1418,16 +1417,25 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                 char **dns;
                 char **domains;
                 char **ntas;
+                const char *llmnr;
+                const char *mdns;
+                const char *dnssec;
+                bool dnssec_supported;
         } global_info = {};
 
         static const struct bus_properties_map property_map[] = {
-                { "DNS",                        "a(iiay)", map_global_dns_servers, offsetof(struct global_info, dns)     },
-                { "Domains",                    "a(isb)",  map_global_domains,     offsetof(struct global_info, domains) },
-                { "DNSSECNegativeTrustAnchors", "as",      NULL,                   offsetof(struct global_info, ntas)    },
+                { "DNS",                        "a(iiay)", map_global_dns_servers, offsetof(struct global_info, dns)              },
+                { "Domains",                    "a(isb)",  map_global_domains,     offsetof(struct global_info, domains)          },
+                { "DNSSECNegativeTrustAnchors", "as",      NULL,                   offsetof(struct global_info, ntas)             },
+                { "LLMNR",                      "s",       NULL,                   offsetof(struct global_info, llmnr)            },
+                { "MulticastDNS",               "s",       NULL,                   offsetof(struct global_info, mdns)             },
+                { "DNSSEC",                     "s",       NULL,                   offsetof(struct global_info, dnssec)           },
+                { "DNSSECSupported",            "b",       NULL,                   offsetof(struct global_info, dnssec_supported) },
                 {}
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         char **i;
         int r;
 
@@ -1439,6 +1447,7 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                                    "/org/freedesktop/resolve1",
                                    property_map,
                                    &error,
+                                   &m,
                                    &global_info);
         if (r < 0) {
                 log_error_errno(r, "Failed to get global data: %s", bus_error_message(&error, r));
@@ -1450,9 +1459,19 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                 goto finish;
         }
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
+
+        printf("       LLMNR setting: %s\n"
+               "MulticastDNS setting: %s\n"
+               "      DNSSEC setting: %s\n"
+               "    DNSSEC supported: %s\n",
+               strna(global_info.llmnr),
+               strna(global_info.mdns),
+               strna(global_info.dnssec),
+               yes_no(global_info.dnssec_supported));
+
         STRV_FOREACH(i, global_info.dns) {
                 printf("         %s %s\n",
                        i == global_info.dns ? "DNS Servers:" : "            ",
