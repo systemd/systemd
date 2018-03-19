@@ -838,7 +838,7 @@ static int show_machine_properties(sd_bus *bus, const char *path, bool *new_line
 
         *new_line = true;
 
-        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, arg_property, arg_value, arg_all);
+        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_value, arg_all, NULL);
         if (r < 0)
                 log_error_errno(r, "Could not get properties: %m");
 
@@ -1176,7 +1176,7 @@ static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) 
 
         *new_line = true;
 
-        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, arg_property, arg_value, arg_all);
+        r = bus_print_all_properties(bus, "org.freedesktop.machine1", path, NULL, arg_property, arg_value, arg_all, NULL);
         if (r < 0)
                 log_error_errno(r, "Could not get properties: %m");
 

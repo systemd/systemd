@@ -688,40 +688,41 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
 
 #define property(name, fmt, ...)                                        \
         do {                                                            \
-                if (arg_value)                                          \
+                if (value)                                              \
                         printf(fmt "\n", __VA_ARGS__);                  \
                 else                                                    \
                         printf("%s=" fmt "\n", name, __VA_ARGS__);      \
         } while (0)
 
-static int print_property(const char *name, sd_bus_message *m, const char *contents) {
+static int print_property(const char *name, sd_bus_message *m, bool value, bool all) {
+        char type;
+        const char *contents;
         int r;
 
         assert(name);
         assert(m);
-        assert(contents);
 
-        if (arg_property && !strv_find(arg_property, name))
-                /* skip what we didn't read */
-                return sd_bus_message_skip(m, contents);
+        r = sd_bus_message_peek_type(m, &type, &contents);
+        if (r < 0)
+                return r;
 
-        switch (contents[0]) {
+        switch (type) {
 
-        case SD_BUS_TYPE_STRUCT_BEGIN:
+        case SD_BUS_TYPE_STRUCT:
 
-                if (contents[1] == SD_BUS_TYPE_STRING && STR_IN_SET(name, "Display", "Seat", "ActiveSession")) {
+                if (contents[0] == SD_BUS_TYPE_STRING && STR_IN_SET(name, "Display", "Seat", "ActiveSession")) {
                         const char *s;
 
                         r = sd_bus_message_read(m, "(so)", &s, NULL);
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (arg_all || !isempty(s))
+                        if (all || !isempty(s))
                                 property(name, "%s", s);
 
-                        return 0;
+                        return 1;
 
-                } else if (contents[1] == SD_BUS_TYPE_UINT32 && streq(name, "User")) {
+                } else if (contents[0] == SD_BUS_TYPE_UINT32 && streq(name, "User")) {
                         uint32_t uid;
 
                         r = sd_bus_message_read(m, "(uo)", &uid, NULL);
@@ -734,14 +735,13 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         }
 
                         property(name, UID_FMT, uid);
-                        return 0;
+                        return 1;
                 }
-
                 break;
 
         case SD_BUS_TYPE_ARRAY:
 
-                if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Sessions")) {
+                if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Sessions")) {
                         const char *s;
                         bool space = false;
 
@@ -749,7 +749,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        if (!arg_value)
+                        if (!value)
                                 printf("%s=", name);
 
                         while ((r = sd_bus_message_read(m, "(so)", &s, NULL)) > 0) {
@@ -757,7 +757,7 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                                 space = true;
                         }
 
-                        if (space || !arg_value)
+                        if (space || !value)
                                 printf("\n");
 
                         if (r < 0)
@@ -767,23 +767,9 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
                         if (r < 0)
                                 return bus_log_parse_error(r);
 
-                        return 0;
+                        return 1;
                 }
-
                 break;
-        }
-
-        r = bus_print_property(name, m, arg_value, arg_all);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        if (r == 0) {
-                r = sd_bus_message_skip(m, contents);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (arg_all)
-                        printf("%s=[unprintable]\n", name);
         }
 
         return 0;
@@ -798,58 +784,12 @@ static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
         assert(path);
         assert(new_line);
 
-        r = sd_bus_call_method(
-                        bus,
-                        "org.freedesktop.login1",
-                        path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
-                        &error,
-                        &reply,
-                        "s", "");
-        if (r < 0)
-                return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
-        if (r < 0)
-                return bus_log_parse_error(r);
-
         if (*new_line)
                 printf("\n");
 
         *new_line = true;
 
-        while ((r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
-                const char *name, *contents;
-
-                r = sd_bus_message_read(reply, "s", &name);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_peek_type(reply, NULL, &contents);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_VARIANT, contents);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = print_property(name, reply, contents);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-        }
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
+        r = bus_print_all_properties(bus, "org.freedesktop.login1", path, print_property, arg_property, arg_value, arg_all, NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
