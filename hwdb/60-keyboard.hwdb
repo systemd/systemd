@@ -1421,3 +1421,7 @@ evdev:input:b0003v05FEp1010*
 evdev:input:b0003v046Dp4002*
  KEYBOARD_LED_NUMLOCK=0
  KEYBOARD_LED_CAPSLOCK=0
+
+# Lenovo ThinkPad T450s
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT450s
+ KEYBOARD_LED_CAPSLOCK=0
