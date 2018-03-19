@@ -4393,354 +4393,165 @@ static void show_unit_help(UnitStatusInfo *i) {
                         log_info("Can't show: %s", *p);
 }
 
-static int status_property(const char *name, sd_bus_message *m, UnitStatusInfo *i, const char *contents) {
+static int map_main_pid(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        UnitStatusInfo *i = userdata;
+        uint32_t u;
         int r;
 
-        assert(name);
-        assert(m);
-        assert(i);
-
-        switch (contents[0]) {
-
-        case SD_BUS_TYPE_STRING: {
-                const char *s;
-
-                r = sd_bus_message_read(m, "s", &s);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (!isempty(s)) {
-                        if (streq(name, "Id"))
-                                i->id = s;
-                        else if (streq(name, "LoadState"))
-                                i->load_state = s;
-                        else if (streq(name, "ActiveState"))
-                                i->active_state = s;
-                        else if (streq(name, "SubState"))
-                                i->sub_state = s;
-                        else if (streq(name, "Description"))
-                                i->description = s;
-                        else if (streq(name, "FragmentPath"))
-                                i->fragment_path = s;
-                        else if (streq(name, "SourcePath"))
-                                i->source_path = s;
-#ifndef NOLEGACY
-                        else if (streq(name, "DefaultControlGroup")) {
-                                const char *e;
-                                e = startswith(s, SYSTEMD_CGROUP_CONTROLLER ":");
-                                if (e)
-                                        i->control_group = e;
-                        }
-#endif
-                        else if (streq(name, "ControlGroup"))
-                                i->control_group = s;
-                        else if (streq(name, "StatusText"))
-                                i->status_text = s;
-                        else if (streq(name, "PIDFile"))
-                                i->pid_file = s;
-                        else if (streq(name, "SysFSPath"))
-                                i->sysfs_path = s;
-                        else if (streq(name, "Where"))
-                                i->where = s;
-                        else if (streq(name, "What"))
-                                i->what = s;
-                        else if (streq(name, "Following"))
-                                i->following = s;
-                        else if (streq(name, "UnitFileState"))
-                                i->unit_file_state = s;
-                        else if (streq(name, "UnitFilePreset"))
-                                i->unit_file_preset = s;
-                        else if (streq(name, "Result"))
-                                i->result = s;
-                }
-
-                break;
-        }
-
-        case SD_BUS_TYPE_BOOLEAN: {
-                int b;
-
-                r = sd_bus_message_read(m, "b", &b);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (streq(name, "Accept"))
-                        i->accept = b;
-                else if (streq(name, "NeedDaemonReload"))
-                        i->need_daemon_reload = b;
-                else if (streq(name, "ConditionResult"))
-                        i->condition_result = b;
-                else if (streq(name, "AssertResult"))
-                        i->assert_result = b;
-                else if (streq(name, "Transient"))
-                        i->transient = b;
-
-                break;
-        }
-
-        case SD_BUS_TYPE_UINT32: {
-                uint32_t u;
-
-                r = sd_bus_message_read(m, "u", &u);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (streq(name, "MainPID")) {
-                        if (u > 0) {
-                                i->main_pid = (pid_t) u;
-                                i->running = true;
-                        }
-                } else if (streq(name, "ControlPID"))
-                        i->control_pid = (pid_t) u;
-                else if (streq(name, "ExecMainPID")) {
-                        if (u > 0)
-                                i->main_pid = (pid_t) u;
-                } else if (streq(name, "NAccepted"))
-                        i->n_accepted = u;
-                else if (streq(name, "NConnections"))
-                        i->n_connections = u;
-
-                break;
-        }
-
-        case SD_BUS_TYPE_INT32: {
-                int32_t j;
-
-                r = sd_bus_message_read(m, "i", &j);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (streq(name, "ExecMainCode"))
-                        i->exit_code = (int) j;
-                else if (streq(name, "ExecMainStatus"))
-                        i->exit_status = (int) j;
-                else if (streq(name, "StatusErrno"))
-                        i->status_errno = (int) j;
-
-                break;
-        }
-
-        case SD_BUS_TYPE_UINT64: {
-                uint64_t u;
-
-                r = sd_bus_message_read(m, "t", &u);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                if (streq(name, "ExecMainStartTimestamp"))
-                        i->start_timestamp = (usec_t) u;
-                else if (streq(name, "ExecMainExitTimestamp"))
-                        i->exit_timestamp = (usec_t) u;
-                else if (streq(name, "ActiveEnterTimestamp"))
-                        i->active_enter_timestamp = (usec_t) u;
-                else if (streq(name, "InactiveEnterTimestamp"))
-                        i->inactive_enter_timestamp = (usec_t) u;
-                else if (streq(name, "InactiveExitTimestamp"))
-                        i->inactive_exit_timestamp = (usec_t) u;
-                else if (streq(name, "InactiveExitTimestampMonotonic"))
-                        i->inactive_exit_timestamp_monotonic = (usec_t) u;
-                else if (streq(name, "ActiveExitTimestamp"))
-                        i->active_exit_timestamp = (usec_t) u;
-                else if (streq(name, "ConditionTimestamp"))
-                        i->condition_timestamp = (usec_t) u;
-                else if (streq(name, "AssertTimestamp"))
-                        i->assert_timestamp = (usec_t) u;
-                else if (streq(name, "MemoryCurrent"))
-                        i->memory_current = u;
-                else if (streq(name, "MemoryLow"))
-                        i->memory_low = u;
-                else if (streq(name, "MemoryHigh"))
-                        i->memory_high = u;
-                else if (streq(name, "MemoryMax"))
-                        i->memory_max = u;
-                else if (streq(name, "MemorySwapMax"))
-                        i->memory_swap_max = u;
-                else if (streq(name, "MemoryLimit"))
-                        i->memory_limit = u;
-                else if (streq(name, "TasksCurrent"))
-                        i->tasks_current = u;
-                else if (streq(name, "TasksMax"))
-                        i->tasks_max = u;
-                else if (streq(name, "CPUUsageNSec"))
-                        i->cpu_usage_nsec = u;
-                else if (streq(name, "NextElapseUSecMonotonic"))
-                        i->next_elapse_monotonic = u;
-                else if (streq(name, "NextElapseUSecRealtime"))
-                        i->next_elapse_real = u;
-                else if (streq(name, "IPIngressBytes"))
-                        i->ip_ingress_bytes = u;
-                else if (streq(name, "IPEgressBytes"))
-                        i->ip_egress_bytes = u;
-
-                break;
-        }
-
-        case SD_BUS_TYPE_ARRAY:
-
-                if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && startswith(name, "Exec")) {
-                        _cleanup_free_ ExecStatusInfo *info = NULL;
-
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sasbttttuii)");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        info = new0(ExecStatusInfo, 1);
-                        if (!info)
-                                return log_oom();
-
-                        while ((r = exec_status_info_deserialize(m, info)) > 0) {
-
-                                info->name = strdup(name);
-                                if (!info->name)
-                                        return log_oom();
-
-                                LIST_PREPEND(exec, i->exec, info);
-
-                                info = new0(ExecStatusInfo, 1);
-                                if (!info)
-                                        return log_oom();
-                        }
-
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = sd_bus_message_exit_container(m);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        return 0;
-
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Listen")) {
-                        const char *type, *path;
-
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0) {
-
-                                r = strv_extend(&i->listen, type);
-                                if (r < 0)
-                                        return r;
-
-                                r = strv_extend(&i->listen, path);
-                                if (r < 0)
-                                        return r;
-                        }
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = sd_bus_message_exit_container(m);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        return 0;
-
-                } else if (contents[1] == SD_BUS_TYPE_STRING && streq(name, "DropInPaths")) {
-
-                        r = sd_bus_message_read_strv(m, &i->dropin_paths);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                } else if (contents[1] == SD_BUS_TYPE_STRING && streq(name, "Documentation")) {
-
-                        r = sd_bus_message_read_strv(m, &i->documentation);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Conditions")) {
-                        const char *cond, *param;
-                        int trigger, negate;
-                        int32_t state;
-
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sbbsi)");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
-                                _cleanup_(unit_condition_freep) UnitCondition *c = NULL;
-
-                                log_debug("%s trigger=%d negate=%d %s →%d", cond, trigger, negate, param, state);
-
-                                c = new0(UnitCondition, 1);
-                                if (!c)
-                                        return log_oom();
-
-                                c->name = strdup(cond);
-                                c->param = strdup(param);
-                                if (!c->name || !c->param)
-                                        return log_oom();
-
-                                c->trigger = trigger;
-                                c->negate = negate;
-                                c->tristate = state;
-
-                                LIST_PREPEND(conditions, i->conditions, c);
-                                c = NULL;
-                        }
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = sd_bus_message_exit_container(m);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                } else if (contents[1] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "Asserts")) {
-                        const char *cond, *param;
-                        int trigger, negate;
-                        int32_t state;
-
-                        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sbbsi)");
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
-                                log_debug("%s %d %d %s %d", cond, trigger, negate, param, state);
-                                if (state < 0 && (!trigger || !i->failed_assert)) {
-                                        i->failed_assert = cond;
-                                        i->failed_assert_trigger = trigger;
-                                        i->failed_assert_negate = negate;
-                                        i->failed_assert_parameter = param;
-                                }
-                        }
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        r = sd_bus_message_exit_container(m);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                } else
-                        goto skip;
-
-                break;
-
-        case SD_BUS_TYPE_STRUCT_BEGIN:
-
-                if (streq(name, "LoadError")) {
-                        const char *n, *message;
-
-                        r = sd_bus_message_read(m, "(ss)", &n, &message);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        if (!isempty(message))
-                                i->load_error = message;
-                } else
-                        goto skip;
-
-                break;
-
-        default:
-                goto skip;
-        }
+        r = sd_bus_message_read(m, "u", &u);
+        if (r < 0)
+                return r;
+
+        i->main_pid = (pid_t) u;
+        i->running = u > 0;
 
         return 0;
+}
 
-skip:
-        r = sd_bus_message_skip(m, contents);
+static int map_load_error(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        const char *n, *message;
+        const char **p = userdata;
+        int r;
+
+        r = sd_bus_message_read(m, "(ss)", &n, &message);
         if (r < 0)
-                return bus_log_parse_error(r);
+                return r;
+
+        if (!isempty(message))
+                *p = message;
+
+        return 0;
+}
+
+static int map_listen(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        const char *type, *path;
+        char ***p = userdata;
+        int r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(ss)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0) {
+
+                r = strv_extend(p, type);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend(p, path);
+                if (r < 0)
+                        return r;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int map_conditions(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        UnitStatusInfo *i = userdata;
+        const char *cond, *param;
+        int trigger, negate;
+        int32_t state;
+        int r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sbbsi)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
+                _cleanup_(unit_condition_freep) UnitCondition *c = NULL;
+
+                c = new0(UnitCondition, 1);
+                if (!c)
+                        return -ENOMEM;
+
+                c->name = strdup(cond);
+                c->param = strdup(param);
+                if (!c->name || !c->param)
+                        return -ENOMEM;
+
+                c->trigger = trigger;
+                c->negate = negate;
+                c->tristate = state;
+
+                LIST_PREPEND(conditions, i->conditions, c);
+                c = NULL;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int map_asserts(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        UnitStatusInfo *i = userdata;
+        const char *cond, *param;
+        int trigger, negate;
+        int32_t state;
+        int r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sbbsi)");
+        if (r < 0)
+                return r;
+
+        while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
+                if (state < 0 && (!trigger || !i->failed_assert)) {
+                        i->failed_assert = cond;
+                        i->failed_assert_trigger = trigger;
+                        i->failed_assert_negate = negate;
+                        i->failed_assert_parameter = param;
+                }
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        _cleanup_free_ ExecStatusInfo *info = NULL;
+        UnitStatusInfo *i = userdata;
+        int r;
+
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(sasbttttuii)");
+        if (r < 0)
+                return r;
+
+        info = new0(ExecStatusInfo, 1);
+        if (!info)
+                return -ENOMEM;
+
+        while ((r = exec_status_info_deserialize(m, info)) > 0) {
+
+                info->name = strdup(member);
+                if (!info->name)
+                        return -ENOMEM;
+
+                LIST_PREPEND(exec, i->exec, info);
+
+                info = new0(ExecStatusInfo, 1);
+                if (!info)
+                        return -ENOMEM;
+        }
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -5121,8 +4932,76 @@ static int show_one(
                 bool *ellipsized) {
 
         static const struct bus_properties_map property_map[] = {
-                { "LoadState",   "s", NULL, offsetof(UnitStatusInfo, load_state)   },
-                { "ActiveState", "s", NULL, offsetof(UnitStatusInfo, active_state) },
+                { "LoadState",                      "s",              NULL,           offsetof(UnitStatusInfo, load_state)                        },
+                { "ActiveState",                    "s",              NULL,           offsetof(UnitStatusInfo, active_state)                      },
+                { "Documentation",                  "as",             NULL,           offsetof(UnitStatusInfo, documentation)                     },
+                {}
+        }, status_map[] = {
+                { "Id",                             "s",              NULL,           offsetof(UnitStatusInfo, id)                                },
+                { "LoadState",                      "s",              NULL,           offsetof(UnitStatusInfo, load_state)                        },
+                { "ActiveState",                    "s",              NULL,           offsetof(UnitStatusInfo, active_state)                      },
+                { "SubState",                       "s",              NULL,           offsetof(UnitStatusInfo, sub_state)                         },
+                { "UnitFileState",                  "s",              NULL,           offsetof(UnitStatusInfo, unit_file_state)                   },
+                { "UnitFilePreset",                 "s",              NULL,           offsetof(UnitStatusInfo, unit_file_preset)                  },
+                { "Description",                    "s",              NULL,           offsetof(UnitStatusInfo, description)                       },
+                { "Following",                      "s",              NULL,           offsetof(UnitStatusInfo, following)                         },
+                { "Documentation",                  "as",             NULL,           offsetof(UnitStatusInfo, documentation)                     },
+                { "FragmentPath",                   "s",              NULL,           offsetof(UnitStatusInfo, fragment_path)                     },
+                { "SourcePath",                     "s",              NULL,           offsetof(UnitStatusInfo, source_path)                       },
+                { "ControlGroup",                   "s",              NULL,           offsetof(UnitStatusInfo, control_group)                     },
+                { "DropInPaths",                    "as",             NULL,           offsetof(UnitStatusInfo, dropin_paths)                      },
+                { "LoadError",                      "(ss)",           map_load_error, offsetof(UnitStatusInfo, load_error)                        },
+                { "Result",                         "s",              NULL,           offsetof(UnitStatusInfo, result)                            },
+                { "InactiveExitTimestamp",          "t",              NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp)           },
+                { "InactiveExitTimestampMonotonic", "t",              NULL,           offsetof(UnitStatusInfo, inactive_exit_timestamp_monotonic) },
+                { "ActiveEnterTimestamp",           "t",              NULL,           offsetof(UnitStatusInfo, active_enter_timestamp)            },
+                { "ActiveExitTimestamp",            "t",              NULL,           offsetof(UnitStatusInfo, active_exit_timestamp)             },
+                { "InactiveEnterTimestamp",         "t",              NULL,           offsetof(UnitStatusInfo, inactive_enter_timestamp)          },
+                { "NeedDaemonReload",               "b",              NULL,           offsetof(UnitStatusInfo, need_daemon_reload)                },
+                { "Transient",                      "b",              NULL,           offsetof(UnitStatusInfo, transient)                         },
+                { "ExecMainPID",                    "u",              NULL,           offsetof(UnitStatusInfo, main_pid)                          },
+                { "MainPID",                        "u",              map_main_pid,   0                                                           },
+                { "ControlPID",                     "u",              NULL,           offsetof(UnitStatusInfo, control_pid)                       },
+                { "StatusText",                     "s",              NULL,           offsetof(UnitStatusInfo, status_text)                       },
+                { "PIDFile",                        "s",              NULL,           offsetof(UnitStatusInfo, pid_file)                          },
+                { "StatusErrno",                    "i",              NULL,           offsetof(UnitStatusInfo, status_errno)                      },
+                { "ExecMainStartTimestamp",         "t",              NULL,           offsetof(UnitStatusInfo, start_timestamp)                   },
+                { "ExecMainExitTimestamp",          "t",              NULL,           offsetof(UnitStatusInfo, exit_timestamp)                    },
+                { "ExecMainCode",                   "i",              NULL,           offsetof(UnitStatusInfo, exit_code)                         },
+                { "ExecMainStatus",                 "i",              NULL,           offsetof(UnitStatusInfo, exit_status)                       },
+                { "ConditionTimestamp",             "t",              NULL,           offsetof(UnitStatusInfo, condition_timestamp)               },
+                { "ConditionResult",                "b",              NULL,           offsetof(UnitStatusInfo, condition_result)                  },
+                { "Conditions",                     "a(sbbsi)",       map_conditions, 0                                                           },
+                { "AssertTimestamp",                "t",              NULL,           offsetof(UnitStatusInfo, assert_timestamp)                  },
+                { "AssertResult",                   "b",              NULL,           offsetof(UnitStatusInfo, assert_result)                     },
+                { "Asserts",                        "a(sbbsi)",       map_asserts,    0                                                           },
+                { "NextElapseUSecRealtime",         "t",              NULL,           offsetof(UnitStatusInfo, next_elapse_real)                  },
+                { "NextElapseUSecMonotonic",        "t",              NULL,           offsetof(UnitStatusInfo, next_elapse_monotonic)             },
+                { "NAccepted",                      "u",              NULL,           offsetof(UnitStatusInfo, n_accepted)                        },
+                { "NConnections",                   "u",              NULL,           offsetof(UnitStatusInfo, n_connections)                     },
+                { "Accept",                         "b",              NULL,           offsetof(UnitStatusInfo, accept)                            },
+                { "Listen",                         "a(ss)",          map_listen,     offsetof(UnitStatusInfo, listen)                            },
+                { "SysFSPath",                      "s",              NULL,           offsetof(UnitStatusInfo, sysfs_path)                        },
+                { "Where",                          "s",              NULL,           offsetof(UnitStatusInfo, where)                             },
+                { "What",                           "s",              NULL,           offsetof(UnitStatusInfo, what)                              },
+                { "MemoryCurrent",                  "t",              NULL,           offsetof(UnitStatusInfo, memory_current)                    },
+                { "MemoryLow",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_low)                        },
+                { "MemoryHigh",                     "t",              NULL,           offsetof(UnitStatusInfo, memory_high)                       },
+                { "MemoryMax",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_max)                        },
+                { "MemorySwapMax",                  "t",              NULL,           offsetof(UnitStatusInfo, memory_swap_max)                   },
+                { "MemoryLimit",                    "t",              NULL,           offsetof(UnitStatusInfo, memory_limit)                      },
+                { "CPUUsageNSec",                   "t",              NULL,           offsetof(UnitStatusInfo, cpu_usage_nsec)                    },
+                { "TasksCurrent",                   "t",              NULL,           offsetof(UnitStatusInfo, tasks_current)                     },
+                { "TasksMax",                       "t",              NULL,           offsetof(UnitStatusInfo, tasks_max)                         },
+                { "IPIngressBytes",                 "t",              NULL,           offsetof(UnitStatusInfo, ip_ingress_bytes)                  },
+                { "IPEgressBytes",                  "t",              NULL,           offsetof(UnitStatusInfo, ip_egress_bytes)                   },
+                { "ExecStartPre",                   "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecStart",                      "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecStartPost",                  "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecReload",                     "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecStopPre",                    "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecStop",                       "a(sasbttttuii)", map_exec,       0                                                           },
+                { "ExecStopPost",                   "a(sasbttttuii)", map_exec,       0                                                           },
                 {}
         };
 
@@ -5141,6 +5020,7 @@ static int show_one(
                 .ip_ingress_bytes = (uint64_t) -1,
                 .ip_egress_bytes = (uint64_t) -1,
         };
+        char **pp;
         int r;
 
         assert(path);
@@ -5148,46 +5028,52 @@ static int show_one(
 
         log_debug("Showing one %s", path);
 
-        r = sd_bus_call_method(
+        r = bus_map_all_properties(
                         bus,
                         "org.freedesktop.systemd1",
                         path,
-                        "org.freedesktop.DBus.Properties",
-                        "GetAll",
+                        show_mode == SYSTEMCTL_SHOW_STATUS ? status_map : property_map,
                         &error,
                         &reply,
-                        "s", "");
+                        &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
-        if (unit) {
-                r = bus_message_map_all_properties(reply, property_map, false, &error, &info);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
+        if (unit && streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive")) {
+                log_full(show_mode == SYSTEMCTL_SHOW_STATUS ? LOG_ERR : LOG_DEBUG,
+                         "Unit %s could not be found.", unit);
 
-                if (streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive")) {
-                        log_full(show_mode == SYSTEMCTL_SHOW_STATUS ? LOG_ERR : LOG_DEBUG,
-                                 "Unit %s could not be found.", unit);
-
-                        if (show_mode == SYSTEMCTL_SHOW_STATUS)
-                                return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
-                        else if (show_mode == SYSTEMCTL_SHOW_HELP)
-                                return -ENOENT;
-                }
-
-                r = sd_bus_message_rewind(reply, true);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
+                if (show_mode == SYSTEMCTL_SHOW_STATUS)
+                        return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
+                else if (show_mode == SYSTEMCTL_SHOW_HELP)
+                        return -ENOENT;
         }
-
-        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         if (*new_line)
                 printf("\n");
 
         *new_line = true;
+
+        if (show_mode == SYSTEMCTL_SHOW_STATUS) {
+                print_status_info(bus, &info, ellipsized);
+
+                if (info.active_state && !STR_IN_SET(info.active_state, "active", "reloading"))
+                        return EXIT_PROGRAM_NOT_RUNNING;
+
+                return EXIT_PROGRAM_RUNNING_OR_SERVICE_OK;
+
+        } else if (show_mode == SYSTEMCTL_SHOW_HELP) {
+                show_unit_help(&info);
+                return 0;
+        }
+
+        r = sd_bus_message_rewind(reply, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to rewind: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "{sv}");
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         while ((r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
                 const char *name, *contents;
@@ -5204,18 +5090,15 @@ static int show_one(
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
-                        r = set_ensure_allocated(&found_properties, &string_hash_ops);
-                        if (r < 0)
-                                return log_oom();
+                r = set_ensure_allocated(&found_properties, &string_hash_ops);
+                if (r < 0)
+                        return log_oom();
 
-                        r = set_put(found_properties, name);
-                        if (r < 0 && r != EEXIST)
-                                return log_oom();
+                r = set_put(found_properties, name);
+                if (r < 0 && r != EEXIST)
+                        return log_oom();
 
-                        r = print_property(name, reply, contents);
-                } else
-                        r = status_property(name, reply, &info, contents);
+                r = print_property(name, reply, contents);
                 if (r < 0)
                         return r;
 
@@ -5234,26 +5117,11 @@ static int show_one(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = 0;
-        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
-                char **pp;
+        STRV_FOREACH(pp, arg_properties)
+                if (!set_contains(found_properties, *pp))
+                        log_debug("Property %s does not exist.", *pp);
 
-                STRV_FOREACH(pp, arg_properties)
-                        if (!set_contains(found_properties, *pp))
-                                log_debug("Property %s does not exist.", *pp);
-
-        } else if (show_mode == SYSTEMCTL_SHOW_HELP)
-                show_unit_help(&info);
-        else {
-                print_status_info(bus, &info, ellipsized);
-
-                if (info.active_state && !STR_IN_SET(info.active_state, "active", "reloading"))
-                        r = EXIT_PROGRAM_NOT_RUNNING;
-                else
-                        r = EXIT_PROGRAM_RUNNING_OR_SERVICE_OK;
-        }
-
-        return r;
+        return 0;
 }
 
 static int get_unit_dbus_path_by_pid(
