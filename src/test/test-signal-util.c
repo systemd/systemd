@@ -21,9 +21,20 @@
 #include <signal.h>
 #include <unistd.h>
 
+#include "log.h"
 #include "macro.h"
 #include "signal-util.h"
 #include "process-util.h"
+
+#define info(sig) log_info(#sig " = " STRINGIFY(sig) " = %d", sig)
+
+static void test_rt_signals(void) {
+        info(SIGRTMIN);
+        info(SIGRTMAX);
+
+        /* We use signals SIGRTMIN+0 to SIGRTMIN+24 unconditionally */
+        assert(SIGRTMAX - SIGRTMIN >= 24);
+}
 
 static void test_block_signals(void) {
         sigset_t ss;
@@ -62,6 +73,7 @@ static void test_ignore_signals(void) {
 }
 
 int main(int argc, char *argv[]) {
+        test_rt_signals();
         test_block_signals();
         test_ignore_signals();
 
