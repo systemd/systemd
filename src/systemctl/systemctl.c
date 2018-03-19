@@ -82,6 +82,7 @@
 #include "spawn-polkit-agent.h"
 #include "special.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-def.h"
@@ -5095,12 +5096,27 @@ static int print_property(const char *name, sd_bus_message *m, const char *conte
         return 0;
 }
 
+typedef enum SystemctlShowMode{
+        SYSTEMCTL_SHOW_PROPERTIES,
+        SYSTEMCTL_SHOW_STATUS,
+        SYSTEMCTL_SHOW_HELP,
+        _SYSTEMCTL_SHOW_MODE_MAX,
+        _SYSTEMCTL_SHOW_MODE_INVALID = -1,
+} SystemctlShowMode;
+
+static const char* const systemctl_show_mode_table[] = {
+        [SYSTEMCTL_SHOW_PROPERTIES] = "show",
+        [SYSTEMCTL_SHOW_STATUS] = "status",
+        [SYSTEMCTL_SHOW_HELP] = "help",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(systemctl_show_mode, SystemctlShowMode);
+
 static int show_one(
-                const char *verb,
                 sd_bus *bus,
                 const char *path,
                 const char *unit,
-                bool show_properties,
+                SystemctlShowMode show_mode,
                 bool *new_line,
                 bool *ellipsized) {
 
@@ -5150,13 +5166,12 @@ static int show_one(
                         return log_error_errno(r, "Failed to map properties: %s", bus_error_message(&error, r));
 
                 if (streq_ptr(info.load_state, "not-found") && streq_ptr(info.active_state, "inactive")) {
-                        log_full(streq(verb, "status") ? LOG_ERR : LOG_DEBUG,
+                        log_full(show_mode == SYSTEMCTL_SHOW_STATUS ? LOG_ERR : LOG_DEBUG,
                                  "Unit %s could not be found.", unit);
 
-                        if (streq(verb, "status"))
+                        if (show_mode == SYSTEMCTL_SHOW_STATUS)
                                 return EXIT_PROGRAM_OR_SERVICES_STATUS_UNKNOWN;
-
-                        if (!streq(verb, "show"))
+                        else if (show_mode == SYSTEMCTL_SHOW_HELP)
                                 return -ENOENT;
                 }
 
@@ -5189,7 +5204,7 @@ static int show_one(
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                if (show_properties) {
+                if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
                         r = set_ensure_allocated(&found_properties, &string_hash_ops);
                         if (r < 0)
                                 return log_oom();
@@ -5220,16 +5235,16 @@ static int show_one(
                 return bus_log_parse_error(r);
 
         r = 0;
-        if (show_properties) {
+        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
                 char **pp;
 
                 STRV_FOREACH(pp, arg_properties)
                         if (!set_contains(found_properties, *pp))
                                 log_debug("Property %s does not exist.", *pp);
 
-        } else if (streq(verb, "help"))
+        } else if (show_mode == SYSTEMCTL_SHOW_HELP)
                 show_unit_help(&info);
-        else if (streq(verb, "status")) {
+        else {
                 print_status_info(bus, &info, ellipsized);
 
                 if (info.active_state && !STR_IN_SET(info.active_state, "active", "reloading"))
@@ -5276,9 +5291,7 @@ static int get_unit_dbus_path_by_pid(
 }
 
 static int show_all(
-                const char* verb,
                 sd_bus *bus,
-                bool show_properties,
                 bool *new_line,
                 bool *ellipsized) {
 
@@ -5305,7 +5318,7 @@ static int show_all(
                 if (!p)
                         return log_oom();
 
-                r = show_one(verb, bus, p, u->id, show_properties, new_line, ellipsized);
+                r = show_one(bus, p, u->id, SYSTEMCTL_SHOW_STATUS, new_line, ellipsized);
                 if (r < 0)
                         return r;
                 else if (r > 0 && ret == 0)
@@ -5374,18 +5387,20 @@ static int show_system_status(sd_bus *bus) {
 }
 
 static int show(int argc, char *argv[], void *userdata) {
-        bool show_properties, show_status, show_help, new_line = false;
-        bool ellipsized = false;
+        bool new_line = false, ellipsized = false;
+        SystemctlShowMode show_mode;
         int r, ret = 0;
         sd_bus *bus;
 
         assert(argv);
 
-        show_properties = streq(argv[0], "show");
-        show_status = streq(argv[0], "status");
-        show_help = streq(argv[0], "help");
+        show_mode = systemctl_show_mode_from_string(argv[0]);
+        if (show_mode < 0) {
+                log_error("Invalid argument.");
+                return -EINVAL;
+        }
 
-        if (show_help && argc <= 1) {
+        if (show_mode == SYSTEMCTL_SHOW_HELP && argc <= 1) {
                 log_error("This command expects one or more unit names. Did you mean --help?");
                 return -EINVAL;
         }
@@ -5396,23 +5411,23 @@ static int show(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_no_pager, false);
 
-        if (show_status)
+        if (show_mode == SYSTEMCTL_SHOW_STATUS)
                 /* Increase max number of open files to 16K if we can, we
                  * might needs this when browsing journal files, which might
                  * be split up into many files. */
                 setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(16384));
 
         /* If no argument is specified inspect the manager itself */
-        if (show_properties && argc <= 1)
-                return show_one(argv[0], bus, "/org/freedesktop/systemd1", NULL, show_properties, &new_line, &ellipsized);
+        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES && argc <= 1)
+                return show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
 
-        if (show_status && argc <= 1) {
+        if (show_mode == SYSTEMCTL_SHOW_STATUS && argc <= 1) {
 
                 show_system_status(bus);
                 new_line = true;
 
                 if (arg_all)
-                        ret = show_all(argv[0], bus, false, &new_line, &ellipsized);
+                        ret = show_all(bus, &new_line, &ellipsized);
         } else {
                 _cleanup_free_ char **patterns = NULL;
                 char **name;
@@ -5426,7 +5441,7 @@ static int show(int argc, char *argv[], void *userdata) {
                                         return log_oom();
 
                                 continue;
-                        } else if (show_properties) {
+                        } else if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
                                 /* Interpret as job id */
                                 if (asprintf(&path, "/org/freedesktop/systemd1/job/%u", id) < 0)
                                         return log_oom();
@@ -5444,7 +5459,7 @@ static int show(int argc, char *argv[], void *userdata) {
                                         return log_oom();
                         }
 
-                        r = show_one(argv[0], bus, path, unit, show_properties, &new_line, &ellipsized);
+                        r = show_one(bus, path, unit, show_mode, &new_line, &ellipsized);
                         if (r < 0)
                                 return r;
                         else if (r > 0 && ret == 0)
@@ -5465,7 +5480,7 @@ static int show(int argc, char *argv[], void *userdata) {
                                 if (!path)
                                         return log_oom();
 
-                                r = show_one(argv[0], bus, path, *name, show_properties, &new_line, &ellipsized);
+                                r = show_one(bus, path, *name, show_mode, &new_line, &ellipsized);
                                 if (r < 0)
                                         return r;
                                 if (r > 0 && ret == 0)
