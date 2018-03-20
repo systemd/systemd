@@ -2233,6 +2233,9 @@ static int chase_symlinks_and_update(char **p, unsigned flags) {
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve path %s: %m", *p);
 
+        /* GNU basename() is used later. */
+        path_kill_slashes(chased);
+
         free_and_replace(*p, chased);
         return r; /* r might be an fd here in case we ever use CHASE_OPEN in flags */
 }
