@@ -734,3 +734,123 @@ bool synthesize_nobody(void) {
         return cache;
 #endif
 }
+
+int putpwent_sane(const struct passwd *pw, FILE *stream) {
+        assert(pw);
+        assert(stream);
+
+        errno = 0;
+        if (putpwent(pw, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+
+int putspent_sane(const struct spwd *sp, FILE *stream) {
+        assert(sp);
+        assert(stream);
+
+        errno = 0;
+        if (putspent(sp, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+
+int putgrent_sane(const struct group *gr, FILE *stream) {
+        assert(gr);
+        assert(stream);
+
+        errno = 0;
+        if (putgrent(gr, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+
+#if ENABLE_GSHADOW
+int putsgent_sane(const struct sgrp *sg, FILE *stream) {
+        assert(sg);
+        assert(stream);
+
+        errno = 0;
+        if (putsgent(sg, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+#endif
+
+int fgetpwent_sane(FILE *stream, struct passwd **pw) {
+        struct passwd *p;
+
+        assert(pw);
+        assert(stream);
+
+        errno = 0;
+        p = fgetpwent(stream);
+        if (p == NULL) {
+                if (errno == ENOENT)
+                        return false;
+                return errno > 0 ? -errno : -EIO;
+        }
+
+        *pw = p;
+        return true;
+}
+
+int fgetspent_sane(FILE *stream, struct spwd **sp) {
+        struct spwd *s;
+
+        assert(sp);
+        assert(stream);
+
+        errno = 0;
+        s = fgetspent(stream);
+        if (s == NULL) {
+                if (errno == ENOENT)
+                        return false;
+                return errno > 0 ? -errno : -EIO;
+        }
+
+        *sp = s;
+        return true;
+}
+
+int fgetgrent_sane(FILE *stream, struct group **gr) {
+        struct group *g;
+
+        assert(gr);
+        assert(stream);
+
+        errno = 0;
+        g = fgetgrent(stream);
+        if (g == NULL) {
+                if (errno == ENOENT)
+                        return false;
+                return errno > 0 ? -errno : -EIO;
+        }
+
+        *gr = g;
+        return true;
+}
+
+#if ENABLE_GSHADOW
+int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
+        struct sgrp *s;
+
+        assert(sg);
+        assert(stream);
+
+        errno = 0;
+        s = fgetsgent(stream);
+        if (s == NULL) {
+                if (errno == ENOENT)
+                        return false;
+                return errno > 0 ? -errno : -EIO;
+        }
+
+        *sg = s;
+        return true;
+}
+#endif

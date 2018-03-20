@@ -20,6 +20,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <grp.h>
+#include <gshadow.h>
+#include <pwd.h>
+#include <shadow.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -110,3 +114,14 @@ static inline bool valid_shell(const char *p) {
 int maybe_setgroups(size_t size, const gid_t *list);
 
 bool synthesize_nobody(void);
+
+int fgetpwent_sane(FILE *stream, struct passwd **pw);
+int fgetspent_sane(FILE *stream, struct spwd **sp);
+int fgetgrent_sane(FILE *stream, struct group **gr);
+int putpwent_sane(const struct passwd *pw, FILE *stream);
+int putspent_sane(const struct spwd *sp, FILE *stream);
+int putgrent_sane(const struct group *gr, FILE *stream);
+#ifdef ENABLE_GSHADOW
+int fgetsgent_sane(FILE *stream, struct sgrp **sg);
+int putsgent_sane(const struct sgrp *sg, FILE *stream);
+#endif

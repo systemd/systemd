@@ -19,10 +19,6 @@
 ***/
 
 #include <getopt.h>
-#include <grp.h>
-#include <gshadow.h>
-#include <pwd.h>
-#include <shadow.h>
 #include <utmp.h>
 
 #include "alloc-util.h"
@@ -113,8 +109,7 @@ static int load_user_database(void) {
         if (r < 0)
                 return r;
 
-        errno = 0;
-        while ((pw = fgetpwent(f))) {
+        while ((r = fgetpwent_sane(f, &pw)) > 0) {
                 char *n;
                 int k, q;
 
@@ -137,13 +132,8 @@ static int load_user_database(void) {
 
                 if (q < 0 && k < 0)
                         free(n);
-
-                errno = 0;
         }
-        if (!IN_SET(errno, 0, ENOENT))
-                return -errno;
-
-        return 0;
+        return r;
 }
 
 static int load_group_database(void) {
@@ -287,6 +277,7 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
 
                 if (added) {
                         struct group t;
+                        int r;
 
                         strv_uniq(l);
                         strv_sort(l);
@@ -294,19 +285,12 @@ static int putgrent_with_members(const struct group *gr, FILE *group) {
                         t = *gr;
                         t.gr_mem = l;
 
-                        errno = 0;
-                        if (putgrent(&t, group) != 0)
-                                return errno > 0 ? -errno : -EIO;
-
-                        return 1;
+                        r = putgrent_sane(&t, group);
+                        return r < 0 ? r : 1;
                 }
         }
 
-        errno = 0;
-        if (putgrent(gr, group) != 0)
-                return errno > 0 ? -errno : -EIO;
-
-        return 0;
+        return putgrent_sane(gr, group);
 }
 
 #if ENABLE_GSHADOW
@@ -338,6 +322,7 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
 
                 if (added) {
                         struct sgrp t;
+                        int r;
 
                         strv_uniq(l);
                         strv_sort(l);
@@ -345,19 +330,12 @@ static int putsgent_with_members(const struct sgrp *sg, FILE *gshadow) {
                         t = *sg;
                         t.sg_mem = l;
 
-                        errno = 0;
-                        if (putsgent(&t, gshadow) != 0)
-                                return errno > 0 ? -errno : -EIO;
-
-                        return 1;
+                        r = putsgent_sane(&t, gshadow);
+                        return r < 0 ? r : 1;
                 }
         }
 
-        errno = 0;
-        if (putsgent(sg, gshadow) != 0)
-                return errno > 0 ? -errno : -EIO;
-
-        return 0;
+        return putsgent_sane(sg, gshadow);
 }
 #endif
 
@@ -415,8 +393,7 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                 if (r < 0)
                         return r;
 
-                errno = 0;
-                while ((pw = fgetpwent(original))) {
+                while ((r = fgetpwent_sane(original, &pw)) > 0) {
 
                         i = ordered_hashmap_get(users, pw->pw_name);
                         if (i && i->todo_user) {
@@ -429,19 +406,16 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                                 return -EEXIST;
                         }
 
-                        errno = 0;
-
                         /* Make sure we keep the NIS entries (if any) at the end. */
                         if (IN_SET(pw->pw_name[0], '+', '-'))
                                 break;
 
-                        if (putpwent(pw, passwd) < 0)
-                                return errno ? -errno : -EIO;
-
-                        errno = 0;
+                        r = putpwent_sane(pw, passwd);
+                        if (r < 0)
+                                return r;
                 }
-                if (!IN_SET(errno, 0, ENOENT))
-                        return -errno;
+                if (r < 0)
+                        return r;
 
         } else {
                 if (errno != ENOENT)
@@ -468,23 +442,23 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
                         .pw_shell = i->shell ?: (char*) default_shell(i->uid),
                 };
 
-                errno = 0;
-                if (putpwent(&n, passwd) != 0)
-                        return errno ? -errno : -EIO;
+                r = putpwent_sane(&n, passwd);
+                if (r < 0)
+                        return r;
         }
-        errno = 0;
 
         /* Append the remaining NIS entries if any */
         while (pw) {
-                errno = 0;
-                if (putpwent(pw, passwd) < 0)
-                        return errno ? -errno : -EIO;
+                r = putpwent_sane(pw, passwd);
+                if (r < 0)
+                        return r;
 
-                errno = 0;
-                pw = fgetpwent(original);
+                r = fgetpwent_sane(original, &pw);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
         }
-        if (!IN_SET(errno, 0, ENOENT))
-                return -errno;
 
         r = fflush_and_check(passwd);
         if (r < 0)
@@ -522,8 +496,7 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                 if (r < 0)
                         return r;
 
-                errno = 0;
-                while ((sp = fgetspent(original))) {
+                while ((r = fgetspent_sane(original, &sp)) > 0) {
 
                         i = ordered_hashmap_get(users, sp->sp_namp);
                         if (i && i->todo_user) {
@@ -536,19 +509,16 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                                 ordered_hashmap_remove(todo_uids, UID_TO_PTR(i->uid));
                         }
 
-                        errno = 0;
-
                         /* Make sure we keep the NIS entries (if any) at the end. */
                         if (IN_SET(sp->sp_namp[0], '+', '-'))
                                 break;
 
-                        if (putspent(sp, shadow) < 0)
-                                return errno ? -errno : -EIO;
-
-                        errno = 0;
+                        r = putspent_sane(sp, shadow);
+                        if (r < 0)
+                                return r;
                 }
-                if (!IN_SET(errno, 0, ENOENT))
-                        return -errno;
+                if (r < 0)
+                        return r;
 
         } else {
                 if (errno != ENOENT)
@@ -570,20 +540,22 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
                         .sp_flag = (unsigned long) -1, /* this appears to be what everybody does ... */
                 };
 
-                errno = 0;
-                if (putspent(&n, shadow) != 0)
-                        return errno ? -errno : -EIO;
+                r = putspent_sane(&n, shadow);
+                if (r < 0)
+                        return r;
         }
-        errno = 0;
 
         /* Append the remaining NIS entries if any */
         while (sp) {
-                errno = 0;
-                if (putspent(sp, shadow) < 0)
-                        return errno ? -errno : -EIO;
+                r = putspent_sane(sp, shadow);
+                if (r < 0)
+                        return r;
 
-                errno = 0;
-                sp = fgetspent(original);
+                r = fgetspent_sane(original, &sp);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
         }
         if (!IN_SET(errno, 0, ENOENT))
                 return -errno;
@@ -622,8 +594,7 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                 if (r < 0)
                         return r;
 
-                errno = 0;
-                while ((gr = fgetgrent(original))) {
+                while ((r = fgetgrent_sane(original, &gr)) > 0) {
                         /* Safety checks against name and GID collisions. Normally,
                          * this should be unnecessary, but given that we look at the
                          * entries anyway here, let's make an extra verification
@@ -640,8 +611,6 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                                 return  -EEXIST;
                         }
 
-                        errno = 0;
-
                         /* Make sure we keep the NIS entries (if any) at the end. */
                         if (IN_SET(gr->gr_name[0], '+', '-'))
                                 break;
@@ -651,11 +620,9 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                                 return r;
                         if (r > 0)
                                 group_changed = true;
-
-                        errno = 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT))
-                        return -errno;
+                if (r < 0)
+                        return r;
 
         } else {
                 if (errno != ENOENT)
@@ -677,19 +644,19 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
 
                 group_changed = true;
         }
-        errno = 0;
 
         /* Append the remaining NIS entries if any */
         while (gr) {
-                errno = 0;
-                if (putgrent(gr, group) != 0)
-                        return errno > 0 ? -errno : -EIO;
+                r = putgrent_sane(gr, group);
+                if (r < 0)
+                        return r;
 
-                errno = 0;
-                gr = fgetgrent(original);
+                r = fgetgrent_sane(original, &gr);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
         }
-        if (!IN_SET(errno, 0, ENOENT))
-                return -errno;
 
         r = fflush_sync_and_check(group);
         if (r < 0)
@@ -728,8 +695,7 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                 if (r < 0)
                         return r;
 
-                errno = 0;
-                while ((sg = fgetsgent(original))) {
+                while ((r = fgetsgent_sane(original, &sg)) > 0) {
 
                         i = ordered_hashmap_get(groups, sg->sg_namp);
                         if (i && i->todo_group) {
@@ -742,11 +708,9 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                                 return r;
                         if (r > 0)
                                 group_changed = true;
-
-                        errno = 0;
                 }
-                if (!IN_SET(errno, 0, ENOENT))
-                        return -errno;
+                if (r < 0)
+                        return r;
 
         } else {
                 if (errno != ENOENT)
