@@ -13,7 +13,7 @@ Documentation=man:systemd-backlight@.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=systemd-remount-fs.service
-Before=sysinit.target shutdown.target
+Before=shutdown.target
 
 [Service]
 Type=oneshot
