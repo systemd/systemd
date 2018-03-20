@@ -130,7 +130,7 @@ static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned perc
         assert(n_columns > 0);
 
         n = strv_length(x);
-        per_column = (n + n_columns - 1) / n_columns;
+        per_column = DIV_ROUND_UP(n, n_columns);
 
         break_lines = lines();
         if (break_lines > 2)
