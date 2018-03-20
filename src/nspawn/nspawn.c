@@ -2323,9 +2323,14 @@ static int inner_child(
                       arg_uid_shift,
                       arg_uid_range,
                       arg_selinux_apifs_context);
-
         if (r < 0)
                 return r;
+
+        if (!arg_network_namespace_path && arg_private_network) {
+                r = unshare(CLONE_NEWNET);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to unshare network namespace: %m");
+        }
 
         r = mount_sysfs(NULL, arg_mount_settings);
         if (r < 0)
@@ -2341,7 +2346,7 @@ static int inner_child(
         if (arg_use_cgns && cg_ns_supported()) {
                 r = unshare(CLONE_NEWCGROUP);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to unshare cgroup namespace");
+                        return log_error_errno(errno, "Failed to unshare cgroup namespace: %m");
                 r = mount_cgroups(
                                 "",
                                 arg_unified_cgroup_hierarchy,
@@ -2568,7 +2573,6 @@ static int outer_child(
         ssize_t l;
         int r;
         _cleanup_close_ int fd = -1;
-        bool create_netns;
 
         assert(barrier);
         assert(directory);
@@ -2811,11 +2815,8 @@ static int outer_child(
         if (fd < 0)
                 return fd;
 
-        create_netns = !arg_network_namespace_path && arg_private_network;
-
         pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         arg_clone_ns_flags |
-                        (create_netns ? CLONE_NEWNET : 0) |
                         (arg_userns_mode != USER_NAMESPACE_NO ? CLONE_NEWUSER : 0));
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork inner child: %m");
