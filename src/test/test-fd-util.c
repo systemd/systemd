@@ -71,9 +71,9 @@ static void test_same_fd(void) {
         _cleanup_close_ int a = -1, b = -1, c = -1;
 
         assert_se(pipe2(p, O_CLOEXEC) >= 0);
-        assert_se((a = dup(p[0])) >= 0);
+        assert_se((a = fcntl(p[0], F_DUPFD, 3)) >= 0);
         assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
-        assert_se((c = dup(a)) >= 0);
+        assert_se((c = fcntl(a, F_DUPFD, 3)) >= 0);
 
         assert_se(same_fd(p[0], p[0]) > 0);
         assert_se(same_fd(p[1], p[1]) > 0);
