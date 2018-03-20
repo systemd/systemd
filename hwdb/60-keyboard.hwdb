@@ -1422,6 +1422,14 @@ evdev:input:b0003v046Dp4002*
  KEYBOARD_LED_NUMLOCK=0
  KEYBOARD_LED_CAPSLOCK=0
 
+# Lenovo ThinkPad T430s
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT430s
+ KEYBOARD_LED_CAPSLOCK=0
+
+# Lenovo ThinkPad T440s
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT440s
+ KEYBOARD_LED_CAPSLOCK=0
+
 # Lenovo ThinkPad T450s
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT450s
  KEYBOARD_LED_CAPSLOCK=0
@@ -1430,3 +1438,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT450s
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadT560s
  KEYBOARD_LED_CAPSLOCK=0
  KEYBOARD_LED_NUMLOCK=0
+
+# Lenovo ThinkPad X1 Carbon 3rd Gen
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnLENOVO:pn*:pvrThinkPadX1Carbon3rd
+ KEYBOARD_LED_CAPSLOCK=0
