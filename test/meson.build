@@ -174,6 +174,10 @@ test_data_files = '''
         testsuite.target
         timers.target
         unstoppable.service
+        test-umount/empty.mountinfo
+        test-umount/garbled.mountinfo
+        test-umount/rhbug-1554943.mountinfo
+        test-umount/example.swaps
 '''.split()
 
 if conf.get('ENABLE_RESOLVE') == 1
