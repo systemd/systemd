@@ -112,6 +112,8 @@
     other units. Units near the top are started before units nearer to
     the bottom of the chart.</para>
 
+    <!-- note: do not use unicode ellipsis here, because docbook will replace that
+         with three dots anyway, messing up alignment -->
 <programlisting>local-fs-pre.target
          |
          v
