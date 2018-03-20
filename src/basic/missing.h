@@ -1058,6 +1058,10 @@ struct input_mask {
 #define RTAX_QUICKACK 15
 #endif
 
+#ifndef RTA_EXPIRES
+#define RTA_EXPIRES 23
+#endif
+
 #ifndef IPV6_UNICAST_IF
 #define IPV6_UNICAST_IF 76
 #endif

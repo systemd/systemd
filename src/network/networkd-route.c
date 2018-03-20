@@ -617,6 +617,13 @@ int route_configure(
         if (r < 0)
                 return log_error_errno(r, "Could not append RTA_PREF attribute: %m");
 
+        if (route->lifetime != USEC_INFINITY && kernel_route_expiration_supported()) {
+                r = sd_netlink_message_append_u32(req, RTA_EXPIRES,
+                        DIV_ROUND_UP(usec_sub_unsigned(route->lifetime, now(clock_boottime_or_monotonic())), USEC_PER_SEC));
+                if (r < 0)
+                        return log_error_errno(r, "Could not append RTA_EXPIRES attribute: %m");
+        }
+
         r = sd_rtnl_message_route_set_type(req, route->type);
         if (r < 0)
                 return log_error_errno(r, "Could not set route type: %m");
@@ -674,7 +681,7 @@ int route_configure(
         /* TODO: drop expiration handling once it can be pushed into the kernel */
         route->lifetime = lifetime;
 
-        if (route->lifetime != USEC_INFINITY) {
+        if (route->lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
                 r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(),
                                       route->lifetime, 0, route_expire_handler, route);
                 if (r < 0)
