@@ -24,6 +24,16 @@ Janitorial Clean-ups:
 
 Features:
 
+* nspawn's console TTY should be allocated from within the container, not
+  mounted in from the outside
+
+* show invocation ID in systemd-run output
+
+* bypass SIGTERM state in unit files if KillSignal is SIGKILL
+
+* tree-wide: ensure we always block the signals we hook into with
+  sd_event_add_signal() first
+
 * add proper dbus APIs for the various sd_notify() commands, such as MAINPID=1
   and so on, which would mean we could report errors and such.
 
