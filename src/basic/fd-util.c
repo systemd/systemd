@@ -361,14 +361,21 @@ bool fdname_is_valid(const char *s) {
 }
 
 int fd_get_path(int fd, char **ret) {
-        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_close_ int dir = -1;
+        char fdname[DECIMAL_STR_MAX(int)];
         int r;
 
-        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+        dir = open("/proc/self/fd/", O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (dir < 0)
+                /* /proc is not available or not set up properly, we're most likely
+                 * in some chroot environment. */
+                return errno == ENOENT ? -EOPNOTSUPP : -errno;
 
-        r = readlink_malloc(procfs_path, ret);
+        xsprintf(fdname, "%i", fd);
 
-        if (r == -ENOENT) /* If the file doesn't exist the fd is invalid */
+        r = readlinkat_malloc(dir, fdname, ret);
+        if (r == -ENOENT)
+                /* If the file doesn't exist the fd is invalid */
                 return -EBADF;
 
         return r;

@@ -978,8 +978,19 @@ int fsync_directory_of_file(int fd) {
                 return r;
 
         r = fd_get_path(fd, &path);
-        if (r < 0)
+        if (r < 0) {
+                log_debug("Failed to query /proc/self/fd/%d%s: %m",
+                          fd,
+                          r == -EOPNOTSUPP ? ", ignoring" : "");
+
+                if (r == -EOPNOTSUPP)
+                        /* If /proc is not available, we're most likely running in some
+                         * chroot environment, and syncing the directory is not very
+                         * important in that case. Let's just silently do nothing. */
+                        return 0;
+
                 return r;
+        }
 
         if (!path_is_absolute(path))
                 return -EINVAL;
