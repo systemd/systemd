@@ -1185,6 +1185,10 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                 case SCMP_ARCH_PPC:
                 case SCMP_ARCH_PPC64:
                 case SCMP_ARCH_PPC64LE:
+                case SCMP_ARCH_MIPSEL64N32:
+                case SCMP_ARCH_MIPS64N32:
+                case SCMP_ARCH_MIPSEL64:
+                case SCMP_ARCH_MIPS64:
                         /* These we know we support (i.e. are the ones that do not use socketcall()) */
                         supported = true;
                         break;
@@ -1192,6 +1196,8 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                 case SCMP_ARCH_S390:
                 case SCMP_ARCH_S390X:
                 case SCMP_ARCH_X86:
+                case SCMP_ARCH_MIPSEL:
+                case SCMP_ARCH_MIPS:
                 default:
                         /* These we either know we don't support (i.e. are the ones that do use socketcall()), or we
                          * don't know */
@@ -1421,11 +1427,11 @@ static int add_seccomp_syscall_filter(scmp_filter_ctx seccomp,
 }
 
 /* For known architectures, check that syscalls are indeed defined or not. */
-#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
+#if defined(__x86_64__) || defined(__arm__) || defined(__aarch64__) || (defined(__mips__) && defined(__mips64))
 assert_cc(SCMP_SYS(shmget) > 0);
 assert_cc(SCMP_SYS(shmat) > 0);
 assert_cc(SCMP_SYS(shmdt) > 0);
-#elif defined(__i386__) || defined(__powerpc64__)
+#elif defined(__i386__) || defined(__powerpc64__) || (defined(__mips__) && !defined(__mips64))
 assert_cc(SCMP_SYS(shmget) < 0);
 assert_cc(SCMP_SYS(shmat) < 0);
 assert_cc(SCMP_SYS(shmdt) < 0);
@@ -1445,6 +1451,8 @@ int seccomp_memory_deny_write_execute(void) {
                 switch (arch) {
 
                 case SCMP_ARCH_X86:
+                case SCMP_ARCH_MIPSEL:
+                case SCMP_ARCH_MIPS:
                         filter_syscall = SCMP_SYS(mmap2);
                         block_syscall = SCMP_SYS(mmap);
                         break;
@@ -1468,13 +1476,17 @@ int seccomp_memory_deny_write_execute(void) {
                 case SCMP_ARCH_X86_64:
                 case SCMP_ARCH_X32:
                 case SCMP_ARCH_AARCH64:
-                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32, and arm64 have only mmap */
+                case SCMP_ARCH_MIPSEL64N32:
+                case SCMP_ARCH_MIPS64N32:
+                case SCMP_ARCH_MIPSEL64:
+                case SCMP_ARCH_MIPS64:
+                        filter_syscall = SCMP_SYS(mmap); /* amd64, x32, arm64 and mips64 have only mmap */
                         shmat_syscall = SCMP_SYS(shmat);
                         break;
 
                 /* Please add more definitions here, if you port systemd to other architectures! */
 
-#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__)
+#if !defined(__i386__) && !defined(__x86_64__) && !defined(__powerpc__) && !defined(__powerpc64__) && !defined(__arm__) && !defined(__aarch64__) && !defined(__mips__)
 #warning "Consider adding the right mmap() syscall definitions here!"
 #endif
                 }
