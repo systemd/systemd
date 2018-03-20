@@ -195,15 +195,23 @@ static bool test_pointers(struct udev_device *dev,
                 has_mt_coordinates = false;
         is_direct = test_bit(INPUT_PROP_DIRECT, bitmask_props);
         has_touch = test_bit(BTN_TOUCH, bitmask_key);
+
         /* joysticks don't necessarily have buttons; e. g.
          * rudders/pedals are joystick-like, but buttonless; they have
-         * other fancy axes. Others have buttons only but no axes. */
-        for (button = BTN_JOYSTICK; button < BTN_DIGI && !has_joystick_axes_or_buttons; button++)
-                has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
-        for (button = BTN_TRIGGER_HAPPY1; button <= BTN_TRIGGER_HAPPY40 && !has_joystick_axes_or_buttons; button++)
-                has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
-        for (button = BTN_DPAD_UP; button <= BTN_DPAD_RIGHT && !has_joystick_axes_or_buttons; button++)
-                has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
+         * other fancy axes. Others have buttons only but no axes.
+         *
+         * The BTN_JOYSTICK range starts after the mouse range, so a mouse
+         * with more than 16 buttons runs into the joystick range (e.g. Mad
+         * Catz Mad Catz M.M.O.TE). Skip those.
+         */
+        if (!test_bit(BTN_JOYSTICK - 1, bitmask_key)) {
+                for (button = BTN_JOYSTICK; button < BTN_DIGI && !has_joystick_axes_or_buttons; button++)
+                        has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
+                for (button = BTN_TRIGGER_HAPPY1; button <= BTN_TRIGGER_HAPPY40 && !has_joystick_axes_or_buttons; button++)
+                        has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
+                for (button = BTN_DPAD_UP; button <= BTN_DPAD_RIGHT && !has_joystick_axes_or_buttons; button++)
+                        has_joystick_axes_or_buttons = test_bit(button, bitmask_key);
+        }
         for (axis = ABS_RX; axis < ABS_PRESSURE && !has_joystick_axes_or_buttons; axis++)
                 has_joystick_axes_or_buttons = test_bit(axis, bitmask_abs);
 
