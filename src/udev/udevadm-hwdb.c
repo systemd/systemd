@@ -450,6 +450,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
         FILE *f;
         char line[LINE_MAX];
         struct udev_list match_list;
+        int r = 0, err;
 
         udev_list_init(udev, &match_list, false);
 
@@ -483,6 +484,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 
                         if (line[0] == ' ') {
                                 log_error("Error, MATCH expected but got '%s' in '%s':", line, filename);
+                                r = -EINVAL;
                                 break;
                         }
 
@@ -494,6 +496,7 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
                 case HW_MATCH:
                         if (len == 0) {
                                 log_error("Error, DATA expected but got empty line in '%s':", filename);
+                                r = -EINVAL;
                                 state = HW_NONE;
                                 udev_list_cleanup(&match_list);
                                 break;
@@ -507,7 +510,9 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 
                         /* first data */
                         state = HW_DATA;
-                        insert_data(trie, &match_list, line, filename);
+                        err = insert_data(trie, &match_list, line, filename);
+                        if (err < 0)
+                                r = err;
                         break;
 
                 case HW_DATA:
@@ -520,19 +525,22 @@ static int import_file(struct udev *udev, struct trie *trie, const char *filenam
 
                         if (line[0] != ' ') {
                                 log_error("Error, DATA expected but got '%s' in '%s':", line, filename);
+                                r = -EINVAL;
                                 state = HW_NONE;
                                 udev_list_cleanup(&match_list);
                                 break;
                         }
 
-                        insert_data(trie, &match_list, line, filename);
+                        err = insert_data(trie, &match_list, line, filename);
+                        if (err < 0)
+                                r = err;
                         break;
                 };
         }
 
         fclose(f);
         udev_list_cleanup(&match_list);
-        return 0;
+        return r;
 }
 
 static void help(void) {
@@ -540,6 +548,7 @@ static void help(void) {
                "  -h --help            Print this message\n"
                "  -V --version         Print version of the program\n"
                "  -u --update          Update the hardware database\n"
+               "  -s --strict          When updating, return non-zero exit value on any parsing error\n"
                "     --usr             Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
                "  -t --test=MODALIAS   Query database and print result\n"
                "  -r --root=PATH       Alternative root path in the filesystem\n\n"
@@ -557,6 +566,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         static const struct option options[] = {
                 { "update",  no_argument,       NULL, 'u'     },
                 { "usr",     no_argument,       NULL, ARG_USR },
+                { "strict",  no_argument,       NULL, 's'     },
                 { "test",    required_argument, NULL, 't'     },
                 { "root",    required_argument, NULL, 'r'     },
                 { "version", no_argument,       NULL, 'V'     },
@@ -570,14 +580,18 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
         struct trie *trie = NULL;
         int err, c;
         int rc = EXIT_SUCCESS;
+        bool strict = false;
 
-        while ((c = getopt_long(argc, argv, "ut:r:Vh", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ust:r:Vh", options, NULL)) >= 0)
                 switch(c) {
                 case 'u':
                         update = true;
                         break;
                 case ARG_USR:
                         hwdb_bin_dir = UDEVLIBEXECDIR;
+                        break;
+                case 's':
+                        strict = true;
                         break;
                 case 't':
                         test = optarg;
@@ -635,7 +649,8 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                 }
                 STRV_FOREACH(f, files) {
                         log_debug("reading file '%s'", *f);
-                        import_file(udev, trie, *f);
+                        if (import_file(udev, trie, *f) < 0 && strict)
+                                rc = EXIT_FAILURE;
                 }
                 strv_free(files);
 
