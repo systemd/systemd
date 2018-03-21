@@ -226,11 +226,19 @@ int config_parse_unit_path_printf(
         assert(rvalue);
         assert(u);
 
+        /* Let's not bother with anything that is too long */
+        if (strlen(rvalue) >= PATH_MAX) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "%s value too long%s.",
+                           lvalue, fatal ? "" : ", ignoring");
+                return fatal ? -ENAMETOOLONG : 0;
+        }
+
         r = unit_full_printf(u, rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
-                           "Failed to resolve unit specifiers on %s%s: %m",
-                           fatal ? "" : ", ignoring", rvalue);
+                           "Failed to resolve unit specifiers in \"%s\"%s: %m",
+                           rvalue, fatal ? "" : ", ignoring");
                 return fatal ? -ENOEXEC : 0;
         }
 
