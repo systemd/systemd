@@ -234,9 +234,9 @@ static unsigned get_max_brightness(struct udev_device *device) {
  * an unreadably dim screen, which would otherwise force the user to
  * disable state restoration. */
 static void clamp_brightness(struct udev_device *device, char **value, unsigned max_brightness) {
-        int r;
         unsigned brightness, new_brightness, min_brightness;
         const char *subsystem;
+        int r;
 
         r = safe_atou(*value, &brightness);
         if (r < 0) {
@@ -272,8 +272,8 @@ static void clamp_brightness(struct udev_device *device, char **value, unsigned 
 int main(int argc, char *argv[]) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
-        _cleanup_free_ char *saved = NULL, *ss = NULL, *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
-        const char *sysname, *path_id;
+        _cleanup_free_ char *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
+        const char *sysname, *path_id, *ss, *saved;
         unsigned max_brightness;
         int r;
 
@@ -306,15 +306,11 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        ss = strndup(argv[2], sysname - argv[2]);
-        if (!ss) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
+        ss = strndupa(argv[2], sysname - argv[2]);
 
         sysname++;
 
-        if (!streq(ss, "backlight") && !streq(ss, "leds")) {
+        if (!STR_IN_SET(ss, "backlight", "leds")) {
                 log_error("Not a backlight or LED device: '%s:%s'", ss, sysname);
                 return EXIT_FAILURE;
         }
@@ -358,14 +354,9 @@ int main(int argc, char *argv[]) {
                         return EXIT_FAILURE;
                 }
 
-                saved = strjoin("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname);
+                saved = strjoina("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname);
         } else
-                saved = strjoin("/var/lib/systemd/backlight/", escaped_ss, ":", escaped_sysname);
-
-        if (!saved) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
+                saved = strjoina("/var/lib/systemd/backlight/", escaped_ss, ":", escaped_sysname);
 
         /* If there are multiple conflicting backlight devices, then
          * their probing at boot-time might happen in any order. This
