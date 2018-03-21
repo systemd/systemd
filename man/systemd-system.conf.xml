@@ -157,31 +157,27 @@
         <term><varname>RuntimeWatchdogSec=</varname></term>
         <term><varname>ShutdownWatchdogSec=</varname></term>
 
-        <listitem><para>Configure the hardware watchdog at runtime and
-        at reboot. Takes a timeout value in seconds (or in other time
-        units if suffixed with <literal>ms</literal>,
-        <literal>min</literal>, <literal>h</literal>,
-        <literal>d</literal>, <literal>w</literal>). If
-        <varname>RuntimeWatchdogSec=</varname> is set to a non-zero
-        value, the watchdog hardware
-        (<filename>/dev/watchdog</filename> or the path specified with
-        <varname>WatchdogDevice=</varname> or the kernel option
-        <varname>systemd.watchdog-device=</varname>) will be programmed
-        to automatically reboot the system if it is not contacted within
-        the specified timeout interval. The system manager will ensure
-        to contact it at least once in half the specified timeout
-        interval. This feature requires a hardware watchdog device to
-        be present, as it is commonly the case in embedded and server
-        systems. Not all hardware watchdogs allow configuration of the
-        reboot timeout, in which case the closest available timeout is
-        picked. <varname>ShutdownWatchdogSec=</varname> may be used to
-        configure the hardware watchdog when the system is asked to
-        reboot. It works as a safety net to ensure that the reboot
-        takes place even if a clean reboot attempt times out. By
-        default <varname>RuntimeWatchdogSec=</varname> defaults to 0
-        (off), and <varname>ShutdownWatchdogSec=</varname> to 10min.
-        These settings have no effect if a hardware watchdog is not
-        available.</para></listitem>
+        <listitem><para>Configure the hardware watchdog at runtime and at reboot. Takes a timeout value in seconds (or
+        in other time units if suffixed with <literal>ms</literal>, <literal>min</literal>, <literal>h</literal>,
+        <literal>d</literal>, <literal>w</literal>). If <varname>RuntimeWatchdogSec=</varname> is set to a non-zero
+        value, the watchdog hardware (<filename>/dev/watchdog</filename> or the path specified with
+        <varname>WatchdogDevice=</varname> or the kernel option <varname>systemd.watchdog-device=</varname>) will be
+        programmed to automatically reboot the system if it is not contacted within the specified timeout interval. The
+        system manager will ensure to contact it at least once in half the specified timeout interval. This feature
+        requires a hardware watchdog device to be present, as it is commonly the case in embedded and server
+        systems. Not all hardware watchdogs allow configuration of all possible reboot timeout values, in which case
+        the closest available timeout is picked. <varname>ShutdownWatchdogSec=</varname> may be used to configure the
+        hardware watchdog when the system is asked to reboot. It works as a safety net to ensure that the reboot takes
+        place even if a clean reboot attempt times out. Note that the <varname>ShutdownWatchdogSec=</varname> timeout
+        applies only to the second phase of the reboot, i.e. after all regular services are already terminated, and
+        after the system and service manager process (PID 1) got replaced by the <filename>systemd-shutdown</filename>
+        binary, see system <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details. During the first phase of the shutdown operation the system and service manager remains running
+        and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a timeout on this first
+        phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and <varname>JobTimeoutAction=</varname>
+        in the <literal>[Unit]</literal> section of the <filename>shutdown.target</filename> unit. By default
+        <varname>RuntimeWatchdogSec=</varname> defaults to 0 (off), and <varname>ShutdownWatchdogSec=</varname> to
+        10min. These settings have no effect if a hardware watchdog is not available.</para></listitem>
       </varlistentry>
 
       <varlistentry>
