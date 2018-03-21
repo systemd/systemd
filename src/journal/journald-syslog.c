@@ -125,6 +125,11 @@ static void forward_syslog_raw(Server *s, int priority, const char *buffer, cons
         if (LOG_PRI(priority) > s->max_level_syslog)
                 return;
 
+        if (s->facilities_store) {
+                if (!set_contains(s->facilities_store, UINT_TO_PTR(LOG_FAC(priority))))
+                        return;
+        }
+
         iovec = IOVEC_MAKE_STRING(buffer);
         forward_syslog_iovec(s, &iovec, 1, ucred, tv);
 }
@@ -145,6 +150,11 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
 
         if (LOG_PRI(priority) > s->max_level_syslog)
                 return;
+
+        if (s->facilities_store) {
+                if (!set_contains(s->facilities_store, UINT_TO_PTR(LOG_FAC(priority))))
+                        return;
+        }
 
         /* First: priority field */
         xsprintf(header_priority, "<%i>", priority);

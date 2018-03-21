@@ -946,6 +946,11 @@ void server_dispatch_message(
         if (LOG_PRI(priority) > s->max_level_store)
                 return;
 
+        if (s->facilities_store) {
+                if (!set_contains(s->facilities_store, UINT_TO_PTR(LOG_FAC(priority))))
+                        return;
+        }
+
         /* Stop early in case the information will not be stored
          * in a journal. */
         if (s->storage == STORAGE_NONE)
@@ -1965,7 +1970,142 @@ void server_done(Server *s) {
         if (s->mmap)
                 mmap_cache_unref(s->mmap);
 
+        if (s->facilities_store) {
+                void *m;
+
+                while ((m = set_steal_first(s->facilities_store)))
+                        ;
+
+                s->facilities_store = set_free(s->facilities_store);
+        }
+
+
         udev_unref(s->udev);
+}
+
+
+int config_parse_journal_log_facility(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+
+        _cleanup_free_ const char *p = NULL;
+        Server *s = userdata;
+        bool k = false;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        p = strdup(rvalue);
+        if (!p) {
+                log_oom();
+                return 0;
+        }
+
+        if (*rvalue == '~') {
+                k = true;
+                p = strdup(rvalue + 1);
+        } else
+                p = strdup(rvalue);
+
+        if (!p) {
+                log_oom();
+                return 0;
+        }
+
+        if (s->facilities_store) {
+                void *m;
+
+                while ((m = set_steal_first(s->facilities_store)))
+                        ;
+        } else {
+
+                s->facilities_store = set_new(NULL);
+                if (!s->facilities_store) {
+                        log_oom();
+                        return 0;
+                }
+        }
+
+        if (k) {
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_KERN)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_USER)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_MAIL)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_DAEMON)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_AUTH)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_SYSLOG)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_LPR)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_NEWS)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_UUCP)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_CRON)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_AUTHPRIV)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_FTP)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_LOCAL0)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_LOCAL1)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_LOCAL2)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_LOCAL3)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_LOCAL4)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_LOCAL5)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_LOCAL6)));
+                (void) set_put(s->facilities_store, UINT_TO_PTR(LOG_FAC(LOG_LOCAL7)));
+        }
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                int f;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                f = log_facility_unshifted_from_string(word);
+                if (f < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse log facility, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                if (k) {
+                        if (!set_remove(s->facilities_store, UINT_TO_PTR(f))) {
+                                log_error_errno(r, "Failed to remove log facility: %m");
+                                goto clean;
+                        }
+                } else {
+
+                        r = set_put(s->facilities_store, UINT_TO_PTR(f));
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to add log facility: %m");
+                                goto clean;
+                        }
+                }
+        }
+
+        return 0;
+
+ clean:
+
+        if (s->facilities_store) {
+                void *m;
+
+                while ((m = set_steal_first(s->facilities_store)))
+                        ;
+
+                s->facilities_store = set_free(s->facilities_store);
+        }
+
+        return 0;
 }
 
 static const char* const storage_table[_STORAGE_MAX] = {
