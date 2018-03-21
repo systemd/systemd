@@ -185,7 +185,7 @@ static int open_output(Writer *w, const char* host) {
 
         r = journal_file_open_reliably(output,
                                        O_RDWR|O_CREAT, 0640,
-                                       arg_compress, arg_seal,
+                                       arg_compress, (uint64_t) -1, arg_seal,
                                        &w->metrics,
                                        w->mmap, NULL,
                                        NULL, &w->journal);
@@ -729,7 +729,7 @@ static int setup_microhttpd_server(RemoteServer *s,
         }
 
         r = sd_event_add_time(s->events, &d->timer_event,
-                              CLOCK_MONOTONIC, UINT64_MAX, 0,
+                              CLOCK_MONOTONIC, (uint64_t) -1, 0,
                               null_timer_event_handler, d);
         if (r < 0) {
                 log_error_errno(r, "Failed to add timer_event: %m");

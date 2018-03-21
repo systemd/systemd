@@ -107,10 +107,13 @@
       <varlistentry>
         <term><varname>Compress=</varname></term>
 
-        <listitem><para>Takes a boolean value. If enabled (the
-        default), data objects that shall be stored in the journal and
-        are larger than a certain threshold are compressed before they
-        are written to the file system.</para></listitem>
+        <listitem><para>Can take a boolean value. If enabled (the
+        default), data objects that shall be stored in the journal
+        and are larger than the default threshold of 512 bytes are
+        compressed before they are written to the file system. It
+        can also be set to a number of bytes to specify the
+        compression threshold directly. Suffixes like K, M, and G
+        can be used to specify larger units.</para></listitem>
       </varlistentry>
 
       <varlistentry>
