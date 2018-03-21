@@ -41,11 +41,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         for (;;) {
                 _cleanup_free_ char *l = NULL;
+                const char *ll;
 
                 if (read_line(f, LINE_MAX, &l) <= 0)
                         break;
 
-                if (startswith(l, "ListenNetlink="))
+                ll = l + strspn(l, WHITESPACE);
+
+                if (startswith(ll, "ListenNetlink="))
                         /* ListenNetlink causes a false positive in msan,
                          * let's skip this for now. */
                         return 0;
