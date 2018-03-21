@@ -963,9 +963,6 @@ int bus_socket_exec(sd_bus *b) {
                 if (rearrange_stdio(s[1], s[1], STDERR_FILENO) < 0)
                         _exit(EXIT_FAILURE);
 
-                (void) fd_nonblock(STDIN_FILENO, false);
-                (void) fd_nonblock(STDOUT_FILENO, false);
-
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);
                 else {
