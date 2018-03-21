@@ -27,9 +27,6 @@ Features:
 * add proper dbus APIs for the various sd_notify() commands, such as MAINPID=1
   and so on, which would mean we could report errors and such.
 
-* nss-systemd: implement enumeration, that shows all dynamic users plus the
-  synthesized ones if necessary, so that "getent passwd" shows useful data.
-
 * teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
   project quota
 

@@ -48,6 +48,7 @@ int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds);
 void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds);
 void dynamic_user_vacuum(Manager *m, bool close_user);
 
+int dynamic_user_current(DynamicUser *d, uid_t *ret);
 int dynamic_user_lookup_uid(Manager *m, uid_t uid, char **ret);
 int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret);
 

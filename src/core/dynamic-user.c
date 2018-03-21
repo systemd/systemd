@@ -563,7 +563,7 @@ static int dynamic_user_realize(
         return 0;
 }
 
-static int dynamic_user_current(DynamicUser *d, uid_t *ret) {
+int dynamic_user_current(DynamicUser *d, uid_t *ret) {
         _cleanup_(unlockfp) int storage_socket0_lock = -1;
         _cleanup_close_ int lock_fd = -1;
         uid_t uid;
