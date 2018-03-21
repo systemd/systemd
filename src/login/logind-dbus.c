@@ -658,10 +658,9 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
 
 static int method_create_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
-        uint32_t audit_id = 0;
-        _cleanup_free_ char *unit = NULL;
-        _cleanup_free_ char *id = NULL;
+        _cleanup_free_ char *unit = NULL, *id = NULL;
         Session *session = NULL;
+        uint32_t audit_id = 0;
         Manager *m = userdata;
         User *user = NULL;
         Seat *seat = NULL;
@@ -685,7 +684,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
 
         if (!uid_is_valid(uid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UID");
-        if (leader < 0 || leader == 1)
+        if (leader < 0 || leader == 1 || leader == getpid_cached())
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
         if (isempty(type))
@@ -731,7 +730,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 if (v <= 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot determine VT number from virtual console TTY %s", tty);
 
-                if (!vtnr)
+                if (vtnr == 0)
                         vtnr = (uint32_t) v;
                 else if (vtnr != (uint32_t) v)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified TTY and VT number do not match");
@@ -749,7 +748,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
 
         if (seat) {
                 if (seat_has_vts(seat)) {
-                        if (!vtnr || vtnr > 63)
+                        if (vtnr <= 0 || vtnr > 63)
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "VT number out of range");
                 } else {
                         if (vtnr != 0)
@@ -789,16 +788,13 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         return r;
         }
 
-        /*
-         * Check if we are already in a logind session.  Or if we are in user@.service
-         * which is a special PAM session that avoids creating a logind session.
-         */
-        r = cg_pid_get_unit(leader, &unit);
+        /* Check if we are already in a logind session. Or if we are in user@.service which is a special PAM session
+         * that avoids creating a logind session. */
+        r = manager_get_user_by_pid(m, leader, NULL);
         if (r < 0)
                 return r;
-        if (hashmap_get(m->session_units, unit) ||
-            hashmap_get(m->user_units, unit))
-                return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY, "Already running in a session");
+        if (r > 0)
+                return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY, "Already running in a session or user slice");
 
         /*
          * Old gdm and lightdm start the user-session on the same VT as
@@ -832,9 +828,8 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                  * the audit data and let's better register a new
                  * ID */
                 if (hashmap_get(m->sessions, id)) {
-                        log_warning("Existing logind session ID %s used by new audit session, ignoring", id);
+                        log_warning("Existing logind session ID %s used by new audit session, ignoring.", id);
                         audit_id = AUDIT_SESSION_INVALID;
-
                         id = mfree(id);
                 }
         }
@@ -926,8 +921,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
 
         session->create_message = sd_bus_message_ref(message);
 
-        /* Now, let's wait until the slice unit and stuff got
-         * created. We send the reply back from
+        /* Now, let's wait until the slice unit and stuff got created. We send the reply back from
          * session_send_create_reply(). */
 
         return 1;
