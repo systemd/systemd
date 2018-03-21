@@ -127,6 +127,7 @@ static char *arg_watchdog_device = NULL;
 static char **arg_default_environment = NULL;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX] = {};
 static uint64_t arg_capability_bounding_set = CAP_ALL;
+static bool arg_no_new_privs = false;
 static nsec_t arg_timer_slack_nsec = NSEC_INFINITY;
 static usec_t arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
 static Set* arg_syscall_archs = NULL;
@@ -671,6 +672,7 @@ static int parse_config_file(void) {
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
                 { "Manager", "WatchdogDevice",            config_parse_path,             0, &arg_watchdog_device                   },
                 { "Manager", "CapabilityBoundingSet",     config_parse_capability_set,   0, &arg_capability_bounding_set           },
+                { "Manager", "NoNewPrivileges",           config_parse_bool,             0, &arg_no_new_privs                      },
 #if HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",   config_parse_syscall_archs,    0, &arg_syscall_archs                     },
 #endif
@@ -1862,6 +1864,13 @@ static int initialize_runtime(
                 if (r < 0) {
                         *ret_error_message = "Failed to drop capability bounding set";
                         return log_emergency_errno(r, "Failed to drop capability bounding set: %m");
+                }
+        }
+
+        if (arg_system && arg_no_new_privs) {
+                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
+                        *ret_error_message = "Failed to disable new privileges";
+                        return log_emergency_errno(errno, "Failed to disable new privileges: %m");
                 }
         }
 
