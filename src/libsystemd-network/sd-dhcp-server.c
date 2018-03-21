@@ -776,8 +776,9 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                 if (!server->bound_leases[next_offer]) {
                                         address = server->subnet | htobe32(server->pool_offset + next_offer);
                                         break;
-                                } else
-                                        next_offer = (next_offer + 1) % server->pool_size;
+                                }
+
+                                next_offer = (next_offer + 1) % server->pool_size;
                         }
                 }
 
@@ -985,7 +986,8 @@ static int server_receive_message(sd_event_source *s, int fd,
                         return 0;
 
                 return -errno;
-        } else if ((size_t)len < sizeof(DHCPMessage))
+        }
+        if ((size_t)len < sizeof(DHCPMessage))
                 return 0;
 
         CMSG_FOREACH(cmsg, &msg) {
@@ -1069,8 +1071,8 @@ int sd_dhcp_server_forcerenew(sd_dhcp_server *server) {
                                            lease->chaddr);
                 if (r < 0)
                         return r;
-                else
-                        log_dhcp_server(server, "FORCERENEW");
+
+                log_dhcp_server(server, "FORCERENEW");
         }
 
         return r;
