@@ -313,7 +313,6 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         };
         struct cmsghdr *cmsg;
         struct in_pktinfo *pktinfo;
-        int r;
 
         assert(server);
         assert(server->fd >= 0);
@@ -337,8 +336,7 @@ static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
         pktinfo->ipi_ifindex = server->ifindex;
         pktinfo->ipi_spec_dst.s_addr = server->address;
 
-        r = sendmsg(server->fd, &msg, 0);
-        if (r < 0)
+        if (sendmsg(server->fd, &msg, 0) < 0)
                 return -errno;
 
         return 0;
