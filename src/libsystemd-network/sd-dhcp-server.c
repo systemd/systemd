@@ -942,12 +942,10 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         server->bound_leases[pool_offset] = NULL;
                         hashmap_remove(server->leases_by_client_id, existing_lease);
                         dhcp_lease_free(existing_lease);
+                }
 
-                        return 1;
-                } else
-                        return 0;
-        }
-        }
+                return 0;
+        }}
 
         return 0;
 }
