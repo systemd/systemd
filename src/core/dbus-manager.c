@@ -1798,6 +1798,50 @@ static int method_lookup_dynamic_user_by_uid(sd_bus_message *message, void *user
         return sd_bus_reply_method_return(message, "s", name);
 }
 
+static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Manager *m = userdata;
+        DynamicUser *d;
+        Iterator i;
+        int r;
+
+        assert(message);
+        assert(m);
+
+        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Dynamic users are only supported in the system instance.");
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(us)");
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH(d, m->dynamic_users, i) {
+                uid_t uid;
+
+                r = dynamic_user_current(d, &uid);
+                if (r == -EAGAIN) /* not realized yet? */
+                        continue;
+                if (r < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Failed to lookup a dynamic user.");
+
+                r = sd_bus_message_append(reply, "(us)", uid, d->name);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states, char **patterns) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = userdata;
@@ -2572,6 +2616,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("SetExitCode", "y", NULL, method_set_exit_code, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("LookupDynamicUserByName", "s", "u", method_lookup_dynamic_user_by_name, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("LookupDynamicUserByUID", "u", "s", method_lookup_dynamic_user_by_uid, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetDynamicUsers", NULL, "a(us)", method_get_dynamic_users, SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_SIGNAL("UnitNew", "so", 0),
         SD_BUS_SIGNAL("UnitRemoved", "so", 0),
