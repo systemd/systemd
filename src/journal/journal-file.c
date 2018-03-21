@@ -470,9 +470,6 @@ static int journal_file_refresh_header(JournalFile *f) {
         if (r < 0)
                 return r;
 
-        if (sd_id128_equal(boot_id, f->header->boot_id))
-                f->tail_entry_monotonic_valid = true;
-
         f->header->boot_id = boot_id;
 
         r = journal_file_set_online(f);
@@ -1796,8 +1793,6 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
 
         f->header->tail_entry_realtime = o->entry.realtime;
         f->header->tail_entry_monotonic = o->entry.monotonic;
-
-        f->tail_entry_monotonic_valid = true;
 
         /* Link up the items */
         n = journal_file_entry_n_items(o);
