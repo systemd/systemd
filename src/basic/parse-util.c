@@ -371,12 +371,13 @@ finish:
 
 }
 
-int safe_atou(const char *s, unsigned *ret_u) {
+int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
         char *x = NULL;
         unsigned long l;
 
         assert(s);
         assert(ret_u);
+        assert(base <= 16);
 
         /* strtoul() is happy to parse negative values, and silently
          * converts them to unsigned values without generating an
@@ -389,7 +390,7 @@ int safe_atou(const char *s, unsigned *ret_u) {
         s += strspn(s, WHITESPACE);
 
         errno = 0;
-        l = strtoul(s, &x, 0);
+        l = strtoul(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)

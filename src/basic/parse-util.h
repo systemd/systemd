@@ -44,7 +44,12 @@ int parse_syscall_and_errno(const char *in, char **name, int *error);
 #define FORMAT_BYTES_MAX 8
 char *format_bytes(char *buf, size_t l, uint64_t t);
 
-int safe_atou(const char *s, unsigned *ret_u);
+int safe_atou_full(const char *s, unsigned base, unsigned *ret_u);
+
+static inline int safe_atou(const char *s, unsigned *ret_u) {
+        return safe_atou_full(s, 0, ret_u);
+}
+
 int safe_atoi(const char *s, int *ret_i);
 int safe_atollu(const char *s, unsigned long long *ret_u);
 int safe_atolli(const char *s, long long int *ret_i);
