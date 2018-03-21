@@ -108,7 +108,12 @@ not_found:
 #endif
 }
 
-int dissect_image(int fd, const void *root_hash, size_t root_hash_size, DissectImageFlags flags, DissectedImage **ret) {
+int dissect_image(
+                int fd,
+                const void *root_hash,
+                size_t root_hash_size,
+                DissectImageFlags flags,
+                DissectedImage **ret) {
 
 #if HAVE_BLKID
         sd_id128_t root_uuid = SD_ID128_NULL, verity_uuid = SD_ID128_NULL;
@@ -1377,6 +1382,55 @@ finish:
                 safe_close_pair(fds + 2*k);
 
         return r;
+}
+
+int dissect_image_and_warn(
+                int fd,
+                const char *name,
+                const void *root_hash,
+                size_t root_hash_size,
+                DissectImageFlags flags,
+                DissectedImage **ret) {
+
+        _cleanup_free_ char *buffer = NULL;
+        int r;
+
+        if (!name) {
+                r = fd_get_path(fd, &buffer);
+                if (r < 0)
+                        return r;
+
+                name = buffer;
+        }
+
+        r = dissect_image(fd, root_hash, root_hash_size, flags, ret);
+
+        switch (r) {
+
+        case -EOPNOTSUPP:
+                return log_error_errno(r, "Dissecting images is not supported, compiled without blkid support.");
+
+        case -ENOPKG:
+                return log_error_errno(r, "Couldn't identify a suitable partition table or file system in '%s'.", name);
+
+        case -EADDRNOTAVAIL:
+                return log_error_errno(r, "No root partition for specified root hash found in '%s'.", name);
+
+        case -ENOTUNIQ:
+                return log_error_errno(r, "Multiple suitable root partitions found in image '%s'.", name);
+
+        case -ENXIO:
+                return log_error_errno(r, "No suitable root partition found in image '%s'.", name);
+
+        case -EPROTONOSUPPORT:
+                return log_error_errno(r, "Device '%s' is loopback block device with partition scanning turned off, please turn it on.", name);
+
+        default:
+                if (r < 0)
+                        return log_error_errno(r, "Failed to dissect image '%s': %m", name);
+
+                return r;
+        }
 }
 
 static const char *const partition_designator_table[] = {

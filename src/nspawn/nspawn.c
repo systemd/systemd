@@ -4054,14 +4054,14 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = dissect_image(
+                r = dissect_image_and_warn(
                                 loop->fd,
+                                arg_image,
                                 arg_root_hash, arg_root_hash_size,
                                 DISSECT_IMAGE_REQUIRE_ROOT,
                                 &dissected_image);
                 if (r == -ENOPKG) {
-                        log_error_errno(r, "Could not find a suitable file system or partition table in image: %s", arg_image);
-
+                        /* dissected_image_and_warn() already printed a brief error message. Extend on that with more details */
                         log_notice("Note that the disk image needs to\n"
                                    "    a) either contain only a single MBR partition of type 0x83 that is marked bootable\n"
                                    "    b) or contain a single GPT partition of type 0FC63DAF-8483-4772-8E79-3D69D8477DE4\n"
@@ -4070,22 +4070,8 @@ int main(int argc, char *argv[]) {
                                    "in order to be bootable with systemd-nspawn.");
                         goto finish;
                 }
-                if (r == -EADDRNOTAVAIL) {
-                        log_error_errno(r, "No root partition for specified root hash found.");
+                if (r < 0)
                         goto finish;
-                }
-                if (r == -EOPNOTSUPP) {
-                        log_error_errno(r, "--image= is not supported, compiled without blkid support.");
-                        goto finish;
-                }
-                if (r == -EPROTONOSUPPORT) {
-                        log_error_errno(r, "Device is loopback block device with partition scanning turned off, please turn it on.");
-                        goto finish;
-                }
-                if (r < 0) {
-                        log_error_errno(r, "Failed to dissect image: %m");
-                        goto finish;
-                }
 
                 if (!arg_root_hash && dissected_image->can_verity)
                         log_notice("Note: image %s contains verity information, but no root hash specified! Proceeding without integrity checking.", arg_image);
