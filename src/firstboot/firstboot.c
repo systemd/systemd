@@ -20,7 +20,6 @@
 
 #include <fcntl.h>
 #include <getopt.h>
-#include <shadow.h>
 #include <unistd.h>
 
 #ifdef HAVE_CRYPT_H
@@ -586,6 +585,8 @@ static int prompt_root_password(void) {
 
 static int write_root_shadow(const char *path, const struct spwd *p) {
         _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
         assert(path);
         assert(p);
 
@@ -594,9 +595,9 @@ static int write_root_shadow(const char *path, const struct spwd *p) {
         if (!f)
                 return -errno;
 
-        errno = 0;
-        if (putspent(p, f) != 0)
-                return errno > 0 ? -errno : -EIO;
+        r = putspent_sane(p, f);
+        if (r < 0)
+                return r;
 
         return fflush_sync_and_check(f);
 }
