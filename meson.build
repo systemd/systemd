@@ -1303,6 +1303,7 @@ includes = include_directories('src/basic',
                                'src/journal',
                                'src/resolve',
                                'src/timesync',
+                               'src/time-wait-sync',
                                'src/login',
                                'src/udev',
                                'src/libudev',
@@ -1882,6 +1883,14 @@ if conf.get('ENABLE_TIMESYNCD') == 1
                    link_with : [libshared],
                    dependencies : [threads,
                                    libm],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+
+        executable('systemd-time-wait-sync',
+                   'src/time-wait-sync/time-wait-sync.c',
+                   include_directories : includes,
+                   link_with : [libshared],
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)

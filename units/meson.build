@@ -210,6 +210,8 @@ in_units = [
          'dbus-org.freedesktop.timedate1.service'],
         ['systemd-timesyncd.service',            'ENABLE_TIMESYNCD',
          join_paths(pkgsysconfdir, 'system/sysinit.target.wants/')],
+        ['systemd-time-wait-sync.service', '',
+         join_paths(pkgsysconfdir, 'system/sysinit.target.wants/')],
         ['systemd-tmpfiles-clean.service',       'ENABLE_TMPFILES'],
         ['systemd-tmpfiles-setup-dev.service',   'ENABLE_TMPFILES',
          'sysinit.target.wants/'],
