@@ -3221,6 +3221,9 @@ int manager_reload(Manager *m) {
 
         exec_runtime_vacuum(m);
 
+        assert(m->n_reloading > 0);
+        m->n_reloading--;
+
         /* It might be safe to log to the journal now and connect to dbus */
         manager_recheck_journal(m);
         manager_recheck_dbus(m);
@@ -3229,9 +3232,6 @@ int manager_reload(Manager *m) {
         q = manager_enqueue_sync_bus_names(m);
         if (q < 0 && r >= 0)
                 r = q;
-
-        assert(m->n_reloading > 0);
-        m->n_reloading--;
 
         m->send_reloading_done = true;
 
@@ -3596,6 +3596,9 @@ void manager_recheck_dbus(Manager *m) {
          * connection of the API bus). That's because the system bus after all runs as service of the system instance,
          * while in the user instance we can assume it's already there. */
 
+        if (MANAGER_IS_RELOADING(m))
+                return; /* don't check while we are reloading… */
+
         if (manager_dbus_is_running(m, false)) {
                 (void) bus_init_api(m);
 
@@ -3644,6 +3647,10 @@ void manager_recheck_journal(Manager *m) {
 
         /* Don't bother with this unless we are in the special situation of being PID 1 */
         if (getpid_cached() != 1)
+                return;
+
+        /* Don't check this while we are reloading, things might still change */
+        if (MANAGER_IS_RELOADING(m))
                 return;
 
         /* The journal is fully and entirely up? If so, let's permit logging to it, if that's configured. If the
