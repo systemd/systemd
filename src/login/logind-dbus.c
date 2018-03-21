@@ -3088,13 +3088,8 @@ int manager_start_scope(
                         return r;
         }
 
-        /* cgroup empty notification is not available in containers
-         * currently. To make this less problematic, let's shorten the
-         * stop timeout for sessions, so that we don't wait
-         * forever. */
-
-        /* Make sure that the session shells are terminated with
-         * SIGHUP since bash and friends tend to ignore SIGTERM */
+        /* Make sure that the session shells are terminated with SIGHUP since bash and friends tend to ignore
+         * SIGTERM */
         r = sd_bus_message_append(m, "(sv)", "SendSIGHUP", "b", true);
         if (r < 0)
                 return r;
