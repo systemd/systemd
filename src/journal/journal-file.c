@@ -2183,7 +2183,7 @@ static int generic_array_bisect(
         a = first;
 
         ci = ordered_hashmap_get(f->chain_cache, &first);
-        if (ci && n > ci->total) {
+        if (ci && n > ci->total && ci->begin != 0) {
                 /* Ah, we have iterated this bisection array chain
                  * previously! Let's see if we can skip ahead in the
                  * chain, as far as the last time. But we can't jump
