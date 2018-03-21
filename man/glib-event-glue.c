@@ -2,6 +2,8 @@
 /* Copyright 2014 Tom Gundersen */
 
 #include <stdlib.h>
+#include <glib.h>
+#include <systemd/sd-event.h>
 
 typedef struct SDEventSource {
   GSource source;
