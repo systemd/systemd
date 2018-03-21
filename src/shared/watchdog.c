@@ -54,7 +54,7 @@ static int update_timeout(void) {
                 int sec, flags;
                 char buf[FORMAT_TIMESPAN_MAX];
 
-                sec = (int) ((watchdog_timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
+                sec = (int) DIV_ROUND_UP(watchdog_timeout, USEC_PER_SEC);
                 r = ioctl(watchdog_fd, WDIOC_SETTIMEOUT, &sec);
                 if (r < 0)
                         return log_warning_errno(errno, "Failed to set timeout to %is: %m", sec);

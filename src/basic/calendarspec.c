@@ -1175,7 +1175,7 @@ static int find_matching_component(const CalendarSpec *spec, const CalendarCompo
                 } else if (c->repeat > 0) {
                         int k;
 
-                        k = start + c->repeat * ((*val - start + c->repeat - 1) / c->repeat);
+                        k = start + c->repeat * DIV_ROUND_UP(*val - start, c->repeat);
 
                         if ((!d_set || k < d) && (stop < 0 || k <= stop)) {
                                 d = k;

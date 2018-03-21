@@ -116,7 +116,7 @@ static int do_execute(
          * default action terminating the process, and turn on alarm(). */
 
         if (timeout != USEC_INFINITY)
-                alarm((timeout + USEC_PER_SEC - 1) / USEC_PER_SEC);
+                alarm(DIV_ROUND_UP(timeout, USEC_PER_SEC));
 
         STRV_FOREACH(path, paths) {
                 _cleanup_free_ char *t = NULL;
