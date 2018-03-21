@@ -964,6 +964,7 @@ static int server_receive_message(sd_event_source *s, int fd,
         };
         struct cmsghdr *cmsg;
         ssize_t buflen, len;
+        int r;
 
         assert(server);
 
@@ -1003,7 +1004,11 @@ static int server_receive_message(sd_event_source *s, int fd,
                 }
         }
 
-        return dhcp_server_handle_message(server, message, (size_t)len);
+        r = dhcp_server_handle_message(server, message, (size_t) len);
+        if (r < 0)
+                log_dhcp_server_errno(server, r, "Couldn't process incoming message: %m");
+
+        return 0;
 }
 
 int sd_dhcp_server_start(sd_dhcp_server *server) {
