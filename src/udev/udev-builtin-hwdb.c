@@ -73,9 +73,9 @@ static const char *modalias_usb(struct udev_device *dev, char *s, size_t size) {
         if (!p)
                 return NULL;
         if (safe_atoux16(v, &vn) < 0)
-		return NULL;
+                return NULL;
         if (safe_atoux16(p, &pn) < 0)
-		return NULL;
+                return NULL;
         snprintf(s, size, "usb:v%04Xp%04X*", vn, pn);
         return s;
 }

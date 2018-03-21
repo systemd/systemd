@@ -367,7 +367,7 @@ int detect_vm(void) {
          * because we're not an x86 guest), then we should try the /proc/xen
          * directory next. If that's not found, then we check for the high-level
          * hypervisor sysfs file.
-	 */
+         */
 
         r = detect_vm_xen();
         if (r < 0)
