@@ -240,7 +240,7 @@ static char *sysv_translate_name(const char *name) {
         if (res)
                 *res = 0;
 
-        if (unit_name_mangle(c, UNIT_NAME_NOGLOB, &res) < 0)
+        if (unit_name_mangle(c, 0, &res) < 0)
                 return NULL;
 
         return res;

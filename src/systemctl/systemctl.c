@@ -1810,7 +1810,7 @@ static int list_dependencies(int argc, char *argv[], void *userdata) {
         int r;
 
         if (argv[1]) {
-                r = unit_name_mangle(argv[1], UNIT_NAME_NOGLOB, &unit);
+                r = unit_name_mangle(argv[1], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, &unit);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle unit name: %m");
 
@@ -2116,7 +2116,7 @@ static int set_default(int argc, char *argv[], void *userdata) {
         assert(argc >= 2);
         assert(argv);
 
-        r = unit_name_mangle_with_suffix(argv[1], UNIT_NAME_NOGLOB, ".target", &unit);
+        r = unit_name_mangle_with_suffix(argv[1], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, ".target", &unit);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
@@ -2663,7 +2663,7 @@ static int check_triggering_units(
         char **i;
         int r;
 
-        r = unit_name_mangle(name, UNIT_NAME_NOGLOB, &n);
+        r = unit_name_mangle(name, 0, &n);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
@@ -2949,11 +2949,12 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
 
         STRV_FOREACH(name, names) {
                 char *t;
+                UnitNameMangle options = UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN);
 
                 if (suffix)
-                        r = unit_name_mangle_with_suffix(*name, UNIT_NAME_GLOB, suffix, &t);
+                        r = unit_name_mangle_with_suffix(*name, options, suffix, &t);
                 else
-                        r = unit_name_mangle(*name, UNIT_NAME_GLOB, &t);
+                        r = unit_name_mangle(*name, options, &t);
                 if (r < 0)
                         return log_error_errno(r, "Failed to mangle name: %m");
 
@@ -5422,7 +5423,7 @@ static int set_property(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = unit_name_mangle(argv[1], UNIT_NAME_NOGLOB, &n);
+        r = unit_name_mangle(argv[1], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, &n);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
@@ -6000,7 +6001,7 @@ static int mangle_names(char **original_names, char ***mangled_names) {
                                 return log_oom();
                         }
                 } else {
-                        r = unit_name_mangle(*name, UNIT_NAME_NOGLOB, i);
+                        r = unit_name_mangle(*name, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, i);
                         if (r < 0) {
                                 *i = NULL;
                                 strv_free(l);
@@ -6336,7 +6337,7 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
         if (!argv[1])
                 return 0;
 
-        r = unit_name_mangle_with_suffix(argv[1], UNIT_NAME_NOGLOB, ".target", &target);
+        r = unit_name_mangle_with_suffix(argv[1], arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, ".target", &target);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 

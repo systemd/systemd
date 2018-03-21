@@ -1539,7 +1539,7 @@ static int add_units(sd_journal *j) {
         STRV_FOREACH(i, arg_system_units) {
                 _cleanup_free_ char *u = NULL;
 
-                r = unit_name_mangle(*i, UNIT_NAME_GLOB, &u);
+                r = unit_name_mangle(*i, UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN), &u);
                 if (r < 0)
                         return r;
 
@@ -1584,7 +1584,7 @@ static int add_units(sd_journal *j) {
         STRV_FOREACH(i, arg_user_units) {
                 _cleanup_free_ char *u = NULL;
 
-                r = unit_name_mangle(*i, UNIT_NAME_GLOB, &u);
+                r = unit_name_mangle(*i, UNIT_NAME_MANGLE_GLOB | (arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN), &u);
                 if (r < 0)
                         return r;
 

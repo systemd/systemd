@@ -237,7 +237,7 @@ static int write_dependency(FILE *f, const char *opts,
         STRV_FOREACH(s, names) {
                 char *x;
 
-                r = unit_name_mangle_with_suffix(*s, UNIT_NAME_NOGLOB, ".mount", &x);
+                r = unit_name_mangle_with_suffix(*s, 0, ".mount", &x);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate unit name: %m");
                 r = strv_consume(&units, x);
