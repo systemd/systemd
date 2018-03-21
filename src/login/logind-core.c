@@ -282,7 +282,7 @@ int manager_process_button_device(Manager *m, struct udev_device *d) {
         return 0;
 }
 
-int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
+int manager_get_session_by_pid(Manager *m, pid_t pid, Session **ret) {
         _cleanup_free_ char *unit = NULL;
         Session *s;
         int r;
@@ -294,38 +294,51 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
 
         r = cg_pid_get_unit(pid, &unit);
         if (r < 0)
-                return 0;
+                goto not_found;
 
         s = hashmap_get(m->session_units, unit);
         if (!s)
-                return 0;
+                goto not_found;
 
-        if (session)
-                *session = s;
+        if (ret)
+                *ret = s;
+
         return 1;
+
+not_found:
+        if (ret)
+                *ret = NULL;
+        return 0;
 }
 
-int manager_get_user_by_pid(Manager *m, pid_t pid, User **user) {
+int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
         _cleanup_free_ char *unit = NULL;
         User *u;
         int r;
 
         assert(m);
-        assert(user);
 
         if (!pid_is_valid(pid))
                 return -EINVAL;
 
         r = cg_pid_get_slice(pid, &unit);
         if (r < 0)
-                return 0;
+                goto not_found;
 
         u = hashmap_get(m->user_units, unit);
         if (!u)
-                return 0;
+                goto not_found;
 
-        *user = u;
+        if (ret)
+                *ret = u;
+
         return 1;
+
+not_found:
+        if (ret)
+                *ret = NULL;
+
+        return 0;
 }
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
