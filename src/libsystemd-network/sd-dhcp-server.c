@@ -786,18 +786,12 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         return 0;
 
                 r = server_send_offer(server, req, address);
-                if (r < 0) {
+                if (r < 0)
                         /* this only fails on critical errors */
-                        log_dhcp_server(server, "could not send offer: %s",
-                                        strerror(-r));
-                        return r;
-                } else {
-                        log_dhcp_server(server, "OFFER (0x%x)",
-                                        be32toh(req->message->xid));
-                        return DHCP_OFFER;
-                }
+                        return log_dhcp_server_errno(server, r, "Could not send offer: %m");
 
-                break;
+                log_dhcp_server(server, "OFFER (0x%x)", be32toh(req->message->xid));
+                return DHCP_OFFER;
         }
         case DHCP_DECLINE:
                 log_dhcp_server(server, "DECLINE (0x%x): %s", be32toh(req->message->xid), strna(error_message));
@@ -897,8 +891,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                         r = server_send_ack(server, req, address);
                         if (r < 0) {
                                 /* this only fails on critical errors */
-                                log_dhcp_server(server, "could not send ack: %s",
-                                                strerror(-r));
+                                log_dhcp_server_errno(server, r, "Could not send ack: %m");
 
                                 if (!existing_lease)
                                         dhcp_lease_free(lease);
@@ -914,18 +907,15 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
 
                                 return DHCP_ACK;
                         }
+
                 } else if (init_reboot) {
                         r = server_send_nak(server, req);
-                        if (r < 0) {
+                        if (r < 0)
                                 /* this only fails on critical errors */
-                                log_dhcp_server(server, "could not send nak: %s",
-                                                strerror(-r));
-                                return r;
-                        } else {
-                                log_dhcp_server(server, "NAK (0x%x)",
-                                                be32toh(req->message->xid));
-                                return DHCP_NAK;
-                        }
+                                return log_dhcp_server_errno(server, r, "Could not send nak: %m");
+
+                        log_dhcp_server(server, "NAK (0x%x)", be32toh(req->message->xid));
+                        return DHCP_NAK;
                 }
 
                 break;
