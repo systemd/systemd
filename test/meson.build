@@ -158,13 +158,18 @@ test_data_files = '''
         test-path/path-unit.path
         test-path/paths.target
         test-path/sysinit.target
-        testsuite.target
-        timers.target
-        unstoppable.service
         test-umount/empty.mountinfo
+        test-umount/example.swaps
         test-umount/garbled.mountinfo
         test-umount/rhbug-1554943.mountinfo
-        test-umount/example.swaps
+        testsuite.target
+        timers.target
+        unit-with-.service.d/20-override.conf
+        unit-with-multiple-.service.d/20-override.conf
+        unit-with-multiple-.service.d/30-override.conf
+        unit-with-multiple-dashes.service
+        unit-with-multiple-dashes.service.d/10-override.conf
+        unstoppable.service
 '''.split()
 
 if conf.get('ENABLE_RESOLVE') == 1
