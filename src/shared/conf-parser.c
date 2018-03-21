@@ -165,7 +165,7 @@ static int next_assignment(
         return 0;
 }
 
-/* Parse a variable assignment line */
+/* Parse a single logical line */
 static int parse_line(
                 const char* unit,
                 const char *filename,
