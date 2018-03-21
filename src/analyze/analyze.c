@@ -131,13 +131,24 @@ struct host_info {
         char *architecture;
 };
 
-static int acquire_bus(bool need_full_bus, sd_bus **bus) {
+
+static int acquire_systemd_bus(sd_bus **bus) {
         bool user = arg_scope != UNIT_FILE_SYSTEM;
 
-        if (need_full_bus)
-                return bus_connect_transport(arg_transport, arg_host, user, bus);
-        else
-                return bus_connect_transport_systemd(arg_transport, arg_host, user, bus);
+        return bus_connect_transport_systemd(arg_transport, arg_host, user, bus);
+}
+
+static int acquire_full_bus(bool *use_full_bus, sd_bus **bus) {
+        bool user = arg_scope != UNIT_FILE_SYSTEM;
+
+        if (*use_full_bus) {
+                if (bus_connect_transport(arg_transport, arg_host, user, bus) == 0)
+                        return 0;
+
+                *use_full_bus = false;
+        }
+
+        return acquire_systemd_bus(bus);
 }
 
 static int bus_get_uint64_property(sd_bus *bus, const char *path, const char *interface, const char *property, uint64_t *val) {
@@ -600,11 +611,12 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         struct unit_times *times;
         struct boot_times *boot;
         int n, m = 1, y = 0, r;
+        bool use_full_bus = true;
         double width;
         _cleanup_free_ char *pretty_times = NULL;
         struct unit_times *u;
 
-        r = acquire_bus(true, &bus);
+        r = acquire_full_bus(&use_full_bus, &bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
@@ -616,9 +628,11 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         if (n < 0)
                 return n;
 
-        n = acquire_host_info(bus, &host);
-        if (n < 0)
-                return n;
+        if (use_full_bus) {
+                n = acquire_host_info(bus, &host);
+                if (n < 0)
+                        return n;
+        }
 
         n = acquire_time_data(bus, &times);
         if (n <= 0)
@@ -716,14 +730,15 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
 
         svg("<rect class=\"background\" width=\"100%%\" height=\"100%%\" />\n");
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
-        svg("<text x=\"20\" y=\"30\">%s %s (%s %s %s) %s %s</text>",
-            isempty(host->os_pretty_name) ? "Linux" : host->os_pretty_name,
-            strempty(host->hostname),
-            strempty(host->kernel_name),
-            strempty(host->kernel_release),
-            strempty(host->kernel_version),
-            strempty(host->architecture),
-            strempty(host->virtualization));
+        if (use_full_bus)
+                svg("<text x=\"20\" y=\"30\">%s %s (%s %s %s) %s %s</text>",
+                    isempty(host->os_pretty_name) ? "Linux" : host->os_pretty_name,
+                    strempty(host->hostname),
+                    strempty(host->kernel_name),
+                    strempty(host->kernel_release),
+                    strempty(host->kernel_version),
+                    strempty(host->architecture),
+                    strempty(host->virtualization));
 
         svg("<g transform=\"translate(%.3f,100)\">\n", 20.0 + (SCALE_X * boot->firmware_time));
         svg_graph_box(m, -(double) boot->firmware_time, boot->finish_time);
@@ -1010,7 +1025,7 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
         Hashmap *h;
         int n, r;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_systemd_bus(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
@@ -1052,7 +1067,7 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
         unsigned i;
         int n, r;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_systemd_bus(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
@@ -1080,7 +1095,7 @@ static int analyze_time(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *buf = NULL;
         int r;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_systemd_bus(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
@@ -1214,7 +1229,7 @@ static int dot(int argc, char *argv[], void *userdata) {
         int r;
         UnitInfo u;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_systemd_bus(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
@@ -1281,7 +1296,7 @@ static int dump(int argc, char *argv[], void *userdata) {
         const char *text = NULL;
         int r;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_systemd_bus(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
@@ -1315,7 +1330,7 @@ static int set_log_level(int argc, char *argv[], void *userdata) {
         assert(argc == 2);
         assert(argv);
 
-        r = acquire_bus(false, &bus);
+        r = acquire_systemd_bus(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
@@ -1340,7 +1355,7 @@ static int get_log_level(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *level = NULL;
         int r;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_systemd_bus(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
@@ -1371,7 +1386,7 @@ static int set_log_target(int argc, char *argv[], void *userdata) {
         assert(argc == 2);
         assert(argv);
 
-        r = acquire_bus(false, &bus);
+        r = acquire_systemd_bus(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
@@ -1396,7 +1411,7 @@ static int get_log_target(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *target = NULL;
         int r;
 
-        r = acquire_bus(false, &bus);
+        r = acquire_systemd_bus(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
@@ -1558,7 +1573,7 @@ static int service_watchdogs(int argc, char *argv[], void *userdata) {
         assert(IN_SET(argc, 1, 2));
         assert(argv);
 
-        r = acquire_bus(false, &bus);
+        r = acquire_systemd_bus(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to create bus connection: %m");
 
