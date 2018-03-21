@@ -1012,8 +1012,8 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
         assert_return(server, -EINVAL);
         assert_return(server->event, -EINVAL);
         assert_return(!server->receive_message, -EBUSY);
-        assert_return(server->fd_raw == -1, -EBUSY);
-        assert_return(server->fd == -1, -EBUSY);
+        assert_return(server->fd_raw < 0, -EBUSY);
+        assert_return(server->fd < 0, -EBUSY);
         assert_return(server->address != htobe32(INADDR_ANY), -EUNATCH);
 
         r = socket(AF_PACKET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
