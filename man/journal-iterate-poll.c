@@ -1,11 +1,13 @@
 #include <poll.h>
+#include <time.h>
 #include <systemd/sd-journal.h>
 
 int wait_for_changes(sd_journal *j) {
-  struct pollfd pollfd;
+  uint64_t t;
   int msec;
+  struct pollfd pollfd;
 
-  sd_journal_get_timeout(m, &t);
+  sd_journal_get_timeout(j, &t);
   if (t == (uint64_t) -1)
     msec = -1;
   else {
