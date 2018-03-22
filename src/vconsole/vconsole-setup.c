@@ -129,7 +129,6 @@ static int toggle_utf8_sysfs(bool utf8) {
 }
 
 static int keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
-        _cleanup_free_ char *cmd = NULL;
         const char *args[8];
         unsigned i = 0;
         pid_t pid;
@@ -150,8 +149,12 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
                 args[i++] = map_toggle;
         args[i++] = NULL;
 
-        log_debug("Executing \"%s\"...",
-                  strnull((cmd = strv_join((char**) args, " "))));
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *cmd;
+
+                cmd = strv_join((char**) args, " ");
+                log_debug("Executing \"%s\"...", strnull(cmd));
+        }
 
         r = safe_fork("(loadkeys)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
         if (r < 0)
@@ -165,7 +168,6 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
 }
 
 static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
-        _cleanup_free_ char *cmd = NULL;
         const char *args[9];
         unsigned i = 0;
         pid_t pid;
@@ -190,8 +192,12 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
                 args[i++] = font;
         args[i++] = NULL;
 
-        log_debug("Executing \"%s\"...",
-                  strnull((cmd = strv_join((char**) args, " "))));
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *cmd;
+
+                cmd = strv_join((char**) args, " ");
+                log_debug("Executing \"%s\"...", strnull(cmd));
+        }
 
         r = safe_fork("(setfont)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
         if (r < 0)
