@@ -325,8 +325,7 @@ _public_ int sd_uid_get_display(uid_t uid, char **session) {
         if (isempty(s))
                 return -ENODATA;
 
-        *session = s;
-        s = NULL;
+        *session = TAKE_PTR(s);
 
         return 0;
 }
@@ -355,8 +354,7 @@ static int file_of_seat(const char *seat, char **_p) {
         if (!p)
                 return -ENOMEM;
 
-        *_p = p;
-        p = NULL;
+        *_p = TAKE_PTR(p);
         return 0;
 }
 
@@ -529,8 +527,7 @@ _public_ int sd_session_get_state(const char *session, char **state) {
         if (isempty(s))
                 return -EIO;
 
-        *state = s;
-        s = NULL;
+        *state = TAKE_PTR(s);
 
         return 0;
 }
@@ -575,8 +572,7 @@ static int session_get_string(const char *session, const char *field, char **val
         if (isempty(s))
                 return -ENODATA;
 
-        *value = s;
-        s = NULL;
+        *value = TAKE_PTR(s);
         return 0;
 }
 
@@ -681,10 +677,8 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
                         return r;
         }
 
-        if (session && s) {
-                *session = s;
-                s = NULL;
-        }
+        if (session && s)
+                *session = TAKE_PTR(s);
 
         return 0;
 }
@@ -909,10 +903,9 @@ _public_ int sd_get_machine_names(char ***machines) {
                 *b = NULL;
         }
 
-        if (machines) {
-                *machines = l;
-                l = NULL;
-        }
+        if (machines)
+                *machines = TAKE_PTR(l);
+
         return r;
 }
 
@@ -933,8 +926,7 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
         if (!c)
                 return -EIO;
 
-        *class = c;
-        c = NULL;
+        *class = TAKE_PTR(c);
 
         return 0;
 }

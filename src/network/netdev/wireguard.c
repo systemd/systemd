@@ -228,8 +228,7 @@ static int on_resolve_retry(sd_event_source *s, usec_t usec, void *userdata) {
 
         w->resolve_retry_event_source = sd_event_source_unref(w->resolve_retry_event_source);
 
-        w->unresolved_endpoints = w->failed_endpoints;
-        w->failed_endpoints = NULL;
+        w->unresolved_endpoints = TAKE_PTR(w->failed_endpoints);
 
         resolve_endpoints(netdev);
 

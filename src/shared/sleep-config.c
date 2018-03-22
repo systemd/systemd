@@ -40,8 +40,6 @@
 #include "string-util.h"
 #include "strv.h"
 
-#define USE(x, y) do { (x) = (y); (y) = NULL; } while (0)
-
 int parse_sleep_config(const char *verb, char ***_modes, char ***_states, usec_t *_delay) {
 
         _cleanup_strv_free_ char
@@ -69,32 +67,32 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states, usec_t
 
         if (streq(verb, "suspend")) {
                 /* empty by default */
-                USE(modes, suspend_mode);
+                modes = TAKE_PTR(suspend_mode);
 
                 if (suspend_state)
-                        USE(states, suspend_state);
+                        states = TAKE_PTR(suspend_state);
                 else
                         states = strv_new("mem", "standby", "freeze", NULL);
 
         } else if (streq(verb, "hibernate")) {
                 if (hibernate_mode)
-                        USE(modes, hibernate_mode);
+                        modes = TAKE_PTR(hibernate_mode);
                 else
                         modes = strv_new("platform", "shutdown", NULL);
 
                 if (hibernate_state)
-                        USE(states, hibernate_state);
+                        states = TAKE_PTR(hibernate_state);
                 else
                         states = strv_new("disk", NULL);
 
         } else if (streq(verb, "hybrid-sleep")) {
                 if (hybrid_mode)
-                        USE(modes, hybrid_mode);
+                        modes = TAKE_PTR(hybrid_mode);
                 else
                         modes = strv_new("suspend", "platform", "shutdown", NULL);
 
                 if (hybrid_state)
-                        USE(states, hybrid_state);
+                        states = TAKE_PTR(hybrid_state);
                 else
                         states = strv_new("disk", NULL);
 

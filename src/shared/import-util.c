@@ -153,8 +153,7 @@ int raw_strip_suffixes(const char *p, char **ret) {
                         break;
         }
 
-        *ret = q;
-        q = NULL;
+        *ret = TAKE_PTR(q);
 
         return 0;
 }

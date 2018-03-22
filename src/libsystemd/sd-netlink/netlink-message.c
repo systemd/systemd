@@ -803,8 +803,7 @@ static int netlink_container_parse(sd_netlink_message *m,
                 attributes[type].net_byteorder = RTA_FLAGS(rta) & NLA_F_NET_BYTEORDER;
         }
 
-        container->attributes = attributes;
-        attributes = NULL;
+        container->attributes = TAKE_PTR(attributes);
         container->n_attributes = count;
 
         return 0;

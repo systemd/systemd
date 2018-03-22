@@ -122,8 +122,7 @@ int network_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
                         return r;
         }
 
-        *nodes = l;
-        l = NULL;
+        *nodes = TAKE_PTR(l);
 
         return 1;
 }

@@ -98,9 +98,7 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         if (r < 0)
                 return -errno;
 
-        r = s;
-        s = -1;
-        return r;
+        return TAKE_FD(s);
 }
 
 int icmp6_bind_router_solicitation(int index) {

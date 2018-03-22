@@ -2554,8 +2554,7 @@ static int service_deserialize_exec_command(Unit *u, const char *key, const char
                         state = STATE_EXEC_COMMAND_PATH;
                         break;
                 case STATE_EXEC_COMMAND_PATH:
-                        path = arg;
-                        arg = NULL;
+                        path = TAKE_PTR(arg);
                         state = STATE_EXEC_COMMAND_ARGS;
 
                         if (!path_is_absolute(path))

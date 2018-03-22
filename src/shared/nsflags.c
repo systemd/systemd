@@ -114,8 +114,7 @@ int namespace_flag_to_string_many(unsigned long flags, char **ret) {
                         return -ENOMEM;
         }
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return 0;
 }

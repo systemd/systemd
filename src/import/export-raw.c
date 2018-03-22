@@ -326,13 +326,10 @@ int raw_export_start(RawExport *e, const char *path, int fd, ImportCompressType 
 
         /* Try to take a reflink snapshot of the file, if we can t make the export atomic */
         tfd = reflink_snapshot(sfd, path);
-        if (tfd >= 0) {
-                e->input_fd = tfd;
-                tfd = -1;
-        } else {
-                e->input_fd = sfd;
-                sfd = -1;
-        }
+        if (tfd >= 0)
+                e->input_fd = TAKE_FD(tfd);
+        else
+                e->input_fd = TAKE_FD(sfd);
 
         r = import_compress_init(&e->compress, compress);
         if (r < 0)

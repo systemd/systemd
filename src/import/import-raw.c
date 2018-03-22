@@ -210,8 +210,7 @@ static int raw_import_maybe_convert_qcow2(RawImport *i) {
         free_and_replace(i->temp_path, t);
 
         safe_close(i->output_fd);
-        i->output_fd = converted_fd;
-        converted_fd = -1;
+        i->output_fd = TAKE_FD(converted_fd);
 
         return 1;
 }

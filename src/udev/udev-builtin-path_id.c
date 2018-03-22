@@ -62,10 +62,8 @@ static void path_prepend(char **path, const char *fmt, ...) {
                 }
 
                 free_and_replace(*path, new);
-        } else {
-                *path = pre;
-                pre = NULL;
-        }
+        } else
+                *path = TAKE_PTR(pre);
 }
 
 /*

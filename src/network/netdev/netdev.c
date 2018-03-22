@@ -488,8 +488,7 @@ int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
         mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
         mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
 
-        *ret = mac;
-        mac = NULL;
+        *ret = TAKE_PTR(mac);
 
         return 0;
 }

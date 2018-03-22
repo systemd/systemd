@@ -126,8 +126,7 @@ int prefix_new(Prefix **ret) {
         if (sd_radv_prefix_new(&prefix->radv_prefix) < 0)
                 return -ENOMEM;
 
-        *ret = prefix;
-        prefix = NULL;
+        *ret = TAKE_PTR(prefix);
 
         return 0;
 }
@@ -344,8 +343,7 @@ static int radv_get_ip6dns(Network *network, struct in6_addr **dns,
         }
 
         if (addresses) {
-                *dns = addresses;
-                addresses = NULL;
+                *dns = TAKE_PTR(addresses);
 
                 *n_dns = n_addresses;
         }

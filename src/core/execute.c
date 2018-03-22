@@ -1733,8 +1733,7 @@ static int build_environment(
         our_env[n_env++] = NULL;
         assert(n_env <= 12);
 
-        *ret = our_env;
-        our_env = NULL;
+        *ret = TAKE_PTR(our_env);
 
         return 0;
 }
@@ -1763,8 +1762,7 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
                 x = NULL;
         }
 
-        *ret = pass_env;
-        pass_env = NULL;
+        *ret = TAKE_PTR(pass_env);
 
         return 0;
 }
@@ -2290,9 +2288,7 @@ static int compile_bind_mounts(
 
         *ret_bind_mounts = bind_mounts;
         *ret_n_bind_mounts = n;
-        *ret_empty_directories = empty_directories;
-
-        empty_directories = NULL;
+        *ret_empty_directories = TAKE_PTR(empty_directories);
 
         return (int) n;
 
@@ -2696,8 +2692,7 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
                 }
         }
 
-        *ret = list;
-        list = NULL;
+        *ret = TAKE_PTR(list);
 
         return 0;
 }

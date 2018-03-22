@@ -709,10 +709,8 @@ static int set_complete_move(Set **s, Set **other) {
 
         if (*s)
                 return set_move(*s, *other);
-        else {
-                *s = *other;
-                *other = NULL;
-        }
+        else
+                *s = TAKE_PTR(*other);
 
         return 0;
 }
@@ -726,10 +724,8 @@ static int hashmap_complete_move(Hashmap **s, Hashmap **other) {
 
         if (*s)
                 return hashmap_move(*s, *other);
-        else {
-                *s = *other;
-                *other = NULL;
-        }
+        else
+                *s = TAKE_PTR(*other);
 
         return 0;
 }
@@ -4017,8 +4013,7 @@ static int user_from_unit_name(Unit *u, char **ret) {
                 return r;
 
         if (valid_user_group_name(n)) {
-                *ret = n;
-                n = NULL;
+                *ret = TAKE_PTR(n);
                 return 0;
         }
 
@@ -4220,7 +4215,7 @@ char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf) {
 char* unit_concat_strv(char **l, UnitWriteFlags flags) {
         _cleanup_free_ char *result = NULL;
         size_t n = 0, allocated = 0;
-        char **i, *ret;
+        char **i;
 
         /* Takes a list of strings, escapes them, and concatenates them. This may be used to format command lines in a
          * way suitable for ExecStart= stanzas */
@@ -4255,10 +4250,7 @@ char* unit_concat_strv(char **l, UnitWriteFlags flags) {
 
         result[n] = 0;
 
-        ret = result;
-        result = NULL;
-
-        return ret;
+        return TAKE_PTR(result);
 }
 
 int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const char *data) {

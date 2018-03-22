@@ -117,13 +117,9 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
                 _exit(EXIT_FAILURE);
         }
 
-        pipefd[0] = safe_close(pipefd[0]);
-        r = pipefd[1];
-        pipefd[1] = -1;
-
         *ret = pid;
 
-        return r;
+        return TAKE_FD(pipefd[1]);
 }
 
 int import_fork_tar_c(const char *path, pid_t *ret) {
@@ -165,11 +161,7 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
                 _exit(EXIT_FAILURE);
         }
 
-        pipefd[1] = safe_close(pipefd[1]);
-        r = pipefd[0];
-        pipefd[0] = -1;
-
         *ret = pid;
 
-        return r;
+        return TAKE_FD(pipefd[0]);
 }

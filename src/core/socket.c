@@ -1238,10 +1238,7 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 
 fail:
         mac_selinux_create_file_clear();
@@ -1251,7 +1248,6 @@ fail:
 static int special_address_create(const char *path, bool writable) {
         _cleanup_close_ int fd = -1;
         struct stat st;
-        int r;
 
         assert(path);
 
@@ -1266,16 +1262,12 @@ static int special_address_create(const char *path, bool writable) {
         if (!S_ISREG(st.st_mode) && !S_ISCHR(st.st_mode))
                 return -EEXIST;
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 }
 
 static int usbffs_address_create(const char *path) {
         _cleanup_close_ int fd = -1;
         struct stat st;
-        int r;
 
         assert(path);
 
@@ -1290,10 +1282,7 @@ static int usbffs_address_create(const char *path) {
         if (!S_ISREG(st.st_mode))
                 return -EEXIST;
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 }
 
 static int mq_address_create(
@@ -1306,7 +1295,6 @@ static int mq_address_create(
         struct stat st;
         mode_t old_mask;
         struct mq_attr _attr, *attr = NULL;
-        int r;
 
         assert(path);
 
@@ -1338,10 +1326,7 @@ static int mq_address_create(
             st.st_gid != getgid())
                 return -EEXIST;
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 }
 
 static int socket_symlink(Socket *s) {

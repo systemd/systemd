@@ -274,8 +274,7 @@ int bus_job_coldplug_bus_track(Job *j) {
 
         assert(j);
 
-        deserialized_clients = j->deserialized_clients;
-        j->deserialized_clients = NULL;
+        deserialized_clients = TAKE_PTR(j->deserialized_clients);
 
         if (strv_isempty(deserialized_clients))
                 return 0;

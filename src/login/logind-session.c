@@ -1145,8 +1145,7 @@ void session_restore_vt(Session *s) {
          * little dance to avoid having the terminal be available
          * for reuse before we've cleaned it up.
          */
-        old_fd = s->vtfd;
-        s->vtfd = -1;
+        old_fd = TAKE_FD(s->vtfd);
 
         vt = session_open_vt(s);
         safe_close(old_fd);
@@ -1271,8 +1270,7 @@ int session_set_controller(Session *s, const char *sender, bool force, bool prep
         }
 
         session_release_controller(s, true);
-        s->controller = name;
-        name = NULL;
+        s->controller = TAKE_PTR(name);
         session_save(s);
 
         return 0;

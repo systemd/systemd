@@ -1248,8 +1248,7 @@ int config_parse_exec_cpu_affinity(const char *unit,
         }
 
         if (!c->cpuset) {
-                c->cpuset = cpuset;
-                cpuset = NULL;
+                c->cpuset = TAKE_PTR(cpuset);
                 c->cpuset_ncpus = (unsigned) ncpus;
                 return 0;
         }
@@ -1257,8 +1256,7 @@ int config_parse_exec_cpu_affinity(const char *unit,
         if (c->cpuset_ncpus < (unsigned) ncpus) {
                 CPU_OR_S(CPU_ALLOC_SIZE(c->cpuset_ncpus), cpuset, c->cpuset, cpuset);
                 CPU_FREE(c->cpuset);
-                c->cpuset = cpuset;
-                cpuset = NULL;
+                c->cpuset = TAKE_PTR(cpuset);
                 c->cpuset_ncpus = (unsigned) ncpus;
                 return 0;
         }
@@ -2089,8 +2087,7 @@ int config_parse_user_group(
                         return -ENOEXEC;
                 }
 
-                n = k;
-                k = NULL;
+                n = TAKE_PTR(k);
         }
 
         free(*user);
@@ -2320,10 +2317,8 @@ int config_parse_environ(
                                            "Failed to resolve specifiers, ignoring: %s", word);
                                 continue;
                         }
-                } else {
-                        k = word;
-                        word = NULL;
-                }
+                } else
+                        k = TAKE_PTR(word);
 
                 if (!env_assignment_is_valid(k)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
@@ -2390,10 +2385,8 @@ int config_parse_pass_environ(
                                            "Failed to resolve specifiers, ignoring: %s", word);
                                 continue;
                         }
-                } else {
-                        k = word;
-                        word = NULL;
-                }
+                } else
+                        k = TAKE_PTR(word);
 
                 if (!env_name_is_valid(k)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
@@ -2469,10 +2462,8 @@ int config_parse_unset_environ(
                                            "Failed to resolve specifiers, ignoring: %s", word);
                                 continue;
                         }
-                } else {
-                        k = word;
-                        word = NULL;
-                }
+                } else
+                        k = TAKE_PTR(word);
 
                 if (!env_assignment_is_valid(k) && !env_name_is_valid(k)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
@@ -3515,8 +3506,7 @@ int config_parse_device_allow(
         if (!a)
                 return log_oom();
 
-        a->path = path;
-        path = NULL;
+        a->path = TAKE_PTR(path);
         a->r = !!strchr(m, 'r');
         a->w = !!strchr(m, 'w');
         a->m = !!strchr(m, 'm');
@@ -3615,8 +3605,7 @@ int config_parse_io_device_weight(
         if (!w)
                 return log_oom();
 
-        w->path = path;
-        path = NULL;
+        w->path = TAKE_PTR(path);
 
         w->weight = u;
 
@@ -3701,8 +3690,7 @@ int config_parse_io_limit(
                 if (!l)
                         return log_oom();
 
-                l->path = path;
-                path = NULL;
+                l->path = TAKE_PTR(path);
                 for (ttype = 0; ttype < _CGROUP_IO_LIMIT_TYPE_MAX; ttype++)
                         l->limits[ttype] = cgroup_io_limit_defaults[ttype];
 
@@ -3804,8 +3792,7 @@ int config_parse_blockio_device_weight(
         if (!w)
                 return log_oom();
 
-        w->path = path;
-        path = NULL;
+        w->path = TAKE_PTR(path);
 
         w->weight = u;
 
@@ -3885,8 +3872,7 @@ int config_parse_blockio_bandwidth(
                 if (!b)
                         return log_oom();
 
-                b->path = path;
-                path = NULL;
+                b->path = TAKE_PTR(path);
                 b->rbps = CGROUP_LIMIT_MAX;
                 b->wbps = CGROUP_LIMIT_MAX;
 

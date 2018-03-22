@@ -310,8 +310,7 @@ static int user_config_paths(char*** ret) {
         if (r < 0)
                 return r;
 
-        *ret = res;
-        res = NULL;
+        *ret = TAKE_PTR(res);
         return 0;
 }
 

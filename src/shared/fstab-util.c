@@ -169,10 +169,8 @@ answer:
 
                 *filtered = f;
         }
-        if (value) {
-                *value = v;
-                v = NULL;
-        }
+        if (value)
+                *value = TAKE_PTR(v);
 
         return !!n;
 }
@@ -201,8 +199,7 @@ int fstab_extract_values(const char *opts, const char *name, char ***values) {
                         return r;
         }
 
-        *values = res;
-        res = NULL;
+        *values = TAKE_PTR(res);
 
         return !!*values;
 }

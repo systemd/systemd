@@ -325,7 +325,7 @@ static int dns_scope_socket(
         union sockaddr_union sa = {};
         socklen_t salen;
         static const int one = 1;
-        int ret, r, ifindex;
+        int r, ifindex;
 
         assert(s);
 
@@ -409,10 +409,7 @@ static int dns_scope_socket(
         if (r < 0 && errno != EINPROGRESS)
                 return -errno;
 
-        ret = fd;
-        fd = -1;
-
-        return ret;
+        return TAKE_FD(fd);
 }
 
 int dns_scope_socket_udp(DnsScope *s, DnsServer *server, uint16_t port) {

@@ -103,10 +103,7 @@ int arp_network_bind_raw_socket(int ifindex, be32_t address, const struct ether_
         if (r < 0)
                 return -errno;
 
-        r = s;
-        s = -1;
-
-        return r;
+        return TAKE_FD(s);
 }
 
 static int arp_send_packet(int fd, int ifindex,

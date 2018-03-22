@@ -1381,8 +1381,7 @@ int unit_set_cgroup_path(Unit *u, const char *path) {
 
         unit_release_cgroup(u);
 
-        u->cgroup_path = p;
-        p = NULL;
+        u->cgroup_path = TAKE_PTR(p);
 
         return 1;
 }

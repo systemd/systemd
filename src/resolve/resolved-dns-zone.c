@@ -36,8 +36,7 @@ void dns_zone_item_probe_stop(DnsZoneItem *i) {
         if (!i->probe_transaction)
                 return;
 
-        t = i->probe_transaction;
-        i->probe_transaction = NULL;
+        t = TAKE_PTR(i->probe_transaction);
 
         set_remove(t->notify_zone_items, i);
         set_remove(t->notify_zone_items_done, i);

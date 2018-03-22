@@ -48,8 +48,7 @@ int secure_bits_to_string_alloc(int i, char **s) {
         if (len != 0)
                 str[len - 1] = '\0';
 
-        *s = str;
-        str = NULL;
+        *s = TAKE_PTR(str);
 
         return 0;
 }

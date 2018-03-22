@@ -730,8 +730,7 @@ int ask_password_agent(
         if (keyname)
                 (void) add_to_keyring_and_log(keyname, flags, l);
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
         r = 0;
 
 finish:

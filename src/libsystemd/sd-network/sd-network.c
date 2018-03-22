@@ -51,8 +51,7 @@ _public_ int sd_network_get_operational_state(char **state) {
         if (isempty(s))
                 return -ENODATA;
 
-        *state = s;
-        s = NULL;
+        *state = TAKE_PTR(s);
 
         return 0;
 }
@@ -81,8 +80,7 @@ static int network_get_strv(const char *key, char ***ret) {
         strv_uniq(a);
         r = strv_length(a);
 
-        *ret = a;
-        a = NULL;
+        *ret = TAKE_PTR(a);
 
         return r;
 }
@@ -121,8 +119,7 @@ static int network_link_get_string(int ifindex, const char *field, char **ret) {
         if (isempty(s))
                 return -ENODATA;
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return 0;
 }
@@ -154,8 +151,7 @@ static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
         strv_uniq(a);
         r = strv_length(a);
 
-        *ret = a;
-        a = NULL;
+        *ret = TAKE_PTR(a);
 
         return r;
 }
@@ -263,8 +259,7 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
         if (ifis)
                 ifis[c] = 0; /* Let's add a 0 ifindex to the end, to be nice */
 
-        *ret = ifis;
-        ifis = NULL;
+        *ret = TAKE_PTR(ifis);
 
         return c;
 }

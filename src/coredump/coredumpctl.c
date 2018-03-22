@@ -764,8 +764,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         return log_error_errno(errno, "File \"%s\" is not readable: %m", filename);
 
                 if (path && !endswith(filename, ".xz") && !endswith(filename, ".lz4")) {
-                        *path = filename;
-                        filename = NULL;
+                        *path = TAKE_PTR(filename);
 
                         return 0;
                 }

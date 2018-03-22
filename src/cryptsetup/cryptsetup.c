@@ -402,8 +402,7 @@ static int get_password(const char *vol, const char *src, usec_t until, bool acc
                 *p = c;
         }
 
-        *ret = passwords;
-        passwords = NULL;
+        *ret = TAKE_PTR(passwords);
 
         return 0;
 }

@@ -253,10 +253,8 @@ int dhcp_option_parse(DHCPMessage *message, size_t len, dhcp_option_callback_t c
         if (message_type == 0)
                 return -ENOMSG;
 
-        if (_error_message && IN_SET(message_type, DHCP_NAK, DHCP_DECLINE)) {
-                *_error_message = error_message;
-                error_message = NULL;
-        }
+        if (_error_message && IN_SET(message_type, DHCP_NAK, DHCP_DECLINE))
+                *_error_message = TAKE_PTR(error_message);
 
         return message_type;
 }

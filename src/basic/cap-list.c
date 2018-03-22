@@ -103,8 +103,7 @@ int capability_set_to_string_alloc(uint64_t set, char **s) {
 
         str[n > 0 ? n - 1 : 0] = '\0'; /* truncate the last space, if it's there */
 
-        *s = str;
-        str = NULL;
+        *s = TAKE_PTR(str);
 
         return 0;
 }

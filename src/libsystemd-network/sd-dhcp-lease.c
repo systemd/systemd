@@ -807,8 +807,7 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                       pos = next_chunk;
         }
 
-        *domains = names;
-        names = NULL;
+        *domains = TAKE_PTR(names);
 
         return cnt;
 }

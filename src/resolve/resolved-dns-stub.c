@@ -447,10 +447,8 @@ static int manager_dns_stub_udp_fd(Manager *m) {
                 return r;
 
         (void) sd_event_source_set_description(m->dns_stub_udp_event_source, "dns-stub-udp");
-        m->dns_stub_udp_fd = fd;
-        fd = -1;
 
-        return m->dns_stub_udp_fd;
+        return m->dns_stub_udp_fd = TAKE_FD(fd);
 }
 
 static int on_dns_stub_stream_packet(DnsStream *s) {
@@ -542,10 +540,8 @@ static int manager_dns_stub_tcp_fd(Manager *m) {
                 return r;
 
         (void) sd_event_source_set_description(m->dns_stub_tcp_event_source, "dns-stub-tcp");
-        m->dns_stub_tcp_fd = fd;
-        fd = -1;
 
-        return m->dns_stub_tcp_fd;
+        return m->dns_stub_tcp_fd = TAKE_FD(fd);
 }
 
 int manager_dns_stub_start(Manager *m) {

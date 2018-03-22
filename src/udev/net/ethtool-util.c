@@ -304,8 +304,7 @@ static int get_stringset(int fd, struct ifreq *ifr, int stringset_id, struct eth
         if (r < 0)
                 return -errno;
 
-        *gstrings = strings;
-        strings = NULL;
+        *gstrings = TAKE_PTR(strings);
 
         return 0;
 }

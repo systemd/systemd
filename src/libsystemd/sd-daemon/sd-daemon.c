@@ -141,8 +141,7 @@ _public_ int sd_listen_fds_with_names(int unset_environment, char ***names) {
                         return r;
         }
 
-        *names = l;
-        l = NULL;
+        *names = TAKE_PTR(l);
 
         return n_fds;
 }

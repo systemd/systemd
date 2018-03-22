@@ -363,8 +363,7 @@ int unit_name_unescape(const char *f, char **ret) {
 
         *t = 0;
 
-        *ret = r;
-        r = NULL;
+        *ret = TAKE_PTR(r);
 
         return 0;
 }

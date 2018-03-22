@@ -194,8 +194,7 @@ finish:
 
 finish_force_next:
         s[sz] = 0;
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return 1;
 }

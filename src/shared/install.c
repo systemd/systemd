@@ -1422,8 +1422,7 @@ static int unit_file_search(
                 r = unit_file_load_or_readlink(c, info, path, paths->root_dir, flags);
 
                 if (r >= 0) {
-                        info->path = path;
-                        path = NULL;
+                        info->path = TAKE_PTR(path);
                         result = r;
                         found_unit = true;
                         break;
@@ -1446,8 +1445,7 @@ static int unit_file_search(
 
                         r = unit_file_load_or_readlink(c, info, path, paths->root_dir, flags);
                         if (r >= 0) {
-                                info->path = path;
-                                path = NULL;
+                                info->path = TAKE_PTR(path);
                                 result = r;
                                 found_unit = true;
                                 break;
@@ -1754,8 +1752,7 @@ static int install_info_symlink_wants(
                 if (r < 0)
                         return r;
 
-                path = instance.path;
-                instance.path = NULL;
+                path = TAKE_PTR(instance.path);
 
                 if (instance.type == UNIT_FILE_TYPE_MASKED) {
                         unit_file_changes_add(changes, n_changes, -ERFKILL, path, NULL);

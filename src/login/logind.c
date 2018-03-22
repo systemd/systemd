@@ -438,8 +438,7 @@ static int parse_fdname(const char *fdname, char **session_id, dev_t *dev) {
                 return r;
 
         *dev = makedev(major, minor);
-        *session_id = id;
-        id = NULL;
+        *session_id = TAKE_PTR(id);
 
         return 0;
 }

@@ -124,8 +124,7 @@ int pull_find_old_etags(
                         return r;
         }
 
-        *etags = l;
-        l = NULL;
+        *etags = TAKE_PTR(l);
 
         return 0;
 }

@@ -440,8 +440,7 @@ static int link_update_dnssec_negative_trust_anchors(Link *l) {
                 return r;
 
         set_free_free(l->dnssec_negative_trust_anchors);
-        l->dnssec_negative_trust_anchors = ns;
-        ns = NULL;
+        l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
 
         return 0;
 
@@ -1293,8 +1292,7 @@ int link_load_user(Link *l) {
                 if (r < 0)
                         goto fail;
 
-                l->dnssec_negative_trust_anchors = ns;
-                ns = NULL;
+                l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
         }
 
         return 0;

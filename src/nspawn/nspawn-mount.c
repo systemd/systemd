@@ -308,8 +308,7 @@ int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_o
                     !source_path_is_valid(lower[1]))
                         return -EINVAL;
 
-                upper = lower[1];
-                lower[1] = NULL;
+                upper = TAKE_PTR(lower[1]);
 
                 destination = strdup(upper[0] == '+' ? upper+1 : upper); /* take the destination without "+" prefix */
                 if (!destination)
@@ -321,8 +320,7 @@ int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_o
                  * the "upper", and all before that the "lower" directories. */
 
                 destination = lower[k - 1];
-                upper = lower[k - 2];
-                lower[k - 2] = NULL;
+                upper = TAKE_PTR(lower[k - 2]);
 
                 STRV_FOREACH(i, lower)
                         if (!source_path_is_valid(*i))

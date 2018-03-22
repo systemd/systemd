@@ -220,8 +220,7 @@ static void context_detach_window(Context *c) {
         if (!c->window)
                 return;
 
-        w = c->window;
-        c->window = NULL;
+        w = TAKE_PTR(c->window);
         LIST_REMOVE(by_window, w->contexts, c);
 
         if (!w->contexts && !w->keep_always) {

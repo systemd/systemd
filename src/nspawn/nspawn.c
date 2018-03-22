@@ -1175,8 +1175,7 @@ static int parse_argv(int argc, char *argv[]) {
                  * accept this here, and silently make "--ephemeral --template=" equivalent to "--ephemeral
                  * --directory=". */
 
-                arg_directory = arg_template;
-                arg_template = NULL;
+                arg_directory = TAKE_PTR(arg_template);
         }
 
         if (arg_template && !(arg_directory || arg_machine)) {

@@ -341,8 +341,7 @@ int get_keymaps(char ***ret) {
 
         strv_sort(l);
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
 
         return 0;
 }

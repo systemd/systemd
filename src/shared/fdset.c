@@ -25,6 +25,7 @@
 
 #include "sd-daemon.h"
 
+#include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fdset.h"
@@ -168,8 +169,7 @@ int fdset_new_fill(FDSet **_s) {
         }
 
         r = 0;
-        *_s = s;
-        s = NULL;
+        *_s = TAKE_PTR(s);
 
 finish:
         /* We won't close the fds here! */

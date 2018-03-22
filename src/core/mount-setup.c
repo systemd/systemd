@@ -315,10 +315,8 @@ int mount_cgroup_controllers(char ***join_controllers) {
                         options = strv_join(*k, ",");
                         if (!options)
                                 return log_oom();
-                } else {
-                        options = controller;
-                        controller = NULL;
-                }
+                } else
+                        options = TAKE_PTR(controller);
 
                 where = strappend("/sys/fs/cgroup/", options);
                 if (!where)

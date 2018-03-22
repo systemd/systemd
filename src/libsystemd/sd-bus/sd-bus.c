@@ -1342,8 +1342,7 @@ int bus_set_address_user(sd_bus *b) {
         if (asprintf(&s, DEFAULT_USER_BUS_ADDRESS_FMT, ee) < 0)
                 return -ENOMEM;
 
-        b->address = s;
-        s = NULL;
+        b->address = TAKE_PTR(s);
 
         return 0;
 }
