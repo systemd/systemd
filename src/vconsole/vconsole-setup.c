@@ -49,35 +49,42 @@
 #include "virt.h"
 
 static int verify_vc_device(int fd) {
-        unsigned char data[1];
+        unsigned char data[] = {
+                TIOCL_GETFGCONSOLE,
+        };
+
         int r;
 
-        data[0] = TIOCL_GETFGCONSOLE;
         r = ioctl(fd, TIOCLINUX, data);
-        return r < 0 ? -errno : r;
+        if (r < 0)
+                return -errno;
+
+        return r;
 }
 
 static int verify_vc_allocation(unsigned idx) {
         char vcname[sizeof("/dev/vcs") + DECIMAL_STR_MAX(unsigned) - 2];
-        int r;
 
         xsprintf(vcname, "/dev/vcs%u", idx);
-        r = access(vcname, F_OK);
-        return r < 0 ? -errno : r;
+
+        if (access(vcname, F_OK) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static int verify_vc_allocation_byfd(int fd) {
         struct vt_stat vcs = {};
-        int r;
 
-        r = ioctl(fd, VT_GETSTATE, &vcs);
-        return r < 0 ? -errno : verify_vc_allocation(vcs.v_active);
+        if (ioctl(fd, VT_GETSTATE, &vcs) < 0)
+                return -errno;
+
+        return verify_vc_allocation(vcs.v_active);
 }
 
 static int verify_vc_kbmode(int fd) {
-        int r, curr_mode;
+        int curr_mode;
 
-        r = ioctl(fd, KDGKBMODE, &curr_mode);
         /*
          * Make sure we only adjust consoles in K_XLATE or K_UNICODE mode.
          * Otherwise we would (likely) interfere with X11's processing of the
@@ -85,7 +92,8 @@ static int verify_vc_kbmode(int fd) {
          *
          * http://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html
          */
-        if (r < 0)
+
+        if (ioctl(fd, KDGKBMODE, &curr_mode) < 0)
                 return -errno;
 
         return IN_SET(curr_mode, K_XLATE, K_UNICODE) ? 0 : -EBUSY;
@@ -420,7 +428,6 @@ int main(int argc, char **argv) {
                 fd = verify_source_vc(&vc, argv[1]);
         else
                 fd = find_source_vc(&vc, &idx);
-
         if (fd < 0)
                 return EXIT_FAILURE;
 
