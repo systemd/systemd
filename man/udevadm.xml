@@ -95,7 +95,6 @@
         </listitem>
       </varlistentry>
 
-      <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="help" />
     </variablelist>
 
@@ -202,7 +201,6 @@
           </listitem>
         </varlistentry>
 
-        <xi:include href="standard-options.xml" xpointer="version" />
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
 
@@ -347,7 +345,6 @@
           </listitem>
         </varlistentry>
 
-        <xi:include href="standard-options.xml" xpointer="version" />
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
 
@@ -380,7 +377,6 @@
           </listitem>
         </varlistentry>
 
-        <xi:include href="standard-options.xml" xpointer="version" />
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
@@ -456,7 +452,6 @@
           </listitem>
         </varlistentry>
 
-        <xi:include href="standard-options.xml" xpointer="version" />
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
@@ -505,7 +500,6 @@
           </listitem>
         </varlistentry>
 
-        <xi:include href="standard-options.xml" xpointer="version" />
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
@@ -537,7 +531,6 @@
           </listitem>
         </varlistentry>
 
-        <xi:include href="standard-options.xml" xpointer="version" />
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
@@ -551,7 +544,6 @@
       for device <replaceable>DEVPATH</replaceable>, and print debug
       output.</para>
       <variablelist>
-        <xi:include href="standard-options.xml" xpointer="version" />
         <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
