@@ -1083,8 +1083,7 @@ static int transfer_node_enumerator(sd_bus *bus, const char *path, void *userdat
                 k++;
         }
 
-        *nodes = l;
-        l = NULL;
+        *nodes = TAKE_PTR(l);
 
         return 1;
 }

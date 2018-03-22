@@ -396,11 +396,8 @@ static int determine_hostname(char **full_hostname, char **llmnr_hostname, char 
         if (r < 0)
                 return log_error_errno(r, "Failed to determine mDNS hostname: %m");
 
-        *llmnr_hostname = n;
-        n = NULL;
-
-        *full_hostname = h;
-        h = NULL;
+        *llmnr_hostname = TAKE_PTR(n);
+        *full_hostname = TAKE_PTR(h);
 
         return 0;
 }
@@ -445,11 +442,8 @@ static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, 
         if (!h)
                 return log_oom();
 
-        *llmnr_hostname = n;
-        n = NULL;
-
-        *mdns_hostname = m;
-        m = NULL;
+        *llmnr_hostname = TAKE_PTR(n);
+        *mdns_hostname = TAKE_PTR(m);
 
         *full_hostname = h;
 

@@ -189,8 +189,7 @@ int show_cgroup_by_path(
                         free(last);
                 }
 
-                last = k;
-                k = NULL;
+                last = TAKE_PTR(k);
         }
 
         if (r < 0)

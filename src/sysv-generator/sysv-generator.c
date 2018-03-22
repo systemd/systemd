@@ -741,8 +741,7 @@ static int acquire_search_path(const char *def, const char *envvar, char ***ret)
         if (!path_strv_resolve_uniq(l, NULL))
                 return log_oom();
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
 
         return 0;
 }

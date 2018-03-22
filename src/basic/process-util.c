@@ -623,8 +623,7 @@ int get_process_environ(pid_t pid, char **env) {
         } else
                 outcome[sz] = '\0';
 
-        *env = outcome;
-        outcome = NULL;
+        *env = TAKE_PTR(outcome);
 
         return 0;
 }

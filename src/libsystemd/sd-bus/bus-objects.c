@@ -1470,8 +1470,7 @@ static struct node *bus_node_allocate(sd_bus *bus, const char *path) {
                 return NULL;
 
         n->parent = parent;
-        n->path = s;
-        s = NULL; /* do not free */
+        n->path = TAKE_PTR(s);
 
         r = hashmap_put(bus->nodes, n->path, n);
         if (r < 0) {

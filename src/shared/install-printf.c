@@ -50,10 +50,8 @@ static int specifier_prefix_and_instance(char specifier, void *data, void *userd
                 if (!ans)
                         return -ENOMEM;
                 *ret = ans;
-        } else {
-                *ret = prefix;
-                prefix = NULL;
-        }
+        } else
+                *ret = TAKE_PTR(prefix);
 
         return 0;
 }

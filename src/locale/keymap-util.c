@@ -278,8 +278,7 @@ int locale_write_data(Context *c, char ***settings) {
         if (r < 0)
                 return r;
 
-        *settings = l;
-        l = NULL;
+        *settings = TAKE_PTR(l);
         return 0;
 }
 
@@ -539,8 +538,7 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
                         log_debug("Found converted keymap %s at %s",
                                   n, uncompressed ? p : pz);
 
-                        *new_keymap = n;
-                        n = NULL;
+                        *new_keymap = TAKE_PTR(n);
                         return 1;
                 }
         }

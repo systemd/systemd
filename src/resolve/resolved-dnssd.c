@@ -198,8 +198,7 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
                 return -EINVAL;
         }
 
-        *ret_name = name;
-        name = NULL;
+        *ret_name = TAKE_PTR(name);
 
         return 0;
 }
@@ -319,8 +318,7 @@ int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtIte
         }
         i->length = length;
 
-        *ret_item = i;
-        i = NULL;
+        *ret_item = TAKE_PTR(i);
 
         return 0;
 }
@@ -345,8 +343,7 @@ int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t
         }
         i->length = length;
 
-        *ret_item = i;
-        i = NULL;
+        *ret_item = TAKE_PTR(i);
 
         return 0;
 }

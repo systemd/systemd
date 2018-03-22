@@ -1094,8 +1094,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_
                         return r;
 
                 strv_free(*p);
-                *p = l;
-                l = NULL;
+                *p = TAKE_PTR(l);
                 return 0;
         }
 

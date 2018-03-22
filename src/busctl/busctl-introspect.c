@@ -275,10 +275,9 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                                 free(node_path);
 
-                                if (name[0] == '/') {
-                                        node_path = name;
-                                        name = NULL;
-                                } else {
+                                if (name[0] == '/')
+                                        node_path = TAKE_PTR(name);
+                                else {
 
                                         if (endswith(prefix, "/"))
                                                 node_path = strappend(prefix, name);

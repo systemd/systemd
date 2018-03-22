@@ -501,8 +501,7 @@ static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char
 
         assert(hashmap_size(m->jobs) == k);
 
-        *nodes = l;
-        l = NULL;
+        *nodes = TAKE_PTR(l);
 
         return k;
 }
@@ -526,8 +525,7 @@ static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, cha
                 k++;
         }
 
-        *nodes = l;
-        l = NULL;
+        *nodes = TAKE_PTR(l);
 
         return k;
 }

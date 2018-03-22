@@ -1424,10 +1424,9 @@ int cg_pid_get_path_shifted(pid_t pid, const char *root, char **cgroup) {
         if (r < 0)
                 return r;
 
-        if (c == raw) {
-                *cgroup = raw;
-                raw = NULL;
-        } else {
+        if (c == raw)
+                *cgroup = TAKE_PTR(raw);
+        else {
                 char *n;
 
                 n = strdup(c);
@@ -2010,8 +2009,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
         if (!strextend(&s, e, NULL))
                 return -ENOMEM;
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return 0;
 }
@@ -2301,8 +2299,7 @@ int cg_mask_to_string(CGroupMask mask, char **ret) {
         assert(s);
 
         s[n] = 0;
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return 0;
 }

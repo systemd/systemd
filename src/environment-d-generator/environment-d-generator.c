@@ -45,8 +45,7 @@ static int environment_dirs(char ***ret) {
         if (r < 0)
                 return r;
 
-        *ret = dirs;
-        dirs = NULL;
+        *ret = TAKE_PTR(dirs);
         return 0;
 }
 

@@ -496,8 +496,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         }
 
         set_free_free(l->dnssec_negative_trust_anchors);
-        l->dnssec_negative_trust_anchors = ns;
-        ns = NULL;
+        l->dnssec_negative_trust_anchors = TAKE_PTR(ns);
 
         (void) link_save_user(l);
 
@@ -621,8 +620,7 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
         }
 
         l[c] = NULL;
-        *nodes = l;
-        l = NULL;
+        *nodes = TAKE_PTR(l);
 
         return 1;
 }

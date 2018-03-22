@@ -324,8 +324,7 @@ int parse_syscall_and_errno(const char *in, char **name, int *error) {
                 return -EINVAL;
 
         *error = e;
-        *name = n;
-        n = NULL;
+        *name = TAKE_PTR(n);
 
         return 0;
 }

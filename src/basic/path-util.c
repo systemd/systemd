@@ -290,8 +290,7 @@ char **path_strv_resolve(char **l, const char *root) {
                 r = chase_symlinks(t, root, 0, &u);
                 if (r == -ENOENT) {
                         if (root) {
-                                u = orig;
-                                orig = NULL;
+                                u = TAKE_PTR(orig);
                                 free(t);
                         } else
                                 u = t;

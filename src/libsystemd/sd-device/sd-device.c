@@ -1297,8 +1297,7 @@ int device_get_id_filename(sd_device *device, const char **ret) {
                         }
                 }
 
-                device->id_filename = id;
-                id = NULL;
+                device->id_filename = TAKE_PTR(id);
         }
 
         *ret = device->id_filename;

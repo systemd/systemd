@@ -770,8 +770,7 @@ int dynamic_user_lookup_uid(Manager *m, uid_t uid, char **ret) {
         if (check_uid != uid) /* lock file doesn't match our own idea */
                 return -ESRCH;
 
-        *ret = user;
-        user = NULL;
+        *ret = TAKE_PTR(user);
 
         return 0;
 }

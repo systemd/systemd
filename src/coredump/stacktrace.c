@@ -184,8 +184,7 @@ int coredump_make_stack_trace(int fd, const char *executable, char **ret) {
 
         c.f = safe_fclose(c.f);
 
-        *ret = buf;
-        buf = NULL;
+        *ret = TAKE_PTR(buf);
 
         r = 0;
 

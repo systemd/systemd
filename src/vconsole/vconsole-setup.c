@@ -358,8 +358,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 
                 /* all checks passed, return this one as a source console */
                 *ret_idx = i;
-                *ret_path = path;
-                path = NULL;
+                *ret_path = TAKE_PTR(path);
                 ret_fd = fd;
                 fd = -1;
                 return ret_fd;

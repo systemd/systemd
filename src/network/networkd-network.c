@@ -72,8 +72,7 @@ int network_config_section_new(const char *filename, unsigned line, NetworkConfi
         strcpy(cs->filename, filename);
         cs->line = line;
 
-        *s = cs;
-        cs = NULL;
+        *s = TAKE_PTR(cs);
 
         return 0;
 }

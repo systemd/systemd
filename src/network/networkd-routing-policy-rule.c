@@ -857,8 +857,7 @@ static int routing_policy_rule_read_full_file(const char *state_file, char **ret
         if (size <= 0)
                 return -ENODATA;
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return size;
 }

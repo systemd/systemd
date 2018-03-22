@@ -80,7 +80,6 @@ Image *image_unref(Image *i) {
 
 static char **image_settings_path(Image *image) {
         _cleanup_strv_free_ char **l = NULL;
-        char **ret;
         const char *fn, *s;
         unsigned i = 0;
 
@@ -104,10 +103,7 @@ static char **image_settings_path(Image *image) {
         if (!l[i])
                 return NULL;
 
-        ret = l;
-        l = NULL;
-
-        return ret;
+        return TAKE_PTR(l);
 }
 
 static char *image_roothash_path(Image *image) {

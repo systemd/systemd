@@ -69,7 +69,6 @@ struct udev_enumerate {
  **/
 _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
         _cleanup_free_ struct udev_enumerate *udev_enumerate = NULL;
-        struct udev_enumerate *ret;
         int r;
 
         assert_return_errno(udev, NULL, EINVAL);
@@ -97,10 +96,7 @@ _public_ struct udev_enumerate *udev_enumerate_new(struct udev *udev) {
 
         udev_list_init(udev, &udev_enumerate->devices_list, false);
 
-        ret = udev_enumerate;
-        udev_enumerate = NULL;
-
-        return ret;
+        return TAKE_PTR(udev_enumerate);
 }
 
 /**

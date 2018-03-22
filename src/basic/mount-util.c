@@ -81,10 +81,8 @@ int name_to_handle_at_loop(
 
                 if (name_to_handle_at(fd, path, h, &mnt_id, flags) >= 0) {
 
-                        if (ret_handle) {
-                                *ret_handle = h;
-                                h = NULL;
-                        }
+                        if (ret_handle)
+                                *ret_handle = TAKE_PTR(h);
 
                         if (ret_mnt_id)
                                 *ret_mnt_id = mnt_id;
@@ -951,8 +949,7 @@ int mount_option_mangle(
         }
 
         *ret_mount_flags = mount_flags;
-        *ret_remaining_options = ret;
-        ret = NULL;
+        *ret_remaining_options = TAKE_PTR(ret);
 
         return 0;
 }

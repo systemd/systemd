@@ -117,8 +117,7 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
                 *(t++) = '%';
 
         *t = 0;
-        *_ret = ret;
-        ret = NULL;
+        *_ret = TAKE_PTR(ret);
         return 0;
 }
 

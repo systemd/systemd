@@ -766,16 +766,14 @@ static int find_mount_points(const char *what, char ***list) {
                 if (!GREEDY_REALLOC(l, bufsize, n + 2))
                         return log_oom();
 
-                l[n++] = where;
-                where = NULL;
+                l[n++] = TAKE_PTR(where);
         }
 
         if (!GREEDY_REALLOC(l, bufsize, n + 1))
                 return log_oom();
 
         l[n] = NULL;
-        *list = l;
-        l = NULL; /* avoid freeing */
+        *list = TAKE_PTR(l);
 
         return n;
 }
@@ -827,8 +825,7 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
         if (!l)
                 return -ENXIO;
 
-        *loop_dev = l;
-        l = NULL; /* avoid freeing */
+        *loop_dev = TAKE_PTR(l);
 
         return 0;
 }

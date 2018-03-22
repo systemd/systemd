@@ -560,8 +560,7 @@ void seat_complete_switch(Seat *s) {
         if (!s->pending_switch)
                 return;
 
-        session = s->pending_switch;
-        s->pending_switch = NULL;
+        session = TAKE_PTR(s->pending_switch);
 
         seat_set_active(s, session);
 }

@@ -575,8 +575,7 @@ static int prompt_root_password(void) {
                         continue;
                 }
 
-                arg_root_password = a;
-                a = NULL;
+                arg_root_password = TAKE_PTR(a);
                 break;
         }
 

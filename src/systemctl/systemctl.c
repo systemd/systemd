@@ -1924,8 +1924,7 @@ static int get_machine_list(
                         return log_oom();
 
                 machine_infos[c].is_host = true;
-                machine_infos[c].name = hn;
-                hn = NULL;
+                machine_infos[c].name = TAKE_PTR(hn);
 
                 (void) get_machine_properties(bus, &machine_infos[c]);
                 c++;
@@ -2462,10 +2461,9 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
                 if (r < 0)
                         return log_error_errno(r, "Failed to access path '%s': %m", path);
 
-                if (unit_path) {
-                        *unit_path = lpath;
-                        lpath = NULL;
-                }
+                if (unit_path)
+                        *unit_path = TAKE_PTR(lpath);
+
                 return 1;
         }
 
@@ -2497,10 +2495,9 @@ static int unit_find_template_path(
         if (r < 0)
                 return r;
 
-        if (template) {
-                *template = _template;
-                _template = NULL;
-        }
+        if (template)
+                *template = TAKE_PTR(_template);
+
         return r;
 }
 
@@ -6671,8 +6668,7 @@ static int create_edit_temp_file(const char *new_path, const char *original_path
         } else if (r < 0)
                 return log_error_errno(r, "Failed to create temporary file for \"%s\": %m", new_path);
 
-        *ret_tmp_fn = t;
-        t = NULL;
+        *ret_tmp_fn = TAKE_PTR(t);
 
         return 0;
 }
@@ -6703,12 +6699,9 @@ static int get_file_to_edit(
                         return -EEXIST;
                 }
 
-                *ret_path = run;
-                run = NULL;
-        } else {
-                *ret_path = path;
-                path = NULL;
-        }
+                *ret_path = TAKE_PTR(run);
+        } else
+                *ret_path = TAKE_PTR(path);
 
         return 0;
 }

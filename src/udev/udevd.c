@@ -233,8 +233,7 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         if (r < 0)
                 return r;
 
-        *ret = worker;
-        worker = NULL;
+        *ret = TAKE_PTR(worker);
 
         return 0;
 }

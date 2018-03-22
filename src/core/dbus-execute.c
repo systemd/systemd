@@ -424,10 +424,8 @@ static int property_get_syscall_filter(
                                 if (r < 0)
                                         return -ENOMEM;
                         }
-                } else {
-                        s = name;
-                        name = NULL;
-                }
+                } else
+                        s = TAKE_PTR(name);
 
                 r = strv_consume(&l, s);
                 if (r < 0)
@@ -1125,8 +1123,7 @@ int bus_set_transient_exec_command(
                                 return -ENOMEM;
                         }
 
-                        c->argv = argv;
-                        argv = NULL;
+                        c->argv = TAKE_PTR(argv);
 
                         c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
 

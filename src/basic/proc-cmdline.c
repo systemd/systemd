@@ -204,10 +204,8 @@ int proc_cmdline_get_key(const char *key, unsigned flags, char **value) {
                 }
         }
 
-        if (value) {
-                *value = ret;
-                ret = NULL;
-        }
+        if (value)
+                *value = TAKE_PTR(ret);
 
         return found;
 }

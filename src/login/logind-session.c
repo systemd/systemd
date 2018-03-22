@@ -1271,8 +1271,7 @@ int session_set_controller(Session *s, const char *sender, bool force, bool prep
         }
 
         session_release_controller(s, true);
-        s->controller = name;
-        name = NULL;
+        s->controller = TAKE_PTR(name);
         session_save(s);
 
         return 0;

@@ -617,8 +617,7 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, uint16_t optlen, char *
                 idx++;
         }
 
-        *str_arr = names;
-        names = NULL;
+        *str_arr = TAKE_PTR(names);
 
         return idx;
 

@@ -707,10 +707,9 @@ int vtnr_from_tty(const char *tty) {
                 tty = active;
         }
 
-        if (tty == active) {
-                *ret = active;
-                active = NULL;
-        } else {
+        if (tty == active)
+                *ret = TAKE_PTR(active);
+        else {
                 char *tmp;
 
                 tmp = strdup(tty);
@@ -778,8 +777,7 @@ int get_kernel_consoles(char ***ret) {
                 goto fallback;
         }
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
 
         return 0;
 
@@ -788,8 +786,7 @@ fallback:
         if (r < 0)
                 return r;
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
 
         return 0;
 }

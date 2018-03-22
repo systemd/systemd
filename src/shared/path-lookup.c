@@ -181,7 +181,6 @@ static char** user_dirs(
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
         _cleanup_free_ char *data_home = NULL;
         _cleanup_strv_free_ char **res = NULL;
-        char **tmp;
         int r;
 
         r = xdg_user_dirs(&config_dirs, &data_dirs);
@@ -242,10 +241,7 @@ static char** user_dirs(
         if (path_strv_make_absolute_cwd(res) < 0)
                 return NULL;
 
-        tmp = res;
-        res = NULL;
-
-        return tmp;
+        return TAKE_PTR(res);
 }
 
 bool path_is_user_data_dir(const char *path) {
@@ -374,8 +370,7 @@ static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **ru
                         *runtime = NULL;
                 }
 
-                *persistent = a;
-                a = NULL;
+                *persistent = TAKE_PTR(a);
 
                 return 0;
 
@@ -413,8 +408,7 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
                 if (!b)
                         return -ENOMEM;
 
-                *runtime = b;
-                b = NULL;
+                *runtime = TAKE_PTR(b);
 
                 break;
         }
@@ -443,8 +437,7 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
                 assert_not_reached("Hmm, unexpected scope value.");
         }
 
-        *persistent = a;
-        a = NULL;
+        *persistent = TAKE_PTR(a);
 
         return 0;
 }

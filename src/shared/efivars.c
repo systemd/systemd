@@ -249,8 +249,7 @@ int efi_get_variable(
         ((char*) buf)[st.st_size - 4] = 0;
         ((char*) buf)[st.st_size - 4 + 1] = 0;
 
-        *value = buf;
-        buf = NULL;
+        *value = TAKE_PTR(buf);
         *size = (size_t) st.st_size - 4;
 
         if (attribute)
@@ -563,8 +562,7 @@ int efi_get_boot_order(uint16_t **order) {
             l / sizeof(uint16_t) > INT_MAX)
                 return -EINVAL;
 
-        *order = buf;
-        buf = NULL;
+        *order = TAKE_PTR(buf);
         return (int) (l / sizeof(uint16_t));
 }
 

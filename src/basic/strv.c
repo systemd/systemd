@@ -341,8 +341,7 @@ int strv_split_extract(char ***t, const char *s, const char *separators, Extract
                 if (!GREEDY_REALLOC(l, allocated, n + 2))
                         return -ENOMEM;
 
-                l[n++] = word;
-                word = NULL;
+                l[n++] = TAKE_PTR(word);
 
                 l[n] = NULL;
         }
@@ -353,8 +352,7 @@ int strv_split_extract(char ***t, const char *s, const char *separators, Extract
                         return -ENOMEM;
         }
 
-        *t = l;
-        l = NULL;
+        *t = TAKE_PTR(l);
 
         return (int) n;
 }

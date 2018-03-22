@@ -82,8 +82,7 @@ int link_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***
         }
 
         l[c] = NULL;
-        *nodes = l;
-        l = NULL;
+        *nodes = TAKE_PTR(l);
 
         return 1;
 }

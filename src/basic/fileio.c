@@ -330,8 +330,7 @@ int read_full_stream(FILE *f, char **contents, size_t *size) {
         }
 
         buf[l] = 0;
-        *contents = buf;
-        buf = NULL; /* do not free */
+        *contents = TAKE_PTR(buf);
 
         if (size)
                 *size = l;
@@ -1432,8 +1431,7 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
         if (fd < 0)
                 return -errno;
 
-        *ret_path = tmp;
-        tmp = NULL;
+        *ret_path = TAKE_PTR(tmp);
 
         return fd;
 }
@@ -1519,8 +1517,7 @@ int read_nul_string(FILE *f, char **ret) {
                         return -ENOMEM;
         }
 
-        *ret = x;
-        x = NULL;
+        *ret = TAKE_PTR(x);
 
         return 0;
 }

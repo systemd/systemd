@@ -295,8 +295,7 @@ int dns_label_escape_new(const char *p, size_t l, char **ret) {
         if (r < 0)
                 return r;
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return r;
 }
@@ -601,8 +600,7 @@ int dns_name_endswith(const char *name, const char *suffix) {
 
                         /* Not the same, let's jump back, and try with the next label again */
                         s = suffix;
-                        n = saved_n;
-                        saved_n = NULL;
+                        n = TAKE_PTR(saved_n);
                 }
         }
 }
