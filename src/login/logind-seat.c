@@ -95,7 +95,7 @@ int seat_save(Seat *s) {
         if (!s->started)
                 return 0;
 
-        r = mkdir_safe_label("/run/systemd/seats", 0755, 0, 0, false);
+        r = mkdir_safe_label("/run/systemd/seats", 0755, 0, 0, 0);
         if (r < 0)
                 goto fail;
 

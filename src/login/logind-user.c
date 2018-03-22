@@ -143,7 +143,7 @@ static int user_save_internal(User *u) {
         assert(u);
         assert(u->state_file);
 
-        r = mkdir_safe_label("/run/systemd/users", 0755, 0, 0, false);
+        r = mkdir_safe_label("/run/systemd/users", 0755, 0, 0, 0);
         if (r < 0)
                 goto fail;
 
@@ -337,7 +337,7 @@ static int user_mkdir_runtime_path(User *u) {
 
         assert(u);
 
-        r = mkdir_safe_label("/run/user", 0755, 0, 0, false);
+        r = mkdir_safe_label("/run/user", 0755, 0, 0, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/user: %m");
 

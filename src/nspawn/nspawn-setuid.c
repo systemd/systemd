@@ -226,7 +226,7 @@ int change_uid_gid(const char *user, char **_home) {
         if (r < 0)
                 return log_error_errno(r, "Failed to make home root directory: %m");
 
-        r = mkdir_safe(home, 0755, uid, gid, false);
+        r = mkdir_safe(home, 0755, uid, gid, 0);
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to make home directory: %m");
 

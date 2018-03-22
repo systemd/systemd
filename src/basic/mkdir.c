@@ -31,7 +31,7 @@
 #include "stat-util.h"
 #include "user-util.h"
 
-int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, bool follow_symlink, mkdir_func_t _mkdir) {
+int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdir_func_t _mkdir) {
         struct stat st;
         int r;
 
@@ -46,14 +46,16 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, boo
         if (lstat(path, &st) < 0)
                 return -errno;
 
-        if (follow_symlink && S_ISLNK(st.st_mode)) {
+        if ((flags & MKDIR_FOLLOW_SYMLINK) && S_ISLNK(st.st_mode)) {
                 _cleanup_free_ char *p = NULL;
 
                 r = chase_symlinks(path, NULL, CHASE_NONEXISTENT, &p);
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return mkdir_safe_internal(p, mode, uid, gid, false, _mkdir);
+                        return mkdir_safe_internal(p, mode, uid, gid,
+                                                   flags & ~MKDIR_FOLLOW_SYMLINK,
+                                                   _mkdir);
 
                 if (lstat(p, &st) < 0)
                         return -errno;
@@ -76,8 +78,8 @@ int mkdir_errno_wrapper(const char *pathname, mode_t mode) {
         return 0;
 }
 
-int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, bool follow_symlink) {
-        return mkdir_safe_internal(path, mode, uid, gid, follow_symlink, mkdir_errno_wrapper);
+int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
+        return mkdir_safe_internal(path, mode, uid, gid, flags, mkdir_errno_wrapper);
 }
 
 int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, mkdir_func_t _mkdir) {
