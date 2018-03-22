@@ -201,9 +201,6 @@
             <para>Cleanup the udev database.</para>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="version" />
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
 
       <para>In addition, an optional positional argument can be used
@@ -346,9 +343,6 @@
             the same command to finish.</para>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="version" />
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
 
       <para>In addition, optional positional arguments can be used
@@ -379,9 +373,6 @@
             <para>Stop waiting if file exists.</para>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="version" />
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
 
@@ -455,9 +446,6 @@
             <para>The maximum number of seconds to wait for a reply from systemd-udevd.</para>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="version" />
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
 
@@ -504,9 +492,6 @@
             <para>Filter udev events by tag. Only udev events with a given tag attached will pass.</para>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="version" />
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
 
@@ -536,9 +521,6 @@
             and all devices will be owned by root.</para>
           </listitem>
         </varlistentry>
-
-        <xi:include href="standard-options.xml" xpointer="version" />
-        <xi:include href="standard-options.xml" xpointer="help" />
       </variablelist>
     </refsect2>
 
@@ -550,10 +532,6 @@
       <para>Run a built-in command <replaceable>COMMAND</replaceable>
       for device <replaceable>DEVPATH</replaceable>, and print debug
       output.</para>
-      <variablelist>
-        <xi:include href="standard-options.xml" xpointer="version" />
-        <xi:include href="standard-options.xml" xpointer="help" />
-      </variablelist>
     </refsect2>
   </refsect1>
 
