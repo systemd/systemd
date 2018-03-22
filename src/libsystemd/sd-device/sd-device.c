@@ -168,12 +168,9 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         if (verify) {
                 r = chase_symlinks(_syspath, NULL, 0, &syspath);
                 if (r == -ENOENT)
-                        /* the device does not exist (any more?) */
-                        return -ENODEV;
-                else if (r < 0) {
-                        log_debug_errno(r, "sd-device: could not get target of '%s': %m", _syspath);
-                        return r;
-                }
+                        return -ENODEV; /* the device does not exist (any more?) */
+                if (r < 0)
+                        return log_debug_errno(r, "sd-device: could not get target of '%s': %m", _syspath);
 
                 if (!path_startswith(syspath, "/sys")) {
                         _cleanup_free_ char *real_sys = NULL, *new_syspath = NULL;
