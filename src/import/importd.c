@@ -453,8 +453,7 @@ static int transfer_start(Transfer *t) {
         }
 
         pipefd[1] = safe_close(pipefd[1]);
-        t->log_fd = pipefd[0];
-        pipefd[0] = -1;
+        t->log_fd = TAKE_FD(pipefd[0]);
 
         t->stdin_fd = safe_close(t->stdin_fd);
 

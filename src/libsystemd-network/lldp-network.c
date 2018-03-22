@@ -92,8 +92,5 @@ int lldp_network_bind_raw_socket(int ifindex) {
         if (r < 0)
                 return -errno;
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 }

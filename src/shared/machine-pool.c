@@ -89,11 +89,8 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
          * /var/lib/machines. */
 
         fd = open("/var/lib/machines.raw", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (fd >= 0) {
-                r = fd;
-                fd = -1;
-                return r;
-        }
+        if (fd >= 0)
+                return TAKE_FD(fd);
 
         if (errno != ENOENT)
                 return sd_bus_error_set_errnof(error, errno, "Failed to open /var/lib/machines.raw: %m");
@@ -162,10 +159,7 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
                 goto fail;
         }
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 
 fail:
         unlink_noerrno(tmp);

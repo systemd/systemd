@@ -272,8 +272,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
         free_and_replace(i->temp_path, t);
 
         safe_close(i->raw_job->disk_fd);
-        i->raw_job->disk_fd = converted_fd;
-        converted_fd = -1;
+        i->raw_job->disk_fd = TAKE_FD(converted_fd);
 
         return 1;
 }

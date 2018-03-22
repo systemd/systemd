@@ -441,9 +441,7 @@ _public_ int sd_journal_stream_fd(const char *identifier, int priority, int leve
         if (r < 0)
                 return r;
 
-        r = fd;
-        fd = -1;
-        return r;
+        return TAKE_FD(fd);
 }
 
 _public_ int sd_journal_print_with_location(int priority, const char *file, const char *line, const char *func, const char *format, ...) {

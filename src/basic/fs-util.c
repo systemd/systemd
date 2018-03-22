@@ -730,8 +730,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                         }
 
                         safe_close(fd);
-                        fd = fd_parent;
-                        fd_parent = -1;
+                        fd = TAKE_FD(fd_parent);
 
                         continue;
                 }
@@ -849,8 +848,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                 /* And iterate again, but go one directory further down. */
                 safe_close(fd);
-                fd = child;
-                child = -1;
+                fd = TAKE_FD(child);
         }
 
         if (!done) {
@@ -864,16 +862,11 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 *ret = TAKE_PTR(done);
 
         if (flags & CHASE_OPEN) {
-                int q;
-
                 /* Return the O_PATH fd we currently are looking to the caller. It can translate it to a proper fd by
                  * opening /proc/self/fd/xyz. */
 
                 assert(fd >= 0);
-                q = fd;
-                fd = -1;
-
-                return q;
+                return TAKE_FD(fd);
         }
 
         return exists;

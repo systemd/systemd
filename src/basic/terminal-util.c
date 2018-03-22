@@ -496,10 +496,7 @@ int acquire_terminal(
                 fd = safe_close(fd);
         }
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 }
 
 int release_terminal(void) {

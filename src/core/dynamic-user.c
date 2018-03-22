@@ -319,10 +319,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 (void) make_uid_symlinks(candidate, name, true); /* also add direct lookup symlinks */
 
                 *ret_uid = candidate;
-                r = lock_fd;
-                lock_fd = -1;
-
-                return r;
+                return TAKE_FD(lock_fd);
 
         next:
                 ;

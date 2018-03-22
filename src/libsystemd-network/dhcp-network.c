@@ -123,10 +123,7 @@ static int _bind_raw_socket(int ifindex, union sockaddr_union *link,
         if (r < 0)
                 return -errno;
 
-        r = s;
-        s = -1;
-
-        return r;
+        return TAKE_FD(s);
 }
 
 int dhcp_network_bind_raw_socket(int ifindex, union sockaddr_union *link,
@@ -211,10 +208,7 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port) {
         if (r < 0)
                 return -errno;
 
-        r = s;
-        s = -1;
-
-        return r;
+        return TAKE_FD(s);
 }
 
 int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link,

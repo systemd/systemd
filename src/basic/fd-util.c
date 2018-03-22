@@ -484,10 +484,7 @@ int acquire_data_fd(const void *data, size_t size, unsigned flags) {
                 if (r < 0)
                         return r;
 
-                r = fd;
-                fd = -1;
-
-                return r;
+                return TAKE_FD(fd);
         }
 
 try_pipe:
@@ -524,10 +521,7 @@ try_pipe:
 
                 (void) fd_nonblock(pipefds[0], false);
 
-                r = pipefds[0];
-                pipefds[0] = -1;
-
-                return r;
+                return TAKE_FD(pipefds[0]);
         }
 
 try_dev_shm:

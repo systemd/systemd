@@ -325,8 +325,8 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
 
 static int find_source_vc(char **ret_path, unsigned *ret_idx) {
         _cleanup_free_ char *path = NULL;
+        int r, err = 0;
         unsigned i;
-        int ret_fd, r, err = 0;
 
         path = new(char, sizeof("/dev/tty63"));
         if (!path)
@@ -359,18 +359,16 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
                 /* all checks passed, return this one as a source console */
                 *ret_idx = i;
                 *ret_path = TAKE_PTR(path);
-                ret_fd = fd;
-                fd = -1;
-                return ret_fd;
+                return TAKE_FD(fd);
         }
 
         return log_error_errno(err, "No usable source console found: %m");
 }
 
 static int verify_source_vc(char **ret_path, const char *src_vc) {
-        char *path;
         _cleanup_close_ int fd = -1;
-        int ret_fd, r;
+        char *path;
+        int r;
 
         fd = open_terminal(src_vc, O_RDWR|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
@@ -393,9 +391,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
                 return log_oom();
 
         *ret_path = path;
-        ret_fd = fd;
-        fd = -1;
-        return ret_fd;
+        return TAKE_FD(fd);
 }
 
 int main(int argc, char **argv) {

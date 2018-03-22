@@ -844,8 +844,7 @@ static int manager_setup_notify(Manager *m) {
                 if (r < 0)
                         return log_error_errno(errno, "SO_PASSCRED failed: %m");
 
-                m->notify_fd = fd;
-                fd = -1;
+                m->notify_fd = TAKE_FD(fd);
 
                 log_debug("Using notification socket %s", m->notify_socket);
         }
