@@ -90,11 +90,11 @@ static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
         int r;
 
-        r = chase_symlinks(a, NULL, 0, &x);
+        r = chase_symlinks(a, NULL, CHASE_TRAIL_SLASH, &x);
         if (r < 0)
                 return r;
 
-        r = chase_symlinks(b, NULL, 0, &y);
+        r = chase_symlinks(b, NULL, CHASE_TRAIL_SLASH, &y);
         if (r < 0)
                 return r;
 

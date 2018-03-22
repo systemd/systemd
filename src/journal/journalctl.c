@@ -1070,7 +1070,7 @@ static int add_matches(sd_journal *j, char **args) {
                         _cleanup_free_ char *p = NULL, *t = NULL, *t2 = NULL, *interpreter = NULL;
                         struct stat st;
 
-                        r = chase_symlinks(*i, NULL, 0, &p);
+                        r = chase_symlinks(*i, NULL, CHASE_TRAIL_SLASH, &p);
                         if (r < 0)
                                 return log_error_errno(r, "Couldn't canonicalize path: %m");
 

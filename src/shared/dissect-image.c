@@ -1288,7 +1288,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                         NULSTR_FOREACH(p, paths[k]) {
                                 _cleanup_free_ char *q = NULL;
 
-                                r = chase_symlinks(p, t, CHASE_PREFIX_ROOT, &q);
+                                r = chase_symlinks(p, t, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &q);
                                 if (r < 0)
                                         continue;
 

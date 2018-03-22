@@ -685,8 +685,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                 /* Just a single slash? Then we reached the end. */
                 if (path_equal(first, "/")) {
                         /* Preserve the trailing slash */
-                        if (!strextend(&done, "/", NULL))
-                                return -ENOMEM;
+
+                        if (flags & CHASE_TRAIL_SLASH)
+                                if (!strextend(&done, "/", NULL))
+                                        return -ENOMEM;
 
                         break;
                 }

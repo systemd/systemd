@@ -824,7 +824,7 @@ static int mount_entry_chase(
          * chase the symlinks on our own first. This is called for the destination path, as well as the source path (if
          * that applies). The result is stored in "location". */
 
-        r = chase_symlinks(path, root_directory, chase_nonexistent ? CHASE_NONEXISTENT : 0, &chased);
+        r = chase_symlinks(path, root_directory, CHASE_TRAIL_SLASH | (chase_nonexistent ? CHASE_NONEXISTENT : 0), &chased);
         if (r == -ENOENT && m->ignore) {
                 log_debug_errno(r, "Path %s does not exist, ignoring.", path);
                 return 0;
