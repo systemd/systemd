@@ -29,6 +29,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "user-util.h"
 
 int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdir_func_t _mkdir) {
@@ -61,13 +62,32 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, Mkd
                         return -errno;
         }
 
+        if (!S_ISDIR(st.st_mode)) {
+                log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
+                         "Path \"%s\" already exists and is not a directory, refusing.", path);
+                return -ENOTDIR;
+        }
         if ((st.st_mode & 0007) > (mode & 0007) ||
             (st.st_mode & 0070) > (mode & 0070) ||
-            (st.st_mode & 0700) > (mode & 0700) ||
-            (uid != UID_INVALID && st.st_uid != uid) ||
-            (gid != GID_INVALID && st.st_gid != gid) ||
-            !S_ISDIR(st.st_mode))
+            (st.st_mode & 0700) > (mode & 0700)) {
+                log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
+                         "Directory \"%s\" already exists, but has mode %04o that is too permissive (%04o was requested), refusing.",
+                         path, st.st_mode & 0777, mode);
                 return -EEXIST;
+        }
+        if ((uid != UID_INVALID && st.st_uid != uid) ||
+            (gid != GID_INVALID && st.st_gid != gid)) {
+                char u[DECIMAL_STR_MAX(uid_t)] = "-", g[DECIMAL_STR_MAX(gid_t)] = "-";
+
+                if (uid != UID_INVALID)
+                        xsprintf(u, UID_FMT, uid);
+                if (gid != UID_INVALID)
+                        xsprintf(g, GID_FMT, gid);
+                log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
+                         "Directory \"%s\" already exists, but is owned by "UID_FMT":"GID_FMT" (%s:%s was requested), refusing.",
+                         path, st.st_uid, st.st_gid, u, g);
+                return -EEXIST;
+        }
 
         return 0;
 }

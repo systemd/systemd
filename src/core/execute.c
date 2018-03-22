@@ -2051,7 +2051,7 @@ static int setup_exec_directory(
                         }
 
                         /* First set up private root if it doesn't exist yet, with access mode 0700 and owned by root:root */
-                        r = mkdir_safe_label(private_root, 0700, 0, 0, 0);
+                        r = mkdir_safe_label(private_root, 0700, 0, 0, MKDIR_WARN_MODE);
                         if (r < 0)
                                 goto fail;
 

@@ -317,7 +317,7 @@ static void test_readlink_and_make_absolute(void) {
         char *r = NULL;
         _cleanup_free_ char *pwd = NULL;
 
-        assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid(), 0) >= 0);
+        assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid(), MKDIR_WARN_MODE) >= 0);
         assert_se(touch(name) >= 0);
 
         assert_se(symlink(name, name_alias) >= 0);
