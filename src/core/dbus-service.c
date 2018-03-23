@@ -354,7 +354,8 @@ static int bus_service_set_transient_property(
         if (streq(name, "SuccessExitStatus"))
                 return bus_set_transient_exit_status(u, name, &s->success_status, message, flags, error);
 
-        if ((ci = service_exec_command_from_string(name)) >= 0)
+        ci = service_exec_command_from_string(name);
+        if (ci >= 0)
                 return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, error);
 
         if (streq(name, "StandardInputFileDescriptor"))
