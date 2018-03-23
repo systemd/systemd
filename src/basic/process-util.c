@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
@@ -1340,6 +1341,16 @@ int safe_fork_full(
                 else if (ppid != original_pid) {
                         log_debug("Parent died early, raising SIGTERM.");
                         (void) raise(SIGTERM);
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
+        if ((flags & (FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE)) == (FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE)) {
+
+                /* Optionally, make sure we never propagate mounts to the host. */
+
+                if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0) {
+                        log_full_errno(prio, errno, "Failed to remount root directory as MS_SLAVE: %m");
                         _exit(EXIT_FAILURE);
                 }
         }

@@ -163,6 +163,7 @@ typedef enum ForkFlags {
         FORK_LOG           = 1U << 5,
         FORK_WAIT          = 1U << 6,
         FORK_NEW_MOUNTNS   = 1U << 7,
+        FORK_MOUNTNS_SLAVE = 1U << 8,
 } ForkFlags;
 
 int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid);
