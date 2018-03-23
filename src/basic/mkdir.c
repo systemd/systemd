@@ -29,9 +29,10 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "user-util.h"
 
-int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, bool follow_symlink, mkdir_func_t _mkdir) {
+int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdir_func_t _mkdir) {
         struct stat st;
         int r;
 
@@ -46,26 +47,47 @@ int mkdir_safe_internal(const char *path, mode_t mode, uid_t uid, gid_t gid, boo
         if (lstat(path, &st) < 0)
                 return -errno;
 
-        if (follow_symlink && S_ISLNK(st.st_mode)) {
+        if ((flags & MKDIR_FOLLOW_SYMLINK) && S_ISLNK(st.st_mode)) {
                 _cleanup_free_ char *p = NULL;
 
                 r = chase_symlinks(path, NULL, CHASE_NONEXISTENT, &p);
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return mkdir_safe_internal(p, mode, uid, gid, false, _mkdir);
+                        return mkdir_safe_internal(p, mode, uid, gid,
+                                                   flags & ~MKDIR_FOLLOW_SYMLINK,
+                                                   _mkdir);
 
                 if (lstat(p, &st) < 0)
                         return -errno;
         }
 
+        if (!S_ISDIR(st.st_mode)) {
+                log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
+                         "Path \"%s\" already exists and is not a directory, refusing.", path);
+                return -ENOTDIR;
+        }
         if ((st.st_mode & 0007) > (mode & 0007) ||
             (st.st_mode & 0070) > (mode & 0070) ||
-            (st.st_mode & 0700) > (mode & 0700) ||
-            (uid != UID_INVALID && st.st_uid != uid) ||
-            (gid != GID_INVALID && st.st_gid != gid) ||
-            !S_ISDIR(st.st_mode))
+            (st.st_mode & 0700) > (mode & 0700)) {
+                log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
+                         "Directory \"%s\" already exists, but has mode %04o that is too permissive (%04o was requested), refusing.",
+                         path, st.st_mode & 0777, mode);
                 return -EEXIST;
+        }
+        if ((uid != UID_INVALID && st.st_uid != uid) ||
+            (gid != GID_INVALID && st.st_gid != gid)) {
+                char u[DECIMAL_STR_MAX(uid_t)] = "-", g[DECIMAL_STR_MAX(gid_t)] = "-";
+
+                if (uid != UID_INVALID)
+                        xsprintf(u, UID_FMT, uid);
+                if (gid != UID_INVALID)
+                        xsprintf(g, GID_FMT, gid);
+                log_full(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG,
+                         "Directory \"%s\" already exists, but is owned by "UID_FMT":"GID_FMT" (%s:%s was requested), refusing.",
+                         path, st.st_uid, st.st_gid, u, g);
+                return -EEXIST;
+        }
 
         return 0;
 }
@@ -76,8 +98,8 @@ int mkdir_errno_wrapper(const char *pathname, mode_t mode) {
         return 0;
 }
 
-int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, bool follow_symlink) {
-        return mkdir_safe_internal(path, mode, uid, gid, follow_symlink, mkdir_errno_wrapper);
+int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags) {
+        return mkdir_safe_internal(path, mode, uid, gid, flags, mkdir_errno_wrapper);
 }
 
 int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, mkdir_func_t _mkdir) {

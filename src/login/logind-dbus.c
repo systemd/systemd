@@ -1219,7 +1219,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
 
         mkdir_p_label("/var/lib/systemd", 0755);
 
-        r = mkdir_safe_label("/var/lib/systemd/linger", 0755, 0, 0, false);
+        r = mkdir_safe_label("/var/lib/systemd/linger", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 return r;
 
@@ -1963,7 +1963,7 @@ static int update_schedule_file(Manager *m) {
 
         assert(m);
 
-        r = mkdir_safe_label("/run/systemd/shutdown", 0755, 0, 0, false);
+        r = mkdir_safe_label("/run/systemd/shutdown", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 return log_error_errno(r, "Failed to create shutdown subdirectory: %m");
 

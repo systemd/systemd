@@ -552,6 +552,7 @@ m4 = find_program('m4')
 stat = find_program('stat')
 git = find_program('git', required : false)
 env = find_program('env')
+perl = find_program('perl', required : false)
 
 meson_make_symlink = meson.source_root() + '/tools/meson-make-symlink.sh'
 mkdir_p = 'mkdir -p $DESTDIR/@0@'

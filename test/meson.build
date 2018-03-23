@@ -233,9 +233,13 @@ custom_target(
         output : 'sys',
         build_by_default : true)
 
-udev_test_pl = find_program('udev-test.pl')
-test('udev-test',
-     udev_test_pl)
+if perl.found()
+        udev_test_pl = find_program('udev-test.pl')
+        test('udev-test',
+             udev_test_pl)
+else
+        message('Skipping udev-test because perl is not available')
+endif
 
 if conf.get('ENABLE_HWDB') == 1
         hwdb_test_sh = find_program('hwdb-test.sh')

@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
         /* Create runtime directory. This is not necessary when networkd is
          * started with "RuntimeDirectory=systemd/netif", or after
          * systemd-tmpfiles-setup.service. */
-        r = mkdir_safe_label("/run/systemd/netif", 0755, uid, gid, false);
+        r = mkdir_safe_label("/run/systemd/netif", 0755, uid, gid, MKDIR_WARN_MODE);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory: %m");
 
@@ -75,15 +75,15 @@ int main(int argc, char *argv[]) {
         /* Always create the directories people can create inotify watches in.
          * It is necessary to create the following subdirectories after drop_privileges()
          * to support old kernels not supporting AmbientCapabilities=. */
-        r = mkdir_safe_label("/run/systemd/netif/links", 0755, uid, gid, false);
+        r = mkdir_safe_label("/run/systemd/netif/links", 0755, uid, gid, MKDIR_WARN_MODE);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'links': %m");
 
-        r = mkdir_safe_label("/run/systemd/netif/leases", 0755, uid, gid, false);
+        r = mkdir_safe_label("/run/systemd/netif/leases", 0755, uid, gid, MKDIR_WARN_MODE);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'leases': %m");
 
-        r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, uid, gid, false);
+        r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, uid, gid, MKDIR_WARN_MODE);
         if (r < 0)
                 log_warning_errno(r, "Could not create runtime directory 'lldp': %m");
 
