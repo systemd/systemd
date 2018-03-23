@@ -821,7 +821,7 @@ static int fd_set_perms(Item *i, int fd, const struct stat *st) {
                         if (m == (st->st_mode & 07777))
                                 log_debug("\"%s\" has correct mode %o already.", path, st->st_mode);
                         else {
-                                char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+                                char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
 
                                 log_debug("Changing \"%s\" to mode %o.", path, m);
 
@@ -920,7 +920,7 @@ static int parse_xattrs_from_arg(Item *i) {
 }
 
 static int fd_set_xattrs(Item *i, int fd, const struct stat *st) {
-        char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *path = NULL;
         char **name, **value;
         int r;
@@ -1024,7 +1024,7 @@ static int path_set_acl(const char *path, const char *pretty, acl_type_t type, a
 static int fd_set_acls(Item *item, int fd, const struct stat *st) {
         int r = 0;
 #if HAVE_ACL
-        char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *path = NULL;
 
         assert(item);
@@ -1186,7 +1186,7 @@ static int parse_attribute_from_arg(Item *item) {
 }
 
 static int fd_set_attribute(Item *item, int fd, const struct stat *st) {
-        char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_close_ int procfs_fd = -1;
         _cleanup_free_ char *path = NULL;
         unsigned f;
