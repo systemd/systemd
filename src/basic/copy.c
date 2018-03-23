@@ -169,13 +169,11 @@ int copy_bytes_full(
         for (;;) {
                 ssize_t n;
 
-                if (max_bytes != (uint64_t) -1) {
-                        if (max_bytes <= 0)
-                                return 1; /* return > 0 if we hit the max_bytes limit */
+                if (max_bytes <= 0)
+                        return 1; /* return > 0 if we hit the max_bytes limit */
 
-                        if (m > max_bytes)
-                                m = max_bytes;
-                }
+                if (max_bytes != UINT64_MAX && m > max_bytes)
+                        m = max_bytes;
 
                 /* First try copy_file_range(), unless we already tried */
                 if (try_cfr) {
