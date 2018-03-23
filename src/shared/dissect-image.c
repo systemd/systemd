@@ -779,6 +779,14 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
                 r = mount_partition(m->partitions + PARTITION_ROOT, where, NULL, uid_shift, flags);
                 if (r < 0)
                         return r;
+
+                if (flags & DISSECT_IMAGE_VALIDATE_OS) {
+                        r = path_is_os_tree(where);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -EMEDIUMTYPE;
+                }
         }
 
         if ((flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY))
@@ -1278,7 +1286,7 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_MOUNT_ROOT_ONLY);
+                r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_VALIDATE_OS);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount dissected image: %m");
                         _exit(EXIT_FAILURE);

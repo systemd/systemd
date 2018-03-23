@@ -2883,7 +2883,9 @@ static int outer_child(
                  * makes sure ESP partitions and userns are compatible. */
 
                 r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
-                                          DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0));
+                                          DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|
+                                          (arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0)|
+                                          (arg_start_mode == START_BOOT ? DISSECT_IMAGE_VALIDATE_OS : 0));
                 if (r < 0)
                         return r;
         }
