@@ -57,6 +57,31 @@ static ssize_t try_copy_file_range(int fd_in, loff_t *off_in,
                 return -errno;
 }
 
+enum {
+        FD_IS_NO_PIPE,
+        FD_IS_BLOCKING_PIPE,
+        FD_IS_NONBLOCKING_PIPE,
+};
+
+static int fd_is_nonblock_pipe(int fd) {
+        struct stat st;
+        int flags;
+
+        /* Checks whether the specified file descriptor refers to a pipe, and if so if is has O_NONBLOCK set. */
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (!S_ISFIFO(st.st_mode))
+                return FD_IS_NO_PIPE;
+
+        flags = fcntl(fd, F_GETFL);
+        if (flags < 0)
+                return -errno;
+
+        return (flags & O_NONBLOCK) == O_NONBLOCK ? FD_IS_NONBLOCKING_PIPE : FD_IS_BLOCKING_PIPE;
+}
+
 int copy_bytes_full(
                 int fdf, int fdt,
                 uint64_t max_bytes,
@@ -65,7 +90,7 @@ int copy_bytes_full(
                 size_t *ret_remains_size) {
 
         bool try_cfr = true, try_sendfile = true, try_splice = true;
-        int r;
+        int r, nonblock_pipe = -1;
         size_t m = SSIZE_MAX; /* that is the maximum that sendfile and c_f_r accept */
 
         assert(fdf >= 0);
@@ -182,9 +207,51 @@ int copy_bytes_full(
                                 goto next;
                 }
 
-                /* Then try splice, unless we already tried */
+                /* Then try splice, unless we already tried. */
                 if (try_splice) {
-                        n = splice(fdf, NULL, fdt, NULL, m, 0);
+
+                        /* splice()'s asynchronous I/O support is a bit weird. When it encounters a pipe file
+                         * descriptor, then it will ignore its O_NONBLOCK flag and instead only honour the
+                         * SPLICE_F_NONBLOCK flag specified in its flag parameter. Let's hide this behaviour here, and
+                         * check if either of the specified fds are a pipe, and if so, let's pass the flag
+                         * automatically, depending on O_NONBLOCK being set.
+                         *
+                         * Here's a twist though: when we use it to move data between two pipes of which one has
+                         * O_NONBLOCK set and the other has not, then we have no individual control over O_NONBLOCK
+                         * behaviour. Hence in that case we can't use splice() and still guarantee systematic
+                         * O_NONBLOCK behaviour, hence don't. */
+
+                        if (nonblock_pipe < 0) {
+                                int a, b;
+
+                                /* Check if either of these fds is a pipe, and if so non-blocking or not */
+                                a = fd_is_nonblock_pipe(fdf);
+                                if (a < 0)
+                                        return a;
+
+                                b = fd_is_nonblock_pipe(fdt);
+                                if (b < 0)
+                                        return b;
+
+                                if ((a == FD_IS_NO_PIPE && b == FD_IS_NO_PIPE) ||
+                                    (a == FD_IS_BLOCKING_PIPE && b == FD_IS_NONBLOCKING_PIPE) ||
+                                    (a == FD_IS_NONBLOCKING_PIPE && b == FD_IS_BLOCKING_PIPE))
+
+                                        /* splice() only works if one of the fds is a pipe. If neither is, let's skip
+                                         * this step right-away. As mentioned above, if one of the two fds refers to a
+                                         * blocking pipe and the other to a non-blocking pipe, we can't use splice()
+                                         * either, hence don't try either. This hence means we can only use splice() if
+                                         * either only one of the two fds is a pipe, or if both are pipes with the same
+                                         * nonblocking flag setting. */
+
+                                        try_splice = false;
+                                else
+                                        nonblock_pipe = a == FD_IS_NONBLOCKING_PIPE || b == FD_IS_NONBLOCKING_PIPE;
+                        }
+                }
+
+                if (try_splice) {
+                        n = splice(fdf, NULL, fdt, NULL, m, nonblock_pipe ? SPLICE_F_NONBLOCK : 0);
                         if (n < 0) {
                                 if (!IN_SET(errno, EINVAL, ENOSYS))
                                         return -errno;
