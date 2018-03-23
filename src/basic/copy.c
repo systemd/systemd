@@ -57,7 +57,13 @@ static ssize_t try_copy_file_range(int fd_in, loff_t *off_in,
                 return -errno;
 }
 
-int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
+int copy_bytes_full(
+                int fdf, int fdt,
+                uint64_t max_bytes,
+                CopyFlags copy_flags,
+                void **ret_remains,
+                size_t *ret_remains_size) {
+
         bool try_cfr = true, try_sendfile = true, try_splice = true;
         int r;
         size_t m = SSIZE_MAX; /* that is the maximum that sendfile and c_f_r accept */
@@ -67,7 +73,16 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
 
         /* Tries to copy bytes from the file descriptor 'fdf' to 'fdt' in the smartest possible way. Copies a maximum
          * of 'max_bytes', which may be specified as UINT64_MAX, in which no maximum is applied. Returns negative on
-         * error, zero if EOF is hit before the bytes limit is hit and positive otherwise. */
+         * error, zero if EOF is hit before the bytes limit is hit and positive otherwise. If the copy fails for some
+         * reason but we read but didn't yet write some data an ret_remains/ret_remains_size is not NULL, then it will
+         * be initialized with an allocated buffer containing this "remaining" data. Note that these two parameters are
+         * initialized with a valid buffer only on failure and only if there's actually data already read. Otherwise
+         * these parameters if non-NULL are set to NULL. */
+
+        if (ret_remains)
+                *ret_remains = NULL;
+        if (ret_remains_size)
+                *ret_remains_size = 0;
 
         /* Try btrfs reflinks first. This only works on regular, seekable files, hence let's check the file offsets of
          * source and destination first. */
@@ -185,7 +200,8 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
 
                 /* As a fallback just copy bits by hand */
                 {
-                        uint8_t buf[MIN(m, COPY_BUFFER_SIZE)];
+                        uint8_t buf[MIN(m, COPY_BUFFER_SIZE)], *p = buf;
+                        ssize_t z;
 
                         n = read(fdf, buf, sizeof buf);
                         if (n < 0)
@@ -193,9 +209,34 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
                         if (n == 0) /* EOF */
                                 break;
 
-                        r = loop_write(fdt, buf, (size_t) n, false);
-                        if (r < 0)
-                                return r;
+                        z = (size_t) n;
+                        do {
+                                ssize_t k;
+
+                                k = write(fdt, p, z);
+                                if (k < 0) {
+                                        r = -errno;
+
+                                        if (ret_remains) {
+                                                void *copy;
+
+                                                copy = memdup(p, z);
+                                                if (!copy)
+                                                        return -ENOMEM;
+
+                                                *ret_remains = copy;
+                                        }
+
+                                        if (ret_remains_size)
+                                                *ret_remains_size = z;
+
+                                        return r;
+                                }
+
+                                assert(k <= z);
+                                z -= k;
+                                p += k;
+                        } while (z > 0);
                 }
 
         next:
