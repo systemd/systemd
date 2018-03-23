@@ -13,9 +13,9 @@
 #include <sys/types.h>
 
 typedef enum CopyFlags {
-        COPY_REFLINK    = 0x1,      /* try to reflink */
-        COPY_MERGE      = 0x2,      /* merge existing trees with our new one to copy */
-        COPY_REPLACE    = 0x4,      /* replace an existing file if there's one */
+        COPY_REFLINK = 1U << 0, /* Try to reflink */
+        COPY_MERGE   = 1U << 1, /* Merge existing trees with our new one to copy */
+        COPY_REPLACE = 1U << 2, /* Replace an existing file if there's one */
 } CopyFlags;
 
 int copy_file_fd(const char *from, int to, CopyFlags copy_flags);
