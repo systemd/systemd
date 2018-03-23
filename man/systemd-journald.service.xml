@@ -296,7 +296,12 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         and the functions in the
         <citerefentry><refentrytitle>sd-journal</refentrytitle><manvolnum>3</manvolnum></citerefentry>
         library should be able to read all entries that have been fully written.</para>
-        </listitem>
+
+        <para><filename>systemd-journald</filename> will automatically remove the oldest
+        archived journal files to limit disk use. See <varname>SystemMaxUse=</varname>
+        and related settings in
+        <citerefentry><refentrytitle>journald.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -752,7 +752,7 @@
         <term><option>--vacuum-time=</option></term>
         <term><option>--vacuum-files=</option></term>
 
-        <listitem><para>Removes archived journal files until the disk
+        <listitem><para>Removes the oldest archived journal files until the disk
         space they use falls below the specified size (specified with
         the usual <literal>K</literal>, <literal>M</literal>,
         <literal>G</literal> and <literal>T</literal> suffixes), or all
