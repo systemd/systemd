@@ -370,12 +370,13 @@ finish:
 
 }
 
-int safe_atou(const char *s, unsigned *ret_u) {
+int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
         char *x = NULL;
         unsigned long l;
 
         assert(s);
         assert(ret_u);
+        assert(base <= 16);
 
         /* strtoul() is happy to parse negative values, and silently
          * converts them to unsigned values without generating an
@@ -388,7 +389,7 @@ int safe_atou(const char *s, unsigned *ret_u) {
         s += strspn(s, WHITESPACE);
 
         errno = 0;
-        l = strtoul(s, &x, 0);
+        l = strtoul(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
@@ -486,17 +487,18 @@ int safe_atou8(const char *s, uint8_t *ret) {
         return 0;
 }
 
-int safe_atou16(const char *s, uint16_t *ret) {
+int safe_atou16_full(const char *s, unsigned base, uint16_t *ret) {
         char *x = NULL;
         unsigned long l;
 
         assert(s);
         assert(ret);
+        assert(base <= 16);
 
         s += strspn(s, WHITESPACE);
 
         errno = 0;
-        l = strtoul(s, &x, 0);
+        l = strtoul(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
@@ -527,30 +529,6 @@ int safe_atoi16(const char *s, int16_t *ret) {
                 return -ERANGE;
 
         *ret = (int16_t) l;
-        return 0;
-}
-
-int safe_atoux16(const char *s, uint16_t *ret) {
-        char *x = NULL;
-        unsigned long l;
-
-        assert(s);
-        assert(ret);
-
-        s += strspn(s, WHITESPACE);
-
-        errno = 0;
-        l = strtoul(s, &x, 16);
-        if (errno > 0)
-                return -errno;
-        if (!x || x == s || *x != 0)
-                return -EINVAL;
-        if (s[0] == '-')
-                return -ERANGE;
-        if ((unsigned long) (uint16_t) l != l)
-                return -ERANGE;
-
-        *ret = (uint16_t) l;
         return 0;
 }
 
