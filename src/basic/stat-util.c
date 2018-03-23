@@ -254,7 +254,8 @@ int fd_is_network_ns(int fd) {
         if (r <= 0)
                 return r;
 
-        if (ioctl(fd, NS_GET_NSTYPE) < 0)
+        r = ioctl(fd, NS_GET_NSTYPE);
+        if (r < 0)
                 return -errno;
 
         return r == CLONE_NEWNET;

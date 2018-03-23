@@ -11,14 +11,16 @@ ninja -C "$BUILD_DIR"
 
 declare -A results
 
-RESULT=0
+COUNT=0
 FAILURES=0
 
 cd "$(dirname "$0")"
 for TEST in TEST-??-* ; do
-        echo -e "\n--x-- Starting $TEST --x--"
+        COUNT=$(($COUNT+1))
+
+        echo -e "\n--x-- Running $TEST --x--"
         set +e
-        make -C "$TEST" "BUILD_DIR=$BUILD_DIR" $args
+        ( set -x ; make -C "$TEST" "BUILD_DIR=$BUILD_DIR" $args )
         RESULT=$?
         set -e
         echo "--x-- Result of $TEST: $RESULT --x--"
@@ -40,9 +42,9 @@ for TEST in ${!results[@]}; do
 done | sort
 
 if [ "$FAILURES" -eq 0 ] ; then
-        echo -e "\nALL PASSED"
+        echo -e "\nALL $COUNT TESTS PASSED"
 else
-        echo -e "\nTOTAL FAILURES: $FAILURES"
+        echo -e "\nTOTAL FAILURES: $FAILURES OF $COUNT"
 fi
 
 exit "$FAILURES"
