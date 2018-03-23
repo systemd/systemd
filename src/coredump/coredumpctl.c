@@ -1072,8 +1072,7 @@ int main(int argc, char *argv[]) {
 end:
         pager_close();
 
-        if (arg_output)
-                fclose(arg_output);
+        safe_fclose(arg_output);
 
         return r >= 0 ? r : EXIT_FAILURE;
 }
