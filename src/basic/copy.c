@@ -69,15 +69,59 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
          * of 'max_bytes', which may be specified as UINT64_MAX, in which no maximum is applied. Returns negative on
          * error, zero if EOF is hit before the bytes limit is hit and positive otherwise. */
 
-        /* Try btrfs reflinks first. */
-        if ((copy_flags & COPY_REFLINK) &&
-            max_bytes == (uint64_t) -1 &&
-            lseek(fdf, 0, SEEK_CUR) == 0 &&
-            lseek(fdt, 0, SEEK_CUR) == 0) {
+        /* Try btrfs reflinks first. This only works on regular, seekable files, hence let's check the file offsets of
+         * source and destination first. */
+        if ((copy_flags & COPY_REFLINK)) {
+                off_t foffset;
 
-                r = btrfs_reflink(fdf, fdt);
-                if (r >= 0)
-                        return 0; /* we copied the whole thing, hence hit EOF, return 0 */
+                foffset = lseek(fdf, 0, SEEK_CUR);
+                if (foffset >= 0) {
+                        off_t toffset;
+
+                        toffset = lseek(fdt, 0, SEEK_CUR);
+                        if (toffset >= 0) {
+
+                                if (foffset == 0 && toffset == 0 && max_bytes == UINT64_MAX)
+                                        r = btrfs_reflink(fdf, fdt); /* full file reflink */
+                                else
+                                        r = btrfs_clone_range(fdf, foffset, fdt, toffset, max_bytes == UINT64_MAX ? 0 : max_bytes); /* partial reflink */
+                                if (r >= 0) {
+                                        off_t t;
+
+                                        /* This worked, yay! Now — to be fully correct — let's adjust the file pointers */
+                                        if (max_bytes == UINT64_MAX) {
+
+                                                /* We cloned to the end of the source file, let's position the read
+                                                 * pointer there, and query it at the same time. */
+                                                t = lseek(fdf, 0, SEEK_END);
+                                                if (t < 0)
+                                                        return -errno;
+                                                if (t < foffset)
+                                                        return -ESPIPE;
+
+                                                /* Let's adjust the destination file write pointer by the same number
+                                                 * of bytes. */
+                                                t = lseek(fdt, toffset + (t - foffset), SEEK_SET);
+                                                if (t < 0)
+                                                        return -errno;
+
+                                                return 0; /* we copied the whole thing, hence hit EOF, return 0 */
+                                        } else {
+                                                t = lseek(fdf, foffset + max_bytes, SEEK_SET);
+                                                if (t < 0)
+                                                        return -errno;
+
+                                                t = lseek(fdt, toffset + max_bytes, SEEK_SET);
+                                                if (t < 0)
+                                                        return -errno;
+
+                                                return 1; /* we copied only some number of bytes, which worked, but this means we didn't hit EOF, return 1 */
+                                        }
+                                }
+
+                                log_debug_errno(r, "Reflinking didn't work, falling back to non-reflink copying: %m");
+                        }
+                }
         }
 
         for (;;) {
