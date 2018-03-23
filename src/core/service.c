@@ -3400,10 +3400,15 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
                 break;
 
         case SERVICE_AUTO_RESTART:
-                log_unit_info(UNIT(s),
-                              s->restart_usec > 0 ?
-                              "Service hold-off time over, scheduling restart." :
-                              "Service has no hold-off time, scheduling restart.");
+                if (s->restart_usec > 0) {
+                        char buf_restart[FORMAT_TIMESPAN_MAX];
+                        log_unit_info(UNIT(s),
+                                      "Service RestartSec=%s expired, scheduling restart.",
+                                      format_timespan(buf_restart, sizeof buf_restart, s->restart_usec, USEC_PER_SEC));
+                } else
+                        log_unit_info(UNIT(s),
+                                      "Service has no hold-off time (RestartSec=0), scheduling restart.");
+
                 service_enter_restart(s);
                 break;
 
