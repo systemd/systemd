@@ -255,7 +255,7 @@ int machine_load(Machine *m) {
         if (!m->state_file)
                 return 0;
 
-        r = parse_env_file(m->state_file, NEWLINE,
+        r = parse_env_file(NULL, m->state_file, NEWLINE,
                            "SCOPE",     &m->unit,
                            "SCOPE_JOB", &m->scope_job,
                            "SERVICE",   &m->service,

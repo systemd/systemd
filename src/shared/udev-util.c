@@ -18,7 +18,7 @@ int udev_parse_config(void) {
         size_t n;
         int r;
 
-        r = parse_env_file("/etc/udev/udev.conf", NEWLINE, "udev_log", &val, NULL);
+        r = parse_env_file(NULL, "/etc/udev/udev.conf", NEWLINE, "udev_log", &val, NULL);
         if (r == -ENOENT || !val)
                 return 0;
         if (r < 0)

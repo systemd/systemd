@@ -1034,7 +1034,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(lease_file, NEWLINE,
+        r = parse_env_file(NULL, lease_file, NEWLINE,
                            "ADDRESS", &address,
                            "ROUTER", &router,
                            "NETMASK", &netmask,

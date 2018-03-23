@@ -365,7 +365,7 @@ int session_load(Session *s) {
 
         assert(s);
 
-        r = parse_env_file(s->state_file, NEWLINE,
+        r = parse_env_file(NULL, s->state_file, NEWLINE,
                            "REMOTE",         &remote,
                            "SCOPE",          &s->scope,
                            "SCOPE_JOB",      &s->scope_job,

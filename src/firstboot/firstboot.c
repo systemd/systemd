@@ -87,13 +87,13 @@ static void print_welcome(void) {
                 return;
 
         os_release = prefix_roota(arg_root, "/etc/os-release");
-        r = parse_env_file(os_release, NEWLINE,
+        r = parse_env_file(NULL, os_release, NEWLINE,
                            "PRETTY_NAME", &pretty_name,
                            NULL);
         if (r == -ENOENT) {
 
                 os_release = prefix_roota(arg_root, "/usr/lib/os-release");
-                r = parse_env_file(os_release, NEWLINE,
+                r = parse_env_file(NULL, os_release, NEWLINE,
                                    "PRETTY_NAME", &pretty_name,
                                    NULL);
         }

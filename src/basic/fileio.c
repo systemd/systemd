@@ -677,6 +677,7 @@ static int parse_env_file_push(
 }
 
 int parse_env_file(
+                FILE *f,
                 const char *fname,
                 const char *newline, ...) {
 
@@ -687,7 +688,7 @@ int parse_env_file(
                 newline = NEWLINE;
 
         va_start(ap, newline);
-        r = parse_env_file_internal(NULL, fname, newline, parse_env_file_push, &ap, &n_pushed);
+        r = parse_env_file_internal(f, fname, newline, parse_env_file_push, &ap, &n_pushed);
         va_end(ap);
 
         return r < 0 ? r : n_pushed;

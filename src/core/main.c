@@ -1222,7 +1222,7 @@ static int status_welcome(void) {
                 return 0;
 
         FOREACH_STRING(fn, "/etc/os-release", "/usr/lib/os-release") {
-                r = parse_env_file(fn, NEWLINE,
+                r = parse_env_file(NULL, fn, NEWLINE,
                                    "PRETTY_NAME", &pretty_name,
                                    "ANSI_COLOR", &ansi_color,
                                    NULL);

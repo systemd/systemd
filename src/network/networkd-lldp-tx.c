@@ -249,7 +249,7 @@ static int link_send_lldp(Link *link) {
                 return r;
 
         (void) gethostname_strict(&hostname);
-        (void) parse_env_file("/etc/machine-info", NEWLINE, "PRETTY_HOSTNAME", &pretty_hostname, NULL);
+        (void) parse_env_file(NULL, "/etc/machine-info", NEWLINE, "PRETTY_HOSTNAME", &pretty_hostname, NULL);
 
         assert_cc(LLDP_TX_INTERVAL_USEC * LLDP_TX_HOLD + 1 <= (UINT16_MAX - 1) * USEC_PER_SEC);
         ttl = DIV_ROUND_UP(LLDP_TX_INTERVAL_USEC * LLDP_TX_HOLD + 1, USEC_PER_SEC);
