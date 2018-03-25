@@ -1454,11 +1454,6 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                 goto finish;
         }
 
-        if (strv_isempty(global_info.dns) && strv_isempty(global_info.domains) && strv_isempty(global_info.ntas)) {
-                r = 0;
-                goto finish;
-        }
-
         (void) pager_open(arg_no_pager, false);
 
         printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
