@@ -549,6 +549,10 @@ static void test_exec_capabilityboundingset(Manager *m) {
         test(m, "exec-capabilityboundingset-invert.service", 0, CLD_EXITED);
 }
 
+static void test_exec_basic(Manager *m) {
+        test(m, "exec-basic.service", 0, CLD_EXITED);
+}
+
 static void test_exec_ambientcapabilities(Manager *m) {
         int r;
 
@@ -648,6 +652,7 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         static const test_function_t user_tests[] = {
+                test_exec_basic,
                 test_exec_ambientcapabilities,
                 test_exec_bindpaths,
                 test_exec_capabilityboundingset,

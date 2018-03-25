@@ -30,17 +30,23 @@
 
 #if HAVE_SPLIT_BIN
 #  define PATH_SBIN_BIN(x) x "sbin:" x "bin"
+#  define PATH0_SBIN_BIN(x) x "sbin\0" x "bin"
 #else
+#  define PATH0_SBIN_BIN(x) x "bin"
 #  define PATH_SBIN_BIN(x) x "bin"
 #endif
 
 #define DEFAULT_PATH_NORMAL PATH_SBIN_BIN("/usr/local/") ":" PATH_SBIN_BIN("/usr/")
+#define DEFAULT_PATH0_NORMAL PATH0_SBIN_BIN("/usr/local/") "\0" PATH0_SBIN_BIN("/usr/")
 #define DEFAULT_PATH_SPLIT_USR DEFAULT_PATH_NORMAL ":" PATH_SBIN_BIN("/")
+#define DEFAULT_PATH0_SPLIT_USR DEFAULT_PATH0_NORMAL "\0" PATH0_SBIN_BIN("/")
 
 #if HAVE_SPLIT_USR
 #  define DEFAULT_PATH DEFAULT_PATH_SPLIT_USR
+#  define DEFAULT_PATH_NULSTR DEFAULT_PATH0_SPLIT_USR
 #else
 #  define DEFAULT_PATH DEFAULT_PATH_NORMAL
+#  define DEFAULT_PATH_NULSTR DEFAULT_PATH0_NORMAL
 #endif
 
 bool is_path(const char *p) _pure_;
