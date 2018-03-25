@@ -194,6 +194,6 @@ int create_subcgroup(pid_t pid, CGroupUnified unified_requested) {
                 return log_error_errno(r, "Failed to create %s subcgroup: %m", child);
 
         /* Try to enable as many controllers as possible for the new payload. */
-        (void) cg_enable_everywhere(supported, supported, cgroup);
+        (void) cg_enable_everywhere(supported, supported, cgroup, /* delegate */ false);
         return 0;
 }

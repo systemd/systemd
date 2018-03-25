@@ -2559,7 +2559,7 @@ int cg_unified_flush(void) {
         return cg_unified_update();
 }
 
-int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
+int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p, bool delegate) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *fs = NULL;
         CGroupController c;
@@ -2588,10 +2588,16 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
                         continue;
 
                 n = cgroup_controller_to_string(c);
+
                 {
                         char s[1 + strlen(n) + 1];
 
-                        s[0] = mask & bit ? '+' : '-';
+                        bool enable = mask & bit;
+                        if (!enable && delegate) { /* shouldn't remove controllers on delegated unit */
+                            continue;
+                        }
+
+                        s[0] = enable ? '+' : '-';
                         strcpy(s + 1, n);
 
                         if (!f) {

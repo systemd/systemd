@@ -373,6 +373,7 @@ const UnitVTable slice_vtable = {
         .private_section = "Slice",
 
         .can_transient = true,
+        .can_delegate = true,
 
         .init = slice_init,
         .load = slice_load,
