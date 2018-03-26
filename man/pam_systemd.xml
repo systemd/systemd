@@ -255,8 +255,11 @@
         for, if any. (Only applies to seats with a VT available, such
         as <literal>seat0</literal>)</para></listitem>
       </varlistentry>
-
     </variablelist>
+
+    <para>If not set, <command>pam_systemd</command> will determine the
+    values for <varname>$XDG_SEAT</varname> and <varname>$XDG_VTNR</varname>
+    based on the <varname>$DISPLAY</varname> variable.</para>
   </refsect1>
 
   <refsect1>

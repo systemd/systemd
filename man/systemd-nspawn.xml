@@ -519,8 +519,10 @@
         configured with <option>--network-veth</option>. If this
         option is specified, the CAP_NET_ADMIN capability will be
         added to the set of capabilities the container retains. The
-        latter may be disabled by using
-        <option>--drop-capability=</option>.</para></listitem>
+        latter may be disabled by using <option>--drop-capability=</option>.
+        If this option is not specified (or implied by one of the options
+        listed below), the container will have full access to the host network.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -23,7 +23,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<refentry id="sd_journal_get_fd">
+<refentry id="sd_journal_get_fd" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_get_fd</title>
@@ -263,73 +263,13 @@ else {
     <para>Iterating through the journal, in a live view tracking all
     changes:</para>
 
-    <programlisting>#include &lt;stdio.h&gt;
-#include &lt;string.h&gt;
-#include &lt;systemd/sd-journal.h&gt;
-
-int main(int argc, char *argv[]) {
-  int r;
-  sd_journal *j;
-  r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
-  if (r &lt; 0) {
-    fprintf(stderr, "Failed to open journal: %s\n", strerror(-r));
-    return 1;
-  }
-  for (;;)  {
-    const void *d;
-    size_t l;
-    r = sd_journal_next(j);
-    if (r &lt; 0) {
-      fprintf(stderr, "Failed to iterate to next entry: %s\n", strerror(-r));
-      break;
-    }
-    if (r == 0) {
-      /* Reached the end, let's wait for changes, and try again */
-      r = sd_journal_wait(j, (uint64_t) -1);
-      if (r &lt; 0) {
-        fprintf(stderr, "Failed to wait for changes: %s\n", strerror(-r));
-        break;
-      }
-      continue;
-    }
-    r = sd_journal_get_data(j, "MESSAGE", &amp;d, &amp;l);
-    if (r &lt; 0) {
-      fprintf(stderr, "Failed to read message field: %s\n", strerror(-r));
-      continue;
-    }
-    printf("%.*s\n", (int) l, (const char*) d);
-  }
-  sd_journal_close(j);
-  return 0;
-}</programlisting>
+    <programlisting><xi:include href="journal-iterate-wait.c" parse="text" /></programlisting>
 
     <para>Waiting with <function>poll()</function> (this
     example lacks all error checking for the sake of
     simplicity):</para>
 
-    <programlisting>#include &lt;poll.h&gt;
-#include &lt;systemd/sd-journal.h&gt;
-
-int wait_for_changes(sd_journal *j) {
-  struct pollfd pollfd;
-  int msec;
-
-  sd_journal_get_timeout(m, &amp;t);
-  if (t == (uint64_t) -1)
-    msec = -1;
-  else {
-    struct timespec ts;
-    uint64_t n;
-    clock_gettime(CLOCK_MONOTONIC, &amp;ts);
-    n = (uint64_t) ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
-    msec = t > n ? (int) ((t - n + 999) / 1000) : 0;
-  }
-
-  pollfd.fd = sd_journal_get_fd(j);
-  pollfd.events = sd_journal_get_events(j);
-  poll(&amp;pollfd, 1, msec);
-  return sd_journal_process(j);
-}</programlisting>
+    <programlisting><xi:include href="journal-iterate-poll.c" parse="text" /></programlisting>
   </refsect1>
 
   <refsect1>
