@@ -18,6 +18,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/mount.h>
 #include <sys/prctl.h>
 #include <stdio_ext.h>
 
