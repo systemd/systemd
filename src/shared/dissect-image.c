@@ -1286,18 +1286,14 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                         fds[2*k] = safe_close(fds[2*k]);
 
                         NULSTR_FOREACH(p, paths[k]) {
-                                _cleanup_free_ char *q = NULL;
-
-                                r = chase_symlinks(p, t, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &q);
-                                if (r < 0)
-                                        continue;
-
-                                fd = open(q, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                                fd = chase_symlinks_and_open(p, t, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                                 if (fd >= 0)
                                         break;
                         }
-                        if (fd < 0)
+                        if (fd < 0) {
+                                log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m", paths[k]);
                                 continue;
+                        }
 
                         r = copy_bytes(fd, fds[2*k+1], (uint64_t) -1, 0);
                         if (r < 0)
