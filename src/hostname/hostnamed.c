@@ -16,6 +16,7 @@
 #include "env-util.h"
 #include "fileio-label.h"
 #include "hostname-util.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
@@ -98,18 +99,11 @@ static int context_read_data(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = parse_env_file(NULL, "/etc/os-release", NEWLINE,
-                           "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
-                           "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
-                           "HOME_URL", &c->data[PROP_HOME_URL],
-                           NULL);
-        if (r == -ENOENT)
-                r = parse_env_file(NULL, "/usr/lib/os-release", NEWLINE,
-                                   "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
-                                   "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
-                                   "HOME_URL", &c->data[PROP_HOME_URL],
-                                   NULL);
-
+        r = parse_os_release(NULL,
+                             "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
+                             "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
+                             "HOME_URL", &c->data[PROP_HOME_URL],
+                             NULL);
         if (r < 0 && r != -ENOENT)
                 return r;
 

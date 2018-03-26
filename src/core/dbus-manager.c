@@ -26,6 +26,7 @@
 #include "fs-util.h"
 #include "install.h"
 #include "log.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-access.h"

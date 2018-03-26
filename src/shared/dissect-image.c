@@ -30,6 +30,7 @@
 #include "linux-3.13/dm-ioctl.h"
 #include "missing.h"
 #include "mount-util.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "raw-clone.h"

@@ -24,6 +24,7 @@
 #include "log.h"
 #include "logs-show.h"
 #include "microhttpd-util.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "sigbus.h"
 #include "util.h"
@@ -777,10 +778,8 @@ static int request_handler_machine(
         if (r < 0)
                 return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
 
-        if (parse_env_file(NULL, "/etc/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL) == -ENOENT)
-                (void) parse_env_file(NULL, "/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL);
-
-        get_virtualization(&v);
+        (void) parse_os_release(NULL, "PRETTY_NAME", &os_name, NULL);
+        (void) get_virtualization(&v);
 
         r = asprintf(&json,
                      "{ \"machine_id\" : \"" SD_ID128_FORMAT_STR "\","

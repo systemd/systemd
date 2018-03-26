@@ -242,6 +242,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-os-util.c'],
+         [],
+         []],
+
         [['src/test/test-escape.c'],
          [],
          []],

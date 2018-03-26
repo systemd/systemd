@@ -35,6 +35,7 @@
 #include "machine-image.h"
 #include "macro.h"
 #include "mkdir.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-table.h"
@@ -923,6 +924,7 @@ int image_read_metadata(Image *i) {
                 sd_id128_t machine_id = SD_ID128_NULL;
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
+                _cleanup_fclose_ FILE *f = NULL;
 
                 r = chase_symlinks("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r < 0 && r != -ENOENT)
@@ -962,18 +964,9 @@ int image_read_metadata(Image *i) {
                                 log_debug_errno(r, "Failed to parse machine-info data of %s: %m", i->name);
                 }
 
-                path = mfree(path);
-
-                r = chase_symlinks("/etc/os-release", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
-                if (r == -ENOENT)
-                        r = chase_symlinks("/usr/lib/os-release", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
-                if (r < 0 && r != -ENOENT)
-                        log_debug_errno(r, "Failed to chase os-release in image: %m");
-                else if (r >= 0) {
-                        r = load_env_file_pairs(NULL, path, NULL, &os_release);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to parse os-release data of %s: %m", i->name);
-                }
+                r = load_os_release_pairs(i->path, &os_release);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read os-release in image, ignoring: %m");
 
                 free_and_replace(i->hostname, hostname);
                 i->machine_id = machine_id;

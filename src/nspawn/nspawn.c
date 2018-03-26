@@ -77,6 +77,7 @@
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
+#include "os-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"

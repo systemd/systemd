@@ -35,7 +35,6 @@ int null_or_empty_path(const char *fn);
 int null_or_empty_fd(int fd);
 
 int path_is_read_only_fs(const char *path);
-int path_is_os_tree(const char *path);
 
 int files_same(const char *filea, const char *fileb, int flags);
 
