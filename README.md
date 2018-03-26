@@ -21,3 +21,5 @@ Please see our [Contribution Guidelines](../master/.github/CONTRIBUTING.md) for 
 When preparing patches for systemd, please follow our [Coding Style Guidelines](../master/doc/CODING_STYLE).
 
 If you are looking for support, please contact our [mailing list](https://lists.freedesktop.org/mailman/listinfo/systemd-devel) or join our [IRC channel](irc://irc.freenode.org/%23systemd).
+
+Stable branches with backported patches are available in the [stable repo](https://github.com/systemd/systemd-stable).
