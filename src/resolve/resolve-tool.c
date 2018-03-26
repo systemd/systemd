@@ -1454,11 +1454,6 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                 goto finish;
         }
 
-        if (strv_isempty(global_info.dns) && strv_isempty(global_info.domains) && strv_isempty(global_info.ntas)) {
-                r = 0;
-                goto finish;
-        }
-
         (void) pager_open(arg_no_pager, false);
 
         printf("%sGlobal%s\n", ansi_highlight(), ansi_normal());
@@ -2421,11 +2416,11 @@ int main(int argc, char **argv) {
                         STRV_FOREACH(ifname, argv + optind) {
                                 int ifindex, q;
 
-                                q = parse_ifindex(argv[optind], &ifindex);
+                                q = parse_ifindex(*ifname, &ifindex);
                                 if (q < 0) {
-                                        ifindex = if_nametoindex(argv[optind]);
+                                        ifindex = if_nametoindex(*ifname);
                                         if (ifindex <= 0) {
-                                                log_error_errno(errno, "Failed to resolve interface name: %s", argv[optind]);
+                                                log_error_errno(errno, "Failed to resolve interface name '%s': %m", *ifname);
                                                 continue;
                                         }
                                 }
