@@ -20,7 +20,6 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <libmount.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -33,6 +32,8 @@
 #include "ip-address-access.h"
 #include "list.h"
 #include "ratelimit.h"
+
+struct libmnt_monitor;
 
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */

@@ -23,6 +23,8 @@
 #include <stdio.h>
 #include <sys/epoll.h>
 
+#include <libmount.h>
+
 #include "sd-messages.h"
 
 #include "alloc-util.h"
