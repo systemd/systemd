@@ -168,7 +168,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
 
         /* Relabel first, just in case */
         if (relabel)
-                (void) label_fix(p->where, true, true);
+                (void) label_fix(p->where, LABEL_IGNORE_ENOENT|LABEL_IGNORE_EROFS);
 
         r = path_is_mount_point(p->where, NULL, AT_SYMLINK_FOLLOW);
         if (r < 0 && r != -ENOENT) {
@@ -206,7 +206,7 @@ static int mount_one(const MountPoint *p, bool relabel) {
 
         /* Relabel again, since we now mounted something fresh here */
         if (relabel)
-                (void) label_fix(p->where, false, false);
+                (void) label_fix(p->where, 0);
 
         if (p->mode & MNT_CHECK_WRITABLE) {
                 if (access(p->where, W_OK) < 0) {
@@ -374,7 +374,7 @@ static int nftw_cb(
         if (_unlikely_(ftwbuf->level == 0))
                 return FTW_CONTINUE;
 
-        label_fix(fpath, false, false);
+        (void) label_fix(fpath, 0);
 
         /* /run/initramfs is static data and big, no need to
          * dynamically relabel its contents at boot... */
@@ -413,7 +413,7 @@ int mount_setup(bool loaded_policy) {
                 r = cg_all_unified();
                 if (r == 0) {
                         (void) mount(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT, NULL);
-                        label_fix("/sys/fs/cgroup", false, false);
+                        (void) label_fix("/sys/fs/cgroup", 0);
                         nftw("/sys/fs/cgroup", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
                         (void) mount(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT|MS_RDONLY, NULL);
                 } else if (r < 0)

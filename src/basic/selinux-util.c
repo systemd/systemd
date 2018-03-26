@@ -34,10 +34,12 @@
 #endif
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "log.h"
 #include "macro.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "stdio-util.h"
 #include "time-util.h"
 #include "util.h"
 
@@ -51,7 +53,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(context_t, context_free);
 static int cached_use = -1;
 static struct selabel_handle *label_hnd = NULL;
 
-#define log_enforcing(...) log_full_errno(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG, errno, __VA_ARGS__)
+#define log_enforcing(...) log_full(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG, __VA_ARGS__)
+#define log_enforcing_errno(r, ...) log_full_errno(security_getenforce() == 1 ? LOG_ERR : LOG_DEBUG, r, __VA_ARGS__)
 #endif
 
 bool mac_selinux_use(void) {
@@ -120,9 +123,12 @@ void mac_selinux_finish(void) {
 #endif
 }
 
-int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
+int mac_selinux_fix(const char *path, LabelFixFlags flags) {
 
 #if HAVE_SELINUX
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_freecon_ char* fcon = NULL;
+        _cleanup_close_ int fd = -1;
         struct stat st;
         int r;
 
@@ -132,37 +138,55 @@ int mac_selinux_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
         if (!label_hnd)
                 return 0;
 
-        r = lstat(path, &st);
-        if (r >= 0) {
-                _cleanup_freecon_ char* fcon = NULL;
+        /* Open the file as O_PATH, to pin it while we determine and adjust the label */
+        fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0) {
+                if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
+                        return 0;
 
-                r = selabel_lookup_raw(label_hnd, &fcon, path, st.st_mode);
+                return -errno;
+        }
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (selabel_lookup_raw(label_hnd, &fcon, path, st.st_mode) < 0) {
+                r = -errno;
 
                 /* If there's no label to set, then exit without warning */
-                if (r < 0 && errno == ENOENT)
+                if (r == -ENOENT)
                         return 0;
 
-                if (r >= 0) {
-                        r = lsetfilecon_raw(path, fcon);
-
-                        /* If the FS doesn't support labels, then exit without warning */
-                        if (r < 0 && errno == EOPNOTSUPP)
-                                return 0;
-                }
+                goto fail;
         }
 
-        if (r < 0) {
-                /* Ignore ENOENT in some cases */
-                if (ignore_enoent && errno == ENOENT)
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+        if (setfilecon_raw(procfs_path, fcon) < 0) {
+                _cleanup_freecon_ char *oldcon = NULL;
+
+                r = -errno;
+
+                /* If the FS doesn't support labels, then exit without warning */
+                if (r == -EOPNOTSUPP)
                         return 0;
 
-                if (ignore_erofs && errno == EROFS)
+                /* It the FS is read-only and we were told to ignore failures caused by that, suppress error */
+                if (r == -EROFS && (flags & LABEL_IGNORE_EROFS))
                         return 0;
 
-                log_enforcing("Unable to fix SELinux security context of %s: %m", path);
-                if (security_getenforce() == 1)
-                        return -errno;
+                /* If the old label is identical to the new one, suppress any kind of error */
+                if (getfilecon_raw(procfs_path, &oldcon) >= 0 && streq(fcon, oldcon))
+                        return 0;
+
+                goto fail;
         }
+
+        return 0;
+
+fail:
+        log_enforcing_errno(r, "Unable to fix SELinux security context of %s: %m", path);
+        if (security_getenforce() == 1)
+                return r;
 #endif
 
         return 0;

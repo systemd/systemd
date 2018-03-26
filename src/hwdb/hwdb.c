@@ -688,7 +688,7 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failure writing database %s: %m", hwdb_bin);
 
-        return label_fix(hwdb_bin, false, false);
+        return label_fix(hwdb_bin, 0);
 }
 
 static void help(void) {
