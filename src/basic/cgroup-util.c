@@ -2588,14 +2588,12 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p, b
                         continue;
 
                 n = cgroup_controller_to_string(c);
-
                 {
                         char s[1 + strlen(n) + 1];
 
                         bool enable = mask & bit;
-                        if (!enable && delegate) { /* shouldn't remove controllers on delegated unit */
-                            continue;
-                        }
+                        if (!enable && delegate) /* shouldn't remove controllers on delegated unit */
+                                continue;
 
                         s[0] = enable ? '+' : '-';
                         strcpy(s + 1, n);
