@@ -479,10 +479,6 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pnHP*Pavilion*dv7*Notebook*PC:
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*[pP][aA][vV][iI][lL][iI][oO][nN]*13*x360*:pvr*
  KEYBOARD_KEY_d7=unknown
 
-# Purism Librem 13 V2
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v2*:pvr*
- KEYBOARD_KEY_56=backslash
-
 # Elitebook
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*Compaq*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*EliteBook*:pvr*
@@ -1046,6 +1042,15 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnOQO*Inc.*:pnOQO*Model*2*:pvr*
 # Plantronics .Audio 626 DSP
 evdev:input:b0003v047FpC006*
  KEYBOARD_KEY_b002f=f20                                # Microphone mute button; should be micmute
+
+###########################################################
+# Purism
+###########################################################
+
+# Purism Librem 13 V2
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPurism*:pn*Librem13v2*:pvr*
+ KEYBOARD_KEY_56=backslash
+
 
 ###########################################################
 # Quanta
