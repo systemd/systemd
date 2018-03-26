@@ -934,7 +934,7 @@ int image_read_metadata(Image *i) {
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
 
-                r = chase_symlinks("/etc/hostname", i->path, CHASE_PREFIX_ROOT, &path);
+                r = chase_symlinks("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/hostname in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -945,7 +945,7 @@ int image_read_metadata(Image *i) {
 
                 path = mfree(path);
 
-                r = chase_symlinks("/etc/machine-id", i->path, CHASE_PREFIX_ROOT, &path);
+                r = chase_symlinks("/etc/machine-id", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-id in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -963,7 +963,7 @@ int image_read_metadata(Image *i) {
 
                 path = mfree(path);
 
-                r = chase_symlinks("/etc/machine-info", i->path, CHASE_PREFIX_ROOT, &path);
+                r = chase_symlinks("/etc/machine-info", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-info in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -974,9 +974,9 @@ int image_read_metadata(Image *i) {
 
                 path = mfree(path);
 
-                r = chase_symlinks("/etc/os-release", i->path, CHASE_PREFIX_ROOT, &path);
+                r = chase_symlinks("/etc/os-release", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r == -ENOENT)
-                        r = chase_symlinks("/usr/lib/os-release", i->path, CHASE_PREFIX_ROOT, &path);
+                        r = chase_symlinks("/usr/lib/os-release", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase os-release in image: %m");
                 else if (r >= 0) {
