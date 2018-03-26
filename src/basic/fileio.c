@@ -676,22 +676,41 @@ static int parse_env_file_push(
         return 0;
 }
 
-int parse_env_file(
+int parse_env_filev(
                 FILE *f,
                 const char *fname,
-                const char *newline, ...) {
+                const char *newline,
+                va_list ap) {
 
-        va_list ap;
         int r, n_pushed = 0;
+        va_list aq;
 
         if (!newline)
                 newline = NEWLINE;
 
+        va_copy(aq, ap);
+        r = parse_env_file_internal(f, fname, newline, parse_env_file_push, &aq, &n_pushed);
+        va_end(aq);
+        if (r < 0)
+                return r;
+
+        return n_pushed;
+}
+
+int parse_env_file(
+                FILE *f,
+                const char *fname,
+                const char *newline,
+                ...) {
+
+        va_list ap;
+        int r;
+
         va_start(ap, newline);
-        r = parse_env_file_internal(f, fname, newline, parse_env_file_push, &ap, &n_pushed);
+        r = parse_env_filev(f, fname, newline, ap);
         va_end(ap);
 
-        return r < 0 ? r : n_pushed;
+        return r;
 }
 
 static int load_env_file_push(
