@@ -1029,7 +1029,8 @@
     <filename>bin/</filename> and <filename>sbin/</filename>. It is thus safe to use just the
     executable name in case of executables located in any of the "standard" directories, and an
     absolute path must be used in other cases. Using an absolute path is recommended to avoid
-    ambiguity.</para>
+    ambiguity. Hint: this search path may be queried using
+    <command>systemd-path search-binaries-default</command>.</para>
 
     <para>Example:</para>
 
