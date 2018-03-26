@@ -133,9 +133,12 @@ ssize_t strbuf_add_string(struct strbuf *str, const char *s, size_t len) {
                 return -EINVAL;
 
         /* search string; start from last character to find possibly matching tails */
-        if (len == 0)
-                return 0;
+
         str->in_count++;
+        if (len == 0) {
+                str->dedup_count++;
+                return 0;
+        }
         str->in_len += len;
 
         node = str->root;
