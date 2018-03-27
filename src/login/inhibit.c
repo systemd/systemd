@@ -254,6 +254,9 @@ int main(int argc, char *argv[]) {
                 _cleanup_free_ char *w = NULL;
                 pid_t pid;
 
+                /* Ignore SIGINT and allow the forked process to receive it */
+                (void) ignore_signals(SIGINT, -1);
+
                 if (!arg_who)
                         arg_who = w = strv_join(argv + optind, " ");
 
