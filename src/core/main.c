@@ -2478,7 +2478,7 @@ finish:
                  * in become_shutdown() so normally we cannot free them yet. */
                 watchdog_free_device();
                 arg_watchdog_device = mfree(arg_watchdog_device);
-                return 0;
+                return retval;
         }
 #endif
 
