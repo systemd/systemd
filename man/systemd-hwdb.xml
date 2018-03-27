@@ -70,6 +70,13 @@
           <para>Alternate root path in the filesystem.</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><option>-s</option></term>
+        <term><option>--strict</option></term>
+        <listitem>
+          <para>When updating, return non-zero exit value on any parsing error.</para>
+        </listitem>
+      </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
     </variablelist>
