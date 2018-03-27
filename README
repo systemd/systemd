@@ -314,6 +314,17 @@ WARNINGS:
         nice output only on exit(), hence on shutdown we don't execve()
         systemd-shutdown.
 
+STABLE BRANCHES AND BACKPORTS
+
+       Stable branches with backported patches are available in the
+       systemd-stable repo at https://github.com/systemd/systemd-stable.
+
+       Stable branches are started for certain releases of systemd and named
+       after them, e.g. v238-stable. Stable branches are managed by
+       distribution maintainers on an as needed basis. See
+       https://www.freedesktop.org/wiki/Software/systemd/Backports/ for some
+       more information and examples.
+
 ENGINEERING AND CONSULTING SERVICES:
         Kinvolk (https://kinvolk.io) offers professional engineering
         and consulting services for systemd. Please contact Chris Kühl

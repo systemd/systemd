@@ -92,6 +92,19 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  void *arg);
 
 /**
+ * Normal bsearch requires base to be nonnull. Here were require
+ * that only if nmemb > 0.
+ */
+static inline void* bsearch_safe(const void *key, const void *base,
+                                 size_t nmemb, size_t size, comparison_fn_t compar) {
+        if (nmemb <= 0)
+                return NULL;
+
+        assert(base);
+        return bsearch(key, base, nmemb, size, compar);
+}
+
+/**
  * Normal qsort requires base to be nonnull. Here were require
  * that only if nmemb > 0.
  */

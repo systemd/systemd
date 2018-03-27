@@ -592,12 +592,9 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
 }
 
 static const char *find_id(void *p, sd_id128_t id) {
-        CatalogItem key, *f = NULL;
+        CatalogItem *f = NULL, key = { .id = id };
         const CatalogHeader *h = p;
         const char *loc;
-
-        zero(key);
-        key.id = id;
 
         loc = setlocale(LC_MESSAGES, NULL);
         if (loc && loc[0] && !streq(loc, "C") && !streq(loc, "POSIX")) {

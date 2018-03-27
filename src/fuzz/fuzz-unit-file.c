@@ -43,15 +43,17 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 _cleanup_free_ char *l = NULL;
                 const char *ll;
 
-                if (read_line(f, LINE_MAX, &l) <= 0)
+                if (read_line(f, LONG_LINE_MAX, &l) <= 0)
                         break;
 
                 ll = l + strspn(l, WHITESPACE);
 
-                if (startswith(ll, "ListenNetlink="))
+                if (HAS_FEATURE_MEMORY_SANITIZER && startswith(ll, "ListenNetlink=")) {
                         /* ListenNetlink causes a false positive in msan,
                          * let's skip this for now. */
+                        log_notice("Skipping test because ListenNetlink= is present");
                         return 0;
+                }
         }
 
         assert_se(fseek(f, offset, SEEK_SET) == 0);

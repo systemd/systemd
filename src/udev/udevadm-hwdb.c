@@ -114,7 +114,9 @@ static struct trie_node *node_lookup(const struct trie_node *node, uint8_t c) {
         struct trie_child_entry search;
 
         search.c = c;
-        child = bsearch(&search, node->children, node->children_count, sizeof(struct trie_child_entry), trie_children_cmp);
+        child = bsearch_safe(&search,
+                             node->children, node->children_count, sizeof(struct trie_child_entry),
+                             trie_children_cmp);
         if (child)
                 return child->child;
         return NULL;
