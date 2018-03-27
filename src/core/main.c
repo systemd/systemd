@@ -774,7 +774,6 @@ static void set_manager_settings(Manager *m) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_LOG_LEVEL = 0x100,
                 ARG_LOG_TARGET,
