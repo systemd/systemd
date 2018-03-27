@@ -680,7 +680,7 @@ static int adm_hwdb(struct udev *udev, int argc, char *argv[]) {
                         rc = EXIT_FAILURE;
                 }
 
-                label_fix(hwdb_bin, false, false);
+                (void) label_fix(hwdb_bin, 0);
         }
 
         if (test) {

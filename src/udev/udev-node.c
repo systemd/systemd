@@ -79,7 +79,7 @@ static int node_symlink(struct udev_device *dev, const char *node, const char *s
                                 buf[len] = '\0';
                                 if (streq(target, buf)) {
                                         log_debug("preserve already existing symlink '%s' to '%s'", slink, target);
-                                        label_fix(slink, true, false);
+                                        (void) label_fix(slink, LABEL_IGNORE_ENOENT);
                                         utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
                                         goto exit;
                                 }
@@ -324,7 +324,7 @@ static int node_permissions_apply(struct udev_device *dev, bool apply,
 
                 /* set the defaults */
                 if (!selinux)
-                        mac_selinux_fix(devnode, true, false);
+                        (void) mac_selinux_fix(devnode, LABEL_IGNORE_ENOENT);
                 if (!smack)
                         mac_smack_apply(devnode, SMACK_ATTR_ACCESS, NULL);
         }

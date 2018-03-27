@@ -368,7 +368,7 @@ static int user_mkdir_runtime_path(User *u) {
                         }
                 }
 
-                r = label_fix(u->runtime_path, false, false);
+                r = label_fix(u->runtime_path, 0);
                 if (r < 0)
                         log_warning_errno(r, "Failed to fix label of '%s', ignoring: %m", u->runtime_path);
         }

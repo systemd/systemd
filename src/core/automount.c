@@ -346,7 +346,7 @@ static int open_dev_autofs(Manager *m) {
         if (m->dev_autofs_fd >= 0)
                 return m->dev_autofs_fd;
 
-        label_fix("/dev/autofs", false, false);
+        (void) label_fix("/dev/autofs", 0);
 
         m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
         if (m->dev_autofs_fd < 0)

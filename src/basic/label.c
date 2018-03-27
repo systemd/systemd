@@ -28,11 +28,11 @@
 #include "selinux-util.h"
 #include "smack-util.h"
 
-int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
+int label_fix(const char *path, LabelFixFlags flags) {
         int r, q;
 
-        r = mac_selinux_fix(path, ignore_enoent, ignore_erofs);
-        q = mac_smack_fix(path, ignore_enoent, ignore_erofs);
+        r = mac_selinux_fix(path, flags);
+        q = mac_smack_fix(path, flags);
 
         if (r < 0)
                 return r;
@@ -60,7 +60,7 @@ int symlink_label(const char *old_path, const char *new_path) {
         if (r < 0)
                 return r;
 
-        return mac_smack_fix(new_path, false, false);
+        return mac_smack_fix(new_path, 0);
 }
 
 int btrfs_subvol_make_label(const char *path) {
@@ -78,5 +78,5 @@ int btrfs_subvol_make_label(const char *path) {
         if (r < 0)
                 return r;
 
-        return mac_smack_fix(path, false, false);
+        return mac_smack_fix(path, 0);
 }
