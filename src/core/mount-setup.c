@@ -397,19 +397,18 @@ static int relabel_cgroup_filesystems(void) {
                    only when the filesystem has been already populated by a previous instance of systemd
                    running from initrd. Otherwise don't remount anything and leave the filesystem read-write
                    for the cgroup filesystems to be mounted inside. */
-                r = statfs("/sys/fs/cgroup", &st);
-                if (r < 0) {
+                if (statfs("/sys/fs/cgroup", &st) < 0)
                         return log_error_errno(errno, "Failed to determine mount flags for /sys/fs/cgroup: %m");
-                }
 
                 if (st.f_flags & ST_RDONLY)
                         (void) mount(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT, NULL);
 
                 (void) label_fix("/sys/fs/cgroup", 0);
-                nftw("/sys/fs/cgroup", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                (void) nftw("/sys/fs/cgroup", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
 
                 if (st.f_flags & ST_RDONLY)
                         (void) mount(NULL, "/sys/fs/cgroup", NULL, MS_REMOUNT|MS_RDONLY, NULL);
+
         } else if (r < 0)
                 return log_error_errno(r, "Failed to determine whether we are in all unified mode: %m");
 
@@ -435,9 +434,9 @@ int mount_setup(bool loaded_policy) {
 
                 before_relabel = now(CLOCK_MONOTONIC);
 
-                nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
-                nftw("/dev/shm", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
-                nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                (void) nftw("/dev", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                (void) nftw("/dev/shm", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                (void) nftw("/run", nftw_cb, 64, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
 
                 r = relabel_cgroup_filesystems();
                 if (r < 0)

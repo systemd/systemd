@@ -879,8 +879,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
                 r = make_lock_file_for(path, operation, &t);
                 if (r < 0) {
                         if ((operation & LOCK_SH) && r == -EROFS)
-                                log_debug_errno(r, "Failed to create shared "
-                                    "lock for %s: %m", path);
+                                log_debug_errno(r, "Failed to create shared lock for '%s', ignoring: %m", path);
                         else
                                 return r;
                 }
