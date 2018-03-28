@@ -2657,23 +2657,12 @@ static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *ac
         return 0;
 }
 
-static int check_triggering_units(
-                sd_bus *bus,
-                const char *name) {
-
+static int unit_is_masked(sd_bus *bus, const char *name) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *path = NULL, *n = NULL, *load_state = NULL;
-        _cleanup_strv_free_ char **triggered_by = NULL;
-        bool print_warning_label = true;
-        UnitActiveState active_state;
-        char **i;
+        _cleanup_free_ char *path = NULL, *load_state = NULL;
         int r;
 
-        r = unit_name_mangle(name, 0, &n);
-        if (r < 0)
-                return log_error_errno(r, "Failed to mangle unit name: %m");
-
-        path = unit_dbus_path_from_name(n);
+        path = unit_dbus_path_from_name(name);
         if (!path)
                 return log_oom();
 
@@ -2686,10 +2675,31 @@ static int check_triggering_units(
                         &error,
                         &load_state);
         if (r < 0)
-                return log_error_errno(r, "Failed to get load state of %s: %s", n, bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to get load state of %s: %s", name, bus_error_message(&error, r));
 
-        if (streq(load_state, "masked"))
-                return 0;
+        return streq(load_state, "masked");
+}
+
+static int check_triggering_units(sd_bus *bus, const char *name) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *n = NULL, *path = NULL;
+        _cleanup_strv_free_ char **triggered_by = NULL;
+        bool print_warning_label = true;
+        UnitActiveState active_state;
+        char **i;
+        int r;
+
+        r = unit_name_mangle(name, 0, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mangle unit name: %m");
+
+        r = unit_is_masked(bus, n);
+        if (r != 0)
+                return r < 0 ? r : 0;
+
+        path = unit_dbus_path_from_name(n);
+        if (!path)
+                return log_oom();
 
         r = sd_bus_get_property_strv(
                         bus,
@@ -6972,6 +6982,17 @@ static int edit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to expand names: %m");
 
+        STRV_FOREACH(tmp, names) {
+                r = unit_is_masked(bus, *tmp);
+                if (r < 0)
+                        return r;
+
+                if (r > 0) {
+                        log_error("Cannot edit %s: unit is masked.", *tmp);
+                        return -EINVAL;
+                }
+        }
+
         r = find_paths_to_edit(bus, names, &paths);
         if (r < 0)
                 return r;
@@ -6984,8 +7005,8 @@ static int edit(int argc, char *argv[], void *userdata) {
                 goto end;
 
         STRV_FOREACH_PAIR(original, tmp, paths) {
-                /* If the temporary file is empty we ignore it.  It's
-                 * useful if the user wants to cancel its modification
+                /* If the temporary file is empty we ignore it.
+                 * This allows the user to cancel the modification.
                  */
                 if (null_or_empty_path(*tmp)) {
                         log_warning("Editing \"%s\" canceled: temporary file is empty.", *original);
