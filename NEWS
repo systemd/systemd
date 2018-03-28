@@ -1,5 +1,14 @@
 systemd System and Service Manager
 
+CHANGES WITH 239 in spe:
+
+        * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"
+          builtin may name network interfaces differently than in previous
+          versions.  SR-IOV virtual functions and NPAR partitions with PCI
+          function numbers of 8 and above will be named more predictably,
+          and udev may generate names based on PCI slot number in some cases
+          where it previously did not.
+
 CHANGES WITH 238:
 
         * The MemoryAccounting= unit property now defaults to on. After

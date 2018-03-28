@@ -112,6 +112,8 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
+#include "parse-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev.h"
@@ -149,6 +151,11 @@ struct netnames {
         char platform_path[IFNAMSIZ];
 };
 
+struct virtfn_info {
+        struct udev_device *physfn_pcidev;
+        char suffix[IFNAMSIZ];
+};
+
 /* skip intermediate virtio devices */
 static struct udev_device *skip_virtio(struct udev_device *dev) {
         struct udev_device *parent = dev;
@@ -159,6 +166,67 @@ static struct udev_device *skip_virtio(struct udev_device *dev) {
         while (parent && streq_ptr("virtio", udev_device_get_subsystem(parent)))
                 parent = udev_device_get_parent(parent);
         return parent;
+}
+
+static int get_virtfn_info(struct udev_device *dev, struct netnames *names, struct virtfn_info *vf_info) {
+        struct udev *udev;
+        const char *physfn_link_file;
+        _cleanup_free_ char *physfn_pci_syspath = NULL;
+        _cleanup_free_ char *virtfn_pci_syspath = NULL;
+        struct dirent *dent;
+        _cleanup_closedir_ DIR *dir = NULL;
+        struct virtfn_info vf_info_local = {};
+        int r;
+
+        udev = udev_device_get_udev(names->pcidev);
+        if (!udev)
+                return -ENOENT;
+        /* Check if this is a virtual function. */
+        physfn_link_file = strjoina(udev_device_get_syspath(names->pcidev), "/physfn");
+        r = chase_symlinks(physfn_link_file, NULL, 0, &physfn_pci_syspath);
+        if (r < 0)
+                return r;
+
+        /* Get physical function's pci device. */
+        vf_info_local.physfn_pcidev = udev_device_new_from_syspath(udev, physfn_pci_syspath);
+        if (!vf_info_local.physfn_pcidev)
+                return -ENOENT;
+
+        /* Find the virtual function number by finding the right virtfn link. */
+        dir = opendir(physfn_pci_syspath);
+        if (!dir) {
+                r = -errno;
+                goto out_unref;
+        }
+        FOREACH_DIRENT_ALL(dent, dir, break) {
+                _cleanup_free_ char *virtfn_link_file = NULL;
+                if (!startswith(dent->d_name, "virtfn"))
+                        continue;
+                virtfn_link_file = strjoin(physfn_pci_syspath, "/", dent->d_name);
+                if (!virtfn_link_file) {
+                        r = -ENOMEM;
+                        goto out_unref;
+                }
+                if (chase_symlinks(virtfn_link_file, NULL, 0, &virtfn_pci_syspath) < 0)
+                        continue;
+                if (streq(udev_device_get_syspath(names->pcidev), virtfn_pci_syspath)) {
+                        if (!snprintf_ok(vf_info_local.suffix, sizeof(vf_info_local.suffix), "v%s", &dent->d_name[6])) {
+                                r = -ENOENT;
+                                goto out_unref;
+                        }
+                        break;
+                }
+        }
+        if (isempty(vf_info_local.suffix)) {
+                r = -ENOENT;
+                goto out_unref;
+        }
+        *vf_info = vf_info_local;
+        return 0;
+
+out_unref:
+        udev_device_unref(vf_info_local.physfn_pcidev);
+        return r;
 }
 
 /* retrieve on-board index number and label from firmware */
@@ -231,20 +299,29 @@ static bool is_pci_multifunction(struct udev_device *dev) {
         return false;
 }
 
+static bool is_pci_ari_enabled(struct udev_device *dev) {
+        return !!udev_device_get_sysattr_value(dev, "ari_enabled");
+}
+
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         struct udev *udev = udev_device_get_udev(names->pcidev);
-        unsigned domain, bus, slot, func, dev_port = 0;
+        unsigned domain, bus, slot, func, dev_port = 0, hotplug_slot = 0;
         size_t l;
         char *s;
         const char *attr, *port_name;
         _cleanup_udev_device_unref_ struct udev_device *pci = NULL;
+        struct udev_device *hotplug_slot_dev;
         char slots[PATH_MAX];
         _cleanup_closedir_ DIR *dir = NULL;
         struct dirent *dent;
-        int hotplug_slot = 0;
 
         if (sscanf(udev_device_get_sysname(names->pcidev), "%x:%x:%x.%u", &domain, &bus, &slot, &func) != 4)
                 return -ENOENT;
+        if (is_pci_ari_enabled(names->pcidev))
+                /* ARI devices support up to 256 functions on a single device ("slot"), and interpret the
+                 * traditional 5-bit slot and 3-bit function number as a single 8-bit function number,
+                 * where the slot makes up the upper 5 bits. */
+                func += slot * 8;
 
         /* kernel provided port index for multiple ports on a single PCI function */
         attr = udev_device_get_sysattr_value(dev, "dev_port");
@@ -281,27 +358,33 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         if (!dir)
                 return -errno;
 
-        FOREACH_DIRENT_ALL(dent, dir, break) {
-                int i;
-                char *rest, str[PATH_MAX];
-                _cleanup_free_ char *address = NULL;
+        hotplug_slot_dev = names->pcidev;
+        while (hotplug_slot_dev) {
+                FOREACH_DIRENT_ALL(dent, dir, break) {
+                        unsigned i;
+                        int r;
+                        char str[PATH_MAX];
+                        _cleanup_free_ char *address = NULL;
 
-                if (dent->d_name[0] == '.')
-                        continue;
-                i = strtol(dent->d_name, &rest, 10);
-                if (rest[0] != '\0')
-                        continue;
-                if (i < 1)
-                        continue;
+                        if (dent->d_name[0] == '.')
+                                continue;
+                        r = safe_atou_full(dent->d_name, 10, &i);
+                        if (i < 1 || r < 0)
+                                continue;
 
-                if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
-                    read_one_line_file(str, &address) >= 0)
-                        /* match slot address with device by stripping the function */
-                        if (startswith(udev_device_get_sysname(names->pcidev), address))
-                                hotplug_slot = i;
+                        if (snprintf_ok(str, sizeof str, "%s/%s/address", slots, dent->d_name) &&
+                            read_one_line_file(str, &address) >= 0)
+                                /* match slot address with device by stripping the function */
+                                if (startswith(udev_device_get_sysname(hotplug_slot_dev), address))
+                                        hotplug_slot = i;
 
+                        if (hotplug_slot > 0)
+                                break;
+                }
                 if (hotplug_slot > 0)
                         break;
+                rewinddir(dir);
+                hotplug_slot_dev = udev_device_get_parent_with_subsystem_devtype(hotplug_slot_dev, "pci", NULL);
         }
 
         if (hotplug_slot > 0) {
@@ -406,6 +489,8 @@ static int names_platform(struct udev_device *dev, struct netnames *names, bool 
 
 static int names_pci(struct udev_device *dev, struct netnames *names) {
         struct udev_device *parent;
+        struct netnames vf_names = {};
+        struct virtfn_info vf_info = {};
 
         assert(dev);
         assert(names);
@@ -426,8 +511,29 @@ static int names_pci(struct udev_device *dev, struct netnames *names) {
                 if (!names->pcidev)
                         return -ENOENT;
         }
-        dev_pci_onboard(dev, names);
-        dev_pci_slot(dev, names);
+
+        if (get_virtfn_info(dev, names, &vf_info) >= 0) {
+                /* If this is an SR-IOV virtual device, get base name using physical device and add virtfn suffix. */
+                vf_names.pcidev = vf_info.physfn_pcidev;
+                dev_pci_onboard(dev, &vf_names);
+                dev_pci_slot(dev, &vf_names);
+                if (vf_names.pci_onboard[0])
+                        if (strlen(vf_names.pci_onboard) + strlen(vf_info.suffix) < sizeof(names->pci_onboard))
+                                strscpyl(names->pci_onboard, sizeof(names->pci_onboard),
+                                         vf_names.pci_onboard, vf_info.suffix, NULL);
+                if (vf_names.pci_slot[0])
+                        if (strlen(vf_names.pci_slot) + strlen(vf_info.suffix) < sizeof(names->pci_slot))
+                                strscpyl(names->pci_slot, sizeof(names->pci_slot),
+                                         vf_names.pci_slot, vf_info.suffix, NULL);
+                if (vf_names.pci_path[0])
+                        if (strlen(vf_names.pci_path) + strlen(vf_info.suffix) < sizeof(names->pci_path))
+                                strscpyl(names->pci_path, sizeof(names->pci_path),
+                                         vf_names.pci_path, vf_info.suffix, NULL);
+                udev_device_unref(vf_info.physfn_pcidev);
+        } else {
+                dev_pci_onboard(dev, names);
+                dev_pci_slot(dev, names);
+        }
         return 0;
 }
 
