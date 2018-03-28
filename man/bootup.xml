@@ -301,7 +301,7 @@ systemd-reboot.service   systemd-poweroff.service   systemd-halt.service   syste
     <para>Commonly used system shutdown targets are <emphasis>emphasized</emphasis>.</para>
 
     <para>Note that
-    <citerefentry>system<refentrytitle>systemd-halt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-halt.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
     <filename>systemd-reboot.service</filename>, <filename>systemd-poweroff.service</filename> and
     <filename>systemd-kexec.service</filename> will transition the system and server manager (PID 1) into the second
     phase of system shutdown (implemented in the <filename>systemd-shutdown</filename> binary), which will unmount any
