@@ -15,3 +15,23 @@ SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_target", TEST!="[module/sg]", RUN+="/sbin
 
 # Rule for prandom character device node permissions
 KERNEL=="prandom", MODE="0644"
+
+# Rules for creating the ID_PATH for SCSI devices based on the CCW bus
+# using the form: ccw-<BUS_ID>-zfcp-<WWPN>:<LUN>
+#
+ACTION=="remove", GOTO="zfcp_scsi_device_end"
+
+#
+# Set environment variable "ID_ZFCP_BUS" to "1" if the devices
+# (both disk and partition) are SCSI devices based on FCP devices
+#
+KERNEL=="sd*", SUBSYSTEMS=="ccw", DRIVERS=="zfcp", ENV{.ID_ZFCP_BUS}="1"
+
+# For SCSI disks
+KERNEL=="sd*[!0-9]", SUBSYSTEMS=="scsi", ENV{.ID_ZFCP_BUS}=="1", ENV{DEVTYPE}=="disk", SYMLINK+="disk/by-path/ccw-$attr{hba_id}-zfcp-$attr{wwpn}:$attr{fcp_lun}"
+
+
+# For partitions on a SCSI disk
+KERNEL=="sd*[0-9]", SUBSYSTEMS=="scsi", ENV{.ID_ZFCP_BUS}=="1", ENV{DEVTYPE}=="partition", SYMLINK+="disk/by-path/ccw-$attr{hba_id}-zfcp-$attr{wwpn}:$attr{fcp_lun}-part%n"
+
+LABEL="zfcp_scsi_device_end"
