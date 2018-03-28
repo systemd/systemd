@@ -377,12 +377,12 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
         if (!server)
                 return -ESRCH;
 
-        /* If we changed the server invalidate the feature level clamping, as the new server might have completely
-         * different properties. */
-        if (server != t->server)
+        /* If we changed the server invalidate the current & clamp feature levels, as the new server might have
+         * completely different properties. */
+        if (server != t->server) {
                 t->clamp_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
-
-        t->current_feature_level = dns_server_possible_feature_level(server);
+                t->current_feature_level = dns_server_possible_feature_level(server);
+        }
 
         /* Clamp the feature level if that is requested. */
         if (t->clamp_feature_level != _DNS_SERVER_FEATURE_LEVEL_INVALID &&
@@ -1020,6 +1020,34 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                                   dns_rcode_to_string(DNS_PACKET_RCODE(p)),
                                   dns_server_feature_level_to_string(t->clamp_feature_level));
 
+                        dns_transaction_retry(t, false /* use the same server */);
+                        return;
+                }
+
+                /* Some captive portals are special in that the Aruba/Datavalet hardware will miss replacing the
+                 * packets with the local server IP to point to the authenticated side of the network if EDNS0 is
+                 * enabled. Instead they return NXDOMAIN, with DO bit set to zero... nothing to see here, yet respond
+                 * with the captive portal IP, when using the more simple UDP level.
+                 *
+                 * Common portal names that fail like so are:
+                 * secure.datavalet.io
+                 * securelogin.arubanetworks.com
+                 * securelogin.networks.mycompany.com
+                 *
+                 * Thus retry NXDOMAIN RCODES with a lower feature level.
+                 *
+                 * Do not "clamp" the feature level down, as the captive portal should not be lying for the wider
+                 * internet (e.g. _other_ queries were observed fine with EDNS0 on these networks, post auth)
+                 *
+                 * This is reported as https://github.com/dns-violations/dns-violations/blob/master/2018/DVE-2018-0001.md
+                 */
+                if (DNS_PACKET_RCODE(p) == DNS_RCODE_NXDOMAIN && t->current_feature_level >= DNS_SERVER_FEATURE_LEVEL_EDNS0 && t->scope->dnssec_mode != DNSSEC_YES) {
+                        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+                        dns_resource_key_to_string(t->key, key_str, sizeof key_str);
+                        t->current_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
+                        log_warning("Server returned error %s, mitigating potential DNS violation DVE-2018-0001, retrying transaction with reduced feature level %s.",
+                                    dns_rcode_to_string(DNS_PACKET_RCODE(p)),
+                                    dns_server_feature_level_to_string(t->current_feature_level));
                         dns_transaction_retry(t, false /* use the same server */);
                         return;
                 }
