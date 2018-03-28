@@ -1426,7 +1426,7 @@ fail:
 static int socket_determine_selinux_label(Socket *s, char **ret) {
         Service *service;
         ExecCommand *c;
-        const char *path;
+        _cleanup_free_ char *path = NULL;
         int r;
 
         assert(s);
@@ -1453,7 +1453,10 @@ static int socket_determine_selinux_label(Socket *s, char **ret) {
                 if (!c)
                         goto no_label;
 
-                path = prefix_roota(service->exec_context.root_directory, c->path);
+                r = chase_symlinks(c->path, service->exec_context.root_directory, CHASE_PREFIX_ROOT, &path);
+                if (r < 0)
+                        goto no_label;
+
                 r = mac_selinux_get_create_label_from_exe(path, ret);
                 if (IN_SET(r, -EPERM, -EOPNOTSUPP))
                         goto no_label;
