@@ -11,6 +11,6 @@
 Description=Suspend; Idle into hibernate
 Documentation=man:systemd.special(7)
 DefaultDependencies=no
-Requires=systemd-suspend-to-hibernate.service
-After=systemd-suspend-to-hibernate.service
+Requires=systemd-suspend-then-hibernate.service
+After=systemd-suspend-then-hibernate.service
 StopWhenUnneeded=yes

@@ -179,7 +179,7 @@
         <literal>suspend</literal>,
         <literal>hibernate</literal>,
         <literal>hybrid-sleep</literal>,
-        <literal>suspend-to-hibernate</literal>, and
+        <literal>suspend-then-hibernate</literal>, and
         <literal>lock</literal>.
         Defaults to <literal>ignore</literal>.</para>
 
@@ -229,7 +229,7 @@
         <literal>suspend</literal>,
         <literal>hibernate</literal>,
         <literal>hybrid-sleep</literal>,
-        <literal>suspend-to-hibernate</literal>, and
+        <literal>suspend-then-hibernate</literal>, and
         <literal>lock</literal>.
         If <literal>ignore</literal>, logind will never handle these
         keys. If <literal>lock</literal>, all running sessions will be
