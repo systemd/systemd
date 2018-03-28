@@ -2611,8 +2611,8 @@ subdir('network')
 subdir('man')
 subdir('shell-completion/bash')
 subdir('shell-completion/zsh')
-subdir('docs/sysvinit')
-subdir('docs/var-log')
+subdir('doc/sysvinit')
+subdir('doc/var-log')
 
 # FIXME: figure out if the warning is true:
 # https://github.com/mesonbuild/meson/wiki/Reference-manual#install_subdir
