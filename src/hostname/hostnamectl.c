@@ -170,6 +170,7 @@ static int show_all_names(sd_bus *bus, sd_bus_error *error) {
                                    "org.freedesktop.hostname1",
                                    "/org/freedesktop/hostname1",
                                    hostname_map,
+                                   0,
                                    error,
                                    &host_message,
                                    &info);
@@ -180,6 +181,7 @@ static int show_all_names(sd_bus *bus, sd_bus_error *error) {
                                    "org.freedesktop.systemd1",
                                    "/org/freedesktop/systemd1",
                                    manager_map,
+                                   0,
                                    error,
                                    &manager_message,
                                    &info);

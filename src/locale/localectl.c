@@ -162,6 +162,7 @@ static int show_status(int argc, char **argv, void *userdata) {
                                    "org.freedesktop.locale1",
                                    "/org/freedesktop/locale1",
                                    map,
+                                   0,
                                    &error,
                                    &m,
                                    &info);

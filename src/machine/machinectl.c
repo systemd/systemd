@@ -811,6 +811,7 @@ static int show_machine_info(const char *verb, sd_bus *bus, const char *path, bo
                                    "org.freedesktop.machine1",
                                    path,
                                    map,
+                                   0,
                                    &error,
                                    &m,
                                    &info);
@@ -1092,6 +1093,7 @@ static int show_image_info(sd_bus *bus, const char *path, bool *new_line) {
                                    "org.freedesktop.machine1",
                                    path,
                                    map,
+                                   BUS_MAP_BOOLEAN_AS_BOOL,
                                    &error,
                                    &m,
                                    &info);
@@ -1152,6 +1154,7 @@ static int show_pool_info(sd_bus *bus) {
                                    "org.freedesktop.machine1",
                                    "/org/freedesktop/machine1",
                                    map,
+                                   0,
                                    &error,
                                    &m,
                                    &info);

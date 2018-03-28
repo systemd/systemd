@@ -875,6 +875,7 @@ static int run_context_update(RunContext *c, const char *path) {
                                    "org.freedesktop.systemd1",
                                    path,
                                    map,
+                                   BUS_MAP_STRDUP,
                                    &error,
                                    NULL,
                                    c);

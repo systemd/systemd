@@ -1686,6 +1686,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
                                    "org.freedesktop.systemd1",
                                    path,
                                    map[arg_dependency],
+                                   0,
                                    &error,
                                    NULL,
                                    &info);
@@ -1892,7 +1893,15 @@ static int get_machine_properties(sd_bus *bus, struct machine_info *mi) {
                 bus = container;
         }
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, NULL, NULL, mi);
+        r = bus_map_all_properties(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        machine_info_property_map,
+                        BUS_MAP_STRDUP,
+                        NULL,
+                        NULL,
+                        mi);
         if (r < 0)
                 return r;
 
@@ -5018,6 +5027,7 @@ static int show_one(
                         "org.freedesktop.systemd1",
                         path,
                         show_mode == SYSTEMCTL_SHOW_STATUS ? status_map : property_map,
+                        BUS_MAP_BOOLEAN_AS_BOOL,
                         &error,
                         &reply,
                         &info);
@@ -5151,7 +5161,15 @@ static int show_system_status(sd_bus *bus) {
         if (!hn)
                 return log_oom();
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1", machine_info_property_map, &error, NULL, &mi);
+        r = bus_map_all_properties(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        machine_info_property_map,
+                        BUS_MAP_STRDUP,
+                        &error,
+                        NULL,
+                        &mi);
         if (r < 0)
                 return log_error_errno(r, "Failed to read server status: %s", bus_error_message(&error, r));
 
@@ -6090,7 +6108,7 @@ static int unit_exists(LookupPaths *lp, const char *unit) {
         if (r < 0)
                 return r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, property_map, &error, &m, &info);
+        r = bus_map_all_properties(bus, "org.freedesktop.systemd1", path, property_map, 0, &error, &m, &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get properties: %s", bus_error_message(&error, r));
 
