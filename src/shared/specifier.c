@@ -102,11 +102,18 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
                 else
                         *(t++) = *f;
 
-        /* if string ended with a stray %, also end with % */
+        /* If string ended with a stray %, also end with % */
         if (percent)
                 *(t++) = '%';
+        *(t++) = 0;
 
-        *t = 0;
+        /* Try to deallocate unused bytes, but don't sweat it too much */
+        if ((size_t)(t - ret) < allocated) {
+                t = realloc(ret, t - ret);
+                if (t)
+                        ret = t;
+        }
+
         *_ret = TAKE_PTR(ret);
         return 0;
 }
