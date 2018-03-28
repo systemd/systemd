@@ -269,6 +269,25 @@ static void clamp_brightness(struct udev_device *device, char **value, unsigned 
         }
 }
 
+static bool shall_clamp(struct udev_device *d) {
+        const char *s;
+        int r;
+
+        assert(d);
+
+        s = udev_device_get_property_value(d, "ID_BACKLIGHT_CLAMP");
+        if (!s)
+                return true;
+
+        r = parse_boolean(s);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse ID_BACKLIGHT_CLAMP property, ignoring: %m");
+                return true;
+        }
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
         _cleanup_udev_unref_ struct udev *udev = NULL;
         _cleanup_udev_device_unref_ struct udev_device *device = NULL;
@@ -369,7 +388,7 @@ int main(int argc, char *argv[]) {
 
         if (streq(argv[1], "load")) {
                 _cleanup_free_ char *value = NULL;
-                const char *clamp;
+                bool clamp;
 
                 if (shall_restore_state() == 0)
                         return EXIT_SUCCESS;
@@ -377,18 +396,34 @@ int main(int argc, char *argv[]) {
                 if (!validate_device(udev, device))
                         return EXIT_SUCCESS;
 
-                r = read_one_line_file(saved, &value);
-                if (r < 0) {
+                clamp = shall_clamp(device);
 
-                        if (r == -ENOENT)
+                r = read_one_line_file(saved, &value);
+                if (r == -ENOENT) {
+                        const char *curval;
+
+                        /* Fallback to clamping current brightness or exit early if
+                         * clamping is not supported/enabled. */
+                        if (!clamp)
                                 return EXIT_SUCCESS;
 
+                        curval = udev_device_get_sysattr_value(device, "brightness");
+                        if (!curval) {
+                                log_warning("Failed to read 'brightness' attribute.");
+                                return EXIT_FAILURE;
+                        }
+
+                        value = strdup(curval);
+                        if (!value) {
+                                log_oom();
+                                return EXIT_FAILURE;
+                        }
+                } else if (r < 0) {
                         log_error_errno(r, "Failed to read %s: %m", saved);
                         return EXIT_FAILURE;
                 }
 
-                clamp = udev_device_get_property_value(device, "ID_BACKLIGHT_CLAMP");
-                if (!clamp || parse_boolean(clamp) != 0) /* default to clamping */
+                if (clamp)
                         clamp_brightness(device, &value, max_brightness);
 
                 r = udev_device_set_sysattr_value(device, "brightness", value);
