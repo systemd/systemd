@@ -473,6 +473,7 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    "org.freedesktop.hostname1",
                                    "/org/freedesktop/hostname1",
                                    hostname_map,
+                                   BUS_MAP_STRDUP,
                                    &error,
                                    NULL,
                                    host);
@@ -483,6 +484,7 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    "org.freedesktop.systemd1",
                                    "/org/freedesktop/systemd1",
                                    manager_map,
+                                   BUS_MAP_STRDUP,
                                    &error,
                                    NULL,
                                    host);

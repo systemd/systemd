@@ -1235,6 +1235,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, bool *empt
                                    "org.freedesktop.resolve1",
                                    p,
                                    property_map,
+                                   BUS_MAP_BOOLEAN_AS_BOOL,
                                    &error,
                                    &m,
                                    &link_info);
@@ -1446,6 +1447,7 @@ static int status_global(sd_bus *bus, bool *empty_line) {
                                    "org.freedesktop.resolve1",
                                    "/org/freedesktop/resolve1",
                                    property_map,
+                                   BUS_MAP_BOOLEAN_AS_BOOL,
                                    &error,
                                    &m,
                                    &global_info);

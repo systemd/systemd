@@ -439,7 +439,7 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
         SessionStatusInfo i = {};
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &m, &i);
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
@@ -570,7 +570,7 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
         _cleanup_(user_status_info_clear) UserStatusInfo i = {};
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &m, &i);
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 
@@ -644,7 +644,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path, bool *new_line)
         _cleanup_(seat_status_info_clear) SeatStatusInfo i = {};
         int r;
 
-        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, &error, &m, &i);
+        r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, 0, &error, &m, &i);
         if (r < 0)
                 return log_error_errno(r, "Could not get properties: %s", bus_error_message(&error, r));
 

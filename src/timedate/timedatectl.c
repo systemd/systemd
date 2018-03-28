@@ -161,6 +161,7 @@ static int show_status(int argc, char **argv, void *userdata) {
                                    "org.freedesktop.timedate1",
                                    "/org/freedesktop/timedate1",
                                    map,
+                                   BUS_MAP_BOOLEAN_AS_BOOL,
                                    &error,
                                    &m,
                                    &info);
