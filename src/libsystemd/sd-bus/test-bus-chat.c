@@ -64,11 +64,11 @@ static int server_init(sd_bus **_bus) {
         sd_bus *bus = NULL;
         sd_id128_t id;
         int r;
-        const char *unique;
+        const char *unique, *desc;
 
         assert_se(_bus);
 
-        r = sd_bus_open_user(&bus);
+        r = sd_bus_open_user_with_description(&bus, "my bus!");
         if (r < 0) {
                 log_error_errno(r, "Failed to connect to user bus: %m");
                 goto fail;
@@ -85,6 +85,9 @@ static int server_init(sd_bus **_bus) {
                 log_error_errno(r, "Failed to get unique name: %m");
                 goto fail;
         }
+
+        r = sd_bus_get_description(bus, &desc);
+        assert_se(streq(desc, "my bus!"));
 
         log_info("Peer ID is " SD_ID128_FORMAT_STR ".", SD_ID128_FORMAT_VAL(id));
         log_info("Unique ID: %s", unique);

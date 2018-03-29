@@ -895,9 +895,9 @@ int bus_init_api(Manager *m) {
                 bus = sd_bus_ref(m->system_bus);
         else {
                 if (MANAGER_IS_SYSTEM(m))
-                        r = sd_bus_open_system(&bus);
+                        r = sd_bus_open_system_with_description(&bus, "bus-api-system");
                 else
-                        r = sd_bus_open_user(&bus);
+                        r = sd_bus_open_user_with_description(&bus, "bus-api-user");
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to API bus: %m");
 
@@ -959,7 +959,7 @@ int bus_init_system(Manager *m) {
         if (MANAGER_IS_SYSTEM(m) && m->api_bus)
                 bus = sd_bus_ref(m->api_bus);
         else {
-                r = sd_bus_open_system(&bus);
+                r = sd_bus_open_system_with_description(&bus, "bus-system");
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to system bus: %m");
 
