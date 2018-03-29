@@ -776,8 +776,6 @@ static int print_property(const char *name, sd_bus_message *m, bool value, bool 
 }
 
 static int show_properties(sd_bus *bus, const char *path, bool *new_line) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
