@@ -88,7 +88,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
         for (;;) {
                 struct libmnt_fs *fs;
                 const char *path, *options, *fstype;
-                _cleanup_free_ char *d = NULL, *p = NULL;
+                _cleanup_free_ char *p = NULL;
                 unsigned long remount_flags = 0u;
                 _cleanup_free_ char *remount_options = NULL;
                 bool try_remount_ro;

@@ -658,7 +658,7 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
 
 static int method_create_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
-        _cleanup_free_ char *unit = NULL, *id = NULL;
+        _cleanup_free_ char *id = NULL;
         Session *session = NULL;
         uint32_t audit_id = 0;
         Manager *m = userdata;
