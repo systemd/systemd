@@ -225,11 +225,15 @@
   <refsect1>
     <title>Exit status</title>
 
-    <para>On success, 0 is returned. If the configuration was invalid (invalid syntax, missing
-    arguments, …), so some lines had to be ignored, but no other errors occurred,
+    <para>On success, 0 is returned. If the configuration was syntactically invalid (syntax errors,
+    missing arguments, …), so some lines had to be ignored, but no other errors occurred,
     <constant>65</constant> is returned (<constant>EX_DATAERR</constant> from
-    <filename>/usr/include/sysexits.h</filename>). Otherwise, <constant>1</constant> is returned
-    (<constant>EXIT_FAILURE</constant> from <filename>/usr/include/stdlib.h</filename>).
+    <filename>/usr/include/sysexits.h</filename>). If the configuration was syntactically valid, but
+    could not be executed (lack of permissions, creation of files in missing directories, invalid
+    contents when writing to <filename>/sys/</filename> values, …), <constant>73</constant> is
+    returned (<constant>EX_DATAERR</constant> from <filename>/usr/include/sysexits.h</filename>).
+    Otherwise, <constant>1</constant> is returned (<constant>EXIT_FAILURE</constant> from
+    <filename>/usr/include/stdlib.h</filename>).
     </para>
   </refsect1>
 
