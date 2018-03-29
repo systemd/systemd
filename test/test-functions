@@ -365,6 +365,8 @@ create_empty_image() {
 ,
 EOF
 
+    udevadm settle
+
     local _label="-L systemd"
     # mkfs.reiserfs doesn't know -L. so, use --label instead
     [[ "$FSTYPE" == "reiserfs" ]] && _label="--label systemd"
