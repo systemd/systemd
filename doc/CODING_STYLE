@@ -69,7 +69,7 @@
   values. Do not mix usec and msec, and usec and whatnot.
 
 - Make use of _cleanup_free_ and friends. It makes your code much
-  nicer to read!
+  nicer to read (and shorter)!
 
 - Be exceptionally careful when formatting and parsing floating point
   numbers. Their syntax is locale dependent (i.e. "5.000" in en_US is
@@ -101,7 +101,9 @@
 
 - Do not write "foo ()", write "foo()".
 
-- Please use streq() and strneq() instead of strcmp(), strncmp() where applicable.
+- Please use streq() and strneq() instead of strcmp(), strncmp() where
+  applicable (i.e. wherever you just care about equality/inequality, not about
+  the sorting order).
 
 - Please do not allocate variables on the stack in the middle of code,
   even if C99 allows it. Wrong:
