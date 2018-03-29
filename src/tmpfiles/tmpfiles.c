@@ -1665,7 +1665,7 @@ static int create_item(Item *i) {
                                         r = symlink_atomic(i->argument, i->path);
                                         mac_selinux_create_file_clear();
 
-                                        if (IN_SET(r, -EEXIST, -ENOTEMPTY)) {
+                                        if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
                                                 r = rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL);
                                                 if (r < 0)
                                                         return log_error_errno(r, "rm -fr %s failed: %m", i->path);
