@@ -120,9 +120,6 @@ static int write_mode(char **modes) {
                         r = k;
         }
 
-        if (r < 0)
-                log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");
-
         return r;
 }
 
@@ -144,7 +141,7 @@ static int write_state(FILE **f, char **states) {
                 fclose(*f);
                 *f = fopen("/sys/power/state", "we");
                 if (!*f)
-                        return log_error_errno(errno, "Failed to open /sys/power/state: %m");
+                        return -errno;
         }
 
         return r;
@@ -179,7 +176,7 @@ static int execute(char **modes, char **states) {
                         return log_error_errno(r, "Failed to write hibernation disk offset: %m");
                 r = write_mode(modes);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to write mode to /sys/power/disk: %m");;
         }
 
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments);
@@ -192,7 +189,7 @@ static int execute(char **modes, char **states) {
 
         r = write_state(&f, states);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to write /sys/power/state: %m");
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
