@@ -454,3 +454,15 @@
   O_NONBLOCK has a benefit: it bypasses any mandatory lock that might be in
   effect on the regular file. If in doubt consider turning off O_NONBLOCK again
   after opening.
+
+- When referring to a configuration file option in the documentation and such,
+  please always suffix it with "=", to indicate that it is a configuration file
+  setting.
+
+- When referring to a command line option in the documentation and such, please
+  allways prefix with "--" or "-" (as appropriate), to indicate that it is a
+  command line option.
+
+- When referring to a file system path that is a directory, please always
+  suffix it with "/", to indicate that it is a directory, not a regular file
+  (or other file system object).
