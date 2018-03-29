@@ -224,7 +224,7 @@ static void help(void) {
                "  suspend              Suspend the system\n"
                "  hibernate            Hibernate the system\n"
                "  hybrid-sleep         Both hibernate and suspend the system\n"
-               "  suspend-to-hibernate Initially suspend and then hibernate\n"
+               "  suspend-then-hibernate Initially suspend and then hibernate\n"
                "                       the system after a fixed period of time\n"
                , program_invocation_short_name);
 }
@@ -272,7 +272,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (!streq(arg_verb, "suspend") &&
             !streq(arg_verb, "hibernate") &&
             !streq(arg_verb, "hybrid-sleep") &&
-            !streq(arg_verb, "suspend-to-hibernate")) {
+            !streq(arg_verb, "suspend-then-hibernate")) {
                 log_error("Unknown command '%s'.", arg_verb);
                 return -EINVAL;
         }
@@ -297,7 +297,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (streq(arg_verb, "suspend-to-hibernate"))
+        if (streq(arg_verb, "suspend-then-hibernate"))
                 r = execute_s2h(delay);
         else
                 r = execute(modes, states);

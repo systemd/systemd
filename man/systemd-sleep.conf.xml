@@ -104,7 +104,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term>suspend-to-hibernate</term>
+        <term>suspend-then-hibernate</term>
 
         <listitem><para>A low power state where the system is initially suspended
         (the state is stored in RAM). If not interrupted within the delay specified by
@@ -147,7 +147,7 @@
         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
-        <citerefentry><refentrytitle>systemd-suspend-to-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating
         multiple values with whitespace. They will be tried
         in turn, until one is written without error. If
@@ -166,7 +166,7 @@
         <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>, or
-        <citerefentry><refentrytitle>systemd-suspend-to-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         More than one value can be specified by separating
         multiple values with whitespace. They will be tried
         in turn, until one is written without error. If
@@ -179,7 +179,7 @@
         <listitem><para>The amount of time in seconds
         that will pass before the system is automatically
         put into hibernate when using
-        <citerefentry><refentrytitle>systemd-suspend-to-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
     </variablelist>
@@ -202,7 +202,7 @@ SuspendState=freeze</programlisting></para>
       <citerefentry><refentrytitle>systemd-suspend.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-hybrid-sleep.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-suspend-to-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     </para>

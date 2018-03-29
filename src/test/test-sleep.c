@@ -48,7 +48,7 @@ static void test_sleep(void) {
         log_info("Suspend configured and possible: %s", yes_no(can_sleep("suspend") > 0));
         log_info("Hibernation configured and possible: %s", yes_no(can_sleep("hibernate") > 0));
         log_info("Hybrid-sleep configured and possible: %s", yes_no(can_sleep("hybrid-sleep") > 0));
-        log_info("Suspend-to-Hibernate configured and possible: %s", yes_no(can_sleep("suspend-to-hibernate") > 0));
+        log_info("Suspend-then-Hibernate configured and possible: %s", yes_no(can_sleep("suspend-then-hibernate") > 0));
 }
 
 int main(int argc, char* argv[]) {

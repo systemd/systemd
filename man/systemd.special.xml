@@ -65,7 +65,7 @@
     <filename>halt.target</filename>,
     <filename>hibernate.target</filename>,
     <filename>hybrid-sleep.target</filename>,
-    <filename>suspend-to-hibernate.target</filename>,
+    <filename>suspend-then-hibernate.target</filename>,
     <filename>initrd-fs.target</filename>,
     <filename>initrd-root-device.target</filename>,
     <filename>initrd-root-fs.target</filename>,
@@ -309,7 +309,7 @@
         </listitem>
       </varlistentry>
       <varlistentry>
-        <term><filename>suspend-to-hibernate.target</filename></term>
+        <term><filename>suspend-then-hibernate.target</filename></term>
         <listitem>
           <para>A special target unit for suspending the system for a period
           of time, waking it and putting it into hibernate. This pulls in

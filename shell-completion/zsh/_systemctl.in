@@ -18,7 +18,7 @@
     "force-reload:Reload one or more units if possible, otherwise restart if active"
     "hibernate:Hibernate the system"
     "hybrid-sleep:Hibernate and suspend the system"
-    "suspend-to-hibernate:Suspend the system for a period of time, and then hibernate it"
+    "suspend-then-hibernate:Suspend the system for a period of time, and then hibernate it"
     "try-reload-or-restart:Reload one or more units if possible, otherwise restart if active"
     "isolate:Start one unit and stop all others"
     "kill:Send signal to processes of a unit"
