@@ -181,11 +181,13 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
         const void *p;
         int comparison;
 
+        assert(!size_multiply_overflow(nmemb, size));
+
         l = 0;
         u = nmemb;
         while (l < u) {
                 idx = (l + u) / 2;
-                p = (const char *) base + idx * size;
+                p = (const uint8_t*) base + idx * size;
                 comparison = compar(key, p, arg);
                 if (comparison < 0)
                         u = idx;

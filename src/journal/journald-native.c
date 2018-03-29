@@ -343,20 +343,15 @@ void server_process_native_file(
         sealed = memfd_get_sealed(fd) > 0;
 
         if (!sealed && (!ucred || ucred->uid != 0)) {
-                _cleanup_free_ char *sl = NULL, *k = NULL;
+                _cleanup_free_ char *k = NULL;
                 const char *e;
 
                 /* If this is not a sealed memfd, and the peer is unknown or
                  * unprivileged, then verify the path. */
 
-                if (asprintf(&sl, "/proc/self/fd/%i", fd) < 0) {
-                        log_oom();
-                        return;
-                }
-
-                r = readlink_malloc(sl, &k);
+                r = fd_get_path(fd, &k);
                 if (r < 0) {
-                        log_error_errno(r, "readlink(%s) failed: %m", sl);
+                        log_error_errno(r, "readlink(/proc/self/fd/%i) failed: %m", fd);
                         return;
                 }
 
