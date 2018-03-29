@@ -460,7 +460,6 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         return bus_append_safe_atou64(m, field, eq);
 
                 return bus_append_parse_size(m, field, eq, 1024);
-
         }
 
         if (streq(field, "CPUQuota")) {
