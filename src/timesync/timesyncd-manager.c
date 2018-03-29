@@ -1006,6 +1006,7 @@ static int manager_network_read_link_servers(Manager *m) {
         _cleanup_strv_free_ char **ntp = NULL;
         ServerName *n, *nx;
         char **i;
+        bool changed = false;
         int r;
 
         assert(m);
@@ -1031,14 +1032,18 @@ static int manager_network_read_link_servers(Manager *m) {
                         r = server_name_new(m, NULL, SERVER_LINK, *i);
                         if (r < 0)
                                 goto clear;
+
+                        changed = true;
                 }
         }
 
         LIST_FOREACH_SAFE(names, n, nx, m->link_servers)
-                if (n->marked)
+                if (n->marked) {
                         server_name_free(n);
+                        changed = true;
+                }
 
-        return 0;
+        return changed;
 
 clear:
         manager_flush_server_names(m, SERVER_LINK);
@@ -1047,14 +1052,14 @@ clear:
 
 static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
-        bool connected, online;
+        bool changed, connected, online;
         int r;
 
         assert(m);
 
         sd_network_monitor_flush(m->network_monitor);
 
-        manager_network_read_link_servers(m);
+        changed = !!manager_network_read_link_servers(m);
 
         /* check if the machine is online */
         online = network_is_online();
@@ -1066,7 +1071,7 @@ static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t re
                 log_info("No network connectivity, watching for changes.");
                 manager_disconnect(m);
 
-        } else if (!connected && online) {
+        } else if (!connected && online && changed) {
                 log_info("Network configuration changed, trying to establish connection.");
 
                 if (m->current_server_address)
