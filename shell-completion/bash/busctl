@@ -58,8 +58,9 @@ __get_members() {
         local path=$3
         local interface=$4
         local type=$5
+        local flags=$6
         local a b
-        busctl $mode introspect --list --no-legend --no-pager $busname $path $interface | sed -e 's/^\.//' | { while read a b c; do [[ "$b" == "$type" ]] && echo " $a"; done; };
+        busctl $mode introspect --list --no-legend --no-pager $busname $path $interface | sed -e 's/^\.//' | { while read a b c d e; do [[ "$b" == "$type" && ( -z $flags || "$e" == "$flags" ) ]] && echo " $a"; done; };
 }
 
 __get_signature() {
@@ -176,7 +177,7 @@ _busctl() {
                 elif [[ $n -eq 3 ]] ; then
                         comps=$( __get_interfaces $mode ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
                 elif [[ $n -eq 4 ]] ; then
-                        comps=$( __get_members $mode ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]} property)
+                        comps=$( __get_members $mode ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]} property writable)
                 elif [[ $n -eq 5 ]] ; then
                         comps=$( __get_signature $mode ${COMP_WORDS[COMP_CWORD-4]} ${COMP_WORDS[COMP_CWORD-3]} ${COMP_WORDS[COMP_CWORD-2]} ${COMP_WORDS[COMP_CWORD-1]})
                 else
