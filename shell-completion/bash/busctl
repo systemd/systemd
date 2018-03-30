@@ -48,7 +48,7 @@ __get_interfaces() {
         local mode=$1
         local busname=$2
         local path=$3
-        local a b
+        local a b c
         busctl $mode introspect --list --no-legend --no-pager $busname $path | { while read a b c; do [[ "$b" == "interface" ]] && echo " $a"; done; };
 }
 
@@ -59,7 +59,7 @@ __get_members() {
         local interface=$4
         local type=$5
         local flags=$6
-        local a b
+        local a b c d e
         busctl $mode introspect --list --no-legend --no-pager $busname $path $interface | sed -e 's/^\.//' | { while read a b c d e; do [[ "$b" == "$type" && ( -z $flags || "$e" == "$flags" ) ]] && echo " $a"; done; };
 }
 
@@ -69,12 +69,12 @@ __get_signature() {
         local path=$3
         local interface=$4
         local member=$5
-        local a b
+        local a b c d
         busctl $mode introspect --list --no-legend --no-pager $busname $path $interface | sed -e 's/^\.//' | { while read a b c d; do [[ "$a" == "$member" && "$c" != '-' ]] && echo " \"$c\""; done; };
 }
 
 _busctl() {
-        local i verb comps mode
+        local i n verb comps mode
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local -A OPTS=(
                [STANDALONE]='-h --help --version --no-pager --no-legend --system --user
