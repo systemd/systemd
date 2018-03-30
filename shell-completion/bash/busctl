@@ -70,7 +70,7 @@ __get_signature() {
         local interface=$4
         local member=$5
         local a b
-        busctl $mode introspect --list --no-legend --no-pager $busname $path $interface | sed -e 's/^\.//' | { while read a b c d; do [[ "$a" == "$member" ]] && echo " \"$c\""; done; };
+        busctl $mode introspect --list --no-legend --no-pager $busname $path $interface | sed -e 's/^\.//' | { while read a b c d; do [[ "$a" == "$member" && "$c" != '-' ]] && echo " \"$c\""; done; };
 }
 
 _busctl() {
