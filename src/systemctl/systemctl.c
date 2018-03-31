@@ -8213,6 +8213,7 @@ static int talk_initctl(void) {
         _cleanup_close_ int fd = -1;
         char rl;
         int r;
+        const char *p;
 
         rl = action_to_runlevel();
         if (!rl)
@@ -8220,17 +8221,21 @@ static int talk_initctl(void) {
 
         request.runlevel = rl;
 
-        fd = open(INIT_FIFO, O_WRONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+        FOREACH_STRING(p, "/run/initctl", "/dev/initctl") {
+                fd = open(p, O_WRONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                if (fd >= 0 || errno != ENOENT)
+                        break;
+        }
         if (fd < 0) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open "INIT_FIFO": %m");
+                return log_error_errno(errno, "Failed to open initctl fifo: %m");
         }
 
         r = loop_write(fd, &request, sizeof(request), false);
         if (r < 0)
-                return log_error_errno(r, "Failed to write to "INIT_FIFO": %m");
+                return log_error_errno(r, "Failed to write to %s: %m", p);
 
         return 1;
 #else
