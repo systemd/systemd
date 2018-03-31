@@ -2329,6 +2329,9 @@ static int inner_child(
                 r = unshare(CLONE_NEWNET);
                 if (r < 0)
                         return log_error_errno(errno, "Failed to unshare network namespace: %m");
+
+                /* Tell the parent that it can setup network interfaces. */
+                (void) barrier_place(barrier); /* #3 */
         }
 
         r = mount_sysfs(NULL, arg_mount_settings);
@@ -2337,7 +2340,7 @@ static int inner_child(
 
         /* Wait until we are cgroup-ified, so that we
          * can mount the right cgroup path writable */
-        if (!barrier_place_and_sync(barrier)) { /* #3 */
+        if (!barrier_place_and_sync(barrier)) { /* #4 */
                 log_error("Parent died too early");
                 return -ESRCH;
         }
@@ -2448,7 +2451,7 @@ static int inner_child(
         /* Let the parent know that we are ready and
          * wait until the parent is ready with the
          * setup, too... */
-        if (!barrier_place_and_sync(barrier)) { /* #4 */
+        if (!barrier_place_and_sync(barrier)) { /* #5 */
                 log_error("Parent died too early");
                 return -ESRCH;
         }
@@ -3556,6 +3559,14 @@ static int run(int master,
 
         if (arg_private_network) {
 
+                if (!arg_network_namespace_path) {
+                        /* Wait until the child has unshared its network namespace. */
+                        if (!barrier_place_and_sync(&barrier)) { /* #3 */
+                                log_error("Child died too early");
+                                return -ESRCH;
+                        }
+                }
+
                 r = move_network_interfaces(*pid, arg_network_interfaces);
                 if (r < 0)
                         return r;
@@ -3679,7 +3690,7 @@ static int run(int master,
          * its setup (including cgroup-ification), and that
          * the child can now hand over control to the code to
          * run inside the container. */
-        (void) barrier_place(&barrier); /* #3 */
+        (void) barrier_place(&barrier); /* #4 */
 
         /* Block SIGCHLD here, before notifying child.
          * process_pty() will handle it with the other signals. */
@@ -3707,7 +3718,7 @@ static int run(int master,
                 return r;
 
         /* Let the child know that we are ready and wait that the child is completely ready now. */
-        if (!barrier_place_and_sync(&barrier)) { /* #4 */
+        if (!barrier_place_and_sync(&barrier)) { /* #5 */
                 log_error("Child died too early.");
                 return -ESRCH;
         }
