@@ -1,0 +1,21 @@
+- ensure all forks block, restore and unblock signals. needs review
+
+- add support somehow for optional translations
+
+- oldnet[bridging]: Review setting of bridge configuration on dynamic interface add
+
+- Document rc-depend binary.
+
+- _ifindex is not a reliable means of calculating metrics:
+	_ifindex is used for calculating metrics for new devices but has a major
+	problem: Since it's only the nth entry in /proc/net/dev
+	And devices may be removed from that file, and reordered, you won't always
+	get the same result.
+	If you do:
+	- add eth0 - _ifindex (eth0=0)
+	- add vlan1 - _ifindex (eth0=0,vlan1=1)
+	- add vlan2 - _ifindex (eth0=0,vlan1=1,vlan2=2)
+	- rem vlan1 - _ifindex (eth0=0,vlan2=1)
+	- add vlan3 - _ifindex (eth0=0,vlan2=1,vlan3=2)
+	Now your routing table has entries for both vlan2 and vlan3 with a metric of 2.
+

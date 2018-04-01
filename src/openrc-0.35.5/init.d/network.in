@@ -1,0 +1,360 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2009-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+# This script was inspired by the equivalent rc.d network from NetBSD.
+
+description="Configures network interfaces."
+__nl="
+"
+
+depend()
+{
+	need localmount
+	after bootmisc clock
+	if [ -n "$(interfaces)" ]; then
+		provide net
+	fi
+	keyword -jail -prefix -vserver
+}
+
+uniqify()
+{
+	local result= i=
+	for i; do
+		case " $result " in
+		*" $i "*);;
+		*) result="$result $i";;
+		esac
+	done
+	echo "${result# *}"
+}
+
+reverse()
+{
+	local result= i=
+	for i; do
+		result="$i $result"
+	done
+	echo "${result# *}"
+}
+
+sys_interfaces()
+{
+	case "$RC_UNAME" in
+	Linux)
+		local w= rest= i= cmd=$1
+		while read w rest; do
+			i=${w%%:*}
+			case "$i" in
+				"$w") continue ;;
+				lo|lo0) continue ;;
+				*) ;;
+			esac
+			if [ "$cmd" = u ]; then
+				ifconfig "$i" | grep -q "[ ]*UP" || continue
+			fi
+			printf "%s " "$i"
+		done </proc/net/dev
+		;;
+	*)
+		ifconfig -l$1
+		;;
+	esac
+}
+
+tentative()
+{
+	local inet= address= rest=
+
+	case "$RC_UNAME" in
+	Linux)
+		[ -n "$(command -v ip)" ] || return 1
+		[ -n "$(ip -f inet6 addr show tentative)" ]
+		;;
+	*)
+		local inet= address= rest=
+		LC_ALL=C ifconfig -a | while read inet address rest; do
+	 		case "${inet}" in
+			inet6)
+				case "${rest}" in
+				*" "tentative*) return 2;;
+				esac
+				;;
+			esac
+		done
+		[ $? = 2 ]
+		;;
+	esac
+}
+
+
+auto_interfaces()
+{
+	local ifs= c= f=
+
+	case "$RC_UNAME" in
+	NetBSD)
+		for c in $(ifconfig -C 2>/dev/null); do
+			for f in /etc/ifconfig.${c}[0-9]*; do
+				[ -f "$f" ] && printf "%s" "$f{##*.} "
+			done
+		done
+		;;
+	*)
+		for f in /etc/ifconfig.*; do
+			[ -f "$f" ] && printf "%s" "${f##*.} "
+		done
+		for f in /etc/ip.*; do
+			[ -f "$f" ] && printf "%s" "${f##*.} "
+		done
+		;;
+	esac
+	echo
+}
+
+interfaces()
+{
+	uniqify $(sys_interfaces "$@") $interfaces $(auto_interfaces)
+}
+
+dumpargs()
+{
+	local f="$1"
+
+	shift
+	case "$@" in
+	'')		[ -f "$f" ] && cat "$f";;
+	*"$__nl"*)	echo "$@";;
+	*)
+		(
+		 	set -o noglob
+			IFS=';'; set -- $@
+			IFS="$__nl"; echo "$*"
+		);;
+	esac
+}
+
+intup=false
+runip()
+{
+	local int="$1" err=
+	shift
+
+	# Ensure we have a valid broadcast address
+	case "$@" in
+	*" broadcast "*|*" brd "*) ;;
+	*:*) ;; # Ignore IPv6
+	*) set -- "$@" brd +;;
+	esac
+
+	err=$(LC_ALL=C ip address add "$@" dev "$int" 2>&1)
+	if [ -z "$err" ]; then
+		# ip does not bring up the interface when adding addresses
+		if ! $intup; then
+			ip link set "$int" up
+			intup=true
+		fi
+		return 0
+	fi
+	if [ "$err" = "RTNETLINK answers: File exists" ]; then
+		ip address del "$@" dev "$int" 2>/dev/null
+	fi
+	# Localise the error
+	ip address add "$@" dev "$int"
+}
+
+routeflush()
+{
+	if [ "$RC_UNAME" = Linux ]; then
+		if [ -n "$(command -v ip)"  ]; then
+			ip route flush scope global
+			ip route delete default 2>/dev/null
+		else
+			# Sadly we also delete some link routes, but
+			# this cannot be helped
+			local dest= gate= net= flags= rest=
+			route -n | while read dest gate net flags rest; do
+				[ -z "$net" ] && continue
+				case "$dest" in
+				[0-9]*)	;;
+				*)	continue;;
+				esac
+				local xtra= netmask="netmask $net"
+				case "$flags" in
+				U)	continue;;
+				*H*)	flags=-host; netmask=;;
+				*!*)	flags=-net; xtra=reject;;
+				*)	flags=-net;;
+				esac
+				route del $flags $dest $netmask $xtra
+			done
+			# Erase any default dev eth0 routes
+			route del default 2>/dev/null
+		fi
+	else
+		route -qn flush
+	fi
+}
+
+runargs()
+{
+	dumpargs "$@" | while read -r args; do
+		case "$args" in
+		''|"#"*)	;;
+		*)
+				(
+				 	eval vebegin "${args#*!}"
+					eval "${args#*!}"
+					veend $?
+				);;
+		esac
+	done
+}
+
+start()
+{
+	local cr=0 r= int= intv= cmd= args= upcmd=
+
+	if [ -z "$domainname" -a -s /etc/defaultdomain ]; then
+		domainname=$(cat /etc/defaultdomain)
+	fi
+	if [ -n "$domainname" ]; then
+		ebegin "Setting NIS domainname: $domainname"
+		domainname "$domainname"
+		eend $?
+	fi
+
+	einfo "Starting network"
+	routeflush
+	eindent
+	for int in $(interfaces); do
+		local func= cf=
+		intv=$(shell_var "$int")
+		eval upcmd=\$ifup_$intv
+		for func in ip ifconfig; do
+			eval cmd=\$${func}_$intv
+			if [ -n "$cmd" -o -f /etc/"$func.$int" ]; then
+				cf=/etc/"$func.$int"
+				break
+			fi
+		done
+		[ -n "$cf" -o -n "$upcmd" -o \
+			-f /etc/ifup."$int" -o -f "$cf" ] || continue
+		veinfo "$int"
+		case "$func" in
+		ip)	func=runip; intup=false;;
+		esac
+		eindent
+		runargs /etc/ifup."$int" "$upcmd"
+		r=0
+		dumpargs "$cf" "$cmd" | while read -r args; do
+			case "$args" in
+			''|"#"*)	;;
+			"!"*)
+					(
+					 	eval vebegin "${args#*!}"
+						eval "${args#*!}"
+						veend $?
+					);;
+			*)
+					(
+					 	set -o noglob
+						eval set -- "$args"
+						vebegin "$@"
+						$func "$int" "$@"
+						veend $?
+					);;
+			esac
+		done
+		eoutdent
+	done
+	eoutdent
+	eend $cr
+
+	# Wait for any inet6 tentative addresses
+	r=5
+	while [ $r -gt 0 ]; do
+		tentative || break
+		[ $r = 5 ] && vebegin "Waiting for tentative addresses"
+		sleep 1
+		: $(( r -= 1 ))
+	done
+	if [ $r != 5 ]; then
+		[ $r != 0 ]
+		veend $?
+	fi
+
+	if [ -n "$defaultroute" ]; then
+		ebegin "Setting default route $defaultroute"
+		route add default $defaultroute
+		eend $?
+	elif [ -n "$defaultiproute" ]; then
+		ebegin "Setting default route $defaultiproute"
+		ip route add default $defaultiproute
+		eend $?
+	fi
+
+	if [ -n "$defaultroute6" ]; then
+		ebegin "Setting default route $defaultroute6"
+		if [ "$RC_UNAME" = Linux ]; then
+			routecmd="route -A inet6 add"
+		else
+			routecmd="route -inet6 add"
+		fi
+		$routecmd default $defaultroute6
+		eend $?
+	elif [ -n "$defaultiproute6" ]; then
+		ebegin "Setting default route $defaultiproute6"
+		ip -f inet6 route add default $defaultiproute6
+		eend $?
+	fi
+
+	return 0
+}
+
+stop()
+{
+	# Don't stop the network at shutdown.
+ 	# We don't use the noshutdown keyword so that we are started again
+	# correctly if we go back to multiuser.
+	yesno ${keep_network:-YES} && yesno $RC_GOINGDOWN && return 0
+
+	local int= intv= cmd= downcmd= r=
+	einfo "Stopping network"
+	routeflush
+	eindent
+	for int in $(reverse $(interfaces u)); do
+		case "$int" in
+			lo|lo0) continue ;;
+			*) ;;
+		esac
+		intv=$(shell_var "$int")
+		eval downcmd=\$ifdown_$intv
+		eval cmd=\$ip_$intv
+		[ -z "$cmd" ] && eval cmd=\$ifconfig_$intv
+		if [ -n "$cmd" -o -f /etc/ip."$int" -o \
+			-f /etc/ifconfig."$int" -o \
+			-n "$downcmd" -o -f /etc/ifdown."$int" ];
+		then
+			veinfo "$int"
+			runargs /etc/ifdown."$int" "$downcmd"
+			if [ -n "$(command -v ip)" ]; then
+				# We need to do this, otherwise we may
+				# fail to add things correctly on restart
+				ip address flush dev "$int" 2>/dev/null
+			fi
+			ifconfig "$int" down 2>/dev/null
+			ifconfig "$int" destroy 2>/dev/null
+		fi
+	done
+	eoutdent
+	eend 0
+}

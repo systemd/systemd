@@ -1,0 +1,31 @@
+#compdef rc-update
+
+local used_init
+used_init=(${=${(M)${(f)"$(rc-update show 2>/dev/null)"}:#*|*[a-z]*}% |*})
+
+if (( CURRENT == 2 )); then
+  _values "rc-update actions" \
+    'add[Add script to a runlevel]' \
+    'del[Delete script from a runlevel]' \
+    'show[Show scripts in  a runlevel]' \
+    '-a[Process all runlevels]' \
+    '-s[Stack a runlevel instead of a service]'
+elif (( CURRENT == 3 )); then
+  case "$words[2]" in
+    add)
+      _values "service" $(rc-service --list)
+      ;;
+    del)
+      _values "service" $used_init
+      ;;
+    show)
+      _values "runlevels" $(rc-status --list) \
+        '-v[Show all service scripts]' \
+        '--verbose[Show all service scripts]'
+      ;;
+  esac
+elif (( CURRENT == 4 )); then
+  _values "runlevels" $(rc-status --list)
+fi
+
+# vim: set et sw=2 ts=2 ft=zsh:

@@ -1,0 +1,119 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+command=/usr/sbin/named
+command_args=$named_args
+pidfile=/var/run/named.pid
+name="Domain Name server"
+extra_started_commands="reload"
+
+namedb=/etc/namedb
+uid=named
+case "$RC_UNAME" in
+	FreeBSD)
+		uid=bind
+		pidfile=/var/run/named/pid
+		;;
+	Linux)
+		uid=bind
+		;;
+esac
+: ${named_uid:=${uid}}
+
+depend()
+{
+	provide dns
+	need localmount
+	after bootmisc
+}
+
+start_pre()
+{
+	if [ -n "$named_chroot" ]; then
+		# Create (or update) the chroot directory structure
+		if [ -r /etc/mtree/BIND.chroot.dist ]; then
+			mtree -deU -f /etc/mtree/BIND.chroot.dist -p "$named_chroot"
+		else
+			ewarn "/etc/mtree/BIND.chroot.dist missing,"
+			ewarn "chroot directory structure not updated"
+		fi
+
+		if [ ! -d "$named_chroot"/. ]; then
+			eerror "chroot directory $named_chroot missing"
+			exit 1
+		fi
+
+		# Create /etc/namedb symlink
+		if [ ! -L "$namedb" ]; then
+			if [ -d "$namedb" ]; then
+				ewarn "named chroot: $namedb is a directory!"
+			elif [ -e "$namedb" ]; then
+				ewarn "named chroot: $namedb exists!"
+			else
+				ln -s "$named_chroot$namedb" "$namedb"
+			fi
+		else
+			# Make sure it points to the right place.
+			ln -shf "$named_chroot$namedb" "$namedb"
+		fi
+
+		case "$RC_UNAME" in
+			*BSD|DragonFly)
+				# Mount a devfs in the chroot directory if needed
+				umount "$named_chroot"/dev 2>/dev/null
+				mount -t devfs dev "$named_chroot"/dev
+				devfs -m "$named_chroot"/dev \
+					ruleset devfsrules_hide_all
+				devfs -m "$named_chroot"/dev \
+					rule apply path null unhide
+				devfs -m "$named_chroot"/dev \
+					rule apply path random unhide
+				;;
+		esac
+
+		# Copy local timezone information if it is not up to date.
+		if [ -r /etc/localtime ]; then
+			cmp -s /etc/localtime "$named_chroot/etc/localtime" ||
+			cp -p /etc/localtime "$named_chroot/etc/localtime"
+		fi
+
+		command_args="$command_args -t $named_chroot"
+
+		ln -fs "$named_chroot$pidfile" "$pidfile"
+	fi
+
+	if [ ! -s "$named_chroot$namedb/rndc.conf" ]; then
+		local confgen="${command%/named}/rndc-confgen -a -b256 -u $named_uid \
+			-c $named_chrootdir/etc/namedb/rndc.key"
+		if [ -s "$named_chroot$namedb/rndc.key" ]; then
+			local getuser="stat -f%Su"
+			[ "$RC_UNAME" = Linux ] && getuser="stat -c%U"
+			case $(${getuser} "$named_chroot$namedb"/rndc.key) in
+				root|"$named_uid");;
+				*) $confgen;;
+			esac
+		else
+			$confgen
+		fi
+	fi
+}
+
+reload()
+{
+	rndc reload
+}
+
+stop_post()
+{
+	if [ -n "$named_chroot" -a -c "$named_chroot"/dev/null ]; then
+		umount "$named_chroot"/dev 2>/dev/null || true
+	fi
+}

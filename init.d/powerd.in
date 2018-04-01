@@ -1,0 +1,42 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+command=/usr/sbin/powerd
+command_args=$powerd_args
+pidfile=/var/run/powerd.pid
+name="Power Control Daemon"
+
+depend()
+{
+	need localmount
+	use logger
+	after bootmisc
+	keyword -jail -prefix
+}
+
+start_pre()
+{
+	if [ -n "$powerd_battery_mode" ]; then
+		command_args="$command_args -b $powerd_battery_mode"
+	fi
+	if [ -n "${powerd_ac_mode}" ]; then
+		command_args="$command_args -a $powerd_ac_mode"
+	fi
+}
+
+stop_post()
+{
+	local level=$(sysctl -n dev.cpu.0.freq_levels |
+	    sed -e 's:/.*::')
+	if [ -n "$level" ]; then
+		sysctl dev.cpu.0.freq="$level" >/dev/null
+	fi
+}

@@ -1,0 +1,19 @@
+# Example syscons config file. This is the place to set things like keymap, etc.
+
+# Set the video mode - you should check the vidcontrol man page for valid modes
+# NOTE:- This will blank the screen after this command is run
+# NOTE:- You can get more modes if you load the vesa kernel module, but this
+# may require the SC_PIXEL_MODE kernel option
+#allscreen_flags="VGA_80x30"
+
+# Set the keymap to "uk.iso".
+#keymap="uk.iso"
+
+# Set the keyboard rate to 250ms delay, and 34 repeat rate.
+#keyrate="250.34"
+
+# Change the behaviour of F-unction keys (see kbdcontrol(1)).
+#keychange="10 'ssh myhost'"
+
+# See vidcontrol(1) -t
+#blanktime="off"

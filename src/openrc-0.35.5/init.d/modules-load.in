@@ -1,0 +1,72 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2016 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Loads a list of modules from systemd-compatible locations."
+
+depend()
+{
+	keyword -docker -lxc -openvz -prefix -systemd-nspawn -vserver
+}
+
+find_modfiles()
+{
+	local dirs="/usr/lib/modules-load.d /run/modules-load.d /etc/modules-load.d"
+	local basenames files fn x y
+	for x in $dirs; do
+		[ ! -d $x ] && continue
+		for y in $x/*.conf; do
+			[ -f $y ] && basenames="${basenames}\n${y##*/}"
+		done
+	done
+	basenames=$(printf "$basenames" | sort -u)
+	for x in $basenames; do
+		for y in $dirs; do
+			[ -r $y/$x ] &&
+				fn=$y/$x
+		done
+		files="$files $fn"
+	done
+	echo $files
+}
+
+load_modules()
+{
+	local file m modules rc x
+	file=$1
+	[ -z "$file" ] && return 0
+	while read m x; do
+		case $m in
+			\;*) continue ;;
+			\#*) continue ;;
+			*) modules="$modules $m"
+			;;
+		esac
+	done < $file
+	for x in $modules; do
+		ebegin "Loading module $x"
+		case "$RC_UNAME" in
+			FreeBSD) kldload "$x"; rc=$? ;;
+			Linux) modprobe --use-blacklist -q "$x"; rc=$? ;;
+			*) ;;
+		esac
+		eend $rc "Failed to load $x"
+	done
+}
+
+start()
+{
+	local x
+	files=$(find_modfiles)
+	for x in $files; do
+		load_modules $x
+	done
+	return 0
+}

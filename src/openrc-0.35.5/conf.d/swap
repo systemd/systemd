@@ -1,0 +1,13 @@
+# If you are only using local swap partitions, you should not change
+# this file. Otherwise, you need to uncomment the below rc_before line
+# followed by the appropriate rc_need line.
+#rc_before="!localmount"
+#
+# If you are using swap files stored on local file systems, uncomment
+# this line.
+#rc_need="localmount"
+#
+# If you are using swap files stored on network file systems or swap
+# partitions stored on network block devices such as iSCSI, uncomment
+# this line.
+#rc_need="netmount"

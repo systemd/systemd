@@ -1,0 +1,131 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Set up the /dev directory"
+
+depend()
+{
+	provide dev-mount
+	before dev
+	keyword -docker -lxc -prefix -systemd-nspawn -vserver
+}
+
+mount_dev()
+{
+	local action conf_d_dir devfstype msg mountopts
+	action=--mount
+	conf_d_dir="${RC_SERVICE%/*/*}/conf.d"
+	msg=Mounting
+	# Some devices require exec, Bug #92921
+	mountopts="exec,nosuid,mode=0755"
+	if yesno ${skip_mount_dev:-no} ; then
+		einfo "/dev will not be mounted due to user request"
+		return 0
+	fi
+	if mountinfo -q /dev; then
+		action=--remount
+		mountopts="remount,$mountopts"
+		msg=Remounting
+	fi
+	if fstabinfo -q /dev; then
+		ebegin "$msg /dev according to fstab"
+		fstabinfo -q $action /dev
+		eend $?
+		return 0
+	fi
+	if grep -q devtmpfs /proc/filesystems; then
+		devfstype=devtmpfs
+		mountopts="$mountopts,size=10M"
+	elif grep -q tmpfs /proc/filesystems; then
+		devfstype=tmpfs
+		mountopts="$mountopts,size=10M"
+	fi
+	if [ -n "$devfstype" ]; then
+		ebegin "$msg $devfstype on /dev"
+		mount -n -t $devfstype -o $mountopts dev /dev
+		eend $?
+	else
+		ewarn "This kernel does not have devtmpfs or tmpfs support, and there"
+		ewarn "is no entry for /dev in fstab."
+		ewarn "This means /dev will not be mounted."
+		ewarn "To avoid this message, set CONFIG_DEVTMPFS or CONFIG_TMPFS to y"
+		ewarn "in your kernel configuration or see ${conf_d_dir}/${RC_SVCNAME}"
+	fi
+	return 0
+}
+
+seed_dev()
+{
+	# Seed /dev with some things that we know we need
+
+	# creating /dev/console, /dev/tty and /dev/tty1 to be able to write
+	# to $CONSOLE with/without bootsplash before udevd creates it
+	[ -c /dev/console ] || mknod -m 600 /dev/console c 5 1
+	[ -c /dev/tty1 ] || mknod -m 620 /dev/tty1 c 4 1
+	[ -c /dev/tty ] || mknod -m 666 /dev/tty c 5 0
+
+	# udevd will dup its stdin/stdout/stderr to /dev/null
+	# and we do not want a file which gets buffered in ram
+	[ -c /dev/null ] || mknod -m 666 /dev/null c 1 3
+
+	# so udev can add its start-message to dmesg
+	[ -c /dev/kmsg ] || mknod -m 660 /dev/kmsg c 1 11
+
+	# extra symbolic links not provided by default
+	[ -e /dev/fd ] || ln -snf /proc/self/fd /dev/fd
+	[ -e /dev/stdin ] || ln -snf /proc/self/fd/0 /dev/stdin
+	[ -e /dev/stdout ] || ln -snf /proc/self/fd/1 /dev/stdout
+	[ -e /dev/stderr ] || ln -snf /proc/self/fd/2 /dev/stderr
+	[ -e /proc/kcore ] && ln -snf /proc/kcore /dev/core
+
+	# Mount required directories as user may not have them in /etc/fstab
+	for x in \
+		"mqueue /dev/mqueue 1777 ,nodev mqueue" \
+		"devpts /dev/pts 0755 ,gid=5,mode=0620 devpts" \
+		"tmpfs /dev/shm 1777 ,nodev,mode=1777 shm" \
+	; do
+		set -- $x
+		grep -Eq "[[:space:]]+$1$" /proc/filesystems || continue
+		mountinfo -q $2 && continue
+
+		if [ ! -d $2 ]; then
+			mkdir -m $3 -p $2 >/dev/null 2>&1 || \
+				ewarn "Could not create $2!"
+		fi
+
+		if [ -d $2 ]; then
+			ebegin "Mounting $2"
+			if ! fstabinfo --mount $2; then
+				mount -n -t $1 -o noexec,nosuid$4 $5 $2
+			fi
+			eend $?
+		fi
+	done
+}
+
+restorecon_dev()
+{
+	if [ -x /sbin/restorecon ]; then
+		ebegin "Restoring SELinux contexts in /dev"
+		restorecon -rF /dev >/dev/null 2>&1
+		eend $?
+	fi
+
+	return 0
+}
+
+start()
+{
+	mount_dev
+	seed_dev
+	restorecon_dev
+	return 0
+}

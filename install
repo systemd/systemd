@@ -1,0 +1,26 @@
+
+_args=(
+	MKSELINUX=no
+	MKPAM=pam
+	MKTERMCAP=ncurses
+	MKNET=no
+	MKSYSVINIT=yes
+	MKBASHCOMP=yes
+	MKZSHCOMP=yes
+	MKPKGCONFIG=yes
+	BRANDING="Arch Linux"
+)
+
+make "${_args[@]}" install
+sed -e 's|#baud=""|baud="38400"|' \
+	-e 's|#term_type="linux"|term_type="linux"|' \
+	-e 's|#agetty_options=""|agetty_options=""|' \
+	-i /etc/conf.d/agetty
+
+for num in 1 2 3 4 5 6
+do
+	cp -v /etc/conf.d/agetty /etc/conf.d/agetty.tty$num
+	ln -sf /etc/init.d/agetty /etc/init.d/agetty.tty$num
+	ln -sf /etc/init.d/agetty.tty$num /etc/runlevels/default/agetty.tty$num
+done
+

@@ -1,0 +1,124 @@
+# Allow any sh script to work with einfo functions and friends
+# We also provide a few helpful functions for other programs to use
+
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+#    except according to the terms contained in the LICENSE file.
+
+RC_GOT_FUNCTIONS="yes"
+
+eindent()
+{
+	: $(( EINFO_INDENT = ${EINFO_INDENT:-0} + 2 ))
+	[ "$EINFO_INDENT" -gt 40 ] && EINFO_INDENT=40
+	export EINFO_INDENT
+}
+
+eoutdent()
+{
+	: $(( EINFO_INDENT = ${EINFO_INDENT:-0} - 2 ))
+	[ "$EINFO_INDENT" -lt 0 ] && EINFO_INDENT=0
+	return 0
+}
+
+yesno()
+{
+	[ -z "$1" ] && return 1
+
+	# Check the value directly so people can do:
+	# yesno ${VAR}
+	case "$1" in
+		[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|[Oo][Nn]|1) return 0;;
+		[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|[Oo][Ff][Ff]|0) return 1;;
+	esac
+
+	# Check the value of the var so people can do:
+	# yesno VAR
+	# Note: this breaks when the var contains a double quote.
+	local value=
+	eval value=\"\$$1\"
+	case "$value" in
+		[Yy][Ee][Ss]|[Tt][Rr][Uu][Ee]|[Oo][Nn]|1) return 0;;
+		[Nn][Oo]|[Ff][Aa][Ll][Ss][Ee]|[Oo][Ff][Ff]|0) return 1;;
+		*) vewarn "\$$1 is not set properly"; return 1;;
+	esac
+}
+
+rc_runlevel()
+{
+    rc-status --runlevel
+}
+
+_sanitize_path()
+{
+	local IFS=":" p= path=
+	for p in $PATH; do
+		case "$p" in
+			@LIBEXECDIR@/bin|@LIBEXECDIR@/sbin);;
+			@BINDIR@|@SBINDIR@|/usr/bin|/usr/sbin);;
+			@PKG_PREFIX@/bin|@PKG_PREFIX@/sbin);;
+			@LOCAL_PREFIX@/bin|@LOCAL_PREFIX@/sbin);;
+			*) path="$path${path:+:}$p";;
+		esac
+	done
+	echo "$path"
+}
+
+# Allow our scripts to support zsh
+if [ -n "$ZSH_VERSION" ]; then
+	emulate sh
+	NULLCMD=:
+	alias -g '${1+"$@"}'='"$@"'
+	setopt NO_GLOB_SUBST
+fi
+
+# Make a sane PATH
+_PREFIX=@PREFIX@
+_PKG_PREFIX=@PKG_PREFIX@
+_LOCAL_PREFIX=@LOCAL_PREFIX@
+_LOCAL_PREFIX=${_LOCAL_PREFIX:-/usr/local}
+_PATH=@LIBEXECDIR@/bin
+case "$_PREFIX" in
+	"$_PKG_PREFIX"|"$_LOCAL_PREFIX") ;;
+	*) _PATH="$_PATH:$_PREFIX/bin:$_PREFIX/sbin";;
+esac
+_PATH="$_PATH":/bin:/sbin:/usr/bin:/usr/sbin
+
+if [ -n "$_PKG_PREFIX" ]; then
+	_PATH="$_PATH:$_PKG_PREFIX/bin:$_PKG_PREFIX/sbin"
+fi
+if [ -n "$_LOCAL_PREFIX" ]; then
+	_PATH="$_PATH:$_LOCAL_PREFIX/bin:$_LOCAL_PREFIX/sbin"
+fi
+_path="$(_sanitize_path "$PATH")"
+PATH="$_PATH${_path:+:}$_path" ; export PATH
+unset _sanitize_path _PREFIX _PKG_PREFIX _LOCAL_PREFIX _PATH _path
+
+for arg; do
+	case "$arg" in
+		--nocolor|--nocolour|-C)
+			EINFO_COLOR="NO" ; export EINFO_COLOR
+			;;
+	esac
+done
+
+if [ -t 1 ] && yesno "${EINFO_COLOR:-YES}"; then
+	if [ -z "$GOOD" ]; then
+		eval $(eval_ecolors)
+	fi
+else
+	# We need to have shell stub functions so our init scripts can remember
+	# the last ecmd
+	for _e in ebegin eend error errorn einfo einfon ewarn ewarnn ewend \
+		vebegin veend veinfo vewarn vewend; do
+		eval "$_e() { local _r; command $_e \"\$@\"; _r=\$?; \
+		EINFO_LASTCMD=$_e; export EINFO_LASTCMD ; return \$_r; }"
+	done
+	unset _e
+fi

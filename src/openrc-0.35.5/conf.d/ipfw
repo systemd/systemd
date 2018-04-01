@@ -1,0 +1,14 @@
+# ipfw provides a stateful firewall.
+# This means we allow everything out, and if we have a connection we allow it
+# back in. This is very flexable and quite secure.
+
+# For ease of use, we allow auth and ssh ports through as well.
+# To override the list of allowed ports
+#ipfw_ports_in="auth ssh"
+
+# You may want to enable logging of denied connections
+#ipfw_log_deny="YES"
+
+# This ports not logged
+#ipfw_ports_nolog="135-139,445 1026,1027 1433,1434"
+

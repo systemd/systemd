@@ -1,0 +1,177 @@
+.\" Copyright (c) 2007-2015 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd April 27, 2016
+.Dt supervise-DAEMON 8 SMM
+.Os OpenRC
+.Sh NAME
+.Nm supervise-daemon
+.Nd starts a daemon and restarts it if it crashes
+.Sh SYNOPSIS
+.Nm
+.Fl D , -respawn-delay
+.Ar seconds
+.Fl d , -chdir
+.Ar path
+.Fl e , -env
+.Ar var=value
+.Fl g , -group
+.Ar group
+.Fl I , -ionice
+.Ar arg
+.Fl k , -umask
+.Ar value
+.Fl m , -respawn-max
+.Ar count
+.Fl N , -nicelevel
+.Ar level
+.Fl p , -pidfile
+.Ar pidfile
+.Fl P , -respawn-period
+.Ar seconds
+.Fl R , -retry
+.Ar arg
+.Fl r , -chroot
+.Ar chrootpath
+.Fl u , -user
+.Ar user
+.Fl 1 , -stdout
+.Ar logfile
+.Fl 2 , -stderr
+.Ar logfile
+.Fl S , -start
+.Ar daemon
+.Op Fl -
+.Op Ar arguments
+.Nm
+.Fl K , -stop
+.Ar daemon
+.Fl p , -pidfile
+.Ar pidfile
+.Fl r , -chroot
+.Ar chrootpath
+.Sh DESCRIPTION
+.Nm
+provides a consistent method of starting, stopping and restarting
+daemons. If
+.Fl K , -stop
+is not provided, then we assume we are starting the daemon.
+.Nm
+only works with daemons which do not fork. Also, it uses its own pid
+file, so the daemon should not write a pid file, or the pid file passed
+to 
+.Nm
+should not be the one the daemon writes.
+.Pp
+Here are the options to specify the daemon and how it should start or stop:
+.Bl -tag -width indent
+.It Fl p , -pidfile Ar pidfile
+When starting, we write a
+.Ar pidfile
+so we know which supervisor to stop.  When stopping we only stop the pid(s)
+listed in the
+.Ar pidfile .
+.It Fl u , -user Ar user Ns Op : Ns Ar group
+Start the daemon as the
+.Ar user
+and update $HOME accordingly or stop daemons
+owned by the user. You can optionally append a
+.Ar group
+name here also.
+.It Fl v , -verbose
+Print the action(s) that are taken just before doing them.
+.Pp
+The options are as follows:
+.Bl -tag -width indent
+.It Fl D , -respawn-delay Ar seconds
+wait this number of seconds before restarting a daemon after it crashes.
+The default is 0.
+.It Fl d , -chdir Ar path
+chdir to this directory before starting the daemon.
+.It Fl e , -env Ar VAR=VALUE
+Set the environment variable VAR to VALUE.
+.It Fl g , -group Ar group
+Start the daemon as in the group.
+.It Fl I , -ionice Ar class Ns Op : Ns Ar data
+Modifies the IO scheduling priority of the daemon.
+Class can be 0 for none, 1 for real time, 2 for best effort and 3 for idle.
+Data can be from 0 to 7 inclusive.
+.It Fl k , -umask Ar mode
+Set the umask of the daemon.
+.It Fl m , -respawn-max Ar count
+Sets the maximum number of times a daemon will be respawned during a
+respawn period. If a daemon dies more than this number of times during a
+respawn period,
+.Nm
+will give up trying to respawn it and exit. The default is 10, and 0
+means unlimited.
+.It Fl N , -nicelevel Ar level
+Modifies the scheduling priority of the daemon.
+.It Fl P , -respawn-period Ar seconds
+Sets the length of a respawn period. The default is 10 seconds. See the
+description of --respawn-max for more information.
+.It Fl R , -retry Ar timeout | Ar signal Ns / Ns Ar timeout
+The retry specification can be either a timeout in seconds or multiple
+signal/timeout pairs (like SIGTERM/5).
+If this option is not given, the default is SIGTERM/5.
+.It Fl r , -chroot Ar path
+chroot to this directory before starting the daemon. All other paths, such
+as the path to the daemon, chdir and pidfile, should be relative to the chroot.
+.It Fl u , -user Ar user
+Start the daemon as the specified user.
+.It Fl 1 , -stdout Ar logfile
+Redirect the standard output of the process to logfile.
+Must be an absolute pathname, but relative to the path optionally given with
+.Fl r , -chroot .
+The logfile can also be a named pipe.
+.It Fl 2 , -stderr Ar logfile
+The same thing as
+.Fl 1 , -stdout
+but with the standard error output.
+.El
+.El
+.Sh ENVIRONMENT
+.Va SSD_NICELEVEL
+can also set the scheduling priority of the daemon, but the command line
+option takes precedence.
+.Sh NOTE
+.Nm
+uses
+.Xr getopt 3
+to parse its options, which allows it to accept the `--' option which will
+cause it to stop processing options at that point. Any subsequent arguments
+are passed as arguments to the daemon to start and used when finding a daemon
+to stop or signal.
+.Sh NOTE
+If respawn-delay, respawn-max and respawn-period are not set correctly,
+it is possible to trigger a situation in which the supervisor will
+infinitely try to respawn a daemon. To avoid this, if you change the
+values of --respawn-delay, --respawn-max or --respawn-period, always
+make sure the settings mmake sense. For example, a respawn period of 5
+seconds with a respawn max of 10 and a respawn delay of 1 second leads
+to infinite respawning since there can never be 10 respawns within 5
+seconds.
+.Sh SEE ALSO
+.Xr chdir 2 ,
+.Xr chroot 2 ,
+.Xr getopt 3 ,
+.Xr nice 2 ,
+.Xr rc_find_pids 3
+.Sh BUGS
+.Nm
+cannot stop an interpreted daemon that no longer exists without a pidfile.
+.Sh HISTORY
+.Nm
+first appeared in Debian.
+.Pp
+This is a complete re-implementation with the process finding code in the
+OpenRC library (librc, -lrc) so other programs can make use of it.
+.Sh AUTHORS
+.An William Hubbs <w.d.hubbs@gmail.com>

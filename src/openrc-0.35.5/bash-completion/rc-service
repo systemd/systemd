@@ -1,0 +1,113 @@
+# Copyright (c) 2017 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+#
+# rc-service completion command
+#
+_rc_service()
+{
+	local cur prev numwords opts
+	local words i x filename
+	local action actionpos
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	prev="${COMP_WORDS[COMP_CWORD-1]}"
+	numwords=${#COMP_WORDS[*]}
+
+	if [[ ${prev} == '>' || ${prev} == '<' ]] ; then
+		COMPREPLY=($(compgen -f -- ${cur}))
+		return 0
+	fi
+
+	# find action
+	for x in ${COMP_LINE} ; do
+		if [[ ${x} =~ --(list|exists|resolve) ]] || [[ ${x} =~ -(l|e|r) ]]
+		then
+			action=${x}
+			break
+		fi
+	done
+	if [[ -n ${action} ]]; then
+		for ((i = 0; i < ${numwords}; i++ )); do
+			if [[ ${COMP_WORDS[${i}]} == "${action}" ]]; then
+				actionpos=${i}
+				break
+			fi
+		done
+
+		for ((i = 1; i < ${numwords}; i++ )); do
+			if [[ ! ${COMP_WORDS[$i]} == -* ]]; then
+				break
+			fi
+		done
+	fi
+
+	if [[ ${COMP_CWORD} -eq 3 ]]; then
+		return 1
+	fi
+
+	# check if an option was typed
+	if [[ ${cur} == -* ]]; then
+		if [[ ${cur} == --* ]]; then
+			opts="--list --exists --resolve"
+			COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			return 0
+		elif [[ ${cur} == -* ]]; then
+			opts="-l -e -r"
+			COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			return 0
+		fi
+
+		# NOTE: This slows things down!
+		# (Adapted from bash_completion by Ian Macdonald <ian@caliban.org>)
+		# This removes any options from the list of completions that have
+		# already been specified on the command line.
+		COMPREPLY=($(echo "${COMP_WORDS[@]}" | \
+		(while read -d ' ' i; do
+			[[ -z ${i} ]] && continue
+			# flatten array with spaces on either side,
+			# otherwise we cannot grep on word boundaries of
+			# first and last word
+			COMPREPLY=" ${COMPREPLY[@]} "
+			# remove word from list of completions
+			COMPREPLY=(${COMPREPLY/ ${i%% *} / })
+		done
+		echo ${COMPREPLY[@]})))
+
+		return 0
+	else
+		# no option was typed
+		if [[ ${COMP_CWORD} -eq 1 ]]; then			  # if first word typed
+			words="$(rc-service --list | grep ^${cur})"		  # complete for init scripts
+			COMPREPLY=($(for i in ${words} ; do \
+			[[ ${i} == ${cur}* ]] && echo ${i} ; \
+			done))
+			return 0
+		elif [[ ${COMP_CWORD} -eq 2 ]] && [[ ${prev} != -* ]]; then # if second word typed and we didn't type in a function
+			filename=$(rc-service --resolve ${prev})
+			opts=$(cat ${filename} | grep "^\w*()" | sed "s/().*$//")	# Greps the functions included in the init script
+			if [[ "x${opts}" == "x" ]] ; then			   # if no options found loosen the grep algorhythm
+				opts=$(cat ${filename} | grep "\w*()" | sed "s/().*$//")
+			fi
+			COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
+			return 0
+		fi
+	fi
+	if [[ ${action} == '--exists' ]] || [[ ${action} == '-e' ]] || \
+		[[ ${action} == '--resolve' ]]  || [[ ${action} == '-r' ]]; then
+		words="$(rc-service --list | grep ^${cur})"
+		COMPREPLY=($(for i in ${words} ; do \
+			[[ ${i} == ${cur}* ]] && echo ${i} ; \
+		done))
+		return 0
+	fi
+	return 0
+} &&
+complete -F _rc_service rc-service

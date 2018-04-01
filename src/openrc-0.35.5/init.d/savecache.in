@@ -1,0 +1,66 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Saves the caches OpenRC uses to non volatile storage"
+
+start()
+{
+	if [ -e "$RC_SVCDIR"/clock-skewed ]; then
+		ewarn "Clock skew detected!"
+		if ! yesno "${RC_GOINGDOWN}"; then
+			eerror "Not saving deptree cache"
+			return 1
+		fi
+	fi
+	if [ ! -d "$RC_LIBEXECDIR"/cache ]; then
+		if ! checkpath -W "$RC_LIBEXECDIR"; then
+			eerror "${RC_LIBEXECDIR} is not writable!"
+			eerror "Unable to save dependency cache"
+			if yesno "${RC_GOINGDOWN}"; then
+				return 0
+			fi
+			return 1
+		fi
+		rm -rf "$RC_LIBEXECDIR"/cache
+		if ! mkdir -p "$RC_LIBEXECDIR"/cache; then
+			eerror "Unable to create $RC_LIBEXECDIR/cache"
+			eerror "Unable to save dependency cache"
+			if yesno "${RC_GOINGDOWN}"; then
+				return 0
+			fi
+			return 1
+		fi
+	fi
+	if ! checkpath -W "$RC_LIBEXECDIR"/cache; then
+		eerror "${RC_LIBEXECDIR}/cache is not writable!"
+		eerror "Unable to save dependency cache"
+		if yesno "${RC_GOINGDOWN}"; then
+			return 0
+		fi
+		return 1
+	fi
+	ebegin "Saving dependency cache"
+	local rc=0 save=
+	for x in shutdowntime softlevel rc.log; do
+		[ -e "$RC_SVCDIR/$x" ] && save="$save $RC_SVCDIR/$x"
+	done
+	if [ -n "$save" ]; then
+		cp -p $save "$RC_LIBEXECDIR"/cache
+		rc=$?
+	fi
+	if yesno "${RC_GOINGDOWN}"; then
+		if [ $rc -ne 0 ]; then
+			eerror "Unable to save dependency cache"
+		fi
+		eend 0
+	fi
+	eend $rc "Unable to save dependency cache"
+}

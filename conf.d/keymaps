@@ -1,0 +1,23 @@
+# Use keymap to specify the default console keymap.  There is a complete tree
+# of keymaps in /usr/share/keymaps to choose from.
+keymap="us"
+
+# Should we first load the 'windowkeys' console keymap?  Most x86 users will
+# say "yes" here.  Note that non-x86 users should leave it as "no".
+# Loading this keymap will enable VT switching (like ALT+Left/Right)
+# using the special windows keys on the linux console.
+windowkeys="NO"
+
+# The maps to load for extended keyboards.  Most users will leave this as is.
+extended_keymaps=""
+#extended_keymaps="backspace keypad euro2"
+
+# Tell dumpkeys(1) to interpret character action codes to be
+# from the specified character set.
+# This only matters if you set unicode="yes" in /etc/rc.conf.
+# For a list of valid sets, run `dumpkeys --help`
+dumpkeys_charset=""
+
+# Some fonts map AltGr-E to the currency symbol instead of the Euro.
+# To fix this, set to "yes"
+fix_euro="NO"

@@ -1,0 +1,2 @@
+libeinfo.o libeinfo.So: libeinfo.c einfo.h ../includes/helpers.h \
+ ../includes/hidden-visibility.h

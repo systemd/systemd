@@ -1,0 +1,39 @@
+#!/bin/sh
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+#    except according to the terms contained in the LICENSE file.
+
+# Inform RC that we are in the background and hotplugged
+IN_BACKGROUND=yes
+IN_HOTPLUG=yes
+export IN_BACKGROUND IN_HOTPLUG
+
+getmedia() {
+	ifconfig "$1" | while read line; do
+		case "${line}" in
+			media:" "*) echo "${line}"; return;;
+		esac
+	done
+}
+
+# Try and create an init script for network interfaces
+if [ ! -e /etc/init.d/"$1" -a ! -e /usr/local/init.d/"$1" ]; then
+	base=${1%%.*}
+	if [ "${base}" = "net" ]; then
+		# We only create links for pyhsical interfaces
+		[ -n "$(getmedia ${1#*.})" ] || exit 1
+		base="net.lo0"
+	fi
+	if [ -e /etc/init.d/"${base}" -a "${base}" != "$1" ]; then
+		ln -s "${base}" /etc/init.d/"$1"
+	fi
+fi
+
+# Run the init script
+exec /etc/init.d/"$1" "$2"

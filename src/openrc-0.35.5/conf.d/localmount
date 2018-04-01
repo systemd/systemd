@@ -1,0 +1,10 @@
+# Stop the unmounting of certain points.
+# This could be useful for some NFS related work.
+#no_umounts="/dir1:/var/dir2"
+#
+# Mark certain mount points as critical.
+# This contains a space separated list of mount points which should be
+# considered critical. If one of these mount points cannot be mounted,
+# localmount will fail.
+# By default, this is empty.
+#critical_mounts="/home /var"

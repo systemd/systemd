@@ -1,0 +1,75 @@
+.\" Copyright (c) 2007-2015 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd May 1, 2009
+.Dt RC-SERVICE 8 SMM
+.Os OpenRC
+.Sh NAME
+.Nm rc-service
+.Nd locate and run an OpenRC service with the given arguments
+.Sh SYNOPSIS
+.Nm
+.Op Fl c , -ifcrashed
+.Ar service cmd
+.Op Ar ...
+.Nm
+.Op Fl i , -ifexists
+.Ar service cmd
+.Op Ar ...
+.Nm
+.Op Fl I , -ifinactive
+.Ar service cmd
+.Op Ar ...
+.Nm
+.Op Fl N , -ifnotstarted
+.Ar service cmd
+.Op Ar ...
+.Nm
+.Fl e , -exists
+.Ar service
+.Nm
+.Fl l , -list
+.Nm
+.Fl r , -resolve
+.Ar service
+.Sh DESCRIPTION
+Service scripts could be in different places on different systems.
+.Nm
+locates the specified service and runs it with the given arguments.
+If
+.Fl i , -ifexists
+is given then
+.Nm
+returns 0 even if the service does not exist.
+If
+.Fl I , -ifinactive
+or
+.Fl N , -ifnotstarted
+is given then
+.Nm
+returns 0 if the service exists but is in the wrong state.
+.Pp
+If given the
+.Fl l , -list
+argument then
+.Nm
+will list all available services.
+.Pp
+.Fl e , -exists
+return 0 if it can find
+.Ar service ,
+otherwise -1.
+.Fl r , -resolve
+does the same and also prints the full path of the service to stdout.
+.Sh SEE ALSO
+.Xr openrc 8 ,
+.Xr stdout 3
+.Sh AUTHORS
+.An Roy Marples <roy@marples.name>

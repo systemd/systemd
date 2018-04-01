@@ -1,0 +1,149 @@
+#!@SHELL@
+# Copyright (c) 2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+#    except according to the terms contained in the LICENSE file.
+
+# Define variables
+scandir="/run/openrc/s6-scan"
+statfile=/dev/shm/s6-svstat.${USER}
+
+color_red='\E[01;31m'
+color_green='\E[32m'
+color_yellow='\E[01;33m'
+
+# Time Modules
+uptimeModules() {
+	# Given a single integer argument representing seconds of uptime...
+	# convert uptime to a friendly human readable string: '2d 16h 58m 46s'
+	# define a variable to keep track of the longest length uptime string
+	uSec=${1:-0}
+
+	uDay=$(( $uSec / 86400 ))
+	uSec=$(( $uSec % 86400 ))
+	uHour=$(( $uSec / 3600 ))
+	uSec=$(( $uSec % 3600 ))
+	uMin=$(( $uSec / 60 ))
+	uSec=$(( $uSec % 60 ))
+
+	[ $uDay -ne 0 ] && pDay="${uDay}d " || pDay=""
+	[ $uHour -ne 0 ] && pHour="${uHour}h " || pHour=""
+	[ $uMin -ne 0 ] && pMin="${uMin}m " || pMin=""
+	[ $uSec -ne 0 ] && pSec="${uSec}s " || pSec=""
+
+	parsedUptime="$( echo ${pDay}${pHour}${pMin}${pSec} | sed 's#[ \t]*$##' )"
+	uCharCount=${#parsedUptime}
+}
+
+# Make sure we are running as root
+if [ $(id -u) != 0 ]; then
+	printf "This command must be run as root\n"
+	exit 1
+fi
+
+# Make sure scandir exists
+if [ ! -d $scandir ]; then
+	printf "%s\n" "$scandir does not exist"
+	exit 1
+fi
+
+# Make sure s6-svscan is running
+if ! pgrep s6-svscan >/dev/null ; then
+	printf "s6-svscan is not running\n"
+	exit 1
+fi
+
+# If TERM is undefined (launching sstat through an ssh command) then make it vt100
+if [ -z $TERM -o $TERM = "dumb" ]; then
+	export TERM=vt100
+fi
+
+# Gather list of candidate services s6-supervise may be supervising
+# filter for folders and symlinks at /run/openrc/s6-scan/* ommiting output starting with '.'
+services="$(find $scandir -maxdepth 1 -mindepth 1 \( -type d -or -type l \) | awk -F'/' '{ if ( $NF !~ "^\\." ) print $NF}')"
+if [ -z "$services" ]; then
+	printf "s6 found no services configured for supervision\n"
+	exit 1
+fi
+
+# Gather status for each service from s6-svstat
+# write to tmp file in memory for non I/O bound repeatative access
+rm -f $statfile 2>/dev/null
+for service in $services ; do
+	echo "$service $(s6-svstat ${scandir}/${service})" >> $statfile
+done
+
+# Define longest string from parsed uptime (default to 7 to match string length of 'Up Time')
+timeStringLength=7
+for uptime in $(awk '$2 == "up" {print $5}' $statfile | sort -run)
+do
+	uptimeModules $uptime
+	[ ${uCharCount} -gt $timeStringLength ] && timeStringLength=$uCharCount
+done
+
+
+#   Print the status header like so...
+#                Service Name  State    PID         Up Time           Start Time
+#----------------------------  -----  -----  --------------  -------------------
+printf "\n"
+printf "%28s  %5s  %5s  %${timeStringLength}s  %19s\n" "Service Name" "State" "PID" "Up Time" "Start Time"
+for dashes in 28 5 5 $timeStringLength 19 ; do
+	printf "%0.s-" $(seq 1 $dashes) ; echo -n '  '
+done && printf "\n"
+
+
+#   sshd up (pid 26300) 80373 seconds
+cat $statfile | \
+while read line
+do
+	set $line
+
+	service=$1
+	state=$2
+	pid=${4/)/}
+	time=$5
+
+	# call function to convert time in seconds and define additional variables
+	uptimeModules $time
+
+	if [ "$state" = up ]; then
+		if [ $time -lt 30 ]; then
+			# uptime < 30 seconds, color the whole line yellow
+			echo -en "$color_yellow"
+			# 1st 4 columns are printed with printf for space padding
+			printf "%28s  %5s  %5s  %${timeStringLength}s" $service $state $pid "$parsedUptime"
+			# 4th column is output from date -d
+			echo -e "  $(date -d "${time} seconds ago" "+%F %T")"
+			# reset terminal colors
+			tput sgr0
+		else
+			printf "%28s" $service
+			# uptime > 30 seconds, color just the "state" value green
+			echo -en "$color_green"
+			printf "  %5s" $state
+			# reset terminal colors
+			tput sgr0
+			printf "  %5s" $pid
+			printf "  %${timeStringLength}s"  "$parsedUptime"
+			echo -e "  $(date -d "${time} seconds ago" "+%F %T")"
+		fi
+	else
+		printf "%28s" $service
+		echo -en "$color_red"
+		printf "  %5s" $state
+		tput sgr0
+		echo ""
+	fi
+done
+
+# Cleanup
+rm -f $statfile 2>/dev/null
+
+printf "\n\n"
+
+rc-status

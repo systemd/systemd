@@ -1,0 +1,131 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Check and repair filesystems according to /etc/fstab"
+_IFS="
+"
+
+depend()
+{
+	after clock
+	use dev clock modules
+	keyword -docker -jail -lxc -openvz -prefix -systemd-nspawn -timeout -vserver -uml
+}
+
+_abort() {
+	yesno ${fsck_abort_on_errors:-yes} && rc-abort
+	return 1
+}
+
+# We should only reboot when first booting
+_reboot() {
+	if [ "$RC_RUNLEVEL" = "$RC_BOOTLEVEL" ]; then
+		reboot "$@"
+		_abort || return 1
+	fi
+}
+
+_forcefsck()
+{
+	[ -e /forcefsck ] || get_bootparam forcefsck
+}
+
+start()
+{
+	local fsck_opts= p= check_extra=
+
+	if [ -e /fastboot ]; then
+		ewarn "Skipping fsck due to /fastboot"
+		return 0
+	fi
+	if _forcefsck; then
+		fsck_opts="$fsck_opts -f"
+		check_extra="(check forced)"
+	elif ! yesno ${fsck_on_battery:-YES} && ! on_ac_power; then
+		ewarn "Skipping fsck due to not being on AC power"
+		return 0
+	fi
+
+	if [ -n "$fsck_passno" ]; then
+		check_extra="[passno $fsck_passno] $check_extra"
+		if [ -n "$fsck_mnt" ]; then
+			eerror "Only 1 of fsck_passno and fsck_mnt must be set!"
+			return 1
+		fi
+	fi
+	ebegin "Checking local filesystems $check_extra"
+	# Append passno mounts
+	for p in $fsck_passno; do
+		local IFS="$_IFS"
+		case "$p" in
+			[0-9]*) p="=$p";;
+		esac
+		set -- "$@" $(fstabinfo --passno "$p")
+		unset IFS
+	done
+	# Append custom mounts
+	for m in $fsck_mnt ; do
+		local IFS="$_IFS"
+		set -- "$@" "$m"
+		unset IFS
+	done
+
+	if [ "$RC_UNAME" = Linux ]; then
+		local skiptypes
+		skiptypes=$(printf 'no%s,' ${net_fs_list} ${extra_net_fs_list})
+		[ "${skiptypes}" = "no," ] && skiptypes=""
+		fsck_opts="$fsck_opts -C0 -T -t ${skiptypes}noopts=_netdev"
+		if [ -z "$fsck_passno" -a -z "$fsck_mnt" ]; then
+			fsck_args=${fsck_args:--A -p}
+			if echo 2>/dev/null >/.test.$$; then
+				rm -f /.test.$$
+				fsck_opts="$fsck_opts -R"
+			fi
+		fi
+	fi
+
+	trap : INT QUIT
+	fsck ${fsck_args:--p} $fsck_opts "$@"
+	case $? in
+	0)	eend 0; return 0;;
+	1)	ewend 1 "Filesystems repaired"; return 0;;
+	2|3)	if [ "$RC_UNAME" = Linux ]; then
+		 	ewend 1 "Filesystems repaired, but reboot needed"
+	         	_reboot -f
+		else
+			ewend 1 "Filesystems still have errors;" \
+				"manual fsck required"
+			_abort
+		fi;;
+	4)	if [ "$RC_UNAME" = Linux ]; then
+			ewend 1 "Fileystem errors left uncorrected, aborting"
+			_abort
+		else
+		 	ewend 1 "Filesystems repaired, but reboot needed"
+			_reboot
+		fi;;
+	8)	ewend 1 "Operational error"; return 0;;
+	12)	ewend 1 "fsck interrupted";;
+	*)	eend 2 "Filesystems couldn't be fixed";;
+	esac
+	_abort || return 1
+}
+
+stop()
+{
+	# Fake function so we always shutdown correctly.
+	_abort() { return 0; }
+	_reboot() { return 0; }
+	_forcefsck() { return 1; }
+
+	yesno $fsck_shutdown && start
+	return 0
+}

@@ -1,0 +1,195 @@
+.\" Copyright (c) 2007-2015 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd December 14, 2009
+.Dt START-STOP-DAEMON 8 SMM
+.Os OpenRC
+.Sh NAME
+.Nm start-stop-daemon
+.Nd ensures that daemons start and stop
+.Sh SYNOPSIS
+.Nm
+.Fl S , -start
+.Ar daemon
+.Op Fl -
+.Op Ar arguments
+.Nm
+.Fl K , -stop
+.Ar daemon
+.Nm
+.Fl s , -signal
+.Ar signal
+.Ar daemon
+.Sh DESCRIPTION
+.Nm
+provides a consistent method of starting, stopping and signaling daemons.
+If neither
+.Fl K , -stop
+nor
+.Fl s , -signal
+are provided, then we assume we are starting the daemon.
+If a daemon cannot background by itself, nor create a pidfile,
+.Nm
+can do it for the daemon in a secure fashion.
+.Pp
+If
+.Nm
+is used in an OpenRC service, then OpenRC can in turn check to see if the
+daemon is still running. If not, then the service is marked as crashed.
+.Pp
+Here are the options to specify the daemon and how it should start or stop:
+.Bl -tag -width indent
+.It Fl x , -exec Ar daemon
+The
+.Ar daemon
+we start or stop.
+If this option is not specified, then the first non option argument
+is used.
+.It Fl p , -pidfile Ar pidfile
+When starting, we expect the daemon to create a valid
+.Ar pidfile
+within a reasonable amount of time. When stopping we only stop the first pid
+listed in the
+.Ar pidfile .
+.It Fl n , -name Ar name
+Match the process
+.Ar name
+instead of a pidfile or executable.
+.It Fl i , -interpreted
+When matching process name, we should ensure that the correct interpreter
+is also matched.
+So if the daemon foo starts off like so
+.D1 #!/usr/bin/perl -w
+then
+.Nm
+matches the process
+.D1 /usr/bin/perl -w foo
+If an interpreted daemon changes its process name then this won't work.
+.It Fl u , -user Ar user Ns Op : Ns Ar group
+Start the daemon as the
+.Ar user
+and update $HOME accordingly or stop daemons
+owned by the user. You can optionally append a
+.Ar group
+name here also.
+.It Fl t , -test
+Print the action(s) that would be taken, but don't actually do anything.
+The return value is set as if the command was taken and worked.
+.It Fl v , -verbose
+Print the action(s) that are taken just before doing them.
+.It Fl P , -progress
+Echo a . to the console for each second elapsed whilst waiting.
+.El
+.Pp
+These options are only used for starting daemons:
+.Bl -tag -width indent
+.It Fl a , -startas Ar name
+Change the process name of the daemon to
+.Ar name .
+This just changes the first argument passed to the daemon.
+.It Fl b , -background
+Force the daemon into the background. Some daemons don't create pidfiles, so a
+good trick is to get the daemon to run in the foreground, and use the this
+option along with
+.Fl m , -make-pidfile
+to create a working pidfile.
+.It Fl d , -chdir Ar path
+chdir to this directory before starting the daemon.
+.It Fl r , -chroot Ar path
+chroot to this directory before starting the daemon. All other paths, such
+as the path to the daemon, chdir and pidfile, should be relative to the chroot.
+.It Fl c , -chuid Ar user
+Same as the
+.Fl u , -user
+option.
+.It Fl e , -env Ar VAR=VALUE
+Set the environment variable VAR to VALUE.
+.It Fl g , -group Ar group
+Start the daemon as in the group.
+.It Fl k , -umask Ar mode
+Set the umask of the daemon.
+.It Fl m , -make-pidfile
+Saves the pid of the daemon in the file specified by the
+.Fl p , -pidfile
+option. Only useful when used with daemons that run in the foreground and
+forced into the background with the
+.Fl -b , -background
+option.
+.It Fl I , -ionice Ar class Ns Op : Ns Ar data
+Modifies the IO scheduling priority of the daemon.
+Class can be 0 for none, 1 for real time, 2 for best effort and 3 for idle.
+Data can be from 0 to 7 inclusive.
+.It Fl N , -nicelevel Ar level
+Modifies the scheduling priority of the daemon.
+.It Fl 1 , -stdout Ar logfile
+Redirect the standard output of the process to logfile when started with
+.Fl background .
+Must be an absolute pathname, but relative to the path optionally given with
+.Fl r , -chroot .
+The logfile can also be a named pipe.
+.It Fl w , -wait Ar milliseconds
+Wait
+.Ar milliseconds
+after starting and check that daemon is still running.
+Useful for daemons that check configuration after forking or stopping race
+conditions where the pidfile is written out after forking.
+.It Fl 2 , -stderr Ar logfile
+The same thing as
+.Fl 1 , -stdout
+but with the standard error output.
+.El
+.Pp
+These options are only used for stopping daemons:
+.Bl -tag -width indent
+.It Fl R , -retry Ar timeout | Ar signal Ns / Ns Ar timeout
+The retry specification can be either a timeout in seconds or multiple
+signal/timeout pairs (like SIGTERM/5).
+If this option is not given, the default is SIGTERM/5.
+.El
+.Sh ENVIRONMENT
+.Va SSD_IONICELEVEL
+can also set the IO scheduling priority of the daemon, but the command line
+option takes precedence.
+.Pp
+.Va SSD_NICELEVEL
+can also set the scheduling priority of the daemon, but the command line
+option takes precedence.
+.Pp
+.Va SSD_STARTWAIT
+As the
+.Fl w , -wait option above.
+.Pa /etc/rc.conf
+.Nm
+waits for to check the daemon is still running.
+.Sh NOTE
+.Nm
+uses
+.Xr getopt 3
+to parse its options, which allows it to accept the `--' option which will
+cause it to stop processing options at that point. Any subsequent arguments
+are passed as arguments to the daemon to start and used when finding a daemon
+to stop or signal.
+.Sh SEE ALSO
+.Xr chdir 2 ,
+.Xr chroot 2 ,
+.Xr getopt 3 ,
+.Xr nice 2 ,
+.Xr rc_find_pids 3
+.Sh BUGS
+.Nm
+cannot stop an interpreted daemon that no longer exists without a pidfile.
+.Sh HISTORY
+.Nm
+first appeared in Debian.
+.Pp
+This is a complete re-implementation with the process finding code in the
+OpenRC library (librc, -lrc) so other programs can make use of it.
+.Sh AUTHORS
+.An Roy Marples <roy@marples.name>

@@ -1,0 +1,160 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+extra_commands="save show"
+
+description="Sets the local clock to UTC or Local Time."
+description_save="Saves the current time in the BIOS."
+description_show="Displays the current time in the BIOS."
+
+: ${clock_adjfile:=${CLOCK_ADJFILE}}
+: ${clock_args:=${CLOCK_OPTS}}
+: ${clock_systohc:=${CLOCK_SYSTOHC}}
+: ${clock:=${CLOCK:-UTC}}
+if [ "$clock" = "UTC" ]; then
+	utc="UTC"
+	utc_cmd="--utc"
+else
+	utc="Local Time"
+	utc_cmd="--localtime"
+fi
+
+depend()
+{
+	provide clock
+	want modules
+	if yesno $clock_adjfile; then
+		use root
+	fi
+	keyword -docker -lxc -openvz -prefix -systemd-nspawn -uml -vserver -xenu
+}
+
+setupopts()
+{
+	case "$(uname -m)" in
+		s390*)
+			utc="s390"
+			;;
+		*)
+			if [ -e /proc/devices ] && \
+				grep -q " cobd$" /proc/devices
+			then
+				utc="coLinux"
+			fi
+			;;
+	esac
+
+	case "$utc" in
+		UTC|Local" "Time);;
+		*) unset utc_cmd;;
+	esac
+}
+
+# hwclock doesn't always return non zero on error
+_hwclock()
+{
+	local err="$(hwclock "$@" 2>&1 >/dev/null)"
+
+	[ -z "$err" ] && return 0
+	echo "${err}" >&2
+	return 1
+}
+
+get_noadjfile()
+{
+	if ! yesno $clock_adjfile; then
+		# Some implementations don't handle adjustments
+		if LC_ALL=C hwclock --help 2>&1 | grep -q "\-\-noadjfile"; then
+			echo --noadjfile
+		fi
+	fi
+}
+
+rtc_exists()
+{
+	local rtc=
+	for rtc in /dev/rtc /dev/rtc[0-9]*; do
+		[ -e "$rtc" ] && break
+	done
+	[ -e "$rtc" ]
+}
+
+start()
+{
+	local retval=0 errstr="" modname
+	setupopts
+
+	if [ -z "$utc_cmd" ]; then
+		ewarn "Not setting clock for $utc system"
+		return 0
+	fi
+
+	ebegin "Setting system clock using the hardware clock [$utc]"
+	if [ -e /proc/modules ]; then
+		if ! rtc_exists; then
+			for x in rtc-cmos rtc genrtc; do
+				modprobe -q $x && rtc_exists && modname="$x" && break
+			done
+			[ -n "$modname" ] &&
+				ewarn "The $modname module needs to be configured in" \
+					"${RC_SERVICE%/*/*}/conf.d/modules or built in."
+		fi
+	fi
+
+	# Always set the kernel's time zone.
+	_hwclock --systz $utc_cmd $(get_noadjfile) $clock_args
+	: $(( retval += $? ))
+
+	if [ -e /etc/adjtime ] && yesno $clock_adjfile; then
+		_hwclock --adjust $utc_cmd $(get_noadjfile)
+		: $(( retval += $? ))
+	fi
+
+	if yesno ${clock_hctosys:-YES}; then
+		_hwclock --hctosys $utc_cmd $(get_noadjfile) $clock_args
+		: $(( retval += $? ))
+	fi
+
+	eend $retval "Failed to set the system clock"
+
+	return 0
+}
+
+stop()
+{
+	# Don't tweak the hardware clock on LiveCD halt.
+	[ -n "$CDBOOT" ] && return 0
+	yesno ${clock_systohc:-YES} || return 0
+
+	local retval=0 errstr=""
+	setupopts
+
+	[ -z "$utc_cmd" ] && return 0
+
+	ebegin "Setting hardware clock using the system clock" "[$utc]"
+
+	_hwclock --systohc $utc_cmd $(get_noadjfile) $clock_args
+	retval=$?
+
+	eend $retval "Failed to sync clocks"
+}
+
+save()
+{
+	clock_systohc=yes
+	stop
+}
+
+show()
+{
+	setupopts
+	hwclock --show "$utc_cmd" $(get_noadjfile) $clock_args
+}

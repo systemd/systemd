@@ -1,0 +1,62 @@
+.\" Copyright (c) 2017 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd May 22, 2017
+.Dt openrc-shutdown 8 SMM
+.Os OpenRC
+.Sh NAME
+.Nm openrc-shutdown
+.Nd bring the system down
+.Sh SYNOPSIS
+.Nm
+.Op Fl d , -no-write
+.Op Fl D , -dry-run
+.Op Fl H , -halt
+.Op Fl k , -kexec
+.Op Fl p , -poweroff
+.Op Fl R , -reexec
+.Op Fl r , -reboot
+.Op Fl s , -single
+.Op Fl w , -write-only
+.Sh DESCRIPTION
+.Nm
+is the utility that communicates with
+.Xr openrc-init 8
+to bring down the system or instruct openrc-init to re-execute itself.
+It supports the following options:
+.Bl -tag -width "poweroff"
+.It Fl d , -no-write
+Do not write the wtmp boot record.
+.It Fl D , -dry-run
+Print the action that would be taken without executing it. This is to
+allow testing.
+.It Fl H , -halt
+Stop all services, kill all remaining processes and halt the system.
+.It Fl k , -kexec
+Stop all services, kill all processes and boot directly into a new
+kernel loaded via
+.Xr kexec 8 .
+.It Fl p , -poweroff
+Stop all services, kill all processes and power off the system.
+.It Fl R , -reexec
+instruct openrc-init to re-exec itself. This should be used after an
+upgrade of OpenRC if you are using openrc-init as your init process.
+.It Fl r , -reboot
+Stop all services, kill all processes and reboot the system.
+.It Fl s , -single
+Stop all services, kill all processes and move to single user mode.
+.It Fl w , -write-only
+Stop all services, kill all processes and move to single user mode.
+.El
+.Sh SEE ALSO
+.Xr openrc-init 8 ,
+.Xr kexec 8 ,
+.Sh AUTHORS
+.An William Hubbs <w.d.hubbs@gmail.com>

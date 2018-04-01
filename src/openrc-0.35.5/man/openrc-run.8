@@ -1,0 +1,740 @@
+.\" Copyright (c) 2007-2015 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd November 30, 2017
+.Dt openrc-run 8 SMM
+.Os OpenRC
+.Sh NAME
+.Nm openrc-run
+.Nd a means of hooking shell commands into a service
+.Sh SYNOPSIS
+.Nm
+.Op Fl D , -nodeps
+.Op Fl d , -debug
+.Op Fl s , -ifstarted
+.Op Fl S , -ifstopped
+.Op Fl Z , -dry-run
+.Op Ar command ...
+.Sh DESCRIPTION
+.Nm
+is basically an interpreter for shell scripts which provides an easy interface
+to the often complex system commands and daemons.
+When a service runs a command it first loads its multiplexed configuration
+file, then its master configuration file, then
+.Pa /etc/rc.conf
+and finally the script itself. At this point
+.Nm
+then runs the command given.
+.Pp
+Commands are defined as shell functions within the script. Here is a list of
+some functions that all scripts have by default:
+.Bl -tag -width "RC_DEFAULTLEVEL"
+.It Ar describe
+Describes what the service does and each command the service defines.
+.It Ar start
+First we ensure that any services we depend on are started. If any needed
+services fail to start then we exit with a suitable error, otherwise call the
+supplied start function if it exists.
+.It Ar stop
+First we ensure that any services that depend on us are stopped. If any
+services that need us fail to stop then we exit with a suitable error,
+otherwise call the supplied stop function if it exists.
+.It Ar restart
+Stops and starts the service, including dependencies. This cannot be
+overridden. See the description of the RC_CMD variable below for the
+method to make your service behave differently when restart is being
+executed.
+.It Ar status
+Shows the status of the service. The return code matches the status, with the
+exception of "started" returning 0 to match standard command behaviour.
+.It Ar zap
+Resets the service state to stopped and removes all saved data about the
+service.
+.El
+.Pp
+The following options affect how the service is run:
+.Bl -tag -width "RC_DEFAULTLEVEL"
+.It Fl d , -debug
+Set xtrace on in the shell to assist in debugging.
+.It Fl D , -nodeps
+Ignore all dependency information the service supplies.
+.It Fl s , -ifstarted
+Only run the command if the service has been started.
+.It Fl S , -ifstopped
+Only run the command if the service has been stopped.
+.It Fl q , -quiet
+Turns off all informational output the service generates.
+Output from any non OpenRC commands is not affected.
+.It Fl v , -verbose
+Turns on any extra informational output the service generates.
+.It Fl Z , -dry-run
+Shows which services would be stopped and/or started without actually stopping
+or starting them.
+.El
+.Pp
+The following variables affect the service script:
+.Bl -tag -width "RC_DEFAULTLEVEL"
+.It Ar extra_commands
+Space separated list of extra commands the service defines. These should
+not depend on the service being stopped or started.
+.It Ar extra_started_commands
+Space separated list of extra commands the service defines. These only work if
+the service has already been started.
+.It Ar extra_stopped_commands
+Space separated list of extra commands the service defines. These only work if
+the service has already been stopped.
+.It Ar description
+String describing the service.
+.It Ar description_$command
+String describing the extra command.
+.It Ar supervisor
+Supervisor to use to monitor this daemon. If this is unset or invalid,
+start-stop-daemon will be used.
+Currently, we support s6 from skarnet software, and supervise-daemon
+which is a light-weight supervisor internal to OpenRC.
+To use s6, set
+supervisor=s6.
+or set
+supervisor=supervise-daemon
+to use supervise-daemon.
+Note that supervise-daemon is still in early development, so it is
+considered experimental.
+.It Ar s6_service_path
+The path to the s6 service directory if you are monitoring this service
+with S6. The default is /var/svc.d/${RC_SVCNAME}.
+.It Ar s6_svwait_options_start
+The options to pass to s6-svwait when starting the service via s6.
+.It Ar s6_force_kill
+Should we force-kill this service if s6_service_timeout_stop expires
+but the service doesn't go down during shutdown? The default is yes.
+.It Ar s6_service_timeout_stop
+The amount of time, in milliseconds, s6-svc should wait for the service
+to go down when stopping the service. The default is 60000.
+.It Ar start_stop_daemon_args
+List of arguments passed to start-stop-daemon when starting the daemon.
+.It Ar command
+Daemon to start or stop via
+.Nm start-stop-daemon
+or
+.Nm supervise-daemon
+if no start or stop function is defined by the service.
+.It Ar command_args
+List of arguments to pass to the daemon when starting via
+.Nm start-stop-daemon .
+.It Ar command_args_background
+This variable should be used if the daemon you are starting with
+.Xr start-stop-daemon 8
+runs in the foreground by default but has its own command line options
+to request that it background and write a pid file. It should be set to
+those options. It should not be used at the same time as
+command_background, because command_background requests that
+.Xr start-stop-daemon 8
+go into the background before executing the daemon.
+.It Ar command_args_foreground
+List of arguments to pass to the daemon when starting via
+.Nm supervise-daemon .
+to force the daemon to stay in the foreground
+.It Ar command_background
+Set this to "true", "yes" or "1" (case-insensitive) if you want
+.Xr start-stop-daemon 8
+to force the daemon into the background. This forces the
+"--make-pidfile" and "--pidfile" options, so the pidfile variable must be set.
+.It Ar command_progress
+Set this to "true", "yes" or "1" (case-insensitive) if you want
+.Xr start-stop-daemon 8
+to display a progress meter when waiting for a daemon to stop.
+.It Ar command_user
+If the daemon does not support changing to a different user id, you can
+use this to change the user id, and optionally group id,  before
+.Xr start-stop-daemon 8
+or
+.Xr supervise-daemon 8
+launches the daemon.
+.It Ar output_log
+This is the path to a file or named pipe where the standard output from
+the service will be redirected. If you are starting this service with
+.Xr start-stop-daemon 8 ,
+,  you must set
+.Pa command_background
+to true. Keep in mind that this path will be inside the chroot if the
+.Pa chroot
+variable is set.
+.It Ar error_log
+The same thing as
+.Pa output_log
+but for the standard error output.
+.It Ar directory
+.Xr start-stop-daemon 8
+and
+.Xr supervise-daemon 8
+will chdir to this directory before starting the daemon.
+.It Ar chroot
+.Xr start-stop-daemon 8
+and
+.Xr supervise-daemon 8
+will chroot into this path before writing the pid file or starting the daemon.
+.It Ar pidfile
+Pidfile to use for the above defined command.
+.It Ar name
+Display name used for the above defined command.
+.It Ar procname
+Process name to match when signaling the daemon.
+.It Ar stopsig
+Signal to send when stopping the daemon.
+.It Ar respawn_delay
+Respawn delay
+.Xr supervise-daemon 8
+will use for this daemon.  See
+.Xr supervise-daemon 8
+for more information about this setting.
+.It Ar respawn_max
+Respawn max
+.Xr supervise-daemon 8
+will use for this daemon.  See
+.Xr supervise-daemon 8
+for more information about this setting.
+.It Ar respawn_period
+Respawn period
+.Xr supervise-daemon 8
+will use for this daemon.  See
+.Xr supervise-daemon 8
+for more information about this setting.
+.It Ar retry
+Retry schedule to use when stopping the daemon. It can either be a
+timeout in seconds or multiple signal/timeout pairs (like SIGTERM/5).
+.It Ar required_dirs
+A list of directories which must exist for the service to start.
+.It Ar required_files
+A list of files which must exist for the service to start.
+.It Ar start_inactive
+Set to yes to have the service marked inactive when it starts. This is
+used along with in_background_fake to support re-entrant services.
+.It Ar in_background_fake
+Space separated list of commands which should always succeed when
+in_background is yes.
+.It Ar umask
+Set the umask of the daemon.
+.Pp
+Keep in mind that eval is used to process chroot, command, command_args_*,
+command_user, pidfile and procname. This may affect how they are
+evaluated depending on how they are quoted.
+.El
+.Sh DEPENDENCIES
+You should define a
+.Ic depend
+function for the service so that
+.Nm
+will start and stop it in the right order in relation to other services.
+As it's a function it can be very flexible, see the example below.
+Here is a list of the functions you can use in a
+.Ic depend
+function. You simply pass the names of the services you want to add to
+that dependency type to the function, or prefix the names with ! to
+remove them from the dependencies.
+.Bl -tag -width "RC_DEFAULTLEVEL"
+.It Ic need
+The service will attempt to start any services it needs regardless of
+whether they have been added to the runlevel. It will refuse to start
+until all services it needs have started, and it will refuse to stop until all
+services that need it have stopped.
+.It Ic use
+The service will attempt to start any services it uses that have been added
+to the runlevel.
+.It Ic want
+The service will attempt to start any services it wants, regardless of
+whether they have been added to the runlevel.
+.It Ic after
+The service will start after these services and stop before these services.
+.It Ic before
+The service will start before these services and stop after these services.
+.It Ic provide
+The service provides this virtual service. For example, named provides dns.
+Note that it is not legal to have a virtual and real service with the
+same name. If you do this, you will receive an error message, and you
+must rename either the real or virtual service.
+.It Ic config
+We should recalculate our dependencies if the listed files have changed.
+.It Ic keyword
+Tags a service with a keyword. These are the keywords we currently understand:
+.Bl -tag -width indent
+.It Dv -shutdown
+Don't stop this service when shutting the system down.
+This is normally quite safe as remaining daemons will be sent a SIGTERM just
+before final shutdown.
+Network related services such as the network and dhcpcd init scripts normally
+have this keyword.
+.It Dv -stop
+Don't stop this service when changing runlevels, even if not present.
+This includes shutting the system down.
+.It Dv -timeout
+Other services should wait indefinitely for this service to start. Use
+this keyword if your service may take longer than 60 seconds to start.
+.It Dv -jail
+When in a jail, exclude this service from any dependencies. The service can
+still be run directly. Set via
+.Ic rc_sys
+in
+.Pa /etc/rc.conf
+.It Dv -lxc
+Same as -jail, but for Linux Resource Containers (LXC).
+.It Dv -openvz
+Same as -jail, but for OpenVZ systems.
+.It Dv -prefix
+Same as -jail, but for Prefix systems.
+.It Dv -rkt
+Same as -jail, but for RKT systems.
+.It Dv -uml
+Same as -jail, but for UML systems.
+.It Dv -vserver
+Same as -jail, but for VServer systems.
+.It Dv -xen0
+Same as -jail, but for Xen DOM0 systems.
+.It Dv -xenu
+Same as -jail, but for Xen DOMU systems.
+.It Dv -docker
+Same as -jail, but for docker systems.
+.It Dv -containers
+Same as -jail, but for all relevant container types on the operating
+system.
+.El
+.El
+.Pp
+To see how to influence dependencies in configuration files, see the
+.Sx FILES
+section below.
+.Sh _pre AND _post FUNCTIONS
+Any command defined in extra_commands, extra_started_commands or
+extra_stopped_commands can have _pre and _post functions in the service
+script. If the command function is called foo, the_pre and _post
+functions for it should be called foo_pre and foo_post.
+.Pp
+These functions should be used to perform preparation before the
+command is run and cleanup after the command completes. In order for
+.Nm
+to record the command as being run successfully, the _pre
+function, command function itself and the _post function should all exit
+with a zero return code.
+.Sh BUILTINS
+.Nm
+defines some builtin functions that you can use inside your service scripts:
+.Bl -tag -width indent
+.It Ic einfo Op Ar string
+Output a green asterisk followed by the string.
+.It Ic ewarn Op Ar string
+Output a yellow asterisk followed by the string.
+.It Ic eerror Op Ar string
+Output a red asterisk followed by the string to stderr.
+.It Ic ebegin Op Ar string
+Same as einfo, but append 3 dots to the end.
+.It Ic eend Ar retval Op Ar string
+If
+.Ar retval
+does not equal 0 then output the string using
+.Ic eerror
+and !! in square brackets
+at the end of the line.
+Otherwise output ok in square brackets at the end of the line.
+The value of
+.Ar retval
+is returned.
+.It Ic ewend Ar retval Op Ar string
+Same as
+.Ic eend ,
+but use
+.Ic ewarn
+instead of
+.Ic eerror .
+.El
+.Pp
+You can prefix the above commands with the letter
+.Ic v ,
+which means they only
+output when the environment variable
+.Va EINFO_VERBOSE
+is true.
+.Bl -tag -width indent
+.It Ic ewaitfile Ar timeout Ar file1 Ar file2 ...
+Wait for
+.Ar timeout
+seconds until all files exist.
+Returns 0 if all files exist, otherwise non zero.
+If
+.Ar timeout
+is less than 1 then we wait indefinitely.
+.It Ic is_newer_than Ar file1 Ar file2 ...
+If
+.Ar file1
+is newer than
+.Ar file2
+return 0, otherwise 1.
+If
+.Ar file2
+is a directory, then check all its contents too.
+.It Ic is_older_than Ar file1 Ar file2 ...
+If
+.Ar file1
+is newer than
+.Ar file2
+return 0, otherwise 1.
+If
+.Ar file2
+is a directory, then check all its contents too.
+.It Ic service_set_value Ar name Ar value
+Saves the
+.Ar name
+.Ar value
+for later retrieval. Saved values are lost when the service stops.
+.It Ic service_get_value Ar name
+Returns the saved value called
+.Ar name .
+.It Ic service_started Op Ar service
+If the service is started, return 0 otherwise 1.
+.It Ic service_starting Op Ar service
+If the service is starting, return 0 otherwise 1.
+.It Ic service_inactive Op Ar service
+If the service is inactive, return 0 otherwise 1.
+.It Ic service_stopping Op Ar service
+If the service is stopping, return 0 otherwise 1.
+.It Ic service_stopped Op Ar service
+If the service is stopped, return 0 otherwise 1.
+.It Ic service_coldplugged Op Ar service
+If the service is coldplugged, return 0 otherwise 1.
+.It Ic service_wasinactive Op Ar service
+If the service was inactive, return 0 otherwise 1.
+.It Xo
+.Ic service_started_daemon
+.Op Ar service
+.Ar daemon
+.Op Ar index
+.Xc
+If the service has started the daemon using
+.Nm start-stop-daemon ,
+return 0 otherwise 1.
+If an index is specified, it has to be the nth daemon started by the service.
+.It Ic mark_service_started Op Ar service
+Mark the service as started.
+.It Ic mark_service_starting Op Ar service
+Mark the service as starting.
+.It Ic mark_service_inactive Op Ar service
+Mark the service as inactive.
+.It Ic mark_service_stopping Op Ar service
+Mark the service as stopping.
+.It Ic mark_service_stopped Op Ar service
+Mark the service as stopped.
+.It Ic mark_service_coldplugged Op Ar service
+Mark the service as coldplugged.
+.It Ic mark_service_wasinactive Op Ar service
+Mark the service as inactive.
+.It Xo
+.Ic checkpath
+.Op Fl D , -directory-truncate
+.Op Fl d , -directory
+.Op Fl F , -file-truncate
+.Op Fl f , -file
+.Op Fl p , -pipe
+.Op Fl m , -mode Ar mode
+.Op Fl o , -owner Ar owner
+.Op Fl W , -writable
+.Op Fl q , -quiet
+.Ar path ...
+.Xc
+If -d, -f or -p is specified, checkpath checks to see if the path
+exists, is the right type and has the correct owner and access modes. If
+any of these tests fail, the path is created and set up as specified. If
+more than one of -d, -f or -p are specified, the last one will be used.
+.Pp
+The argument to -m is a three or four digit octal number. If this option
+is not provided, the value defaults to 0644 for files and 0775 for
+directories.
+.Pp
+The argument to -o is a representation of the user and/or group which
+should own the path. The user and group can be represented numerically
+or with names, and are separated by a colon.
+.Pp
+The truncate options (-D and -F) cause the directory or file to be
+cleared of all contents.
+.Pp
+If -W is specified, checkpath checks to see if the first path given on
+the command line is writable.  This is different from how the test
+command in the shell works, because it also checks to make sure the file
+system is not read only.
+.Pp
+Also, the -d, -f or -p options should not be specified along with this option.
+.Pp
+The -q option suppresses all informational output. If it is specified
+twice, all error messages are suppressed as well.
+.It Xo
+.Ic fstabinfo
+.Op Fl M , -mount
+.Op Fl R , -remount
+.Op Fl b , -blockdevice
+.Op Fl m , -mountargs
+.Op Fl o , -options
+.Op Fl p , -passno Ar passno
+.Op Fl t , -type Ar fstype
+.Ar path
+.Xc
+If -b, -m, -o, -p or -t is specified,the appropriate information is
+extracted from fstab. If -M or -R are given, file systems are mounted or
+remounted.
+.Pp
+The -q option suppresses all informational output. If it is specified
+twice, all error messages are suppressed as well.
+.It Xo
+.Ic mountinfo
+.Op Fl f, -fstype-regex Ar regex
+.Op Fl F, -skip-fstype-regex Ar regex
+.Op Fl n, -node-regex Ar regex
+.Op Fl N, -skip-node-regex Ar regex
+.Op Fl o, -options-regex Ar regex
+.Op Fl O, -skip-options-regex Ar regex
+.Op Fl p, -point-regex Ar regex
+.Op Fl P, -skip-point-regex Ar regex
+.Op Fl e, -netdev
+.Op Fl E, -nonetdev
+.Op Fl i, -options
+.Op Fl s, -fstype
+.Op Fl t, -node
+.Ar mount1 mount2 ...
+.Xc
+The f, F, n, N, o, O, p, P, e and E options specify what you want to
+search for or skip in the mounted file systems. The i, s and t options
+specify what you want to display. If no mount points are given, all
+mount points will be considered.
+.It Ic yesno Ar value
+If
+.Ar value
+matches YES, TRUE, ON or 1 regardless of case then we return 0, otherwise 1.
+.El
+.Sh ENVIRONMENT
+.Nm
+sets the following environment variables for use in the service scripts:
+.Bl -tag -width "RC_DEFAULTLEVEL"
+.It Va RC_SVCNAME
+Name of the service.
+.It Va RC_SERVICE
+Full path to the service.
+.It Va RC_RUNLEVEL
+Current runlevel that OpenRC is in. Note that, in OpenRC, the reboot
+runlevel is mapped to the shutdown runlevel. This was done because most
+services do not need to know if a system is shutting down or rebooting.
+If you are writing a service that does need to know this, see the
+RC_REBOOT variable.
+.It Va RC_REBOOT
+This variable contains YES if the system is rebooting. If your service
+needs to know the system is rebooting, you should test this variable.
+.It Va RC_BOOTLEVEL
+Boot runlevel chosen. Default is boot.
+.It Va RC_DEFAULTLEVEL
+Default runlevel chosen. Default is default.
+.It Va RC_SYS
+A special variable to describe the system more.
+Possible values are OPENVZ, XENU, XEN0, UML and VSERVER.
+.It Va RC_PREFIX
+In a Gentoo Prefix installation, this variable contains the prefix
+offset. Otherwise it is undefined.
+.It Va RC_UNAME
+The result of `uname -s`.
+.It Va RC_CMD
+This contains the name of the command the service script is executing, such
+as start, stop, restart etc. One example of using this is to make a
+service script behave differently when restart is being executed.
+.It Va RC_GOINGDOWN
+This variable contains YES if the system is going into single user mode
+or shutting down.
+.It Va RC_LIBEXECDIR
+The value of libexecdir which OpenRC was configured with during build
+time.
+.It Va RC_NO_UMOUNTS
+This variable is used by plugins to contain a list of directories which
+should not be unmounted.
+.El
+.Sh FILES
+.Pp
+Configuration files, relative to the location of the service.
+If a file ending with .${RC_RUNLEVEL} exists then we use that instead.
+.Bl -ohang
+.It Pa ../conf.d/${RC_SVCNAME%%.*}
+multiplexed configuration file.
+Example: if ${RC_SVCNAME} is net.eth1 then look for
+.Pa ../conf.d/net .
+.It Pa ../conf.d/${RC_SVCNAME}
+service configuration file.
+.It Pa /etc/rc.conf
+host configuration file.
+.El
+.Pp
+With the exception of
+.Pa /etc/rc.conf ,
+the configuration files can also influence the dependencies of the service
+through variables. Simply prefix the name of the dependency with rc_.
+Examples:
+.Bd -literal -offset indent
+# Whilst most services don't bind to a specific interface, our
+# openvpn configuration requires a specific interface, namely bge0.
+rc_need="net.bge0"
+# To put it in /etc/rc.conf you would do it like this
+rc_openvpn_need="net.bge0"
+
+# Services should not depend on the tap1 interface for network,
+# but we need to add net.tap1 to the default runlevel to start it.
+rc_provide="!net"
+# To put it in /etc/conf.d/net you would do it like this
+rc_provide_tap1="!net"
+# To put in in /etc/rc.conf you would do it like this
+rc_net_tap1_provide="!net"
+
+# It's also possible to negate keywords. This is mainly useful for prefix
+# users testing OpenRC.
+rc_keyword="!-prefix"
+# This can also be used to block a script from runining in all
+# containers except one or two
+rc_keyword="!-containers !-docker"
+.Ed
+.Sh EXAMPLES
+.Pp
+An example service script for foo.
+.Bd -literal -offset indent
+#!/sbin/openrc-run
+command=/usr/bin/foo
+command_args="${foo_args} --bar"
+pidfile=/var/run/foo.pid
+name="FooBar Daemon"
+
+description="FooBar is a daemon that eats and drinks"
+extra_commands="show"
+extra_started_commands="drink eat"
+description_drink="Opens mouth and reflexively swallows"
+description_eat="Chews food in mouth"
+description_show="Shows what's in the tummy"
+
+_need_dbus()
+{
+    grep -q dbus /etc/foo/plugins
+}
+
+depend()
+{
+    # We write a pidfile and to /var/cache, so we need localmount.
+    need localmount
+    # We can optionally use the network, but it's not essential.
+    use net
+    # We should be after bootmisc so that /var/run is cleaned before
+    # we put our pidfile there.
+    after bootmisc
+
+    # Foo may use a dbus plugin.
+    # However, if we add the dbus plugin whilst foo is running and
+    # stop dbus, we don't need to stop foo as foo didn't use dbus.
+    config /etc/foo/plugins
+    local _need=
+    if service_started; then
+	_need=`service_get_value need`
+    else
+	if _need_dbus; then
+	   _need="${_need} dbus"
+	fi
+    fi
+    need ${_need}
+}
+
+# This function does any pre-start setup. If it fails, the service will
+# not be started.
+# If you need this function to behave differently for a restart command,
+# you should check the value of RC_CMD for "restart".
+# This also applies to start_post, stop_pre and stop_post.
+start_pre()
+{
+	if [ "$RC_CMD" = restart ]; then
+		# This block will only execute for a restart command. Use a
+		# structure like this if you need special processing for a
+		# restart which you do not need for a normal start.
+		# The function can also fail from here, which will mean that a
+		# restart can fail.
+		# This logic can also be used in start_post, stop_pre and
+		# stop_post.
+	fi
+    # Ensure that our dirs are correct
+    checkpath --directory --owner foo:foo --mode 0775 \\
+	/var/run/foo /var/cache/foo
+}
+
+start_post()
+{
+    # Save our need
+    if _need_dbus; then
+	service_set_value need dbus
+    fi
+}
+
+stop_post() {
+    # Clean any spills
+    rm -rf /var/cache/foo/*
+}
+
+drink()
+{
+    ebegin "Starting to drink"
+    ${command} --drink beer
+    eend $? "Failed to drink any beer :("
+}
+
+eat()
+{
+    local result=0 retval= ate= food=
+    ebegin "Starting to eat"
+
+    if yesno "${foo_diet}"; then
+    	eend 1 "We are on a diet!"
+	return 1
+    fi
+
+    for food in /usr/share/food/*; do
+	veinfo "Eating `basename ${food}`"
+	${command} --eat ${food}
+	retval=$?
+	: $(( result += retval ))
+	[ ${retval} = 0 ] && ate="${ate} `basename ${food}`"
+    done
+
+    if eend ${result} "Failed to eat all the food"; then
+	service_set_value ate "${ate}"
+    fi
+}
+
+show()
+{
+    einfo "Foo has eaten: `service_get_value ate`"
+}
+
+.Ed
+.Sh BUGS
+Because of the way we load our configuration files and the need to handle
+more than one service directory, you can only use symlinks in service
+directories to other services in the same directory.
+You cannot symlink to a service in a different directory even if it is
+another service directory.
+.Pp
+is_older_than should return 0 on success.
+Instead we return 1 to be compliant with Gentoo baselayout.
+Users are encouraged to use the is_newer_than function which returns correctly.
+.Sh SEE ALSO
+.Xr einfo 3 ,
+.Xr openrc 8 ,
+.Xr rc-status 8 ,
+.Xr rc-update 8 ,
+.Xr rc_plugin_hook 3 ,
+.Xr sh 1p ,
+.Xr start-stop-daemon 8 ,
+.Xr supervise-daemon 8 ,
+.Xr uname 1
+.Sh AUTHORS
+.An Roy Marples <roy@marples.name>
+.An William Hubbs <w.d.hubbs@gmail.com>

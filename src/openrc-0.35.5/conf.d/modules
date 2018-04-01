@@ -1,0 +1,27 @@
+# Linux users can define a list of modules for a specific kernel version,
+# a released kernel version, a main kernel version or all kernel versions.
+# The most specific versioned variable will take precedence.
+# FreeBSD users can only use the modules="foo bar" setting.
+#modules_2_6_23_gentoo_r5="ieee1394 ohci1394"
+#modules_2_6_23="tun ieee1394"
+#modules_2_6="tun"
+#modules_2="ipv6"
+#modules="ohci1394"
+
+# Linux users can give modules a different name when they load - the new name
+# will also be used to pick arguments below.
+# This is not supported on FreeBSD.
+#modules="dummy:dummy1"
+
+# Linux users can give the modules some arguments if needed, per version
+# if necessary.
+# Again, the most specific versioned variable will take precedence.
+# This is not supported on FreeBSD.
+#module_ieee1394_args="debug"
+#module_ieee1394_args_2_6_23_gentoo_r5="debug2"
+#module_ieee1394_args_2_6_23="debug3"
+#module_ieee1394_args_2_6="debug4"
+#module_ieee1394_args_2="debug5"
+
+# You should consult your kernel documentation and configuration
+# for a list of modules and their options.

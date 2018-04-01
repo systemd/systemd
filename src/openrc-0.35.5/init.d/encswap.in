@@ -1,0 +1,43 @@
+#!@SBINDIR@/openrc-run
+# Copyright 1992-2012 FreeBSD Project
+# Released under the 2-clause BSD license
+
+depend() {
+	before swap
+}
+
+start() {
+	while read device mountpoint type options rest ; do
+		case ":${device}:${type}:${options}" in
+		:#*)
+			;;
+		*.bde:swap:sw)
+			passphrase=$(dd if=/dev/random count=1 2>/dev/null | md5 -q)
+			device="${device%.bde}"
+			gbde init "${device}" -P "${passphrase}" || return 1
+			gbde attach "${device}" -p "${passphrase}" || return 1
+			;;
+		*.eli:swap:sw)
+			device="${device%.eli}"
+			geli onetime ${geli_swap_flags} "${device}" || return 1
+			;;
+		esac
+	done < /etc/fstab
+}
+
+stop() {
+	while read device mountpoint type options rest ; do
+		case ":${device}:${type}:${options}" in
+		:#*)
+			;;
+		*.bde:swap:sw)
+			device="${device%.bde}"
+			gbde detach "${device}"
+			;;
+		*.eli:swap:sw)
+			# Nothing here, because geli swap devices should be
+			# created with the auto-detach-on-last-close option.
+			;;
+		esac
+	done < /etc/fstab
+}

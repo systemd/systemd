@@ -1,0 +1,89 @@
+.\" Copyright (c) 2007-2015 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd Jan 13, 2014
+.Dt RC-UPDATE 8 SMM
+.Os OpenRC
+.Sh NAME
+.Nm rc-update
+.Nd add and remove services to and from a runlevel
+.Sh SYNOPSIS
+.Nm
+.Op Fl s , -stack
+.Ar add
+.Ar service
+.Op Ar runlevel ...
+.Nm
+.Op Fl s , -stack
+.Op Fl a , -all
+.Ar delete
+.Ar service
+.Op Ar runlevel ...
+.Nm
+.Op Fl u , -update
+.Op Fl v , -verbose
+.Ar show
+.Op Ar runlevel ...
+.Sh DESCRIPTION
+OpenRC uses named runlevels.  Rather than editing some obscure
+file or managing a directory of symlinks,
+.Nm
+exists to quickly add or delete services to and from from different runlevels.
+All services must reside in the
+.Pa /etc/init.d
+or
+.Pa /usr/local/etc/init.d
+directories.
+They must also be standard OpenRC scripts, meaning they must use
+openrc-run.
+.Pp
+.Bl -tag -width "Fl a , -delete service"
+.It Ar add Ar service
+Add the
+.Ar service
+to the
+.Ar runlevel
+or the current one if none given.
+Services added to the boot runlevel must exist in
+.Pa /etc/init.d .
+.It Ar delete Ar service
+Delete the
+.Ar service
+from the
+.Ar runlevel
+or the current one if none given.
+.It Ar show
+Show all enabled services and the runlevels they belong to.  If you specify
+runlevels to show, then only those will be included in the output.
+.It Fl v , -verbose
+Show all services.
+.It Fl u , -update
+Forces an update of the dependency tree cache.
+This may be needed in the event of clock skew (a file in /etc is newer than the
+system clock).
+.El
+.Pp
+If the
+.Fl s , -stack
+option is given then we either add or remove the runlevel from the runlevel.
+This allows inheritance of runlevels.
+.Pp
+If the
+.Fl a, -all
+option is given, we remove the service from all runlevels. This is
+useful, for example, to clean up the dangling symlinks after a service
+is removed.
+.Sh SEE ALSO
+.Xr openrc 8 ,
+.Xr openrc-run 8 ,
+.Xr rc-status 8
+.Sh AUTHORS
+.An Roy Marples <roy@marples.name>
+.An The OpenRC Team <openrc@gentoo.org>

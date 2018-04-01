@@ -1,0 +1,74 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+vpn=${RC_SVCNAME#*.}
+name="OpenVPN"
+[ "$vpn" != openvpn ] && name="$name ($vpn)"
+command=@PKG_PREFIX@/sbin/openvpn
+
+pidfile=/var/run/"$RC_SVCNAME".pid
+: ${openvpn_dir:=@PKG_PREFIX@/etc/openvpn}
+: ${openvpn_config:=$openvpn_dir/$vpn.conf}
+command_args="$openvpn_args --daemon --config $openvpn_config"
+command_args="$command_args --writepid $pidfile"
+required_dirs=$openvpn_dir
+required_files=$openvpn_config
+
+# If we're an openvpn client, then supply a nice default config
+# You can find sample up/down scripts in the OpenRC support/openvpn dir
+if yesno $openvpn_client; then
+	: ${openvpn_up:=${openvpn_dir}/up.sh}
+	: ${openvpn_down:=${openvpn_dir}/down.sh}
+	command_args="$command_args --nobind --up-delay --up-restart --down-pre"
+	command_args="$command_args --up $openvpn_up"
+	command_args="$command_args --down $openvpn_down"
+	required_files="$required_files $openvpn_up $openvpn_down"
+
+	in_background_fake="start stop"
+	start_inactive=YES
+fi
+
+depend()
+{
+	need localmount net
+	use dns
+	after bootmisc
+}
+
+start_pre()
+{
+	# Linux has good dynamic tun/tap creation
+	if [ "$RC_UNAME" = Linux ]; then
+		if [ ! -e /dev/net/tun ]; then
+			if ! modprobe tun; then
+				eerror "TUN/TAP support is not available in this kernel"
+				return 1
+			fi
+		fi
+		if [ -h /dev/net/tun -a -c /dev/misc/net/tun ]; then
+			ebegin "Detected broken /dev/net/tun symlink, fixing..."
+			rm -f /dev/net/tun
+			ln -s /dev/misc/net/tun /dev/net/tun
+			eend $?
+		fi
+	else
+		if command -v kldload >/dev/null 2>&1; then
+			# Hammer the modules home by default
+			sysctl -a | grep -q '\.tun\.' || kldload if_tun
+			sysctl -a | grep -q '\.tap\.' || kldload if_tap
+		fi
+	fi
+
+	# If the config file does not specify the cd option, we do
+	if ! grep -q "^[ \t]*cd[ \t].*" "$openvpn_config"; then
+		command_args="$command_args --cd $openvpn_dir"
+	fi
+}

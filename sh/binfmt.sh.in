@@ -1,0 +1,90 @@
+#!@SHELL@
+# This is a reimplementation of the systemd binfmt.d code to register
+# misc binary formats with the kernel.
+#
+# See the binfmt.d manpage as well:
+# http://0pointer.de/public/systemd-man/binfmt.d.html
+# This script should match the manpage as of 2015/03/31
+
+# Copyright (c) 2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+#    except according to the terms contained in the LICENSE file.
+apply_file() {
+	[ $# -lt 1 ] && return 0
+	FILE="$1"
+	LINENUM=0
+
+	### FILE FORMAT ###
+	# See https://www.kernel.org/doc/Documentation/binfmt_misc.txt
+	while read -r line; do
+		LINENUM=$(( LINENUM+1 ))
+		case $line in
+			\#*) continue ;;
+			\;*) continue ;;
+		esac
+
+		echo "${line}" > /proc/sys/fs/binfmt_misc/register
+		rc=$?
+		if [ $rc -ne 0 ]; then
+			printf "binfmt: invalid entry on line %d of \`%s'\n" \
+				"$LINENUM" "$FILE" >&2
+			error=1
+		fi
+	done <$FILE
+	return $rc
+}
+
+[ -e /proc/sys/fs/binfmt_misc/register ] || exit 0
+error=0
+if [ $# -gt 0 ]; then
+	while [ $# -gt 0 ]; do
+		apply_file "$1"
+		shift
+	done
+else
+	# The hardcoding of these paths is intentional; we are following the
+	# systemd spec.
+	binfmt_dirs='/usr/lib/binfmt.d/ /run/binfmt.d/ /etc/binfmt.d/'
+	binfmt_basenames=''
+	binfmt_d=''
+
+	# Build a list of sorted unique basenames
+	# directories declared later in the binfmt_d list will override earlier
+	# directories, on a per file basename basis.
+	# `/run/binfmt.d/foo.conf' supersedes `/usr/lib/binfmt.d/foo.conf'.
+	# `/run/binfmt.d/foo.conf' will always be read after `/etc/binfmt.d/bar.conf'
+	for d in ${binfmt_dirs} ; do
+		[ -d $d ] && for f in ${d}/*.conf ; do
+			case "${f##*/}" in
+				systemd.conf|systemd-*.conf) continue;;
+			esac
+			[ -e $f ] && binfmt_basenames="${binfmt_basenames}\n${f##*/}"
+		done # for f in ${d}
+	done # for d in ${binfmt_dirs}
+	binfmt_basenames="$(printf "${binfmt_basenames}\n" | sort -u )"
+
+	for b in $binfmt_basenames ; do
+		real_f=''
+		for d in $binfmt_dirs ; do
+			f=${d}/${b}
+			[ -e "${f}" ] && real_f=$f
+		done
+		[ -e "${real_f}" ] && binfmt_d="${binfmt_d} ${real_f}"
+	done
+
+	# loop through the gathered fragments, sorted globally by filename.
+	# `/run/binfmt.d/foo.conf' will always be read after `/etc/binfmt.d/bar.conf'
+	for FILE in $binfmt_d ; do
+		apply_file "$FILE"
+	done
+fi
+
+exit $error
+
+# vim: set ts=2 sw=2 sts=2 noet ft=sh:

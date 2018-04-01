@@ -1,0 +1,396 @@
+#!/bin/sh
+# Shell wrapper for openrc-run
+
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+#    except according to the terms contained in the LICENSE file.
+
+verify_boot()
+{
+	if [ ! -e ${RC_SVCDIR}/softlevel ]; then
+		eerror "You are attempting to run an openrc service on a"
+		eerror "system which openrc did not boot."
+		eerror "You may be inside a chroot or you may have used"
+		eerror "another initialization system to boot this system."
+		eerror "In this situation, you will get unpredictable results!"
+		eerror
+		eerror "If you really want to do this, issue the following command:"
+		eerror "touch ${RC_SVCDIR}/softlevel"
+		exit 1
+	fi
+	return 0
+}
+
+sourcex()
+{
+	if [ "$1" = "-e" ]; then
+		shift
+		[ -e "$1" ] || return 1
+	fi
+	if ! . "$1"; then
+		eerror "$RC_SVCNAME: error loading $1"
+		exit 1
+	fi
+}
+
+sourcex "/usr/lib/openrc/sh/functions.sh"
+sourcex "/usr/lib/openrc/sh/rc-functions.sh"
+case $RC_SYS in
+	PREFIX|SYSTEMD-NSPAWN) ;;
+	*) sourcex -e "/usr/lib/openrc/sh/rc-cgroup.sh";;
+esac
+
+# Support LiveCD foo
+if sourcex -e "/sbin/livecd-functions.sh"; then
+	livecd_read_commandline
+fi
+
+if [ -z "$1" -o -z "$2" ]; then
+	eerror "$RC_SVCNAME: not enough arguments"
+	exit 1
+fi
+
+# So daemons know where to recall us if needed
+RC_SERVICE="$1" ; export RC_SERVICE
+shift
+
+# Compat
+SVCNAME=$RC_SVCNAME ; export SVCNAME
+
+# Dependency function
+config() {
+	[ -n "$*" ] && echo "config $*"
+}
+need() {
+	[ -n "$*" ] && echo "need $*"
+}
+use() {
+	[ -n "$*" ] && echo "use $*"
+}
+want() {
+	[ -n "$*" ] && echo "want $*"
+}
+before() {
+	[ -n "$*" ] && echo "before $*"
+}
+after() {
+	[ -n "$*" ] && echo "after $*"
+}
+provide() {
+	[ -n "$*" ] && echo "provide $*"
+}
+keyword() {
+	local c x
+	set -- $*
+	while [ -n "$*" ]; do
+		case "$1" in
+			-containers) x="$(_get_containers)" ;;
+			!-containers) x="$(_get_containers_remove)" ;;
+			*) x=$1 ;;
+		esac
+		c="${c}${x} "
+		shift
+	done
+	[ -n "$c" ] && echo "keyword $c"
+}
+
+# Describe the init script to the user
+describe()
+{
+	if [ -n "$description" ]; then
+		einfo "$description"
+	else
+		ewarn "No description for $RC_SVCNAME"
+	fi
+
+	local svc= desc=
+	for svc in ${extra_commands:-$opts} $extra_started_commands \
+		$extra_stopped_commands; do
+		eval desc=\$description_$svc
+		if [ -n "$desc" ]; then
+			einfo "$HILITE$svc$NORMAL: $desc"
+		else
+			ewarn "$HILITE$svc$NORMAL: no description"
+		fi
+	done
+}
+
+# Report status
+_status()
+{
+	if service_stopping; then
+		ewarn "status: stopping"
+		return 4
+	elif service_starting; then
+		ewarn "status: starting"
+		return 8
+	elif service_inactive; then
+		ewarn "status: inactive"
+		return 16
+	elif service_started; then
+		if service_crashed; then
+			eerror "status: crashed"
+			return 32
+		fi
+		einfo "status: started"
+		return 0
+	else
+		einfo "status: stopped"
+		return 3
+	fi
+}
+
+# These functions select the appropriate function to call from the
+# supervisor modules
+default_start()
+{
+	local func=ssd_start
+	case "$supervisor" in
+		runit) func=runit_start ;;
+		s6) func=s6_start ;;
+		supervise-daemon) func=supervise_start ;;
+		?*)
+			ewarn "Invalid supervisor, \"$supervisor\", using start-stop-daemon"
+			;;
+	esac
+	$func
+}
+
+default_stop()
+{
+	local func=ssd_stop
+	case "$supervisor" in
+		runit) func=runit_stop ;;
+		s6) func=s6_stop ;;
+		supervise-daemon) func=supervise_stop ;;
+		?*)
+			ewarn "Invalid supervisor, \"$supervisor\", using start-stop-daemon"
+			;;
+	esac
+	$func
+}
+
+default_status()
+{
+	local func=ssd_status
+	case "$supervisor" in
+		runit) func=runit_status ;;
+		s6) func=s6_status ;;
+		supervise-daemon) func=supervise_status ;;
+		?*)
+			ewarn "Invalid supervisor, \"$supervisor\", using start-stop-daemon"
+			;;
+	esac
+	$func
+}
+
+# Template start / stop / status functions
+# package init scripts may override these, but the bodies are as minimal as
+# possible, so that the init scripts can creatively wrap default_*
+# functions.
+start()
+{
+	default_start
+}
+
+stop()
+{
+	default_stop
+}
+
+status()
+{
+	default_status
+}
+
+# Start debug output
+yesno $RC_DEBUG && set -x
+
+# Load configuration settings. First the global ones, then any
+# service-specific settings.
+sourcex -e "/etc/rc.conf"
+if [ -d "/etc/rc.conf.d" ]; then
+	for _f in "/etc"/rc.conf.d/*.conf; do
+		sourcex -e "$_f"
+	done
+fi
+
+_conf_d=${RC_SERVICE%/*}/../conf.d
+# If we're net.eth0 or openvpn.work then load net or openvpn config
+_c=${RC_SVCNAME%%.*}
+if [ -n "$_c" -a "$_c" != "$RC_SVCNAME" ]; then
+	if ! sourcex -e "$_conf_d/$_c.$RC_RUNLEVEL"; then
+		sourcex -e "$_conf_d/$_c"
+	fi
+fi
+unset _c
+
+# Overlay with our specific config
+if ! sourcex -e "$_conf_d/$RC_SVCNAME.$RC_RUNLEVEL"; then
+	sourcex -e "$_conf_d/$RC_SVCNAME"
+fi
+unset _conf_d
+
+# load service supervisor functions
+sourcex "/usr/lib/openrc/sh/runit.sh"
+sourcex "/usr/lib/openrc/sh/s6.sh"
+sourcex "/usr/lib/openrc/sh/start-stop-daemon.sh"
+sourcex "/usr/lib/openrc/sh/supervise-daemon.sh"
+
+# Load our script
+sourcex "$RC_SERVICE"
+
+# Set verbose mode
+if yesno "${rc_verbose:-$RC_VERBOSE}"; then
+	EINFO_VERBOSE=yes
+	export EINFO_VERBOSE
+fi
+
+for _cmd; do
+	if [ "$_cmd" != status -a "$_cmd" != describe ]; then
+		# Apply any ulimit defined
+		[ -n "${rc_ulimit:-$RC_ULIMIT}" ] && \
+			ulimit ${rc_ulimit:-$RC_ULIMIT}
+		# Apply cgroups settings if defined
+		if [ "$(command -v cgroup_add_service)" = "cgroup_add_service" ]
+		then
+			if grep -qs /sys/fs/cgroup /proc/1/mountinfo
+			then
+				if [ -d /sys/fs/cgroup -a ! -w /sys/fs/cgroup ]; then
+					eerror "No permission to apply cgroup settings"
+					break
+				fi
+			fi
+			cgroup_add_service
+		fi
+		[ "$(command -v cgroup_set_limits)" = "cgroup_set_limits" ] &&
+			cgroup_set_limits
+		[ "$(command -v cgroup2_set_limits)" = "cgroup2_set_limits" ] &&
+			[ "$_cmd" = start ] &&
+			cgroup2_set_limits
+		break
+	fi
+done
+
+eval "printf '%s\n' $required_dirs" | while read _d; do
+	if [ -n "$_d" ] && [ ! -d "$_d" ]; then
+		eerror "$RC_SVCNAME: \`$_d' is not a directory"
+		exit 1
+	fi
+done
+[ $? -ne 0 ] && exit 1
+unset _d
+
+eval "printf '%s\n' $required_files" | while read _f; do
+	if [ -n "$_f" ] && [ ! -r "$_f" ]; then
+		eerror "$RC_SVCNAME: \`$_f' is not readable"
+		exit 1
+	fi
+done
+[ $? -ne 0 ] && exit 1
+unset _f
+
+if [ -n "$opts" ]; then
+		ewarn "Use of the opts variable is deprecated and will be"
+		ewarn "removed in the future."
+		ewarn "Please use extra_commands, extra_started_commands or extra_stopped_commands."
+fi
+
+while [ -n "$1" ]; do
+	# Special case depend
+	if [ "$1" = depend ]; then
+		shift
+
+		# Enter the dir of the init script to fix the globbing
+		# bug 412677
+		cd ${RC_SERVICE%/*}
+		_depend
+		cd /
+		continue
+	fi
+	# See if we have the required function and run it
+	for _cmd in describe start stop status ${extra_commands:-$opts} \
+		$extra_started_commands $extra_stopped_commands
+	do
+		if [ "$_cmd" = "$1" ]; then
+			if [ "$(command -v "$1")" = "$1" ]; then
+				# If we're in the background, we may wish to
+				# fake some commands. We do this so we can
+				# "start" ourselves from inactive which then
+				# triggers other services to start which
+				# depend on us.
+				# A good example of this is openvpn.
+				if yesno $IN_BACKGROUND; then
+					for _cmd in $in_background_fake; do
+						if [ "$_cmd" = "$1" ]; then
+							shift
+							continue 3
+						fi
+					done
+				fi
+				# Check to see if we need to be started before
+				# we can run this command
+				for _cmd in $extra_started_commands; do
+					if [ "$_cmd" = "$1" ]; then
+						if verify_boot && ! service_started; then
+							eerror "$RC_SVCNAME: cannot \`$1' as it has not been started"
+							exit 1
+						fi
+					fi
+				done
+				# Check to see if we need to be stopped before
+				# we can run this command
+				for _cmd in $extra_stopped_commands; do
+					if [ "$_cmd" = "$1" ]; then
+						if verify_boot && ! service_stopped; then
+							eerror "$RC_SVCNAME: cannot \`$1' as it has not been stopped"
+							exit 1
+						fi
+					fi
+				done
+				unset _cmd
+				case $1 in
+						start|stop|status) verify_boot;;
+				esac
+				if [ "$(command -v "$1_pre")" = "$1_pre" ]
+				then
+					"$1"_pre || exit $?
+				fi
+				"$1" || exit $?
+				if [ "$(command -v "$1_post")" = "$1_post" ]
+				then
+					"$1"_post || exit $?
+				fi
+				[ "$(command -v cgroup_cleanup)" = "cgroup_cleanup" ] &&
+					[ "$1" = "stop" ] &&
+					yesno "${rc_cgroup_cleanup}" && \
+					cgroup_cleanup
+				if [ "$(command -v cgroup2_remove)" = "cgroup2_remove" ]; then
+					[ "$1" = stop ] || [ -z "${command}" ] &&
+					cgroup2_remove
+				fi
+				shift
+				continue 2
+			else
+				if [ "$_cmd" = "start" -o "$_cmd" = "stop" ]
+				then
+					shift
+					continue 2
+				else
+					eerror "$RC_SVCNAME: function \`$1' defined but does not exist"
+					exit 1
+				fi
+			fi
+		fi
+	done
+	eerror "$RC_SVCNAME: unknown function \`$1'"
+	exit 1
+done
+
+exit 0

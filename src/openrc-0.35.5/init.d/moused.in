@@ -1,0 +1,69 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+mouse=${RC_SVCNAME##*.}
+if [ -n "$mouse" -a "$mouse" != "moused" ]; then
+	moused_device=/dev/"$mouse"
+	pidfile=/var/run/moused-"$mouse".pid
+else
+	pidfile=/var/run/moused.pid
+fi
+name="Console Mouse Daemon"
+[ -n "$moused_device" ] && name="$name ($moused_device)"
+
+depend()
+{
+	need localmount
+	after bootmisc
+	keyword -jail -prefix
+}
+
+start()
+{
+	ebegin "Starting $name"
+
+	if [ -z "$moused_device" ]; then
+		local dev=
+		for dev in /dev/psm[0-9]* /dev/ums[0-9]*; do
+			[ -c "$dev" ] || continue
+			[ -e /var/run/moused-"${dev##*/}".pid ] && continue
+			moused_device=$dev
+			eindent
+			einfo "Using mouse on $moused_device"
+			eoutdent
+			break
+		done
+	fi
+
+	if [ -z "$moused_device" ]; then
+		eend 1 "No mouse device found"
+		return 1
+	fi
+
+	local args=
+	eval args=\$moused_args_${moused_device##*/}
+	[ -z "$args" ] && args=$moused_args
+
+	start-stop-daemon --start --exec /usr/sbin/moused \
+		--pidfile "$pidfile" \
+		-- $args -p "$moused_device" -I "$pidfile"
+	local retval=$?
+
+	if [ $retval = 0 ]; then
+		local ttyv=
+		for ttyv in /dev/ttyv*; do
+			vidcontrol < "$ttyv" -m on
+			: $(( retval += $? ))
+		done
+	fi
+
+	eend $retval "Failed to start moused"
+}

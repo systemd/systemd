@@ -1,0 +1,25 @@
+# Unless you're a kernel developer or driver writer then this won't
+# be of any interest to you at all.
+# The following options allow to configure the kernel's core dump
+# facilities.
+
+# The dump_device variable is used to specify which device will be
+# used by the kernel to write the dump down. This has to be a swap
+# partition, and has to be at least big enough to contain the whole
+# physical memory (see hw.physmem sysctl(8) variable).
+# When the variable is commented out, no core dump will be enabled for
+# the kernel.
+#dump_device=/dev/ad0s1b
+
+# The dump_dir variable is used to tell savecore(8) utility where
+# to save the kernel core dump once it's restored from the dump
+# device. If unset, /var/crash will be used, as the default of
+# FreeBSD.
+#dump_dir=/var/crash
+
+# The dump_compress variable decide whether to compress with
+# gzip(1) the dump or leave it of its original size (the size of the
+# physical memory present on the system). If set to yes, the -z option
+# will be passed to savecore(8) that will proceed on compressing the
+# dump.
+#dump_compress=NO

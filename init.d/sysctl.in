@@ -1,0 +1,58 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+depend()
+{
+	after clock
+	before bootmisc logger
+	keyword -prefix -systemd-nspawn -vserver
+}
+
+BSD_sysctl()
+{
+	[ -e /etc/sysctl.conf ] || return 0
+	local retval=0 var= comments= conf=
+	eindent
+	for conf in /etc/sysctl.conf /etc/sysctl.d/*.conf; do
+		if [ -r "$conf" ]; then
+			vebegin "applying $conf"
+			while read var comments; do
+				case "$var" in
+				""|"#"*) continue;;
+				esac
+				sysctl -w "$var" >/dev/null || retval=1
+			done < "$conf"
+			veend $retval
+		fi
+	done
+	eoutdent
+	return $retval
+}
+
+Linux_sysctl()
+{
+	local quiet
+	yesno $rc_verbose || quiet=-q
+
+	sysctl ${quiet} --system
+}
+
+start()
+{
+	local rc=0
+
+	ebegin "Configuring kernel parameters"
+	case "$RC_UNAME" in
+	*BSD|GNU) BSD_sysctl; rc=$? ;;
+	Linux) Linux_sysctl; rc=$? ;;
+	esac
+	eend $rc "Unable to configure some kernel parameters"
+}

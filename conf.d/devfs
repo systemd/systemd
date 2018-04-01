@@ -1,0 +1,8 @@
+# OpenRC will attempt each of the following in succession to mount /dev.
+#
+# 1. If there is an entry for /dev in fstab, it will be used.
+# 2. If devtmpfs is defined in the kernel, it will be used.
+# 3. If tmpfs is defined in the kernel, it will be used.
+#
+# Set this to yes if you do not want OpenRC to attempt to mount /dev.
+# skip_mount_dev="NO"

@@ -1,0 +1,89 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Loads a user defined list of kernel modules."
+
+depend()
+{
+	use isapnp
+	want modules-load
+	keyword -docker -lxc -openvz -prefix -systemd-nspawn -vserver
+}
+
+FreeBSD_modules()
+{
+	local cnt=0 x
+	for x in $modules; do
+		ebegin "Loading module $x"
+		kldload "$x"
+		eend $? "Failed to load $x" && : $(( cnt += 1 ))
+	done
+	einfo "Autoloaded $cnt module(s)"
+}
+
+Linux_modules()
+{
+	# Should not fail if kernel does not have module
+	# support compiled in ...
+	[ ! -f /proc/modules ] && return 0
+
+	local KV x y kv_variant_list
+	KV=$(uname -r)
+	# full $KV
+	kv_variant_list="${KV}"
+	# remove any KV_EXTRA options to just get the full version
+	x=${KV%%-*}
+	# now slowly strip them
+	while [ -n "$x" ] && [ "$x" != "$y" ]; do
+		kv_variant_list="${kv_variant_list} $x"
+		y=$x
+		x=${x%.*}
+	done
+
+	local list= x= xx= y= args= mpargs= a=
+	for x in $kv_variant_list ; do
+		eval list=\$modules_$(shell_var "$x")
+		[ -n "$list" ] && break
+	done
+	[ -z "$list" ] && list=$modules
+
+	[ -n "$list" ] && ebegin "Loading kernel modules"
+	for x in $list; do
+		a=${x#*:}
+		if [ "$a" = "$x" ]; then
+			unset mpargs
+		else
+			x=${x%%:*}
+			mpargs="-o $a"
+		fi
+		aa=$(shell_var "$a")
+		xx=$(shell_var "$x")
+		for y in $kv_variant_list ; do
+			eval args=\$module_${aa}_args_$(shell_var "$y")
+			[ -n "${args}" ] && break
+			eval args=\$module_${xx}_args_$(shell_var "$y")
+			[ -n "${args}" ] && break
+		done
+		[ -z "$args" ] && eval args=\$module_${aa}_args
+		[ -z "$args" ] && eval args=\$module_${xx}_args
+		eval modprobe --use-blacklist --verbose "$mpargs" "$x" "$args"
+	done
+	[ -n "$list" ] && eend
+}
+
+start()
+{
+	case "$RC_UNAME" in
+		FreeBSD|Linux) ${RC_UNAME}_modules ;;
+		*) ;;
+	esac
+	return 0
+}

@@ -1,0 +1,74 @@
+.\" Copyright (c) 2007-2015 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd Mar 16, 2008
+.Dt RC_STRLIST 3 SMM
+.Os OpenRC
+.Sh NAME
+.Nm rc_stringlist_add , rc_stringlist_addu , rc_stringlist_delete ,
+.Nm rc_stringlist_free , rc_stringlist_new , rc_stringlist_sort
+.Nd RC string list functions
+.Sh LIBRARY
+Run Command library (librc, -lrc)
+.Sh SYNOPSIS
+.In rc.h
+.Ft "RC_STRINGLIST *" Fn rc_stringlist_new void
+.Ft "RC_STRING *" Fn rc_stringlist_add "RC_STRINGLIST *list" "const char *item"
+.Ft "RC_STRING *" Fn rc_stringlist_addu "RC_STRINGLIST *list" "const char *item"
+.Ft bool Fn rc_stringlist_delete RC_STRINGLIST "const char *item"
+.Ft void Fn rc_stringlist_free "RC_STRINGLIST *list"
+.Ft void Fn rc_stringlist_sort "RC_STRINGLIST *list"
+.Sh DESCRIPTION
+These functions provide an easy means of manipulating string lists. They are
+basically wrappers around TAILQ macros found in
+.Xr queue 3 .
+.Pp
+.Fn rc_stringlist_new
+creates a new list head to store the list.
+.Pp
+.Fn rc_stringlist_add
+adds a malloced copy of
+.Fa item
+to
+.Fa list .
+It returns a pointer to the new item on success, or NULL on failure and sets
+.Va errno
+accordingly.
+.Fn rc_stringlist_addu
+only works if
+.Fa list
+does not already contain
+.Fa item .
+.Pp
+.Fn rc_stringlist_delete
+removes and frees
+.Fa item
+from
+.Fa list ,
+retuning true on success, otherwise false.
+.Pp
+.Fn rc_stringlist_sort
+sorts the
+.Fa list
+according to C locale.
+.Pp
+.Fn rc_stringlist_free
+frees each item on
+.Fa list
+and the
+.Fa list
+itself.
+.Sh SEE ALSO
+.Xr malloc 3 ,
+.Xr free 3 ,
+.Xr queue 3 ,
+.Xr strcmp 3
+.Sh AUTHORS
+.An Roy Marples <roy@marples.name>

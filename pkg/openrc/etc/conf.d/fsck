@@ -1,0 +1,40 @@
+# Pass any arguments to fsck.
+# By default we preen.
+# Linux systems also force -C0 and -T.
+# If fsck_args is not specified then Linux systems also use -A
+# (and -R if / is rw)
+#fsck_args="-p"
+
+# We can also specify the passno in /etc/fstab to check
+# If you multiplex fsck (ie ln -s fsck /etc/init.d/fsck.late) then you can
+# do an fsck outside of the normal scope, say for /home.
+# Here are some exampes:-
+#fsck_passno="=1 =2"
+#fsck_passno=">1"
+#fsck_passno="<2"
+
+# If passno is not enough granularity, you can also specify mountpoints to
+# check. This should NOT be used for the default non-multiplexed fsck, or your
+# system might not be checked. Additionally, it is mutually exclusive with
+# the fsck_passno setting.
+#fsck_mnt=""
+#fsck_mnt="/home"
+
+# Most modern fs's don't require a full fsck on boot, but for those that do
+# it may be advisable to skip this when running on battery.
+# WARNING: Do not turn this off if you have any JFS partitions.
+fsck_on_battery="YES"
+
+# fsck_shutdown causes fsck to trigger during shutdown as well as startup.
+# The end result of this is that if any periodic non-root filesystem checks are
+# scheduled, under normal circumstances the actual check will happen during
+# shutdown rather than at next boot.
+# This is useful when periodic filesystem checks are causing undesirable
+# delays at startup, but such delays at shutdown are acceptable.
+fsck_shutdown="NO"
+
+# fsck_abort_on_errors can be set to no to cause fsck to not abort on
+# errors.
+# This is useful when periodic filesystem checks are causing undesirable
+# aborts.
+fsck_abort_on_errors="YES"

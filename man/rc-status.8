@@ -1,0 +1,68 @@
+.\" Copyright (c) 2007-2015 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd April 24, 2008
+.Dt RC-STATUS 8 SMM
+.Os OpenRC
+.Sh NAME
+.Nm rc-status
+.Nd show status info about runlevels
+.Sh SYNOPSIS
+.Nm
+.Op Fl aclsuC
+.Op Ar runlevel
+.Sh DESCRIPTION
+.Nm
+gathers and displays information about the status of services
+in different runlevels.  The default behavior is to show information
+about the current runlevel and any unassigned services that are not stopped,
+but any runlevel can be quickly examined.
+.Pp
+If an active service is being supervised by
+.Xr supervise-daemon 8, 
+the amount of time the daemon has been active along with the number of
+times it has been respawned in the current respawn period will be
+displayed.
+.Pp
+The options are as follows:
+.Bl -tag -width ".Fl test , test string"
+.It Fl a , -all
+Show all runlevels and their services.
+.It Fl c , -crashed
+List all services that have crashed.
+.It Fl l , -list
+List all defined runlevels.
+.It Fl m , -manual
+Show all manually started services.
+.It Fl r , -runlevel
+Print the current runlevel name.
+.It Fl s , -servicelist
+Show all services.
+.It Fl u , -unused
+Show services not assigned to any runlevel.
+.It Fl C , -nocolor
+Disable color output.
+.It Ar runlevel
+Show information only for the named
+.Ar runlevel .
+.El
+.Sh EXIT STATUS
+.Nm
+exits 0, except when checking for crashed services and it doesn't find any.
+.Sh IMPLEMENTATION NOTES
+.Nm
+tries to list services within each runlevel in the presently resolved
+dependency order if the dependency tree is available.
+.Sh SEE ALSO
+.Xr openrc 8 ,
+.Xr rc-update 8
+.Xr supervise-daemon 8
+.Sh AUTHORS
+.An Roy Marples <roy@marples.name>

@@ -1,0 +1,253 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+depend()
+{
+	need localmount
+	before logger
+	after clock root sysctl
+	keyword -prefix -timeout
+}
+
+: ${wipe_tmp:=${WIPE_TMP:-yes}}
+: ${log_dmesg:=${LOG_DMESG:-yes}}
+
+cleanup_tmp_dir()
+{
+	local dir="$1"
+
+	if ! [ -d "$dir" ]; then
+		mkdir -p "$dir" || return $?
+	fi
+	checkpath -W "$dir" || return 1
+	chmod a+rwt "$dir" 2> /dev/null
+	cd "$dir" || return 1
+	if yesno $wipe_tmp; then
+		ebegin "Wiping $dir directory"
+
+		# Faster than raw find
+		if ! rm -rf -- [!ajlq\.]* 2>/dev/null ; then
+			# Blah, too many files
+			find . -maxdepth 1 -name '[!ajlq\.]*' -exec rm -rf -- {} +
+		fi
+
+		# pam_mktemp creates a .private directory within which
+		# each user gets a private directory with immutable
+		# bit set; remove the immutable bit before trying to
+		# remove it.
+		[ -d /tmp/.private ] && chattr -R -a /tmp/.private 2> /dev/null
+
+		# Prune the paths that are left
+		find . -maxdepth 1 \
+			! -name . \
+			! -name lost+found \
+			! -name quota.user \
+			! -name aquota.user \
+			! -name quota.group \
+			! -name aquota.group \
+			! -name journal \
+			-exec rm -rf -- {} +
+		eend 0
+	else
+		ebegin "Cleaning $dir directory"
+		rm -rf -- .X*-lock esrv* kio* \
+			jpsock.* .fam* .esd* \
+			orbit-* ssh-* ksocket-* \
+			.*-unix
+		eend 0
+	fi
+}
+
+cleanup_var_run_dir()
+{
+	ebegin "Cleaning /var/run"
+	for x in $(find /var/run ! -type d ! -name utmp \
+		! -name random-seed ! -name dev.db \
+		! -name ld-elf.so.hints ! -name ld-elf32.so.hints \
+		! -name ld.so.hints);
+	do
+		# Clean stale sockets
+		if [ -S "$x" ]; then
+			if command -v fuser >/dev/null 2>&1; then
+				fuser "$x" >/dev/null 2>&1 || rm -- "$x"
+			else
+				rm -- "$x"
+			fi
+		fi
+		[ ! -f "$x" ] && continue
+		# Do not remove pidfiles of already running daemons
+		case "$x" in
+			*.pid)
+				start-stop-daemon --test --quiet \
+				--stop --pidfile "$x" && continue
+			;;
+		esac
+		rm -f -- "$x"
+	done
+	eend 0
+}
+
+mkutmp()
+{
+	: >"$1"
+	# Not all systems have the utmp group
+	chgrp utmp "$1" 2>/dev/null
+	chmod 0664 "$1"
+}
+
+migrate_to_run()
+{
+	src="$1"
+	dst="$2"
+ 	if [ -L $src -a "$(readlink -f $src)" != $dst ]; then
+ 		ewarn "$src does not point to $dst."
+ 		ewarn "Setting $src to point to $dst."
+ 		rm $src
+ 	elif [ ! -L $src -a -d $src ]; then
+ 		ebegin "Migrating $src to $dst"
+ 		cp -a $src/* $dst/
+ 		rm -rf $src
+ 		eend $?
+ 	fi
+ 	# If $src doesn't exist at all, just run this
+ 	if [ ! -e $src ]; then
+ 		ln -s $dst $src
+ 	fi
+}
+
+clean_run()
+{
+	[ "$RC_SYS" = VSERVER -o "$RC_SYS" = LXC ] && return 0
+	local dir
+	# If / is still read-only due to a problem, this will fail!
+	if ! checkpath -W /; then
+		ewarn "/ is not writable; unable to clean up underlying /run"
+		return 1
+	fi
+	if ! checkpath -W /tmp; then
+		ewarn "/tmp is not writable; unable to clean up underlying /run"
+		return 1
+	fi
+	# Now we know that we can modify /tmp and /
+	# if mktemp -d fails, it returns an EMPTY string
+	# STDERR: mktemp: failed to create directory via template ‘/tmp/tmp.XXXXXXXXXX’: Read-only file system
+	# STDOUT: ''
+	rc=0
+	dir=$(mktemp -d)
+	if [ -n "$dir" -a -d $dir -a -w $dir ]; then
+		mount --bind / $dir && rm -rf $dir/run/* || rc=1
+		umount $dir && rmdir $dir
+	else
+		rc=1
+	fi
+	if [ $rc -ne 0 ]; then
+		ewarn "Could not clean up underlying /run on /"
+		return 1
+	fi
+}
+
+start()
+{
+	# Remove any added console dirs
+	if checkpath -W "$RC_LIBEXECDIR"; then
+		rm -rf "$RC_LIBEXECDIR"/console/*
+	fi
+
+	local logw=false runw=false extra=
+	# Ensure that our basic dirs exist
+	if [ "$RC_UNAME" = Linux ]; then
+		# Satisfy Linux FHS
+		extra=/var/lib/misc
+		if [ ! -d /run ]; then
+			extra="/var/run $extra"
+		fi
+	else
+		extra=/var/run
+	fi
+	for x in /var/log /tmp $extra; do
+		if ! [ -d $x ]; then
+			if ! mkdir -p $x; then
+				eend 1 "failed to create needed directory $x"
+				return 1
+			fi
+		fi
+	done
+
+	if [ "$RC_UNAME" = Linux -a -d /run ]; then
+		migrate_to_run	/var/lock /run/lock
+		migrate_to_run	/var/run /run
+		clean_run
+	fi
+
+	if checkpath -W /var/run; then
+		ebegin "Creating user login records"
+		local xtra=
+		[ "$RC_UNAME" = NetBSD ] && xtra=x
+		for x in "" $xtra; do
+			mkutmp /var/run/utmp$x
+		done
+		[ -e /var/log/wtmp ] || mkutmp /var/log/wtmp
+		eend 0
+
+		mountinfo -q -f tmpfs /var/run || cleanup_var_run_dir
+	fi
+
+	# Clean up /tmp directories
+	local tmp=
+	for tmp in ${clean_tmp_dirs:-${wipe_tmp_dirs-/tmp}}; do
+		mountinfo -q -f tmpfs "$tmp" || cleanup_tmp_dir "$tmp"
+	done
+
+	if checkpath -W /tmp; then
+		# Make sure our X11 stuff have the correct permissions
+		# Omit the chown as bootmisc is run before network is up
+		# and users may be using lame LDAP auth #139411
+		rm -rf /tmp/.ICE-unix /tmp/.X11-unix
+		mkdir -p /tmp/.ICE-unix /tmp/.X11-unix
+		chmod 1777 /tmp/.ICE-unix /tmp/.X11-unix
+		if [ -x /sbin/restorecon ]; then
+			restorecon /tmp/.ICE-unix /tmp/.X11-unix
+		fi
+	fi
+
+	if yesno $log_dmesg; then
+		if $logw || checkpath -W /var/log; then
+			# Create an 'after-boot' dmesg log
+			case "$RC_SYS" in
+				VSERVER|OPENVZ|LXC|SYSTEMD-NSPAWN) ;;
+				*)
+					if yesno ${previous_dmesg:-no}; then
+						mv /var/log/dmesg /var/log/dmesg.old
+					fi
+					dmesg > /var/log/dmesg
+					chmod 640 /var/log/dmesg
+					;;
+			esac
+		fi
+	fi
+
+	return 0
+}
+
+stop()
+{
+	# Write a halt record if we're shutting down
+	if [ "$RC_RUNLEVEL" = shutdown ]; then
+		[ "$RC_UNAME" = Linux ] && openrc-shutdown -w
+		if [ "$RC_SYS" = OPENVZ ]; then
+			yesno $RC_REBOOT && printf "" >/reboot
+		fi
+	fi
+
+	return 0
+}
+
+# vim: ft=sh
