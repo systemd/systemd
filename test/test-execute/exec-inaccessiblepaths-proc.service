@@ -1,7 +1,0 @@
-[Unit]
-Description=Test to make sure that mount namespace setup works properly with the 'InaccessiblePaths=/proc' option
-
-[Service]
-InaccessiblePaths=/proc
-ExecStart=/bin/sh -x -c 'test "$$(stat -c %%a /proc)" = "0"'
-Type=oneshot

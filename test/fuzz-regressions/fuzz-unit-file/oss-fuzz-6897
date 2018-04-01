@@ -1,4 +1,0 @@
-service
-[Service]
-Slice=%H.slice
-TemporaryFileSystem=%c

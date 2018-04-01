@@ -1,5 +1,0 @@
-Name: udev
-Description: udev
-Version: @PACKAGE_VERSION@
-
-udevdir=@udevlibexecdir@
