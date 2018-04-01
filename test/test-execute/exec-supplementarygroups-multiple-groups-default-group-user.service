@@ -1,7 +1,0 @@
-[Unit]
-Description=Test for Supplementary Group with multiple groups without Group and User
-
-[Service]
-ExecStart=/bin/sh -x -c 'test "$$(id -G)" = "0 1 2 3" && test "$$(id -g)" = "0" && test "$$(id -u)" = "0"'
-Type=oneshot
-SupplementaryGroups=1 2 3

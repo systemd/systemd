@@ -1,0 +1,10 @@
+[Trigger]
+Type = File
+Operation = Remove
+Target = etc/init.d/*
+
+[Action]
+Description = Displaying openrc service help ...
+When = PostTransaction
+Exec = /bin/bash -c 'echo "	==> Remove a service from runlevel:"; echo "	rc-update del <service> <runlevel>"'
+NeedsTargets

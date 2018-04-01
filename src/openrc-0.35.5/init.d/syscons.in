@@ -1,0 +1,91 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+depend() {
+	after clock
+	need localmount
+	keyword -jail -prefix
+}
+
+start() {
+	if [ -n "$allscreen_flags" ]; then
+		ebegin "Setting mode to $allscreen_flags for all screens"
+		for v in /dev/ttyv*; do
+			vidcontrol $allscreen_flags <$v
+		done
+		eend $?
+	fi
+
+	if [ -n "$keymap" ]; then
+		ebegin "Setting keymap to $keymap"
+		kbdcontrol -l $keymap </dev/console
+		eend $?
+	fi
+
+	if [ -n "$keyrate" ]; then
+		ebegin "Setting keyrate to $keyrate"
+		kbdcontrol -r $keyrate </dev/console
+		eend $?
+	fi
+
+	if [ -n "$keychange" ]; then
+		ebegin "Changing function keys"
+		eval set -- "$keychange"
+		eindent
+		while [ $# -gt 0 ]; do
+			veinfo "F$1 -> \`$2'"
+			kbdcontrol -f "$1" "$2" </dev/console
+			veend $?
+			shift; shift
+		done
+		eoutdent
+	fi
+
+	if [ -n "$cursor" ]; then
+		ebegin "Setting cursor"
+		vidcontrol -c $cursor
+		eend $?
+	fi
+
+	local v= f=
+	for v in font8x16 font8x14 font8x8; do
+		eval f=\$$v
+		if [ -n "$f" ]; then
+			ebegin "Setting font $f"
+			vidcontrol -f ${v##font} $f
+			eend $?
+		fi
+	done
+
+	if [ -n "$blanktime" ]; then
+		ebegin "Setting blanktime"
+		vidcontrol -t $blanktime
+		eend $?
+	fi
+
+	if [ -n "$saver" ]; then
+		local i=
+		for i in $(kldstat | sed -n -e 's/.* \(splash_.*\)/\1/p'); do
+			kldunload "$i"
+		done
+		kldstat -v | grep -q _saver || kldload ${saver}_saver
+	fi
+
+	if [ -n "$kbdflags" ]; then
+		ebegin "Setting keyboard flags for all screens"
+		for v in /dev/ttyv*; do
+			kbdcontrol $kbdflags <$v
+		done
+		eend $?
+	fi
+
+	return 0
+}

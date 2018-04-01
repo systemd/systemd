@@ -1,0 +1,11 @@
+# make agetty quiet
+#quiet="yes"
+
+# Set the baud rate of the terminal line
+#baud=""
+
+# set the terminal type
+#term_type="linux"
+
+# extra options to pass to agetty for this port
+#agetty_options=""

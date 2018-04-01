@@ -1,0 +1,6 @@
+# If you wish to pass any options to kill_all during shutdown,
+# you should do so here.
+#
+# The setting is called killall5_opts because the options here are meant
+# to be identical to those you could pass to killall5.
+killall5_opts=""

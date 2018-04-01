@@ -1,0 +1,16 @@
+# See the moused man page for available settings.
+
+# Set to your mouse device psm[0-9] for PS/2 ports, ums[0-9] for USB ports
+# Leave blank to try to autodetect it
+#moused_device="/dev/psm0"
+
+# Any additional arguments required for a specific port
+#moused_args_psm0=""
+# or for all mice
+#moused_args=""
+
+# You can also multiplex the init script for each device like so
+#   ln -s moused /etc/init.d/moused.ums0
+# This enables you to have a config file per mouse (forces moused_device
+# to ums0 in this case) and control each mouse.
+# devd can also start and stop these mice, which laptop users will find handy.

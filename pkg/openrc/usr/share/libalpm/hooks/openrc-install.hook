@@ -1,0 +1,11 @@
+[Trigger]
+Type = File
+Operation = Install
+Operation = Upgrade
+Target = etc/init.d/*
+
+[Action]
+Description = Displaying openrc service help ...
+When = PostTransaction
+Exec = /bin/bash -c 'echo "	==> Add a service to runlevel:"; echo "	rc-update add <service> <runlevel>"'
+NeedsTargets

@@ -1,0 +1,26 @@
+# Static routes are defined differently depending on your operating
+# system, so please be sure to use the correct syntax.
+# Do not use this file to define the default route.
+# In all settings, multiple routes should be separated using ; or new lines.
+
+# Define static routes on Linux using route. See route(8) for syntax.
+#staticroute="net 192.168.0.0 netmask 255.255.255.0 gw 10.73.1.1
+#net 192.168.1.0 netmask 255.255.255.0 gw 10.73.1.1"
+
+# Define static routes on Linux using iproute2. See ip(8) for syntax.
+#staticiproute="192.168.0.0/24 via 10.73.1.1; 192.168.1.0/24 via 10.73.1.1"
+
+# Define static routes on GNU/Hurd. See route(8) for syntax.
+# /etc/route.conf(5) takes precedence over this configuration.
+# FIXME: "net ..." not supported
+#staticroute="net 192.168.0.0 -netmask 255.255.255.0 --address 10.73.1.1
+#net 192.168.1.0 -netmask 255.255.255.0 --address 10.73.1.1"
+
+# Define static routes on GNU/KFreeBSD. See route(8) for syntax.
+#staticroute="net 192.168.0.0 10.73.1.1 netmask 255.255.255.0
+#net 192.168.1.0 10.73.1.1 netmask 255.255.255.0"
+
+# Define static routes on other BSD systems. See route(8) for syntax.
+# /etc/route.conf(5) takes precedence over this configuration.
+#staticroute="net 192.168.0.0 -netmask 255.255.255.0 10.73.1.1
+#net 192.168.1.0 -netmask 255.255.255.0 10.73.1.1"

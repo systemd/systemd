@@ -1,0 +1,44 @@
+#!@SHELL@
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+#    except according to the terms contained in the LICENSE file.
+
+if [ ! -d /run ]; then
+    ebegin "Creating /run"
+    mkdir -p /run
+    eend $?
+fi
+
+if [ -L $RC_SVCDIR ]; then
+    rm $RC_SVCDIR
+fi
+
+if ! mountinfo -q /run; then
+    ebegin "Mounting /run"
+    if ! fstabinfo --mount /run; then
+        mount -t tmpfs -o mode=0755,no-suid,size=10% tmpfs /run
+        if [ $? != 0 ]; then
+            eerror "Unable to mount tmpfs on /run."
+            eerror "Can't continue."
+            exit 1
+        fi
+    fi
+    eend
+fi
+
+ebegin "Creating $RC_SVCDIR"
+mkdir -p $RC_SVCDIR
+eend $?
+
+if [ -e "$RC_LIBEXECDIR"/cache/softlevel ]; then
+    cp -p "$RC_LIBEXECDIR"/cache/* "$RC_SVCDIR" 2>/dev/null
+fi
+
+echo sysinit >"$RC_SVCDIR"/softlevel
+exit 0

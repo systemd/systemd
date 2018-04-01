@@ -1,0 +1,66 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+name="Packet Filter"
+: ${pf_conf:=${pf_rules:-/etc/pf.conf}}
+required_files=$pf_conf
+
+extra_commands="checkconfig showstatus"
+extra_started_commands="reload"
+
+depend() {
+	need localmount
+	keyword -jail -prefix
+}
+
+start()
+{
+	ebegin "Starting $name"
+	if command -v kldload >/dev/null 2>&1; then
+		kldload pf 2>/dev/null
+	fi
+	pfctl -q -F all
+	pfctl -q -f "$pf_conf" $pf_args
+	pfctl -q -e
+	eend $?
+}
+
+stop()
+{
+	ebegin "Stopping $name"
+	pfctl -q -d
+	eend $?
+}
+
+checkconfig()
+{
+	ebegin "Checking $name configuration"
+	pfctl -n -f "$pf_conf"
+	eend $?
+}
+
+reload()
+{
+	ebegin "Reloading $name rules."
+	pfctl -q -n -f "$pf_conf" && \
+	{
+		# Flush everything but existing state entries that way when
+		# rules are read in, it doesn't break established connections.
+		pfctl -q -Fnat -Fqueue -Frules -FSources -Finfo -FTables -Fosfp
+		pfctl -q -f "$pf_conf" $pf_args
+	}
+	eend $?
+}
+
+showstatus()
+{
+	pfctl -s info
+}

@@ -1,0 +1,42 @@
+# Copyright (c) 2017 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+#
+# rc-update completion command
+#
+_rc_update()
+{
+	local cur show
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+	if [[ $COMP_CWORD -eq 1 ]]; then
+		if [[ "${cur}" == -* ]]; then
+			COMPREPLY=($(compgen -W '-a -d -s' -- ${cur}))
+		else
+			COMPREPLY=($(compgen -W 'add del show' ${cur}))
+		fi
+	else
+		if [[ "${COMP_WORDS[1]}" == "show" ]] || [[ "${COMP_WORDS[1]}" == "-s" ]]; then
+			show="TRUE"
+		fi
+		if ([[ $COMP_CWORD -eq 3 ]] && [[ -z "$show" ]]) || \
+			([[ $COMP_CWORD -eq 2 ]] && [[ -n "$show" ]]); then
+		COMPREPLY=($(compgen -W "$(rc-status --list)" -- $cur))
+		elif [[ $COMP_CWORD -eq 2 ]]; then
+			COMPREPLY=($(compgen -W "$(rc-service --list)" $cur))
+		elif [[ ${#COMP_WORDS[*]} -gt 2 ]] ; then
+			COMPREPLY=($(compgen -W "$(rc-status --list)" -- $cur))
+		else
+			unset COMPREPLY
+		fi
+	fi
+	return 0
+} &&
+complete -F _rc_update rc-update

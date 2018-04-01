@@ -1,0 +1,197 @@
+.\" Copyright (c) 2007-2015 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd Mar 16, 2008
+.Dt EINFO 3 SMM
+.Os OpenRC
+.Sh NAME
+.Nm einfo , ewarn , eerror , ebegin ,
+.Nm einfon , ewarnn , eerrorn , ebeginn ,
+.Nm einfov , ewarnv , ebeginv ,
+.Nm einfovn , ewarnvn , ebeginvn ,
+.Nm ewarnx , eerrorx ,
+.Nm eend , ewend ,
+.Nm eendv , ewendv ,
+.Nm ebracket ,
+.Nm eindent , eoutdent ,
+.Nm eindentv , eoutdentv ,
+.Nm eprefix
+.Nd colorful informational output
+.Sh LIBRARY
+Enhanced Information output library (libeinfo, -leinfo)
+.Sh SYNOPSIS
+.In einfo.h
+.Ft int Fn einfo "const char * restrict format" ...
+.Ft int Fn ewarn "const char * restrict format" ...
+.Ft int Fn eerror "const char * restrict format" ...
+.Ft int Fn ebegin "const char * restrict format" ...
+.Ft int Fn einfon "const char * restrict format" ...
+.Ft int Fn ewarnn "const char * restrict format" ...
+.Ft int Fn eerrorn "const char * restrict format" ...
+.Ft int Fn ebeginn "const char * restrict format" ...
+.Ft int Fn einfov "const char * restrict format" ...
+.Ft int Fn ewarnv "const char * restrict format" ...
+.Ft int Fn ebeginv "const char * restrict format" ...
+.Ft int Fn einfovn "const char * restrict format" ...
+.Ft int Fn ewarnvn "const char * restrict format" ...
+.Ft int Fn ebeginvn "const char * restrict format" ...
+.Ft int Fn ewarnx "const char * restrict format" ...
+.Ft int Fn eerrorx "const char * restrict format" ...
+.Ft int Fn eend "int retval" "const char * restrict format" ...
+.Ft int Fn ewend "int retval" "const char * restrict format" ...
+.Ft int Fn eendv "int retval" "const char * restrict format" ...
+.Ft int Fn ewendv "int retval" "const char * restrict format" ...
+.Ft void Fn ebracket "int col" "ECOLOR color" "const char * restrict msg"
+.Ft void Fn eindent void
+.Ft void Fn eoutdent void
+.Ft void Fn eindentv void
+.Ft void Fn eoutdentv void
+.Ft void Fn eprefix "const char * prefix"
+.Sh DESCRIPTION
+The
+.Fn einfo
+family of functions provide a simple informational output that is colorised.
+Basically
+.Fn einfo ,
+.Fn ewarn
+and
+.Fn eerror
+behave exactly like
+.Fn printf
+but prefix the output with a colored *. The function called denotes the color
+used with
+.Fn einfo
+being green,
+.Fn ewarn
+being yellow and
+.Fn eerror
+being red.
+einfo goes to stdout and the others go to stderr.
+The number of real characters printed is returned.
+.Fn ebegin
+is identical to
+.Fn einfo
+except that 3 dots are appended to the output.
+.Pp
+.Fn einfov ,
+.Fn ewarnv
+and
+.Fn ebeginv
+work the same way to
+.Fn einfo ,
+.Fn ewarn ,
+and
+.Fn ebegin
+respectively, but only work when
+.Va EINFO_VERBOSE
+is true. You can also make the
+.Fn einfo ,
+.Fn ewarn ,
+and
+.Fn ebegin
+functions silent by setting
+.Va EINFO_QUIET
+to true.
+.Pp
+These functions are designed to output a whole line, so they also
+append a newline to the string. To stop this behaviour, you can use the
+functions
+.Fn einfon ,
+.Fn ewarnn ,
+.Fn eerrorn ,
+.Fn einfovn ,
+.Fn ewarnvn ,
+and
+.Fn ebeginvn .
+.Pp
+.Fn eend ,
+.Fn ewend ,
+.Fn eendv
+and
+.Fn ewendv
+are the counterparts to the above functions. If
+.Fa retval
+is zero then ok in green is printed in a bracket at the end of the prior
+line. Otherwise we print the formatted string using
+.Fn error
+(or
+.Fn ewarn
+if
+.Fn ewend
+is called) !! in red (or yellow if
+.Fn ewend
+is called) is printed in a bracket at the end of the line.
+The value of
+.Fa retval
+is returned.
+.Pp
+.Fn ebracket
+does the same as
+.Fn eend
+but prints
+.Fa msg
+instead of ok or !! in the color
+.Fa color
+at the column
+.Fa col .
+.Pp
+.Fn eindent
+indents subsequent calls to the above functions by 3 characters.
+.Fn eoutdent
+removes an
+.Fn eindent .
+.Fn eindentv
+and
+.Fn eoutdentv
+only work when
+.Va EINFO_VERBOSE
+is true.
+.Pp
+.Fn eprefix
+prefixes the string
+.Fa prefix
+to the above functions.
+.Sh IMPLEMENTATION NOTES
+einfo can optionally be linked against the
+.Lb libtermcap
+so that we can correctly query the connected console for our color and
+cursor escape codes.
+If not, then we have a hard coded list of terminals we know about that support
+the commonly used codes for color and cursor position.
+.Sh ENVIRONMENT
+.Va EINFO_QUIET
+when set to true makes the
+.Fn einfo
+and
+.Fn einfon
+family of functions quiet, so nothing is printed.
+.Va EERROR_QUIET
+when set to true makes the
+.Fn eerror
+and
+.Fn eerrorn
+family of functions quiet, so nothing is printed.
+.Pp
+.Va EINFO_VERBOSE
+when set to true makes the
+.Fn einfov
+and
+.Fn einfovn
+family of functions work, so they do print.
+.Sh FILES
+.Pa /etc/init.d/functions.sh
+is provided by OpenRC, which allows shell scripts to use the above functions.
+For historical reasons our verbose functions are prefixed with v instead of
+suffixed. So einfov becomes veinfo, einfovn becomes veinfon.
+Rinse and repeat for the other verbose functions.
+.Sh SEE ALSO
+.Xr printf 3 ,
+.Sh AUTHORS
+.An Roy Marples <roy@marples.name>

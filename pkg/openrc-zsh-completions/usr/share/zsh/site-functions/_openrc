@@ -1,0 +1,7 @@
+#compdef openrc
+
+if (( CURRENT == 2 )); then
+	_values "runlevels" $(rc-status --list)
+fi
+
+# vim: set et sw=2 ts=2 ft=zsh:

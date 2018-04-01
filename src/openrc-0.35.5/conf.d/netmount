@@ -1,0 +1,47 @@
+# You will need to set the dependencies in the netmount script to match
+# the network configuration tools you are using. This should be done in
+# this file by following the examples below, and not by changing the
+# service script itself.
+#
+# Each of these examples is meant to be used separately. So, for
+# example, do not set rc_need to something like "net.eth0 dhcpcd".
+#
+# If you are using newnet and configuring your interfaces with static
+# addresses with the network script, you  should use this setting.
+#
+#rc_need="network"
+#
+# If you are using oldnet, you must list the specific net.* services you
+# need.
+#
+# This example assumes all of your netmounts can be reached on
+# eth0.
+#
+#rc_need="net.eth0"
+#
+# This example assumes some of your netmounts are on eth1 and some
+# are on eth2.
+#
+#rc_need="net.eth1 net.eth2"
+#
+# If you are using a dynamic network management tool like
+# NetworkManager, dhcpcd in standalone mode, wicd, badvpn-ncd, etc, to
+# manage the network interfaces with the routes to your netmounts, you
+# should list that tool.
+#
+#rc_need="NetworkManager"
+#rc_need="dhcpcd"
+#rc_need="wicd"
+#
+# The default setting is designed to be backward compatible with our
+# current setup, but you are highly discouraged from using this. In
+# other words, please change it to be more suited to your system.
+#
+rc_need="net"
+#
+# Mark certain mount points as critical.
+# This contains aspace separated list of mount points which should be
+# considered critical. If one of these mount points cannot be mounted,
+# netmount will fail.
+# By default, this is empty.
+#critical_mounts="/home /var"

@@ -1,0 +1,129 @@
+#!@SHELL@
+# Shell wrapper to list our dependencies
+
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+#    except according to the terms contained in the LICENSE file.
+
+. @LIBEXECDIR@/sh/functions.sh
+. @LIBEXECDIR@/sh/rc-functions.sh
+
+config() {
+	[ -n "$*" ] && echo "$RC_SVCNAME config $*" >&3
+}
+need() {
+	[ -n "$*" ] && echo "$RC_SVCNAME ineed $*" >&3
+}
+use() {
+	[ -n "$*" ] && echo "$RC_SVCNAME iuse $*" >&3
+}
+want() {
+	[ -n "$*" ] && echo "$RC_SVCNAME iwant $*" >&3
+}
+before() {
+	[ -n "$*" ] && echo "$RC_SVCNAME ibefore $*" >&3
+}
+after() {
+	[ -n "$*" ] && echo "$RC_SVCNAME iafter $*" >&3
+}
+provide() {
+	[ -n "$*" ] && echo "$RC_SVCNAME iprovide $*" >&3
+}
+keyword() {
+	local c x
+	set -- $*
+	while [ -n "$*" ]; do
+		case "$1" in
+			-containers) x="$(_get_containers)" ;;
+			!-containers) x="$(_get_containers_remove)" ;;
+			*) x=$1 ;;
+		esac
+		c="${c}${x} "
+		shift
+	done
+	[ -n "$c" ] && echo "$RC_SVCNAME keyword $c" >&3
+}
+depend() {
+	:
+}
+
+_done_dirs=
+for _dir in \
+@SYSCONFDIR@/init.d \
+@PKG_PREFIX@/etc/init.d \
+@LOCAL_PREFIX@/etc/init.d
+do
+	[ -d "$_dir" ] || continue
+
+	# Don't do the same dir twice
+	for _d in $_done_dirs; do
+		[ "$_d" = "$_dir" ] && continue 2
+	done
+	unset _d
+	_done_dirs="$_done_dirs $_dir"
+
+	cd "$_dir"
+	for RC_SERVICE in *; do
+		[ -x "$RC_SERVICE" -a -f "$RC_SERVICE" ] || continue
+
+		# Only generate dependencies for OpenRC scripts
+		read one two three <"$RC_SERVICE"
+		case "$one" in
+			\#*/openrc-run) ;;
+			\#*/runscript) ;;
+			\#!)
+				case "$two" in
+					*/openrc-run) ;;
+					*/runscript) ;;
+					*)
+						continue
+						;;
+				esac
+				;;
+			*)
+				continue
+				;;
+		esac
+		unset one two three
+
+		RC_SVCNAME=${RC_SERVICE##*/} ; export RC_SVCNAME
+
+		# Compat
+		SVCNAME=$RC_SVCNAME ; export SVCNAME
+
+		(
+		# Save stdout in fd3, then remap it to stderr
+		exec 3>&1 1>&2
+
+		_rc_c=${RC_SVCNAME%%.*}
+		if [ -n "$_rc_c" -a "$_rc_c" != "$RC_SVCNAME" ]; then
+			if [ -e "$_dir/../conf.d/$_rc_c" ]; then
+				. "$_dir/../conf.d/$_rc_c"
+			fi
+		fi
+		unset _rc_c
+
+		if [ -e "$_dir/../conf.d/$RC_SVCNAME" ]; then
+			. "$_dir/../conf.d/$RC_SVCNAME"
+		fi
+
+		[ -e @SYSCONFDIR@/rc.conf ] && . @SYSCONFDIR@/rc.conf
+		if [ -d "@SYSCONFDIR@/rc.conf.d" ]; then
+			for _f in "@SYSCONFDIR@"/rc.conf.d/*.conf; do
+				[ -e "$_f" ] && . "$_f"
+			done
+		fi
+
+		if . "$_dir/$RC_SVCNAME"; then
+			echo "$RC_SVCNAME" >&3
+			_depend
+		fi
+		)
+	done
+done

@@ -1,0 +1,133 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Mounts disks and swap according to /etc/fstab."
+
+depend()
+{
+	need fsck
+	use lvm modules root
+	after clock lvm modules root
+	keyword -docker -jail -lxc -prefix -systemd-nspawn -vserver
+}
+
+start()
+{
+	# Mount local filesystems in /etc/fstab.
+	# The types variable must start with no, and must be a type
+	local critical= types="noproc" x= no_netdev= rc=
+	for x in $net_fs_list $extra_net_fs_list; do
+		types="${types},${x}"
+	done
+
+	if [ "$RC_UNAME" = Linux ]; then
+		no_netdev="-O no_netdev"
+		if mountinfo -q /usr; then
+			touch "$RC_SVCDIR"/usr_premounted
+		fi
+	fi
+	ebegin "Mounting local filesystems"
+	mount -at "$types" $no_netdev
+	eend $? "Some local filesystem failed to mount"
+	rc=$?
+	if [ -z "$critical_mounts" ]; then
+		rc=0
+	else
+		for x in ${critical_mounts}; do
+		fstabinfo -q $x || continue
+		if ! mountinfo -q $x; then
+			critical=x
+			eerror "Failed to mount $x"
+		fi
+		done
+		[ -z "$critical" ] && rc=0
+	fi
+	return $rc
+}
+
+stop()
+{
+	yesno $RC_GOINGDOWN || return 0
+	# We never unmount / or /dev or $RC_SVCDIR
+
+	# Bug 381783
+	local rc_svcdir=$(printf '%s\n' "$RC_SVCDIR" | sed 's:/lib\(32\|64\)\?/:/lib(32|64)?/:g')
+
+	local x= no_umounts_r="/|/dev|/dev/.*|${rc_svcdir}"
+	no_umounts_r="${no_umounts_r}|/bin|/sbin|/lib(32|64)?|/libexec"
+	# RC_NO_UMOUNTS is an env var that can be set by plugins
+	local IFS="$IFS:"
+	for x in $no_umounts $RC_NO_UMOUNTS; do
+		no_umounts_r="$no_umounts_r|$x"
+	done
+
+	if [ "$RC_UNAME" = Linux ]; then
+		no_umounts_r="$no_umounts_r|/proc|/proc/.*|/run|/sys|/sys/.*"
+		if [ -e "$rc_svcdir"/usr_premounted ]; then
+			no_umounts_r="$no_umounts_r|/usr"
+		fi
+	fi
+	no_umounts_r="^($no_umounts_r)$"
+
+	# Flush all pending disk writes now
+	sync
+
+	. "$RC_LIBEXECDIR"/sh/rc-mount.sh
+
+	if [ "$RC_UNAME" = Linux ] && [ -d /sys/fs/aufs ] ; then
+		#if / is aufs we remount it noxino during shutdown
+		if mountinfo -q -f '^aufs$' / ; then
+			mount -o remount,noxino,rw /
+			sync
+		fi
+
+		local aufs_branch aufs_mount_point aufs_si_id aufs_br_id branches
+		for aufs_si_dir in /sys/fs/aufs/si*; do
+			[ -d "${aufs_si_dir}" ] || continue
+			aufs_si_id="si=${aufs_si_dir#/sys/fs/aufs/si_}"
+			aufs_mount_point="$(mountinfo -o ${aufs_si_id})"
+			branches="$aufs_si_dir/br[0-9] $aufs_si_dir/br[0-9][0-9] $aufs_si_dir/br[0-9][0-9][0-9]"
+			for x in $branches; do
+				[ -e "${x}" ] || continue
+				aufs_branch=$(sed 's/=.*//g' $x)
+				eindent
+				if ! mount -o "remount,del:$aufs_branch" "$aufs_mount_point" > /dev/null 2>&1; then
+					ewarn "Failed to remove branch $aufs_branch from aufs" \
+					"$aufs_mount_point"
+				fi
+				eoutdent
+				sync
+			done
+		done
+	fi
+
+	# Umount loop devices
+	einfo "Unmounting loop devices"
+	eindent
+	do_unmount "umount -d" --skip-point-regex "$no_umounts_r" \
+		--node-regex "^/dev/loop"
+	eoutdent
+
+	# Now everything else, except network filesystems as the
+	# network should be down by this point.
+	einfo "Unmounting filesystems"
+	eindent
+	local fs=
+	for x in $net_fs_list $extra_net_fs_list; do
+		fs="$fs${fs:+|}$x"
+	done
+	[ -n "$fs" ] && fs="^($fs)$"
+	do_unmount umount --skip-point-regex "$no_umounts_r" \
+		"${fs:+--skip-fstype-regex}" $fs --nonetdev
+	eoutdent
+
+	return 0
+}

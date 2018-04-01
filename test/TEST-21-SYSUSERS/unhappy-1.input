@@ -1,4 +1,0 @@
-# Ensure invalid uids are detected
-#
-#Type Name ID  GECOS HOMEDIR
-u u1 9999999999 - -

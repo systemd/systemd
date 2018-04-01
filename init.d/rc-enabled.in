@@ -1,0 +1,60 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+depend()
+{
+	need localmount net
+	after *
+	before local
+	keyword -prefix
+}
+
+start()
+{
+	ebegin "Starting local rc services"
+	local svc= enabled= retval=0 service= pkgdir=
+	[ -n "@PKG_PREFIX@" ] && pkgdir="@PKG_PREFIX@/etc/rc.d/*"
+	for svc in $(rcorder /etc/rc.d/* $pkgdir 2>/dev/null); do
+		[ -x "$svc" ] || continue
+		service=${svc##*/}
+
+		# Skip these services
+		for s in cleartmp moused; do
+			[ "$s" = "$service" ] && continue 2
+		done
+
+		# If we have an init script for this service, continue
+		rc-service --exists "$service" && continue
+
+		# Ensure that the users rc.conf will start us
+		eval enabled=\$${svc##*/}_enable
+		yesno $enabled || yesno ${svc##*/} || continue
+
+		# Good to go!
+		"$svc" start && started="$started $svc"
+		: $(( retval += $? ))
+	done
+	service_set_value started "$started"
+	eend $retval "Some local rc services failed to start"
+	return 0
+}
+
+stop()
+{
+	ebegin "Stopping local rc services"
+	local svc= retval=0
+	for svc in $(rcorder $(service_get_value started) 2>/dev/null | sort -r); do
+		"$svc" stop
+		: $(( retval += $? ))
+	done
+	eend $retval "Some local rc services failed to stop"
+	return 0
+}

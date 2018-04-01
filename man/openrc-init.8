@@ -1,0 +1,46 @@
+.\" Copyright (c) 2017 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd April 6, 2017
+.Dt openrc-init 8 SMM
+.Os OpenRC
+.Sh NAME
+.Nm openrc-init
+.Nd the parent of all processes
+.Sh SYNOPSIS
+.Nm
+.Sh DESCRIPTION
+.Nm
+is an init process which can be an alternative to sysvinit or any other
+init process.
+.Pp
+To use
+.Nm
+configure your boot loader to invoke it or symlink it to /sbin/init.
+Also, you will need to use
+.Xr openrc-shutdown 8 ,
+to halt, reboot or poweroff the system.
+.Pp
+The default runlevel is read from the init command line, the
+rc_default_runlevel setting in rc.conf, the kernel command line, or it is
+assumed to be "default" if it is not set in any of these places.
+.Pp
+.Nm
+doesn't manage getty's directly, so you will need to manage them another
+way. For example, you can use the agetty service script as described in
+agetty-guide.md in this distribution.
+.Sh BUGS
+This was first released as part of OpenRC 0.25.
+I do not know of any specific issues. However, since this is the first
+release of openrc-init, please test and report any issues you find.
+.Sh SEE ALSO
+.Xr openrc-shutdown 8 ,
+.Sh AUTHORS
+.An William Hubbs <w.d.hubbs@gmail.com>

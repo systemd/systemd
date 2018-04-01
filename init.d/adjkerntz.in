@@ -1,0 +1,70 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+extra_commands="save"
+
+description="Sets the local clock to UTC or Local Time."
+description_save="Saves the current time in the BIOS."
+
+: ${clock:=${CLOCK:-UTC}}
+if [ "$clock" = "UTC" ]; then
+	utc="UTC"
+else
+	utc="Local Time"
+fi
+
+depend()
+{
+	after swclock
+	provide clock
+	# BSD adjkerntz needs to be able to write to /etc
+	if [ "$clock" = "UTC" -a -e /etc/wall_cmos_clock ] ||
+	   [ "$clock" != "UTC" -a ! -e /etc/wall_cmos_clock ]; then
+		need root
+	fi
+	keyword -jail -prefix
+}
+
+start()
+{
+	ebegin "Starting the System Clock Adjuster [${utc}]"
+	if [ "$clock" != "UTC" ]; then
+		echo >/etc/wall_cmos_clock
+		start-stop-daemon --start --exec /sbin/adjkerntz -- -i
+	else
+		rm -f /etc/wall_cmos_clock
+		/sbin/adjkerntz -i
+	fi
+	eend $?
+}
+
+save()
+{
+	ebegin "Setting hardware clock using the system clock [${utc}]"
+	adjkerntz -a
+	eend $?
+}
+
+stop()
+{
+	# Don't tweak the hardware clock on LiveCD halt.
+	if yesno "${clock_systohc:-$CLOCK_SYSTOHC}"; then
+	   [ -z "$CDBOOT" ] && save
+	fi
+
+	ebegin "Stopping the System Clock Adjuster"
+	if start-stop-daemon --test --quiet --stop --exec /sbin/adjkerntz; then
+		start-stop-daemon --stop --exec /sbin/adjkerntz
+		eend $?
+	else
+		eend 0
+	fi
+}

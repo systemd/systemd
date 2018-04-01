@@ -1,8 +1,0 @@
-[Unit]
-Description=Son Service
-
-[Service]
-Slice=parent.slice
-Type=oneshot
-ExecStart=/bin/true
-CPUShares=100

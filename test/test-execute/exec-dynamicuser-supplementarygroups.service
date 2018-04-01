@@ -1,8 +1,0 @@
-[Unit]
-Description=Test DynamicUser with SupplementaryGroups=
-
-[Service]
-ExecStart=/bin/sh -x -c 'test "$$(id -G | cut -d " " --complement -f 1)" = "1 2 3"'
-Type=oneshot
-DynamicUser=yes
-SupplementaryGroups=1 2 3

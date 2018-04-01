@@ -1,0 +1,10 @@
+# Set CLOCK to "UTC" if your system clock is set to UTC (also known as
+# Greenwich Mean Time).  If your clock is set to the local time, then
+# set CLOCK to "local".  Note that if you dual boot with Windows, then
+# you should set it to "local".
+clock="UTC"
+
+# If you want to set the Hardware Clock to the current System Time
+# during shutdown, then say "YES" here.
+# You normally don't need to do this if you run a ntp daemon.
+clock_systohc="NO"

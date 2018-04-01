@@ -1,0 +1,13 @@
+# As far as we are aware, there are no modern linux tools or use cases
+# which require /etc/mtab to be a separate file from /proc/self/mounts,
+# so this setting should be commented out.
+# If it is set to yes, please comment it out and run this command:
+# # rc-service mtab restart
+# In the future, the mtab service will be removed since we are not aware
+# of any need to manipulate /etc/mtab as a separate file from
+# /proc/self/mounts.
+# If you have a technical reason we should keep this support, please
+# open an issue at https://github.com/openrc/openrc/issues and let us
+# know about your situation.
+# This setting controls whether /etc/mtab is a file or symbolic link.
+# mtab_is_file=no

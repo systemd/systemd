@@ -1,5 +1,0 @@
-# This file is part of systemd.
-
-# Dell iDRAC Virtual USB NIC
-usb:v413CpA102*
- ID_NET_NAME_FROM_DATABASE=idrac

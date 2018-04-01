@@ -1,0 +1,3 @@
+# To start rarpd only for a given interface, set the
+# following variable. Otherwise we listen on all interfaces.
+#rarpd_interface="rl0"

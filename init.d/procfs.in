@@ -1,0 +1,41 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Mounts misc filesystems in /proc."
+
+depend()
+{
+	after clock
+	use devfs
+	want modules
+	need localmount
+	keyword -docker -lxc -openvz -prefix -systemd-nspawn -vserver
+}
+
+start()
+{
+	# Setup Kernel Support for miscellaneous Binary Formats
+	if [ -d /proc/sys/fs/binfmt_misc ] &&
+		[ ! -e /proc/sys/fs/binfmt_misc/register ]; then
+		if ! grep -qs binfmt_misc /proc/filesystems &&
+			modprobe -q binfmt-misc; then
+			ewarn "The binfmt-misc module needs to be loaded by" \
+				"the modules service or built in."
+		fi
+		if grep -qs binfmt_misc /proc/filesystems; then
+			ebegin "Mounting misc binary format filesystem"
+			mount -t binfmt_misc -o nodev,noexec,nosuid \
+				binfmt_misc /proc/sys/fs/binfmt_misc
+				eend $?
+		fi
+	fi
+	return 0
+}

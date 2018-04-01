@@ -1,0 +1,18 @@
+# The interfaces setting controls which interfaces the net-online
+# service considers in deciding whether the network is active. The
+# default is all interfaces that support ethernet.
+#interfaces=""
+
+# This setting controls whether a ping test is included in the test for
+# network connectivity after all interfaces are active.
+#include_ping_test=no
+
+# This setting is the host to attempt to ping if the above is yes.
+# The default is google.com.
+#ping_test_host=some.host.name
+
+# The timeout setting controls how long the net-online service waits
+# for the network to be configured.
+# The default is 120 seconds.
+# if this is set to 0, the wait is infinite.
+#timeout=120

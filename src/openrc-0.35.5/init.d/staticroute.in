@@ -1,0 +1,111 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2009-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+# This script was inspired by the equivalent rc.d staticroute from NetBSD.
+
+description="Configures static routes."
+__nl="
+"
+depend()
+{
+	after clock
+	provide net
+	use network
+	keyword -jail -prefix -vserver
+}
+
+pre_flight_checks()
+{
+	route=route
+	[ -s /etc/route.conf ] && return 0
+
+	if [ -n "$staticiproute" ]; then
+		route="ip route"
+		staticroute="$staticiproute"
+	fi
+}
+
+dump_args()
+{
+	# Route configuration file, as used by the NetBSD RC system
+	if [ -s /etc/route.conf ]; then
+		cat /etc/route.conf
+		return $?
+	fi
+
+	case "$staticroute" in
+	*"$__nl"*)
+		echo "$staticroute"
+		;;
+	*)
+		(
+			set -o noglob
+			IFS=';'; set -- $staticroute
+			IFS="$__nl"; echo "$*"
+		)
+		;;
+	esac
+}
+
+do_routes()
+{
+	local xtra= family=
+	[ "$RC_UNAME" != Linux ] && xtra=-q
+
+	ebegin "$1 static routes"
+	eindent
+	pre_flight_checks
+	dump_args | while read args; do
+		[ -z "$args" ] && continue
+		case "$args" in
+		"#"*)
+			;;
+		"+"*)
+			[ $2 = "add" ] && eval ${args#*+}
+			;;
+		"-"*)
+			[ $2 = "del" -o $2 = "delete" ] && eval ${args#*-}
+			;;
+		*)
+			veinfo "$args"
+			case "$route" in
+			"ip route")
+				ip route $2 $args
+				;;
+			*)
+				# Linux route does cannot work it out ...
+				if [ "$RC_UNAME" = Linux ]; then
+					case "$args" in
+					*:*) family="-A inet6";;
+					*) family=;;
+					esac
+				fi
+				route $family $xtra $2 -$args
+				;;
+			esac
+			veend $?
+		esac
+	done
+	eoutdent
+	eend 0
+}
+
+start()
+{
+	do_routes "Adding" "add"
+}
+
+stop()
+{
+	local cmd="delete"
+	[ "$RC_UNAME" = Linux ] && cmd="del"
+	do_routes "Deleting" "$cmd"
+}

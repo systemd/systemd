@@ -1,0 +1,25 @@
+#!@SHELL@
+
+option_arg=
+poweroff_arg=
+while getopts :nwdfhik opt; do
+	case "$opt" in
+		n) ;;
+		w) poweroff_arg=--write-only ;;
+		d) option_arg=--no-write ;;
+		f) ;;
+		h) ;;
+		i) ;;
+		k) poweroff_arg=--kexec ;;
+		[?]) printf "%s\n" "${0##*/}: invalid command line option" >&2
+		exit 1
+		;;
+	esac
+done
+shift $((OPTIND-1))
+
+if [ -z "${poweroff_arg}" ]; then
+	poweroff_arg=--reboot
+fi
+
+exec @SBINDIR@/openrc-shutdown ${option_arg} ${poweroff_arg} "$@"

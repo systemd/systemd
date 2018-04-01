@@ -1,0 +1,1904 @@
+commit d3f419900504b37aeda79b1bca68ac150d81efd6
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    agetty.in: allow status to be displayed
+
+commit dc071dfacd23686dd3ae7168c60193618e36f0fa
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: fix off-by-one error
+
+commit 42cd8115b94525cad2f70a14cc14862e88c779be
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.35.5
+
+commit d46beb28c4fec99253542442ecacf59499e3159f
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit f1c98888d8429a484b4f37930998e82ef18e8657
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Use _BSD_SOURCE on FreeBSD
+
+commit c2a90b832685f9abdf710ab740181a8b935f862a
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Remove _XOPEN_SOURCE macros from builds
+
+commit 53f5b6d894723d034ba520853a9e5484488a2294
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man: document default retry specification for supervise-daemon
+
+commit 0a50cc494a6e743712102c705e404faffcbcb110
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man: document default retry sppecification for start-stop-daemon
+
+commit f2a9891d7f7f01cb9d9e9cffa36cdfc8116f8295
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.35.4
+
+commit 5df7ee056458f849626b7a2c30ad0e27e62d8d33
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit b731c02a389303dfba30a4b6c44efd0c2540bf66
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Clean up cgroups v2 code
+    
+    Remove the IFS manipulation and simplify the loop that processes the
+    settings.
+
+commit c42916ea199c0eab35c6c0a72d9a9f2a326144b0
+Author: Scall <Scall@users.noreply.github.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init.d: swap should always be started after root
+    
+    Otherwise if a swap file is being used, and swap is started before
+    root, swapon may fail because of a read-only filesystem.
+
+commit f973354ccdcf4d94b19f08c68a14b2a004668c72
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.35.3
+
+commit 69349f7b57116572b95874c754b2ef87c552cf0d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit 1b1a70ecca43034cb0770e18e287ccbca9f1eb52
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.35.2
+
+commit 05cfbb8348cf92bcc2edd922af1dc0a4c4c2e1f4
+Author: Chris Cromer <cromerc@users.noreply.github.com>
+Commit: Doug Freed <dwfreed@mtu.edu>
+
+    openrc-run: fix memory size (#213)
+    
+    Fixes #212
+
+commit a70b65f851c4f79e4fd43440d500d23cbf4b4a89
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit 0660d2455d461d648cf45076cf63b1c03e8e24c0
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix build on FreeBSD
+
+commit 01c5b98d3842c8142891d4b88f21823f4042f594
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.35.1
+
+commit f62975a1f8c4d5d4abdf78d8cad5509216138f03
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit 5bb6f9aa318a6d0507971b74d88c3fd2803bae4b
+Author: Jason Zaman <jason@perfinion.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init.sh: apply SELinux label for /run early in boot
+    
+    Some initramfs mount /run which then ends up with the wrong labels.
+    Force relabel all of /run right after its mounted to fix.
+
+commit 1ab8541a6ccb9d72c6faeaf2d616fc49f6cdfaf6
+Author: Jason Zaman <jason@perfinion.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init-early.sh.Linux.in: apply the selinux label to /dev/console early
+    
+    /dev/console is relabelled later in the devfs init script, but by then we
+    have already missed some of the messages, so fix that label early.
+
+commit 038c03bef315314ddb1e460c67d29b2599b494ad
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: make an error message more verbose
+
+commit e51dc29e2f3b2718a62347e8588115e786a9f3c8
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    cgroups: fix indentation
+
+commit c6047f887a362cb8d96624fbd73484ca703acf53
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    cgroups: add rc_cgroup_memory_use_hierarchy setting for cgroups v1
+
+commit 0506d68427e342366d826aae4bfbbc6cc0adecc2
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fstabinfo: fix an error message
+
+commit c3d666acaf51c771671b0fa54bd8ec0f5d29859e
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc: remove unused #define's.
+
+commit e93b1d76d150c4477015052fc3df9b94647e5b5d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc: convert another execl() call to execlp()
+
+commit acf1e43f815898c4a4957db352f71f3fb629edf3
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc-init: convert execl calls to execlp
+
+commit f383fd87b121492a04362ca9041f686d981718f1
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    kill_all: change execl call to execlp
+
+commit cfded513cd9b7febe4b7cf39a80411e4303f0655
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc-init: set a default path
+    
+    The default path provided by the system if one isn't set only includes
+    "/bin:/usr/bin". This adds the default path setting from sysvinit.
+
+commit 16ff3cd8df6169f73e3d7cf00758a4703f62cbf0
+Author: Christian Brauner <christian.brauner@ubuntu.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    check whether /sys/fs/cgroup is a mountpoint
+    
+    The current check only tries to detect whether /sys/fs/cgroup exists and
+    whether it is writable or not. But when the init system doesn't mount
+    cgroups then /sys/fs/cgroup will just be an empty directory. When paired
+    with unprivileged containers that mount sysfs this will cause misleading
+    errors to be printed since /sys/fs/cgroup will be owned by user
+    nobody:nogroup in this case. Independent of this specific problem this
+    check will also be misleading when the /sys/fs/cgroup exists and is in
+    fact writable by the init system but isn't actually a mountpoint.
+    
+    Note from William. "grep -qs" doesn't need to redirect output to
+    /dev/null since it is completely silent.
+    
+    This fixes #209.
+
+commit 38032626a6c2f8e869197999f32ac3634667cc86
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    improve cgroup configuration checks
+    
+    make the base/controller functions return successfully if cgroups v1/v2
+    are not configured in the kernel
+
+commit aa7d3a7911b658c550e7ce76cd6d7d46541fc323
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc: force deptree update for sysinit runlevel
+
+commit 98262647a9d2f3c65a7ceb1aaa81095522c1ef06
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: zero out the cmdline buffer when it is allocated
+
+commit 5868abe97babcc287794dcb36ad8e77989b6ddcf
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    start-stop-daemon: compiler warning cleanup
+
+commit 71aad16256604e0e9e146221957a9b00cfe67b99
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc-run: clean up a compiler warning
+
+commit e275da84de1589253da5ff6a7c272cf1c82f8567
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: remove references to PATH_MAX
+
+commit a6cc7f06cf3807a0e0590697e1f14e6ab9055271
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc.c: remove PATH_MAX references
+
+commit c1178c8eebb92c9f3702e981cd4af9ef41f51884
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc-selinux.c: remove references to path_max
+
+commit 3c031ca9780c555817fe9ccb8b23ceb231129724
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc-plubin.c: remove references to PATH_MAX
+
+commit 8e02406d8fbf92167c30431987d5de8de72cd7df
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc-misc.c: remove references to PATH_MAX
+
+commit 8dbdabcc5e0df8ac36722a4ba7bfe30664cc9919
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    start-stop-daemon: clean up string handling
+
+commit 488d8989c518d9256f183899aac02024c679b93e
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc-run: clean up string handling
+    
+    - remove references to PATH_MAX
+    - use xasprintf to create strings
+
+commit 9e14b35da8942bd8fa552363617c3415887f485f
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc-update: remove reference to PATH_MAX
+
+commit 7b4879cb72e907414b70553663bd9b6fda8d4408
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    mountinfo: create strings with xasprintf
+
+commit 74cfb455c59298f86849541e724ae346ff205c3d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    kill_all: create strings with xasprintf
+
+commit 0110487722646ebf9bc2c4e12b4b4a3c358cb10d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    helpers.h: silence compiler warnings about xasprintf
+
+commit 68b9b0bc2a11d144870d14fcb8ac24e6c9c63354
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    xasprintf: exit if return value of vsnprintf is invalid
+
+commit 4616f8f809ee8566904ca37f2b8bf0409a487475
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    helpers.h: add xasprintf function
+    
+    This is our own version of asprintf(). This original code was written by
+    Mike Frysinger, and I was able to modify it to use our memory helper
+    functions.
+    
+    We need a version of this code because it is not available on glibc at
+    least without defining _GNU_SOURCE, and I would rather not do that.
+    
+    This is the first step in improving string handling in OpenRC for #207.
+
+commit 287d71bd2591ddec73efe356db081020e65cd922
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    helpers.h: style fix
+
+commit c1ffe4d9f2e10b6853464cc298d1922c81ae92f4
+Author: Michael Orlitzky <michael@orlitzky.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man/openrc-run.8: fix mountinfo args.
+    
+    The "Ar" tag for the mountinfo command contained a typo (leading
+    space) that resulted in the tag being output verbatim; that is,
+    
+      mountinfo ... .Ar mount1 mount2
+    
+    rather than e.g.
+    
+      mountinfo ... <mount1> <mount2>
+    
+    This commit deletes the leading space to fix the output.
+    
+    This fixes #204.
+
+commit 4c517bdb2b69eac36f004ae41bb9cbb212fe0a51
+Author: Michael Orlitzky <michael@orlitzky.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man/openrc-run.8: add missing "Xo" tags for fstabinfo and mountinfo.
+    
+    The BUILTINS are all surrounded by Xo...Xc tags, but the opening "Xo"
+    was missing from the two commands fstabinfo and mountinfo. This commit
+    adds them, and thereby fixes the spacing when viewed by man.
+    
+    This is for #204.
+
+commit 110582491ff02db061b567636a237460afbc489c
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    service-script-guide.md cleanups
+    
+    Refer to /var/run in the documentation instead of /run, and make it
+    clear at the top of the pidfile section that we use /run under Linux.
+    
+    This is for #202.
+
+commit 5dd1d39d20c118064d31ed65dc7ae2de75dd7908
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    typo fix
+
+commit 1771bc2a83fe65bfe6ec3e93ea7632609e697a38
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    checkpath: use fchown and fchmod to handle ownership and mode changes
+    
+    This is related to #195.
+    
+    This is an attempt to shorten the window for the first two issues
+    discussed by using a file descriptor which does not follow symbolic
+    links and using the fchmod and fchown calls instead of chown and chmod.
+    with.
+
+commit 87c98ebb01873120eecc1757e615b3a4c14a2f1f
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    checkpath: fix lchown error message
+    
+    X-Gentoo-Bug: 643084
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/show_bug.cgi?id=643084
+
+commit 4af5a80b0c516773286cc30e743dc90a2d19df23
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    _rc_deptree_load - return NULL if the stat() call is not successful
+    
+    X-Gentoo-Bug: 643084
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/show_bug.cgi?id=643084
+
+commit fee2ffe559bc39beec16585daf557b902a53137b
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Reformat and fix titles in documentation
+
+commit 8878f8916b7682a333d1e40af991cd7354192be1
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Rename guide.md to user-guide.md to better describe its purpose
+
+commit 14e3359a9e4174da3e422957d9de56907f025875
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    move developer documentation from guide.md to service-script-guide.md
+
+commit 918d955fd2de1f594b83508f5ddd5271534e3591
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    checkpath: use lchown instead of chown
+    
+    Checkpath should never follow symbolic links when changing ownership of a file.
+    
+    This is for https://github.com/openrc/openrc/issues/195.
+
+commit 92cfa0e543d380ab290d06e98e2fef1b283349fe
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    service-script-guide.md: formatting changes
+    
+    Add a title, adjust the headings and update the example that referred to
+    "net.lo" to refer to "loopback".
+
+commit c2bd33e4838eb56bebe2707f6ca6bd05e9df5b24
+Author: Michael Orlitzky <michael@orlitzky.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    service-script-guide.md: new guide for service script authors.
+    
+    This fixes #162.
+
+commit f42ec82f21f3760b829507344ad0ae761e1d59aa
+Author: 3PO <r2d2@freakmail.de>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    net-online: only process symbolic links in /sys/class/net
+    
+    The /sys/class/net directory contains files which are not symlinks if
+    the system has bonded devices [1].  We should ignore these files.
+    
+    This fixes #196.
+    
+    [1] https://elkano.org/blog/manage-interface-bondings-sysfs-interface/
+
+commit 7affff568a0aa83d732757c4699d4b94b7e3a9aa
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init.d.examples: pid files always go in /var
+    
+    This removes the @VARBASE@ substitution since it is always translated to
+    /var.
+
+commit 4f750933fd8ef944be58bfeef071a8e35fc0c606
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    procfs: remove the @sysconfdir@ reference
+
+commit 50b69d564a8f89b8137bb6d9d53aac1e44f6c23c
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    hostname: replace @SYSCONFDIR@ references with /etc
+    
+    I do not know of any situation where /etc/hostname is at any other
+    location. Also, this does not run on prefix.
+
+commit eb18f4f3483b99705f944c7274b4a6b451716df7
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    hwclock: use shell variables for configuration file path
+    
+    This removes a reference to @SYSCONFDIR@.
+
+commit d5f3fe52c87928095bd2659823b985d231f0718c
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    sysctl: hard code paths for sysctl files on *bsd
+    
+    For *BSD,the sysctl*.conf files are always in /etc.
+
+commit bb1bc6eeb73b3483a1ebdfc142a11240b58588cf
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    local: misc cleanups
+    
+    Remove references to @SYSCONFDIR@ since these can be calculated at
+    runtime.
+    Also style fixes.
+
+commit 53844fd0dcd9741b5f19dee7c00787be7e904c3c
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    devfs: cleanup
+    
+    clean up local definitions. Also remove @SYSCONFDIR@ substitutions since
+    they can be calculated at runtime.
+
+commit 14938c29cefe869872b987f8e606da72024fa8bb
+Author: bell07 <web.alexander@web.de>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    net-online: wait for ping_test_host
+    
+    The script should wait till the ping host is available or timeout reached
+    Closes : #179
+    Closes : #191
+
+commit 8bf501aaf2cb60b8ddf1b2fa2d1ba0ef970fb790
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    network: use 'command -v ip' to test for the ip executable
+    
+    This is an improved test because it doesn't require the ip executable to be
+    in a specific path.
+
+commit 9d05f68b51d7b31634cde30a482ec0e3da3b1c21
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Do not use file tests in net-online
+    
+    https://unix.stackexchange.com/questions/252002/help-testing-special-file-in-sys-class-net
+    
+    This is for #189
+
+commit ee2524cd1d0305e207f7dfac52742a1d5e77ea4a
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    net-online: clean up quoting and test for existence
+    
+    This is for #178.
+
+commit 5c81661d4758dea039860ae2481476a70e78ac47
+Author: Marcel Greter <marcel.greter@ocbnet.ch>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Gracefully handle unreadable /sys/class/net/dev/ nodes
+    
+    Fixes https://bugs.gentoo.org/629228
+    Fixes #189
+    Fixes #185
+    Fixes #178
+
+commit fb96c9c127dcfa932460b0e8a977ba5f7d26a418
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Make bash-completion and zsh-completion optional
+
+commit 6c456f9383ab0000527b4363bc82fc17850aba18
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Add zsh-completion support
+
+commit d220fc272337b216bff6ac781a7b6be4e6f3caee
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add bash completion support
+    
+    This fixes #188.
+
+commit a2447dfb420cbd97a65cc085404c031d42cb3dfb
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc-service: add --ifcrashed option
+    
+    This works like the other --if options. If the service is crashed, run
+    the command.
+    
+    This fixes #154.
+
+commit cee3919908c2d715fd75a796873e3308209a4c2e
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Clean up the calls to group_add_service
+    
+    This function should only be called once and it does not take any
+    arguments.
+    
+    X-Gentoo-Bug: 639166
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/show_bug.cgi?id=639166
+
+commit 0feadd2922484ec181c2ab86a5f7f8d6d37c5c77
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man/openrc-run.8: update documentation for command_user
+
+commit a7c99506d9de81b9a2a7547bd11715073de1ce95
+Author: Will Miles <wmiles@sgl.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Fix repeated dependency cache rebuild if clock skewed
+    
+    rc_deptree_update_needed would return early as soon as it found
+    any file newer than the existing dependency cache.  Unfortunately,
+    the first file found may not be the newest one there; so the
+    clock skew workaround in rc-misc:_rc_deptree_load would be given
+    a timestamp that was still too old.
+    
+    This fix forces a full scan of all relevant files, so as to
+    ensure that we return a timestamp that will allow the clock skew
+    fix to operate.   The runtime cost is no worse than the case where
+    the cache is up to date (ie. we must check every possible file).
+    
+    This fixes #161.
+
+commit f0129307759f1a5eb34b72589e8d48790c92b2db
+Author: Julien Reichardt <mi@jrei.ch>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man/openrc-run.8: remove white space
+    
+    This is for #184.
+
+commit ddbdb696582e9fd61995f15d6a3a53055a151e41
+Author: Julien Reichardt <mi@jrei.ch>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add more variables for start-stop-daemon and supervise-daemon options
+    
+    Add the following variables to expose more arguments that can be passed
+    to start-stop-daemon or supervise-daemon:
+    
+    - directory will be passed to --chdir
+    - error_log will be passed to --stderr
+    - output_log will be passed to --stdout
+    - umask will be passed to umask
+    
+    This is for #184.
+
+commit c84ebb94d19ca856fe064e15d2068d5671e360c9
+Author: Doug Freed <dwfreed@mtu.edu>
+Commit: GitHub <noreply@github.com>
+
+    start-stop-daemon: properly handle missing pidfile
+    
+    X-Gentoo-Bug: 639218
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/639218
+
+commit 3de6395ae3b8780ab501f3cf8688e1cb2a9f0243
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    split cgroups mounting out of sysfs
+    
+    This is neceessary to allow cgroups to be mounted in an lxc/lxd
+    container.
+    
+    Fixes https://github.com/openrc/openrc/issues/187
+
+commit 6bb7ebec483a96e258c64ea3fea18358d7893fee
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix FreeBSD build
+    
+    This is for #186.
+
+commit a192caf88f527e09508e32baa623ef85549612ae
+Author: Doug Freed <dwfreed@mtu.edu>
+Commit: Doug Freed <dwfreed@mtu.edu>
+
+    rc-schedules: if given nothing to look for, stop
+    
+    This avoids trying to kill everything.
+    
+    X-Gentoo-Bug: 631958
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/show_bug.cgi?id=631958
+
+commit e805c74d31113c75058d860588e83bca120decf6
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    s6 supervisor fixes
+    
+    Add the ability to force-kill a service if it does not go down
+    successfully. Also, adjust the default wait time for an s6 service to go
+    down to 60 seconds.
+
+commit 318e87348168e37d78f433d3ff06288ad8ccf15c
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    strongly encourage Linux users to not make  /etc/mtab a flat file
+    
+    The OpenRC team does not currently know of any modern linux tools that
+    require /etc/mtab to be a flat file, so this puts users on notice that
+    the mtab service will be removed in the future.
+
+commit 0d15898f58cc254d79777c791d4798a9b2542cf2
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    adjust mtab and localmount dependencies
+    
+    localmount had mtab in its "use" dependencies; however, it makes more
+    sense to add "before localmount" to the mtab service and remove
+    "use mtab" from the localmount service.
+
+commit 971e82784cd1ad8f9a286ee792e6417359972976
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc_find_pids: namespace fix
+    
+    Ignore namespaces if there are errors reading either the pid namespace
+    for the current process or the process we aare testing.
+    
+    This fixes https://github.com/openrc/openrc/issues/180.
+
+commit 90d9ea656ff7c6b5d618df4e4261ebfa4033f1a8
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    start-stop-daemon: do not use do_stop to verify whether a daemon is running
+    
+    X-Gentoo-Bug: 636574
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/show_bug.cgi?id=636574
+
+commit a3d1c8a0e7d5586be13e2cd9b5029fd729bc1594
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix issue with --reexec call
+
+commit 913b2ca53771742385d5c69164aefcaab634f012
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: use RC_SVCNAME as the first argument to the daemon
+    
+    This makes ps show which service the supervisor is monitoring.
+
+commit 3fe99c8b8264269dd935d52a1a52581cc0f14e8e
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: fix logging for reexec and the child command line
+
+commit 27b8183de2f2bfd7411c14c1ec28543ca8a36602
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    log as supervise-daemon not the service
+
+commit f32d8e1bfe16caf233d1180921f4aeed77d7476d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: clarify a log message
+
+commit d019f34a83b0ad5e890f685b1263b281ab54ce54
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: log the command line we run to spawn the child process
+
+commit bb9c481f02cb1843e00bf32e98caf18b6b56bb4d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: log with the service name instead of "supervise-daemon"
+
+commit 82da844b42ff83b2ebf944198e56ac2d81851897
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    implement "unsupervised" status
+    
+    The unsupervised status is to be used when a supervisor of a supervised
+    service dies but leaves the service daemon itself running.
+
+commit 667a09983ca5311824aa88c42d39a495c540fc4c
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: remove child_pid from saved options during shutdown
+    
+    This allows us to detect when the supervisor dies unexpectedly because
+    in that case child_pid will still exist.
+
+commit cf429ee359356d736c818e8b35db8fca887e7332
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc_service_value_set: remove the option if NULL is the value
+    
+    This allows the equivalent of "unsetting" a value for a service.
+
+commit 6f3e2e2d7de61ab28cf03937ccf2e5f80b62190a
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon.sh: fix status function with no namespaces
+
+commit 35b88fb42bb8e0a56cdc1947342f1b89c98658bc
+Author: Patrick McLean <chutzpah@gentoo.org>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    cgroups_cleanup: clean up shutdown signaling
+    
+    - do not sleep for the full 90 seconds if processes are dead
+    - re-arrange the order of signals we attempt to send to the processes
+
+commit a428c325a902bba55a849a07a59c0c1567404db2
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add "unsupervised" status and return code 64 to supervise-daemon status function
+    
+    This is to be used if the service is being supervised and the
+    supervisor is somehow killed.
+    
+    Currently, this is very linux specific, but I will expand to other
+    platforms, patches are welcome.
+
+commit 3219ecd6085231d7cc1268323a5be6a69f8c9143
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: fix build issue for >=glibc-2.26
+    
+    X-Gentoo-Bug: 635334
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/show_bug.cgi?id=635334
+
+commit 0d8dc4f798cc0d707fc64e8bffcba4fbceb32935
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.35
+
+commit f3c70bf5b5aa18e8dc94d4949f05568e0741c5cb
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit f5acc66db7d1a0bfad6a40eefc0240b80f52df94
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc_find_pids: ignore pids that are not in our pid namespace
+    
+    X-Gentoo-Bug: 634634
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/show_bug.cgi?id=634634
+
+commit fdce4769f2e0f4175163ffa181c7b3b2192f7b22
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: multiple fixes
+    
+    - Harden against dying by handling all signals that would terminate the
+    program and adding --reexec support
+    - factor the supervisor into its own function
+    - fix test for whether we are already running
+
+commit 35b1996704f6635bb29ea3604410e133209e6432
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: elevate some log messages to warnings
+    
+    Prior to this change, we were logging unexpected terminations of daemons
+    we were supervising at the info level. This change moves the logs to
+    warnings.
+
+commit 3c8e7ed255edb8df0d548d6ce514544d5422cbf0
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.34
+
+commit acaed1f910a2a00fdd5b6aeab752c552075a7292
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit 91109e31d81ecd48f5690ad6f63103fca545dec7
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    update news
+
+commit 2b6eeea01d1c64d58929788f4bfa0758393885bf
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man: remove service(8) man page
+
+commit a15de23e5713d840d871c526b46050983dc6ea1e
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    typo fix
+
+commit efa9ba485d9328f780f3e60dc18339c75974c6c6
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init.d/sysfs.in: fix reference to RC_LIBEXECDIR
+    
+    The sysfs init script referred to @LIBEXECDIR@ before this change, but
+    it is better to refer to RC_LIBEXECDIR so that we get rid of a sed
+    substitution.
+
+commit d4ddd72701ff5533a1ba07b1da60806859c63d88
+Author: Chris Cromer <chris@cromer.cl>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add option to make agetty startup quiet
+    
+    This fixes #150
+
+commit 1e9af2cd421423404ffe1491bd35af76c2885f1f
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix compiler warning
+
+commit 3c05db74f6e733890e9035c183a774db3d512512
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    remove service binary
+    
+    The service binary was just a synonym for rc-service, so use rc-service
+    instead of service. If you want a "service" binary, it should be
+    something that can determine which service manager you are running and
+    run the appropriate service manager commands.
+
+commit edc54b03770d5f58d1a4969d06c28660003dfb04
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.33
+
+commit 8e53a3fa8a33fb714064ddbe38bff2213fcf6837
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit 7f3b41311119e3a96a15b0fb473b44f422e903e9
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    use printf consistently in cgroups handling
+    
+    This makes the cgroups handling consistent between cgroups v1 and v2.
+    Also, it fixes #167.
+
+commit 1ccba056584ee1a8e09fb1d5eebd988b47912c06
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    sh/rc-functions.sh: add need_if_exists convenience function
+
+commit c46adf14343df3a74aef7e4ae5be175ae5fa7a01
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man/openrc-run.8: Clarify the explanation of the need dependency
+
+commit 1cac8b080c16f9aab19c7a3ae1ca155c20dfa14d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    ignore sigchld when shutting down the supervised process
+    
+    We need to do this to skip the zombie state for the child process since
+    we are not easily able to wait() for it.
+
+commit b58194ef63ec8c0a7e0ea3c291da9c19aa83cb1a
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    typo fix
+
+commit b28c0d6f66e42b1e6d2a39c286a18c8d92881790
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    typo fix
+
+commit 3cf19b0f30a90157d23d09ded304439f1eb42d4a
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: code cleanup
+    
+    Clean up the process for killing an active supervisor when stopping.
+
+commit 0eb47b9af340dd07209a3920944ed085fe7bd359
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    initialize the stop schedule
+
+commit 4ab60ff10935122277bbaed437f82a765279cd19
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc-schedules.c: pass the correct pid to rc_find_pids
+    
+    This is for #163.
+
+commit db4a578273dbfa15b8b96686391bcc9ecc04b646
+Author: Jason Zaman <jason@perfinion.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    selinux: fix const qualifier warning
+    
+    rc-selinux.c: In function ‘selinux_setup’:
+    rc-selinux.c:361:9: warning: assignment discards ‘const’ qualifier from pointer target type [-Wdiscarded-qualifiers]
+      curr_t = context_type_get(curr_con);
+             ^
+
+commit b1c3422f453921e838d419640fe39144dbf8d13d
+Author: Jason Zaman <jason@perfinion.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    selinux: use openrc contexts path to get contexts
+    
+    The minimum requirement for libselinux is now >=2.6
+    The refpolicy and the gentoo policy contain the
+    contexts since version 2.20170204-r4
+
+commit 3fafd7a76e6adf15ec72a7ba5f44583eff8fab7a
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    sysfs: fix cgroup hybrid mode
+    
+    In hybrid mode, we should not try to mount cgroup2 if it is not
+    available in the kernel.
+    
+    This fixes #164.
+
+commit cd5722aca50f0eaddde7ce04ee00da53c313ba7d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    cgroup2_find_path: use legacy mode if cgroup2 is not in the kernel
+    
+    This is related to #164.
+
+commit dcb4a4d2613a1fdf85651b32e5b7a87528f487bc
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.32
+
+commit e312e569970c74cf52e255da67034391b68dafac
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit 2f60a959b442866b0e879d83f2732c4fa3ed3f7d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    update news file
+
+commit 25b45a5a239318fb57c405c3fe64e53b0738ad68
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    cgroup_cleanup: try to remove the cgroup version 2 cgroup
+    
+    If we were able to kill all the processes in the cgroup, it should be
+    removed.
+
+commit 4651b8c7e9e2ef9c1ea1fb8d174d1ca4693627af
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc-cgroup.sh: cgroup_cleanup fix error handling
+    
+    cgroup_cleanup should warn if it is unable to clean up all processes in
+    the control group, but it will always return success.
+
+commit 50608b54ed98acb54fec5fe3323909ea684d3af9
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc-cgroup.sh: fix signal names
+    
+    The "SIG" prefix on signal names passed to kill -s isn't portable.
+
+commit b0a077a35f85e266fdb82a245dcbda18664a8567
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add quiet switch to do_stop in src-schedules.c
+    
+    This allows supervise-daemon to run this code without attempting to
+    print some status messages used by start-stop-daemon.
+
+commit 6a5ca2ab368d0a85f51bb559672dba2e3ffcc6be
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    make the procedure for killing child processes of services configurable
+
+commit 2b0345165e5af57ca61a4000c3671bbe6d677cf9
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Make cgroup_cleanup send only one sigterm and sigkill
+    
+    Instead of looping and sending multiple signals to child processes in
+    cgroup_cleanup, we send sigterm followed by sleeping one second then
+    sigkill.
+    
+    This brings us more in line with systemd's "control group" killmode
+    setting.
+    
+    Also, this commit includes several shellcheck cleanups.
+
+commit 8885580986ab8adc951fe32b9323c8b16130fb4f
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc-cgroup.sh: move cgroup_cleanup to the end of the file
+
+commit 6d7713a758b7e78f05e6a3cc101f862d28d778ab
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    guide.md: clarify cgroups documentation
+    
+    Update the documentation to reflect cgroups version 2 support.
+    Also, add a section on dealing with orphaned service processes.
+    
+    This fixes #94.
+
+commit 457f928e793cb1f6ef254935ad07f58b8762c72f
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add support for control groups version 2
+    
+    This is for #94.
+
+commit a71a461e452a98554346c47411e9c9012023c201
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.31
+
+commit a09b8af3f98c0700a9b838b7f3683ee58eecc912
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit 382efdbfcb99703d03211efacd800c9575e64230
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add quiet parameter to run_stop_schedule
+
+commit 17b5cc78d35dc5fe4904e5951715c3e0d07d6343
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add retry option to supervise-daemon
+    
+    The --retry option for supervise-daemon defines how the supervisor will
+    attempt to stop the child process it is monitoring. It is defined when
+    the supervisor is started since stopping the supervisor just sends a
+    signal to the active supervisor.
+    
+    This fixes #160.
+
+commit 36a0ab9054512ade413226fb8e8b28060045e9a4
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    make run_stop_schedule accept a pid instead of a pid file
+
+commit 27c2bd997d5173aa30844a16bc22dc8caab09f8c
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.30
+
+commit d7938f54f29193251e083ad35a7d464949829096
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    start-stop-daemon: move --retry processing code to a shared module
+    
+    This was part of start-stop-daemon; however, it needs to be shared in
+    order to be used by supervise-daemon.
+
+commit cfbe9c2ede24dac530ef58e5c35bd57f22a788a3
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    move get_pid function to a shared file
+
+commit df28002b728b033c00c2da64dedf2bcd4ab5e11b
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit 66ed8082d0c865a0b4f4cc436cf9e13351e3d6fe
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    sh/openrc-run: source service script before ulimit is processed
+    
+    This is needed to allow the service script author to set a default for
+    rc_ulimit inside the service script.
+
+commit c2d256bafb9d1dfafbfd0846c035c5d26f7449c8
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man/openrc-run.8: document fstabinfo and mountinfo
+    
+    X-Gentoo-Bug: 592374
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/show_bug.cgi?id=592374
+
+commit f48d9c33a5c708c871d6657a39485d1c0c735548
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man/openrc-run.8: document _pre and _post functions
+    
+    Fixes https://github.com/openrc/openrc/issues/155.
+
+commit 6d4e8433974fd8567885635ae0454031290f96b1
+Author: Jason Graham <jgraha8@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix ENT macro usage
+    
+    X-Gentoo-Bug: 624796
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/show_bug.cgi?id=624796
+
+commit 0513cd3964a9564e0ba39b50aa8ebd3d7e9a3920
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.29
+
+commit 72bb2e57de935ab46ad000f97a5720265bed9342
+Author: John R. Graham <john_r_graham@gentoo.org>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Typo fix
+    
+    X-Gentoo-Bug: 624908
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/show_bug.cgi?id=624908
+
+commit 84c5da30695db89d686d3c28c7cacdf172cbf429
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit b35099cb707e333b6b8d30d956ffa93bcd2da0ab
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Add comment about overriding the default efivars mount in fstab to news
+
+commit 3fd3bfc76dccc3752f4af949ad4076dab26357fb
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add link to efivars issue to news file
+
+commit 492a6303cb8314263bfd3631e3b0de5a9df178da
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit e7807b3136d8993805082320784460f5059e6275
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix sysvinit compatibility for shutdown wrapper
+
+commit 03a461ac0ee34b7900868cdea624c6fd868b1656
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix sysvinit compatibility for reboot wrapper
+
+commit 7e0f76e0adc545c74a8332a6ef0811d2aa62cb81
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix sysvinit compatibility for poweroff wrapper
+
+commit 9812ce5b8dc22fe36cc7bf75cf6e62db204ece3d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix halt wrapper so it is sysvinit compatible
+    
+    This makes the halt wrapper sysvinit compatible. It ignores several
+    command line switches which are not currently implemented; however,
+    those can be implemented if we need to do so.
+    
+    This fixes https://github.com/openrc/openrc/issues/146.
+
+commit 12f75e4167f84a9a85f69924ebdb28ad36c085cb
+Author: Adam Borowski <kilobyte@angband.pl>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man: fix an unclosed .Bl/.El warning
+    
+    This fixes #151.
+
+commit 260368e0103e95625c29760f2c2ec89143e5a233
+Author: Adam Borowski <kilobyte@angband.pl>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man: fix missing .Pp warnings
+    
+    This fixes #151.
+
+commit f87a9eec3d23ea01578500972f1df993d5d24fba
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init.d/sysfs: mount efivars read only
+    
+    This fixes #134.
+
+commit 1e837d596e483ceb5cec177a6c7faff24a42384b
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix argument parsing for the sysvinit shutdown wrapper
+    
+    This fixes #140.
+
+commit dcc686e42b406d63d52ef75de9a326f67d0a06c9
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    scripts/shutdown: fix arguments to be sysvinit shutdown compatible
+    
+    This fixes #140.
+
+commit 2f81c100afdf45ebf787dfc5d3261aa6055640e4
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Fix link to shutdown for MKSYSVINIT=yes
+
+commit a511a48d77b1dcb8a3fb0dd1abddb750a152869b
+Author: Nuno Silva <nuno.m.ribeiro.silva@tecnico.ulisboa.pt>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init.d/hostname: fix default parameter syntax
+    
+    The syntax for expanding a variable with a default value is
+            ${parameter:-word}
+    not
+            ${parameter-word}
+    although the latter still works for a reason I could not explain.
+    
+    This fixes #143.
+
+commit 1e5322e5c55ec744a2cdcc3342ef6547eab7c46f
+Author: Nuno Silva <nuno.m.ribeiro.silva@tecnico.ulisboa.pt>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init.d/hostname: fix indentation
+    
+    This is for #143.
+
+commit 199a210d2fbc524c9c400a06f832dabffd7ed1b3
+Author: udeved <artoo@manjaro.org>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    scripts/Makefile: make symlinks absolute instead of relative
+    
+    This closes #142.
+
+commit 5b7667af32effddf867a5d021c66d43f0645d374
+Author: udeved <artoo@manjaro.org>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    scripts/Makefile: respect SBINDIR with MKSYSVINIT
+    
+    This is for #142.
+
+commit 11243f85b67e5f450ddf50346ffd4a1b2c6faeb5
+Author: Jory A. Pratt <anarchy@gentoo.org>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    kill_all: include limits.h for PATH_MAX
+
+commit 3c40826d3466cdda1a46abcd5c86b661b8185f46
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.28
+
+commit 560d874d2fee63bf7ca11f17cf9933021b639a1d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix compile issue for musl
+
+commit e84366fd232a41c3ba79ed351e93c74cef8d7c8d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Update ChangeLog
+
+commit caacedc0a82285fb2d25c6d3473f154044c7ad66
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man: update openrc-shutdown man page
+    
+    Add the new wtmp options and fix some cross references.
+
+commit 84d140a1f6abf95a4170d13527152d3ab14e6613
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    scripts/shutdown: pass --single to openrc-shutdown
+    
+    Sysvinit shutdown has a default of single user mode, but openrc-shutdown
+    makes you choose a default action. Because of this, the shutdown wrapper
+    needs to pass --single to openrc-shutdown.
+
+commit ee886c44824b1dd892eaff2c6da666286e61bc73
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc-shutdown: add --single option and clean up option processing
+
+commit 1801561c2d36c330df7fd02c7508f503a61ff5ba
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init.d/bootmisc: use openrc-shutdown instead of halt to write halt record
+    
+    This fixes #139 and fixes #128.
+    and fixes #124.
+
+commit 7689106aa10f7852b707b4c21ec080ccb2767280
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add support for writing reboot and shutdown records to wtmp
+
+commit 1564e155b726308200ecd5df315c002bd8b16952
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc-init: add optional sysvinit compatibility
+
+commit 44bac3c3798f7eb9186c3ea8774552aa191bfae7
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Change killprocs to use kill_all instead of killall5
+    
+    X-Gentoo-Bug:376977
+    X-Gentoo-Bug-URL:https://bugs.gentoo.org/show_bug.cgi?id=376977
+
+commit 0ddee9b7d2b8dea810e252ca6a95c457876df120
+Author: Sergei Trofimovich <slyfox@gentoo.org>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc-init: fix buffer overflow in init.ctl
+    
+    How to reproduce 1-byte overflow:
+    
+    ```
+    $ FEATURES=-test CFLAGS="-fsanitize=address -O0 -ggdb3" emerge -1 openrc
+    
+    =================================================================
+    ==1==ERROR: AddressSanitizer: stack-buffer-overflow on address 0x7fff0efd8710
+        at pc 0x000000402076 bp 0x7fff0efd7d50 sp 0x7fff0efd7d40
+    WRITE of size 1 at 0x7fff0efd8710 thread T0
+        #0 0x402075  (/sbin/openrc-init+0x402075)
+        #1 0x3cf6e2070f in __libc_start_main (/lib64/libc.so.6+0x3cf6e2070f)
+        #2 0x4013b8  (/sbin/openrc-init+0x4013b8)
+    
+    Address 0x7fff0efd8710 is located in stack of thread T0 at offset 2432 in frame
+        #0 0x401cfb  (/sbin/openrc-init+0x401cfb)
+    
+      This frame has 3 object(s):
+        [32, 160) 'signals'
+        [192, 344) 'sa'
+        [384, 2432) 'buf' <== Memory access at offset 2432 overflows this variable
+    HINT: this may be a false positive if your program uses some custom stack unwind mechanism or swapcontext
+          (longjmp and C++ exceptions *are* supported)
+    SUMMARY: AddressSanitizer: stack-buffer-overflow ??:0 ??
+    ```
+    
+    The problem here is in the code handling reads from 'init.ctl':
+    
+    ```
+    int main(int argc, char **argv) {
+    ...
+        char buf[2048];
+        for (;;) {
+            /* This will block until a command is sent down the pipe... */
+            fifo = fopen(RC_INIT_FIFO, "r");
+            count = fread(buf, 1, 2048, fifo);
+            buf[count] = 0;
+            ...
+        }
+    ```
+    
+    `buf[count] = 0;` writes outside the buffer when `fread()` returns non-truncated read.
+    
+    This fixes #138.
+
+commit 688566c535111a141f77caf88db12a4338544f7b
+Author: Sergei Trofimovich <slyfox@inbox.ru>
+Commit: Doug Freed <dwfreed@mtu.edu>
+
+    mk/cc.mk: make implicit function declarations fatal (#136)
+    
+    Avoids issues with missing prototypes causing truncation of pointers.
+    
+    Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+
+commit 7185e242ffaa8cd1b672fe4726502a196fd779c2
+Author: Sergei Trofimovich <slyfox@inbox.ru>
+Commit: Doug Freed <dwfreed@mtu.edu>
+
+    rc-logger.c: fix crash on fclose(NULL) (#137)
+    
+    Only close the log if we successfully opened it.
+    
+    Reported-by: Brian Evans <grknight@gentoo.org>
+    Tested-by: Brian Evans <grknight@gentoo.org>
+    Signed-off-by: Sergei Trofimovich <slyfox@gentoo.org>
+
+commit ec27299f4b88daa80261298fafea76ae634744d9
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    typo fix
+    
+    X-Gentoo-Bug: 618888
+    X-Gentoo-Bug-URL: https://bugs.gentoo.org/show_bug.cgi?id=618888
+
+commit 1ece16bfcd0ab71d2f9fe17a75ee6184e0fa4828
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc-shutdown: add dry-run option
+
+commit 0cfd0dd9ef580ed9dc563ccc164d70efe8f299db
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    openrc-shutdown: move to single user mode by default
+    
+    To be more compatible with sysvinit, move to single user mode if no
+    options are specified on the command line.
+
+commit a77ee2e94191ba1a286b8a6835f76556481566ba
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init: add ability to switch to single user mode
+
+commit 49b8a573a195f4b2cee992cd10678694da0a6f4f
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add kill_all helper
+    
+    This is similar to the sysvinit killall5 utility.  It should only be used
+    in service scripts, so it will not be installed in the path.
+    
+    This closes #129.
+
+commit a2055af90054f5125cc07d4851b1dc9d16815e7c
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc_status: calculate time differences in time_t and display seconds in uptime
+
+commit cbf96967f1b6dc72ae16203dfbbb844bd08e8b6b
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: save start time and respawn count before dropping privs
+
+commit f1013037b47cdd6344f1b3ed92b7f84d7fcca01f
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.27
+
+commit e4bfb4530a86a4ccdff312c857df37fa0da36fd6
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    update ChangeLog
+
+commit 78e0042eccaf5a5554b195ad391b3ab0b8974cf6
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    man/rc-status: document changes for supervised daemons
+    
+    rc-status now shows the amount of time a supervised daemon has been
+    active as well as the number of times it has been respawned during the
+    current respawn period.
+
+commit 82e12e309247bc84abf29aca04b3a2dd845fa11b
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    rc-status: show uptimes and respawn counts for supervised daemons
+
+commit 1ebef0d7a38ec0a9635418b75c3aabb564c1577e
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix to_time_t to honor dst
+
+commit 6b4050ab9cf9d678a1d6b7af7af7494f8533dbca
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    fix from_time_t function
+
+commit cf5e9aa2bbcdf1783fadeab26586c1134929d928
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Move time_t conversions to rc-misc.c so they can be shared
+
+commit a3250e77d412f2290e381b9e7569930d95e4fc5b
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: save start time and respawn count
+    
+    This will allow rc-status to display an uptime and restart count for
+    supervised processes.
+
+commit df027ca4722c8755b23a65db75728b835ccca807
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: fix our status when we give up on the child process
+
+commit 4c89e3f5fa1c65ccd0c843f98e4013c2085f243f
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon:create multiple options from --respawn-limit
+    
+    This creates --respawn-delay, --respawn-max and --respawn-period. It was
+    suggested that it would be easier to follow if the options were
+    separated.
+    
+    This is for #126.
+
+commit 3673040722b75c0a4d06fbeb272f917c7d1ea7c4
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: add a --respawn-limit option
+    
+    Allow limiting the number of times supervise-daemon will attempt to respawn a
+    daemon once it has died to prevent infinite respawning. Also, set a
+    reasonable default limit (10 times in a 5 second period).
+    
+    This is for issue #126.
+
+commit 96c8ba2fb5f91a711ef5bfcfd8affe0b74ad18fe
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: mark all open file descriptors FD_CLOEXEC
+
+commit 47cf1d0c707dc88d216bebc15be3f39d5eb47fa9
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon:remove the controlling tty in the supervisor
+
+commit 06a6a27e441372164872c7712b80728527a6ec05
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon:  fix access to tty_fd and devnull_fd
+    
+    Both the child and supervisor need access to these file descriptors.
+
+commit 5de3798afc55ce147e65926f863ec9c9cef60e79
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    supervise-daemon: mark the service started when the supervisor is active
+
+commit 6ac094a59cf7b51d8527af15b07feca707a635c8
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    version 0.26
+
+commit 84c81ca02d7077a619dc704ff654385846fcd2b4
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    update ChangeLog
+
+commit 0e3f8720984d7d5752a78a4135cd268e4f83b3d7
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init: send term/kill signals as final step of shutdown
+
+commit 5fd3747b190887d094225547f23007d25e2d9592
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    reword the bugs section of the openrc-init man page
+
+commit 4694900190a9078397bb9083328b68b489af92f4
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init: fix signal handling
+    
+    The only signals we handle are SIGINT and SIGCHLD, so block all others
+    and unblock them in the child process before we start a rurnlevel.
+
+commit 05738bfce120114037d4f02c67ec740813f94b89
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init: add re-exec capability
+    
+    This will allow the re-execution of the init process after upgrading
+    OpenRC.
+
+commit 6f88ee4ec6f59e545346a7422facc3e5b6adac04
+Author: i.Dark_Templar <darktemplar@dark-templar-archives.net>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    bootmisc: do not remove ld-elf32.so.hints
+    
+    File /var/run/ld-elf32.so.hints is used on FreeBSD 64bit multilib
+    This fixes #125.
+
+commit cc51bdca3bac963878141da047e92f125772e14f
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    Add attribution to openrc-init.c and openrc-shutdown.c
+
+commit 13ca79856e5836117e469c3edbcfd4bf47b6bab0
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    add init process
+    
+    openrc-init.c and openrc-shutdown.c are based on code which was written by
+    James Hammons <jlhamm@acm.org>, so I would like to publically
+    thank him for his work.
+
+commit 79a9edc73068244ad843f2edbe4206ce696c91c8
+Author: i.Dark_Templar <darktemplar@dark-templar-archives.net>
+Commit: i.Dark_Templar <darktemplar@dark-templar-archives.net>
+
+    Fix make install on FreeBSD: don't try to install /etc/init.d/modules twice
+
+commit 9eb669591e16c5ee0ca07babe058d0b7b2396077
+Author: Austin English <austinenglish@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    start-stop-daemon: warn if calling --start with --retry or --stop with --wait
+    
+    This fixes #122
+
+commit 55a87a30ec845eb725e8a923c8f8eb7aa75baa72
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init.d/agetty.in: add -prefix keyword
+
+commit a912029462ae988ab4e2a96a0958e54a3c2e822f
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init.d/mount-ro: change dependency on killprocs and savecache to after
+    
+    killprocs always succeeds and savecache is not required by mount-ro, so
+    we can just start after both of these have run.
+
+commit 1e9078279709df2a3617bf1460890ceb1ddfcf59
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    agetty-guide: typo fix
+
+commit 51a292e09b9362f13d5747d4eedaa521ddf9ce72
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    init.d: add agetty to ignore patterns
+
+commit 50fccf47d4bd2ed6e7ea6ff7f72577c8e7b95d0d
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    sh/gendepends.sh.in: fix detection of service scripts
+    
+    We do not need to care about the path on the shebang line of a service
+    script as long as the shebang line ends with "openrc-run".
+    This fixes #119 and #120.
+
+commit 9bd63b5d4a16601712a65eb8962214cdd4d26ce5
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    update dependencies for clock service
+    
+    The clock services had a very long list of "before" dependencies that
+    referred to other services within OpenRC. For ease of maintenance,
+    convert these to "after clock" dependencies in the individual services.
+
+commit 48db17a93f5e60c0d241f8fb06bfbdd01206fb9c
+Author: William Hubbs <w.d.hubbs@gmail.com>
+Commit: William Hubbs <w.d.hubbs@gmail.com>
+
+    update news file

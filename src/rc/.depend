@@ -1,0 +1,57 @@
+checkpath.o: checkpath.c ../libeinfo/einfo.h ../librc/rc.h \
+ ../includes/rc-misc.h ../includes/helpers.h rc-selinux.h _usage.h
+do_e.o: do_e.c ../libeinfo/einfo.h ../includes/helpers.h
+do_mark_service.o: do_mark_service.c ../libeinfo/einfo.h ../librc/rc.h \
+ ../includes/rc-misc.h ../includes/helpers.h
+do_service.o: do_service.c ../libeinfo/einfo.h ../librc/rc.h \
+ ../includes/rc-misc.h ../includes/helpers.h
+do_value.o: do_value.c ../libeinfo/einfo.h ../librc/rc.h \
+ ../includes/rc-misc.h ../includes/helpers.h
+fstabinfo.o: fstabinfo.c ../libeinfo/einfo.h ../includes/queue.h \
+ ../librc/rc.h ../includes/rc-misc.h ../includes/helpers.h _usage.h
+is_newer_than.o: is_newer_than.c ../librc/rc.h ../includes/rc-misc.h \
+ ../includes/helpers.h
+is_older_than.o: is_older_than.c ../librc/rc.h ../includes/rc-misc.h \
+ ../includes/helpers.h
+mountinfo.o: mountinfo.c ../libeinfo/einfo.h ../includes/queue.h \
+ ../librc/rc.h ../includes/rc-misc.h ../includes/helpers.h _usage.h
+openrc-run.o: openrc-run.c ../libeinfo/einfo.h ../includes/queue.h \
+ ../librc/rc.h ../includes/rc-misc.h ../includes/helpers.h rc-plugin.h \
+ rc-selinux.h _usage.h
+rc-abort.o: rc-abort.c ../libeinfo/einfo.h
+rc.o: rc.c ../libeinfo/einfo.h ../includes/queue.h ../librc/rc.h \
+ rc-logger.h ../includes/rc-misc.h ../includes/helpers.h rc-plugin.h \
+ version.h _usage.h
+rc-depend.o: rc-depend.c ../libeinfo/einfo.h ../includes/queue.h \
+ ../librc/rc.h ../includes/rc-misc.h ../includes/helpers.h _usage.h
+rc-logger.o: rc-logger.c ../libeinfo/einfo.h rc-logger.h \
+ ../includes/queue.h ../librc/rc.h ../includes/rc-misc.h \
+ ../includes/helpers.h
+rc-misc.o: rc-misc.c ../libeinfo/einfo.h ../includes/queue.h \
+ ../librc/rc.h ../includes/rc-misc.h ../includes/helpers.h version.h
+rc-plugin.o: rc-plugin.c ../libeinfo/einfo.h ../includes/queue.h \
+ ../librc/rc.h ../includes/rc-misc.h ../includes/helpers.h rc-plugin.h
+rc-service.o: rc-service.c ../libeinfo/einfo.h ../includes/queue.h \
+ ../librc/rc.h ../includes/rc-misc.h ../includes/helpers.h _usage.h
+rc-status.o: rc-status.c ../libeinfo/einfo.h ../includes/queue.h \
+ ../librc/rc.h ../includes/rc-misc.h ../includes/helpers.h _usage.h
+rc-update.o: rc-update.c ../libeinfo/einfo.h ../includes/queue.h \
+ ../librc/rc.h ../includes/rc-misc.h ../includes/helpers.h _usage.h
+shell_var.o: shell_var.c
+start-stop-daemon.o: start-stop-daemon.c ../libeinfo/einfo.h \
+ ../includes/queue.h ../librc/rc.h ../includes/rc-misc.h \
+ ../includes/helpers.h rc-schedules.h _usage.h ../includes/helpers.h
+supervise-daemon.o: supervise-daemon.c ../libeinfo/einfo.h \
+ ../includes/queue.h ../librc/rc.h ../includes/rc-misc.h \
+ ../includes/helpers.h rc-schedules.h _usage.h ../includes/helpers.h
+swclock.o: swclock.c ../libeinfo/einfo.h ../librc/rc.h \
+ ../includes/rc-misc.h ../includes/helpers.h _usage.h
+_usage.o: _usage.c ../librc/rc.h ../includes/rc-misc.h \
+ ../includes/helpers.h _usage.h version.h
+kill_all.o: kill_all.c ../libeinfo/einfo.h ../librc/rc.h \
+ ../includes/rc-misc.h ../includes/helpers.h _usage.h
+openrc-init.o: openrc-init.c ../includes/helpers.h ../librc/rc.h \
+ ../includes/rc-wtmp.h version.h
+openrc-shutdown.o: openrc-shutdown.c ../libeinfo/einfo.h ../librc/rc.h \
+ ../includes/helpers.h _usage.h ../includes/rc-wtmp.h
+rc-wtmp.o: rc-wtmp.c ../includes/rc-wtmp.h

@@ -1,0 +1,11 @@
+avahi-dnsconfd
+avahid
+dhcpcd
+dbus
+hald
+named
+ntpd
+openvpn
+polkitd
+sshd
+wpa_supplicant

@@ -1,0 +1,166 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+# This is based on /etc/rc.firewall and /etc/rc.firewall6 from FreeBSD
+
+ipfw_ip_in=${ipfw_ip_in-any}
+ipfw_ports_in=${ipfw_ports_in-auth ssh}
+ipfw_ports_nolog=${ipfw_ports_nolog-135-139,445 1026,1027 1433,1434}
+
+extra_commands="panic showstatus"
+
+depend() {
+	before net
+	provide firewall
+	keyword -jail
+}
+
+ipfw() {
+	/sbin/ipfw -f -q "$@"
+}
+
+have_ip6() {
+	sysctl net.ipv6 2>/dev/null
+}
+
+init() {
+	# Load the kernel module
+	if ! sysctl net.inet.ip.fw.enable=1 >/dev/null 2>&1; then
+		if ! kldload ipfw; then
+			eend 1 "Unable to load firewall module"
+			return 1
+		fi
+	fi
+
+	# Now all rules and give a good base
+	ipfw flush
+
+	ipfw add pass all from any to any via lo0
+	ipfw add deny all from any to 127.0.0.0/8
+	ipfw add deny ip from 127.0.0.0/8 to any
+
+	if have_ip6; then
+		ipfw add pass ip6 from any to any via lo0
+		ipfw add deny ip6 from any to ::1
+		ipfw add deny ip6 from ::1 to any
+
+		ipfw add pass ip6 from :: to ff02::/16 proto ipv6-icmp
+		ipfw add pass ip6 from fe80::/10 to fe80::/10 proto ipv6-icmp
+		ipfw add pass ip6 from fe80::/10 to ff02::/16 proto ipv6-icmp
+	fi
+}
+
+start() {
+	local i= p= log=
+	ebegin "Starting firewall rules"
+	if ! init; then
+		eend 1 "Failed to flush firewall ruleset"
+		return 1
+	fi
+
+	# Use a stateful firewall
+	ipfw add check-state
+	ipfw add pass tcp from me to any established
+
+	# Allow any connection out, adding state for each.
+	ipfw add pass tcp  from me  to any setup keep-state
+	ipfw add pass udp  from me  to any       keep-state
+	ipfw add pass icmp from me  to any       keep-state
+
+	if have_ip6; then
+		ipfw add pass tcp  from me6 to any setup keep-state
+		ipfw add pass udp  from me6 to any       keep-state
+		ipfw add pass icmp from me6 to any       keep-state
+	fi
+
+	# Allow DHCP.
+	ipfw add pass udp  from 0.0.0.0 68 to 255.255.255.255 67 out
+	ipfw add pass udp  from any 67     to me 68 in
+	ipfw add pass udp  from any 67     to 255.255.255.255 68 in
+	# Some servers will ping the IP while trying to decide if it's
+	# still in use.
+	ipfw add pass icmp from any to any icmptype 8
+
+	# Allow "mandatory" ICMP in.
+	ipfw add pass icmp from any to any icmptype 3,4,11
+
+	if have_ip6; then
+		# Allow ICMPv6 destination unreach
+		ipfw add pass ip6 from any to any icmp6types 1 proto ipv6-icmp
+
+		# Allow NS/NA/toobig (don't filter it out)
+		ipfw add pass ip6 from any to any icmp6types 2,135,136 proto ipv6-icmp
+	fi
+
+	# Add permits for this workstations published services below
+	# Only IPs and nets in firewall_allowservices is allowed in.
+	for i in $ipfw_ip_in; do
+		for p in $ipfw_ports_in; do
+			ipfw add pass tcp from $i to me $p
+		done
+	done
+
+	# Allow all connections from trusted IPs.
+	# Playing with the content of firewall_trusted could seriously
+	# degrade the level of protection provided by the firewall.
+	for i in $ipfw_ip_trust; do
+		ipfw add pass ip from $i to me
+	done
+
+	ipfw add 65000 count ip from any to any
+
+	# Drop packets to ports where we don't want logging
+	for p in $ipfw_ports_nolog; do
+		ipfw add deny { tcp or udp } from any to any $p in
+	done
+
+	# Broadcasts and muticasts
+	ipfw add deny ip from any to 255.255.255.255
+	ipfw add deny ip from any to 224.0.0.0/24
+
+	# Noise from routers
+	ipfw add deny udp from any to any 520 in
+
+	# Noise from webbrowsing.
+	# The stateful filter is a bit aggressive, and will cause some
+	# connection teardowns to be logged.
+	ipfw add deny tcp from any 80,443 to any 1024-65535 in
+
+	# Deny and (if wanted) log the rest unconditionally.
+	if yesno ${ipfw_log_deny:-no}; then
+		log=log
+		sysctl net.inet.ip.fw.verbose=1 >/dev/null
+	fi
+	ipfw add deny $log ip from any to any
+
+	eend 0
+}
+
+stop() {
+	ebegin "Stopping firewall rules"
+	# We don't unload the kernel module as that action
+	# can cause memory leaks as of FreeBSD 6.x
+	sysctl net.inet.ip.fw.enable=0 >/dev/null
+	eend $?
+}
+
+panic() {
+	ebegin "Stopping firewall rules - hard"
+	if ! init; then
+		eend 1 "Failed to flush firewall ruleset"
+		return 1
+	fi
+	eend 0
+}
+
+showstatus() {
+	ipfw show
+}

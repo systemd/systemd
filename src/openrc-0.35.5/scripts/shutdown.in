@@ -1,0 +1,29 @@
+#!@SHELL@
+
+shutdown_arg=
+while getopts :akrhPHfFnct: opt; do
+	case "$opt" in
+		a) ;;
+		k) ;;
+		r) shutdown_arg=--reboot ;;
+		h) shutdown_arg=--halt ;;
+		P) shutdown_arg=--poweroff ;;
+		H) shutdown_arg=--halt ;;
+		f) ;;
+		F) ;;
+		n) ;;
+		c) ;;
+		t) ;;
+		[?]) printf "%s\n" "${0##*/}: invalid command line option" >&2
+		exit 1
+		;;
+	esac
+done
+shift $((OPTIND-1))
+
+if [ -z "${shutdown_arg}" ]; then
+	shutdown_arg=--single
+fi
+
+echo @SBINDIR@/openrc-shutdown ${shutdown_arg} "$@"
+exec @SBINDIR@/openrc-shutdown ${shutdown_arg} "$@"

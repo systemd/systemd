@@ -1,0 +1,70 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Sets a font for the consoles."
+
+depend()
+{
+	need localmount termencoding
+	after hotplug bootmisc modules
+	keyword -docker -lxc -openvz -prefix -systemd-nspawn -uml -vserver -xenu
+}
+
+start()
+{
+	ttyn=${rc_tty_number:-${RC_TTY_NUMBER:-12}}
+	consolefont=${consolefont:-${CONSOLEFONT}}
+	unicodemap=${unicodemap:-${UNICODEMAP}}
+	consoletranslation=${consoletranslation:-${CONSOLETRANSLATION}}
+
+	if [ -z "$consolefont" ]; then
+		ebegin "Using the default console font"
+		eend 0
+		return 0
+	fi
+
+	if [ "$ttyn" = 0 ]; then
+		ebegin "Skipping font setup (rc_tty_number == 0)"
+		eend 0
+		return 0
+	fi
+
+	local x= param= sf_param= retval=0 ttydev=/dev/tty
+
+	# Get additional parameters
+	if [ -n "$consoletranslation" ]; then
+		param="$param -m $consoletranslation"
+	fi
+	if [ -n "${unicodemap}" ]; then
+		param="$param -u $unicodemap"
+	fi
+
+	# Set the console font
+	ebegin "Setting console font [$consolefont]"
+	[ -d /dev/vc ] && ttydev=/dev/vc/
+	x=1
+	while [ $x -le $ttyn ]; do
+		if ! setfont $consolefont $param -C $ttydev$x >/dev/null; then
+			retval=1
+			break
+		fi
+		: $(( x += 1 ))
+	done
+	eend $retval
+
+	# Store the font so we can use it ASAP on boot
+	if [ $retval -eq 0 ] && checkpath -W "$RC_LIBEXECDIR"; then
+		mkdir -p "$RC_LIBEXECDIR"/console
+		setfont -O "$RC_LIBEXECDIR"/console/font
+	fi
+
+	return $retval
+}

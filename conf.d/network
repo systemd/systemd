@@ -1,0 +1,80 @@
+# Assign static IP addresses and run custom scripts per interface.
+# Seperate commands with ;
+# Prefix with ! to run a shell script.
+# Use \$int to represent the interface
+#ifconfig_eth0="192.168.0.10 netmask 255.255.255.0"
+
+# You also have ifup_eth0 and ifdown_eth0 to run other commands when
+# eth0 is started and stopped.
+# You should note that we don't stop the network at system shutdown by default.
+# If you really need this, then set keep_network=NO
+
+# Lastly, the interfaces variable pulls in virtual interfaces that cannot
+# be automatically detected.
+#interfaces="br0 bond0 vlan0"
+
+# You can also use files instead of variables here if you like:
+# /etc/ifconfig.eth0 is equivalent to ifconfig_eth0
+# /etc/ip.eth0 is equivalent to ifconfig_eth0
+# /etc/ifup.eth0 is equivalent to ifup_eth0
+# /etc/ifdown.eth0 is equivalent to ifdown_eth0
+# Any files found will automatically be put into the interfaces variable.
+# You don't need to escape variables in files, so use $int instead of \$int.
+
+# If you require DHCP, you should install dhcpcd and add it to the boot or
+# default runlevel.
+
+# NIS users can set the domain name here
+#domainname="foobar"
+
+# You can add a default route.
+# The way this is done is slightly different depending on the operating system.
+#
+# *BSD:
+#defaultroute="192.168.0.1"
+#defaultroute6="2001:a:b:c"
+#Hurd/Linux (ifconfig):
+#defaultroute="gw 192.168.0.1"
+#defaultroute6="gw 2001:a:b:c"
+
+# The remainder of this file applies to Linux only and shows how
+# iproute2 is supported along with other examples.
+
+# ifconfig under Linux is not that powerful and doesn't easily handle
+# multiple addresses
+# On the other hand, iproute2 is quite powerful and is also supported
+#ip_eth0="192.168.0.10/24; 192.168.10.10/24"
+
+# You can also use iproute2 to add the default route.
+#defaultiproute="via 192.168.0.1"
+#defaultiproute6="via 2001:a:b:c"
+
+# ip doesn't handle MTU like ifconfig, but we can do it like so
+#ifup_eth0="ip link set \$int mtu 1500"
+
+# Create a bonded interface
+#interfaces="bond0"
+#ifup_bond0="modprobe bonding; ifconfig \$int up; ifenslave \$int bge0"
+#ifconfig_bond0="192.168.0.10 netmask 255.255.255.0"
+#ifdown_bond0="rmmod bonding"
+
+# Create tap interface and a bridge interface.
+# We add the tap to the bridge.
+# An external program, like dhcpcd, will configure the IP on the bridge
+#interfaces="tun0 br0"
+#ifup_tun0="tunctl -t \$int"
+#ifdown_tun0="tunctl -d \$int"
+#ifup_br0="brctl addbr \$int; brctl add \$int eth1; brtctl add \$int eth2"
+#ifdown_br0="ifconfig \$int down; btctl delbr \$int"
+
+# Create VLAN
+#interfaces="eth0_2 eth0_3 eth0_4"
+#ifup_eth0="vconfig add \$int 2; vconfig add \$int 3; vconfig add \$int 4"
+#ifconfig_eth0_2="192.168.2.10 netmask 255.255.255.0"
+#ifconfig_eth0_3="192.168.3.10 netmask 255.255.255.0"
+#ifconfig_eth0_4="192.168.4.10 netmask 255.255.255.0"
+#ifdown_eth0="vconfig rem \$int.2; vconfig rem \$int.3; vconfig rem \$int.4"
+
+# Normally you would use wpa_supplicant to configure wireless, but you can
+# use iwconfig also
+#ifup_wlan0="iwconfig \$int key s:secretkey enc open essid foobar"

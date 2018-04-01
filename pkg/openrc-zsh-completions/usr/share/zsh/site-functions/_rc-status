@@ -1,0 +1,18 @@
+#compdef rc-status
+
+_arguments -s \
+  {'(--all)-a','(-a)--all'}'[Show services at all runlevels]' \
+  {'(--crashed)-c','(-c)--crashed'}'[Show crashed services]' \
+  {'(--list)-l','(-l)--list'}'[Show list of runlevels]' \
+  {'(--runlevel)-r','(-r)--runlevel'}'[Show the name of the current runlevel]' \
+  {'(--servicelist)-s','(-s)--servicelist'}'[Show all services]' \
+  {'(--unused)-u','(-u)--unused'}'[Show services not assigned to any run level]' \
+  {'(--help)-h','(-h)--help'}'[Print this help output]' \
+  {'(--nocolor)-C','(-C)--nocolor'}'[Disable color output]' \
+  {'(--version)-V','(-V)--version'}'[Display software version]' \
+  {'(--verbose)-v','(-v)--verbose'}'[Run verbosely]' \
+  {'(--quiet)-q','(-q)--quiet'}'[Run quietly (Does not affect errors)]'
+
+_values 'runlevels' $(rc-status --list)
+
+# vim: set et sw=2 ts=2 ft=zsh:

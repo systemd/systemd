@@ -1,0 +1,65 @@
+#!@SHELL@
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+#    except according to the terms contained in the LICENSE file.
+
+# This basically mounts $svcdir as a ramdisk, but preserving its content
+# which allows us to run depscan.sh
+# FreeBSD has a nice ramdisk - we don't set a size as we should always
+# be fairly small and we unmount them after the boot level is done anyway
+# NOTE we don't set a size for Linux either
+# FreeBSD-7 supports tmpfs now :)
+mount_svcdir()
+{
+	if ! fstabinfo --mount "$RC_SVCDIR"; then
+		if ! mount -t tmpfs -o rw,noexec,nosuid none \
+			"$RC_SVCDIR" 2>/dev/null
+		then
+			mdconfig -a -t malloc -s "${rc_svcsize:-1024}"k -u 0
+			newfs -b 4096 -i 1024 -n /dev/md0
+			mount -o rw,noexec,nosuid /dev/md0 "$RC_SVCDIR"
+		fi
+	fi
+}
+
+. "$RC_LIBEXECDIR"/sh/functions.sh
+[ -r "@SYSCONFDIR@/rc.conf" ] && . "@SYSCONFDIR@/rc.conf"
+if [ -d "@SYSCONFDIR@/rc.conf.d" ]; then
+	for _f in "@SYSCONFDIR@"/rc.conf.d/*.conf; do
+		[ -r "$_f" ] && . "$_f"
+	done
+fi
+
+# Disable devd until we need it
+if [ -z "$RC_SYS" -a "$RC_UNAME" = "FreeBSD" ]; then
+	sysctl hw.bus.devctl_disable=1 >/dev/null
+fi
+
+# mount $RC_SVCDIR as something we can write to if it's not rw
+# On vservers, / is always rw at this point, so we need to clean out
+# the old service state data
+: ${RC_LIBEXECDIR:=@LIBEXECDIR@}
+: ${RC_SVCDIR:=@LIBEXECDIR@/init.d}
+case "$(openrc --sys)" in
+	OPENVZ|VSERVER)	rm -rf "$RC_SVCDIR"/*;;
+	*)		if mountinfo --quiet "$RC_SVCDIR"; then
+				rm -rf "$RC_SVCDIR"/*
+			else
+				mount_svcdir
+			fi
+			;;
+esac
+retval=$?
+
+if [ -e "$RC_LIBEXECDIR"/cache/softlevel ]; then
+	cp -p "$RC_LIBEXECDIR"/cache/* "$RC_SVCDIR" 2>/dev/null
+fi
+
+echo sysinit >"$RC_SVCDIR"/softlevel
+exit $retval

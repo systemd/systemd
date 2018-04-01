@@ -1,0 +1,5 @@
+# Sometimes you want to have urandom start before "localmount"
+# (say for crypt swap), so you will need to customize this
+# behavior.  If you have /var on a separate partition, then
+# make sure this path lives on your root device somewhere.
+urandom_seed="/var/lib/misc/random-seed"

@@ -1,7 +1,0 @@
-[Unit]
-Description=Test CAP_SYS_RAWIO capability for PrivateDevices=no
-
-[Service]
-PrivateDevices=no
-ExecStart=/bin/sh -x -c 'capsh --print | grep cap_sys_rawio'
-Type=oneshot

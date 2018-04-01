@@ -1,0 +1,125 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Mount the sys filesystem."
+
+sysfs_opts=nodev,noexec,nosuid
+
+depend()
+{
+	keyword -docker -lxc -prefix -systemd-nspawn -vserver
+}
+
+mount_sys()
+{
+	grep -Eq "[[:space:]]+sysfs$" /proc/filesystems || return 1
+	mountinfo -q /sys && return 0
+
+	if [ ! -d /sys ]; then
+		if ! mkdir -m 0755 /sys; then
+			ewarn "Could not create /sys!"
+			return 1
+		fi
+	fi
+
+	ebegin "Mounting /sys"
+	if ! fstabinfo --mount /sys; then
+		mount -n -t sysfs -o ${sysfs_opts} sysfs /sys
+	fi
+	eend $?
+}
+
+mount_misc()
+{
+	# Setup Kernel Support for securityfs
+	if [ -d /sys/kernel/security ] && \
+		! mountinfo -q /sys/kernel/security; then
+		if grep -qs securityfs /proc/filesystems; then
+			ebegin "Mounting security filesystem"
+			mount -n -t securityfs -o ${sysfs_opts} \
+				securityfs /sys/kernel/security
+			eend $?
+		fi
+	fi
+
+	# Setup Kernel Support for debugfs
+	if [ -d /sys/kernel/debug ] && ! mountinfo -q /sys/kernel/debug; then
+		if grep -qs debugfs /proc/filesystems; then
+			ebegin "Mounting debug filesystem"
+			mount -n -t debugfs -o ${sysfs_opts} debugfs /sys/kernel/debug
+			eend $?
+		fi
+	fi
+
+	# Setup Kernel Support for configfs
+	if [ -d /sys/kernel/config ] && ! mountinfo -q /sys/kernel/config; then
+		if grep -qs configfs /proc/filesystems; then
+			ebegin "Mounting config filesystem"
+			mount -n -t configfs -o  ${sysfs_opts} configfs /sys/kernel/config
+			eend $?
+		fi
+	fi
+
+	# set up kernel support for fusectl
+	if [ -d /sys/fs/fuse/connections ] \
+		&& ! mountinfo -q /sys/fs/fuse/connections; then
+		if grep -qs fusectl /proc/filesystems; then
+			ebegin "Mounting fuse control filesystem"
+			mount -n -t fusectl -o ${sysfs_opts} \
+				fusectl /sys/fs/fuse/connections
+			eend $?
+		fi
+	fi
+
+	# Setup Kernel Support for SELinux
+	if [ -d /sys/fs/selinux ] && ! mountinfo -q /sys/fs/selinux; then
+		if grep -qs selinuxfs /proc/filesystems; then
+			ebegin "Mounting SELinux filesystem"
+			mount -t selinuxfs selinuxfs /sys/fs/selinux
+			eend $?
+		fi
+	fi
+
+	# Setup Kernel Support for persistent storage
+	if [ -d /sys/fs/pstore ] && ! mountinfo -q /sys/fs/pstore; then
+		if grep -qs 'pstore$' /proc/filesystems; then
+			ebegin "Mounting persistent storage (pstore) filesystem"
+			mount -t pstore pstore -o ${sysfs_opts} /sys/fs/pstore
+			eend $?
+		fi
+	fi
+
+	# set up kernel support for efivarfs
+	if [ -d /sys/firmware/efi/efivars ] &&
+		! mountinfo -q /sys/firmware/efi/efivars; then
+		ebegin "Mounting efivarfs filesystem"
+		mount -n -t efivarfs -o ro \
+			efivarfs /sys/firmware/efi/efivars 2> /dev/null
+		eend 0
+	fi
+}
+
+restorecon_sys()
+{
+	if [ -x /sbin/restorecon ]; then
+		ebegin "Restoring SELinux contexts in /sys"
+		restorecon -F /sys/devices/system/cpu/online >/dev/null 2>&1
+		eend $?
+	fi
+}
+
+start()
+{
+	mount_sys
+	mount_misc
+	restorecon_sys
+	return 0
+}

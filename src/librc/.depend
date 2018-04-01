@@ -1,0 +1,15 @@
+librc.o librc.So: librc.c ../includes/queue.h librc.h rc.h ../includes/rc-misc.h \
+ ../includes/helpers.h ../includes/hidden-visibility.h \
+ ../includes/helpers.h
+librc-daemon.o librc-daemon.So: librc-daemon.c ../includes/queue.h librc.h rc.h \
+ ../includes/rc-misc.h ../includes/helpers.h \
+ ../includes/hidden-visibility.h
+librc-depend.o librc-depend.So: librc-depend.c ../includes/queue.h librc.h rc.h \
+ ../includes/rc-misc.h ../includes/helpers.h \
+ ../includes/hidden-visibility.h
+librc-misc.o librc-misc.So: librc-misc.c ../includes/queue.h librc.h rc.h \
+ ../includes/rc-misc.h ../includes/helpers.h \
+ ../includes/hidden-visibility.h ../includes/helpers.h
+librc-stringlist.o librc-stringlist.So: librc-stringlist.c ../includes/queue.h librc.h rc.h \
+ ../includes/rc-misc.h ../includes/helpers.h \
+ ../includes/hidden-visibility.h

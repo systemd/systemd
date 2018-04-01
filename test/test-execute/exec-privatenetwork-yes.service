@@ -1,7 +1,0 @@
-[Unit]
-Description=Test for PrivateNetwork
-
-[Service]
-ExecStart=/bin/sh -x -c '! ip link | grep ": " | grep -Ev ": (lo|sit0@.*):"'
-Type=oneshot
-PrivateNetwork=yes

@@ -1,0 +1,39 @@
+#!/usr/bin/openrc-run
+# Copyright (c) 2017 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="start agetty on a terminal line"
+supervisor=supervise-daemon
+port="${RC_SVCNAME#*.}"
+term_type="${term_type:-linux}"
+command=/sbin/agetty
+command_args_foreground="${agetty_options} ${port} ${baud} ${term_type}"
+pidfile="/run/${RC_SVCNAME}.pid"
+
+depend() {
+	after local
+	keyword -prefix
+}
+
+start_pre() {
+	if [ -z "$port" ]; then
+		eerror "${RC_SVCNAME} cannot be started directly. You must create"
+		eerror "symbolic links to it for the ports you want to start"
+		eerror "agetty on and add those to the appropriate runlevels."
+		return 1
+	else
+		export EINFO_QUIET="${quiet:-yes}"
+	fi
+}
+
+stop_pre()
+{
+	export EINFO_QUIET="${quiet:-yes}"
+}

@@ -1,0 +1,30 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2008-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+depend()
+{
+	after clock fsck
+	keyword -prefix
+}
+
+start()
+{
+	ebegin "Setting tty flags"
+	ttyflags -a
+	eend $? || return $?
+
+	if [ -c /dev/ttyp0 ]; then
+		chmod 666 /dev/tty[p-uw-zP-T][0-9a-zA-Z]
+	fi
+	if [ -c /dev/ttyv1 ]; then
+		chmod 666 /dev/ttyv[0-9a-zA-Z]
+	fi
+}

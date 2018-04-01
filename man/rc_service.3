@@ -1,0 +1,216 @@
+.\" Copyright (c) 2007-2015 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd Mar 16, 2008
+.Dt RC_SERVICE 3 SMM
+.Os OpenRC
+.Sh NAME
+.Nm rc_service_add , rc_service_delete , rc_service_daemon_set ,
+.Nm rc_service_description , rc_service_exists , rc_service_in_runlevel ,
+.Nm rc_service_mark , rc_service_extra_commands , rc_service_plugable ,
+.Nm rc_service_resolve , rc_service_schedule_start , rc_services_scheduled_by ,
+.Nm rc_service_schedule_clear , rc_service_state ,
+.Nm rc_service_started_daemon , rc_service_value_get , rc_service_value_set ,
+.Nm rc_services_in_runlevel , rc_services_in_state , rc_services_scheduled ,
+.Nm rc_service_daemons_crashed
+.Nd functions to query OpenRC services
+.Sh LIBRARY
+Run Command library (librc, -lrc)
+.Sh SYNOPSIS
+.In rc.h
+.Ft bool Fn rc_service_add "const char *runlevel" "const char *service"
+.Ft bool Fn rc_service_delete "const char *runlevel" "const char *service"
+.Ft bool Fo rc_service_daemon_set
+.Fa "const char *service"
+.Fa "const char *exec"
+.Fa "const char *name"
+.Fa "const char *pidfile"
+.Fa "bool started"
+.Fc
+.Ft "char *" Fo rc_service_description
+.Fa "const char *service"
+.Fa "const char *option"
+.Fc
+.Ft bool Fn rc_service_exists "const char *service"
+.Ft bool Fn rc_service_in_runlevel "const char *service" "const char *runlevel"
+.Ft bool Fn rc_service_mark "const char *service" "RC_SERVICE state"
+.Ft "RC_STRINGLIST *" Fn rc_service_extra_commands "const char *service"
+.Ft bool Fn rc_service_plugable "const char *service"
+.Ft "char *" rc_service_resolve "const char *service"
+.Ft bool Fo rc_service_schedule_start
+.Fa "const char *service"
+.Fa "const char *service_to_start"
+.Fc
+.Ft "RC_STRINGLIST *" Fn rc_services_scheduled_by "const char *service"
+.Ft bool Fn rc_service_schedule_clear "const char *service"
+.Ft RC_SERVICE Fn rc_service_state "const char *service"
+.Ft bool Fo rc_service_started_daemon
+.Fa "const char *service"
+.Fa "const char *exec"
+.Fa "int indx"
+.Fc
+.Ft "char *" Fn rc_service_value_get "const char *service" "const char *option"
+.Ft bool Fo rc_service_value_set
+.Fa "const char *service"
+.Fa "const char *option"
+.Fa "const char *value"
+.Fc
+.Ft "RC_STRINGLIST *" Fn rc_services_in_runlevel "const char *runlevel"
+.Ft "RC_STRINGLIST *" Fn rc_services_in_state "RC_SERVICE state"
+.Ft "RC_STRINGLIST *" Fn rc_services_scheduled "const char *service"
+.Ft bool Fn rc_service_daemons_crashed "const char *service"
+.Sh DESCRIPTION
+These functions provide a means of querying OpenRC services to find out the
+state of each one, to start and stop it, and any other functions related
+to it.
+.Pp
+Most functions should be self descriptive as to what they do and what they
+return based on names and arguments.
+.Pp
+.Fn rc_service_add
+adds the
+.Fa service
+to the
+.Fa runlevel .
+.Pp
+.Fn rc_service_delete
+deletes the
+.Fa service
+from the
+.Fa runlevel .
+.Pp
+.Fn rc_service_daemon_set
+saves the arguments in the
+.Fa service
+state data so that
+.Fn rc_service_daemons_crashed
+can check to see if they are still running or not.
+.Pp
+.Fn rc_service_description
+returns the
+.Va description
+variable of the
+.Fa service .
+If
+.Fa option
+is not null then we return the
+.Fa description_$option
+variable instead.
+.Pp
+.Fn rc_service_exists
+returns true if the
+.Fa service
+exists, otherwise false.
+.Pp
+.Fn rc_service_in_runlevel
+returns true if the
+.Fa service
+is in the
+.Fa runlevel ,
+otherwise false.
+.Pp
+.Fn rc_service_mark
+puts the
+.Fa service
+into the given
+.Fa state .
+If the state is RC_SERVICE_STOPPED then all data associated with the
+.Fa service
+is lost.
+.Fn rc_service_extra_commands
+returns a list of extra commands the
+.Fa service
+supports beyond the default ones. See
+.Nm openrc-run
+for default commands.
+.Pp
+.Fn rc_service_plugable
+returns true if the service is allowed to be plugged by
+.Pa rc.conf .
+Default is true.
+.Pp
+.Fn rc_service_resolve
+resolves
+.Fa service
+to the full path of service that was started, or would be started.
+.Pp
+When
+.Fa service
+starts, it starts
+.Fa service_to_start
+afterswards as directed by
+.Fn rc_service_schedule_start .
+.Fn rc_services_scheduled
+returns a list of services that will be started when
+.Fa service
+starts.
+.Fn rc_service_schedule_clear
+clears these scheduled services for
+.Fa service .
+.Pp
+.Fn rc_service_state returns the state of
+.Fa service .
+The return value is a bitmask, where more than one state can apply.
+.Pp
+.Fn rc_service_started_daemon
+checks to see if
+.Fa service
+started
+.Fa exec
+using
+.Nm start-stop-daemon .
+If
+.Fa indx
+is greater than zero, then it must also be the nth daemon started by
+.Fa service .
+.Fn rc_service_value_set
+saves the
+.Fa value
+under the name
+.Fa option .
+.Fn rc_service_value_get
+returns the value of the saved
+.Fa option .
+.Pp
+.Fn rc_services_in_runlevel
+returns a list of services in
+.Fa runlevel .
+If
+.Fa runlevel
+is not specified, then it returns a list of all available services.
+.Pp
+.Fn rc_services_in_state
+returns a list of all the services in
+.Fa state .
+.Sh IMPLEMENTATION NOTES
+Each function that returns
+.Fr "char *"
+returns a malloced NULL terminated string that should be freed when done.
+.Pp
+Each function that returns
+.Fr "RC_STRINGLIST *"
+should be freed using
+.Fn rc_stringlist_free
+when done.
+.Pp
+When a function fails it should either return false or NULL and set
+.Va errno
+unless specified otherwise as above.
+.Sh FILES
+.Pa /lib/rc/init.d
+normally holds the volatile state data for services on a RAM backed disk.
+.Sh SEE ALSO
+.Xr errno 3 ,
+.Xr malloc 3 ,
+.Xr free 3
+.Xr rc_stringlist_free 3 ,
+.Xr start-stop-daemon 8
+.Sh AUTHORS
+.An Roy Marples <roy@marples.name>

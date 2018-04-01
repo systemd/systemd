@@ -1,0 +1,16 @@
+*.gz
+
+*.diff
+*.patch
+*.orig
+*.rej
+
+core
+.gdb_history
+.gdbinit
+
+.depend
+*.a
+*.o
+*.So
+lib*.so

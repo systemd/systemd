@@ -1,0 +1,76 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Delays until the network is online or a specific timeout"
+
+depend()
+{
+	after modules
+	need sysfs
+	provide network-online
+	keyword -docker -jail -lxc -openvz -prefix -systemd-nspawn -uml -vserver
+}
+
+get_interfaces()
+{
+	local ifname iftype
+	for ifname in /sys/class/net/*; do
+		[ -h "${ifname}" ] && continue
+		read iftype < ${ifname}/type
+		[ "$iftype" = "1" ] && printf "%s " ${ifname##*/}
+	done
+}
+
+start ()
+{
+	local carriers configured dev gateway ifcount infinite
+	local carrier operstate rc
+
+	ebegin "Checking to see if the network is online"
+	rc=0
+	interfaces=${interfaces:-$(get_interfaces)}
+	timeout=${timeout:-120}
+ [ $timeout -eq 0 ] && infinite=true || infinite=false
+ while $infinite || [ $timeout -gt 0 ]; do
+	carriers=0
+	configured=0
+	ifcount=0
+ 	for dev in ${interfaces}; do
+		: $((ifcount += 1))
+		read carrier < /sys/class/net/$dev/carrier 2> /dev/null ||
+			carrier=
+		[ "$carrier" = 1 ] && : $((carriers += 1))
+		read operstate < /sys/class/net/$dev/operstate 2> /dev/null ||
+			operstate=
+		[ "$operstate" = up ] && : $((configured += 1))
+	done
+	[ $configured -eq $ifcount ] && [ $carriers -ge 1 ] && break
+	sleep 1
+	: $((timeout -= 1))
+ done
+ ! $infinite && [ $timeout -eq 0 ] && rc=1
+ include_ping_test=${include_ping_test:-${ping_default_gateway}}
+ if [ -n "${ping_default_gateway}" ]; then
+ ewarn "ping_default_gateway is deprecated, please use include_ping_test"
+ fi
+ if [ $rc -eq 0 ] && yesno ${include_ping_test:-no}; then
+ 	ping_test_host="${ping_test_host:-google.com}"
+ 	if [ -n "$ping_test_host" ]; then
+		while $infinite || [ $timeout -gt 0 ]; do
+			ping -c 1 $ping_test_host > /dev/null 2>&1
+			rc=$?
+			[ $rc -eq 0 ] && break
+			: $((timeout -= 1))
+		done
+	fi
+ fi
+ eend $rc "The network is offline"
+}

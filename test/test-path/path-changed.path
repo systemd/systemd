@@ -1,8 +1,0 @@
-[Unit]
-Description=Test PathChanged
-
-[Path]
-PathChanged=/tmp/test-path_changed
-
-[Install]
-WantedBy=multi-user.target

@@ -1,0 +1,45 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Saves a kernel dump."
+
+depend()
+{
+	need dumpon localmount
+	after clock
+	before encswap
+	keyword -jail -prefix
+}
+
+start()
+{
+	: ${dump_dir:=/var/crash}
+	if ! [ -d "$dump_dir" ]; then
+		mkdir -p "$dump_dir"
+		chmod 700 "$dump_dir"
+	fi
+
+	if [ "$RC_UNAME" = FreeBSD ]; then
+		# Don't quote ${dump_device}, so that if it's unset,
+		# savecore will check on the partitions listed in fstab
+		# without errors in the output
+		savecore -C $dump_device >/dev/null
+	else
+		ls "$dump_dir"/bsd* > /dev/null 2>&1
+	fi
+	[ $? = 0 ] || return 0
+
+	local sopts="$dump_dir $dump_device"
+	yesno $dump_compress && sopts="-z $sopts"
+	ebegin "Saving kernel core dump in $dump_dir"
+	savecore $sopts >/dev/null
+	eend $?
+}

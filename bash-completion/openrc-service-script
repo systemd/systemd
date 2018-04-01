@@ -1,0 +1,29 @@
+# Copyright (c) 2017 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+_openrc_service_script()
+{
+	local script="${COMP_WORDS[0]}"
+	local cur="${COMP_WORDS[$COMP_CWORD]}"
+
+	if [[ ( -f "${script}" || -h "${script}" ) && -r "${script}" ]] \
+	&& [[ "$(head -n 1 "${script}")" =~ \#\!.*/openrc-run ]]
+	then
+		[[ $COMP_CWORD -gt 1 ]] && return 1
+		COMPREPLY=($(opts="start stop status restart pause zap ineed needsme iuse usesme broken"; \
+			eval "$(grep '^opts=' "${script}")"; echo "${opts}"))
+		[[ -n "$COMPREPLY" ]] || COMPREPLY=(start stop restart zap)
+		COMPREPLY=($(compgen -W "${COMPREPLY[*]}" -- "${cur}"))
+	else
+		COMPREPLY=($(compgen -o default -- "${cur}"))
+	fi
+	return 0
+}
+complete -F _openrc_service_script */etc/init.d/*

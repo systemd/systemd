@@ -1,0 +1,30 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+command=/usr/sbin/rarpd
+command_args="-f $rarpd_args"
+pidfile=/var/run/rarpd.pid
+name="Reverse ARP Daemon"
+required_files=/etc/ethers
+
+if [ -z "$rarpd_interface" ]; then
+	command_args="$command_args -a"
+else
+	command_args="$command_args $rarpd_interface"
+fi
+command_background=YES
+
+depend()
+{
+	need localmount
+	after bootmisc
+	need net
+}

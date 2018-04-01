@@ -1,0 +1,35 @@
+EINFO_1.0 {
+global:
+	ecolor;
+	elog;
+	einfon;
+	ewarnn;
+	eerrorn;
+	einfo;
+	ewarn;
+	ewarnx;
+	eerror;
+	eerrorx;
+	einfovn;
+	ewarnvn;
+	ebeginvn;
+	eendvn;
+	ewendvn;
+	einfov;
+	ewarnv;
+	ebeginv;
+	ebegin;
+	eend;
+	ewend;
+	ebracket;
+	eendv;
+	ewendv;
+	eindent;
+	eoutdent;
+	eindentv;
+	eoutdentv;
+	eprefix;
+
+local:
+	*;
+};

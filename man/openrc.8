@@ -1,0 +1,74 @@
+.\" Copyright (c) 2007-2015 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd May 2, 2009
+.Dt OPENRC 8 SMM
+.Os OpenRC
+.Sh NAME
+.Nm openrc
+.Nd stops and starts services for the specified runlevel
+.Sh SYNOPSIS
+.Nm
+.Op Fl n , -no-stop
+.Op Fl o , -override
+.Op Ar runlevel
+.Sh DESCRIPTION
+.Nm
+first stops any services that are not in the specified runlevel unless
+--no-stop is specified, then starts any services in the runlevel and
+stacked runlevels added by
+.Nm rc-update
+that are not currently started.
+If no runlevel is specified, we use the current runlevel.
+.Pp
+There are some special runlevels that you should be aware of:
+.Bl -tag -width "shutdown"
+.It Ar sysinit
+Brings up any system specific stuff such as
+.Pa /dev ,
+.Pa /proc
+and optionally
+.Pa /sys
+for Linux based systems. It also mounts
+.Pa /lib/rc/init.d
+as a ramdisk using tmpfs where available unless / is mounted rw at boot.
+.Nm
+uses
+.Pa /lib/rc/init.d
+to hold state information about the services it runs.
+sysinit always runs when the host first starts should not be run again.
+.It Ar boot
+Generally the only services you should add to the boot runlevel are those
+which deal with the mounting of filesystems, set the initial state of attached
+peripherals and logging.
+Hotplugged services are added to the boot runlevel by the system.
+All services in the boot and sysinit runlevels are automatically included
+in all other runlevels except for those listed here.
+.It Ar single
+Stops all services except for those in the sysinit runlevel.
+.It Ar reboot
+Changes to the shutdown runlevel and then reboots the host.
+.It Ar shutdown
+Changes to the shutdown runlevel and then halts the host.
+.El
+.Pp
+You should not call any of these runlevels yourself.
+Instead you should use
+.Xr init 8
+and
+.Xr shutdown 8
+and let them call these special runlevels.
+.Sh SEE ALSO
+.Xr rc-status 8 ,
+.Xr rc-update 8 ,
+.Xr init 8 ,
+.Xr shutdown 8
+.Sh AUTHORS
+.An Roy Marples Aq roy@marples.name

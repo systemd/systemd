@@ -1,0 +1,38 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+command=/bin/s6-svscan
+command_args="${RC_SVCDIR}"/s6-scan
+command_background=yes
+pidfile=/var/run/s6-svscan.pid
+
+depend()
+{
+	need localmount
+}
+
+start_pre()
+{
+	einfo "Creating s6 scan directory"
+	checkpath -d -m 0755 "$RC_SVCDIR"/s6-scan
+	return $?
+}
+
+stop_post()
+{
+	ebegin "Stopping any remaining s6 services"
+	s6-svc -dx "${RC_SVCDIR}"/s6-scan/* 2>/dev/null || true
+	eend $?
+
+	ebegin "Stopping any remaining s6 service loggers"
+	s6-svc -dx "${RC_SVCDIR}"/s6-scan/*/log 2>/dev/null || true
+	eend $?
+}

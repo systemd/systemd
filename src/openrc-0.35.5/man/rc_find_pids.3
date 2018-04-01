@@ -1,0 +1,56 @@
+.\" Copyright (c) 2007-2015 The OpenRC Authors.
+.\" See the Authors file at the top-level directory of this distribution and
+.\" https://github.com/OpenRC/openrc/blob/master/AUTHORS
+.\"
+.\" This file is part of OpenRC. It is subject to the license terms in
+.\" the LICENSE file found in the top-level directory of this
+.\" distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+.\" This file may not be copied, modified, propagated, or distributed
+.\"    except according to the terms contained in the LICENSE file.
+.\"
+.Dd Mar 17, 2008
+.Dt RC_FIND_PIDS 3 SMM
+.Os OpenRC
+.Sh NAME
+.Nm rc_find_pids
+.Nd finds the pids of processes that match the given criteria
+.Sh LIBRARY
+Run Command library (librc, -lrc)
+.Sh SYNOPSIS
+.In rc.h
+.Ft "RC_PIDLIST *" Fo rc_find_pids
+.Fa "const char *const *argv"
+.Fa "const char *cmd"
+.Fa "uid_t uid"
+.Fa "pid_t pid"
+.Fc
+.Sh DESCRIPTION
+.Fn rc_find_pids
+returns RC_PIDLIST, a structure based on the LIST macro from
+.Xr queue 3
+which contains all the pids found matching the given criteria.
+If
+.Fa pid
+is given then only that pid is returned if it is running. Otherise we check
+all instances of
+.Fa argv
+with a process name of
+.Fa cmd
+owned by
+.Fa uid ,
+all of which are optional.
+.Pp
+The returned list should be freed when done.
+.Sh IMPLEMENTATION NOTES
+On BSD systems we use
+.Lb libkvm
+and on Linux systems we use the
+.Pa /proc
+filesystem to find our processes.
+.Pp
+Each RC_PID should be freed in the list as well as the list itself when done.
+.Sh SEE ALSO
+.Xr free 3 ,
+.Xr queue 3
+.Sh AUTHORS
+.An Roy Marples <roy@marples.name>

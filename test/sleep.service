@@ -1,6 +1,0 @@
-[Unit]
-Description=Sleep for 1 minute
-
-[Service]
-Type=oneshot
-ExecStart=/bin/sleep 60

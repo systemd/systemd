@@ -1,0 +1,91 @@
+#!@SBINDIR@/openrc-run
+# Copyright (c) 2007-2015 The OpenRC Authors.
+# See the Authors file at the top-level directory of this distribution and
+# https://github.com/OpenRC/openrc/blob/master/AUTHORS
+#
+# This file is part of OpenRC. It is subject to the license terms in
+# the LICENSE file found in the top-level directory of this
+# distribution and at https://github.com/OpenRC/openrc/blob/master/LICENSE
+# This file may not be copied, modified, propagated, or distributed
+# except according to the terms contained in the LICENSE file.
+
+description="Mounts network shares according to /etc/fstab."
+
+depend()
+{
+	local opts mywant=""
+	for opts in $(fstabinfo -o -t nfs,nfs4); do
+		case $opts in
+			noauto) ;;
+			*) mywant="$mywant nfsclient"; break ;;
+		esac
+	done
+	after root
+ 	config /etc/fstab
+	want $mywant
+	use afc-client amd openvpn
+	use dns
+	use root
+	keyword -docker -jail -lxc -prefix -systemd-nspawn -vserver
+}
+
+start()
+{
+	local x= fs= rc=
+	for x in $net_fs_list $extra_net_fs_list; do
+		fs="$fs${fs:+,}$x"
+	done
+
+	ebegin "Mounting network filesystems"
+	mount -at $fs
+	rc=$?
+	if [ "$RC_UNAME" = Linux ] && [ $rc = 0 ]; then
+		mount -a -O _netdev
+		rc=$?
+	fi
+	ewend $rc "Could not mount all network filesystems"
+	if [ -z "$critical_mounts" ]; then
+		rc=0
+	else
+		for x in ${critical_mounts}; do
+		fstabinfo -q $x || continue
+		if ! mountinfo -q $x; then
+			critical=x
+			eerror "Failed to mount $x"
+		fi
+		done
+		[ -z "$critical" ] && rc=0
+	fi
+	return $rc
+}
+
+stop()
+{
+	local x= fs=
+
+	ebegin "Unmounting network filesystems"
+	. "$RC_LIBEXECDIR"/sh/rc-mount.sh
+
+	for x in $net_fs_list $extra_net_fs_list; do
+		fs="$fs${fs:+,}$x"
+	done
+	if [ -n "$fs" ]; then
+		umount -at $fs || eerror "Failed to simply unmount filesystems"
+	fi
+
+	eindent
+	fs=
+	for x in $net_fs_list $extra_net_fs_list; do
+		fs="$fs${fs:+|}$x"
+	done
+	[ -n "$fs" ] && fs="^($fs)$"
+	do_unmount umount ${fs:+--fstype-regex} $fs --netdev
+	retval=$?
+
+	eoutdent
+	if [ "$RC_UNAME" = Linux ] && [ $retval = 0 ]; then
+		umount -a -O _netdev
+		retval=$?
+	fi
+	eend $retval "Failed to unmount network filesystems"
+}
