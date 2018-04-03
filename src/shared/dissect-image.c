@@ -108,6 +108,14 @@ not_found:
 #endif
 }
 
+/* Detect RPMB and Boot partitions, which are not listed by blkid.
+ * See https://github.com/systemd/systemd/issues/5806. */
+static bool device_is_mmc_special_partition(struct udev_device *d) {
+        const char *sysname = udev_device_get_sysname(d);
+        return (sysname && startswith(sysname, "mmcblk") &&
+                (endswith(sysname, "rpmb") || endswith(sysname, "boot0") || endswith(sysname, "boot1")));
+}
+
 int dissect_image(
                 int fd,
                 const void *root_hash,
@@ -282,8 +290,17 @@ int dissect_image(
                 /* Count the partitions enumerated by the kernel */
                 n = 0;
                 first = udev_enumerate_get_list_entry(e);
-                udev_list_entry_foreach(item, first)
+                udev_list_entry_foreach(item, first) {
+                        _cleanup_udev_device_unref_ struct udev_device *q;
+
+                        q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
+                        if (!q)
+                                return -errno;
+
+                        if (device_is_mmc_special_partition(q))
+                                continue;
                         n++;
+                }
 
                 /* Count the partitions enumerated by blkid */
                 z = blkid_partlist_numof_partitions(pl);
@@ -342,7 +359,7 @@ int dissect_image(
                 _cleanup_udev_device_unref_ struct udev_device *q;
                 unsigned long long pflags;
                 blkid_partition pp;
-                const char *node, *sysname;
+                const char *node;
                 dev_t qn;
                 int nr;
 
@@ -357,11 +374,7 @@ int dissect_image(
                 if (st.st_rdev == qn)
                         continue;
 
-                /* Filter out weird MMC RPMB partitions, which cannot reasonably be read, see
-                 * https://github.com/systemd/systemd/issues/5806 */
-                sysname = udev_device_get_sysname(q);
-                if (sysname && startswith(sysname, "mmcblk") &&
-                        (endswith(sysname, "rpmb") || endswith(sysname, "boot0" ) || endswith(sysname, "boot1")))
+                if (device_is_mmc_special_partition(q))
                         continue;
 
                 node = udev_device_get_devnode(q);
