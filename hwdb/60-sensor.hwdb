@@ -142,6 +142,12 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni16:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
+# Cytrix (Mytrix)
+#########################################
+sensor:modalias:acpi:*KIOX000A*:dmi:*svn*CytrixTechnology:*pn*Complex11t*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
 # Endless
 #########################################
 sensor:modalias:acpi:ACCE0001*:dmi:*svnEndless*:*pnELT-NL3*
@@ -180,6 +186,16 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
 sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:*:svnTobefilledbyO.E.M.:pnTW891:pvrTobefilledbyO.E.M.:rvnTobefilledbyO.E.M.:rnTW891:rvr1.0:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
+# I.T.Works TW701 7" windows tablet, same hw as Trekstor ST70416-6
+sensor:modalias:acpi:BMA250*:dmi:*:bvritWORKS.G.WI71C.JGBMRB*:*:svnInsyde:pni71c:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
+# iOTA 360
+#########################################
+sensor:modalias:acpi:KIOX000A*:dmi:*svn*iOTA*:*pn*IOTA2210*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
 #########################################
 # Jumper
 #########################################
@@ -214,9 +230,20 @@ sensor:modalias:acpi:BOSC0200:BOSC0200:dmi:*ThinkPadYoga11e3rdGen*
 sensor:modalias:acpi:BMA250E*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-1030:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
+# IdeaPad Miix 310 note this only is for BIOS version (bvr) 1HCN4?WW, which has
+# a portrait LCD panel, versions with bvr 1HCN3?WW have a landscape panel
+sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN4?WW:*:svnLENOVO:pn80SG:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
 # IdeaPad Miix 320
 sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80XF:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+#########################################
+# MSI
+#########################################
+sensor:modalias:acpi:SMO8500*:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnS100:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
 # Peaq
@@ -229,6 +256,10 @@ sensor:modalias:acpi:SMO8500*:dmi:*:svnPEAQ:pnPEAQPMMC1010MD99187:*
 #########################################
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnPIPO:pnW2S:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+# Pipo W4
+sensor:modalias:acpi:SMO8500*:dmi:*:bvrV8L_WIN32_CHIPHD_*_DX:*:rvnAMICorporation:rnAptioCRB:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
 # Ployer
@@ -263,14 +294,7 @@ sensor:modalias:acpi:BMA250*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnTrekStor:pnSurf
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
-# Cytrix (Mytrix)
+# Yours
 #########################################
-sensor:modalias:acpi:*KIOX000A*:dmi:*svn*CytrixTechnology:*pn*Complex11t*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
-
-#########################################
-# iOTA 360
-#########################################
-sensor:modalias:acpi:KIOX000A*:dmi:*svn*iOTA*:*pn*IOTA2210*
+sensor:modalias:acpi:BMA250E*:dmi:*:svnYOURS:pnY8W81:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
