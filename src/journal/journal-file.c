@@ -82,18 +82,27 @@
 
 /* This may be called from a separate thread to prevent blocking the caller for the duration of fsync().
  * As a result we use atomic operations on f->offline_state for inter-thread communications with
- * journal_file_set_offline() and journal_file_set_online(). */
-static void journal_file_set_offline_internal(JournalFile *f) {
+ * journal_file_set_offline() and journal_file_set_online().
+ *
+ * The return value is < 0 if an fsync call returned an error, with the value being the -errno.
+ */
+static int journal_file_set_offline_internal(JournalFile *f) {
+        int status = 0;
+
         assert(f);
         assert(f->fd >= 0);
         assert(f->header);
 
         for (;;) {
                 switch (f->offline_state) {
+                case OFFLINE_JOINED:
+                        log_debug("OFFLINE_JOINED unexpected offline state for journal_file_set_offline_internal()");
+                        return status;
+
                 case OFFLINE_CANCEL:
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_CANCEL, OFFLINE_DONE))
                                 continue;
-                        return;
+                        return status;
 
                 case OFFLINE_AGAIN_FROM_SYNCING:
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_AGAIN_FROM_SYNCING, OFFLINE_SYNCING))
@@ -105,26 +114,45 @@ static void journal_file_set_offline_internal(JournalFile *f) {
                                 continue;
                         break;
 
-                case OFFLINE_SYNCING:
-                        (void) fsync(f->fd);
+                case OFFLINE_SYNCING: {
+                        int r;
+
+                        /* OFFLINE_AGAIN_* can bring us back here, prevent another fsync() if a previous one failed */
+                        if (status >= 0) {
+                                if (fsync(f->fd) < 0)
+                                        status = -errno;
+                        }
+
+                        if (status < 0) {
+                                if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_SYNCING, OFFLINE_FAILED))
+                                        continue;
+                                break;
+                        }
 
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_SYNCING, OFFLINE_OFFLINING))
                                 continue;
 
                         f->header->state = f->archive ? STATE_ARCHIVED : STATE_OFFLINE;
-                        (void) fsync(f->fd);
+
+                        r = fsync(f->fd);
+                        if (r < 0) {
+                                status = -errno;
+                                if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_SYNCING, OFFLINE_FAILED))
+                                        continue;
+                        }
                         break;
+                }
 
                 case OFFLINE_OFFLINING:
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_OFFLINING, OFFLINE_DONE))
                                 continue;
                         _fallthrough_;
-                case OFFLINE_DONE:
-                        return;
 
-                case OFFLINE_JOINED:
-                        log_debug("OFFLINE_JOINED unexpected offline state for journal_file_set_offline_internal()");
-                        return;
+                default:
+                        /* OFFLINE_FAILED, OFFLINE_DONE */
+                        /* XXX: note failed vs. done doesn't currently have any functional difference in the state machine,
+                         * failures are entirely realized via the returned status. */
+                        return status;
                 }
         }
 }
@@ -134,12 +162,11 @@ static void * journal_file_set_offline_thread(void *arg) {
 
         (void) pthread_setname_np(pthread_self(), "journal-offline");
 
-        journal_file_set_offline_internal(f);
-
-        return NULL;
+        return INT_TO_PTR(journal_file_set_offline_internal(f));
 }
 
 static int journal_file_set_offline_thread_join(JournalFile *f) {
+        void *status;
         int r;
 
         assert(f);
@@ -147,7 +174,7 @@ static int journal_file_set_offline_thread_join(JournalFile *f) {
         if (f->offline_state == OFFLINE_JOINED)
                 return 0;
 
-        r = pthread_join(f->offline_thread, NULL);
+        r = pthread_join(f->offline_thread, &status);
         if (r)
                 return -r;
 
@@ -156,7 +183,11 @@ static int journal_file_set_offline_thread_join(JournalFile *f) {
         if (mmap_cache_got_sigbus(f->mmap, f->cache_fd))
                 return -EIO;
 
-        return 0;
+        r = PTR_TO_INT(status);
+        if (r < 0)
+                f->fsync_error = r;
+
+        return r;
 }
 
 /* Trigger a restart if the offline thread is mid-flight in a restartable state. */
@@ -183,6 +214,7 @@ static bool journal_file_set_offline_try_restart(JournalFile *f) {
                         return true;
 
                 default:
+                        /* OFFLINE_JOINED, OFFLINE_FAILED, OFFLINE_DONE */
                         return false;
                 }
         }
@@ -209,6 +241,9 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
 
         if (f->fd < 0 || !f->header)
                 return -EINVAL;
+
+        if (f->fsync_error < 0)
+                return f->fsync_error;
 
         /* An offlining journal is implicitly online and may modify f->header->state,
          * we must also join any potentially lingering offline thread when not online. */
@@ -256,6 +291,25 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
         return 0;
 }
 
+/* Calls fsync on the underlying fd, respecting and maintaining f->fsync_error as needed.
+ * Not intended to be called from the offlining thread as f->fsync_error access is unserialized
+ */
+static int journal_file_fsync(JournalFile *f) {
+        assert(f);
+        assert(f->fd >= 0);
+
+        if (f->fsync_error < 0)
+                return f->fsync_error;
+
+        if (fsync(f->fd) < 0) {
+                f->fsync_error = -errno;
+
+                return -errno;
+        }
+
+        return 0;
+}
+
 static int journal_file_set_online(JournalFile *f) {
         bool wait = true;
 
@@ -266,6 +320,9 @@ static int journal_file_set_online(JournalFile *f) {
 
         if (f->fd < 0 || !f->header)
                 return -EINVAL;
+
+        if (f->fsync_error < 0)
+                return f->fsync_error;
 
         while (wait) {
                 switch (f->offline_state) {
@@ -294,6 +351,7 @@ static int journal_file_set_online(JournalFile *f) {
                         /* Canceled restart from offlining, must wait for offlining to complete however. */
                         _fallthrough_;
                 default: {
+                        /* OFFLINE_OFFLINING, OFFLINE_CANCEL, OFFLINE_FAILED, OFFLINE_DONE */
                         int r;
 
                         r = journal_file_set_offline_thread_join(f);
@@ -315,8 +373,7 @@ static int journal_file_set_online(JournalFile *f) {
 
                 case STATE_OFFLINE:
                         f->header->state = STATE_ONLINE;
-                        (void) fsync(f->fd);
-                        return 0;
+                        return journal_file_fsync(f);
 
                 default:
                         return -EINVAL;
@@ -328,7 +385,7 @@ bool journal_file_is_offlining(JournalFile *f) {
 
         __sync_synchronize();
 
-        if (IN_SET(f->offline_state, OFFLINE_DONE, OFFLINE_JOINED))
+        if (IN_SET(f->offline_state, OFFLINE_FAILED, OFFLINE_DONE, OFFLINE_JOINED))
                 return false;
 
         return true;
@@ -359,7 +416,7 @@ JournalFile* journal_file_close(JournalFile *f) {
                 sd_event_source_unref(f->post_change_timer);
         }
 
-        journal_file_set_offline(f, true);
+        (void) journal_file_set_offline(f, true);
 
         if (f->mmap && f->cache_fd)
                 mmap_cache_free_fd(f->mmap, f->cache_fd);
@@ -461,9 +518,13 @@ static int journal_file_refresh_header(JournalFile *f) {
         f->header->boot_id = boot_id;
 
         r = journal_file_set_online(f);
+        if (r < 0)
+                return r;
 
         /* Sync the online state to disk */
-        (void) fsync(f->fd);
+        r = journal_file_fsync(f);
+        if (r < 0)
+                return r;
 
         /* We likely just created a new file, also sync the directory this file is located in. */
         (void) fsync_directory_of_file(f->fd);
