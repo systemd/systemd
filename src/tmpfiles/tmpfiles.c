@@ -2435,8 +2435,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
 
                 for (n = 0; n < existing->count; n++) {
                         if (!item_compatible(existing->items + n, &i)) {
-                                log_notice("[%s:%u] Duplicate line for path \"%s\", ignoring.",
-                                           fname, line, i.path);
+                                log_debug("[%s:%u] Duplicate line for path \"%s\", ignoring.",
+                                          fname, line, i.path);
                                 return 0;
                         }
                 }
