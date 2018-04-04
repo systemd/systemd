@@ -1825,7 +1825,7 @@ int manager_set_timezone(Manager *m, const char *tz) {
                 return log_oom();
 
         if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
-                log_info("Not connected to system bus, not setting hostname.");
+                log_info("Not connected to system bus, not setting timezone.");
                 return 0;
         }
 
