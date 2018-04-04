@@ -114,8 +114,8 @@ static bool device_is_mmc_special_partition(struct udev_device *d) {
         const char *sysname;
 
         sysname = udev_device_get_sysname(d);
-        return (sysname && startswith(sysname, "mmcblk") &&
-                (endswith(sysname, "rpmb") || endswith(sysname, "boot0") || endswith(sysname, "boot1")));
+        return sysname && startswith(sysname, "mmcblk") &&
+                (endswith(sysname, "rpmb") || endswith(sysname, "boot0") || endswith(sysname, "boot1"));
 }
 
 static bool device_is_block(struct udev_device *d) {
