@@ -1327,7 +1327,7 @@ int unit_load_fragment_and_dropin_optional(Unit *u) {
         /* Same as unit_load_fragment_and_dropin(), but whether
          * something can be loaded or not doesn't matter. */
 
-        /* Load a .service file */
+        /* Load a .service/.socket/.slice/… file */
         r = unit_load_fragment(u);
         if (r < 0)
                 return r;
@@ -4728,9 +4728,8 @@ bool unit_is_pristine(Unit *u) {
         /* Check if the unit already exists or is already around,
          * in a number of different ways. Note that to cater for unit
          * types such as slice, we are generally fine with units that
-         * are marked UNIT_LOADED even though nothing was
-         * actually loaded, as those unit types don't require a file
-         * on disk to validly load. */
+         * are marked UNIT_LOADED even though nothing was actually
+         * loaded, as those unit types don't require a file on disk. */
 
         return !(!IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_LOADED) ||
                  u->fragment_path ||
