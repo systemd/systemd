@@ -948,14 +948,22 @@ static int apply_mount(
 
                         /* Hmm, either the source or the destination are missing. Let's see if we can create the destination, then try again */
 
-                        if (stat(what, &st) >= 0) {
+                        if (stat(what, &st) < 0)
+                                log_debug_errno(errno, "Mount point source '%s' is not accessible: %m", what);
+                        else {
+                                int q;
 
                                 (void) mkdir_parents(mount_entry_path(m), 0755);
 
                                 if (S_ISDIR(st.st_mode))
-                                        try_again = mkdir(mount_entry_path(m), 0755) >= 0;
+                                        q = mkdir(mount_entry_path(m), 0755) < 0 ? -errno : 0;
                                 else
-                                        try_again = touch(mount_entry_path(m)) >= 0;
+                                        q = touch(mount_entry_path(m));
+
+                                if (q < 0)
+                                        log_debug_errno(q, "Failed to create destination mount point node '%s': %m", mount_entry_path(m));
+                                else
+                                        try_again = true;
                         }
                 }
 
