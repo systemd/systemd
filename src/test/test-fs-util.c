@@ -270,17 +270,13 @@ static void test_chase_symlinks(void) {
 
         pfd = chase_symlinks(p, NULL, CHASE_OPEN, NULL);
         if (pfd != -ENOENT) {
-                char procfs[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(pfd) + 1];
                 _cleanup_close_ int fd = -1;
                 sd_id128_t a, b;
 
                 assert_se(pfd >= 0);
 
-                xsprintf(procfs, "/proc/self/fd/%i", pfd);
-
-                fd = open(procfs, O_RDONLY|O_CLOEXEC);
+                fd = fd_reopen(pfd, O_RDONLY|O_CLOEXEC);
                 assert_se(fd >= 0);
-
                 safe_close(pfd);
 
                 assert_se(id128_read_fd(fd, ID128_PLAIN, &a) >= 0);

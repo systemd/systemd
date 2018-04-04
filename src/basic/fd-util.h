@@ -113,3 +113,5 @@ static inline int make_null_stdio(void) {
                 (fd) = -1;                      \
                 _fd_;                           \
         })
+
+int fd_reopen(int fd, int flags);

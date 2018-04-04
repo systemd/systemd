@@ -577,6 +577,10 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
         return r;
 }
 
+static bool noop_root(const char *root) {
+        return isempty(root) || path_equal(root, "/");
+}
+
 static bool safe_transition(const struct stat *a, const struct stat *b) {
         /* Returns true if the transition from a to b is safe, i.e. that we never transition from unprivileged to
          * privileged files or directories. Why bother? So that unprivileged code can't symlink to privileged files
@@ -627,8 +631,18 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * specified path. */
 
         /* A root directory of "/" or "" is identical to none */
-        if (isempty(original_root) || path_equal(original_root, "/"))
+        if (noop_root(original_root))
                 original_root = NULL;
+
+        if (!original_root && !ret && (flags & (CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_OPEN)) == CHASE_OPEN) {
+                /* Shortcut the CHASE_OPEN case if the caller isn't interested in the actual path and has no root set
+                 * and doesn't care about any of the other special features we provide either. */
+                r = open(path, O_PATH|O_CLOEXEC);
+                if (r < 0)
+                        return -errno;
+
+                return r;
+        }
 
         if (original_root) {
                 r = path_make_absolute_cwd(original_root, &root);
@@ -874,6 +888,86 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         return exists;
 }
 
+int chase_symlinks_and_open(
+                const char *path,
+                const char *root,
+                unsigned chase_flags,
+                int open_flags,
+                char **ret_path) {
+
+        _cleanup_close_ int path_fd = -1;
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        if (chase_flags & CHASE_NONEXISTENT)
+                return -EINVAL;
+
+        if (noop_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+                /* Shortcut this call if none of the special features of this call are requested */
+                r = open(path, open_flags);
+                if (r < 0)
+                        return -errno;
+
+                return r;
+        }
+
+        path_fd = chase_symlinks(path, root, chase_flags|CHASE_OPEN, ret_path ? &p : NULL);
+        if (path_fd < 0)
+                return path_fd;
+
+        r = fd_reopen(path_fd, open_flags);
+        if (r < 0)
+                return r;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        return r;
+}
+
+int chase_symlinks_and_opendir(
+                const char *path,
+                const char *root,
+                unsigned chase_flags,
+                char **ret_path,
+                DIR **ret_dir) {
+
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_close_ int path_fd = -1;
+        _cleanup_free_ char *p = NULL;
+        DIR *d;
+
+        if (!ret_dir)
+                return -EINVAL;
+        if (chase_flags & CHASE_NONEXISTENT)
+                return -EINVAL;
+
+        if (noop_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+                /* Shortcut this call if none of the special features of this call are requested */
+                d = opendir(path);
+                if (!d)
+                        return -errno;
+
+                *ret_dir = d;
+                return 0;
+        }
+
+        path_fd = chase_symlinks(path, root, chase_flags|CHASE_OPEN, ret_path ? &p : NULL);
+        if (path_fd < 0)
+                return path_fd;
+
+        xsprintf(procfs_path, "/proc/self/fd/%i", path_fd);
+        d = opendir(procfs_path);
+        if (!d)
+                return -errno;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        *ret_dir = d;
+        return 0;
+}
+
 int access_fd(int fd, int mode) {
         char p[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
         int r;
@@ -881,10 +975,9 @@ int access_fd(int fd, int mode) {
         /* Like access() but operates on an already open fd */
 
         xsprintf(p, "/proc/self/fd/%i", fd);
-
         r = access(p, mode);
         if (r < 0)
-                r = -errno;
+                return -errno;
 
         return r;
 }

@@ -59,8 +59,9 @@
 #define UNIT_FILE_FOLLOW_SYMLINK_MAX 64
 
 typedef enum SearchFlags {
-        SEARCH_LOAD = 1,
-        SEARCH_FOLLOW_CONFIG_SYMLINKS = 2,
+        SEARCH_LOAD                   = 1U << 0,
+        SEARCH_FOLLOW_CONFIG_SYMLINKS = 1U << 1,
+        SEARCH_DROPIN                 = 1U << 2,
 } SearchFlags;
 
 typedef struct {
@@ -1228,6 +1229,7 @@ static int unit_file_load(
                 InstallContext *c,
                 UnitFileInstallInfo *info,
                 const char *path,
+                const char *root_dir,
                 SearchFlags flags) {
 
         const ConfigTableItem items[] = {
@@ -1248,40 +1250,57 @@ static int unit_file_load(
         assert(info);
         assert(path);
 
-        type = unit_name_to_type(info->name);
-        if (unit_name_is_valid(info->name, UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE) &&
-            !unit_type_may_template(type))
-                return log_error_errno(EINVAL, "Unit type %s cannot be templated.", unit_type_to_string(type));
+        if (!(flags & SEARCH_DROPIN)) {
+                /* Loading or checking for the main unit file… */
 
-        if (!(flags & SEARCH_LOAD)) {
-                r = lstat(path, &st);
-                if (r < 0)
+                type = unit_name_to_type(info->name);
+                if (type < 0)
+                        return -EINVAL;
+                if (unit_name_is_valid(info->name, UNIT_NAME_TEMPLATE|UNIT_NAME_INSTANCE) && !unit_type_may_template(type)) {
+                        log_error("Unit type %s cannot be templated.", unit_type_to_string(type));
+                        return -EINVAL;
+                }
+
+                if (!(flags & SEARCH_LOAD)) {
+                        r = lstat(path, &st);
+                        if (r < 0)
+                                return -errno;
+
+                        if (null_or_empty(&st))
+                                info->type = UNIT_FILE_TYPE_MASKED;
+                        else if (S_ISREG(st.st_mode))
+                                info->type = UNIT_FILE_TYPE_REGULAR;
+                        else if (S_ISLNK(st.st_mode))
+                                return -ELOOP;
+                        else if (S_ISDIR(st.st_mode))
+                                return -EISDIR;
+                        else
+                                return -ENOTTY;
+
+                        return 0;
+                }
+
+                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                if (fd < 0)
                         return -errno;
+        } else {
+                /* Operating on a drop-in file. If we aren't supposed to load the unit file drop-ins don't matter, let's hence shortcut this. */
 
-                if (null_or_empty(&st))
-                        info->type = UNIT_FILE_TYPE_MASKED;
-                else if (S_ISREG(st.st_mode))
-                        info->type = UNIT_FILE_TYPE_REGULAR;
-                else if (S_ISLNK(st.st_mode))
-                        return -ELOOP;
-                else if (S_ISDIR(st.st_mode))
-                        return -EISDIR;
-                else
-                        return -ENOTTY;
+                if (!(flags & SEARCH_LOAD))
+                        return 0;
 
-                return 0;
+                fd = chase_symlinks_and_open(path, root_dir, 0, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
+                if (fd < 0)
+                        return fd;
         }
 
-        /* c is only needed if we actually load the file */
-        assert(c);
-
-        fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-        if (fd < 0)
-                return -errno;
         if (fstat(fd, &st) < 0)
                 return -errno;
+
         if (null_or_empty(&st)) {
-                info->type = UNIT_FILE_TYPE_MASKED;
+                if ((flags & SEARCH_DROPIN) == 0)
+                        info->type = UNIT_FILE_TYPE_MASKED;
+
                 return 0;
         }
 
@@ -1294,6 +1313,9 @@ static int unit_file_load(
                 return -errno;
         fd = -1;
 
+        /* c is only needed if we actually load the file (it's referenced from items[] btw, in case you wonder.) */
+        assert(c);
+
         r = config_parse(info->name, path, f,
                          NULL,
                          config_item_table_lookup, items,
@@ -1301,7 +1323,8 @@ static int unit_file_load(
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse %s: %m", info->name);
 
-        info->type = UNIT_FILE_TYPE_REGULAR;
+        if ((flags & SEARCH_DROPIN) == 0)
+                info->type = UNIT_FILE_TYPE_REGULAR;
 
         return
                 (int) strv_length(info->aliases) +
@@ -1319,8 +1342,8 @@ static int unit_file_load_or_readlink(
         _cleanup_free_ char *target = NULL;
         int r;
 
-        r = unit_file_load(c, info, path, flags);
-        if (r != -ELOOP)
+        r = unit_file_load(c, info, path, root_dir, flags);
+        if (r != -ELOOP || (flags & SEARCH_DROPIN))
                 return r;
 
         /* This is a symlink, let's read it. */
@@ -1383,16 +1406,12 @@ static int unit_file_search(
                 const LookupPaths *paths,
                 SearchFlags flags) {
 
+        const char *dropin_dir_name = NULL, *dropin_template_dir_name = NULL;
+        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *template = NULL;
-        _cleanup_strv_free_ char **dirs = NULL;
-        _cleanup_strv_free_ char **files = NULL;
-        const char *dropin_dir_name = NULL;
-        const char *dropin_template_dir_name = NULL;
-
-        char **p;
-        int r;
-        int result;
         bool found_unit = false;
+        int r, result;
+        char **p;
 
         assert(info);
         assert(paths);
@@ -1420,7 +1439,6 @@ static int unit_file_search(
                         return -ENOMEM;
 
                 r = unit_file_load_or_readlink(c, info, path, paths->root_dir, flags);
-
                 if (r >= 0) {
                         info->path = TAKE_PTR(path);
                         result = r;
@@ -1499,7 +1517,7 @@ static int unit_file_search(
                 return log_debug_errno(r, "Failed to get list of conf files: %m");
 
         STRV_FOREACH(p, files) {
-                r = unit_file_load_or_readlink(c, info, *p, paths->root_dir, flags);
+                r = unit_file_load_or_readlink(c, info, *p, paths->root_dir, flags | SEARCH_DROPIN);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to load conf file %s: %m", *p);
         }
