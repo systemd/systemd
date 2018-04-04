@@ -563,7 +563,6 @@ splash_bmp = files('test/splash.bmp')
 # /usr/sbin, /sbin, and fall back to the default from middle column.
 progs = [['quotaon',    '/usr/sbin/quotaon'    ],
          ['quotacheck', '/usr/sbin/quotacheck' ],
-         ['kill',       '/usr/bin/kill'        ],
          ['kmod',       '/usr/bin/kmod'        ],
          ['kexec',      '/usr/sbin/kexec'      ],
          ['sulogin',    '/usr/sbin/sulogin'    ],
