@@ -20,6 +20,8 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "alloc-util.h"
 #include "fd-util.h"
@@ -265,6 +267,8 @@ int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         const test_function_t *test = NULL;
         Manager *m = NULL;
+
+        umask(022);
 
         log_parse_environment();
         log_open();
