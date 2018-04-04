@@ -582,7 +582,7 @@ static bool safe_transition(const struct stat *a, const struct stat *b) {
 int chase_symlinks(const char *path, const char *original_root, unsigned flags, char **ret) {
         _cleanup_free_ char *buffer = NULL, *done = NULL, *root = NULL;
         _cleanup_close_ int fd = -1;
-        unsigned max_follow = 32; /* how many symlinks to follow before giving up and returning ELOOP */
+        unsigned max_follow = CHASE_SYMLINKS_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
         struct stat previous_stat;
         bool exists = true;
         char *todo;

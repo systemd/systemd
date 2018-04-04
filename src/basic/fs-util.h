@@ -78,6 +78,9 @@ enum {
         CHASE_STEP        = 1U << 6,   /* If set, just execute a single step of the normalization */
 };
 
+/* How many iterations to execute before returning -ELOOP */
+#define CHASE_SYMLINKS_MAX 32
+
 int chase_symlinks(const char *path_with_prefix, const char *root, unsigned flags, char **ret);
 
 int chase_symlinks_and_open(const char *path, const char *root, unsigned chase_flags, int open_flags, char **ret_path);
