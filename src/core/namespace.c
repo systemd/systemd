@@ -1066,6 +1066,18 @@ static unsigned namespace_calculate_mounts(
                 (namespace_info_mount_apivfs(root_directory, ns_info) ? ELEMENTSOF(apivfs_table) : 0);
 }
 
+static void normalize_mounts(const char *root_directory, MountEntry *mounts, unsigned *n_mounts) {
+        assert(n_mounts);
+        assert(mounts || *n_mounts == 0);
+
+        qsort_safe(mounts, *n_mounts, sizeof(MountEntry), mount_path_compare);
+
+        drop_duplicates(mounts, n_mounts);
+        drop_outside_root(root_directory, mounts, n_mounts);
+        drop_inaccessible(mounts, n_mounts);
+        drop_nop(mounts, n_mounts);
+}
+
 int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
@@ -1250,12 +1262,7 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                qsort(mounts, n_mounts, sizeof(MountEntry), mount_path_compare);
-
-                drop_duplicates(mounts, &n_mounts);
-                drop_outside_root(root, mounts, &n_mounts);
-                drop_inaccessible(mounts, &n_mounts);
-                drop_nop(mounts, &n_mounts);
+                normalize_mounts(root_directory, mounts, &n_mounts);
         }
 
         if (unshare(CLONE_NEWNS) < 0) {
