@@ -49,12 +49,12 @@ typedef struct write_queue_item {
         int state;
 } write_queue_item;
 
-static void write_queue_item_free(struct write_queue_item *item)
-{
-        assert(item);
+static struct write_queue_item* write_queue_item_free(struct write_queue_item *item) {
+        if (!item)
+                return NULL;
 
         free(item->file);
-        free(item);
+        return mfree(item);
 }
 
 static const char* const rfkill_type_table[NUM_RFKILL_TYPES] = {
