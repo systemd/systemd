@@ -33,6 +33,7 @@
 #include "smack-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "lockfile-util.h"
 #include "udev.h"
 
 static int node_symlink(struct udev_device *dev, const char *node, const char *slink) {
@@ -186,10 +187,19 @@ static void link_update(struct udev_device *dev, const char *slink, bool add) {
         char dirname[UTIL_PATH_SIZE];
         const char *target;
         char buf[UTIL_PATH_SIZE];
+        LockFile lf;
+        int r;
 
         util_path_encode(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
         strscpyl(dirname, sizeof(dirname), "/run/udev/links/", name_enc, NULL);
         strscpyl(filename, sizeof(filename), dirname, "/", udev_device_get_id_filename(dev), NULL);
+
+        mkdir_parents(dirname, 0755);
+        r = make_lock_file_for(dirname, LOCK_EX, &lf);
+        if (r < 0) {
+                log_warning_errno(r, "failed to lock %s", dirname);
+                return;
+        }
 
         if (!add && unlink(filename) == 0)
                 rmdir(dirname);
@@ -220,6 +230,7 @@ static void link_update(struct udev_device *dev, const char *slink, bool add) {
                                 err = -errno;
                 } while (err == -ENOENT);
         }
+        release_lock_file(&lf);
 }
 
 void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old) {
