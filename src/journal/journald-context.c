@@ -439,13 +439,10 @@ static int client_context_read_extra_fields(
         free(c->extra_fields_iovec);
         free(c->extra_fields_data);
 
-        c->extra_fields_iovec = iovec;
+        c->extra_fields_iovec = TAKE_PTR(iovec);
         c->extra_fields_n_iovec = n_iovec;
-        c->extra_fields_data = data;
+        c->extra_fields_data = TAKE_PTR(data);
         c->extra_fields_mtime = timespec_load_nsec(&st.st_mtim);
-
-        iovec = NULL;
-        data = NULL;
 
         return 0;
 }

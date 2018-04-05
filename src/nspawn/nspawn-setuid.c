@@ -243,10 +243,8 @@ int change_uid_gid(const char *user, char **_home) {
         if (setresuid(uid, uid, uid) < 0)
                 return log_error_errno(errno, "setresuid() failed: %m");
 
-        if (_home) {
-                *_home = home;
-                home = NULL;
-        }
+        if (_home)
+                *_home = TAKE_PTR(home);
 
         return 0;
 }

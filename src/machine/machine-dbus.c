@@ -522,8 +522,7 @@ static int container_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
                 if (r < 0)
                         return r;
 
-                *ret = bus;
-                bus = NULL;
+                *ret = TAKE_PTR(bus);
                 break;
         }
 
@@ -647,8 +646,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         } else {
                 if (!path_is_absolute(path))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
-                args = args_wire;
-                args_wire = NULL;
+                args = TAKE_PTR(args_wire);
                 if (strv_isempty(args)) {
                         args = strv_free(args);
 
@@ -1506,8 +1504,7 @@ int machine_send_create_reply(Machine *m, sd_bus_error *error) {
         if (!m->create_message)
                 return 0;
 
-        c = m->create_message;
-        m->create_message = NULL;
+        c = TAKE_PTR(m->create_message);
 
         if (error)
                 return sd_bus_reply_method_error(c, error);

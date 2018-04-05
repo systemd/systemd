@@ -1606,8 +1606,7 @@ int read_line(FILE *f, size_t limit, char **ret) {
         if (ret) {
                 buffer[n] = 0;
 
-                *ret = buffer;
-                buffer = NULL;
+                *ret = TAKE_PTR(buffer);
         }
 
         return (int) count;

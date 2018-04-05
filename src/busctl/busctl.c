@@ -137,8 +137,7 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to bus: %m");
 
-        *ret = bus;
-        bus = NULL;
+        *ret = TAKE_PTR(bus);
 
         return 0;
 }

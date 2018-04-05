@@ -487,13 +487,10 @@ int dns_zone_lookup(DnsZone *z, DnsResourceKey *key, int ifindex, DnsAnswer **re
         if (!ret_tentative && tentative)
                 goto return_empty;
 
-        *ret_answer = answer;
-        answer = NULL;
+        *ret_answer = TAKE_PTR(answer);
 
-        if (ret_soa) {
-                *ret_soa = soa;
-                soa = NULL;
-        }
+        if (ret_soa)
+                *ret_soa = TAKE_PTR(soa);
 
         if (ret_tentative)
                 *ret_tentative = tentative;

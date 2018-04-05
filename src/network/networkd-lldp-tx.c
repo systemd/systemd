@@ -198,10 +198,9 @@ static int lldp_make_packet(
 
         assert(p == (uint8_t*) packet + l);
 
-        *ret = packet;
+        *ret = TAKE_PTR(packet);
         *sz = l;
 
-        packet = NULL;
         return 0;
 }
 

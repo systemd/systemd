@@ -48,8 +48,7 @@ int fdb_entry_new_static(
         if (section) {
                 fdb_entry = hashmap_get(network->fdb_entries_by_section, UINT_TO_PTR(section));
                 if (fdb_entry) {
-                        *ret = fdb_entry;
-                        fdb_entry = NULL;
+                        *ret = TAKE_PTR(fdb_entry);
 
                         return 0;
                 }
@@ -85,8 +84,7 @@ int fdb_entry_new_static(
         }
 
         /* return allocated FDB structure. */
-        *ret = fdb_entry;
-        fdb_entry = NULL;
+        *ret = TAKE_PTR(fdb_entry);
 
         return 0;
 }

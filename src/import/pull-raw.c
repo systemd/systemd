@@ -166,8 +166,7 @@ int raw_pull_new(
         i->glue->on_finished = pull_job_curl_on_finished;
         i->glue->userdata = i;
 
-        *ret = i;
-        i = NULL;
+        *ret = TAKE_PTR(i);
 
         return 0;
 }

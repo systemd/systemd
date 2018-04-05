@@ -42,8 +42,8 @@ int bpf_program_new(uint32_t prog_type, BPFProgram **ret) {
         p->prog_type = prog_type;
         p->kernel_fd = -1;
 
-        *ret = p;
-        p = NULL;
+        *ret = TAKE_PTR(p);
+
         return 0;
 }
 

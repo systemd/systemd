@@ -921,10 +921,9 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!v)
                                 return log_oom();
 
-                        if (!arg_output_fields) {
-                                arg_output_fields = v;
-                                v = NULL;
-                        } else {
+                        if (!arg_output_fields)
+                                arg_output_fields = TAKE_PTR(v);
+                        else {
                                 r = strv_extend_strv(&arg_output_fields, v, true);
                                 if (r < 0)
                                         return log_oom();
@@ -1229,8 +1228,7 @@ static int discover_next_boot(sd_journal *j,
         if (r < 0)
                 return r;
 
-        *ret = next_boot;
-        next_boot = NULL;
+        *ret = TAKE_PTR(next_boot);
 
         return 0;
 }
@@ -1342,8 +1340,7 @@ static int get_boots(
                                 }
                         }
                         LIST_INSERT_AFTER(boot_list, head, tail, current);
-                        tail = current;
-                        current = NULL;
+                        tail = TAKE_PTR(current);
                         count++;
                 }
         }
@@ -1508,8 +1505,8 @@ static int get_possible_units(
                 }
         }
 
-        *units = found;
-        found = NULL;
+        *units = TAKE_PTR(found);
+
         return 0;
 }
 

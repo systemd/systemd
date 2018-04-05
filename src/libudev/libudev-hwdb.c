@@ -73,8 +73,7 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
         }
 
         hwdb->refcount = 1;
-        hwdb->hwdb = hwdb_internal;
-        hwdb_internal = NULL;
+        hwdb->hwdb = TAKE_PTR(hwdb_internal);
 
         udev_list_init(udev, &hwdb->properties_list, true);
 

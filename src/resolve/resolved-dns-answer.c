@@ -442,8 +442,7 @@ int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret) {
         if (r < 0)
                 return r;
 
-        *ret = k;
-        k = NULL;
+        *ret = TAKE_PTR(k);
 
         return 0;
 }
@@ -518,8 +517,7 @@ int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
                 }
 
                 dns_answer_unref(*a);
-                *a = copy;
-                copy = NULL;
+                *a = TAKE_PTR(copy);
 
                 return 1;
         }
@@ -604,8 +602,7 @@ int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rm) {
                 }
 
                 dns_answer_unref(*a);
-                *a = copy;
-                copy = NULL;
+                *a = TAKE_PTR(copy);
 
                 return 1;
         }
@@ -778,8 +775,7 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free) {
                 return r;
 
         dns_answer_unref(*a);
-        *a = n;
-        n = NULL;
+        *a = TAKE_PTR(n);
 
         return 0;
 }

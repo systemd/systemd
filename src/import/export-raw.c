@@ -122,8 +122,7 @@ int raw_export_new(
                         return r;
         }
 
-        *ret = e;
-        e = NULL;
+        *ret = TAKE_PTR(e);
 
         return 0;
 }

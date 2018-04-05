@@ -18,6 +18,7 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include "alloc-util.h"
 #include "set.h"
 
 int set_make(Set **ret, const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS, void *add, ...) {
@@ -55,8 +56,7 @@ int set_make(Set **ret, const struct hash_ops *hash_ops HASHMAP_DEBUG_PARAMS, vo
                 va_end(ap);
         }
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return 0;
 }

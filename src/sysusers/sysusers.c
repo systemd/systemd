@@ -464,10 +464,9 @@ static int write_temporary_passwd(const char *passwd_path, FILE **tmpfile, char 
         if (r < 0)
                 return r;
 
-        *tmpfile = passwd;
-        *tmpfile_path = passwd_tmp;
-        passwd = NULL;
-        passwd_tmp = NULL;
+        *tmpfile = TAKE_PTR(passwd);
+        *tmpfile_path = TAKE_PTR(passwd_tmp);
+
         return 0;
 }
 
@@ -564,10 +563,9 @@ static int write_temporary_shadow(const char *shadow_path, FILE **tmpfile, char 
         if (r < 0)
                 return r;
 
-        *tmpfile = shadow;
-        *tmpfile_path = shadow_tmp;
-        shadow = NULL;
-        shadow_tmp = NULL;
+        *tmpfile = TAKE_PTR(shadow);
+        *tmpfile_path = TAKE_PTR(shadow_tmp);
+
         return 0;
 }
 
@@ -663,10 +661,8 @@ static int write_temporary_group(const char *group_path, FILE **tmpfile, char **
                 return r;
 
         if (group_changed) {
-                *tmpfile = group;
-                *tmpfile_path = group_tmp;
-                group = NULL;
-                group_tmp = NULL;
+                *tmpfile = TAKE_PTR(group);
+                *tmpfile_path = TAKE_PTR(group_tmp);
         }
         return 0;
 }
@@ -737,10 +733,8 @@ static int write_temporary_gshadow(const char * gshadow_path, FILE **tmpfile, ch
                 return r;
 
         if (group_changed) {
-                *tmpfile = gshadow;
-                *tmpfile_path = gshadow_tmp;
-                gshadow = NULL;
-                gshadow_tmp = NULL;
+                *tmpfile = TAKE_PTR(gshadow);
+                *tmpfile_path = TAKE_PTR(gshadow_tmp);
         }
         return 0;
 #else
@@ -1604,8 +1598,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (resolved_id) {
                         if (path_is_absolute(resolved_id)) {
-                                i->uid_path = resolved_id;
-                                resolved_id = NULL;
+                                i->uid_path = TAKE_PTR(resolved_id);
 
                                 path_kill_slashes(i->uid_path);
                         } else {
@@ -1627,14 +1620,9 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         }
                 }
 
-                i->description = description;
-                description = NULL;
-
-                i->home = home;
-                home = NULL;
-
-                i->shell = resolved_shell;
-                resolved_shell = NULL;
+                i->description = TAKE_PTR(description);
+                i->home = TAKE_PTR(home);
+                i->shell = TAKE_PTR(resolved_shell);
 
                 h = users;
                 break;
@@ -1662,8 +1650,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
                 if (resolved_id) {
                         if (path_is_absolute(resolved_id)) {
-                                i->gid_path = resolved_id;
-                                resolved_id = NULL;
+                                i->gid_path = TAKE_PTR(resolved_id);
 
                                 path_kill_slashes(i->gid_path);
                         } else {
@@ -1683,8 +1670,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         }
 
         i->type = action[0];
-        i->name = resolved_name;
-        resolved_name = NULL;
+        i->name = TAKE_PTR(resolved_name);
 
         existing = ordered_hashmap_get(h, i->name);
         if (existing) {

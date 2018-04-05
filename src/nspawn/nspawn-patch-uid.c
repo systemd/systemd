@@ -175,8 +175,7 @@ static int shift_acl(acl_t acl, uid_t shift, acl_t *ret) {
                         return -errno;
         }
 
-        *ret = copy;
-        copy = NULL;
+        *ret = TAKE_PTR(copy);
 
         return !!*ret;
 }

@@ -440,10 +440,8 @@ int dns_synthesize_answer(
 
         if (found) {
 
-                if (ret) {
-                        *ret = answer;
-                        answer = NULL;
-                }
+                if (ret)
+                        *ret = TAKE_PTR(answer);
 
                 return 1;
         } else if (nxdomain)

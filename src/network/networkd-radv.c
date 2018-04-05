@@ -149,8 +149,7 @@ int prefix_new_static(Network *network, const char *filename,
                 if (section_line) {
                         prefix = hashmap_get(network->prefixes_by_section, n);
                         if (prefix) {
-                                *ret = prefix;
-                                prefix = NULL;
+                                *ret = TAKE_PTR(prefix);
 
                                 return 0;
                         }
@@ -162,8 +161,7 @@ int prefix_new_static(Network *network, const char *filename,
                 return r;
 
         if (filename) {
-                prefix->section = n;
-                n = NULL;
+                prefix->section = TAKE_PTR(n);
 
                 r = hashmap_put(network->prefixes_by_section, prefix->section,
                                 prefix);
@@ -175,8 +173,7 @@ int prefix_new_static(Network *network, const char *filename,
         LIST_APPEND(prefixes, network->static_prefixes, prefix);
         network->n_static_prefixes++;
 
-        *ret = prefix;
-        prefix = NULL;
+        *ret = TAKE_PTR(prefix);
 
         return 0;
 }

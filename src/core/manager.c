@@ -800,8 +800,8 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         /* Note that we do not set up the notify fd here. We do that after deserialization,
          * since they might have gotten serialized across the reexec. */
 
-        *_m = m;
-        m = NULL;
+        *_m = TAKE_PTR(m);
+
         return 0;
 }
 
@@ -1894,8 +1894,7 @@ int manager_get_dump_string(Manager *m, char **ret) {
 
         f = safe_fclose(f);
 
-        *ret = dump;
-        dump = NULL;
+        *ret = TAKE_PTR(dump);
 
         return 0;
 }

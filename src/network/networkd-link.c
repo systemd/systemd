@@ -501,8 +501,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return r;
 
-        *ret = link;
-        link = NULL;
+        *ret = TAKE_PTR(link);
 
         return 0;
 }
@@ -2973,8 +2972,7 @@ network_file_fail:
 
                         route->lifetime = lifetime;
                         sd_event_source_unref(route->expire);
-                        route->expire = expire;
-                        expire = NULL;
+                        route->expire = TAKE_PTR(expire);
                 }
         }
 

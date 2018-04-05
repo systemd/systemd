@@ -303,8 +303,7 @@ int manager_new(Manager **ret, char **interfaces, char **ignore, usec_t timeout)
         if (r < 0)
                 return r;
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }

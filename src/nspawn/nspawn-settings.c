@@ -75,8 +75,7 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         if (s->userns_chown >= 0 && s->userns_mode == _USER_NAMESPACE_MODE_INVALID)
                 s->userns_mode = USER_NAMESPACE_NO;
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return 0;
 }

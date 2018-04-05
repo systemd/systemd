@@ -272,8 +272,7 @@ int curl_glue_new(CurlGlue **glue, sd_event *event) {
         if (curl_multi_setopt(g->curl, CURLMOPT_TIMERFUNCTION, curl_glue_timer_callback) != CURLM_OK)
                 return -EINVAL;
 
-        *glue = g;
-        g = NULL;
+        *glue = TAKE_PTR(g);
 
         return 0;
 }

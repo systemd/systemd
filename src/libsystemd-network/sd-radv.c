@@ -51,8 +51,7 @@ _public_ int sd_radv_new(sd_radv **ret) {
 
         LIST_HEAD_INIT(ra->prefixes);
 
-        *ret = ra;
-        ra = NULL;
+        *ret = TAKE_PTR(ra);
 
         return 0;
 }
@@ -670,9 +669,7 @@ _public_ int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
 
         memcpy(opt_rdnss + 1, dns, n_dns * sizeof(struct in6_addr));
 
-        free(ra->rdnss);
-        ra->rdnss = opt_rdnss;
-        opt_rdnss = NULL;
+        free_and_replace(ra->rdnss, opt_rdnss);
 
         ra->n_rdnss = n_dns;
 
@@ -724,9 +721,7 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
                 len -= r;
         }
 
-        free(ra->dnssl);
-        ra->dnssl = opt_dnssl;
-        opt_dnssl = NULL;
+        free_and_replace(ra->dnssl, opt_dnssl);
 
         return 0;
 }
@@ -755,8 +750,7 @@ _public_ int sd_radv_prefix_new(sd_radv_prefix **ret) {
 
         LIST_INIT(prefix, p);
 
-        *ret = p;
-        p = NULL;
+        *ret = TAKE_PTR(p);
 
         return 0;
 }

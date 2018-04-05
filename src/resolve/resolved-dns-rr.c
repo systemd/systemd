@@ -560,8 +560,7 @@ int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const u
         if (!rr->ptr.name)
                 return -ENOMEM;
 
-        *ret = rr;
-        rr = NULL;
+        *ret = TAKE_PTR(rr);
 
         return 0;
 }
@@ -1734,8 +1733,7 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                 break;
         }
 
-        t = copy;
-        copy = NULL;
+        t = TAKE_PTR(copy);
 
         return t;
 }

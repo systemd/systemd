@@ -216,8 +216,7 @@ int khash_dup(khash *h, khash **ret) {
         if (copy->fd < 0)
                 return -errno;
 
-        *ret = copy;
-        copy = NULL;
+        *ret = TAKE_PTR(copy);
 
         return 0;
 }

@@ -76,8 +76,7 @@ int route_new(Route **ret) {
         route->lifetime = USEC_INFINITY;
         route->quickack = -1;
 
-        *ret = route;
-        route = NULL;
+        *ret = TAKE_PTR(route);
 
         return 0;
 }
@@ -98,8 +97,7 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
 
                 route = hashmap_get(network->routes_by_section, n);
                 if (route) {
-                        *ret = route;
-                        route = NULL;
+                        *ret = TAKE_PTR(route);
 
                         return 0;
                 }
@@ -115,8 +113,7 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
         route->protocol = RTPROT_STATIC;
 
         if (filename) {
-                route->section = n;
-                n = NULL;
+                route->section = TAKE_PTR(n);
 
                 r = hashmap_put(network->routes_by_section, route->section, route);
                 if (r < 0)
@@ -127,8 +124,7 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
         LIST_PREPEND(routes, network->static_routes, route);
         network->n_static_routes++;
 
-        *ret = route;
-        route = NULL;
+        *ret = TAKE_PTR(route);
 
         return 0;
 }
@@ -689,8 +685,7 @@ int route_configure(
         }
 
         sd_event_source_unref(route->expire);
-        route->expire = expire;
-        expire = NULL;
+        route->expire = TAKE_PTR(expire);
 
         return 0;
 }

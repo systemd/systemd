@@ -139,8 +139,8 @@ int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret) {
         if (r < 0)
                 return r;
 
-        *ret = u;
-        u = NULL;
+        *ret = TAKE_PTR(u);
+
         return r;
 }
 
@@ -266,13 +266,11 @@ int unit_add_name(Unit *u, const char *text) {
         if (u->type == _UNIT_TYPE_INVALID) {
                 u->type = t;
                 u->id = s;
-                u->instance = i;
+                u->instance = TAKE_PTR(i);
 
                 LIST_PREPEND(units_by_type, u->manager->units_by_type[t], u);
 
                 unit_init(u);
-
-                i = NULL;
         }
 
         s = NULL;

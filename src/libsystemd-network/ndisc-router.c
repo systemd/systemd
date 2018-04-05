@@ -82,8 +82,7 @@ _public_ int sd_ndisc_router_from_raw(sd_ndisc_router **ret, const void *raw, si
         if (r < 0)
                 return r;
 
-        *ret = rt;
-        rt = NULL;
+        *ret = TAKE_PTR(rt);
 
         return r;
 }
@@ -765,8 +764,7 @@ _public_ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret)
                 return 0;
         }
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
 
         return k;
 }

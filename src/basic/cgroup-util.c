@@ -2448,8 +2448,7 @@ int cg_kernel_controllers(Set **ret) {
                         return r;
         }
 
-        *ret = controllers;
-        controllers = NULL;
+        *ret = TAKE_PTR(controllers);
 
         return 0;
 }

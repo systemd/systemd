@@ -159,8 +159,7 @@ static int image_new(
 
         path_kill_slashes(i->path);
 
-        *ret = i;
-        i = NULL;
+        *ret = TAKE_PTR(i);
 
         return 0;
 }

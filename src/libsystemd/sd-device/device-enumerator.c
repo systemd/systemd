@@ -71,8 +71,7 @@ _public_ int sd_device_enumerator_new(sd_device_enumerator **ret) {
         enumerator->n_ref = 1;
         enumerator->type = _DEVICE_ENUMERATION_TYPE_INVALID;
 
-        *ret = enumerator;
-        enumerator = NULL;
+        *ret = TAKE_PTR(enumerator);
 
         return 0;
 }

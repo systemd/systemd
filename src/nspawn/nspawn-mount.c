@@ -282,10 +282,9 @@ int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s) {
         if (!m)
                 return -ENOMEM;
 
-        m->destination = path;
-        m->options = opts;
+        m->destination = TAKE_PTR(path);
+        m->options = TAKE_PTR(opts);
 
-        path = opts = NULL;
         return 0;
 }
 
@@ -341,13 +340,10 @@ int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_o
         if (!m)
                 return -ENOMEM;
 
-        m->destination = destination;
-        m->source = upper;
-        m->lower = lower;
+        m->destination = TAKE_PTR(destination);
+        m->source = TAKE_PTR(upper);
+        m->lower = TAKE_PTR(lower);
         m->read_only = read_only;
-
-        upper = destination = NULL;
-        lower = NULL;
 
         return 0;
 }
@@ -867,8 +863,7 @@ static int get_process_controllers(Set **ret) {
                         return r;
         }
 
-        *ret = controllers;
-        controllers = NULL;
+        *ret = TAKE_PTR(controllers);
 
         return 0;
 }

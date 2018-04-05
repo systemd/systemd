@@ -638,8 +638,7 @@ static int dns_query_synthesize_reply(DnsQuery *q, DnsTransactionState *state) {
 
         dns_query_reset_answer(q);
 
-        q->answer = answer;
-        answer = NULL;
+        q->answer = TAKE_PTR(answer);
         q->answer_rcode = DNS_RCODE_SUCCESS;
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
@@ -668,8 +667,7 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
 
         dns_query_reset_answer(q);
 
-        q->answer = answer;
-        answer = NULL;
+        q->answer = TAKE_PTR(answer);
         q->answer_rcode = DNS_RCODE_SUCCESS;
         q->answer_protocol = dns_synthesize_protocol(q->flags);
         q->answer_family = dns_synthesize_family(q->flags);
@@ -994,12 +992,10 @@ static int dns_query_cname_redirect(DnsQuery *q, const DnsResourceRecord *cname)
         q->flags |= SD_RESOLVED_NO_SEARCH;
 
         dns_question_unref(q->question_idna);
-        q->question_idna = nq_idna;
-        nq_idna = NULL;
+        q->question_idna = TAKE_PTR(nq_idna);
 
         dns_question_unref(q->question_utf8);
-        q->question_utf8 = nq_utf8;
-        nq_utf8 = NULL;
+        q->question_utf8 = TAKE_PTR(nq_utf8);
 
         dns_query_free_candidates(q);
         dns_query_reset_answer(q);

@@ -290,8 +290,7 @@ static int bus_timer_set_transient_property(
                                         return -ENOMEM;
 
                                 v->base = b;
-                                v->calendar_spec = c;
-                                c = NULL;
+                                v->calendar_spec = TAKE_PTR(c);
 
                                 LIST_PREPEND(value, t->values, v);
                         }
@@ -377,8 +376,7 @@ static int bus_timer_set_transient_property(
                                 return -ENOMEM;
 
                         v->base = TIMER_CALENDAR;
-                        v->calendar_spec = c;
-                        c = NULL;
+                        v->calendar_spec = TAKE_PTR(c);
 
                         LIST_PREPEND(value, t->values, v);
                 }

@@ -319,10 +319,9 @@ static int save_state_queue(
         if (!item)
                 return -ENOMEM;
 
-        item->file = state_file;
+        item->file = TAKE_PTR(state_file);
         item->rfkill_idx = event->idx;
         item->state = event->soft;
-        state_file = NULL;
 
         LIST_APPEND(queue, *write_queue, item);
 

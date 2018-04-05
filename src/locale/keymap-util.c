@@ -666,8 +666,7 @@ int find_language_fallback(const char *lang, char **language) {
 
                 if (streq(lang, a[0])) {
                         assert(strv_length(a) == 2);
-                        *language = a[1];
-                        a[1] = NULL;
+                        *language = TAKE_PTR(a[1]);
                         return 1;
                 }
         }

@@ -427,16 +427,12 @@ int efi_get_boot_option(
                 }
         }
 
-        if (title) {
-                *title = s;
-                s = NULL;
-        }
+        if (title)
+                *title = TAKE_PTR(s);
         if (part_uuid)
                 *part_uuid = p_uuid;
-        if (path) {
-                *path = p;
-                p = NULL;
-        }
+        if (path)
+                *path = TAKE_PTR(p);
         if (active)
                 *active = !!(header->attr & LOAD_OPTION_ACTIVE);
 
@@ -628,8 +624,8 @@ int efi_get_boot_options(uint16_t **options) {
 
         qsort_safe(list, count, sizeof(uint16_t), cmp_uint16);
 
-        *options = list;
-        list = NULL;
+        *options = TAKE_PTR(list);
+
         return count;
 }
 

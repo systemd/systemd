@@ -809,9 +809,8 @@ static int enumerate_sysv(const LookupPaths *lp, Hashmap *all_services) {
                                 return log_oom();
 
                         service->sysv_start_priority = -1;
-                        service->name = name;
-                        service->path = fpath;
-                        name = fpath = NULL;
+                        service->name = TAKE_PTR(name);
+                        service->path = TAKE_PTR(fpath);
 
                         r = hashmap_put(all_services, service->name, service);
                         if (r < 0)

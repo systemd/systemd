@@ -311,8 +311,7 @@ static int bpf_firewall_compile_bpf(
                         return r;
         } while (false);
 
-        *ret = p;
-        p = NULL;
+        *ret = TAKE_PTR(p);
 
         return 0;
 }

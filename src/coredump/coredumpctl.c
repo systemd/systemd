@@ -146,8 +146,7 @@ static int acquire_journal(sd_journal **ret, char **matches) {
                 log_debug("Journal filter: %s", filter);
         }
 
-        *ret = j;
-        j = NULL;
+        *ret = TAKE_PTR(j);
 
         return 0;
 }

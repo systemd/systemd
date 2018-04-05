@@ -629,8 +629,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
 
         remote->socket = s;
 
-        *p = remote;
-        remote = NULL;
+        *p = TAKE_PTR(remote);
 
         return 1;
 }
@@ -2365,8 +2364,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 cfd = -1; /* We passed ownership of the fd to the service now. Forget it here. */
                 s->n_connections++;
 
-                service->peer = p; /* Pass ownership of the peer reference */
-                p = NULL;
+                service->peer = TAKE_PTR(p); /* Pass ownership of the peer reference */
 
                 r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, &error, NULL);
                 if (r < 0) {

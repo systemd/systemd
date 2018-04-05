@@ -98,8 +98,7 @@ int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
         m->hdr->nlmsg_len = size;
         m->hdr->nlmsg_type = type;
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }

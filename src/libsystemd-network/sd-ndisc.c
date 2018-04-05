@@ -166,8 +166,7 @@ _public_ int sd_ndisc_new(sd_ndisc **ret) {
         nd->n_ref = 1;
         nd->fd = -1;
 
-        *ret = nd;
-        nd = NULL;
+        *ret = TAKE_PTR(nd);
 
         return 0;
 }

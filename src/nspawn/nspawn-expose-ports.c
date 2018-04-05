@@ -239,8 +239,7 @@ int expose_port_watch_rtnl(
         if (r < 0)
                 return log_error_errno(r, "Failed to add to even loop: %m");
 
-        *ret = rtnl;
-        rtnl = NULL;
+        *ret = TAKE_PTR(rtnl);
 
         return 0;
 }

@@ -385,10 +385,8 @@ int show_cgroup_get_path_and_warn(
                         return log_oom();
 
                 *ret = t;
-        } else {
-                *ret = root;
-                root = NULL;
-        }
+        } else
+                *ret = TAKE_PTR(root);
 
         return 0;
 }

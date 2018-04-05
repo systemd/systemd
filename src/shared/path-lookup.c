@@ -302,11 +302,10 @@ static int acquire_generator_dirs(
         if (!z)
                 return -ENOMEM;
 
-        *generator = x;
-        *generator_early = y;
-        *generator_late = z;
+        *generator = TAKE_PTR(x);
+        *generator_early = TAKE_PTR(y);
+        *generator_late = TAKE_PTR(z);
 
-        x = y = z = NULL;
         return 0;
 }
 
@@ -381,9 +380,8 @@ static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **ru
         if (!a || !b)
                 return -ENOMEM;
 
-        *persistent = a;
-        *runtime = b;
-        a = b = NULL;
+        *persistent = TAKE_PTR(a);
+        *runtime = TAKE_PTR(b);
 
         return 0;
 }
@@ -647,12 +645,10 @@ int lookup_paths_init(
                         r = strv_extend_strv(&paths, add, true);
                         if (r < 0)
                                 return r;
-                } else {
+                } else
                         /* Small optimization: if paths is NULL (and it usually is), we can simply assign 'add' to it,
                          * and don't have to copy anything */
-                        paths = add;
-                        add = NULL;
-                }
+                        paths = TAKE_PTR(add);
         }
 
         r = patch_root_prefix(&persistent_config, root);
@@ -691,27 +687,20 @@ int lookup_paths_init(
         p->search_path = strv_uniq(paths);
         paths = NULL;
 
-        p->persistent_config = persistent_config;
-        p->runtime_config = runtime_config;
-        persistent_config = runtime_config = NULL;
+        p->persistent_config = TAKE_PTR(persistent_config);
+        p->runtime_config = TAKE_PTR(runtime_config);
 
-        p->generator = generator;
-        p->generator_early = generator_early;
-        p->generator_late = generator_late;
-        generator = generator_early = generator_late = NULL;
+        p->generator = TAKE_PTR(generator);
+        p->generator_early = TAKE_PTR(generator_early);
+        p->generator_late = TAKE_PTR(generator_late);
 
-        p->transient = transient;
-        transient = NULL;
+        p->transient = TAKE_PTR(transient);
 
-        p->persistent_control = persistent_control;
-        p->runtime_control = runtime_control;
-        persistent_control = runtime_control = NULL;
+        p->persistent_control = TAKE_PTR(persistent_control);
+        p->runtime_control = TAKE_PTR(runtime_control);
 
-        p->root_dir = root;
-        root = NULL;
-
-        p->temporary_dir = tempdir;
-        tempdir = NULL;
+        p->root_dir = TAKE_PTR(root);
+        p->temporary_dir = TAKE_PTR(tempdir);
 
         return 0;
 }

@@ -524,8 +524,7 @@ static int synthesize_connected_signal(sd_bus *bus) {
 
         /* Insert at the very front */
         memmove(bus->rqueue + 1, bus->rqueue, sizeof(sd_bus_message*) * bus->rqueue_size);
-        bus->rqueue[0] = m;
-        m = NULL;
+        bus->rqueue[0] = TAKE_PTR(m);
         bus->rqueue_size++;
 
         return 0;
@@ -2775,8 +2774,8 @@ static int process_running(sd_bus *bus, bool hint_priority, int64_t priority, sd
                 if (r < 0)
                         return r;
 
-                *ret = m;
-                m = NULL;
+                *ret = TAKE_PTR(m);
+
                 return 1;
         }
 
@@ -2935,10 +2934,8 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         bus->exit_triggered = true;
         (void) bus_exit_now(bus);
 
-        if (ret) {
-                *ret = m;
-                m = NULL;
-        }
+        if (ret)
+                *ret = TAKE_PTR(m);
 
         r = 1;
 

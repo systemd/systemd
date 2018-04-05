@@ -299,7 +299,7 @@ int journal_directory_vacuum(
                         goto finish;
                 }
 
-                list[n_list].filename = p;
+                list[n_list].filename = TAKE_PTR(p);
                 list[n_list].usage = size;
                 list[n_list].seqnum = seqnum;
                 list[n_list].realtime = realtime;
@@ -307,7 +307,6 @@ int journal_directory_vacuum(
                 list[n_list].have_seqnum = have_seqnum;
                 n_list++;
 
-                p = NULL;
                 sum += size;
         }
 

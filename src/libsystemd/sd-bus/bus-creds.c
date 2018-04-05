@@ -1344,7 +1344,7 @@ int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret) 
         if (r < 0)
                 return r;
 
-        *ret = n;
-        n = NULL;
+        *ret = TAKE_PTR(n);
+
         return 0;
 }

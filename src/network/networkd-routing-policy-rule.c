@@ -406,8 +406,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
 
         rule = hashmap_get(network->rules_by_section, n);
         if (rule) {
-                *ret = rule;
-                rule = NULL;
+                *ret = TAKE_PTR(rule);
 
                 return 0;
         }
@@ -427,8 +426,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         LIST_APPEND(rules, network->rules, rule);
         network->n_rules++;
 
-        *ret = rule;
-        rule = NULL;
+        *ret = TAKE_PTR(rule);
 
         return 0;
 }

@@ -681,8 +681,7 @@ int dns_scope_make_reply_packet(
                 return r;
         DNS_PACKET_HEADER(p)->arcount = htobe16(dns_answer_size(soa));
 
-        *ret = p;
-        p = NULL;
+        *ret = TAKE_PTR(p);
 
         return 0;
 }
@@ -866,8 +865,7 @@ static int dns_scope_make_conflict_packet(
         if (r < 0)
                 return r;
 
-        *ret = p;
-        p = NULL;
+        *ret = TAKE_PTR(p);
 
         return 0;
 }

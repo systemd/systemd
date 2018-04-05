@@ -125,8 +125,7 @@ int unhexmem(const char *p, size_t l, void **mem, size_t *len) {
 
         *z = 0;
 
-        *mem = r;
-        r = NULL;
+        *mem = TAKE_PTR(r);
         *len = (l + 1) / 2;
 
         return 0;
@@ -482,8 +481,7 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
 
         *z = 0;
 
-        *mem = r;
-        r = NULL;
+        *mem = TAKE_PTR(r);
         *_len = len;
 
         return 0;
@@ -751,8 +749,7 @@ int unbase64mem(const char *p, size_t l, void **ret, size_t *ret_size) {
         if (ret_size)
                 *ret_size = (size_t) (z - buf);
 
-        *ret = buf;
-        buf = NULL;
+        *ret = TAKE_PTR(buf);
 
         return 0;
 }

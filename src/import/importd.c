@@ -187,8 +187,7 @@ static int transfer_new(Manager *m, Transfer **ret) {
         t->manager = m;
         t->id = id;
 
-        *ret = t;
-        t = NULL;
+        *ret = TAKE_PTR(t);
 
         return 0;
 }
@@ -639,8 +638,7 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }

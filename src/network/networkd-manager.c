@@ -1444,8 +1444,7 @@ int manager_new(Manager **ret, sd_event *event) {
 
         (void) routing_policy_load_rules(m->state_file, &m->rules_saved);
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }

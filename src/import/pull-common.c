@@ -258,8 +258,7 @@ int pull_make_auxiliary_job(
         job->on_finished = on_finished;
         job->compressed_max = job->uncompressed_max = 1ULL * 1024ULL * 1024ULL;
 
-        *ret = job;
-        job = NULL;
+        *ret = TAKE_PTR(job);
 
         return 0;
 }

@@ -278,8 +278,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
                         return r;
         }
 
-        *ret = n;
-        n = NULL;
+        *ret = TAKE_PTR(n);
 
         return 1;
 }
@@ -348,8 +347,7 @@ int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bo
                         return r;
         }
 
-        *ret = q;
-        q = NULL;
+        *ret = TAKE_PTR(q);
 
         return 0;
 }
@@ -384,8 +382,7 @@ int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_
         if (r < 0)
                 return r;
 
-        *ret = q;
-        q = NULL;
+        *ret = TAKE_PTR(q);
 
         return 0;
 }
@@ -468,8 +465,7 @@ int dns_question_new_service(
                         return r;
         }
 
-        *ret = q;
-        q = NULL;
+        *ret = TAKE_PTR(q);
 
         return 0;
 }

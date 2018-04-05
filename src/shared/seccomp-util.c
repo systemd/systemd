@@ -1613,8 +1613,7 @@ int parse_syscall_archs(char **l, Set **archs) {
                         return -ENOMEM;
         }
 
-        *archs = _archs;
-        _archs = NULL;
+        *archs = TAKE_PTR(_archs);
 
         return 0;
 }

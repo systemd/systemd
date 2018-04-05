@@ -1805,8 +1805,7 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
         if (r < 0)
                 return r;
 
-        *ret = d;
-        d = NULL;
+        *ret = TAKE_PTR(d);
 
         return 0;
 }
