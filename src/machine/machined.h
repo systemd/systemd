@@ -43,17 +43,7 @@ struct Manager {
         unsigned n_operations;
 };
 
-Manager *manager_new(void);
-void manager_free(Manager *m);
-
 int manager_add_machine(Manager *m, const char *name, Machine **_machine);
-int manager_enumerate_machines(Manager *m);
-
-int manager_startup(Manager *m);
-int manager_run(Manager *m);
-
-void manager_gc(Manager *m, bool drop_not_started);
-
 int manager_get_machine_by_pid(Manager *m, pid_t pid, Machine **machine);
 
 extern const sd_bus_vtable manager_vtable[];

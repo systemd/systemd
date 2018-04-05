@@ -2638,12 +2638,14 @@ static int set_limit(int argc, char *argv[], void *userdata) {
         uint64_t limit;
         int r;
 
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
         if (STR_IN_SET(argv[argc-1], "-", "none", "infinity"))
                 limit = (uint64_t) -1;
         else {
                 r = parse_size(argv[argc-1], 1024, &limit);
                 if (r < 0)
-                        return log_error("Failed to parse size: %s", argv[argc-1]);
+                        return log_error_errno(r, "Failed to parse size: %s", argv[argc-1]);
         }
 
         if (argc > 2)
@@ -2670,10 +2672,8 @@ static int set_limit(int argc, char *argv[], void *userdata) {
                                 NULL,
                                 "t", limit);
 
-        if (r < 0) {
-                log_error("Could not set limit: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Could not set limit: %s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -2687,6 +2687,8 @@ static int clean_images(int argc, char *argv[], void *userdata) {
         const char *name;
         unsigned c = 0;
         int r;
+
+        polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -3139,7 +3141,7 @@ int main(int argc, char*argv[]) {
                 goto finish;
         }
 
-        sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
+        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
         r = machinectl_main(argc, argv, bus);
 
