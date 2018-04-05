@@ -1289,7 +1289,7 @@ static int write_one_file(Item *i, const char *path) {
 
         fd = safe_close(fd);
 
-done:
+ done:
         if (stat(path, &st) < 0)
                 return log_error_errno(errno, "stat(%s) failed: %m", path);
 
@@ -2725,7 +2725,7 @@ static int read_config_files(char **config_dirs, char **args, bool *invalid_conf
 }
 
 int main(int argc, char *argv[]) {
-        int r, k;
+        int r, k, r_process = 0;
         ItemArray *a;
         Iterator iterator;
         _cleanup_strv_free_ char **config_dirs = NULL;
@@ -2772,7 +2772,7 @@ int main(int argc, char *argv[]) {
 
                 t = strv_join(config_dirs, "\n\t");
                 if (t)
-                        log_debug("Looking for configuration files in (higher priority first:\n\t%s", t);
+                        log_debug("Looking for configuration files in (higher priority first):\n\t%s", t);
         }
 
         /* If command line arguments are specified along with --replace, read all
@@ -2788,22 +2788,20 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-
-
         /* The non-globbing ones usually create things, hence we apply
          * them first */
         ORDERED_HASHMAP_FOREACH(a, items, iterator) {
                 k = process_item_array(a);
-                if (k < 0 && r == 0)
-                        r = k;
+                if (k < 0 && r_process == 0)
+                        r_process = k;
         }
 
         /* The globbing ones usually alter things, hence we apply them
          * second. */
         ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
                 k = process_item_array(a);
-                if (k < 0 && r == 0)
-                        r = k;
+                if (k < 0 && r_process == 0)
+                        r_process = k;
         }
 
 finish:
@@ -2818,10 +2816,12 @@ finish:
 
         mac_selinux_finish();
 
-        if (r < 0)
+        if (r < 0 || ERRNO_IS_RESOURCE(-r_process))
                 return EXIT_FAILURE;
         else if (invalid_config)
                 return EX_DATAERR;
+        else if (r_process < 0)
+                return EX_CANTCREAT;
         else
                 return EXIT_SUCCESS;
 }
