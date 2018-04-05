@@ -115,8 +115,7 @@ int sd_ipv4ll_new(sd_ipv4ll **ret) {
         if (r < 0)
                 return r;
 
-        *ret = ll;
-        ll = NULL;
+        *ret = TAKE_PTR(ll);
 
         return 0;
 }

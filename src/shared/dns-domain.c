@@ -408,10 +408,9 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
 
         if (a)
                 p = a;
-        else if (b) {
-                p = b;
-                b = NULL;
-        } else
+        else if (b)
+                p = TAKE_PTR(b);
+        else
                 goto finish;
 
         for (;;) {
@@ -426,8 +425,7 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
 
                         if (b) {
                                 /* Now continue with the second string, if there is one */
-                                p = b;
-                                b = NULL;
+                                p = TAKE_PTR(b);
                                 continue;
                         }
 
@@ -477,8 +475,7 @@ finish:
                 }
 
                 ret[n] = 0;
-                *_ret = ret;
-                ret = NULL;
+                *_ret = TAKE_PTR(ret);
         }
 
         return 0;
@@ -675,8 +672,8 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
 
                         /* Not the same, let's jump back, and try with the next label again */
                         s = old_suffix;
-                        n = saved_after;
-                        saved_after = saved_before = NULL;
+                        n = TAKE_PTR(saved_after);
+                        saved_before = NULL;
                 }
         }
 
@@ -1111,20 +1108,14 @@ finish:
         if (r < 0)
                 return r;
 
-        if (_domain) {
-                *_domain = domain;
-                domain = NULL;
-        }
+        if (_domain)
+                *_domain = TAKE_PTR(domain);
 
-        if (_type) {
-                *_type = type;
-                type = NULL;
-        }
+        if (_type)
+                *_type = TAKE_PTR(type);
 
-        if (_name) {
-                *_name = name;
-                name = NULL;
-        }
+        if (_name)
+                *_name = TAKE_PTR(name);
 
         return 0;
 }
@@ -1307,8 +1298,8 @@ int dns_name_apply_idna(const char *name, char **ret) {
                         }
                 }
 
-                *ret = t;
-                t = NULL;
+                *ret = TAKE_PTR(t);
+
                 return 1; /* *ret has been written */
         }
 
@@ -1365,8 +1356,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
                 return -ENOMEM;
 
         buf[n] = 0;
-        *ret = buf;
-        buf = NULL;
+        *ret = TAKE_PTR(buf);
 
         return 1;
 #else

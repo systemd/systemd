@@ -659,10 +659,8 @@ static void device_shutdown(Manager *m) {
 
         m->udev_event_source = sd_event_source_unref(m->udev_event_source);
 
-        if (m->udev_monitor) {
-                udev_monitor_unref(m->udev_monitor);
-                m->udev_monitor = NULL;
-        }
+        if (m->udev_monitor)
+                m->udev_monitor = udev_monitor_unref(m->udev_monitor);
 
         m->devices_by_sysfs = hashmap_free(m->devices_by_sysfs);
 }

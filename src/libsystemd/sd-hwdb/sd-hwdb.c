@@ -373,8 +373,7 @@ _public_ int sd_hwdb_new(sd_hwdb **ret) {
         log_debug("strings           %8"PRIu64" bytes", le64toh(hwdb->head->strings_len));
         log_debug("nodes             %8"PRIu64" bytes", le64toh(hwdb->head->nodes_len));
 
-        *ret = hwdb;
-        hwdb = NULL;
+        *ret = TAKE_PTR(hwdb);
 
         return 0;
 }

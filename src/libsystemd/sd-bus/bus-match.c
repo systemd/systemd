@@ -903,11 +903,10 @@ int bus_match_parse(
                 }
 
                 components[n_components].type = t;
-                components[n_components].value_str = value;
+                components[n_components].value_str = TAKE_PTR(value);
                 components[n_components].value_u8 = u;
                 n_components++;
 
-                value = NULL;
 
                 if (q[quoted] == 0)
                         break;

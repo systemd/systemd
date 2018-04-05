@@ -171,8 +171,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
         assert(n == size);
         qsort_safe(list, size, sizeof(DnsResourceRecord*), mdns_rr_compare);
 
-        *ret_rrs = list;
-        list = NULL;
+        *ret_rrs = TAKE_PTR(list);
 
         return size;
 }

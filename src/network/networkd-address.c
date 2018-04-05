@@ -48,8 +48,7 @@ int address_new(Address **ret) {
         address->cinfo.ifa_prefered = CACHE_INFO_INFINITY_LIFE_TIME;
         address->cinfo.ifa_valid = CACHE_INFO_INFINITY_LIFE_TIME;
 
-        *ret = address;
-        address = NULL;
+        *ret = TAKE_PTR(address);
 
         return 0;
 }
@@ -70,8 +69,7 @@ int address_new_static(Network *network, const char *filename, unsigned section_
 
                 address = hashmap_get(network->addresses_by_section, n);
                 if (address) {
-                        *ret = address;
-                        address = NULL;
+                        *ret = TAKE_PTR(address);
 
                         return 0;
                 }
@@ -85,8 +83,7 @@ int address_new_static(Network *network, const char *filename, unsigned section_
                 return r;
 
         if (filename) {
-                address->section = n;
-                n = NULL;
+                address->section = TAKE_PTR(n);
 
                 r = hashmap_put(network->addresses_by_section, address->section, address);
                 if (r < 0)
@@ -97,8 +94,7 @@ int address_new_static(Network *network, const char *filename, unsigned section_
         LIST_APPEND(addresses, network->static_addresses, address);
         network->n_static_addresses++;
 
-        *ret = address;
-        address = NULL;
+        *ret = TAKE_PTR(address);
 
         return 0;
 }
@@ -541,8 +537,7 @@ static int address_acquire(Link *link, Address *original, Address **ret) {
 
         LIST_PREPEND(addresses, link->pool_addresses, na);
 
-        *ret = na;
-        na = NULL;
+        *ret = TAKE_PTR(na);
 
         return 0;
 }

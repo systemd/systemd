@@ -111,10 +111,8 @@ int parse_cpu_set_internal(
         }
 
         /* On success, sets *cpu_set and returns ncpus for the system. */
-        if (c) {
-                *cpu_set = c;
-                c = NULL;
-        }
+        if (c)
+                *cpu_set = TAKE_PTR(c);
 
         return (int) ncpus;
 }

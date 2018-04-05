@@ -1939,8 +1939,7 @@ int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t)
         if (r < 0)
                 return r;
 
-        f->post_change_timer = timer;
-        timer = NULL;
+        f->post_change_timer = TAKE_PTR(timer);
         f->post_change_timer_period = t;
 
         return r;

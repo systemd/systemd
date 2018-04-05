@@ -581,8 +581,7 @@ int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata)
         if (!j->url)
                 return -ENOMEM;
 
-        *ret = j;
-        j = NULL;
+        *ret = TAKE_PTR(j);
 
         return 0;
 }

@@ -1757,9 +1757,8 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
                 if (!GREEDY_REALLOC(pass_env, n_bufsize, n_env + 2))
                         return -ENOMEM;
 
-                pass_env[n_env++] = x;
+                pass_env[n_env++] = TAKE_PTR(x);
                 pass_env[n_env] = NULL;
-                x = NULL;
         }
 
         *ret = TAKE_PTR(pass_env);

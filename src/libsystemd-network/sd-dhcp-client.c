@@ -682,8 +682,7 @@ static int client_message_init(
 
         *_optlen = optlen;
         *_optoffset = optoffset;
-        *ret = packet;
-        packet = NULL;
+        *ret = TAKE_PTR(packet);
 
         return 0;
 }
@@ -1288,8 +1287,7 @@ static int client_handle_offer(sd_dhcp_client *client, DHCPMessage *offer, size_
         }
 
         sd_dhcp_lease_unref(client->lease);
-        client->lease = lease;
-        lease = NULL;
+        client->lease = TAKE_PTR(lease);
 
         log_dhcp_client(client, "OFFER");
 
@@ -1370,8 +1368,7 @@ static int client_handle_ack(sd_dhcp_client *client, DHCPMessage *ack, size_t le
                 client->lease = sd_dhcp_lease_unref(client->lease);
         }
 
-        client->lease = lease;
-        lease = NULL;
+        client->lease = TAKE_PTR(lease);
 
         log_dhcp_client(client, "ACK");
 
@@ -1966,8 +1963,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
         if (!client->req_opts)
                 return -ENOMEM;
 
-        *ret = client;
-        client = NULL;
+        *ret = TAKE_PTR(client);
 
         return 0;
 }

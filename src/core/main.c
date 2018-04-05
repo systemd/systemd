@@ -1131,11 +1131,8 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
         if (r < 0)
                 return log_error_errno(r, "Failed to disable O_CLOEXEC for serialization fds: %m");
 
-        *_f = f;
-        *_fds = fds;
-
-        f = NULL;
-        fds = NULL;
+        *_f = TAKE_PTR(f);
+        *_fds = TAKE_PTR(fds);
 
         return 0;
 }

@@ -100,8 +100,8 @@ int user_new(User **out, Manager *m, uid_t uid, gid_t gid, const char *name) {
         if (r < 0)
                 return r;
 
-        *out = u;
-        u = NULL;
+        *out = TAKE_PTR(u);
+
         return 0;
 }
 

@@ -62,8 +62,7 @@ static int sd_netlink_new(sd_netlink **ret) {
          * responses with notifications from the kernel */
         rtnl->serial = 1;
 
-        *ret = rtnl;
-        rtnl = NULL;
+        *ret = TAKE_PTR(rtnl);
 
         return 0;
 }
@@ -90,8 +89,7 @@ int sd_netlink_new_from_netlink(sd_netlink **ret, int fd) {
 
         rtnl->fd = fd;
 
-        *ret = rtnl;
-        rtnl = NULL;
+        *ret = TAKE_PTR(rtnl);
 
         return 0;
 }
@@ -133,8 +131,7 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
                 return r;
         }
 
-        *ret = rtnl;
-        rtnl = NULL;
+        *ret = TAKE_PTR(rtnl);
 
         return 0;
 }
@@ -425,8 +422,7 @@ static int process_running(sd_netlink *rtnl, sd_netlink_message **ret) {
         }
 
         if (ret) {
-                *ret = m;
-                m = NULL;
+                *ret = TAKE_PTR(m);
 
                 return 1;
         }
@@ -669,10 +665,8 @@ int sd_netlink_call(sd_netlink *rtnl,
                                         return 0;
                                 }
 
-                                if (ret) {
-                                        *ret = incoming;
-                                        incoming = NULL;
-                                }
+                                if (ret)
+                                        *ret = TAKE_PTR(incoming);
 
                                 return 1;
                         }

@@ -1235,8 +1235,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         return r;
         }
 
-        *ret = lease;
-        lease = NULL;
+        *ret = TAKE_PTR(lease);
 
         return 0;
 }

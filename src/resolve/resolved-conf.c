@@ -337,10 +337,8 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
                 r = split_pair(word, "=", &key, &value);
                 if (r == -ENOMEM)
                         return log_oom();
-                if (r == -EINVAL) {
-                        key = word;
-                        word = NULL;
-                }
+                if (r == -EINVAL)
+                        key = TAKE_PTR(word);
 
                 if (!ascii_is_valid(key)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid syntax, ignoring: %s", key);

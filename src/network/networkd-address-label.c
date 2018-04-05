@@ -36,8 +36,7 @@ int address_label_new(AddressLabel **ret) {
         if (!addrlabel)
                 return -ENOMEM;
 
-        *ret = addrlabel;
-        addrlabel = NULL;
+        *ret = TAKE_PTR(addrlabel);
 
         return 0;
 }
@@ -75,8 +74,7 @@ static int address_label_new_static(Network *network, const char *filename, unsi
 
         label = hashmap_get(network->address_labels_by_section, n);
         if (label) {
-                *ret = label;
-                label = NULL;
+                *ret = TAKE_PTR(label);
 
                 return 0;
         }
@@ -85,8 +83,7 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         if (r < 0)
                 return r;
 
-        label->section = n;
-        n = NULL;
+        label->section = TAKE_PTR(n);
 
         r = hashmap_put(network->address_labels_by_section, label->section, label);
         if (r < 0)
@@ -96,8 +93,7 @@ static int address_label_new_static(Network *network, const char *filename, unsi
         LIST_APPEND(labels, network->address_labels, label);
         network->n_address_labels++;
 
-        *ret = label;
-        label = NULL;
+        *ret = TAKE_PTR(label);
 
         return 0;
 }

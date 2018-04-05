@@ -210,8 +210,7 @@ static int acquire_link_info_strv(sd_netlink *rtnl, char **l, LinkInfo **ret) {
 
         qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
 
-        *ret = links;
-        links = NULL;
+        *ret = TAKE_PTR(links);
 
         return (int) c;
 }
@@ -251,8 +250,7 @@ static int acquire_link_info_all(sd_netlink *rtnl, LinkInfo **ret) {
 
         qsort_safe(links, c, sizeof(LinkInfo), link_info_compare);
 
-        *ret = links;
-        links = NULL;
+        *ret = TAKE_PTR(links);
 
         return (int) c;
 }

@@ -626,15 +626,11 @@ int config_parse_wireguard_endpoint(const char *unit,
         if (!port)
                 return log_oom();
 
-        endpoint->peer = peer;
-        endpoint->host = host;
-        endpoint->port = port;
+        endpoint->peer = TAKE_PTR(peer);
+        endpoint->host = TAKE_PTR(host);
+        endpoint->port = TAKE_PTR(port);
         endpoint->netdev = netdev_ref(data);
         LIST_PREPEND(endpoints, w->unresolved_endpoints, endpoint);
-
-        peer = NULL;
-        host = NULL;
-        port = NULL;
         endpoint = NULL;
 
         return 0;

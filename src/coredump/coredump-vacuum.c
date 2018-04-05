@@ -227,8 +227,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                                 if (r < 0)
                                         return log_oom();
 
-                                c = n;
-                                n = NULL;
+                                c = TAKE_PTR(n);
                         }
 
                         c->n_files++;

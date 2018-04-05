@@ -17,10 +17,10 @@
 
 systemd_timesyncd_sources = files('''
         timesyncd.c
-        timesyncd-manager.c
-        timesyncd-manager.h
         timesyncd-conf.c
         timesyncd-conf.h
+        timesyncd-manager.c
+        timesyncd-manager.h
         timesyncd-server.c
         timesyncd-server.h
 '''.split())

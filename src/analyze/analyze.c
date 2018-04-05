@@ -491,8 +491,7 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get host information from systemd: %s", bus_error_message(&error, r));
 
-        *hi = host;
-        host = NULL;
+        *hi = TAKE_PTR(host);
 
         return 0;
 }

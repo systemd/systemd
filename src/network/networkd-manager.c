@@ -1444,8 +1444,7 @@ int manager_new(Manager **ret, sd_event *event) {
 
         (void) routing_policy_load_rules(m->state_file, &m->rules_saved);
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }
@@ -1825,7 +1824,7 @@ int manager_set_timezone(Manager *m, const char *tz) {
                 return log_oom();
 
         if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
-                log_info("Not connected to system bus, not setting hostname.");
+                log_info("Not connected to system bus, not setting timezone.");
                 return 0;
         }
 

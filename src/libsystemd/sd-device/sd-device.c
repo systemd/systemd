@@ -46,7 +46,7 @@
 #include "util.h"
 
 int device_new_aux(sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        sd_device *device = NULL;
 
         assert(ret);
 
@@ -58,7 +58,6 @@ int device_new_aux(sd_device **ret) {
         device->watch_handle = -1;
 
         *ret = device;
-        device = NULL;
 
         return 0;
 }
@@ -247,8 +246,7 @@ _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
         if (r < 0)
                 return r;
 
-        *ret = device;
-        device = NULL;
+        *ret = TAKE_PTR(device);
 
         return 0;
 }
@@ -659,8 +657,7 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                 if (ifr.ifr_ifindex != ifindex)
                         return -ENODEV;
 
-                *ret = device;
-                device = NULL;
+                *ret = TAKE_PTR(device);
 
                 return 0;
         }
@@ -1833,8 +1830,7 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         if (r < 0)
                 return r;
 
-        *_value = value;
-        value = NULL;
+        *_value = TAKE_PTR(value);
 
         return 0;
 }

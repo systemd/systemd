@@ -914,8 +914,7 @@ int bus_init_api(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up API bus: %m");
 
-        m->api_bus = bus;
-        bus = NULL;
+        m->api_bus = TAKE_PTR(bus);
 
         r = manager_enqueue_sync_bus_names(m);
         if (r < 0)
@@ -976,8 +975,7 @@ int bus_init_system(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set up system bus: %m");
 
-        m->system_bus = bus;
-        bus = NULL;
+        m->system_bus = TAKE_PTR(bus);
 
         return 0;
 }

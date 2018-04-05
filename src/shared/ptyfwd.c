@@ -495,8 +495,7 @@ int pty_forward_new(
 
         (void) sd_event_source_set_description(f->sigwinch_event_source, "ptyfwd-sigwinch");
 
-        *ret = f;
-        f = NULL;
+        *ret = TAKE_PTR(f);
 
         return 0;
 }

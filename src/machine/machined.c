@@ -124,9 +124,8 @@ static int manager_add_host_machine(Manager *m) {
         t->leader = 1;
         t->id = mid;
 
-        t->root_directory = rd;
-        t->unit = unit;
-        rd = unit = NULL;
+        t->root_directory = TAKE_PTR(rd);
+        t->unit = TAKE_PTR(unit);
 
         dual_timestamp_from_boottime_or_monotonic(&t->timestamp, 0);
 

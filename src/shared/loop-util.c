@@ -100,13 +100,10 @@ int loop_device_make(int fd, int open_flags, LoopDevice **ret) {
                 return -ENOMEM;
 
         *d = (LoopDevice) {
-                .fd = loop,
-                .node = loopdev,
+                .fd = TAKE_FD(loop),
+                .node = TAKE_PTR(loopdev),
                 .nr = nr,
         };
-
-        loop = -1;
-        loopdev = NULL;
 
         *ret = d;
 

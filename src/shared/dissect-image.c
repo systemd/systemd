@@ -229,16 +229,13 @@ int dissect_image(
                                 .rw = true,
                                 .partno = -1,
                                 .architecture = _ARCHITECTURE_INVALID,
-                                .fstype = t,
-                                .node = n,
+                                .fstype = TAKE_PTR(t),
+                                .node = TAKE_PTR(n),
                         };
-
-                        t = n = NULL;
 
                         m->encrypted = streq(fstype, "crypto_LUKS");
 
-                        *ret = m;
-                        m = NULL;
+                        *ret = TAKE_PTR(m);
 
                         return 0;
                 }
@@ -541,12 +538,10 @@ int dissect_image(
                                         .partno = nr,
                                         .rw = rw,
                                         .architecture = architecture,
-                                        .node = n,
-                                        .fstype = t,
+                                        .node = TAKE_PTR(n),
+                                        .fstype = TAKE_PTR(t),
                                         .uuid = id,
                                 };
-
-                                n = t = NULL;
                         }
 
                 } else if (is_mbr) {
@@ -604,11 +599,9 @@ int dissect_image(
                                 .rw = generic_rw,
                                 .partno = generic_nr,
                                 .architecture = _ARCHITECTURE_INVALID,
-                                .node = generic_node,
+                                .node = TAKE_PTR(generic_node),
                                 .uuid = generic_uuid,
                         };
-
-                        generic_node = NULL;
                 }
         }
 
@@ -651,8 +644,7 @@ int dissect_image(
                         p->rw = false;
         }
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 #else
@@ -883,10 +875,9 @@ static int make_dm_name_and_node(const void *original_node, const char *suffix, 
         if (!node)
                 return -ENOMEM;
 
-        *ret_name = name;
-        *ret_node = node;
+        *ret_name = TAKE_PTR(name);
+        *ret_node = TAKE_PTR(node);
 
-        name = node = NULL;
         return 0;
 }
 
@@ -935,15 +926,11 @@ static int decrypt_partition(
                 return r == -EPERM ? -EKEYREJECTED : r;
         }
 
-        d->decrypted[d->n_decrypted].name = name;
-        name = NULL;
-
-        d->decrypted[d->n_decrypted].device = cd;
-        cd = NULL;
+        d->decrypted[d->n_decrypted].name = TAKE_PTR(name);
+        d->decrypted[d->n_decrypted].device = TAKE_PTR(cd);
         d->n_decrypted++;
 
-        m->decrypted_node = node;
-        node = NULL;
+        m->decrypted_node = TAKE_PTR(node);
 
         return 0;
 }
@@ -997,15 +984,11 @@ static int verity_partition(
         if (r < 0)
                 return r;
 
-        d->decrypted[d->n_decrypted].name = name;
-        name = NULL;
-
-        d->decrypted[d->n_decrypted].device = cd;
-        cd = NULL;
+        d->decrypted[d->n_decrypted].name = TAKE_PTR(name);
+        d->decrypted[d->n_decrypted].device = TAKE_PTR(cd);
         d->n_decrypted++;
 
-        m->decrypted_node = node;
-        node = NULL;
+        m->decrypted_node = TAKE_PTR(node);
 
         return 0;
 }
@@ -1074,8 +1057,7 @@ int dissected_image_decrypt(
                 }
         }
 
-        *ret = d;
-        d = NULL;
+        *ret = TAKE_PTR(d);
 
         return 1;
 #else
@@ -1233,10 +1215,8 @@ int root_hash_load(const char *image, void **ret, size_t *ret_size) {
         if (l < sizeof(sd_id128_t))
                 return -EINVAL;
 
-        *ret = k;
+        *ret = TAKE_PTR(k);
         *ret_size = l;
-
-        k = NULL;
 
         return 1;
 }

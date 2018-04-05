@@ -153,8 +153,7 @@ int sd_ipv4acd_new(sd_ipv4acd **ret) {
         acd->ifindex = -1;
         acd->fd = -1;
 
-        *ret = acd;
-        acd = NULL;
+        *ret = TAKE_PTR(acd);
 
         return 0;
 }
@@ -207,8 +206,7 @@ static int ipv4acd_set_next_wakeup(sd_ipv4acd *acd, usec_t usec, usec_t random_u
         (void) sd_event_source_set_description(timer, "ipv4acd-timer");
 
         sd_event_source_unref(acd->timer_event_source);
-        acd->timer_event_source = timer;
-        timer = NULL;
+        acd->timer_event_source = TAKE_PTR(timer);
 
         return 0;
 }

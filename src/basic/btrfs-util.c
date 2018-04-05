@@ -1841,8 +1841,7 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
                 return 0;
         }
 
-        *ret = items;
-        items = NULL;
+        *ret = TAKE_PTR(items);
 
         return (int) n_items;
 }

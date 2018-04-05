@@ -146,10 +146,9 @@ int unit_load_dropin(Unit *u) {
         if (r <= 0)
                 return 0;
 
-        if (!u->dropin_paths) {
-                u->dropin_paths = l;
-                l = NULL;
-        } else {
+        if (!u->dropin_paths)
+                u->dropin_paths = TAKE_PTR(l);
+        else {
                 r = strv_extend_strv(&u->dropin_paths, l, true);
                 if (r < 0)
                         return log_oom();

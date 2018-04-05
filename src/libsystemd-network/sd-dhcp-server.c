@@ -213,8 +213,7 @@ int sd_dhcp_server_new(sd_dhcp_server **ret, int ifindex) {
         server->default_lease_time = DIV_ROUND_UP(DHCP_DEFAULT_LEASE_TIME_USEC, USEC_PER_SEC);
         server->max_lease_time = DIV_ROUND_UP(DHCP_MAX_LEASE_TIME_USEC, USEC_PER_SEC);
 
-        *ret = server;
-        server = NULL;
+        *ret = TAKE_PTR(server);
 
         return 0;
 }
@@ -446,8 +445,7 @@ static int server_message_init(sd_dhcp_server *server, DHCPPacket **ret,
         memcpy(&packet->dhcp.chaddr, &req->message->chaddr, ETH_ALEN);
 
         *_optoffset = optoffset;
-        *ret = packet;
-        packet = NULL;
+        *ret = TAKE_PTR(packet);
 
         return 0;
 }

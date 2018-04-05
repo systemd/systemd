@@ -1466,8 +1466,7 @@ int sd_dhcp6_client_new(sd_dhcp6_client **ret) {
         for (t = 0; t < client->req_opts_len; t++)
                 client->req_opts[t] = htobe16(default_req_opts[t]);
 
-        *ret = client;
-        client = NULL;
+        *ret = TAKE_PTR(client);
 
         return 0;
 }

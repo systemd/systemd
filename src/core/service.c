@@ -1250,10 +1250,8 @@ static int service_collect_fds(Service *s,
                                 continue;
 
                         if (!rfds) {
-                                rfds = cfds;
+                                rfds = TAKE_PTR(cfds);
                                 rn_socket_fds = cn_fds;
-
-                                cfds = NULL;
                         } else {
                                 int *t;
 
@@ -1305,13 +1303,10 @@ static int service_collect_fds(Service *s,
                 rfd_names[n_fds] = NULL;
         }
 
-        *fds = rfds;
-        *fd_names = rfd_names;
+        *fds = TAKE_PTR(rfds);
+        *fd_names = TAKE_PTR(rfd_names);
         *n_socket_fds = rn_socket_fds;
         *n_storage_fds = rn_storage_fds;
-
-        rfds = NULL;
-        rfd_names = NULL;
 
         return 0;
 }

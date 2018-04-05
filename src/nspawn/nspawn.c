@@ -3074,8 +3074,7 @@ static int load_settings(void) {
 
                 f = fopen(j, "re");
                 if (f) {
-                        p = j;
-                        j = NULL;
+                        p = TAKE_PTR(j);
 
                         /* By default, we trust configuration from /etc and /run */
                         if (arg_settings_trusted < 0)
@@ -3130,8 +3129,7 @@ static int load_settings(void) {
                 arg_start_mode = settings->start_mode;
 
                 strv_free(arg_parameters);
-                arg_parameters = settings->parameters;
-                settings->parameters = NULL;
+                arg_parameters = TAKE_PTR(settings->parameters);
         }
 
         if ((arg_settings_mask & SETTING_PIVOT_ROOT) == 0 &&
@@ -3141,25 +3139,18 @@ static int load_settings(void) {
         }
 
         if ((arg_settings_mask & SETTING_WORKING_DIRECTORY) == 0 &&
-            settings->working_directory) {
-                free(arg_chdir);
-                arg_chdir = settings->working_directory;
-                settings->working_directory = NULL;
-        }
+            settings->working_directory)
+                free_and_replace(arg_chdir, settings->working_directory);
 
         if ((arg_settings_mask & SETTING_ENVIRONMENT) == 0 &&
             settings->environment) {
                 strv_free(arg_setenv);
-                arg_setenv = settings->environment;
-                settings->environment = NULL;
+                arg_setenv = TAKE_PTR(settings->environment);
         }
 
         if ((arg_settings_mask & SETTING_USER) == 0 &&
-            settings->user) {
-                free(arg_user);
-                arg_user = settings->user;
-                settings->user = NULL;
-        }
+            settings->user)
+                free_and_replace(arg_user, settings->user);
 
         if ((arg_settings_mask & SETTING_CAPABILITY) == 0) {
                 uint64_t plus;
@@ -3209,10 +3200,8 @@ static int load_settings(void) {
                         log_warning("Ignoring TemporaryFileSystem=, Bind= and BindReadOnly= settings, file %s is not trusted.", p);
                 else {
                         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
-                        arg_custom_mounts = settings->custom_mounts;
+                        arg_custom_mounts = TAKE_PTR(settings->custom_mounts);
                         arg_n_custom_mounts = settings->n_custom_mounts;
-
-                        settings->custom_mounts = NULL;
                         settings->n_custom_mounts = 0;
                 }
         }
@@ -3234,28 +3223,19 @@ static int load_settings(void) {
                         arg_private_network = settings_private_network(settings);
 
                         strv_free(arg_network_interfaces);
-                        arg_network_interfaces = settings->network_interfaces;
-                        settings->network_interfaces = NULL;
+                        arg_network_interfaces = TAKE_PTR(settings->network_interfaces);
 
                         strv_free(arg_network_macvlan);
-                        arg_network_macvlan = settings->network_macvlan;
-                        settings->network_macvlan = NULL;
+                        arg_network_macvlan = TAKE_PTR(settings->network_macvlan);
 
                         strv_free(arg_network_ipvlan);
-                        arg_network_ipvlan = settings->network_ipvlan;
-                        settings->network_ipvlan = NULL;
+                        arg_network_ipvlan = TAKE_PTR(settings->network_ipvlan);
 
                         strv_free(arg_network_veth_extra);
-                        arg_network_veth_extra = settings->network_veth_extra;
-                        settings->network_veth_extra = NULL;
+                        arg_network_veth_extra = TAKE_PTR(settings->network_veth_extra);
 
-                        free(arg_network_bridge);
-                        arg_network_bridge = settings->network_bridge;
-                        settings->network_bridge = NULL;
-
-                        free(arg_network_zone);
-                        arg_network_zone = settings->network_zone;
-                        settings->network_zone = NULL;
+                        free_and_replace(arg_network_bridge, settings->network_bridge);
+                        free_and_replace(arg_network_zone, settings->network_zone);
                 }
         }
 
@@ -3266,8 +3246,7 @@ static int load_settings(void) {
                         log_warning("Ignoring Port= setting, file %s is not trusted.", p);
                 else {
                         expose_port_free_all(arg_expose_ports);
-                        arg_expose_ports = settings->expose_ports;
-                        settings->expose_ports = NULL;
+                        arg_expose_ports = TAKE_PTR(settings->expose_ports);
                 }
         }
 
@@ -3295,10 +3274,8 @@ static int load_settings(void) {
                         strv_free(arg_syscall_whitelist);
                         strv_free(arg_syscall_blacklist);
 
-                        arg_syscall_whitelist = settings->syscall_whitelist;
-                        arg_syscall_blacklist = settings->syscall_blacklist;
-
-                        settings->syscall_whitelist = settings->syscall_blacklist = NULL;
+                        arg_syscall_whitelist = TAKE_PTR(settings->syscall_whitelist);
+                        arg_syscall_blacklist = TAKE_PTR(settings->syscall_blacklist);
                 }
         }
 
@@ -3917,9 +3894,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        free(arg_directory);
-                        arg_directory = np;
-                        np = NULL;
+                        free_and_replace(arg_directory, np);
 
                         remove_directory = true;
 
@@ -4009,9 +3984,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        free(arg_image);
-                        arg_image = np;
-                        np = NULL;
+                        free_and_replace(arg_image, np);
 
                         remove_image = true;
                 } else {

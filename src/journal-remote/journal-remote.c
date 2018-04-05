@@ -259,8 +259,8 @@ static int get_writer(RemoteServer *s, const char *host,
                         return r;
         }
 
-        *writer = w;
-        w = NULL;
+        *writer = TAKE_PTR(w);
+
         return 0;
 }
 

@@ -646,8 +646,7 @@ int manager_new(Manager **ret) {
 
         manager_cleanup_saved_user(m);
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }
@@ -855,8 +854,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
                         p->ifindex = manager_find_ifindex(m, p->family, &p->destination);
         }
 
-        *ret = p;
-        p = NULL;
+        *ret = TAKE_PTR(p);
 
         return 1;
 }

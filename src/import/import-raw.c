@@ -141,8 +141,7 @@ int raw_import_new(
                         return r;
         }
 
-        *ret = i;
-        i = NULL;
+        *ret = TAKE_PTR(i);
 
         return 0;
 }

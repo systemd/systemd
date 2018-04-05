@@ -586,8 +586,7 @@ int device_new_from_strv(sd_device **ret, char **strv) {
         if (r < 0)
                 return r;
 
-        *ret = device;
-        device = NULL;
+        *ret = TAKE_PTR(device);
 
         return 0;
 }
@@ -635,8 +634,7 @@ int device_new_from_nulstr(sd_device **ret, uint8_t *nulstr, size_t len) {
         if (r < 0)
                 return r;
 
-        *ret = device;
-        device = NULL;
+        *ret = TAKE_PTR(device);
 
         return 0;
 }
@@ -812,8 +810,7 @@ int device_shallow_clone(sd_device *old_device, sd_device **new_device) {
 
         ret->devnum = old_device->devnum;
 
-        *new_device = ret;
-        ret = NULL;
+        *new_device = TAKE_PTR(ret);
 
         return 0;
 }
@@ -835,8 +832,7 @@ int device_clone_with_db(sd_device *old_device, sd_device **new_device) {
 
         ret->sealed = true;
 
-        *new_device = ret;
-        ret = NULL;
+        *new_device = TAKE_PTR(ret);
 
         return 0;
 }
@@ -861,8 +857,7 @@ int device_new_from_synthetic_event(sd_device **new_device, const char *syspath,
         if (r < 0)
                 return r;
 
-        *new_device = ret;
-        ret = NULL;
+        *new_device = TAKE_PTR(ret);
 
         return 0;
 }

@@ -432,13 +432,10 @@ static int save_external_coredump(
                 if (tmp)
                         unlink_noerrno(tmp);
 
-                *ret_filename = fn_compressed;     /* compressed */
-                *ret_node_fd = fd_compressed;      /* compressed */
-                *ret_data_fd = fd;                 /* uncompressed */
+                *ret_filename = TAKE_PTR(fn_compressed);     /* compressed */
+                *ret_node_fd = TAKE_FD(fd_compressed);      /* compressed */
+                *ret_data_fd = TAKE_FD(fd);                 /* uncompressed */
                 *ret_size = (uint64_t) st.st_size; /* uncompressed */
-
-                fn_compressed = NULL;
-                fd = fd_compressed = -1;
 
                 return 0;
 
@@ -454,13 +451,10 @@ uncompressed:
         if (r < 0)
                 goto fail;
 
-        *ret_filename = fn;
-        *ret_data_fd = fd;
+        *ret_filename = TAKE_PTR(fn);
+        *ret_data_fd = TAKE_FD(fd);
         *ret_node_fd = -1;
         *ret_size = (uint64_t) st.st_size;
-
-        fn = NULL;
-        fd = -1;
 
         return 0;
 
@@ -497,10 +491,8 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
                 return -EIO;
         }
 
-        *ret = field;
+        *ret = TAKE_PTR(field);
         *ret_size = size + 9;
-
-        field = NULL;
 
         return 0;
 }

@@ -98,7 +98,7 @@ int bus_property_get_id128(sd_bus *bus, const char *path, const char *interface,
 assert_cc(sizeof(int) == sizeof(int32_t));
 #define bus_property_get_int ((sd_bus_property_get_t) NULL)
 
-assert_cc(sizeof(unsigned) == sizeof(unsigned));
+assert_cc(sizeof(unsigned) == sizeof(uint32_t));
 #define bus_property_get_unsigned ((sd_bus_property_get_t) NULL)
 
 /* On 64bit machines we can use the default serializer for size_t and

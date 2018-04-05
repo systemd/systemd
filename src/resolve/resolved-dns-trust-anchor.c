@@ -301,8 +301,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                 rr->ds.algorithm = a;
                 rr->ds.digest_type = dt;
                 rr->ds.digest_size = l;
-                rr->ds.digest = dd;
-                dd = NULL;
+                rr->ds.digest = TAKE_PTR(dd);
 
         } else if (strcaseeq(type, "DNSKEY")) {
                 _cleanup_free_ char *flags = NULL, *protocol = NULL, *algorithm = NULL, *key = NULL;
@@ -354,8 +353,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                 rr->dnskey.protocol = 3;
                 rr->dnskey.algorithm = a;
                 rr->dnskey.key_size = l;
-                rr->dnskey.key = k;
-                k = NULL;
+                rr->dnskey.key = TAKE_PTR(k);
 
         } else {
                 log_warning("RR type %s is not supported, ignoring line %s:%u.", type, path, line);

@@ -431,14 +431,11 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
                 if (r < 0)
                         return r;
 
-                *activatable = y;
-                y = NULL;
+                *activatable = TAKE_PTR(y);
         }
 
-        if (acquired) {
-                *acquired = x;
-                x = NULL;
-        }
+        if (acquired)
+                *acquired = TAKE_PTR(x);
 
         return 0;
 }
@@ -734,10 +731,8 @@ _public_ int sd_bus_get_name_creds(
                         return r;
         }
 
-        if (creds) {
-                *creds = c;
-                c = NULL;
-        }
+        if (creds)
+                *creds = TAKE_PTR(c);
 
         return 0;
 }
@@ -810,8 +805,8 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
         if (r < 0)
                 return r;
 
-        *ret = c;
-        c = NULL;
+        *ret = TAKE_PTR(c);
+
         return 0;
 }
 

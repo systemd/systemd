@@ -1530,8 +1530,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         }
         DNS_PACKET_HEADER(p)->nscount = htobe16(nscount);
 
-        t->sent = p;
-        p = NULL;
+        t->sent = TAKE_PTR(p);
 
         return 0;
 }
@@ -1559,8 +1558,7 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
         DNS_PACKET_HEADER(p)->id = t->id;
 
-        t->sent = p;
-        p = NULL;
+        t->sent = TAKE_PTR(p);
 
         return 0;
 }
@@ -3079,8 +3077,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         }
 
         dns_answer_unref(t->answer);
-        t->answer = validated;
-        validated = NULL;
+        t->answer = TAKE_PTR(validated);
 
         /* At this point the answer only contains validated
          * RRsets. Now, let's see if it actually answers the question

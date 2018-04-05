@@ -1395,14 +1395,13 @@ int bind_mount_add(BindMount **b, unsigned *n, const BindMount *item) {
         *b = c;
 
         c[(*n) ++] = (BindMount) {
-                .source = s,
-                .destination = d,
+                .source = TAKE_PTR(s),
+                .destination = TAKE_PTR(d),
                 .read_only = item->read_only,
                 .recursive = item->recursive,
                 .ignore_enoent = item->ignore_enoent,
         };
 
-        s = d = NULL;
         return 0;
 }
 
@@ -1449,11 +1448,10 @@ int temporary_filesystem_add(
         *t = c;
 
         c[(*n) ++] = (TemporaryFileSystem) {
-                .path = p,
-                .options = o,
+                .path = TAKE_PTR(p),
+                .options = TAKE_PTR(o),
         };
 
-        p = o = NULL;
         return 0;
 }
 
@@ -1491,8 +1489,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path) {
                         return -errno;
         }
 
-        *path = x;
-        x = NULL;
+        *path = TAKE_PTR(x);
 
         return 0;
 }

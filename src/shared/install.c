@@ -2312,8 +2312,7 @@ int unit_file_revert(
                                         if (!GREEDY_REALLOC0(todo, n_allocated, n_todo + 2))
                                                 return -ENOMEM;
 
-                                        todo[n_todo++] = dropin;
-                                        dropin = NULL;
+                                        todo[n_todo++] = TAKE_PTR(dropin);
                                 }
                         }
                 }
@@ -2342,8 +2341,7 @@ int unit_file_revert(
                                         if (!GREEDY_REALLOC0(todo, n_allocated, n_todo + 2))
                                                 return -ENOMEM;
 
-                                        todo[n_todo++] = path;
-                                        path = NULL;
+                                        todo[n_todo++] = TAKE_PTR(path);
                                 }
                         }
                 }

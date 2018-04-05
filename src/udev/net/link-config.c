@@ -135,8 +135,7 @@ int link_config_ctx_new(link_config_ctx **ret) {
 
         ctx->enable_name_policy = true;
 
-        *ret = ctx;
-        ctx = NULL;
+        *ret = TAKE_PTR(ctx);
 
         return 0;
 }

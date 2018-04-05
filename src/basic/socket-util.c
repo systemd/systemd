@@ -1017,8 +1017,7 @@ int getpeergroups(int fd, gid_t **ret) {
         if ((socklen_t) (int) n != n)
                 return -E2BIG;
 
-        *ret = d;
-        d = NULL;
+        *ret = TAKE_PTR(d);
 
         return (int) n;
 }

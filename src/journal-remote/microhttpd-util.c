@@ -314,10 +314,8 @@ int check_permissions(struct MHD_Connection *connection, int *code, char **hostn
 
         log_debug("Connection from %s", buf);
 
-        if (hostname) {
-                *hostname = buf;
-                buf = NULL;
-        }
+        if (hostname)
+                *hostname = TAKE_PTR(buf);
 
         r = verify_cert_authorized(session);
         if (r < 0) {

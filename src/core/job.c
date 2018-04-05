@@ -1439,8 +1439,7 @@ int job_get_before(Job *j, Job*** ret) {
 
         n = sort_job_list(list, n);
 
-        *ret = list;
-        list = NULL;
+        *ret = TAKE_PTR(list);
 
         return (int) n;
 }
@@ -1489,8 +1488,7 @@ int job_get_after(Job *j, Job*** ret) {
 
         n = sort_job_list(list, n);
 
-        *ret = list;
-        list = NULL;
+        *ret = TAKE_PTR(list);
 
         return (int) n;
 }

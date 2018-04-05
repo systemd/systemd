@@ -352,8 +352,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 sigset_t mask;
 
                 /* take initial device from queue */
-                dev = event->dev;
-                event->dev = NULL;
+                dev = TAKE_PTR(event->dev);
 
                 unsetenv("NOTIFY_SOCKET");
 
@@ -1605,8 +1604,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(r, "error creating post event source: %m");
 
-        *ret = manager;
-        manager = NULL;
+        *ret = TAKE_PTR(manager);
 
         return 0;
 }

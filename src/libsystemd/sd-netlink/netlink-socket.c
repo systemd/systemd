@@ -433,8 +433,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 /* push the message onto the multi-part message stack */
                 if (first)
                         m->next = first;
-                first = m;
-                m = NULL;
+                first = TAKE_PTR(m);
         }
 
         if (len > 0)
@@ -449,8 +448,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 if (r < 0)
                         return r;
 
-                rtnl->rqueue[rtnl->rqueue_size++] = first;
-                first = NULL;
+                rtnl->rqueue[rtnl->rqueue_size++] = TAKE_PTR(first);
 
                 if (multi_part && (i < rtnl->rqueue_partial_size)) {
                         /* remove the message form the partial read queue */
@@ -464,15 +462,14 @@ int socket_read_message(sd_netlink *rtnl) {
                 /* we only got a partial multi-part message, push it on the
                    partial read queue */
                 if (i < rtnl->rqueue_partial_size)
-                        rtnl->rqueue_partial[i] = first;
+                        rtnl->rqueue_partial[i] = TAKE_PTR(first);
                 else {
                         r = rtnl_rqueue_partial_make_room(rtnl);
                         if (r < 0)
                                 return r;
 
-                        rtnl->rqueue_partial[rtnl->rqueue_partial_size++] = first;
+                        rtnl->rqueue_partial[rtnl->rqueue_partial_size++] = TAKE_PTR(first);
                 }
-                first = NULL;
 
                 return 0;
         }

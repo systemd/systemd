@@ -680,8 +680,7 @@ static int get_unit_list(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        *_reply = reply;
-        reply = NULL;
+        *_reply = TAKE_PTR(reply);
 
         return c;
 }
@@ -752,16 +751,13 @@ static int get_unit_list_recursive(
                         }
                 }
 
-                *_machines = machines;
-                machines = NULL;
+                *_machines = TAKE_PTR(machines);
         } else
                 *_machines = NULL;
 
-        *_unit_infos = unit_infos;
-        unit_infos = NULL;
+        *_unit_infos = TAKE_PTR(unit_infos);
 
-        *_replies = replies;
-        replies = NULL;
+        *_replies = TAKE_PTR(replies);
 
         return c;
 }
@@ -1334,10 +1330,8 @@ static int list_timers(int argc, char *argv[], void *userdata) {
                         .id = u->id,
                         .next_elapse = m,
                         .last_trigger = last,
-                        .triggered = triggered,
+                        .triggered = TAKE_PTR(triggered),
                 };
-
-                triggered = NULL; /* avoid cleanup */
         }
 
         qsort_safe(timer_infos, c, sizeof(struct timer_info),
@@ -1705,8 +1699,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
                 info.dep[i] = strv_free(info.dep[i]);
         }
 
-        *deps = ret;
-        ret = NULL;
+        *deps = TAKE_PTR(ret);
 
         return 0;
 }
@@ -2606,14 +2599,12 @@ static int unit_find_paths(
         r = 0;
 
         if (!isempty(path)) {
-                *fragment_path = path;
-                path = NULL;
+                *fragment_path = TAKE_PTR(path);
                 r = 1;
         }
 
         if (dropin_paths && !strv_isempty(dropins)) {
-                *dropin_paths = dropins;
-                dropins = NULL;
+                *dropin_paths = TAKE_PTR(dropins);
                 r = 1;
         }
  not_found:
@@ -3008,8 +2999,7 @@ static int expand_names(sd_bus *bus, char **names, const char* suffix, char ***r
                 }
         }
 
-        *ret = mangled;
-        mangled = NULL; /* do not free */
+        *ret = TAKE_PTR(mangled);
 
         return 0;
 }

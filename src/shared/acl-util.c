@@ -217,10 +217,8 @@ int acl_search_groups(const char *path, char ***ret_groups) {
                 r = acl_get_entry(acl, ACL_NEXT_ENTRY, &entry);
         }
 
-        if (ret_groups) {
-                *ret_groups = g;
-                g = NULL;
-        }
+        if (ret_groups)
+                *ret_groups = TAKE_PTR(g);
 
         return ret;
 }
@@ -287,9 +285,8 @@ int parse_acl(const char *text, acl_t *acl_access, acl_t *acl_default, bool want
                 }
         }
 
-        *acl_access = a_acl;
-        *acl_default = d_acl;
-        a_acl = d_acl = NULL;
+        *acl_access = TAKE_PTR(a_acl);
+        *acl_default = TAKE_PTR(d_acl);
 
         return 0;
 }
@@ -393,8 +390,8 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *acl) {
         if (r < 0)
                 return -errno;
 
-        *acl = old;
-        old = NULL;
+        *acl = TAKE_PTR(old);
+
         return 0;
 }
 

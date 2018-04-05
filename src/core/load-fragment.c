@@ -731,9 +731,9 @@ int config_parse_exec(
 
                         if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
                                 return log_oom();
-                        n[nlen++] = resolved;
+
+                        n[nlen++] = TAKE_PTR(resolved);
                         n[nlen] = NULL;
-                        resolved = NULL;
                 }
 
                 if (!n || !n[0]) {
@@ -747,15 +747,13 @@ int config_parse_exec(
                 if (!nce)
                         return log_oom();
 
-                nce->argv = n;
-                nce->path = path;
+                nce->argv = TAKE_PTR(n);
+                nce->path = TAKE_PTR(path);
                 nce->flags = flags;
 
                 exec_command_append_list(e, nce);
 
                 /* Do not _cleanup_free_ these. */
-                n = NULL;
-                path = NULL;
                 nce = NULL;
 
                 rvalue = p;
@@ -2397,9 +2395,8 @@ int config_parse_pass_environ(
                 if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
                         return log_oom();
 
-                n[nlen++] = k;
+                n[nlen++] = TAKE_PTR(k);
                 n[nlen] = NULL;
-                k = NULL;
         }
 
         if (n) {
@@ -2474,9 +2471,8 @@ int config_parse_unset_environ(
                 if (!GREEDY_REALLOC(n, nbufsize, nlen + 2))
                         return log_oom();
 
-                n[nlen++] = k;
+                n[nlen++] = TAKE_PTR(k);
                 n[nlen] = NULL;
-                k = NULL;
         }
 
         if (n) {
@@ -4762,9 +4758,7 @@ static int load_from_path(Unit *u, const char *path) {
                         return r;
         }
 
-        free(u->fragment_path);
-        u->fragment_path = filename;
-        filename = NULL;
+        free_and_replace(u->fragment_path, filename);
 
         if (u->source_path) {
                 if (stat(u->source_path, &st) >= 0)

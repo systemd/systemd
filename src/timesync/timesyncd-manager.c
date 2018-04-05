@@ -488,7 +488,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .msg_namelen = sizeof(server_addr),
         };
         struct cmsghdr *cmsg;
-        struct timespec *recv_time;
+        struct timespec *recv_time = NULL;
         ssize_t len;
         double origin, receive, trans, dest;
         double delay, offset;
@@ -527,7 +527,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return 0;
         }
 
-        recv_time = NULL;
         CMSG_FOREACH(cmsg, &msghdr) {
                 if (cmsg->cmsg_level != SOL_SOCKET)
                         continue;
@@ -1154,8 +1153,7 @@ int manager_new(Manager **ret) {
 
         manager_network_read_link_servers(m);
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }

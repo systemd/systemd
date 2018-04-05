@@ -402,8 +402,7 @@ _public_ int sd_lldp_new(sd_lldp **ret) {
         if (r < 0)
                 return r;
 
-        *ret = lldp;
-        lldp = NULL;
+        *ret = TAKE_PTR(lldp);
 
         return 0;
 }
