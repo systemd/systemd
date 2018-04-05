@@ -89,8 +89,8 @@ static int find_device(
 
         device = udev_device_new_from_subsystem_sysname(udev, "rfkill", sysname);
         if (!device)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to open device %s: %m", sysname);
+                return log_full_errno(IN_SET(errno, ENOENT, ENXIO, ENODEV) ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to open device '%s': %m", sysname);
 
         name = udev_device_get_sysattr_value(device, "name");
         if (!name) {
@@ -148,8 +148,8 @@ static int wait_for_initialized(
         /* Check again, maybe things changed */
         d = udev_device_new_from_subsystem_sysname(udev, "rfkill", sysname);
         if (!d)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to open device %s: %m", sysname);
+                return log_full_errno(IN_SET(errno, ENOENT, ENXIO, ENODEV) ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to open device '%s': %m", sysname);
 
         if (udev_device_get_is_initialized(d) != 0) {
                 *ret = d;
@@ -313,6 +313,7 @@ static int save_state_queue(
         r = determine_state_file(udev, event, &state_file);
         if (r < 0)
                 return r;
+
         save_state_queue_remove(write_queue, event->idx, state_file);
 
         item = new0(struct write_queue_item, 1);
