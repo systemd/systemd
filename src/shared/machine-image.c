@@ -157,6 +157,38 @@ static int image_new(
         return 0;
 }
 
+static int extract_pretty(const char *path, const char *suffix, char **ret) {
+        _cleanup_free_ char *name = NULL;
+        const char *p;
+        size_t n;
+
+        assert(path);
+        assert(ret);
+
+        p = last_path_component(path);
+        n = strcspn(p, "/");
+
+        name = strndup(p, n);
+        if (!name)
+                return -ENOMEM;
+
+        if (suffix) {
+                char *e;
+
+                e = endswith(name, suffix);
+                if (!e)
+                        return -EINVAL;
+
+                *e = 0;
+        }
+
+        if (!image_name_is_valid(name))
+                return -EINVAL;
+
+        *ret = TAKE_PTR(name);
+        return 0;
+}
+
 static int image_make(
                 const char *pretty,
                 int dfd,
@@ -164,6 +196,7 @@ static int image_make(
                 const char *filename,
                 Image **ret) {
 
+        _cleanup_free_ char *pretty_buffer = NULL;
         struct stat st;
         bool read_only;
         int r;
@@ -187,8 +220,13 @@ static int image_make(
                 if (!ret)
                         return 1;
 
-                if (!pretty)
-                        pretty = filename;
+                if (!pretty) {
+                        r = extract_pretty(filename, NULL, &pretty_buffer);
+                        if (r < 0)
+                                return r;
+
+                        pretty = pretty_buffer;
+                }
 
                 fd = openat(dfd, filename, O_CLOEXEC|O_NOCTTY|O_DIRECTORY);
                 if (fd < 0)
@@ -264,10 +302,15 @@ static int image_make(
                 if (!ret)
                         return 1;
 
-                fd_getcrtime_at(dfd, filename, &crtime, 0);
+                (void) fd_getcrtime_at(dfd, filename, &crtime, 0);
 
-                if (!pretty)
-                        pretty = strndupa(filename, strlen(filename) - 4);
+                if (!pretty) {
+                        r = extract_pretty(filename, ".raw", &pretty_buffer);
+                        if (r < 0)
+                                return r;
+
+                        pretty = pretty_buffer;
+                }
 
                 r = image_new(IMAGE_RAW,
                               pretty,
@@ -294,8 +337,13 @@ static int image_make(
                 if (!ret)
                         return 1;
 
-                if (!pretty)
-                        pretty = filename;
+                if (!pretty) {
+                        r = extract_pretty(filename, NULL, &pretty_buffer);
+                        if (r < 0)
+                                return r;
+
+                        pretty = pretty_buffer;
+                }
 
                 block_fd = openat(dfd, filename, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                 if (block_fd < 0)
