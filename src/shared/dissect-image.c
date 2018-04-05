@@ -1291,9 +1291,11 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
-                if (r < 0)
+                r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_MOUNT_ROOT_ONLY);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to mount dissected image: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 for (k = 0; k < _META_MAX; k++) {
                         _cleanup_close_ int fd = -1;
