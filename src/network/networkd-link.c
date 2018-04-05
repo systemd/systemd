@@ -2470,6 +2470,32 @@ static int link_set_ipv6_hop_limit(Link *link) {
         return 0;
 }
 
+static int link_set_ipv6_mtu(Link *link) {
+        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        const char *p = NULL;
+        int r;
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (link->network->ipv6_mtu == 0)
+                return 0;
+
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/mtu");
+
+        xsprintf(buf, "%u", link->network->ipv6_mtu);
+
+        r = write_string_file(p, buf, 0);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv6 MTU for interface: %m");
+
+        return 0;
+}
+
 static int link_drop_foreign_config(Link *link) {
         Address *address;
         Route *route;
@@ -2621,6 +2647,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_set_flags(link);
+        if (r < 0)
+                return r;
+
+        r = link_set_ipv6_mtu(link);
         if (r < 0)
                 return r;
 
