@@ -412,7 +412,7 @@ int image_find(ImageClass class, const char *name, Image **ret) {
                         return -errno;
                 }
 
-                r = image_make(NULL, dirfd(d), path, name, ret);
+                r = image_make(name, dirfd(d), path, name, ret);
                 if (IN_SET(r, 0, -ENOENT)) {
                         _cleanup_free_ char *raw = NULL;
 
@@ -420,7 +420,7 @@ int image_find(ImageClass class, const char *name, Image **ret) {
                         if (!raw)
                                 return -ENOMEM;
 
-                        r = image_make(NULL, dirfd(d), path, raw, ret);
+                        r = image_make(name, dirfd(d), path, raw, ret);
                         if (IN_SET(r, 0, -ENOENT))
                                 continue;
                 }
