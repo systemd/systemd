@@ -2399,7 +2399,7 @@ static int determine_names(void) {
                 if (arg_machine) {
                         _cleanup_(image_unrefp) Image *i = NULL;
 
-                        r = image_find(arg_machine, &i);
+                        r = image_find(IMAGE_MACHINE, arg_machine, &i);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
                         if (r == 0) {

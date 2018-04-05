@@ -435,7 +435,7 @@ int image_object_find(sd_bus *bus, const char *path, const char *interface, void
         if (r < 0)
                 return r;
 
-        r = image_find(e, &image);
+        r = image_find(IMAGE_MACHINE, e, &image);
         if (r <= 0)
                 return r;
 
@@ -478,7 +478,7 @@ int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char **
         if (!images)
                 return -ENOMEM;
 
-        r = image_discover(images);
+        r = image_discover(IMAGE_MACHINE, images);
         if (r < 0)
                 return r;
 

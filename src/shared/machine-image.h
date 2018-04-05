@@ -17,6 +17,13 @@
 #include "string-util.h"
 #include "time-util.h"
 
+typedef enum ImageClass {
+        IMAGE_MACHINE,
+        IMAGE_PORTABLE,
+        _IMAGE_CLASS_MAX,
+        _IMAGE_CLASS_INVALID = -1
+} ImageClass;
+
 typedef enum ImageType {
         IMAGE_DIRECTORY,
         IMAGE_SUBVOLUME,
@@ -58,8 +65,8 @@ static inline Hashmap* image_hashmap_free(Hashmap *map) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, image_hashmap_free);
 
-int image_find(const char *name, Image **ret);
-int image_discover(Hashmap *map);
+int image_find(ImageClass class, const char *name, Image **ret);
+int image_discover(ImageClass class, Hashmap *map);
 
 int image_remove(Image *i);
 int image_rename(Image *i, const char *new_name);

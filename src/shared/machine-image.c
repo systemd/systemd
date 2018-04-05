@@ -46,11 +46,16 @@
 #include "util.h"
 #include "xattr-util.h"
 
-static const char image_search_path[] =
-        "/var/lib/machines\0"
-        "/var/lib/container\0" /* legacy */
-        "/usr/local/lib/machines\0"
-        "/usr/lib/machines\0";
+static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
+        [IMAGE_MACHINE] =  "/var/lib/machines\0"
+                           "/var/lib/container\0" /* legacy */
+                           "/usr/local/lib/machines\0"
+                           "/usr/lib/machines\0",
+
+        [IMAGE_PORTABLE] = "/var/lib/portables\0"
+                           "/usr/local/lib/portables\0"
+                           "/usr/lib/portables\0",
+};
 
 Image *image_unref(Image *i) {
         if (!i)
@@ -336,17 +341,19 @@ static int image_make(
         return 0;
 }
 
-int image_find(const char *name, Image **ret) {
+int image_find(ImageClass class, const char *name, Image **ret) {
         const char *path;
         int r;
 
+        assert(class >= 0);
+        assert(class < _IMAGE_CLASS_MAX);
         assert(name);
 
         /* There are no images with invalid names */
         if (!image_name_is_valid(name))
                 return 0;
 
-        NULSTR_FOREACH(path, image_search_path) {
+        NULSTR_FOREACH(path, image_search_path[class]) {
                 _cleanup_closedir_ DIR *d = NULL;
 
                 d = opendir(path);
@@ -375,19 +382,21 @@ int image_find(const char *name, Image **ret) {
                 return 1;
         }
 
-        if (streq(name, ".host"))
+        if (class == IMAGE_MACHINE && streq(name, ".host"))
                 return image_make(".host", AT_FDCWD, NULL, "/", ret);
 
         return 0;
 };
 
-int image_discover(Hashmap *h) {
+int image_discover(ImageClass class, Hashmap *h) {
         const char *path;
         int r;
 
+        assert(class >= 0);
+        assert(class < _IMAGE_CLASS_MAX);
         assert(h);
 
-        NULSTR_FOREACH(path, image_search_path) {
+        NULSTR_FOREACH(path, image_search_path[class]) {
                 _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 
@@ -422,7 +431,7 @@ int image_discover(Hashmap *h) {
                 }
         }
 
-        if (!hashmap_contains(h, ".host")) {
+        if (class == IMAGE_MACHINE && !hashmap_contains(h, ".host")) {
                 _cleanup_(image_unrefp) Image *image = NULL;
 
                 r = image_make(".host", AT_FDCWD, NULL, "/", &image);
@@ -567,7 +576,7 @@ int image_rename(Image *i, const char *new_name) {
         if (r < 0)
                 return r;
 
-        r = image_find(new_name, NULL);
+        r = image_find(IMAGE_MACHINE, new_name, NULL);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -680,7 +689,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
         if (r < 0)
                 return r;
 
-        r = image_find(new_name, NULL);
+        r = image_find(IMAGE_MACHINE, new_name, NULL);
         if (r < 0)
                 return r;
         if (r > 0)

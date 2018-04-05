@@ -69,7 +69,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         int r, fd;
 
         if (machine_name_is_valid(argv[1])) {
-                r = image_find(argv[1], &image);
+                r = image_find(IMAGE_MACHINE, argv[1], &image);
                 if (r < 0)
                         return log_error_errno(r, "Failed to look for machine %s: %m", argv[1]);
                 if (r == 0) {
@@ -148,7 +148,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         int r, fd;
 
         if (machine_name_is_valid(argv[1])) {
-                r = image_find(argv[1], &image);
+                r = image_find(IMAGE_MACHINE, argv[1], &image);
                 if (r < 0)
                         return log_error_errno(r, "Failed to look for machine %s: %m", argv[1]);
                 if (r == 0) {
