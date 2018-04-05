@@ -410,14 +410,29 @@ int image_discover(ImageClass class, Hashmap *h) {
 
                 FOREACH_DIRENT_ALL(de, d, return -errno) {
                         _cleanup_(image_unrefp) Image *image = NULL;
+                        _cleanup_free_ char *truncated = NULL;
+                        const char *pretty, *e;
 
-                        if (!image_name_is_valid(de->d_name))
+                        if (dot_or_dot_dot(de->d_name))
                                 continue;
 
-                        if (hashmap_contains(h, de->d_name))
+                        e = endswith(de->d_name, ".raw");
+                        if (e) {
+                                truncated = strndup(de->d_name, e - de->d_name);
+                                if (!truncated)
+                                        return -ENOMEM;
+
+                                pretty = truncated;
+                        } else
+                                pretty = de->d_name;
+
+                        if (!image_name_is_valid(pretty))
                                 continue;
 
-                        r = image_make(NULL, dirfd(d), path, de->d_name, &image);
+                        if (hashmap_contains(h, pretty))
+                                continue;
+
+                        r = image_make(pretty, dirfd(d), path, de->d_name, &image);
                         if (IN_SET(r, 0, -ENOENT))
                                 continue;
                         if (r < 0)
