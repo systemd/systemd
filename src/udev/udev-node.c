@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <sys/sem.h>
 
 #include "alloc-util.h"
 #include "device-nodes.h"
@@ -26,6 +27,18 @@
 #include "string-util.h"
 #include "strxcpyx.h"
 #include "udev-node.h"
+#include "siphash24.h"
+#include "hash-funcs.h"
+#include "udev.h"
+
+/*
+ * Size of the semaphore set used for locking the access to a given
+ * symlink. The index into this array is derived from the symlink name
+ * using a hash function. N_SEMAPHORES must be a power of 2.
+ * The default maximum semaphore set size under Linux (SEMMSL) is 32000.
+ */
+#define N_SEMAPHORES 1024
+static const char links_dirname[] = "/run/udev/links/";
 
 static int node_symlink(sd_device *dev, const char *node, const char *slink) {
         _cleanup_free_ char *slink_dirname = NULL, *target = NULL;
@@ -188,27 +201,115 @@ static int link_find_prioritized(sd_device *dev, bool add, const char *stackdir,
         return 0;
 }
 
+static int init_link_semaphores(const char *path) {
+        key_t key = ftok(path, 0);
+        int semid;
+
+        semid = semget(key, N_SEMAPHORES, 0600|IPC_CREAT|IPC_EXCL);
+        if (semid != -1) {
+                unsigned short val[N_SEMAPHORES];
+                int i;
+                struct sembuf dummy_op[]  = {
+                        { .sem_op = -1, },
+                        { .sem_op = 1, },
+                };
+
+                for (i = 0; i < N_SEMAPHORES; i++)
+                        val[i] = 1;
+                if (semctl(semid, 0, SETALL, val) == -1)
+                        return log_error_errno(-errno, "Failed to initialize semaphores: %m");
+
+                /* Dummy semop to set sem_otime */
+                if (semop(semid, dummy_op, (sizeof(dummy_op)/sizeof(*dummy_op))) == -1)
+                        return log_error_errno(-errno, "Failed to set sem_otime: %m");
+                return semid;
+        } else {
+                const unsigned int RETRIES = 10, SLEEP_US = 10000;
+                unsigned int i;
+
+                semid = semget(key, N_SEMAPHORES, 0);
+                if (semid == -1)
+                        return log_error_errno(-errno, "Failed to get semaphore set: %m");
+
+                for (i = 0; i < RETRIES; i++) {
+                        struct semid_ds ds;
+
+                        /* Wait for initialization to finish */
+                        if (semctl(semid, 0, IPC_STAT, &ds) != -1 &&
+                            ds.sem_otime != 0)
+                                return semid;
+                        usleep(SLEEP_US);
+                }
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Semaphore set not initialized after %d us",
+                                       RETRIES * SLEEP_US);
+        }
+}
+
+static unsigned short get_sema_index(const char *link) {
+        static const unsigned char seed[16] = { 0x6b, 0xb0, 0xb1, 0x28,
+                                                0xf7, 0x8c, 0x59, 0xb2,
+                                                0x05, 0x1d, 0xd1, 0xa2,
+                                                0xcc, 0x12, 0xae, 0xb7 };
+        struct siphash state;
+        uint64_t hash;
+
+        siphash24_init(&state, seed);
+        path_hash_func(link, &state);
+        hash = siphash24_finalize(&state);
+
+        return hash & (N_SEMAPHORES-1);
+}
+
+static int _slink_semop(int semid, unsigned short semidx, int op, const char *msg) {
+        struct sembuf sb = { .sem_num = semidx, .sem_op = op, .sem_flg = 0 };
+
+        if (semop(semid, &sb, 1) == -1)
+                return log_warning_errno(-errno, "Failed to %s semaphore: %m", msg);
+        return 0;
+}
+
+#define lock_slink(semid, semidx) \
+        _slink_semop((semid), (semidx), -1, "acquire")
+#define unlock_slink(semid, semidx) \
+        _slink_semop((semid), (semidx), 1, "release")
+
 /* manage "stack of names" with possibly specified device priorities */
 static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_free_ char *target = NULL, *filename = NULL, *dirname = NULL;
         char name_enc[PATH_MAX];
         const char *id_filename;
+        static int semid = -1;
+        unsigned short semidx;
         int r;
 
         assert(dev);
         assert(slink);
+
+        if (semid == -1) {
+                semid = init_link_semaphores(links_dirname);
+                if (semid == -1)
+                        return log_device_error_errno(dev, r,
+                                                      "Failed to set up semaphores: %m");
+        }
 
         r = device_get_id_filename(dev, &id_filename);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get id_filename: %m");
 
         util_path_encode(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
-        dirname = path_join("/run/udev/links/", name_enc);
+        dirname = path_join(links_dirname, name_enc);
         if (!dirname)
                 return log_oom();
         filename = path_join(dirname, id_filename);
         if (!filename)
                 return log_oom();
+
+        mkdir_parents(dirname, 0755);
+        semidx = get_sema_index(slink);
+        r = lock_slink(semid, semidx);
+        if (r != 0)
+                return r;
 
         if (!add && unlink(filename) == 0)
                 (void) rmdir(dirname);
@@ -233,6 +334,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                                 r = -errno;
                 } while (r == -ENOENT);
 
+        (void)unlock_slink(semid, semidx);
         return r;
 }
 
