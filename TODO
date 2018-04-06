@@ -24,6 +24,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* pid1: lock image configured with RootDirectory=/RootImage= using the usual nspawn semantics while the unit is up
+
+* add --vacuum-xyz options to coredumpctl, matching those journalctl already has.
+
+* enforce that transient units are started exactly once only
+
 * list the exit codes from the BSD/glibc <sysexits.h> in our own
   exit-codes.[ch] tables.
 
@@ -38,10 +44,6 @@ Features:
 
   Related: add Ephemeral=<path1> <path2> … which would allow marking
   specific paths only like this.
-
-* when RootImage= is used, mark the loopback device read-only if the other
-  settings permit it (i.e. if ProtectSystem=strict is set, and no directory if
-  the image is writable)
 
 * add CopyFile= or so as unit file setting that may be used to copy files or
   directory trees from the host to te services RootImage= and RootDirectory=
