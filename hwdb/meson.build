@@ -26,6 +26,7 @@ hwdb_files = files('''
         20-acpi-vendor.hwdb
         20-OUI.hwdb
         20-net-ifname.hwdb
+        20-vmbus-class.hwdb
         60-evdev.hwdb
         60-keyboard.hwdb
         60-sensor.hwdb
