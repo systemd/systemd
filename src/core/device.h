@@ -10,10 +10,11 @@
 typedef struct Device Device;
 
 typedef enum DeviceFound {
-        DEVICE_NOT_FOUND = 0,
-        DEVICE_FOUND_UDEV = 1,
-        DEVICE_FOUND_MOUNT = 2,
-        DEVICE_FOUND_SWAP = 4,
+        DEVICE_NOT_FOUND     = 0,
+        DEVICE_FOUND_UDEV    = 1 << 1,
+        DEVICE_FOUND_UDEV_DB = 1 << 2,
+        DEVICE_FOUND_MOUNT   = 1 << 3,
+        DEVICE_FOUND_SWAP    = 1 << 4,
 } DeviceFound;
 
 struct Device {
@@ -36,3 +37,6 @@ extern const UnitVTable device_vtable;
 
 int device_found_node(Manager *m, const char *node, bool add, DeviceFound found, bool now);
 bool device_shall_be_bound_by(Unit *device, Unit *u);
+
+const char *device_found_to_string(DeviceFound f) _const_;
+DeviceFound device_found_from_string(const char *s) _pure_;
