@@ -111,9 +111,21 @@ not_found:
 /* Detect RPMB and Boot partitions, which are not listed by blkid.
  * See https://github.com/systemd/systemd/issues/5806. */
 static bool device_is_mmc_special_partition(struct udev_device *d) {
-        const char *sysname = udev_device_get_sysname(d);
+        const char *sysname;
+
+        sysname = udev_device_get_sysname(d);
         return (sysname && startswith(sysname, "mmcblk") &&
                 (endswith(sysname, "rpmb") || endswith(sysname, "boot0") || endswith(sysname, "boot1")));
+}
+
+static bool device_is_block(struct udev_device *d) {
+        const char *ss;
+
+        ss = udev_device_get_subsystem(d);
+        if (!ss)
+                return false;
+
+        return streq(ss, "block");
 }
 
 int dissect_image(
@@ -289,10 +301,18 @@ int dissect_image(
                 first = udev_enumerate_get_list_entry(e);
                 udev_list_entry_foreach(item, first) {
                         _cleanup_udev_device_unref_ struct udev_device *q;
+                        dev_t qn;
 
                         q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
                         if (!q)
                                 return -errno;
+
+                        qn = udev_device_get_devnum(q);
+                        if (major(qn) == 0)
+                                continue;
+
+                        if (!device_is_block(q))
+                                continue;
 
                         if (device_is_mmc_special_partition(q))
                                 continue;
@@ -369,6 +389,9 @@ int dissect_image(
                         continue;
 
                 if (st.st_rdev == qn)
+                        continue;
+
+                if (!device_is_block(q))
                         continue;
 
                 if (device_is_mmc_special_partition(q))
@@ -1268,9 +1291,11 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
                 if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
                         _exit(EXIT_FAILURE);
 
-                r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY);
-                if (r < 0)
+                r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_MOUNT_ROOT_ONLY);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to mount dissected image: %m");
                         _exit(EXIT_FAILURE);
+                }
 
                 for (k = 0; k < _META_MAX; k++) {
                         _cleanup_close_ int fd = -1;
