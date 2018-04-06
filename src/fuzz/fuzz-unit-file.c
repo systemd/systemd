@@ -48,7 +48,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
                 ll = l + strspn(l, WHITESPACE);
 
-                if (HAS_FEATURE_MEMORY_SANITIZER && startswith(ll, "ListenNetlink=")) {
+                if (HAS_FEATURE_MEMORY_SANITIZER && startswith(ll, "ListenNetlink")) {
                         /* ListenNetlink causes a false positive in msan,
                          * let's skip this for now. */
                         log_notice("Skipping test because ListenNetlink= is present");
