@@ -469,6 +469,20 @@ int image_find(ImageClass class, const char *name, Image **ret) {
         return -ENOENT;
 };
 
+int image_from_path(const char *path, Image **ret) {
+        if (path_equal(path, "/"))
+                return image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
+
+        return image_make(NULL, AT_FDCWD, NULL, path, NULL, ret);
+}
+
+int image_find_harder(ImageClass class, const char *name_or_path, Image **ret) {
+        if (image_name_is_valid(name_or_path))
+                return image_find(class, name_or_path, ret);
+
+        return image_from_path(name_or_path, ret);
+}
+
 int image_discover(ImageClass class, Hashmap *h) {
         const char *path;
         int r;
