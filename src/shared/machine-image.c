@@ -146,7 +146,6 @@ static int image_new(
                 i->path = strjoin(path, "/", filename);
         else
                 i->path = strdup(filename);
-
         if (!i->path)
                 return -ENOMEM;
 
@@ -194,31 +193,40 @@ static int image_make(
                 int dfd,
                 const char *path,
                 const char *filename,
+                const struct stat *st,
                 Image **ret) {
 
         _cleanup_free_ char *pretty_buffer = NULL;
-        struct stat st;
+        struct stat stbuf;
         bool read_only;
         int r;
 
+        assert(dfd >= 0 || dfd == AT_FDCWD);
         assert(filename);
 
         /* We explicitly *do* follow symlinks here, since we want to allow symlinking trees, raw files and block
-         * devices into /var/lib/machines/, and treat them normally. */
+         * devices into /var/lib/machines/, and treat them normally.
+         *
+         * This function returns -ENOENT if we can't find the image after all, and -EMEDIUMTYPE if it's not a file we
+         * recognize. */
 
-        if (fstatat(dfd, filename, &st, 0) < 0)
-                return -errno;
+        if (!st) {
+                if (fstatat(dfd, filename, &stbuf, 0) < 0)
+                        return -errno;
+
+                st = &stbuf;
+        }
 
         read_only =
                 (path && path_startswith(path, "/usr")) ||
                 (faccessat(dfd, filename, W_OK, AT_EACCESS) < 0 && errno == EROFS);
 
-        if (S_ISDIR(st.st_mode)) {
+        if (S_ISDIR(st->st_mode)) {
                 _cleanup_close_ int fd = -1;
                 unsigned file_attr = 0;
 
                 if (!ret)
-                        return 1;
+                        return 0;
 
                 if (!pretty) {
                         r = extract_pretty(filename, NULL, &pretty_buffer);
@@ -233,7 +241,7 @@ static int image_make(
                         return -errno;
 
                 /* btrfs subvolumes have inode 256 */
-                if (st.st_ino == 256) {
+                if (st->st_ino == 256) {
 
                         r = btrfs_is_filesystem(fd);
                         if (r < 0)
@@ -271,7 +279,7 @@ static int image_make(
                                         }
                                 }
 
-                                return 1;
+                                return 0;
                         }
                 }
 
@@ -292,15 +300,15 @@ static int image_make(
                 if (r < 0)
                         return r;
 
-                return 1;
+                return 0;
 
-        } else if (S_ISREG(st.st_mode) && endswith(filename, ".raw")) {
+        } else if (S_ISREG(st->st_mode) && endswith(filename, ".raw")) {
                 usec_t crtime = 0;
 
                 /* It's a RAW disk image */
 
                 if (!ret)
-                        return 1;
+                        return 0;
 
                 (void) fd_getcrtime_at(dfd, filename, &crtime, 0);
 
@@ -316,26 +324,26 @@ static int image_make(
                               pretty,
                               path,
                               filename,
-                              !(st.st_mode & 0222) || read_only,
+                              !(st->st_mode & 0222) || read_only,
                               crtime,
-                              timespec_load(&st.st_mtim),
+                              timespec_load(&st->st_mtim),
                               ret);
                 if (r < 0)
                         return r;
 
-                (*ret)->usage = (*ret)->usage_exclusive = st.st_blocks * 512;
-                (*ret)->limit = (*ret)->limit_exclusive = st.st_size;
+                (*ret)->usage = (*ret)->usage_exclusive = st->st_blocks * 512;
+                (*ret)->limit = (*ret)->limit_exclusive = st->st_size;
 
-                return 1;
+                return 0;
 
-        } else if (S_ISBLK(st.st_mode)) {
+        } else if (S_ISBLK(st->st_mode)) {
                 _cleanup_close_ int block_fd = -1;
                 uint64_t size = UINT64_MAX;
 
                 /* A block device */
 
                 if (!ret)
-                        return 1;
+                        return 0;
 
                 if (!pretty) {
                         r = extract_pretty(filename, NULL, &pretty_buffer);
@@ -349,9 +357,12 @@ static int image_make(
                 if (block_fd < 0)
                         log_debug_errno(errno, "Failed to open block device %s/%s, ignoring: %m", path, filename);
                 else {
-                        if (fstat(block_fd, &st) < 0)
+                        /* Refresh stat data after opening the node */
+                        if (fstat(block_fd, &stbuf) < 0)
                                 return -errno;
-                        if (!S_ISBLK(st.st_mode)) /* Verify that what we opened is actually what we think it is */
+                        st = &stbuf;
+
+                        if (!S_ISBLK(st->st_mode)) /* Verify that what we opened is actually what we think it is */
                                 return -ENOTTY;
 
                         if (!read_only) {
@@ -373,7 +384,7 @@ static int image_make(
                               pretty,
                               path,
                               filename,
-                              !(st.st_mode & 0222) || read_only,
+                              !(st->st_mode & 0222) || read_only,
                               0,
                               0,
                               ret);
@@ -383,10 +394,10 @@ static int image_make(
                 if (size != 0 && size != UINT64_MAX)
                         (*ret)->usage = (*ret)->usage_exclusive = (*ret)->limit = (*ret)->limit_exclusive = size;
 
-                return 1;
+                return 0;
         }
 
-        return 0;
+        return -EMEDIUMTYPE;
 }
 
 int image_find(ImageClass class, const char *name, Image **ret) {
@@ -399,10 +410,11 @@ int image_find(ImageClass class, const char *name, Image **ret) {
 
         /* There are no images with invalid names */
         if (!image_name_is_valid(name))
-                return 0;
+                return -ENOENT;
 
         NULSTR_FOREACH(path, image_search_path[class]) {
                 _cleanup_closedir_ DIR *d = NULL;
+                struct stat st;
 
                 d = opendir(path);
                 if (!d) {
@@ -412,18 +424,39 @@ int image_find(ImageClass class, const char *name, Image **ret) {
                         return -errno;
                 }
 
-                r = image_make(name, dirfd(d), path, name, ret);
-                if (IN_SET(r, 0, -ENOENT)) {
+                /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people to
+                 * symlink block devices into the search path */
+                if (fstatat(dirfd(d), name, &st, 0) < 0) {
                         _cleanup_free_ char *raw = NULL;
+
+                        if (errno != ENOENT)
+                                return -errno;
 
                         raw = strappend(name, ".raw");
                         if (!raw)
                                 return -ENOMEM;
 
-                        r = image_make(name, dirfd(d), path, raw, ret);
-                        if (IN_SET(r, 0, -ENOENT))
+                        if (fstatat(dirfd(d), raw, &st, 0) < 0) {
+
+                                if (errno == ENOENT)
+                                        continue;
+
+                                return -errno;
+                        }
+
+                        if (!S_ISREG(st.st_mode))
                                 continue;
+
+                        r = image_make(name, dirfd(d), path, raw, &st, ret);
+
+                } else {
+                        if (!S_ISDIR(st.st_mode) && !S_ISBLK(st.st_mode))
+                                continue;
+
+                        r = image_make(name, dirfd(d), path, name, &st, ret);
                 }
+                if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
+                        continue;
                 if (r < 0)
                         return r;
 
@@ -431,9 +464,9 @@ int image_find(ImageClass class, const char *name, Image **ret) {
         }
 
         if (class == IMAGE_MACHINE && streq(name, ".host"))
-                return image_make(".host", AT_FDCWD, NULL, "/", ret);
+                return image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
 
-        return 0;
+        return -ENOENT;
 };
 
 int image_discover(ImageClass class, Hashmap *h) {
@@ -459,20 +492,37 @@ int image_discover(ImageClass class, Hashmap *h) {
                 FOREACH_DIRENT_ALL(de, d, return -errno) {
                         _cleanup_(image_unrefp) Image *image = NULL;
                         _cleanup_free_ char *truncated = NULL;
-                        const char *pretty, *e;
+                        const char *pretty;
+                        struct stat st;
 
                         if (dot_or_dot_dot(de->d_name))
                                 continue;
 
-                        e = endswith(de->d_name, ".raw");
-                        if (e) {
+                        /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people
+                         * to symlink block devices into the search path */
+                        if (fstatat(dirfd(d), de->d_name, &st, 0) < 0) {
+                                if (errno == ENOENT)
+                                        continue;
+
+                                return -errno;
+                        }
+
+                        if (S_ISREG(st.st_mode)) {
+                                const char *e;
+
+                                e = endswith(de->d_name, ".raw");
+                                if (!e)
+                                        continue;
+
                                 truncated = strndup(de->d_name, e - de->d_name);
                                 if (!truncated)
                                         return -ENOMEM;
 
                                 pretty = truncated;
-                        } else
+                        } else if (S_ISDIR(st.st_mode) || S_ISBLK(st.st_mode))
                                 pretty = de->d_name;
+                        else
+                                continue;
 
                         if (!image_name_is_valid(pretty))
                                 continue;
@@ -480,8 +530,8 @@ int image_discover(ImageClass class, Hashmap *h) {
                         if (hashmap_contains(h, pretty))
                                 continue;
 
-                        r = image_make(pretty, dirfd(d), path, de->d_name, &image);
-                        if (IN_SET(r, 0, -ENOENT))
+                        r = image_make(pretty, dirfd(d), path, de->d_name, &st, &image);
+                        if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
                                 continue;
                         if (r < 0)
                                 return r;
@@ -497,7 +547,7 @@ int image_discover(ImageClass class, Hashmap *h) {
         if (class == IMAGE_MACHINE && !hashmap_contains(h, ".host")) {
                 _cleanup_(image_unrefp) Image *image = NULL;
 
-                r = image_make(".host", AT_FDCWD, NULL, "/", &image);
+                r = image_make(".host", AT_FDCWD, NULL, "/", NULL, &image);
                 if (r < 0)
                         return r;
 
@@ -640,10 +690,10 @@ int image_rename(Image *i, const char *new_name) {
                 return r;
 
         r = image_find(IMAGE_MACHINE, new_name, NULL);
-        if (r < 0)
-                return r;
-        if (r > 0)
+        if (r >= 0)
                 return -EEXIST;
+        if (r != -ENOENT)
+                return r;
 
         switch (i->type) {
 
@@ -753,10 +803,10 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
                 return r;
 
         r = image_find(IMAGE_MACHINE, new_name, NULL);
-        if (r < 0)
-                return r;
-        if (r > 0)
+        if (r >= 0)
                 return -EEXIST;
+        if (r != -ENOENT)
+                return r;
 
         switch (i->type) {
 

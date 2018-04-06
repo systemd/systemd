@@ -2400,12 +2400,10 @@ static int determine_names(void) {
                         _cleanup_(image_unrefp) Image *i = NULL;
 
                         r = image_find(IMAGE_MACHINE, arg_machine, &i);
+                        if (r == -ENOENT)
+                                return log_error_errno(r, "No image for machine '%s'.", arg_machine);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
-                        if (r == 0) {
-                                log_error("No image for machine '%s'.", arg_machine);
-                                return -ENOENT;
-                        }
 
                         if (IN_SET(i->type, IMAGE_RAW, IMAGE_BLOCK))
                                 r = free_and_strdup(&arg_image, i->path);

@@ -436,7 +436,9 @@ int image_object_find(sd_bus *bus, const char *path, const char *interface, void
                 return r;
 
         r = image_find(IMAGE_MACHINE, e, &image);
-        if (r <= 0)
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
                 return r;
 
         image->userdata = m;

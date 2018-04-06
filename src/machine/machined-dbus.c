@@ -146,7 +146,7 @@ static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_erro
                 return r;
 
         r = image_find(IMAGE_MACHINE, name, NULL);
-        if (r == 0)
+        if (r == -ENOENT)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
                 return r;
@@ -739,10 +739,10 @@ static int method_remove_image(sd_bus_message *message, void *userdata, sd_bus_e
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
 
         r = image_find(IMAGE_MACHINE, name, &i);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
         i->userdata = userdata;
         return bus_image_method_remove(message, i, error);
@@ -763,10 +763,10 @@ static int method_rename_image(sd_bus_message *message, void *userdata, sd_bus_e
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", old_name);
 
         r = image_find(IMAGE_MACHINE, old_name, &i);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
 
         i->userdata = userdata;
         return bus_image_method_rename(message, i, error);
@@ -787,10 +787,10 @@ static int method_clone_image(sd_bus_message *message, void *userdata, sd_bus_er
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", old_name);
 
         r = image_find(IMAGE_MACHINE, old_name, &i);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", old_name);
 
         i->userdata = userdata;
         return bus_image_method_clone(message, i, error);
@@ -811,10 +811,10 @@ static int method_mark_image_read_only(sd_bus_message *message, void *userdata, 
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
 
         r = image_find(IMAGE_MACHINE, name, &i);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
         i->userdata = userdata;
         return bus_image_method_mark_read_only(message, i, error);
@@ -835,10 +835,10 @@ static int method_get_image_hostname(sd_bus_message *message, void *userdata, sd
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
 
         r = image_find(IMAGE_MACHINE, name, &i);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
         i->userdata = userdata;
         return bus_image_method_get_hostname(message, i, error);
@@ -859,10 +859,10 @@ static int method_get_image_machine_id(sd_bus_message *message, void *userdata, 
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
 
         r = image_find(IMAGE_MACHINE, name, &i);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
         i->userdata = userdata;
         return bus_image_method_get_machine_id(message, i, error);
@@ -883,10 +883,10 @@ static int method_get_image_machine_info(sd_bus_message *message, void *userdata
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
 
         r = image_find(IMAGE_MACHINE, name, &i);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
         i->userdata = userdata;
         return bus_image_method_get_machine_info(message, i, error);
@@ -907,10 +907,10 @@ static int method_get_image_os_release(sd_bus_message *message, void *userdata, 
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
 
         r = image_find(IMAGE_MACHINE, name, &i);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
         i->userdata = userdata;
         return bus_image_method_get_os_release(message, i, error);
@@ -1212,10 +1212,10 @@ static int method_set_image_limit(sd_bus_message *message, void *userdata, sd_bu
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Image name '%s' is invalid.", name);
 
         r = image_find(IMAGE_MACHINE, name, &i);
+        if (r == -ENOENT)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
         if (r < 0)
                 return r;
-        if (r == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_IMAGE, "No image '%s' known", name);
 
         i->userdata = userdata;
         return bus_image_method_set_limit(message, i, error);

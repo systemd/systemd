@@ -76,9 +76,10 @@ static int import_tar(int argc, char *argv[], void *userdata) {
 
                 if (!arg_force) {
                         r = image_find(IMAGE_MACHINE, local, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
-                        else if (r > 0) {
+                        if (r < 0) {
+                                if (r != -ENOENT)
+                                        return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
+                        } else {
                                 log_error("Image '%s' already exists.", local);
                                 return -EEXIST;
                         }
@@ -171,9 +172,10 @@ static int import_raw(int argc, char *argv[], void *userdata) {
 
                 if (!arg_force) {
                         r = image_find(IMAGE_MACHINE, local, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
-                        else if (r > 0) {
+                        if (r < 0) {
+                                if (r != -ENOENT)
+                                        return log_error_errno(r, "Failed to check whether image '%s' exists: %m", local);
+                        } else {
                                 log_error("Image '%s' already exists.", local);
                                 return -EEXIST;
                         }
