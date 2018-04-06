@@ -450,14 +450,14 @@ static int method_register_machine(sd_bus_message *message, void *userdata, sd_b
         return method_register_machine_internal(message, false, userdata, error);
 }
 
-static int method_terminate_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
+static int redirect_method_to_machine(sd_bus_message *message, Manager *m, sd_bus_error *error, sd_bus_message_handler_t method) {
         Machine *machine;
         const char *name;
         int r;
 
         assert(message);
         assert(m);
+        assert(method);
 
         r = sd_bus_message_read(message, "s", &name);
         if (r < 0)
@@ -467,67 +467,23 @@ static int method_terminate_machine(sd_bus_message *message, void *userdata, sd_
         if (!machine)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
 
-        return bus_machine_method_terminate(message, machine, error);
+        return method(message, machine, error);
+}
+
+static int method_terminate_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_terminate);
 }
 
 static int method_kill_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return sd_bus_error_set_errno(error, r);
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_kill(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_kill);
 }
 
 static int method_get_machine_addresses(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return sd_bus_error_set_errno(error, r);
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_get_addresses(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_get_addresses);
 }
 
 static int method_get_machine_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return sd_bus_error_set_errno(error, r);
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_get_os_release(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_get_os_release);
 }
 
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -584,144 +540,31 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
 }
 
 static int method_open_machine_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return sd_bus_error_set_errno(error, r);
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_open_pty(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_open_pty);
 }
 
 static int method_open_machine_login(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_open_login(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_open_login);
 }
 
 static int method_open_machine_shell(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_open_shell(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_open_shell);
 }
 
 static int method_bind_mount_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_bind_mount(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_bind_mount);
 }
 
 static int method_copy_machine(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_copy(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_copy);
 }
 
 static int method_open_machine_root_directory(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_open_root_directory(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_open_root_directory);
 }
 
 static int method_get_machine_uid_shift(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *m = userdata;
-        Machine *machine;
-        const char *name;
-        int r;
-
-        assert(message);
-        assert(m);
-
-        r = sd_bus_message_read(message, "s", &name);
-        if (r < 0)
-                return r;
-
-        machine = hashmap_get(m->machines, name);
-        if (!machine)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_MACHINE, "No machine '%s' known", name);
-
-        return bus_machine_method_get_uid_shift(message, machine, error);
+        return redirect_method_to_machine(message, userdata, error, bus_machine_method_get_uid_shift);
 }
 
 static int method_remove_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
