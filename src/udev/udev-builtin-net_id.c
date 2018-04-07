@@ -47,6 +47,7 @@
  *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
  *                                         — USB port number chain
  *   v<slot>                               - VIO slot number (IBM PowerVM)
+ *   h<guid>                               - Hyper-V GUID
  *   a<vendor><model>i<instance>           — Platform bus ACPI instance id
  *
  * All multi-function PCI devices will carry the [f<function>] number in the
@@ -129,6 +130,7 @@ enum netname_type{
         NET_VIRTIO,
         NET_CCW,
         NET_VIO,
+        NET_HYPERV,
         NET_PLATFORM,
 };
 
@@ -148,6 +150,7 @@ struct netnames {
         char bcma_core[IFNAMSIZ];
         char ccw_busid[IFNAMSIZ];
         char vio_slot[IFNAMSIZ];
+        char hyperv_name[IFNAMSIZ];
         char platform_path[IFNAMSIZ];
 };
 
@@ -430,6 +433,50 @@ static int names_vio(struct udev_device *dev, struct netnames *names) {
 
         xsprintf(names->vio_slot, "v%u", slotid);
         names->type = NET_VIO;
+        return 0;
+}
+
+static int names_hyperv(struct udev_device *dev, struct netnames *names) {
+        struct udev_device *parent;
+        const char *guid_str, *guid_end;
+        size_t guid_len;
+
+        parent = udev_device_get_parent(dev);
+        if (!parent)
+                return -ENOENT;
+
+        /* check if the driver is "hv_netvsc" */
+        if (!streq_ptr("hv_netvsc", udev_device_get_driver(parent)))
+                return -ENOENT;
+
+        guid_str = udev_device_get_sysattr_value(parent, "device_id");
+        if (!guid_str)
+                return -ENOENT;
+
+        /* check that the guid_str has the proper format */
+        guid_end = guid_str + strlen(guid_str);
+        if (guid_str[0] != '{' || guid_end[-1] != '}')
+                return -ENOENT;
+
+        /* take the last part of the guid_str */
+        guid_str = strrchr(guid_str, '-');
+        if (!guid_str)
+                return -ENOENT;
+
+        /* skip initial '-' and final '}' */
+        guid_str++;
+        guid_end--;
+        guid_len = guid_end - guid_str;
+
+        /* we can encode at most 12 characters in an interface name */
+        if (guid_len > 12)
+                return -ENOENT;
+
+        /* build a name with the "enh" prefix and the end part of the guid */
+        names->hyperv_name[0] = 'h';
+        memcpy(&names->hyperv_name[1], guid_str, guid_len);
+        names->hyperv_name[guid_len+1] = '\0';
+        names->type = NET_HYPERV;
         return 0;
 }
 
@@ -788,6 +835,16 @@ static int builtin_net_id(struct udev_device *dev, int argc, char *argv[], bool 
 
                 if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.vio_slot))
                         udev_builtin_add_property(dev, test, "ID_NET_NAME_SLOT", str);
+                goto out;
+        }
+
+        /* get Hyper-V GUID-based names. */
+        err = names_hyperv(dev, &names);
+        if (err >= 0 && names.type == NET_HYPERV) {
+                char str[IFNAMSIZ];
+
+                if (snprintf_ok(str, sizeof str, "%s%s", prefix, names.hyperv_name))
+                        udev_builtin_add_property(dev, test, "ID_NET_NAME_PATH", str);
                 goto out;
         }
 
