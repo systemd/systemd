@@ -1673,11 +1673,15 @@ int main(int argc, char *argv[]) {
 
         if (arg_children_max == 0) {
                 cpu_set_t cpu_set;
+                unsigned long mem_limit;
 
                 arg_children_max = 8;
 
                 if (sched_getaffinity(0, sizeof(cpu_set), &cpu_set) == 0)
                         arg_children_max += CPU_COUNT(&cpu_set) * 2;
+
+                mem_limit = physical_memory() / (128LU*1024*1024);
+                arg_children_max = MAX(10U, MIN(arg_children_max, mem_limit));
 
                 log_debug("set children_max to %u", arg_children_max);
         }
