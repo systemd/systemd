@@ -47,8 +47,7 @@ static void clock_state_release(ClockState *sp) {
         sp->fd = safe_close(sp->fd);
 }
 
-static int clock_state_update(ClockState *sp,
-                              sd_event *event);
+static int clock_state_update(ClockState *sp, sd_event *event);
 
 static int io_handler(sd_event_source * s,
                       int fd,
@@ -73,22 +72,22 @@ static int clock_state_update(ClockState *sp,
         clock_state_release(sp);
 
         /* The kernel supports cancelling timers whenever its realtime clock is "set" (which can happen in a variety of
-         * ways, generally adjustments of at least 500 ms).  The way this module works is we set up a timer that will
-         * wake when it the clock is set, and when that happens we read the clock synchronization state from the return
+         * ways, generally adjustments of at least 500 ms). The way this module works is we set up a timer that will
+         * wake when the clock is set, and when that happens we read the clock synchronization state from the return
          * value of adjtimex(2), which supports the NTP time adjustment protocol.
          *
          * The kernel determines whether the clock is synchronized using driver-specific tests, based on time
-         * information passed by an application, generally through adjtimex(2).  If the application asserts the clock
+         * information passed by an application, generally through adjtimex(2). If the application asserts the clock
          * is synchronized, but does not also do something that "sets the clock", the timer will not be cancelled and
-         * synchronization will not be detected.  Should this behavior be observed with a time synchronization provider
+         * synchronization will not be detected. Should this behavior be observed with a time synchronization provider
          * this code might be reworked to do a periodic check as well.
          *
          * Similarly, this service will never complete if the application sets the time without also providing
          * information that adjtimex(2) can use to determine that the clock is synchronized.
          *
-         * Well-behaved implementations including systemd-timesyncd should not produce either situation.  For timesyncd
-         * the initial set of the timestamp uses settimeofday(2), which sets the clock but does not mark it
-         * synchronized.  When an NTP source is selected it sets the clock again with clock_adjtime(2) which does mark
+         * Well-behaved implementations including systemd-timesyncd should not produce either situation. For timesyncd
+         * the initial setting of the time uses settimeofday(2), which sets the clock but does not mark it
+         * synchronized. When an NTP source is selected it sets the clock again with clock_adjtime(2) which does mark
          * it synchronized. */
         r = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
         if (r < 0) {
@@ -119,7 +118,7 @@ static int clock_state_update(ClockState *sp,
         log_info("adjtime state %d status %x time %s", sp->adjtime_state, tx.status, ts);
 
         if (sp->adjtime_state == TIME_ERROR) {
-                /* Not synchronized.  Do a one-shot wait on the descriptor and inform the caller we need to keep
+                /* Not synchronized. Do a one-shot wait on the descriptor and inform the caller we need to keep
                  * running. */
                 r = sd_event_add_io(event, &sp->event_source, sp->fd,
                                     EPOLLIN, io_handler, sp);
@@ -140,8 +139,7 @@ static int clock_state_update(ClockState *sp,
         return r;
 }
 
-int main(int argc,
-         char * argv[]) {
+int main(int argc, char * argv[]) {
         int r;
         _cleanup_(sd_event_unrefp) sd_event *event;
         ClockState state = {
@@ -177,7 +175,7 @@ int main(int argc,
         r = clock_state_update(&state, event);
         if (r > 0) {
                 r = sd_event_loop(event);
-                if (0 > r)
+                if (r < 0)
                         log_error_errno(r, "Failed in event loop: %m");
                 else if (state.adjtime_state == TIME_ERROR) {
                         log_error("Event loop terminated without synchronizing");
