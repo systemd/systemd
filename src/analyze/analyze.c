@@ -303,7 +303,11 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
                 return -EIO;
 
         if (times.finish_time <= 0) {
-                log_error("Bootup is not yet finished. Please try again later.");
+                log_error("Bootup is not yet finished (org.freedesktop.systemd1.Manager.FinishTimestampMonotonic=%"PRIu64").\n"
+                          "Please try again later.\n"
+                          "Hint: Use 'systemctl%s list-jobs' to see active jobs",
+                          times.finish_time,
+                          arg_scope == UNIT_FILE_SYSTEM ? "" : " --user");
                 return -EINPROGRESS;
         }
 
