@@ -1680,7 +1680,7 @@ static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, cha
                                    "org.freedesktop.systemd1",
                                    path,
                                    map[arg_dependency],
-                                   0,
+                                   BUS_MAP_STRDUP,
                                    &error,
                                    NULL,
                                    &info);
