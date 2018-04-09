@@ -111,11 +111,26 @@ libudev_basic = static_library(
         c_args : ['-fvisibility=default'])
 
 libudev_static = static_library(
-        'udev',
+        'udev_static',
         'udev.h',
         include_directories : includes,
         link_with : udev_link_with,
         link_whole : libudev_basic)
+
+static_libudev = get_option('static-libudev')
+install_libudev_static = static_library(
+        'udev',
+        libudev_sources,
+        include_directories : includes,
+        link_with : [libshared_static,
+                     libsystemd_static],
+        link_whole : libudev_basic,
+        build_by_default : static_libudev != 'false',
+        install : static_libudev != 'false',
+        install_dir : rootlibdir,
+        link_depends : libudev_sym,
+        dependencies : [threads],
+        pic : static_libudev == 'true' or static_libudev == 'pic')
 
 libudev = shared_library(
         'udev',

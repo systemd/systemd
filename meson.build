@@ -1342,6 +1342,27 @@ libsystemd = shared_library(
         install : true,
         install_dir : rootlibdir)
 
+static_libsystemd = get_option('static-libsystemd')
+static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic'
+
+install_libsystemd_static = static_library(
+        'systemd',
+        libsystemd_sources,
+        journal_client_sources,
+        include_directories : includes,
+        link_with : [libbasic,
+                     libbasic_gcrypt],
+        build_by_default : static_libsystemd != 'false',
+        install : static_libsystemd != 'false',
+        install_dir : rootlibdir,
+        pic : static_libsystemd == 'true' or static_libsystemd == 'pic',
+        dependencies : [threads,
+                        librt,
+                        libxz,
+                        liblz4,
+                        libgcrypt],
+        c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
+
 ############################################################
 
 # binaries that have --help and are intended for use by humans,

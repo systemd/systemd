@@ -13,6 +13,12 @@ option('rootprefix', type : 'string',
        description : '''override the root prefix''')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udev and its helpers to libsystemd-shared.so')
+option('static-libsystemd', type : 'combo',
+       choices : ['false', 'true', 'pic', 'no-pic'],
+       description : '''install a static library for libsystemd''')
+option('static-libudev', type : 'combo',
+       choices : ['false', 'true', 'pic', 'no-pic'],
+       description : '''install a static library for libudev''')
 
 option('sysvinit-path', type : 'string', value : '/etc/init.d',
        description : 'the directory where the SysV init scripts are located')
