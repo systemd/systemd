@@ -46,24 +46,30 @@
     <title>Description</title>
 
     <para><filename>systemd-time-wait-sync</filename> is a system service that delays the start of units that depend on
-    <filename>time-sync.target</filename> until <filename>systemd-timesyncd.service</filename> or something else has
-    set the system time and marked it as synchronized.  Reaching this state generally requires synchronization with an
-    external source, such as an NTP server.</para>
+    <filename>time-sync.target</filename> until the system time has been synchronized with an accurate time source by
+    <filename>systemd-timesyncd.service</filename>.</para>
 
-    <para>When this unit is not enabled the <filename>time-sync.target</filename> synchronization point may be reached
-    as soon as the system time is advanced by <filename>systemd-timesyncd.service</filename> to the time stored at the
-    last shutdown.  That time may not meet the expectations of dependent services that require an accurate
-    clock.</para>
+    <para><filename>systemd-timesyncd.service</filename> notifies on successful synchronization.
+    <filename>systemd-time-wait-sync</filename> also tries to detect when the kernel marks the time as synchronized,
+    but this detection is not reliable and is intended only as a fallback for other servies that can be used to
+    synchronize time (e.g., ntpd, chronyd).</para>
 
   </refsect1>
 
   <refsect1>
-    <title>Notes</title>
+    <title>Files</title>
 
-    <para>This service works correctly with a time synchronization service like
-    <filename>systemd-timesyncd.service</filename> that uses the same protocol as NTP to set the time from a
-    synchronized source.  When used with time synchronization services that follow a different protocol the event of
-    setting synchronized time may not be detected in which case this service will not complete.</para>
+    <variablelist>
+      <varlistentry>
+        <term><filename>/run/systemd/timesync/synchronized</filename></term>
+
+        <listitem>
+          <para>The presence of this file indicates to this service that the system clock has been synchronized.</para>
+        </listitem>
+
+      </varlistentry>
+    </variablelist>
+
   </refsect1>
 
   <refsect1>
