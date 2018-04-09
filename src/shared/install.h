@@ -64,13 +64,13 @@ enum UnitFileChangeType {
         UNIT_FILE_IS_MASKED,
         UNIT_FILE_IS_DANGLING,
         _UNIT_FILE_CHANGE_TYPE_MAX,
-        _UNIT_FILE_CHANGE_INVALID = INT_MIN
+        _UNIT_FILE_CHANGE_TYPE_INVALID = INT_MIN
 };
 
 enum UnitFileFlags {
-        UNIT_FILE_RUNTIME = 1,
-        UNIT_FILE_FORCE = 1 << 1,
-        UNIT_FILE_DRY_RUN = 1 << 2,
+        UNIT_FILE_RUNTIME = 1U << 0,
+        UNIT_FILE_FORCE   = 1U << 1,
+        UNIT_FILE_DRY_RUN = 1U << 2,
 };
 
 /* type can either one of the UnitFileChangeTypes listed above, or a negative error.
