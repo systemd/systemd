@@ -1847,3 +1847,34 @@ int bus_request_name_async_may_reload_dbus(sd_bus *bus, sd_bus_slot **ret_slot, 
 
         return sd_bus_request_name_async(bus, ret_slot, name, flags, request_name_handler_may_reload_dbus, data);
 }
+
+int bus_reply_pair_array(sd_bus_message *m, char **l) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        char **k, **v;
+        int r;
+
+        assert(m);
+
+        /* Reply to the specified message with a message containing a dictionary put together from the specified
+         * strv */
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "{ss}");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH_PAIR(k, v, l) {
+                r = sd_bus_message_append(reply, "{ss}", *k, *v);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}

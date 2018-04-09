@@ -1588,30 +1588,3 @@ int manager_add_machine(Manager *m, const char *name, Machine **_machine) {
 
         return 0;
 }
-
-int bus_reply_pair_array(sd_bus_message *m, char **l) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        char **k, **v;
-        int r;
-
-        r = sd_bus_message_new_method_return(m, &reply);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(reply, 'a', "{ss}");
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH_PAIR(k, v, l) {
-                r = sd_bus_message_append(reply, "{ss}", *k, *v);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_close_container(reply);
-        if (r < 0)
-                return r;
-
-        return sd_bus_send(NULL, reply, NULL);
-
-}
