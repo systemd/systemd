@@ -467,7 +467,7 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnTOSHIBA:pnSATELLITER830*
  EVDEV_ABS_01=1045:4826:76
  EVDEV_ABS_35=1238:5785:53
  EVDEV_ABS_36=1045:4826:76
- 
+
 #########################################
 # Razer
 #########################################
