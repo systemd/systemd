@@ -272,7 +272,8 @@ static int network_load_one(Manager *manager, const char *filename) {
                               "BridgeFDB\0"
                               "BridgeVLAN\0"
                               "IPv6PrefixDelegation\0"
-                              "IPv6Prefix\0",
+                              "IPv6Prefix\0"
+                              "CAN\0",
                               config_item_perf_lookup, network_network_gperf_lookup,
                               CONFIG_PARSE_WARN, network);
         if (r < 0)

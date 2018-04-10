@@ -1753,6 +1753,39 @@
         </varlistentry>
       </variablelist>
   </refsect1>
+
+  <refsect1>
+    <title>[CAN] Section Options</title>
+      <para>The <literal>[CAN]</literal> section manages the Controller Area Network (CAN bus) and accepts the
+      following keys.</para>
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>BitRate=</varname></term>
+          <listitem>
+            <para>The bitrate of CAN device in bits per second. The usual SI prefixes (K, M) with the base of 1000 can
+            be used here.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SamplePoint=</varname></term>
+          <listitem>
+            <para>Optional sample point in percent with one decimal (e.g. <literal>75%</literal>,
+            <literal>87.5%</literal>) or permille (e.g. <literal>875‰</literal>).</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>RestartSec=</varname></term>
+          <listitem>
+            <para>Automatic restart delay time. If set to a non-zero value, a restart of the CAN controller will be
+            triggered automatically in case of a bus-off condition after the specified delay time. Subsecond delays can
+            be specified using decimals (e.g. <literal>0.1s</literal>) or a <literal>ms</literal> or
+            <literal>us</literal> postfix. Using <literal>infinity</literal> or <literal>0</literal> will turn the
+            automatic restart off. By default automatic restart is disabled.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+
   <refsect1>
     <title>[BridgeVLAN] Section Options</title>
       <para>The <literal>[BridgeVLAN]</literal> section manages the VLAN ID configuration of a bridge port and accepts
