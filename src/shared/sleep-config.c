@@ -357,6 +357,7 @@ int read_fiemap(int fd, struct fiemap **ret) {
 }
 
 static bool can_s2h(void) {
+        const char *p;
         int r;
 
         r = access("/sys/class/rtc/rtc0/wakealarm", W_OK);
@@ -366,16 +367,14 @@ static bool can_s2h(void) {
                 return false;
         }
 
-        r = can_sleep("suspend");
-        if (r < 0) {
-                log_debug_errno(r, "Unable to suspend system.");
-                return false;
-        }
-
-        r = can_sleep("hibernate");
-        if (r < 0) {
-                log_debug_errno(r, "Unable to hibernate system.");
-                return false;
+        FOREACH_STRING(p, "suspend", "hibernate") {
+                r = can_sleep(p);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if %s is possible: %m", p);
+                if (r == 0) {
+                        log_debug("Unable to %s system.", p);
+                        return false;
+                }
         }
 
         return true;
