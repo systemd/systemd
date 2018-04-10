@@ -20,6 +20,7 @@
 ***/
 
 #include <errno.h>
+#include <linux/fs.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -185,12 +186,9 @@ int can_sleep_disk(char **types) {
 
 #define HIBERNATION_SWAP_THRESHOLD 0.98
 
-static int hibernation_partition_size(size_t *size, size_t *used) {
+int find_hibernate_location(char **device, char **type, size_t *size, size_t *used) {
         _cleanup_fclose_ FILE *f;
         unsigned i;
-
-        assert(size);
-        assert(used);
 
         f = fopen("/proc/swaps", "re");
         if (!f) {
@@ -203,7 +201,7 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
         (void) fscanf(f, "%*s %*s %*s %*s %*s\n");
 
         for (i = 1;; i++) {
-                _cleanup_free_ char *dev = NULL, *type = NULL;
+                _cleanup_free_ char *dev_field = NULL, *type_field = NULL;
                 size_t size_field, used_field;
                 int k;
 
@@ -213,7 +211,7 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
                            "%zu "   /* swap size */
                            "%zu "   /* used */
                            "%*i\n", /* priority */
-                           &dev, &type, &size_field, &used_field);
+                           &dev_field, &type_field, &size_field, &used_field);
                 if (k != 4) {
                         if (k == EOF)
                                 break;
@@ -222,13 +220,18 @@ static int hibernation_partition_size(size_t *size, size_t *used) {
                         continue;
                 }
 
-                if (streq(type, "partition") && endswith(dev, "\\040(deleted)")) {
-                        log_warning("Ignoring deleted swapfile '%s'.", dev);
+                if (streq(type_field, "partition") && endswith(dev_field, "\\040(deleted)")) {
+                        log_warning("Ignoring deleted swapfile '%s'.", dev_field);
                         continue;
                 }
-
-                *size = size_field;
-                *used = used_field;
+                if (device)
+                        *device = TAKE_PTR(dev_field);
+                if (type)
+                        *type = TAKE_PTR(type_field);
+                if (size)
+                        *size = size_field;
+                if (used)
+                        *used = used_field;
                 return 0;
         }
 
@@ -245,7 +248,7 @@ static bool enough_memory_for_hibernation(void) {
         if (getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0)
                 return true;
 
-        r = hibernation_partition_size(&size, &used);
+        r = find_hibernate_location(NULL, NULL, &size, &used);
         if (r < 0)
                 return false;
 
@@ -267,6 +270,95 @@ static bool enough_memory_for_hibernation(void) {
                   r ? "" : "im", act, size, used, 100*HIBERNATION_SWAP_THRESHOLD);
 
         return r;
+}
+
+int read_fiemap(int fd, struct fiemap **ret) {
+        _cleanup_free_ struct fiemap *fiemap = NULL, *result_fiemap = NULL;
+        int extents_size;
+        struct stat statinfo;
+        uint32_t result_extents = 0;
+        uint64_t fiemap_start = 0, fiemap_length;
+        size_t fiemap_size = 1, result_fiemap_size = 1;
+
+        if (fstat(fd, &statinfo) < 0)
+                return log_debug_errno(errno, "Cannot determine file size: %m");
+        if (!S_ISREG(statinfo.st_mode))
+                return -ENOTTY;
+        fiemap_length = statinfo.st_size;
+
+        /* zero this out in case we run on a file with no extents */
+        fiemap = new0(struct fiemap, 1);
+        if (!fiemap)
+                return -ENOMEM;
+
+        result_fiemap = new(struct fiemap, 1);
+        if (!result_fiemap)
+                return -ENOMEM;
+
+        /*  XFS filesystem has incorrect implementation of fiemap ioctl and
+         *  returns extents for only one block-group at a time, so we need
+         *  to handle it manually, starting the next fiemap call from the end
+         *  of the last extent
+         */
+        while (fiemap_start < fiemap_length) {
+                *fiemap = (struct fiemap) {
+                        .fm_start = fiemap_start,
+                        .fm_length = fiemap_length,
+                        .fm_flags = FIEMAP_FLAG_SYNC,
+                };
+
+                /* Find out how many extents there are */
+                if (ioctl(fd, FS_IOC_FIEMAP, fiemap) < 0)
+                        return log_debug_errno(errno, "Failed to read extents: %m");
+
+                /* Nothing to process */
+                if (fiemap->fm_mapped_extents == 0)
+                        break;
+
+                /* Result fiemap has to hold all the extents for the whole file */
+                extents_size = DIV_ROUND_UP(sizeof(struct fiemap_extent) * fiemap->fm_mapped_extents,
+                                            sizeof(struct fiemap));
+
+                /* Resize fiemap to allow us to read in the extents */
+                if (!GREEDY_REALLOC0(fiemap, fiemap_size, extents_size))
+                        return -ENOMEM;
+
+                fiemap->fm_extent_count = fiemap->fm_mapped_extents;
+                fiemap->fm_mapped_extents = 0;
+
+                if (ioctl(fd, FS_IOC_FIEMAP, fiemap) < 0)
+                        return log_debug_errno(errno, "Failed to read extents: %m");
+
+                extents_size = DIV_ROUND_UP(sizeof(struct fiemap_extent) * (result_extents + fiemap->fm_mapped_extents),
+                                            sizeof(struct fiemap));
+
+                /* Resize result_fiemap to allow us to read in the extents */
+                if (!GREEDY_REALLOC(result_fiemap, result_fiemap_size,
+                                    extents_size))
+                        return -ENOMEM;
+
+                memcpy(result_fiemap->fm_extents + result_extents,
+                       fiemap->fm_extents,
+                       sizeof(struct fiemap_extent) * fiemap->fm_mapped_extents);
+
+                result_extents += fiemap->fm_mapped_extents;
+
+                /* Highly unlikely that it is zero */
+                if (fiemap->fm_mapped_extents > 0) {
+                        uint32_t i = fiemap->fm_mapped_extents - 1;
+
+                        fiemap_start = fiemap->fm_extents[i].fe_logical +
+                                       fiemap->fm_extents[i].fe_length;
+
+                        if (fiemap->fm_extents[i].fe_flags & FIEMAP_EXTENT_LAST)
+                                break;
+                }
+        }
+
+        memcpy(result_fiemap, fiemap, sizeof(struct fiemap));
+        result_fiemap->fm_mapped_extents = result_extents;
+        *ret = TAKE_PTR(result_fiemap);
+        return 0;
 }
 
 static bool can_s2h(void) {
