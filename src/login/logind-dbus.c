@@ -29,6 +29,7 @@
 #include "audit-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
@@ -1705,6 +1706,7 @@ int bus_manager_shutdown_or_sleep_now_or_later(
                 InhibitWhat w,
                 sd_bus_error *error) {
 
+        _cleanup_free_ char *load_state = NULL;
         bool delayed;
         int r;
 
@@ -1713,6 +1715,15 @@ int bus_manager_shutdown_or_sleep_now_or_later(
         assert(w > 0);
         assert(w <= _INHIBIT_WHAT_MAX);
         assert(!m->action_job);
+
+        r = unit_load_state(m->bus, unit_name, &load_state);
+        if (r < 0)
+                return r;
+
+        if (!streq(load_state, "loaded")) {
+                log_notice("Unit %s is %s, refusing operation.", unit_name, load_state);
+                return -EACCES;
+        }
 
         /* Tell everybody to prepare for shutdown/sleep */
         (void) send_prepare_for(m, w, true);
@@ -2235,6 +2246,7 @@ static int method_can_shutdown_or_sleep(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        HandleAction handle;
         bool multiple_sessions, challenge, blocked;
         const char *result = NULL;
         uid_t uid;
@@ -2270,6 +2282,25 @@ static int method_can_shutdown_or_sleep(
 
         multiple_sessions = r > 0;
         blocked = manager_is_inhibited(m, w, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
+
+        handle = handle_action_from_string(sleep_verb);
+        if (handle >= 0) {
+                const char *target;
+
+                target = manager_target_for_action(handle);
+                if (target) {
+                        _cleanup_free_ char *load_state = NULL;
+
+                        r = unit_load_state(m->bus, target, &load_state);
+                        if (r < 0)
+                                return r;
+
+                        if (!streq(load_state, "loaded")) {
+                                result = "no";
+                                goto finish;
+                        }
+                }
+        }
 
         if (multiple_sessions) {
                 r = bus_test_polkit(message, CAP_SYS_BOOT, action_multiple_sessions, NULL, UID_INVALID, &challenge, error);
@@ -2313,6 +2344,7 @@ static int method_can_shutdown_or_sleep(
                         result = "no";
         }
 
+ finish:
         return sd_bus_reply_method_return(message, "s", result);
 }
 
