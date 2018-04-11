@@ -226,7 +226,7 @@ int find_hibernate_location(char **device, char **type, size_t *size, size_t *us
         return -ENOSYS;
 }
 
-static bool enough_memory_for_hibernation(void) {
+static bool enough_swap_for_hibernation(void) {
         _cleanup_free_ char *active = NULL;
         unsigned long long act = 0;
         size_t size = 0, used = 0;
@@ -261,11 +261,11 @@ static bool enough_memory_for_hibernation(void) {
 
 int read_fiemap(int fd, struct fiemap **ret) {
         _cleanup_free_ struct fiemap *fiemap = NULL, *result_fiemap = NULL;
-        int extents_size;
         struct stat statinfo;
         uint32_t result_extents = 0;
         uint64_t fiemap_start = 0, fiemap_length;
-        size_t fiemap_size = 1, result_fiemap_size = 1;
+        const size_t n_extra = DIV_ROUND_UP(sizeof(struct fiemap), sizeof(struct fiemap_extent));
+        size_t fiemap_allocated = n_extra, result_fiemap_allocated = n_extra;
 
         if (fstat(fd, &statinfo) < 0)
                 return log_debug_errno(errno, "Cannot determine file size: %m");
@@ -273,12 +273,12 @@ int read_fiemap(int fd, struct fiemap **ret) {
                 return -ENOTTY;
         fiemap_length = statinfo.st_size;
 
-        /* zero this out in case we run on a file with no extents */
-        fiemap = new0(struct fiemap, 1);
+        /* Zero this out in case we run on a file with no extents */
+        fiemap = calloc(n_extra, sizeof(struct fiemap_extent));
         if (!fiemap)
                 return -ENOMEM;
 
-        result_fiemap = new(struct fiemap, 1);
+        result_fiemap = malloc_multiply(n_extra, sizeof(struct fiemap_extent));
         if (!result_fiemap)
                 return -ENOMEM;
 
@@ -302,12 +302,10 @@ int read_fiemap(int fd, struct fiemap **ret) {
                 if (fiemap->fm_mapped_extents == 0)
                         break;
 
-                /* Result fiemap has to hold all the extents for the whole file */
-                extents_size = DIV_ROUND_UP(sizeof(struct fiemap_extent) * fiemap->fm_mapped_extents,
-                                            sizeof(struct fiemap));
-
-                /* Resize fiemap to allow us to read in the extents */
-                if (!GREEDY_REALLOC0(fiemap, fiemap_size, extents_size))
+                /* Resize fiemap to allow us to read in the extents, result fiemap has to hold all
+                 * the extents for the whole file. Add space for the initial struct fiemap. */
+                if (!greedy_realloc0((void**) &fiemap, &fiemap_allocated,
+                                     n_extra + fiemap->fm_mapped_extents, sizeof(struct fiemap_extent)))
                         return -ENOMEM;
 
                 fiemap->fm_extent_count = fiemap->fm_mapped_extents;
@@ -316,12 +314,9 @@ int read_fiemap(int fd, struct fiemap **ret) {
                 if (ioctl(fd, FS_IOC_FIEMAP, fiemap) < 0)
                         return log_debug_errno(errno, "Failed to read extents: %m");
 
-                extents_size = DIV_ROUND_UP(sizeof(struct fiemap_extent) * (result_extents + fiemap->fm_mapped_extents),
-                                            sizeof(struct fiemap));
-
-                /* Resize result_fiemap to allow us to read in the extents */
-                if (!GREEDY_REALLOC(result_fiemap, result_fiemap_size,
-                                    extents_size))
+                /* Resize result_fiemap to allow us to copy in the extents */
+                if (!greedy_realloc((void**) &result_fiemap, &result_fiemap_allocated,
+                                    n_extra + result_extents + fiemap->fm_mapped_extents, sizeof(struct fiemap_extent)))
                         return -ENOMEM;
 
                 memcpy(result_fiemap->fm_extents + result_extents,
@@ -331,7 +326,7 @@ int read_fiemap(int fd, struct fiemap **ret) {
                 result_extents += fiemap->fm_mapped_extents;
 
                 /* Highly unlikely that it is zero */
-                if (fiemap->fm_mapped_extents > 0) {
+                if (_likely_(fiemap->fm_mapped_extents > 0)) {
                         uint32_t i = fiemap->fm_mapped_extents - 1;
 
                         fiemap_start = fiemap->fm_extents[i].fe_logical +
@@ -349,6 +344,7 @@ int read_fiemap(int fd, struct fiemap **ret) {
 }
 
 static bool can_s2h(void) {
+        const char *p;
         int r;
 
         r = access("/sys/class/rtc/rtc0/wakealarm", W_OK);
@@ -358,16 +354,14 @@ static bool can_s2h(void) {
                 return false;
         }
 
-        r = can_sleep("suspend");
-        if (r < 0) {
-                log_debug_errno(r, "Unable to suspend system.");
-                return false;
-        }
-
-        r = can_sleep("hibernate");
-        if (r < 0) {
-                log_debug_errno(r, "Unable to hibernate system.");
-                return false;
+        FOREACH_STRING(p, "suspend", "hibernate") {
+                r = can_sleep(p);
+                if (IN_SET(r, 0, -ENOSPC)) {
+                        log_debug("Unable to %s system.", p);
+                        return false;
+                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if %s is possible: %m", p);
         }
 
         return true;
@@ -389,5 +383,11 @@ int can_sleep(const char *verb) {
         if (!can_sleep_state(states) || !can_sleep_disk(modes))
                 return false;
 
-        return streq(verb, "suspend") || enough_memory_for_hibernation();
+        if (streq(verb, "suspend"))
+                return true;
+
+        if (!enough_swap_for_hibernation())
+                return -ENOSPC;
+
+        return true;
 }

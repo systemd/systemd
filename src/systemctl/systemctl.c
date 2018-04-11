@@ -2636,24 +2636,12 @@ static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *ac
 }
 
 static int unit_is_masked(sd_bus *bus, const char *name) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *path = NULL, *load_state = NULL;
+        _cleanup_free_ char *load_state = NULL;
         int r;
 
-        path = unit_dbus_path_from_name(name);
-        if (!path)
-                return log_oom();
-
-        r = sd_bus_get_property_string(
-                        bus,
-                        "org.freedesktop.systemd1",
-                        path,
-                        "org.freedesktop.systemd1.Unit",
-                        "LoadState",
-                        &error,
-                        &load_state);
+        r = unit_load_state(bus, name, &load_state);
         if (r < 0)
-                return log_error_errno(r, "Failed to get load state of %s: %s", name, bus_error_message(&error, r));
+                return r;
 
         return streq(load_state, "masked");
 }

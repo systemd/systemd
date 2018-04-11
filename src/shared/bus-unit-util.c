@@ -2449,3 +2449,29 @@ finish:
 
         return r;
 }
+
+int unit_load_state(sd_bus *bus, const char *name, char **load_state) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        path = unit_dbus_path_from_name(name);
+        if (!path)
+                return log_oom();
+
+        /* This function warns on it's own, because otherwise it'd be awkward to pass
+         * the dbus error message around. */
+
+        r = sd_bus_get_property_string(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        path,
+                        "org.freedesktop.systemd1.Unit",
+                        "LoadState",
+                        &error,
+                        load_state);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get load state of %s: %s", name, bus_error_message(&error, r));
+
+        return 0;
+}
