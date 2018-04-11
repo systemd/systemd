@@ -369,12 +369,12 @@ static bool can_s2h(void) {
 
         FOREACH_STRING(p, "suspend", "hibernate") {
                 r = can_sleep(p);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to check if %s is possible: %m", p);
-                if (r == 0) {
+                if (IN_SET(r, 0, -ENOSPC)) {
                         log_debug("Unable to %s system.", p);
                         return false;
                 }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to check if %s is possible: %m", p);
         }
 
         return true;
@@ -396,5 +396,11 @@ int can_sleep(const char *verb) {
         if (!can_sleep_state(states) || !can_sleep_disk(modes))
                 return false;
 
-        return streq(verb, "suspend") || enough_memory_for_hibernation();
+        if (streq(verb, "suspend"))
+                return true;
+
+        if (!enough_memory_for_hibernation())
+                return -ENOSPC;
+
+        return true;
 }

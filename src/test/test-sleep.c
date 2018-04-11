@@ -65,7 +65,9 @@ static void test_sleep(void) {
                 **platform = strv_new("platform", NULL),
                 **shutdown = strv_new("shutdown", NULL),
                 **freez = strv_new("freeze", NULL);
+        int r;
 
+        log_info("/* configuration */");
         log_info("Standby configured: %s", yes_no(can_sleep_state(standby) > 0));
         log_info("Suspend configured: %s", yes_no(can_sleep_state(mem) > 0));
         log_info("Hibernate configured: %s", yes_no(can_sleep_state(disk) > 0));
@@ -75,10 +77,15 @@ static void test_sleep(void) {
         log_info("Hibernate+Shutdown configured: %s", yes_no(can_sleep_disk(shutdown) > 0));
         log_info("Freeze configured: %s", yes_no(can_sleep_state(freez) > 0));
 
-        log_info("Suspend configured and possible: %s", yes_no(can_sleep("suspend") > 0));
-        log_info("Hibernation configured and possible: %s", yes_no(can_sleep("hibernate") > 0));
-        log_info("Hybrid-sleep configured and possible: %s", yes_no(can_sleep("hybrid-sleep") > 0));
-        log_info("Suspend-then-Hibernate configured and possible: %s", yes_no(can_sleep("suspend-then-hibernate") > 0));
+        log_info("/* running system */");
+        r = can_sleep("suspend");
+        log_info("Suspend configured and possible: %s", r >= 0 ? yes_no(r) : strerror(-r));
+        r = can_sleep("hibernate");
+        log_info("Hibernation configured and possible: %s", r >= 0 ? yes_no(r) : strerror(-r));
+        r = can_sleep("hybrid-sleep");
+        log_info("Hybrid-sleep configured and possible: %s", r >= 0 ? yes_no(r) : strerror(-r));
+        r = can_sleep("suspend-then-hibernate");
+        log_info("Suspend-then-Hibernate configured and possible: %s", r >= 0 ? yes_no(r) : strerror(-r));
 }
 
 int main(int argc, char* argv[]) {
