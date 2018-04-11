@@ -350,7 +350,7 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
         ({                                              \
                 typeof(x) _x_ = (x);                    \
                 unsigned ans = 1;                       \
-                while (_x_ /= 10)                       \
+                while ((_x_ /= 10) != 0)                \
                         ans++;                          \
                 ans;                                    \
         })
