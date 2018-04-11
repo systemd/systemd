@@ -48,3 +48,4 @@ static inline char32_t utf16_surrogate_pair_to_unichar(char16_t lead, char16_t t
 }
 
 size_t utf8_n_codepoints(const char *str);
+size_t utf8_console_width(const char *str);
