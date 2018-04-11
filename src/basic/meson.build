@@ -77,6 +77,8 @@ basic_sources = files('''
         fileio-label.h
         fileio.c
         fileio.h
+        format-table.c
+        format-table.h
         format-util.h
         fs-util.c
         fs-util.h

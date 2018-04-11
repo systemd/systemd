@@ -178,6 +178,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-format-table.c'],
+         [],
+         []],
+
         [['src/test/test-ratelimit.c'],
          [],
          []],
