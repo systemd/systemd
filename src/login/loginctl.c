@@ -19,6 +19,7 @@
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
+#include "format-table.h"
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
@@ -86,13 +87,39 @@ static int get_session_path(sd_bus *bus, const char *session_id, sd_bus_error *e
         return 0;
 }
 
+static int show_table(Table *table, const char *word) {
+        int r;
+
+        assert(table);
+        assert(word);
+
+        if (table_get_rows(table) > 1) {
+                r = table_set_sort(table, (size_t) 0, (size_t) -1);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to sort table: %m");
+
+                table_set_header(table, arg_legend);
+
+                r = table_print(table, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to show table: %m");
+        }
+
+        if (arg_legend) {
+                if (table_get_rows(table) > 1)
+                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, word);
+                else
+                        printf("No %s.\n", word);
+        }
+
+        return 0;
+}
+
 static int list_sessions(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *id, *user, *seat, *object;
+        _cleanup_(table_unrefp) Table *table = NULL;
         sd_bus *bus = userdata;
-        unsigned k = 0;
-        uint32_t uid;
         int r;
 
         assert(bus);
@@ -107,67 +134,74 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                         "org.freedesktop.login1.Manager",
                         "ListSessions",
                         &error, &reply,
-                        "");
-        if (r < 0) {
-                log_error("Failed to list sessions: %s", bus_error_message(&error, r));
-                return r;
-        }
+                        NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list sessions: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, 'a', "(susso)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (arg_legend)
-                printf("%10s %10s %-16s %-16s %-16s\n", "SESSION", "UID", "USER", "SEAT", "TTY");
+        table = table_new("SESSION", "UID", "USER", "SEAT", "TTY");
+        if (!table)
+                return log_oom();
 
-        while ((r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object)) > 0) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error2 = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply2 = NULL;
+        /* Right-align the first two fields (since they are numeric) */
+        (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
+        (void) table_set_align_percent(table, TABLE_HEADER_CELL(1), 100);
+
+        for (;;) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error_tty = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_tty = NULL;
+                const char *id, *user, *seat, *object, *tty = NULL;
                 _cleanup_free_ char *path = NULL;
-                const char *tty = NULL;
+                uint32_t uid;
 
-                r = get_session_path(bus, id, &error2, &path);
+                r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object);
                 if (r < 0)
-                        log_warning("Failed to get session path: %s", bus_error_message(&error, r));
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = sd_bus_get_property(
+                                bus,
+                                "org.freedesktop.login1",
+                                object,
+                                "org.freedesktop.login1.Session",
+                                "TTY",
+                                &error_tty,
+                                &reply_tty,
+                                "s");
+                if (r < 0)
+                        log_warning_errno(r, "Failed to get TTY for session %s: %s", id, bus_error_message(&error_tty, r));
                 else {
-                        r = sd_bus_get_property(
-                                        bus,
-                                        "org.freedesktop.login1",
-                                        path,
-                                        "org.freedesktop.login1.Session",
-                                        "TTY",
-                                        &error2,
-                                        &reply2,
-                                        "s");
+                        r = sd_bus_message_read(reply_tty, "s", &tty);
                         if (r < 0)
-                                log_warning("Failed to get TTY for session %s: %s",
-                                            id, bus_error_message(&error2, r));
-                        else {
-                                r = sd_bus_message_read(reply2, "s", &tty);
-                                if (r < 0)
-                                        return bus_log_parse_error(r);
-                        }
+                                return bus_log_parse_error(r);
                 }
 
-                printf("%10s %10"PRIu32" %-16s %-16s %-16s\n", id, uid, user, seat, strna(tty));
-                k++;
+                r = table_add_many(table,
+                                   TABLE_STRING, id,
+                                   TABLE_UINT32, uid,
+                                   TABLE_STRING, user,
+                                   TABLE_STRING, seat,
+                                   TABLE_STRING, strna(tty));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add row to table: %m");
         }
+
+        r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (arg_legend)
-                printf("\n%u sessions listed.\n", k);
-
-        return 0;
+        return show_table(table, "sessions");
 }
 
 static int list_users(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *user, *object;
+        _cleanup_(table_unrefp) Table *table = NULL;
         sd_bus *bus = userdata;
-        unsigned k = 0;
-        uint32_t uid;
         int r;
 
         assert(bus);
@@ -182,39 +216,51 @@ static int list_users(int argc, char *argv[], void *userdata) {
                         "org.freedesktop.login1.Manager",
                         "ListUsers",
                         &error, &reply,
-                        "");
-        if (r < 0) {
-                log_error("Failed to list users: %s", bus_error_message(&error, r));
-                return r;
-        }
+                        NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list users: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, 'a', "(uso)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (arg_legend)
-                printf("%10s %-16s\n", "UID", "USER");
+        table = table_new("UID", "USER");
+        if (!table)
+                return log_oom();
 
-        while ((r = sd_bus_message_read(reply, "(uso)", &uid, &user, &object)) > 0) {
-                printf("%10"PRIu32" %-16s\n", uid, user);
-                k++;
+        (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
+
+        for (;;) {
+                const char *user, *object;
+                uint32_t uid;
+
+                r = sd_bus_message_read(reply, "(uso)", &uid, &user, &object);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = table_add_many(table,
+                                   TABLE_UINT32, uid,
+                                   TABLE_STRING, user);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add row to table: %m");
         }
+
+        r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (arg_legend)
-                printf("\n%u users listed.\n", k);
-
-        return 0;
+        return show_table(table, "users");
 }
 
 static int list_seats(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *seat, *object;
+        _cleanup_(table_unrefp) Table *table = NULL;
         sd_bus *bus = userdata;
-        unsigned k = 0;
         int r;
+
         assert(bus);
         assert(argv);
 
@@ -227,30 +273,37 @@ static int list_seats(int argc, char *argv[], void *userdata) {
                         "org.freedesktop.login1.Manager",
                         "ListSeats",
                         &error, &reply,
-                        "");
-        if (r < 0) {
-                log_error("Failed to list seats: %s", bus_error_message(&error, r));
-                return r;
-        }
+                        NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to list seats: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_enter_container(reply, 'a', "(so)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (arg_legend)
-                printf("%-16s\n", "SEAT");
+        table = table_new("SEAT");
+        if (!table)
+                return log_oom();
 
-        while ((r = sd_bus_message_read(reply, "(so)", &seat, &object)) > 0) {
-                printf("%-16s\n", seat);
-                k++;
+        for (;;) {
+                const char *seat, *object;
+
+                r = sd_bus_message_read(reply, "(so)", &seat, &object);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = table_add_cell(table, NULL, TABLE_STRING, seat);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add row to table: %m");
         }
+
+        r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (arg_legend)
-                printf("\n%u seats listed.\n", k);
-
-        return 0;
+        return show_table(table, "seats");
 }
 
 static int show_unit_cgroup(sd_bus *bus, const char *interface, const char *unit, pid_t leader) {
