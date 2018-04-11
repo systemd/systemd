@@ -566,7 +566,8 @@ tests += [
           libseccomp,
           libselinux,
           libmount,
-          libblkid]],
+          libblkid],
+         '', 'timeout=360'],
 
         [['src/test/test-siphash24.c'],
          [],
