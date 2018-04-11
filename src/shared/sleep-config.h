@@ -12,7 +12,8 @@
 
 int read_fiemap(int fd, struct fiemap **ret);
 int parse_sleep_config(const char *verb, char ***modes, char ***states, usec_t *delay);
-int find_hibernate_location(char **device, char **type, size_t *size, size_t *used);
+int write_hibernate_location_info(void);
+bool should_resume(void);
 
 int can_sleep(const char *verb);
 int can_sleep_disk(char **types);

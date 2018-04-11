@@ -29,67 +29,6 @@
 
 static char* arg_verb = NULL;
 
-static int write_hibernate_location_info(void) {
-        _cleanup_free_ char *device = NULL, *type = NULL;
-        _cleanup_free_ struct fiemap *fiemap = NULL;
-        char offset_str[DECIMAL_STR_MAX(uint64_t)];
-        char device_str[DECIMAL_STR_MAX(uint64_t)];
-        _cleanup_close_ int fd = -1;
-        struct stat stb;
-        uint64_t offset;
-        int r;
-
-        r = find_hibernate_location(&device, &type, NULL, NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Unable to find hibernation location: %m");
-
-        /* if it's a swap partition, we just write the disk to /sys/power/resume */
-        if (streq(type, "partition"))
-                return write_string_file("/sys/power/resume", device, 0);
-        else if (!streq(type, "file"))
-                return log_debug_errno(EINVAL, "Invalid hibernate type %s: %m",
-                                       type);
-
-        /* Only available in 4.17+ */
-        if (access("/sys/power/resume_offset", F_OK) < 0) {
-                if (errno == ENOENT)
-                        return 0;
-                return log_debug_errno(errno, "/sys/power/resume_offset unavailable: %m");
-        }
-
-        r = access("/sys/power/resume_offset", W_OK);
-        if (r < 0)
-                return log_debug_errno(errno, "/sys/power/resume_offset not writeable: %m");
-
-        fd = open(device, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
-        if (fd < 0)
-                return log_debug_errno(errno, "Unable to open '%s': %m", device);
-        r = fstat(fd, &stb);
-        if (r < 0)
-                return log_debug_errno(errno, "Unable to stat %s: %m", device);
-        r = read_fiemap(fd, &fiemap);
-        if (r < 0)
-                return log_debug_errno(r, "Unable to read extent map for '%s': %m",
-                                       device);
-        if (fiemap->fm_mapped_extents == 0) {
-                log_debug("No extents found in '%s'", device);
-                return -EINVAL;
-        }
-        offset = fiemap->fm_extents[0].fe_physical / page_size();
-        xsprintf(offset_str, "%" PRIu64, offset);
-        r = write_string_file("/sys/power/resume_offset", offset_str, 0);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write offset '%s': %m",
-                                       offset_str);
-
-        xsprintf(device_str, "%lx", (unsigned long)stb.st_dev);
-        r = write_string_file("/sys/power/resume", device_str, 0);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write device '%s': %m",
-                                       device_str);
-        return 0;
-}
-
 static int write_mode(char **modes) {
         int r = 0;
         char **mode;
@@ -267,9 +206,16 @@ static int execute_s2h(usec_t hibernate_delay_sec) {
         return r;
 }
 
+static int execute_hibernate_resume(void) {
+        if (should_resume())
+                return write_hibernate_location_info();
+        return 0;
+}
+
 static void help(void) {
         printf("%s COMMAND\n\n"
-               "Suspend the system, hibernate the system, or both.\n\n"
+               "Suspend the system, hibernate the system, both, or"
+               "resume from hibernate.\n\n"
                "Commands:\n"
                "  -h --help            Show this help and exit\n"
                "  --version            Print version string and exit\n"
@@ -278,6 +224,7 @@ static void help(void) {
                "  hybrid-sleep         Both hibernate and suspend the system\n"
                "  suspend-then-hibernate Initially suspend and then hibernate\n"
                "                       the system after a fixed period of time\n"
+               "  resume               Resume the system from hibernation \n"
                , program_invocation_short_name);
 }
 
@@ -324,7 +271,8 @@ static int parse_argv(int argc, char *argv[]) {
         if (!streq(arg_verb, "suspend") &&
             !streq(arg_verb, "hibernate") &&
             !streq(arg_verb, "hybrid-sleep") &&
-            !streq(arg_verb, "suspend-then-hibernate")) {
+            !streq(arg_verb, "suspend-then-hibernate") &&
+            !streq(arg_verb, "resume")) {
                 log_error("Unknown command '%s'.", arg_verb);
                 return -EINVAL;
         }
@@ -344,6 +292,12 @@ int main(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 goto finish;
+
+        if (streq(arg_verb, "resume")) {
+                r = execute_hibernate_resume();
+                if (r < 0)
+                        goto finish;
+        }
 
         r = parse_sleep_config(arg_verb, &modes, &states, &delay);
         if (r < 0)
