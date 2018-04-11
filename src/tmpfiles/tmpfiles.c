@@ -808,15 +808,9 @@ static int fd_set_perms(Item *i, int fd, const struct stat *st) {
                         if (m == (st->st_mode & 07777))
                                 log_debug("\"%s\" has correct mode %o already.", path, st->st_mode);
                         else {
-                                char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-
                                 log_debug("Changing \"%s\" to mode %o.", path, m);
-
-                                /* fchmodat() still doesn't have AT_EMPTY_PATH flag. */
-                                xsprintf(procfs_path, "/proc/self/fd/%i", fd);
-
-                                if (chmod(procfs_path, m) < 0)
-                                        return log_error_errno(errno, "chmod() of %s via %s failed: %m", path, procfs_path);
+                                if (fchmod_opath(fd, m) < 0)
+                                        return log_error_errno(errno, "fchmod() of %s failed: %m", path);
                         }
                 }
         }
