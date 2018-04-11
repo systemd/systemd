@@ -15,6 +15,7 @@
 
 #include "alloc-util.h"
 #include "gunicode.h"
+#include "locale-util.h"
 #include "macro.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -452,42 +453,88 @@ bool string_has_cc(const char *p, const char *ok) {
 }
 
 static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
-        size_t x;
+        size_t x, need_space;
         char *r;
 
         assert(s);
         assert(percent <= 100);
-        assert(new_length >= 3);
+        assert(new_length != (size_t) -1);
 
-        if (old_length <= 3 || old_length <= new_length)
+        if (old_length <= new_length)
                 return strndup(s, old_length);
 
-        r = new0(char, new_length+3);
+        /* Special case short ellipsations */
+        switch (new_length) {
+
+        case 0:
+                return strdup("");
+
+        case 1:
+                if (is_locale_utf8())
+                        return strdup("…");
+                else
+                        return strdup(".");
+
+        case 2:
+                if (!is_locale_utf8())
+                        return strdup("..");
+
+                break;
+
+        default:
+                break;
+        }
+
+        /* Calculate how much space the ellipsis will take up. If we are in UTF-8 mode we only need space for one
+         * character ("…"), otherwise for three characters ("..."). Note that in both cases we need 3 bytes of storage,
+         * either for the UTF-8 encoded character or for three ASCII characters. */
+        need_space = is_locale_utf8() ? 1 : 3;
+
+        r = new(char, new_length+3);
         if (!r)
                 return NULL;
 
-        x = (new_length * percent) / 100;
+        assert(new_length >= need_space);
 
-        if (x > new_length - 3)
-                x = new_length - 3;
+        x = ((new_length - need_space) * percent + 50) / 100;
+        assert(x <= new_length - need_space);
 
         memcpy(r, s, x);
-        r[x] = 0xe2; /* tri-dot ellipsis: … */
-        r[x+1] = 0x80;
-        r[x+2] = 0xa6;
+
+        if (is_locale_utf8()) {
+                r[x+0] = 0xe2; /* tri-dot ellipsis: … */
+                r[x+1] = 0x80;
+                r[x+2] = 0xa6;
+        } else {
+                r[x+0] = '.';
+                r[x+1] = '.';
+                r[x+2] = '.';
+        }
+
         memcpy(r + x + 3,
-               s + old_length - (new_length - x - 1),
-               new_length - x - 1);
+               s + old_length - (new_length - x - need_space),
+               new_length - x - need_space + 1);
 
         return r;
 }
 
 char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
-        size_t x;
-        char *e;
+        size_t x, k, len, len2;
         const char *i, *j;
-        unsigned k, len, len2;
+        char *e;
         int r;
+
+        /* Note that 'old_length' refers to bytes in the string, while 'new_length' refers to character cells taken up
+         * on screen. This distinction doesn't matter for ASCII strings, but it does matter for non-ASCII UTF-8
+         * strings.
+         *
+         * Ellipsation is done in a locale-dependent way:
+         * 1. If the string passed in is fully ASCII and the current locale is not UTF-8, three dots are used ("...")
+         * 2. Otherwise, a unicode ellipsis is used ("…")
+         *
+         * In other words: you'll get a unicode ellipsis as soon as either the string contains non-ASCII characters or
+         * the current locale is UTF-8.
+         */
 
         assert(s);
         assert(percent <= 100);
@@ -495,19 +542,15 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         if (new_length == (size_t) -1)
                 return strndup(s, old_length);
 
-        assert(new_length >= 3);
+        if (new_length == 0)
+                return strdup("");
 
-        /* if no multibyte characters use ascii_ellipsize_mem for speed */
+        /* If no multibyte characters use ascii_ellipsize_mem for speed */
         if (ascii_is_valid(s))
                 return ascii_ellipsize_mem(s, old_length, new_length, percent);
 
-        if (old_length <= 3 || old_length <= new_length)
-                return strndup(s, old_length);
-
-        x = (new_length * percent) / 100;
-
-        if (x > new_length - 3)
-                x = new_length - 3;
+        x = ((new_length - 1) * percent) / 100;
+        assert(x <= new_length - 1);
 
         k = 0;
         for (i = s; k < x && i < s + old_length; i = utf8_next_char(i)) {
@@ -552,7 +595,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         */
 
         memcpy(e, s, len);
-        e[len]   = 0xe2; /* tri-dot ellipsis: … */
+        e[len + 0] = 0xe2; /* tri-dot ellipsis: … */
         e[len + 1] = 0x80;
         e[len + 2] = 0xa6;
 

@@ -17,6 +17,30 @@ static void test_one(const char *p) {
         _cleanup_free_ char *t;
         t = ellipsize(p, columns(), 70);
         puts(t);
+        free(t);
+        t = ellipsize(p, columns(), 0);
+        puts(t);
+        free(t);
+        t = ellipsize(p, columns(), 100);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 0, 50);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 1, 50);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 2, 50);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 3, 50);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 4, 50);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 5, 50);
+        puts(t);
 }
 
 int main(int argc, char *argv[]) {
