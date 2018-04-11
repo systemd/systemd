@@ -127,6 +127,8 @@ basic_sources = files('''
         nss-util.h
         ordered-set.c
         ordered-set.h
+        pager.c
+        pager.h
         parse-util.c
         parse-util.h
         path-util.c
