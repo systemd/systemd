@@ -365,10 +365,11 @@ const char *special_glyph(SpecialGlyph code) {
                         [BLACK_CIRCLE]       = "*",
                         [ARROW]              = "->",
                         [MDASH]              = "-",
+                        [ELLIPSIS]           = "..."
                 },
 
                 /* UTF-8 */
-                [ true ] = {
+                [true] = {
                         [TREE_VERTICAL]      = "\342\224\202 ",            /* │  */
                         [TREE_BRANCH]        = "\342\224\234\342\224\200", /* ├─ */
                         [TREE_RIGHT]         = "\342\224\224\342\224\200", /* └─ */
@@ -377,6 +378,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [BLACK_CIRCLE]       = "\342\227\217",             /* ● */
                         [ARROW]              = "\342\206\222",             /* → */
                         [MDASH]              = "\342\200\223",             /* – */
+                        [ELLIPSIS]           = "\342\200\246",             /* … */
                 },
         };
 
