@@ -25,8 +25,23 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "sleep-config.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "udev-util.h"
+
+/* this is from kernel/power/swap.c, it's not exported currently */
+#define HIBERNATE_SIG	"S1SUSPEND"
+struct swsusp_header {
+        //HACK - override the types not exported by kernel
+        char reserved[4096 - 20 - sizeof(uint64_t) - sizeof(int) -
+                        sizeof(uint32_t)];
+        uint32_t        crc32;
+        uint64_t        image;
+        unsigned int    flags;	/* Flags to pass to the "boot" kernel */
+        char            orig_sig[10];
+        char            sig[10];
+} __packed;
 
 int parse_sleep_config(const char *verb, char ***_modes, char ***_states, usec_t *_delay) {
 
@@ -173,7 +188,7 @@ int can_sleep_disk(char **types) {
 
 #define HIBERNATION_SWAP_THRESHOLD 0.98
 
-int find_hibernate_location(char **device, char **type, size_t *size, size_t *used) {
+static int find_hibernate_location(char **device, char **type, size_t *size, size_t *used) {
         _cleanup_fclose_ FILE *f;
         unsigned i;
 
@@ -341,6 +356,156 @@ int read_fiemap(int fd, struct fiemap **ret) {
         result_fiemap->fm_mapped_extents = result_extents;
         *ret = TAKE_PTR(result_fiemap);
         return 0;
+}
+
+static int find_hibernation_offset(char *device, unsigned long *device_out, uint64_t *offset_out) {
+        _cleanup_free_ struct fiemap *fiemap = NULL;
+        _cleanup_close_ int fd = -1;
+        struct stat stb;
+        int r;
+
+        fd = open(device, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+        if (fd < 0)
+                return log_debug_errno(errno, "Unable to open '%s': %m", device);
+        r = fstat(fd, &stb);
+        if (r < 0)
+                return log_debug_errno(errno, "Unable to stat %s: %m", device);
+        r = read_fiemap(fd, &fiemap);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to read extent map for '%s': %m",
+                                       device);
+        if (fiemap->fm_mapped_extents == 0) {
+                log_debug("No extents found in '%s'", device);
+                return -EINVAL;
+        }
+        *offset_out = fiemap->fm_extents[0].fe_physical / page_size();
+        *device_out = (unsigned long)stb.st_dev;
+        return 0;
+}
+
+int write_hibernate_location_info(void) {
+        _cleanup_free_ char *device = NULL, *type = NULL;
+        char offset_str[DECIMAL_STR_MAX(uint64_t)];
+        char device_str[DECIMAL_STR_MAX(uint64_t)];
+        unsigned long dev;
+        uint64_t offset;
+        int r;
+
+        r = find_hibernate_location(&device, &type, NULL, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to find hibernation location: %m");
+
+        /* if it's a swap partition, we just write the disk to /sys/power/resume */
+        if (streq(type, "partition"))
+                return write_string_file("/sys/power/resume", device, 0);
+        else if (!streq(type, "file"))
+                return log_debug_errno(EINVAL, "Invalid hibernate type %s: %m",
+                                       type);
+
+        /* Only available in 4.17+ */
+        if (access("/sys/power/resume_offset", F_OK) < 0) {
+                if (errno == ENOENT)
+                        return 0;
+                return log_debug_errno(errno, "/sys/power/resume_offset unavailable: %m");
+        }
+
+        r = access("/sys/power/resume_offset", W_OK);
+        if (r < 0)
+                return log_debug_errno(errno, "/sys/power/resume_offset not writeable: %m");
+
+        r = find_hibernation_offset(device, &dev, &offset);
+        if (r < 0)
+                return r;
+        xsprintf(offset_str, "%" PRIu64, offset);
+        r = write_string_file("/sys/power/resume_offset", offset_str, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write offset '%s': %m",
+                                       offset_str);
+
+        xsprintf(device_str, "%lx", dev);
+        r = write_string_file("/sys/power/resume", device_str, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write device '%s': %m",
+                                       device_str);
+        return 0;
+}
+
+bool should_resume(void) {
+        _cleanup_free_ struct swsusp_header *header = NULL;
+        _cleanup_free_ char *swap = NULL, *type = NULL;
+        _cleanup_udev_unref_ struct udev *udev;
+        _cleanup_close_ int fd = -1;
+        struct udev_device *dev = NULL;
+        const char *node  = NULL;
+        unsigned long stb_dev;
+        uint64_t offset;
+        int r;
+
+        /* find preferred swap from last boot (OK if none set) */
+        r =  find_hibernate_location(&swap, &type, NULL, NULL);
+        if (r < 0) {
+                log_debug_errno(r, "Unable to find any hibernation location: %m");
+                return false;
+        }
+
+        /* determine where in the disk to probe */
+        if (streq(type, "partition")) {
+                offset = 0;
+                node = swap;
+        }
+        else if (!streq(type, "file")) {
+                r = find_hibernation_offset(swap, &stb_dev, &offset);
+                if (r < 0)
+                        return false;
+
+                udev = udev_new();
+                if (!udev) {
+                        log_debug_errno(ENOMEM, "Unable to allocate udev: %m");
+                        return false;
+                }
+
+                dev = udev_device_new_from_devnum(udev, 'b', stb_dev);
+                if (!dev) {
+                        log_debug_errno(ENODEV, "Unable to find device: %m");
+                        return false;
+                }
+
+                node = udev_device_get_devnode(dev);
+                if (!node) {
+                        log_debug_errno(ENODEV, "Unable to find node: %m");
+                        return false;
+                }
+
+        }
+        else {
+                log_debug("Unknown swap type selected %s", swap);
+                return false;
+        }
+
+        /* probe for hibernate header */
+        header = new(struct swsusp_header, 1);
+        if (!header) {
+                log_debug_errno(ENOMEM, "Unable to allocate header: %m");
+                return false;
+        }
+        fd = open(node, O_RDONLY | O_NONBLOCK);
+        if (fd < 0) {
+                log_debug_errno(errno, "Unable to open '%s': %m", node);
+                return false;
+        }
+        r = read(fd, header, sizeof(header));
+        if (r < 0) {
+                log_debug_errno(errno, "Unable to read '%s': %m", node);
+                return false;
+        }
+        r = lseek(fd, offset, SEEK_SET);
+        if (r < 0) {
+                log_debug_errno(errno, "Unable to seek '%s': %m", node);
+                return false;
+        }
+
+        /* match the signature */
+        return memcmp(HIBERNATE_SIG, header->sig, 10) == 0;
 }
 
 static bool can_s2h(void) {
