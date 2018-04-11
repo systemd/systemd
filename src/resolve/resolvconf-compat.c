@@ -44,8 +44,6 @@ static int parse_nameserver(const char *string) {
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                struct in_addr_data data, *n;
-                int ifindex = 0;
 
                 r = extract_first_word(&string, &word, NULL, 0);
                 if (r < 0)
@@ -53,27 +51,8 @@ static int parse_nameserver(const char *string) {
                 if (r == 0)
                         break;
 
-                r = in_addr_ifindex_from_string_auto(word, &data.family, &data.address, &ifindex);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse name server '%s': %m", word);
-
-                if (ifindex > 0 && ifindex != arg_ifindex) {
-                        log_error("Name server interface '%s' does not match selected interface: %m", word);
-                        return -EINVAL;
-                }
-
-                /* Some superficial filtering */
-                if (in_addr_is_null(data.family, &data.address))
-                        continue;
-                if (data.family == AF_INET && data.address.in.s_addr == htobe32(INADDR_DNS_STUB)) /* resolved's own stub? */
-                        continue;
-
-                n = reallocarray(arg_set_dns, arg_n_set_dns + 1, sizeof(struct in_addr_data));
-                if (!n)
+                if (strv_push(&arg_set_dns, word) < 0)
                         return log_oom();
-                arg_set_dns = n;
-
-                arg_set_dns[arg_n_set_dns++] = data;
         }
 
         return 0;
@@ -92,14 +71,6 @@ static int parse_search_domain(const char *string) {
                         return r;
                 if (r == 0)
                         break;
-
-                r = dns_name_is_valid(word);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to validate specified domain '%s': %m", word);
-                if (r == 0) {
-                        log_error("Domain not valid: %s", word);
-                        return -EINVAL;
-                }
 
                 if (strv_push(&arg_set_domain, word) < 0)
                         return log_oom();
@@ -252,6 +223,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 }
 
                 arg_ifindex = ifi;
+                arg_ifname = iface;
         }
 
         if (arg_mode == MODE_SET_LINK) {
@@ -302,7 +274,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 } else if (type == TYPE_PRIVATE)
                         log_debug("Private DNS server data not supported, ignoring.");
 
-                if (arg_n_set_dns == 0) {
+                if (!arg_set_dns) {
                         log_error("No DNS servers specified, refusing operation.");
                         return -EINVAL;
                 }
