@@ -66,16 +66,11 @@ static int test_cgroup_mask(void) {
         assert_se(manager_startup(m, serial, fdset) >= 0);
 
         /* Load units and verify hierarchy. */
-        assert_se(manager_load_unit(m, "parent.slice", NULL, NULL, &parent) >= 0);
-        assert_se(manager_load_unit(m, "son.service", NULL, NULL, &son) >= 0);
-        assert_se(manager_load_unit(m, "daughter.service", NULL, NULL, &daughter) >= 0);
-        assert_se(manager_load_unit(m, "grandchild.service", NULL, NULL, &grandchild) >= 0);
-        assert_se(manager_load_unit(m, "parent-deep.slice", NULL, NULL, &parent_deep) >= 0);
-        assert_se(parent->load_state == UNIT_LOADED);
-        assert_se(son->load_state == UNIT_LOADED);
-        assert_se(daughter->load_state == UNIT_LOADED);
-        assert_se(grandchild->load_state == UNIT_LOADED);
-        assert_se(parent_deep->load_state == UNIT_LOADED);
+        assert_se(manager_load_startable_unit_or_warn(m, "parent.slice", NULL, &parent) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "son.service", NULL, &son) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "daughter.service", NULL, &daughter) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "grandchild.service", NULL, &grandchild) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "parent-deep.slice", NULL, &parent_deep) >= 0);
         assert_se(UNIT_DEREF(son->slice) == parent);
         assert_se(UNIT_DEREF(daughter->slice) == parent);
         assert_se(UNIT_DEREF(parent_deep->slice) == parent);

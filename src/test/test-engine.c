@@ -56,9 +56,9 @@ int main(int argc, char *argv[]) {
         assert_se(manager_startup(m, serial, fdset) >= 0);
 
         printf("Load1:\n");
-        assert_se(manager_load_unit(m, "a.service", NULL, NULL, &a) >= 0);
-        assert_se(manager_load_unit(m, "b.service", NULL, NULL, &b) >= 0);
-        assert_se(manager_load_unit(m, "c.service", NULL, NULL, &c) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "a.service", NULL, &a) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "b.service", NULL, &b) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "c.service", NULL, &c) >= 0);
         manager_dump_units(m, stdout, "\t");
 
         printf("Test1: (Trivial)\n");
@@ -70,8 +70,8 @@ int main(int argc, char *argv[]) {
 
         printf("Load2:\n");
         manager_clear_jobs(m);
-        assert_se(manager_load_unit(m, "d.service", NULL, NULL, &d) >= 0);
-        assert_se(manager_load_unit(m, "e.service", NULL, NULL, &e) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "d.service", NULL, &d) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "e.service", NULL, &e) >= 0);
         manager_dump_units(m, stdout, "\t");
 
         printf("Test2: (Cyclic Order, Unfixable)\n");
@@ -87,7 +87,7 @@ int main(int argc, char *argv[]) {
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Load3:\n");
-        assert_se(manager_load_unit(m, "g.service", NULL, NULL, &g) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "g.service", NULL, &g) >= 0);
         manager_dump_units(m, stdout, "\t");
 
         printf("Test5: (Colliding transaction, fail)\n");
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
         manager_dump_jobs(m, stdout, "\t");
 
         printf("Load4:\n");
-        assert_se(manager_load_unit(m, "h.service", NULL, NULL, &h) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "h.service", NULL, &h) >= 0);
         manager_dump_units(m, stdout, "\t");
 
         printf("Test10: (Unmergeable job type of auxiliary job, fail)\n");
