@@ -1906,28 +1906,15 @@ static int do_queue_default_job(
 
         log_debug("Activating default unit: %s", arg_default_unit);
 
-        r = manager_load_unit(m, arg_default_unit, NULL, &error, &target);
-        if (r < 0)
-                log_error("Failed to load default target: %s", bus_error_message(&error, r));
-        else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND))
-                log_error_errno(target->load_error, "Failed to load default target: %m");
-        else if (target->load_state == UNIT_MASKED)
-                log_error("Default target masked.");
+        r = manager_load_startable_unit_or_warn(m, arg_default_unit, NULL, &target);
+        if (r < 0) {
+                log_info("Falling back to rescue target: " SPECIAL_RESCUE_TARGET);
 
-        if (!target || target->load_state != UNIT_LOADED) {
-                log_info("Trying to load rescue target...");
-
-                r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target);
+                r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);
                 if (r < 0) {
-                        *ret_error_message = "Failed to load rescue target";
-                        return log_emergency_errno(r, "Failed to load rescue target: %s", bus_error_message(&error, r));
-                } else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND)) {
-                        *ret_error_message = "Failed to load rescue target";
-                        return log_emergency_errno(target->load_error, "Failed to load rescue target: %m");
-                } else if (target->load_state == UNIT_MASKED) {
-                        *ret_error_message = "Rescue target masked";
-                        log_emergency("Rescue target masked.");
-                        return -ERFKILL;
+                        *ret_error_message = r == -ERFKILL ? "Rescue target masked"
+                                                           : "Failed to load rescue target";
+                        return r;
                 }
         }
 
