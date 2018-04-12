@@ -1528,20 +1528,32 @@ static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
 static int create_device(Item *i, mode_t file_type) {
+        _cleanup_close_ int dfd = -1, fd = -1;
         CreationMode creation;
-        struct stat st;
+        char *bn;
         int r;
 
         assert(i);
         assert(IN_SET(file_type, S_IFBLK, S_IFCHR));
 
+        bn = basename(i->path);
+
+        /* Validate the path and use the returned directory fd for copying the
+         * target so we're sure that the path can't be changed behind our
+         * back. */
+        dfd = path_open_parent_safe(i->path);
+        if (dfd < 0)
+                return dfd;
+
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(i->path, file_type);
-                r = mknod(i->path, i->mode | file_type, i->major_minor);
+                r = mknodat(dfd, bn, i->mode | file_type, i->major_minor);
                 mac_selinux_create_file_clear();
         }
 
         if (r < 0) {
+                struct stat st;
+
                 if (errno == EPERM) {
                         log_debug("We lack permissions, possibly because of cgroup configuration; "
                                   "skipping creation of device node %s.", i->path);
@@ -1551,7 +1563,7 @@ static int create_device(Item *i, mode_t file_type) {
                 if (errno != EEXIST)
                         return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
 
-                if (lstat(i->path, &st) < 0)
+                if (fstatat(dfd, bn, &st, 0) < 0)
                         return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                 if ((st.st_mode & S_IFMT) != file_type) {
@@ -1560,6 +1572,7 @@ static int create_device(Item *i, mode_t file_type) {
 
                                 RUN_WITH_UMASK(0000) {
                                         mac_selinux_create_file_prepare(i->path, file_type);
+                                        /* FIXME: need to introduce mknodat_atomic() */
                                         r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
                                         mac_selinux_create_file_clear();
                                 }
@@ -1581,7 +1594,11 @@ static int create_device(Item *i, mode_t file_type) {
                   i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
                   i->path, major(i->mode), minor(i->mode));
 
-        return path_set_perms(i, i->path);
+        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
+
+        return fd_set_perms(i, fd, NULL);
 }
 
 typedef int (*action_t)(Item *, const char *);
