@@ -244,7 +244,6 @@ static int verify_unit(Unit *u, bool check_man) {
 }
 
 int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
-        _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *var = NULL;
         Manager *m = NULL;
         FILE *serial = NULL;
@@ -297,12 +296,10 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                         continue;
                 }
 
-                k = manager_load_unit(m, NULL, prepared, &err, &units[count]);
-                if (k < 0) {
-                        log_error_errno(k, "Failed to load %s: %m", *filename);
-                        if (r == 0)
-                                r = k;
-                } else
+                k = manager_load_startable_unit_or_warn(m, NULL, prepared, &units[count]);
+                if (k < 0 && r == 0)
+                        r = k;
+                else
                         count++;
         }
 
