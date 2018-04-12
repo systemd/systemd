@@ -1459,6 +1459,41 @@ static int truncate_file(Item *i, const char *path) {
         return fd_set_perms(i, fd, st);
 }
 
+static int copy_files(Item *i) {
+        struct stat st;
+        int r;
+
+        log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
+
+        r = copy_tree(i->argument, i->path,
+                      i->uid_set ? i->uid : UID_INVALID,
+                      i->gid_set ? i->gid : GID_INVALID,
+                      COPY_REFLINK);
+
+        if (r == -EROFS && stat(i->path, &st) == 0)
+                r = -EEXIST;
+
+        if (r < 0) {
+                struct stat a, b;
+
+                if (r != -EEXIST)
+                        return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
+
+                if (stat(i->argument, &a) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
+
+                if (stat(i->path, &b) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", i->path);
+
+                if ((a.st_mode ^ b.st_mode) & S_IFMT) {
+                        log_debug("Can't copy to %s, file exists already and is of different type", i->path);
+                        return 0;
+                }
+        }
+
+        return path_set_perms(i, i->path);
+}
+
 typedef int (*action_t)(Item *, const char *);
 typedef int (*fdaction_t)(Item *, int fd, const struct stat *st);
 
@@ -1627,37 +1662,9 @@ static int create_item(Item *i) {
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
-                r = copy_tree(i->argument, i->path,
-                              i->uid_set ? i->uid : UID_INVALID,
-                              i->gid_set ? i->gid : GID_INVALID,
-                              COPY_REFLINK);
-
-                if (r == -EROFS && stat(i->path, &st) == 0)
-                        r = -EEXIST;
-
-                if (r < 0) {
-                        struct stat a, b;
-
-                        if (r != -EEXIST)
-                                return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
-
-                        if (stat(i->argument, &a) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
-
-                        if (stat(i->path, &b) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                        if ((a.st_mode ^ b.st_mode) & S_IFMT) {
-                                log_debug("Can't copy to %s, file exists already and is of different type", i->path);
-                                return 0;
-                        }
-                }
-
-                r = path_set_perms(i, i->path);
+                r = copy_files(i);
                 if (r < 0)
                         return r;
-
                 break;
 
         case WRITE_FILE:
