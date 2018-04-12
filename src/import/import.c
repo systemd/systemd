@@ -195,7 +195,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                 fd = STDIN_FILENO;
 
                 (void) readlink_malloc("/proc/self/fd/0", &pretty);
-                log_info("Importing '%s', saving as '%s'.", pretty, local);
+                log_info("Importing '%s', saving as '%s'.", strempty(pretty), local);
         }
 
         r = sd_event_default(&event);

@@ -715,16 +715,23 @@ char* dirname_malloc(const char *path) {
 }
 
 const char *last_path_component(const char *path) {
-        /* Finds the last component of the path, preserving the
-         * optional trailing slash that signifies a directory.
+
+        /* Finds the last component of the path, preserving the optional trailing slash that signifies a directory.
+         *
          *    a/b/c → c
          *    a/b/c/ → c/
+         *    x → x
+         *    x/ → x/
+         *    /y → y
+         *    /y/ → y/
          *    / → /
          *    // → /
          *    /foo/a → a
          *    /foo/a/ → a/
-         * This is different than basename, which returns "" when
-         * a trailing slash is present.
+         *
+         *    Also, the empty string is mapped to itself.
+         *
+         * This is different than basename(), which returns "" when a trailing slash is present.
          */
 
         unsigned l, k;

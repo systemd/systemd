@@ -191,3 +191,11 @@ int fork_agent(const char *name, const int except[], unsigned n_except, pid_t *p
 #endif
 
 assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX)
+
+/* Like TAKE_PTR() but for child PIDs, resetting them to 0 */
+#define TAKE_PID(pid)                           \
+        ({                                      \
+                pid_t _pid_ = (pid);            \
+                (pid) = 0;                      \
+                _pid_;                          \
+        })

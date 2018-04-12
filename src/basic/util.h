@@ -103,6 +103,14 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_
         qsort(base, nmemb, size, compar);
 }
 
+/* A wrapper around the above, but that adds typesafety: the element size is automatically derived from the type and so
+ * is the prototype for the comparison function */
+#define typesafe_qsort(p, n, func)                                      \
+        ({                                                              \
+                int (*_func_)(const typeof(p[0])*, const typeof(p[0])*) = func; \
+                qsort_safe((p), (n), sizeof((p)[0]), (__compar_fn_t) _func_); \
+        })
+
 /**
  * Normal memcpy requires src to be nonnull. We do nothing if n is 0.
  */
