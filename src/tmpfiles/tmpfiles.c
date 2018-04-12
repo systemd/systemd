@@ -1460,21 +1460,34 @@ static int truncate_file(Item *i, const char *path) {
 }
 
 static int copy_files(Item *i) {
-        struct stat st;
+        _cleanup_close_ int dfd = -1, fd = -1;
+        char *bn;
         int r;
 
         log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
 
-        r = copy_tree(i->argument, i->path,
-                      i->uid_set ? i->uid : UID_INVALID,
-                      i->gid_set ? i->gid : GID_INVALID,
-                      COPY_REFLINK);
+        bn = basename(i->path);
 
-        if (r == -EROFS && stat(i->path, &st) == 0)
-                r = -EEXIST;
+        /* Validate the path and use the returned directory fd for copying the
+         * target so we're sure that the path can't be changed behind our
+         * back. */
+        dfd = path_open_parent_safe(i->path);
+        if (dfd < 0)
+                return dfd;
 
+        r = copy_tree_at(AT_FDCWD, i->argument,
+                         dfd, bn,
+                         i->uid_set ? i->uid : UID_INVALID,
+                         i->gid_set ? i->gid : GID_INVALID,
+                         COPY_REFLINK);
         if (r < 0) {
                 struct stat a, b;
+
+                /* If the target already exists on read-only filesystems, trying
+                 * to create the target will not fail with EEXIST but with
+                 * EROFS. */
+                if (r == -EROFS && faccessat(dfd, bn, F_OK, AT_SYMLINK_NOFOLLOW) == 0)
+                        r = -EEXIST;
 
                 if (r != -EEXIST)
                         return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
@@ -1482,7 +1495,7 @@ static int copy_files(Item *i) {
                 if (stat(i->argument, &a) < 0)
                         return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
 
-                if (stat(i->path, &b) < 0)
+                if (fstatat(dfd, bn, &b, AT_SYMLINK_NOFOLLOW) < 0)
                         return log_error_errno(errno, "stat(%s) failed: %m", i->path);
 
                 if ((a.st_mode ^ b.st_mode) & S_IFMT) {
@@ -1491,7 +1504,11 @@ static int copy_files(Item *i) {
                 }
         }
 
-        return path_set_perms(i, i->path);
+        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
+
+        return fd_set_perms(i, fd, NULL);
 }
 
 typedef int (*action_t)(Item *, const char *);
