@@ -585,7 +585,7 @@ static int clone_device_node(const char *d, const char *temporary_mount, bool *m
 
         if (stat(d, &st) < 0) {
                 if (errno == ENOENT)
-                        return 0;
+                        return -ENXIO;
                 return -errno;
         }
 
@@ -594,7 +594,7 @@ static int clone_device_node(const char *d, const char *temporary_mount, bool *m
                 return -EINVAL;
 
         if (st.st_rdev == 0)
-                return 0;
+                return -ENXIO;
 
         dn = strjoina(temporary_mount, d);
 
@@ -604,7 +604,7 @@ static int clone_device_node(const char *d, const char *temporary_mount, bool *m
                 mac_selinux_create_file_clear();
 
                 if (r == 0)
-                        return 1;
+                        return 0;
                 if (errno != EPERM)
                         return log_debug_errno(errno, "mknod failed for %s: %m", d);
 
@@ -628,7 +628,7 @@ static int clone_device_node(const char *d, const char *temporary_mount, bool *m
         if (mount(d, dn, NULL, MS_BIND, NULL) < 0)
                 return log_debug_errno(errno, "mount failed for %s: %m", d);
 
-        return 1;
+        return 0;
 }
 
 static int mount_private_dev(MountEntry *m) {
@@ -686,10 +686,6 @@ static int mount_private_dev(MountEntry *m) {
                 r = clone_device_node("/dev/ptmx", temporary_mount, &can_mknod);
                 if (r < 0)
                         goto fail;
-                if (r == 0) {
-                        r = -ENXIO;
-                        goto fail;
-                }
         }
 
         devshm = strjoina(temporary_mount, "/dev/shm");
@@ -713,7 +709,8 @@ static int mount_private_dev(MountEntry *m) {
 
         NULSTR_FOREACH(d, devnodes) {
                 r = clone_device_node(d, temporary_mount, &can_mknod);
-                if (r < 0)
+                /* ENXIO means the the *source* is not a device file, skip creation in that case */
+                if (r < 0 && r != -ENXIO)
                         goto fail;
         }
 
