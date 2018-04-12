@@ -157,8 +157,7 @@ struct sd_bus_vtable {
         {                                                               \
                 .type = _SD_BUS_VTABLE_END,                             \
                 .flags = 0,                                             \
-                .x = {                                                  \
-                },                                                      \
+                .x = { { 0 } },                                         \
         }
 
 _SD_END_DECLARATIONS;
