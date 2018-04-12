@@ -16,8 +16,8 @@ ExecStart=/usr/bin/test %C = /var/cache
 ExecStart=/usr/bin/test %L = /var/log
 ExecStart=/bin/sh -c 'test %u = $$(id -un 0)'
 ExecStart=/usr/bin/test %U = 0
-ExecStart=/bin/sh -c 'test %h = $$(getent passwd 0 | cut -d: -f 6)
-ExecStart=/bin/sh -c 'test %s = $$(getent passwd 0 | cut -d: -f 7)
+ExecStart=/bin/sh -c 'test %h = $$(getent passwd 0 | cut -d: -f 6)'
+ExecStart=/bin/sh -c 'test %s = $$(getent passwd 0 | cut -d: -f 7)'
 ExecStart=/bin/sh -c 'test %m = $$(cat /etc/machine-id)'
 ExecStart=/bin/sh -c 'test %b = $$(cat /proc/sys/kernel/random/boot_id | sed -e 's/-//g')'
 ExecStart=/bin/sh -c 'test %H = $$(hostname)'
