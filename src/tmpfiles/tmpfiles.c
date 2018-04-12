@@ -1511,6 +1511,79 @@ static int copy_files(Item *i) {
         return fd_set_perms(i, fd, NULL);
 }
 
+typedef enum {
+        CREATION_NORMAL,
+        CREATION_EXISTING,
+        CREATION_FORCE,
+        _CREATION_MODE_MAX,
+        _CREATION_MODE_INVALID = -1
+} CreationMode;
+
+static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
+        [CREATION_NORMAL] = "Created",
+        [CREATION_EXISTING] = "Found existing",
+        [CREATION_FORCE] = "Created replacement",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
+
+static int create_device(Item *i, mode_t file_type) {
+        CreationMode creation;
+        struct stat st;
+        int r;
+
+        assert(i);
+        assert(IN_SET(file_type, S_IFBLK, S_IFCHR));
+
+        RUN_WITH_UMASK(0000) {
+                mac_selinux_create_file_prepare(i->path, file_type);
+                r = mknod(i->path, i->mode | file_type, i->major_minor);
+                mac_selinux_create_file_clear();
+        }
+
+        if (r < 0) {
+                if (errno == EPERM) {
+                        log_debug("We lack permissions, possibly because of cgroup configuration; "
+                                  "skipping creation of device node %s.", i->path);
+                        return 0;
+                }
+
+                if (errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
+
+                if (lstat(i->path, &st) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", i->path);
+
+                if ((st.st_mode & S_IFMT) != file_type) {
+
+                        if (i->force) {
+
+                                RUN_WITH_UMASK(0000) {
+                                        mac_selinux_create_file_prepare(i->path, file_type);
+                                        r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
+                                        mac_selinux_create_file_clear();
+                                }
+
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create device node \"%s\": %m", i->path);
+                                creation = CREATION_FORCE;
+                        } else {
+                                log_debug("%s is not a device node.", i->path);
+                                return 0;
+                        }
+                } else
+                        creation = CREATION_EXISTING;
+        } else
+                creation = CREATION_NORMAL;
+
+        log_debug("%s %s device node \"%s\" %u:%u.",
+                  creation_mode_verb_to_string(creation),
+                  i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
+                  i->path, major(i->mode), minor(i->mode));
+
+        return path_set_perms(i, i->path);
+}
+
 typedef int (*action_t)(Item *, const char *);
 typedef int (*fdaction_t)(Item *, int fd, const struct stat *st);
 
@@ -1622,22 +1695,6 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
 
         return r;
 }
-
-typedef enum {
-        CREATION_NORMAL,
-        CREATION_EXISTING,
-        CREATION_FORCE,
-        _CREATION_MODE_MAX,
-        _CREATION_MODE_INVALID = -1
-} CreationMode;
-
-static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
-        [CREATION_NORMAL] = "Created",
-        [CREATION_EXISTING] = "Found existing",
-        [CREATION_FORCE] = "Created replacement",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
 static int create_item(Item *i) {
         struct stat st;
@@ -1870,9 +1927,7 @@ static int create_item(Item *i) {
         }
 
         case CREATE_BLOCK_DEVICE:
-        case CREATE_CHAR_DEVICE: {
-                mode_t file_type;
-
+        case CREATE_CHAR_DEVICE:
                 if (have_effective_cap(CAP_MKNOD) == 0) {
                         /* In a container we lack CAP_MKNOD. We
                         shouldn't attempt to create the device node in
@@ -1886,60 +1941,11 @@ static int create_item(Item *i) {
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                file_type = i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR;
-
-                RUN_WITH_UMASK(0000) {
-                        mac_selinux_create_file_prepare(i->path, file_type);
-                        r = mknod(i->path, i->mode | file_type, i->major_minor);
-                        mac_selinux_create_file_clear();
-                }
-
-                if (r < 0) {
-                        if (errno == EPERM) {
-                                log_debug("We lack permissions, possibly because of cgroup configuration; "
-                                          "skipping creation of device node %s.", i->path);
-                                return 0;
-                        }
-
-                        if (errno != EEXIST)
-                                return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
-
-                        if (lstat(i->path, &st) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                        if ((st.st_mode & S_IFMT) != file_type) {
-
-                                if (i->force) {
-
-                                        RUN_WITH_UMASK(0000) {
-                                                mac_selinux_create_file_prepare(i->path, file_type);
-                                                r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
-                                                mac_selinux_create_file_clear();
-                                        }
-
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to create device node \"%s\": %m", i->path);
-                                        creation = CREATION_FORCE;
-                                } else {
-                                        log_debug("%s is not a device node.", i->path);
-                                        return 0;
-                                }
-                        } else
-                                creation = CREATION_EXISTING;
-                } else
-                        creation = CREATION_NORMAL;
-
-                log_debug("%s %s device node \"%s\" %u:%u.",
-                          creation_mode_verb_to_string(creation),
-                          i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
-                          i->path, major(i->mode), minor(i->mode));
-
-                r = path_set_perms(i, i->path);
+                r = create_device(i, i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
                 if (r < 0)
                         return r;
 
                 break;
-        }
 
         case ADJUST_MODE:
         case RELABEL_PATH:
