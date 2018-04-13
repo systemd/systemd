@@ -319,6 +319,11 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
         link_set_dhcp_routes(link);
 
+        if (link->dhcp4_messages == 0) {
+                link->dhcp4_configured = true;
+                link_check_ready(link);
+        }
+
         return 1;
 }
 
