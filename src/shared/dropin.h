@@ -36,6 +36,7 @@ static inline int unit_file_find_dropin_conf_paths(
                 Set *unit_path_cache,
                 Set *names,
                 char ***paths) {
+
         return unit_file_find_dropin_paths(original_root,
                                            lookup_path,
                                            unit_path_cache,
