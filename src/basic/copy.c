@@ -69,7 +69,7 @@ static int fd_is_nonblock_pipe(int fd) {
         struct stat st;
         int flags;
 
-        /* Checks whether the specified file descriptor refers to a pipe, and if so if is has O_NONBLOCK set. */
+        /* Checks whether the specified file descriptor refers to a pipe, and if so if O_NONBLOCK is set. */
 
         if (fstat(fd, &st) < 0)
                 return -errno;
