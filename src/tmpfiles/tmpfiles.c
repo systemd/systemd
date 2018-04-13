@@ -842,6 +842,28 @@ shortcut:
         return label_fix(path, 0);
 }
 
+static int path_open_parent_safe(const char *path) {
+        _cleanup_free_ char *dn = NULL;
+        int fd;
+
+        if (path_equal(path, "/") || !path_is_normalized(path)) {
+                log_error("Failed to open parent of '%s': invalid path.", path);
+                return -EINVAL;
+        }
+
+        dn = dirname_malloc(path);
+        if (!dn)
+                return log_oom();
+
+        fd = chase_symlinks(dn, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
+        if (fd == -EPERM)
+                return log_error_errno(fd, "Unsafe symlinks encountered in %s, refusing.", path);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to validate path %s: %m", path);
+
+        return fd;
+}
+
 static int path_set_perms(Item *i, const char *path) {
         _cleanup_close_ int fd = -1;
         struct stat stbuf, *st = NULL;
@@ -1278,65 +1300,145 @@ static int write_one_file(Item *i, const char *path) {
 }
 
 static int create_file(Item *i, const char *path) {
-        _cleanup_close_ int fd = -1;
-        int flags, r = 0;
-        struct stat st;
+        _cleanup_close_ int fd = -1, dir_fd = -1;
+        struct stat stbuf, *st = NULL;
+        int r = 0;
+        char *bn;
 
         assert(i);
         assert(path);
-        assert(IN_SET(i->type, CREATE_FILE, TRUNCATE_FILE));
+        assert(i->type == CREATE_FILE);
 
-        /* FIXME: O_TRUNC is unspecified if file is neither a regular file nor a
-         * fifo nor a terminal device. Therefore we should fail if file is
-         * anything but a regular file with 'F'. */
-        flags = O_CREAT|O_NOFOLLOW|(i->type == CREATE_FILE ? O_EXCL : O_TRUNC);
+        /* 'f' operates on regular files exclusively. */
+
+        /* Validate the path and keep the fd on the directory for opening the
+         * file so we're sure that it can't be changed behind our back. */
+        dir_fd = path_open_parent_safe(path);
+        if (dir_fd < 0)
+                return dir_fd;
+
+        bn = basename(path);
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
-                fd = open(path, flags|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+                fd = openat(dir_fd, bn, O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
                 mac_selinux_create_file_clear();
         }
 
         if (fd < 0) {
-                if (i->type == CREATE_FILE && errno == EEXIST) {
-                        log_debug_errno(errno, "Not writing to pre-existing file \"%s\": %m", path);
-                        goto done;
+                /* Even on a read-only filesystem, open(2) returns EEXIST if the
+                 * file already exists. It returns EROFS only if it needs to
+                 * create the file. */
+                if (errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create file %s: %m", path);
+
+                /* Re-open the file. At that point it must exist since open(2)
+                 * failed with EEXIST. We still need to check if the perms/mode
+                 * need to be changed. For read-only filesystems, we let
+                 * fd_set_perms() report the error if the perms need to be
+                 * modified. */
+                fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to re-open file %s: %m", path);
+
+                if (fstat(fd, &stbuf) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", path);
+
+                if (!S_ISREG(stbuf.st_mode)) {
+                        log_error("%s exists and is not a regular file.", path);
+                        return -EEXIST;
                 }
 
-                r = -errno;
-                if (!i->argument && errno == EROFS && stat(path, &st) == 0 &&
-                    (i->type == CREATE_FILE || st.st_size == 0))
-                        goto check_mode;
+                st = &stbuf;
+        } else {
 
-                return log_error_errno(r, "Failed to create file %s: %m", path);
-        }
-
-        if (i->argument) {
-                log_debug("%s to \"%s\".", i->type == CREATE_FILE ? "Appending" : "Writing", path);
-
-                r = loop_write(fd, i->argument, strlen(i->argument), false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write file \"%s\": %m", path);
-        } else
                 log_debug("\"%s\" has been created.", path);
 
-        fd = safe_close(fd);
+                if (i->argument) {
+                        log_debug("Writing to \"%s\".", path);
 
- done:
-        if (stat(path, &st) < 0)
+                        r = loop_write(fd, i->argument, strlen(i->argument), false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write file \"%s\": %m", path);
+                }
+        }
+
+        return fd_set_perms(i, fd, st);
+}
+
+static int truncate_file(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
+        struct stat stbuf, *st = NULL;
+        bool erofs = false;
+        int r = 0;
+
+        assert(i);
+        assert(path);
+        assert(i->type == TRUNCATE_FILE);
+
+        /* We want to operate on regular file exclusively especially since
+         * O_TRUNC is unspecified if the file is neither a regular file nor a
+         * fifo nor a terminal device. Therefore we first open the file and make
+         * sure it's a regular one before truncating it. */
+
+        RUN_WITH_UMASK(0000) {
+                mac_selinux_create_file_prepare(path, S_IFREG);
+                fd = open(path, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+                mac_selinux_create_file_clear();
+        }
+
+        if (fd < 0) {
+                if (errno != EROFS)
+                        return log_error_errno(errno, "Failed to open/create file %s: %m", path);
+
+                /* On a read-only filesystem, we don't want to fail if the
+                 * target is already empty and the perms are set. So we still
+                 * proceed with the sanity checks and let the remaining
+                 * operations fail with EROFS if they try to modify the target
+                 * file. */
+
+                fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
+                if (fd < 0) {
+                        if (errno == ENOENT) {
+                                log_error("Cannot create file %s on a read-only file system.", path);
+                                return -EROFS;
+                        }
+
+                        return log_error_errno(errno, "Failed to re-open file %s: %m", path);
+                }
+
+                erofs = true;
+        }
+
+        if (fstat(fd, &stbuf) < 0)
                 return log_error_errno(errno, "stat(%s) failed: %m", path);
 
- check_mode:
-        if (!S_ISREG(st.st_mode)) {
-                log_error("%s is not a file.", path);
+        if (!S_ISREG(stbuf.st_mode)) {
+                log_error("%s exists and is not a regular file.", path);
                 return -EEXIST;
         }
 
-        r = path_set_perms(i, path);
-        if (r < 0)
-                return r;
+        if (stbuf.st_size > 0) {
+                if (ftruncate(fd, 0) < 0) {
+                        r = erofs ? -EROFS : -errno;
+                        return log_error_errno(r, "Failed to truncate file %s: %m", path);
+                }
+        } else
+                st = &stbuf;
 
-        return 0;
+        log_debug("\"%s\" has been created.", path);
+
+        if (i->argument) {
+                log_debug("Writing to \"%s\".", path);
+
+                r = loop_write(fd, i->argument, strlen(i->argument), false);
+                if (r < 0) {
+                        r = erofs ? -EROFS : r;
+                        return log_error_errno(r, "Failed to write file %s: %m", path);
+                }
+        }
+
+        return fd_set_perms(i, fd, st);
 }
 
 typedef int (*action_t)(Item *, const char *);
@@ -1486,11 +1588,19 @@ static int create_item(Item *i) {
                 return 0;
 
         case CREATE_FILE:
-        case TRUNCATE_FILE:
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
                 r = create_file(i, i->path);
+                if (r < 0)
+                        return r;
+                break;
+
+        case TRUNCATE_FILE:
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
+                r = truncate_file(i, i->path);
                 if (r < 0)
                         return r;
                 break;
