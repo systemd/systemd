@@ -1367,10 +1367,11 @@ static int create_file(Item *i, const char *path) {
 }
 
 static int truncate_file(Item *i, const char *path) {
-        _cleanup_close_ int fd = -1;
+        _cleanup_close_ int fd = -1, dir_fd = -1;
         struct stat stbuf, *st = NULL;
         bool erofs = false;
         int r = 0;
+        char *bn;
 
         assert(i);
         assert(path);
@@ -1381,9 +1382,17 @@ static int truncate_file(Item *i, const char *path) {
          * fifo nor a terminal device. Therefore we first open the file and make
          * sure it's a regular one before truncating it. */
 
+        /* Validate the path and keep the fd on the directory for opening the
+         * file so we're sure that it can't be changed behind our back. */
+        dir_fd = path_open_parent_safe(path);
+        if (dir_fd < 0)
+                return dir_fd;
+
+        bn = basename(path);
+
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
-                fd = open(path, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+                fd = openat(dir_fd, bn, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
                 mac_selinux_create_file_clear();
         }
 
@@ -1397,7 +1406,7 @@ static int truncate_file(Item *i, const char *path) {
                  * operations fail with EROFS if they try to modify the target
                  * file. */
 
-                fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
+                fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
                 if (fd < 0) {
                         if (errno == ENOENT) {
                                 log_error("Cannot create file %s on a read-only file system.", path);
