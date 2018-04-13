@@ -322,6 +322,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*E7*:pvr*
  KEYBOARD_KEY_88=unknown                                # Fn-PrtScr rfkill - handled in HW
 
+# Dell Inspiron 537*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron537*:pvr*
+ KEYBOARD_KEY_88=!wlan                                  # Fn-PrtScr rfkill
+
 # Dell XPS
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS*:pvr*
  KEYBOARD_KEY_8c=!unknown
