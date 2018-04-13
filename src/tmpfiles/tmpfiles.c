@@ -1250,14 +1250,46 @@ static int path_set_attribute(Item *item, const char *path) {
 
 static int write_one_file(Item *i, const char *path) {
         _cleanup_close_ int fd = -1;
+        int r;
+
+        assert(i);
+        assert(path);
+        assert(i->argument);
+        assert(i->type == WRITE_FILE);
+
+        /* Follows symlinks */
+        fd = open(path, O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+        if (fd < 0) {
+                if (errno == ENOENT) {
+                        log_debug_errno(errno, "Not writing missing file \"%s\": %m", path);
+                        return 0;
+                }
+                return log_error_errno(errno, "Failed to open file \"%s\": %m", path);
+        }
+
+        /* 'w' is allowed to write into any kind of files. */
+        log_debug("Writing to \"%s\".", path);
+
+        r = loop_write(fd, i->argument, strlen(i->argument), false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write file \"%s\": %m", path);
+
+        return path_set_perms(i, path);
+}
+
+static int create_file(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
         int flags, r = 0;
         struct stat st;
 
         assert(i);
         assert(path);
+        assert(IN_SET(i->type, CREATE_FILE, TRUNCATE_FILE));
 
-        flags = i->type == CREATE_FILE ? O_CREAT|O_EXCL|O_NOFOLLOW :
-                i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC|O_NOFOLLOW : 0;
+        /* FIXME: O_TRUNC is unspecified if file is neither a regular file nor a
+         * fifo nor a terminal device. Therefore we should fail if file is
+         * anything but a regular file with 'F'. */
+        flags = O_CREAT|O_NOFOLLOW|(i->type == CREATE_FILE ? O_EXCL : O_TRUNC);
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
@@ -1266,10 +1298,6 @@ static int write_one_file(Item *i, const char *path) {
         }
 
         if (fd < 0) {
-                if (i->type == WRITE_FILE && errno == ENOENT) {
-                        log_debug_errno(errno, "Not writing missing file \"%s\": %m", path);
-                        return 0;
-                }
                 if (i->type == CREATE_FILE && errno == EEXIST) {
                         log_debug_errno(errno, "Not writing to pre-existing file \"%s\": %m", path);
                         goto done;
@@ -1462,7 +1490,7 @@ static int create_item(Item *i) {
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                r = write_one_file(i, i->path);
+                r = create_file(i, i->path);
                 if (r < 0)
                         return r;
                 break;
