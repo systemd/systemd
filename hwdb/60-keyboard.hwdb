@@ -300,6 +300,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*2110:pvr*
  KEYBOARD_KEY_85=unknown  # Brightness Down, also emitted by acpi-video, ignore
  KEYBOARD_KEY_86=unknown  # Brightness Up, also emitted by acpi-video, ignore
 
+# Dell Inspiron 537*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron537*:pvr*
+ KEYBOARD_KEY_88=!wlan                                  # Fn-PrtScr rfkill
+
 # Latitude XT2
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*XT2:pvr*
  KEYBOARD_KEY_9b=up                                     # tablet rocker up
