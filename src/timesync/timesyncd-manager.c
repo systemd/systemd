@@ -1036,6 +1036,12 @@ clear:
         return r;
 }
 
+static bool manager_is_connected(Manager *m) {
+        /* Return true when the manager is sending a request, resolving a server name, or
+         * in a poll interval. */
+        return m->server_socket >= 0 || m->resolve_query || m->event_timer;
+}
+
 static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
         bool changed, connected, online;
@@ -1051,13 +1057,13 @@ static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t re
         online = network_is_online();
 
         /* check if the client is currently connected */
-        connected = m->server_socket >= 0 || m->resolve_query || m->exhausted_servers;
+        connected = manager_is_connected(m);
 
         if (connected && !online) {
                 log_info("No network connectivity, watching for changes.");
                 manager_disconnect(m);
 
-        } else if (!connected && online && changed) {
+        } else if ((!connected || changed) && online) {
                 log_info("Network configuration changed, trying to establish connection.");
 
                 if (m->current_server_address)
