@@ -109,7 +109,10 @@
     <citerefentry><refentrytitle>systemd-sleep</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     when
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    attempts to suspend or hibernate the machine.</para>
+    attempts to suspend or hibernate the machine.
+    See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />

@@ -63,7 +63,9 @@
     <filename>user.conf</filename> and the files in
     <filename>user.conf.d</filename> directories. These configuration
     files contain a few settings controlling basic manager
-    operations.</para>
+    operations. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />

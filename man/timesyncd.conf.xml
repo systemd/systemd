@@ -47,9 +47,9 @@
   <refsect1>
     <title>Description</title>
 
-    <para>These configuration files control NTP network time
-    synchronization.</para>
-
+    <para>These configuration files control NTP network time synchronization. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />

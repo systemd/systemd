@@ -83,18 +83,13 @@
   <refsect1>
     <title>Description</title>
 
-    <para>A unit configuration file encodes information about a
-    service, a socket, a device, a mount point, an automount point, a
-    swap file or partition, a start-up target, a watched file system
-    path, a timer controlled and supervised by
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-    a resource management slice or
-    a group of externally created processes. The syntax is inspired by
-    <ulink
-    url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG
-    Desktop Entry Specification</ulink> <filename>.desktop</filename>
-    files, which are in turn inspired by Microsoft Windows
-    <filename>.ini</filename> files.</para>
+    <para>A unit file is a plain text ini-style file that encodes information about a service, a
+    socket, a device, a mount point, an automount point, a swap file or partition, a start-up
+    target, a watched file system path, a timer controlled and supervised by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>, a
+    resource management slice or a group of externally created processes. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
 
     <para>This man page lists the common configuration options of all
     the unit types. These options need to be configured in the [Unit]
@@ -116,15 +111,6 @@
     <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
-
-    <para>Various settings are allowed to be specified more than once,
-    in which case the interpretation depends on the setting. Often,
-    multiple settings form a list, and setting to an empty value
-    "resets", which means that previous assignments are ignored. When
-    this is allowed, it is mentioned in the description of the
-    setting. Note that using multiple assignments to the same value
-    makes the unit file incompatible with parsers for the XDG
-    <filename>.desktop</filename> file format.</para>
 
     <para>Unit files are loaded from a set of paths determined during
     compilation, described in the next section.</para>
@@ -153,11 +139,6 @@
     <literal>s</literal>, <literal>min</literal>, <literal>h</literal>, <literal>d</literal>,
     <literal>w</literal>, <literal>ms</literal>, <literal>us</literal>.  For details see
     <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
-
-    <para>Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are
-    ignored. This may be used for commenting. Lines ending in a backslash are concatenated with the
-    following line while reading and the backslash is replaced by a space character. This may be
-    used to wrap long lines.</para>
 
     <para>Units can be aliased (have an alternative name), by creating a symlink from the new name
     to the existing name in one of the unit search paths. For example,
