@@ -12,17 +12,17 @@
 int polkit_agent_open(void);
 void polkit_agent_close(void);
 
-static inline void polkit_agent_open_if_enabled(
+static inline int polkit_agent_open_if_enabled(
                 BusTransport transport,
                 bool ask_password) {
 
         /* Open the polkit agent as a child process if necessary */
 
         if (transport != BUS_TRANSPORT_LOCAL)
-                return;
+                return 0;
 
         if (!ask_password)
-                return;
+                return 0;
 
-        polkit_agent_open();
+        return polkit_agent_open();
 }
