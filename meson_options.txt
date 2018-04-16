@@ -79,6 +79,8 @@ option('localed', type : 'boolean',
        description : 'install the systemd-localed stack')
 option('machined', type : 'boolean',
        description : 'install the systemd-machined stack')
+option('portabled', type : 'boolean',
+       description : 'install the systemd-portabled stack')
 option('networkd', type : 'boolean',
        description : 'install the systemd-networkd stack')
 option('timedated', type : 'boolean',

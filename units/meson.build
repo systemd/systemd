@@ -177,6 +177,8 @@ in_units = [
         ['systemd-networkd-wait-online.service', 'ENABLE_NETWORKD',
          join_paths(pkgsysconfdir, 'system/network-online.target.wants/')],
         ['systemd-nspawn@.service',              ''],
+        ['systemd-portabled.service',            'ENABLE_PORTABLED',
+         'dbus-org.freedesktop.portable1.service'],
         ['systemd-poweroff.service',             ''],
         ['systemd-quotacheck.service',           'ENABLE_QUOTACHECK'],
         ['systemd-random-seed.service',          'ENABLE_RANDOMSEED',

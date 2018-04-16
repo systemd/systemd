@@ -138,6 +138,7 @@ testsdir = join_paths(prefixdir, 'lib/systemd/tests')
 systemdstatedir = join_paths(localstatedir, 'lib/systemd')
 catalogstatedir = join_paths(systemdstatedir, 'catalog')
 randomseeddir = join_paths(localstatedir, 'lib/systemd')
+profiledir = join_paths(rootlibexecdir, 'portable', 'profile')
 
 docdir = get_option('docdir')
 if docdir == ''
@@ -1177,6 +1178,7 @@ foreach term : ['utmp',
                 'hostnamed',
                 'localed',
                 'machined',
+                'portabled',
                 'networkd',
                 'timedated',
                 'timesyncd',
@@ -1355,6 +1357,7 @@ subdir('src/import')
 subdir('src/kernel-install')
 subdir('src/locale')
 subdir('src/machine')
+subdir('src/portable')
 subdir('src/nspawn')
 subdir('src/resolve')
 subdir('src/timedate')
@@ -1715,6 +1718,26 @@ exe = executable('systemctl', 'src/systemctl/systemctl.c',
                  install : true,
                  install_dir : rootbindir)
 public_programs += [exe]
+
+if conf.get('ENABLE_PORTABLED') == 1
+        executable('systemd-portabled',
+                   systemd_portabled_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+
+        exe = executable('portablectl', 'src/portable/portablectl.c',
+                         include_directories : includes,
+                         link_with : [libshared],
+                         dependencies : [threads],
+                         install_rpath : rootlibexecdir,
+                         install : true,
+                         install_dir : rootlibexecdir)
+        public_programs += [exe]
+endif
 
 foreach alias : ['halt', 'poweroff', 'reboot', 'runlevel', 'shutdown', 'telinit']
         meson.add_install_script(meson_make_symlink,
@@ -2895,6 +2918,7 @@ foreach tuple : [
         ['rfkill'],
         ['logind'],
         ['machined'],
+        ['portabled'],
         ['importd'],
         ['hostnamed'],
         ['timedated'],
