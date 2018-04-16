@@ -263,10 +263,8 @@ static int acquire_generator_dirs(
 
         if (tempdir)
                 prefix = tempdir;
-
         else if (scope == UNIT_FILE_SYSTEM)
                 prefix = "/run/systemd";
-
         else if (scope == UNIT_FILE_USER) {
                 const char *e;
 
@@ -484,6 +482,10 @@ int lookup_paths_init(
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
+#if HAVE_SPLIT_USR
+        flags |= LOOKUP_PATHS_SPLIT_USR;
+#endif
+
         if (!empty_or_root(root_dir)) {
                 if (scope == UNIT_FILE_USER)
                         return -EINVAL;
@@ -582,9 +584,7 @@ int lookup_paths_init(
                                         "/usr/local/lib/systemd/system",
                                         SYSTEM_DATA_UNIT_PATH,
                                         "/usr/lib/systemd/system",
-#if HAVE_SPLIT_USR
-                                        "/lib/systemd/system",
-#endif
+                                        STRV_IFNOTNULL(flags & LOOKUP_PATHS_SPLIT_USR ? "/lib/systemd/system" : NULL),
                                         STRV_IFNOTNULL(generator_late),
                                         NULL);
                         break;
