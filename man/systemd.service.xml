@@ -78,6 +78,20 @@
   </refsect1>
 
   <refsect1>
+    <title>Service Templates</title>
+
+    <para>It is possible for <command>systemd</command> services to take a single argument via the
+    <literal><replaceable>service</replaceable>@<replaceable>argument</replaceable>.service</literal>
+    syntax. Such services are called "instantiated" services, while the unit definition without the
+    <replaceable>argument</replaceable> parameter is called a "template". An example could be a
+    <filename>dhcpcd@.service</filename> service template which takes a network interface as a
+    parameter to form an instantiated service. Within the service file, this parameter or "instance
+    name" can be accessed with %-specifiers. See
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Implicit Dependencies</title>
 
     <para>The following dependencies are implicitly added:</para>

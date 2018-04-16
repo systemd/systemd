@@ -115,6 +115,14 @@
     <para>Unit files are loaded from a set of paths determined during
     compilation, described in the next section.</para>
 
+    <para>Unit files can be parameterized by a single argument called the "instance name". The unit
+    is then constructed based on a "template file" which serves as the definition of multiple
+    services or other units. A template unit must have a single <literal>@</literal> at the end of
+    the name (right before the type suffix). The name of the full unit is formed by inserting the
+    instance name between <literal>@</literal> and the unit type suffix. In the unit file itself,
+    the instance parameter may be referred to using <literal>%i</literal> and other specifiers, see
+    below.</para>
+
     <para>Unit files may contain additional options on top of those
     listed here. If systemd encounters an unknown option, it will
     write a warning log message but continue loading the unit. If an
@@ -204,21 +212,15 @@
     socket-based activation which make dependencies implicit,
     resulting in a both simpler and more flexible system.</para>
 
-    <para>Optionally, units may be instantiated from a
-    template file at runtime. This allows creation of
-    multiple units from a single configuration file. If
-    systemd looks for a unit configuration file, it will
-    first search for the literal unit name in the
-    file system. If that yields no success and the unit
-    name contains an <literal>@</literal> character, systemd will look for a
-    unit template that shares the same name but with the
-    instance string (i.e. the part between the <literal>@</literal> character
-    and the suffix) removed. Example: if a service
-    <filename>getty@tty3.service</filename> is requested
-    and no file by that name is found, systemd will look
-    for <filename>getty@.service</filename> and
-    instantiate a service from that configuration file if
-    it is found.</para>
+    <para>As mentioned above, a unit may be instantiated from a template file. This allows creation
+    of multiple units from a single configuration file. If systemd looks for a unit configuration
+    file, it will first search for the literal unit name in the file system. If that yields no
+    success and the unit name contains an <literal>@</literal> character, systemd will look for a
+    unit template that shares the same name but with the instance string (i.e. the part between the
+    <literal>@</literal> character and the suffix) removed. Example: if a service
+    <filename>getty@tty3.service</filename> is requested and no file by that name is found, systemd
+    will look for <filename>getty@.service</filename> and instantiate a service from that
+    configuration file if it is found.</para>
 
     <para>To refer to the instance string from within the
     configuration file you may use the special <literal>%i</literal>
