@@ -52,14 +52,13 @@
   <refsect1>
     <title>Description</title>
 
-    <para>
-      <command>systemd-journal-upload</command> will upload journal
-      entries to the URL specified with <option>--url</option>. Unless
-      limited by one of the options specified below, all journal
-      entries accessible to the user the program is running as will be
-      uploaded, and then the program will wait and send new entries
-      as they become available.
-    </para>
+    <para><command>systemd-journal-upload</command> will upload journal entries to the URL specified
+    with <option>--url</option>. This program reads journal entries from one or more journal files,
+    similarly to
+    <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+    Unless limited by one of the options specified below, all journal entries accessible to the user
+    the program is running as will be uploaded, and then the program will wait and send new entries
+    as they become available.</para>
   </refsect1>
 
   <refsect1>
