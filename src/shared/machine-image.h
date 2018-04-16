@@ -34,6 +34,8 @@ typedef enum ImageType {
 } ImageType;
 
 typedef struct Image {
+        unsigned n_ref;
+
         ImageType type;
         char *name;
         char *path;
@@ -58,6 +60,8 @@ typedef struct Image {
 } Image;
 
 Image *image_unref(Image *i);
+Image *image_ref(Image *i);
+
 static inline Hashmap* image_hashmap_free(Hashmap *map) {
         return hashmap_free_with_destructor(map, image_unref);
 }

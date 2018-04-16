@@ -61,6 +61,12 @@ Image *image_unref(Image *i) {
         if (!i)
                 return NULL;
 
+        assert(i->n_ref > 0);
+        i->n_ref--;
+
+        if (i->n_ref > 0)
+                return NULL;
+
         free(i->name);
         free(i->path);
 
@@ -69,6 +75,16 @@ Image *image_unref(Image *i) {
         strv_free(i->os_release);
 
         return mfree(i);
+}
+
+Image *image_ref(Image *i) {
+        if (!i)
+                return NULL;
+
+        assert(i->n_ref > 0);
+        i->n_ref++;
+
+        return i;
 }
 
 static char **image_settings_path(Image *image) {
@@ -131,6 +147,7 @@ static int image_new(
         if (!i)
                 return -ENOMEM;
 
+        i->n_ref = 1;
         i->type = t;
         i->read_only = read_only;
         i->crtime = crtime;
