@@ -69,30 +69,34 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>There are no implicit dependencies for target units.</para>
-  </refsect1>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>There are no implicit dependencies for target units.</para>
+    </refsect2>
 
-    <para>The following dependencies are added unless
-    <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Target units will automatically complement all
-      configured dependencies of type <varname>Wants=</varname> or
-      <varname>Requires=</varname> with dependencies of type
-      <varname>After=</varname> unless <varname>DefaultDependencies=no</varname>
-      is set in the specified units. Note that <varname>Wants=</varname> or
-      <varname>Requires=</varname> must be defined in the target unit itself — if
-      you for example define <varname>Wants=</varname>some.target in
-      some.service, the automatic ordering will not be added.</para></listitem>
+      <para>The following dependencies are added unless
+      <varname>DefaultDependencies=no</varname> is set:</para>
 
-      <listitem><para>Target units automatically gain <varname>Conflicts=</varname>
-      dependency against <filename>shutdown.target</filename>.</para></listitem>
-    </itemizedlist>
+      <itemizedlist>
+        <listitem><para>Target units will automatically complement all
+        configured dependencies of type <varname>Wants=</varname> or
+        <varname>Requires=</varname> with dependencies of type
+        <varname>After=</varname> unless <varname>DefaultDependencies=no</varname>
+        is set in the specified units. Note that <varname>Wants=</varname> or
+        <varname>Requires=</varname> must be defined in the target unit itself — if
+        you for example define <varname>Wants=</varname>some.target in
+        some.service, the automatic ordering will not be added.</para></listitem>
+
+        <listitem><para>Target units automatically gain <varname>Conflicts=</varname>
+        dependency against <filename>shutdown.target</filename>.</para></listitem>
+      </itemizedlist>
+    </refsect2>
   </refsect1>
 
   <refsect1>

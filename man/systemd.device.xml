@@ -77,25 +77,28 @@
     corresponding device generates a <literal>changed</literal> event.
     Other units can use <varname>ReloadPropagatedFrom=</varname> to react
     to that event</para>
-
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>Many unit types automatically acquire dependencies on device
-    units of devices they require. For example,
-    <filename>.socket</filename> unit acquire dependencies on the
-    device units of the network interface specified in
-    <varname>BindToDevice=</varname>. Similar, swap and mount units
-    acquire dependencies on the units encapsulating their backing
-    block devices.</para>
-  </refsect1>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>Many unit types automatically acquire dependencies on device
+      units of devices they require. For example,
+      <filename>.socket</filename> unit acquire dependencies on the
+      device units of the network interface specified in
+      <varname>BindToDevice=</varname>. Similar, swap and mount units
+      acquire dependencies on the units encapsulating their backing
+      block devices.</para>
+    </refsect2>
 
-    <para>There are no default dependencies for device units.</para>
+    <refsect2>
+      <title>Default Dependencies</title>
+
+      <para>There are no default dependencies for device units.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>

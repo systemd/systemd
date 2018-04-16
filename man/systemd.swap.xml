@@ -76,34 +76,38 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>The following dependencies are implicitly added:</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>All swap units automatically get the
-      <varname>BindsTo=</varname> and <varname>After=</varname>
-      dependencies on the device units or the mount units of the files
-      they are activated from.</para></listitem>
-    </itemizedlist>
+      <para>The following dependencies are implicitly added:</para>
 
-    <para>Additional implicit dependencies may be added as result of
-    execution and resource control parameters as documented in
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-  </refsect1>
+      <itemizedlist>
+        <listitem><para>All swap units automatically get the
+        <varname>BindsTo=</varname> and <varname>After=</varname>
+        dependencies on the device units or the mount units of the files
+        they are activated from.</para></listitem>
+      </itemizedlist>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>Additional implicit dependencies may be added as result of
+      execution and resource control parameters as documented in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    </refsect2>
 
-    <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Swap units automatically acquire a <varname>Conflicts=</varname> and a
-      <varname>Before=</varname> dependency on <filename>umount.target</filename> so that they are deactivated at
-      shutdown as well as a <varname>Before=swap.target</varname> dependency.</para></listitem>
-    </itemizedlist>
+      <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+
+      <itemizedlist>
+        <listitem><para>Swap units automatically acquire a <varname>Conflicts=</varname> and a
+        <varname>Before=</varname> dependency on <filename>umount.target</filename> so that they are deactivated at
+        shutdown as well as a <varname>Before=swap.target</varname> dependency.</para></listitem>
+      </itemizedlist>
+    </refsect2>
   </refsect1>
 
   <refsect1>

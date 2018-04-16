@@ -268,40 +268,40 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic dependencies</title>
 
-    <para>A number of unit dependencies are implicitly established,
-    depending on unit type and unit configuration. These implicit
-    dependencies can make unit configuration file cleaner. For the
-    implicit dependencies in each unit type, please refer to
-    section "Implicit Dependencies" in respective man pages.</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <para>For example, service units with <varname>Type=dbus</varname>
-    automatically acquire dependencies of type <varname>Requires=</varname>
-    and <varname>After=</varname> on <filename>dbus.socket</filename>. See
-    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details.</para>
-  </refsect1>
+      <para>A number of unit dependencies are implicitly established, depending on unit type and
+      unit configuration. These implicit dependencies can make unit configuration file cleaner. For
+      the implicit dependencies in each unit type, please refer to section "Implicit Dependencies"
+      in respective man pages.</para>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>For example, service units with <varname>Type=dbus</varname> automatically acquire
+      dependencies of type <varname>Requires=</varname> and <varname>After=</varname> on
+      <filename>dbus.socket</filename>. See
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for details.</para>
+    </refsect2>
 
-    <para>Default dependencies are similar to implicit dependencies,
-    but can be turned on and off by setting
-    <varname>DefaultDependencies=</varname> to <varname>yes</varname>
-    (the default) and <varname>no</varname>, while implicit dependencies
-    are always in effect. See section "Default Dependencies" in respective
-    man pages for the effect of enabling
-    <varname>DefaultDependencies=</varname> in each unit types.</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <para>For example, target units will complement all configured
-    dependencies of type <varname>Wants=</varname> or
-    <varname>Requires=</varname> with dependencies of type
-    <varname>After=</varname> unless <varname>DefaultDependencies=no</varname>
-    is set in the specified units. See
-    <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details. Note that this behavior can be turned off by setting
-    <varname>DefaultDependencies=no</varname>.</para>
+      <para>Default dependencies are similar to implicit dependencies, but can be turned on and off
+      by setting <varname>DefaultDependencies=</varname> to <varname>yes</varname> (the default) and
+      <varname>no</varname>, while implicit dependencies are always in effect. See section "Default
+      Dependencies" in respective man pages for the effect of enabling
+      <varname>DefaultDependencies=</varname> in each unit types.</para>
+
+      <para>For example, target units will complement all configured dependencies of type
+      <varname>Wants=</varname> or <varname>Requires=</varname> with dependencies of type
+      <varname>After=</varname> unless <varname>DefaultDependencies=no</varname> is set in the
+      specified units. See
+      <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for details. Note that this behavior can be turned off by setting
+      <varname>DefaultDependencies=no</varname>.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>

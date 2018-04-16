@@ -71,36 +71,40 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>The following dependencies are implicitly added:</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>If a path unit is beneath another mount unit in the file
-      system hierarchy, both a requirement and an ordering dependency
-      between both units are created automatically.</para></listitem>
+      <para>The following dependencies are implicitly added:</para>
 
-      <listitem><para>An implicit <varname>Before=</varname> dependency is added
-      between a path unit and the unit it is supposed to activate.</para></listitem>
-    </itemizedlist>
-  </refsect1>
+      <itemizedlist>
+        <listitem><para>If a path unit is beneath another mount unit in the file
+        system hierarchy, both a requirement and an ordering dependency
+        between both units are created automatically.</para></listitem>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+        <listitem><para>An implicit <varname>Before=</varname> dependency is added
+        between a path unit and the unit it is supposed to activate.</para></listitem>
+      </itemizedlist>
+    </refsect2>
 
-    <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Path units will automatically have dependencies of type <varname>Before=</varname> on
-      <filename>paths.target</filename>,
-      dependencies of type <varname>After=</varname> and <varname>Requires=</varname> on
-      <filename>sysinit.target</filename>, and have dependencies of type <varname>Conflicts=</varname> and
-      <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure that path units are terminated
-      cleanly prior to system shutdown. Only path units involved with early boot or late system shutdown should
-      disable <varname>DefaultDependencies=</varname> option.</para></listitem>
-    </itemizedlist>
+      <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
 
-    <para></para>
+      <itemizedlist>
+        <listitem><para>Path units will automatically have dependencies of type <varname>Before=</varname> on
+        <filename>paths.target</filename>,
+        dependencies of type <varname>After=</varname> and <varname>Requires=</varname> on
+        <filename>sysinit.target</filename>, and have dependencies of type <varname>Conflicts=</varname> and
+        <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure that path units are terminated
+        cleanly prior to system shutdown. Only path units involved with early boot or late system shutdown should
+        disable <varname>DefaultDependencies=</varname> option.</para></listitem>
+      </itemizedlist>
+
+      <para></para>
+    </refsect2>
   </refsect1>
 
   <refsect1>

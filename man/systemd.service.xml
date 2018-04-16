@@ -92,55 +92,59 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>The following dependencies are implicitly added:</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Services with <varname>Type=dbus</varname> set automatically
-      acquire dependencies of type <varname>Requires=</varname> and
-      <varname>After=</varname> on
-      <filename>dbus.socket</filename>.</para></listitem>
+      <para>The following dependencies are implicitly added:</para>
 
-      <listitem><para>Socket activated services are automatically ordered after
-      their activating <filename>.socket</filename> units via an
-      automatic <varname>After=</varname> dependency.
-      Services also pull in all <filename>.socket</filename> units
-      listed in <varname>Sockets=</varname> via automatic
-      <varname>Wants=</varname> and <varname>After=</varname> dependencies.</para></listitem>
-    </itemizedlist>
+      <itemizedlist>
+        <listitem><para>Services with <varname>Type=dbus</varname> set automatically
+        acquire dependencies of type <varname>Requires=</varname> and
+        <varname>After=</varname> on
+        <filename>dbus.socket</filename>.</para></listitem>
 
-    <para>Additional implicit dependencies may be added as result of
-    execution and resource control parameters as documented in
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-  </refsect1>
+        <listitem><para>Socket activated services are automatically ordered after
+        their activating <filename>.socket</filename> units via an
+        automatic <varname>After=</varname> dependency.
+        Services also pull in all <filename>.socket</filename> units
+        listed in <varname>Sockets=</varname> via automatic
+        <varname>Wants=</varname> and <varname>After=</varname> dependencies.</para></listitem>
+      </itemizedlist>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>Additional implicit dependencies may be added as result of
+      execution and resource control parameters as documented in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    </refsect2>
 
-    <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Service units will have dependencies of type <varname>Requires=</varname> and
-      <varname>After=</varname> on <filename>sysinit.target</filename>, a dependency of type <varname>After=</varname> on
-      <filename>basic.target</filename> as well as dependencies of type <varname>Conflicts=</varname> and
-      <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure that normal service units pull in
-      basic system initialization, and are terminated cleanly prior to system shutdown. Only services involved with early
-      boot or late system shutdown should disable this option.</para></listitem>
+      <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
 
-      <listitem><para>Instanced service units (i.e. service units with an <literal>@</literal> in their name) are assigned by
-      default a per-template slice unit (see
-      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>), named after the
-      template unit, containing all instances of the specific template. This slice is normally stopped at shutdown,
-      together with all template instances. If that is not desired, set <varname>DefaultDependencies=no</varname> in the
-      template unit, and either define your own per-template slice unit file that also sets
-      <varname>DefaultDependencies=no</varname>, or set <varname>Slice=system.slice</varname> (or another suitable slice)
-      in the template unit. Also see
-      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      </para></listitem>
-    </itemizedlist>
+      <itemizedlist>
+        <listitem><para>Service units will have dependencies of type <varname>Requires=</varname> and
+        <varname>After=</varname> on <filename>sysinit.target</filename>, a dependency of type <varname>After=</varname> on
+        <filename>basic.target</filename> as well as dependencies of type <varname>Conflicts=</varname> and
+        <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure that normal service units pull in
+        basic system initialization, and are terminated cleanly prior to system shutdown. Only services involved with early
+        boot or late system shutdown should disable this option.</para></listitem>
+
+        <listitem><para>Instanced service units (i.e. service units with an <literal>@</literal> in their name) are assigned by
+        default a per-template slice unit (see
+        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>), named after the
+        template unit, containing all instances of the specific template. This slice is normally stopped at shutdown,
+        together with all template instances. If that is not desired, set <varname>DefaultDependencies=no</varname> in the
+        template unit, and either define your own per-template slice unit file that also sets
+        <varname>DefaultDependencies=no</varname>, or set <varname>Slice=system.slice</varname> (or another suitable slice)
+        in the template unit. Also see
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </itemizedlist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
