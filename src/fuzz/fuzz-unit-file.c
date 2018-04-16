@@ -8,6 +8,7 @@
 #include "load-fragment.h"
 #include "string-util.h"
 #include "unit.h"
+#include "utf8.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_free_ char *out = NULL; /* out should be freed after g */
@@ -46,7 +47,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 if (read_line(f, LONG_LINE_MAX, &l) <= 0)
                         break;
 
-                ll = l + strspn(l, WHITESPACE);
+                ll = startswith(l, UTF8_BYTE_ORDER_MARK) ?: l;
+                ll = ll + strspn(ll, WHITESPACE);
 
                 if (HAS_FEATURE_MEMORY_SANITIZER && startswith(ll, "ListenNetlink")) {
                         /* ListenNetlink causes a false positive in msan,
