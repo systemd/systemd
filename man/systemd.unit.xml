@@ -1312,7 +1312,7 @@
     <para>Unit settings that create a relationship with a second unit usually show up
     in properties of both units, for example in <command>systemctl show</command>
     output. In some cases the name of the property is the same as the name of the
-    configuration setting, but not always. This table lists the pairs of properties
+    configuration setting, but not always. This table lists the properties
     that are shown on two units which are connected through some dependency, and shows
     which property on "source" unit corresponds to which property on the "target" unit.
     </para>
@@ -1387,6 +1387,11 @@
             <entry><varname>ReloadPropagatedFrom=</varname></entry>
             <entry><varname>PropagatesReloadTo=</varname></entry>
           </row>
+          <row>
+            <entry><varname>Following=</varname></entry>
+            <entry>n/a</entry>
+            <entry>An automatic property</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
@@ -1412,6 +1417,10 @@
     <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details. <varname>TriggersBy=</varname> is created implicitly on the
     triggered unit.</para>
+
+    <para>Note: <varname>Following=</varname> is used to group device aliases and points to the
+    "primary" device unit that systemd is using to track device state, usually corresponding to a
+    sysfs path. It does not show up in the "target" unit.</para>
   </refsect1>
 
   <refsect1>
