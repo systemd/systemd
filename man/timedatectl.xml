@@ -156,28 +156,11 @@
       <varlistentry>
         <term><command>set-ntp [BOOL]</command></term>
 
-        <listitem><para>Takes a boolean argument. Controls whether
-        network time synchronization is active and enabled (if
-        available). This enables and starts, or disables and stops the
-        <filename>systemd-timesyncd.service</filename> unit. It does
-        not affect the state of any other, unrelated network time
-        synchronization services that might be installed on the
-        system. This command is hence mostly equivalent to:
-        <command>systemctl enable --now
-        systemd-timesyncd.service</command> and <command>systemctl
-        disable --now systemd-timesyncd.service</command>, but is
-        protected by a different access policy.</para>
-
-        <para>Note that even if time synchronization is turned off
-        with this command, another unrelated system service might
-        still synchronize the clock with the network. Also note that,
-        strictly speaking,
-        <filename>systemd-timesyncd.service</filename> does more than
-        just network time synchronization, as it ensures a monotonic
-        clock on systems without RTC even if no network is
-        available. See
-        <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for details about this.</para></listitem>
+        <listitem><para>Takes a boolean argument. Controls whether network time synchronization is active
+        and enabled (if available). If the argument is true, this enables and starts the first existed
+        service listed in the environment variable <varname>$SYSTEMD_TIMEDATED_NTP_SERVICES</varname>
+        of <filename>systemd-timedated.service</filename>. If the argument is false, then this disables and
+        stops the all services listed in <varname>$SYSTEMD_TIMEDATED_NTP_SERVICES</varname>.</para></listitem>
       </varlistentry>
 
     </variablelist>
@@ -197,13 +180,13 @@
     <title>Examples</title>
     <para>Show current settings:
     <programlisting>$ timedatectl
-                      Local time: Thu 2017-09-21 16:08:56 CEST
-                  Universal time: Thu 2017-09-21 14:08:56 UTC
-                        RTC time: Thu 2017-09-21 14:08:56
-                       Time zone: Europe/Warsaw (CEST, +0200)
-       System clock synchronized: yes
-systemd-timesyncd.service active: yes
-                 RTC in local TZ: no</programlisting>
+               Local time: Thu 2017-09-21 16:08:56 CEST
+           Universal time: Thu 2017-09-21 14:08:56 UTC
+                 RTC time: Thu 2017-09-21 14:08:56
+                Time zone: Europe/Warsaw (CEST, +0200)
+System clock synchronized: yes
+              NTP service: active
+          RTC in local TZ: no</programlisting>
     </para>
 
     <para>Enable network time synchronization:
