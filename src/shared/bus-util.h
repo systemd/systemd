@@ -159,4 +159,7 @@ int bus_property_get_rlimit(sd_bus *bus, const char *path, const char *interface
 
 int bus_track_add_name_many(sd_bus_track *t, char **l);
 
-int bus_open_system_watch_bind(sd_bus **ret);
+int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *description);
+static inline int bus_open_system_watch_bind(sd_bus **ret) {
+        return bus_open_system_watch_bind_with_description(ret, NULL);
+}
