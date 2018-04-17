@@ -55,6 +55,7 @@
 #define BUS_ERROR_SESSION_BUSY "org.freedesktop.login1.SessionBusy"
 
 #define BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED "org.freedesktop.timedate1.AutomaticTimeSyncEnabled"
+#define BUS_ERROR_NO_NTP_SUPPORT "org.freedesktop.timedate1.NoNTPSupport"
 
 #define BUS_ERROR_NO_SUCH_PROCESS "org.freedesktop.systemd1.NoSuchProcess"
 

@@ -30,11 +30,6 @@
 #define NULL_ADJTIME_UTC "0.0 0 0\n0\nUTC\n"
 #define NULL_ADJTIME_LOCAL "0.0 0 0\n0\nLOCAL\n"
 
-static BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map timedated_errors[] = {
-        SD_BUS_ERROR_MAP("org.freedesktop.timedate1.NoNTPSupport", EOPNOTSUPP),
-        SD_BUS_ERROR_MAP_END
-};
-
 typedef struct Context {
         char *zone;
         bool local_rtc;
@@ -223,7 +218,7 @@ static int context_start_ntp(sd_bus *bus, sd_bus_error *error, bool enabled) {
                 if (sd_bus_error_has_name(error, SD_BUS_ERROR_FILE_NOT_FOUND) ||
                     sd_bus_error_has_name(error, "org.freedesktop.systemd1.LoadFailed") ||
                     sd_bus_error_has_name(error, "org.freedesktop.systemd1.NoSuchUnit"))
-                        return sd_bus_error_set_const(error, "org.freedesktop.timedate1.NoNTPSupport", "NTP not supported.");
+                        return sd_bus_error_set(error, BUS_ERROR_NO_NTP_SUPPORT, "NTP not supported");
 
                 return r;
         }
@@ -264,7 +259,7 @@ static int context_enable_ntp(sd_bus *bus, sd_bus_error *error, bool enabled) {
 
         if (r < 0) {
                 if (sd_bus_error_has_name(error, SD_BUS_ERROR_FILE_NOT_FOUND))
-                        return sd_bus_error_set_const(error, "org.freedesktop.timedate1.NoNTPSupport", "NTP not supported.");
+                        return sd_bus_error_set(error, BUS_ERROR_NO_NTP_SUPPORT, "NTP not supported");
 
                 return r;
         }
