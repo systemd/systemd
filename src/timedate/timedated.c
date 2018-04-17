@@ -507,7 +507,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         assert(c);
 
         if (c->use_ntp)
-                return sd_bus_error_setf(error, BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED, "Automatic time synchronization is enabled");
+                return sd_bus_error_set(error, BUS_ERROR_AUTOMATIC_TIME_SYNC_ENABLED, "Automatic time synchronization is enabled");
 
         /* this only gets used if dbus does not provide a timestamp */
         start = now(CLOCK_MONOTONIC);
@@ -517,7 +517,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                 return r;
 
         if (!relative && utc <= 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid absolute time");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid absolute time");
 
         if (relative && utc == 0)
                 return sd_bus_reply_method_return(m, NULL);
@@ -530,7 +530,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
                 if ((utc > 0 && x < n) ||
                     (utc < 0 && x > n))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Time value overflow");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Time value overflow");
 
                 timespec_store(&ts, x);
         } else
