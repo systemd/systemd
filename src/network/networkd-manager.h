@@ -31,7 +31,6 @@ struct Manager {
         sd_netlink *genl;
         sd_event *event;
         sd_resolve *resolve;
-        sd_event_source *bus_retry_event_source;
         sd_bus *bus;
         sd_bus_slot *prepare_for_sleep_slot;
         sd_bus_slot *connected_slot;
