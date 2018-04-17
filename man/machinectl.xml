@@ -144,13 +144,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>--kill-who=</option></term>
 
         <listitem><para>When used with <command>kill</command>, choose
@@ -309,6 +302,7 @@
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -1035,6 +1029,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
