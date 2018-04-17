@@ -383,6 +383,7 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
 int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
 int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
+int manager_load_startable_unit_or_warn(Manager *m, const char *name, const char *path, Unit **ret);
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u);
 
 int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_error *e, Job **_ret);

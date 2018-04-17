@@ -121,7 +121,7 @@ static void test_path_exists(Manager *m) {
 
         assert_se(m);
 
-        assert_se(manager_load_unit(m, "path-exists.path", NULL, NULL, &unit) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "path-exists.path", NULL, &unit) >= 0);
         assert_se(UNIT_VTABLE(unit)->start(unit) >= 0);
 
         assert_se(touch(test_path) >= 0);
@@ -134,7 +134,7 @@ static void test_path_existsglob(Manager *m) {
         Unit *unit = NULL;
 
         assert_se(m);
-        assert_se(manager_load_unit(m, "path-existsglob.path", NULL, NULL, &unit) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "path-existsglob.path", NULL, &unit) >= 0);
         assert_se(UNIT_VTABLE(unit)->start(unit) >= 0);
 
         assert_se(touch(test_path) >= 0);
@@ -151,7 +151,7 @@ static void test_path_changed(Manager *m) {
 
         assert_se(touch(test_path) >= 0);
 
-        assert_se(manager_load_unit(m, "path-changed.path", NULL, NULL, &unit) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "path-changed.path", NULL, &unit) >= 0);
         assert_se(UNIT_VTABLE(unit)->start(unit) >= 0);
 
         f = fopen(test_path, "w");
@@ -170,7 +170,7 @@ static void test_path_modified(Manager *m) {
 
         assert_se(touch(test_path) >= 0);
 
-        assert_se(manager_load_unit(m, "path-modified.path", NULL, NULL, &unit) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "path-modified.path", NULL, &unit) >= 0);
         assert_se(UNIT_VTABLE(unit)->start(unit) >= 0);
 
         f = fopen(test_path, "w");
@@ -186,7 +186,7 @@ static void test_path_unit(Manager *m) {
 
         assert_se(m);
 
-        assert_se(manager_load_unit(m, "path-unit.path", NULL, NULL, &unit) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "path-unit.path", NULL, &unit) >= 0);
         assert_se(UNIT_VTABLE(unit)->start(unit) >= 0);
 
         assert_se(touch(test_path) >= 0);
@@ -202,7 +202,7 @@ static void test_path_directorynotempty(Manager *m) {
 
         assert_se(access(test_path, F_OK) < 0);
 
-        assert_se(manager_load_unit(m, "path-directorynotempty.path", NULL, NULL, &unit) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "path-directorynotempty.path", NULL, &unit) >= 0);
         assert_se(UNIT_VTABLE(unit)->start(unit) >= 0);
 
         /* MakeDirectory default to no */
@@ -223,7 +223,7 @@ static void test_path_makedirectory_directorymode(Manager *m) {
 
         assert_se(access(test_path, F_OK) < 0);
 
-        assert_se(manager_load_unit(m, "path-makedirectory.path", NULL, NULL, &unit) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, "path-makedirectory.path", NULL, &unit) >= 0);
         assert_se(UNIT_VTABLE(unit)->start(unit) >= 0);
 
         /* Check if the directory has been created */

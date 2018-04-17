@@ -3,5 +3,5 @@ Description=Test RestrictNamespaces=~mnt
 
 [Service]
 RestrictNamespaces=~mnt
-ExecStart=/bin/sh -x -c 'unshare -m'
+ExecStart=unshare -m
 Type=oneshot

@@ -335,6 +335,7 @@ _public_ int sd_path_home(uint64_t type, const char *suffix, char **path) {
 
         if (IN_SET(type,
                    SD_PATH_SEARCH_BINARIES,
+                   SD_PATH_SEARCH_BINARIES_DEFAULT,
                    SD_PATH_SEARCH_LIBRARY_PRIVATE,
                    SD_PATH_SEARCH_LIBRARY_ARCH,
                    SD_PATH_SEARCH_SHARED,
@@ -553,7 +554,17 @@ static int get_search(uint64_t type, char ***list) {
                                                false,
                                                "/etc",
                                                NULL);
-        }
+
+        case SD_PATH_SEARCH_BINARIES_DEFAULT: {
+                char **t;
+
+                t = strv_split_nulstr(DEFAULT_PATH_NULSTR);
+                if (!t)
+                        return -ENOMEM;
+
+                *list = t;
+                return 0;
+        }}
 
         return -EOPNOTSUPP;
 }
@@ -566,6 +577,7 @@ _public_ int sd_path_search(uint64_t type, const char *suffix, char ***paths) {
 
         if (!IN_SET(type,
                     SD_PATH_SEARCH_BINARIES,
+                    SD_PATH_SEARCH_BINARIES_DEFAULT,
                     SD_PATH_SEARCH_LIBRARY_PRIVATE,
                     SD_PATH_SEARCH_LIBRARY_ARCH,
                     SD_PATH_SEARCH_SHARED,

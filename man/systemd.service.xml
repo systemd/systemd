@@ -288,8 +288,9 @@
         <varname>ExecStop=</varname> line set. (Services lacking both <varname>ExecStart=</varname> and
         <varname>ExecStop=</varname> are not valid.)</para>
 
-        <para>For each of the specified commands, the first argument must be an absolute path to an
-        executable. Optionally, this filename may be prefixed with a number of special characters:</para>
+        <para>For each of the specified commands, the first argument must be either an absolute path to an executable
+        or a simple file name without any slashes. Optionally, this filename may be prefixed with a number of special
+        characters:</para>
 
         <table>
           <title>Special executable prefixes</title>
@@ -991,11 +992,9 @@
     <literal>&amp;</literal>, and <emphasis>other elements of shell
     syntax are not supported</emphasis>.</para>
 
-    <para>The command to execute must be an absolute path name. It may
-    contain spaces, but control characters are not allowed.</para>
+    <para>The command to execute may contain spaces, but control characters are not allowed.</para>
 
-    <para>The command line accepts <literal>%</literal> specifiers as
-    described in
+    <para>The command line accepts <literal>%</literal> specifiers as described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Basic environment variable substitution is supported. Use
@@ -1009,10 +1008,21 @@
     For this type of expansion, quotes are respected when splitting
     into words, and afterwards removed.</para>
 
+    <para>If the command is not a full (absolute) path, it will be resolved to a full path using a
+    fixed search path determinted at compilation time. Searched directories include
+    <filename>/usr/local/bin/</filename>, <filename>/usr/bin/</filename>, <filename>/bin/</filename>
+    on systems using split <filename>/usr/bin/</filename> and <filename>/bin/</filename>
+    directories, and their <filename>sbin/</filename> counterparts on systems using split
+    <filename>bin/</filename> and <filename>sbin/</filename>. It is thus safe to use just the
+    executable name in case of executables located in any of the "standard" directories, and an
+    absolute path must be used in other cases. Using an absolute path is recommended to avoid
+    ambiguity. Hint: this search path may be queried using
+    <command>systemd-path search-binaries-default</command>.</para>
+
     <para>Example:</para>
 
     <programlisting>Environment="ONE=one" 'TWO=two two'
-ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
+ExecStart=echo $ONE $TWO ${TWO}</programlisting>
 
     <para>This will execute <command>/bin/echo</command> with four
     arguments: <literal>one</literal>, <literal>two</literal>,
@@ -1022,7 +1032,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
     <programlisting>Environment=ONE='one' "TWO='two two' too" THREE=
 ExecStart=/bin/echo ${ONE} ${TWO} ${THREE}
 ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
-    <para>This results in <filename>echo</filename> being
+    <para>This results in <filename>/bin/echo</filename> being
     called twice, the first time with arguments
     <literal>'one'</literal>,
     <literal>'two two' too</literal>, <literal></literal>,
@@ -1048,27 +1058,27 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     <para>Note that shell command lines are not directly supported. If
     shell command lines are to be used, they need to be passed
     explicitly to a shell implementation of some kind. Example:</para>
-    <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'</programlisting>
+    <programlisting>ExecStart=sh -c 'dmesg | tac'</programlisting>
 
     <para>Example:</para>
 
-    <programlisting>ExecStart=/bin/echo one ; /bin/echo "two two"</programlisting>
+    <programlisting>ExecStart=echo one ; echo "two two"</programlisting>
 
-    <para>This will execute <command>/bin/echo</command> two times,
+    <para>This will execute <command>echo</command> two times,
     each time with one argument: <literal>one</literal> and
     <literal>two two</literal>, respectively. Because two commands are
     specified, <varname>Type=oneshot</varname> must be used.</para>
 
     <para>Example:</para>
 
-    <programlisting>ExecStart=/bin/echo / &gt;/dev/null &amp; \; \
-/bin/ls</programlisting>
+    <programlisting>ExecStart=echo / &gt;/dev/null &amp; \; \
+ls</programlisting>
 
-    <para>This will execute <command>/bin/echo</command>
+    <para>This will execute <command>echo</command>
     with five arguments: <literal>/</literal>,
     <literal>&gt;/dev/null</literal>,
     <literal>&amp;</literal>, <literal>;</literal>, and
-    <literal>/bin/ls</literal>.</para>
+    <literal>ls</literal>.</para>
 
     <table>
       <title>C escapes supported in command lines and environment variables</title>

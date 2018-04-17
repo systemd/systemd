@@ -32,6 +32,7 @@ test_data_files = '''
         sockets.target
         son.service
         sysinit.target
+        test-execute/exec-basic.service
         test-execute/exec-ambientcapabilities-merge-nfsnobody.service
         test-execute/exec-ambientcapabilities-merge-nobody.service
         test-execute/exec-ambientcapabilities-merge.service

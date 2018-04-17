@@ -132,7 +132,7 @@ static void test(Manager *m, const char *unit_name, int status_expected, int cod
 
         assert_se(unit_name);
 
-        assert_se(manager_load_unit(m, unit_name, NULL, NULL, &unit) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
         assert_se(UNIT_VTABLE(unit)->start(unit) >= 0);
         check(m, unit, status_expected, code_expected);
 }
@@ -536,6 +536,10 @@ static void test_exec_capabilityboundingset(Manager *m) {
         test(m, "exec-capabilityboundingset-invert.service", 0, CLD_EXITED);
 }
 
+static void test_exec_basic(Manager *m) {
+        test(m, "exec-basic.service", 0, CLD_EXITED);
+}
+
 static void test_exec_ambientcapabilities(Manager *m) {
         int r;
 
@@ -635,6 +639,7 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         static const test_function_t user_tests[] = {
+                test_exec_basic,
                 test_exec_ambientcapabilities,
                 test_exec_bindpaths,
                 test_exec_capabilityboundingset,

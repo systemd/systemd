@@ -3,5 +3,5 @@ Description=Test RestrictNamespaces=no
 
 [Service]
 RestrictNamespaces=no
-ExecStart=/bin/sh -x -c 'unshare -m -u -i -n -p -f'
+ExecStart=unshare -m -u -i -n -p -f
 Type=oneshot
