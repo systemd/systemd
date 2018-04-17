@@ -131,7 +131,7 @@ int manager_connect_bus(Manager *m) {
         if (m->bus)
                 return 0;
 
-        r = bus_open_system_watch_bind(&m->bus);
+        r = bus_open_system_watch_bind_with_description(&m->bus, "bus-api-network");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to bus: %m");
 

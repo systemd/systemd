@@ -1657,7 +1657,7 @@ int bus_track_add_name_many(sd_bus_track *t, char **l) {
         return r;
 }
 
-int bus_open_system_watch_bind(sd_bus **ret) {
+int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *description) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         const char *e;
         int r;
@@ -1669,6 +1669,12 @@ int bus_open_system_watch_bind(sd_bus **ret) {
         r = sd_bus_new(&bus);
         if (r < 0)
                 return r;
+
+        if (description) {
+                r = sd_bus_set_description(bus, description);
+                if (r < 0)
+                        return r;
+        }
 
         e = secure_getenv("DBUS_SYSTEM_BUS_ADDRESS");
         if (!e)
