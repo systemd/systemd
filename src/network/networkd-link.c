@@ -2970,7 +2970,7 @@ network_file_fail:
                         goto dhcp4_address_fail;
                 }
 
-                r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
+                r = sd_dhcp_client_new(&link->dhcp_client, link->network ? link->network->dhcp_anonymize : 0);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to create DHCPv4 client: %m");
 
