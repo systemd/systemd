@@ -545,7 +545,7 @@ int session_activate(Session *s) {
         return 0;
 }
 
-static int session_start_scope(Session *s) {
+static int session_start_scope(Session *s, sd_bus_message *properties) {
         int r;
 
         assert(s);
@@ -570,7 +570,7 @@ static int session_start_scope(Session *s) {
                                 description,
                                 "systemd-logind.service",
                                 "systemd-user-sessions.service",
-                                (uint64_t) -1, /* disable TasksMax= for the scope, rely on the slice setting for it */
+                                properties,
                                 &error,
                                 &job);
                 if (r < 0) {
@@ -591,7 +591,7 @@ static int session_start_scope(Session *s) {
         return 0;
 }
 
-int session_start(Session *s) {
+int session_start(Session *s, sd_bus_message *properties) {
         int r;
 
         assert(s);
@@ -607,7 +607,7 @@ int session_start(Session *s) {
                 return r;
 
         /* Create cgroup */
-        r = session_start_scope(s);
+        r = session_start_scope(s, properties);
         if (r < 0)
                 return r;
 
