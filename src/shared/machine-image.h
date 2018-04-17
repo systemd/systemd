@@ -92,6 +92,8 @@ int image_set_limit(Image *i, uint64_t referenced_max);
 
 int image_read_metadata(Image *i);
 
+bool image_in_search_path(ImageClass class, const char *image);
+
 static inline bool IMAGE_IS_HIDDEN(const struct Image *i) {
         assert(i);
 

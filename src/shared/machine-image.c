@@ -47,12 +47,16 @@
 #include "xattr-util.h"
 
 static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
-        [IMAGE_MACHINE] =  "/var/lib/machines\0"
-                           "/var/lib/container\0" /* legacy */
+        [IMAGE_MACHINE] =  "/etc/machines\0"              /* only place symlinks here */
+                           "/run/machines\0"              /* and here too */
+                           "/var/lib/machines\0"          /* the main place for images */
+                           "/var/lib/container\0"         /* legacy */
                            "/usr/local/lib/machines\0"
                            "/usr/lib/machines\0",
 
-        [IMAGE_PORTABLE] = "/var/lib/portables\0"
+        [IMAGE_PORTABLE] = "/etc/portables\0"             /* only place symlinks here */
+                           "/run/portables\0"             /* and here too */
+                           "/var/lib/portables\0"         /* the main place for images */
                            "/usr/local/lib/portables\0"
                            "/usr/lib/portables\0",
 };
@@ -1222,6 +1226,35 @@ bool image_name_is_valid(const char *s) {
                 return false;
 
         return true;
+}
+
+bool image_in_search_path(ImageClass class, const char *image) {
+        const char *path;
+
+        assert(image);
+
+        NULSTR_FOREACH(path, image_search_path[class]) {
+                const char *p;
+                size_t k;
+
+                p = path_startswith(image, path);
+                if (!p)
+                        continue;
+
+                /* Make sure there's a filename following */
+                k = strcspn(p, "/");
+                if (k == 0)
+                        continue;
+
+                p += k;
+
+                /* Accept trailing slashes */
+                if (p[strspn(p, "/")] == 0)
+                        return true;
+
+        }
+
+        return false;
 }
 
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
