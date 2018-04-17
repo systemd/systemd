@@ -477,16 +477,32 @@ int image_find(ImageClass class, const char *name, Image **ret) {
                 if (r < 0)
                         return r;
 
+                if (ret)
+                        (*ret)->discoverable = true;
+
                 return 1;
         }
 
-        if (class == IMAGE_MACHINE && streq(name, ".host"))
-                return image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
+        if (class == IMAGE_MACHINE && streq(name, ".host")) {
+                r = image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
+                if (r < 0)
+                        return r;
+
+                if (ret)
+                        (*ret)->discoverable = true;
+
+                return r;
+        }
 
         return -ENOENT;
 };
 
 int image_from_path(const char *path, Image **ret) {
+
+        /* Note that we don't set the 'discoverable' field of the returned object, because we don't check here whether
+         * the image is in the image search path. And if it is we don't know if the path we used is actually not
+         * overriden by another, different image earlier in the search path */
+
         if (path_equal(path, "/"))
                 return image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
 
@@ -567,6 +583,8 @@ int image_discover(ImageClass class, Hashmap *h) {
                         if (r < 0)
                                 return r;
 
+                        image->discoverable = true;
+
                         r = hashmap_put(h, image->name, image);
                         if (r < 0)
                                 return r;
@@ -582,12 +600,13 @@ int image_discover(ImageClass class, Hashmap *h) {
                 if (r < 0)
                         return r;
 
+                image->discoverable = true;
+
                 r = hashmap_put(h, image->name, image);
                 if (r < 0)
                         return r;
 
                 image = NULL;
-
         }
 
         return 0;
