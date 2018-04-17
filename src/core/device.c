@@ -173,6 +173,18 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
         assert(value);
         assert(fds);
 
+        /* The device was known at the time units were serialized but it's not
+         * anymore at the time units are deserialized. This happens when PID1 is
+         * re-executed after having switched to the new rootfs: devices were
+         * enumerated but udevd wasn't running yet thus the list of devices
+         * (handled by systemd) to initialize was empty. In such case we wait
+         * for the device events to be re-triggered by udev so device units are
+         * properly re-initialized. */
+        if (d->found == DEVICE_NOT_FOUND) {
+                assert(d->sysfs == NULL);
+                return 0;
+        }
+
         if (streq(key, "state")) {
                 DeviceState state;
 
