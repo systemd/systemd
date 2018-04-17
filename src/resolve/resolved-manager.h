@@ -97,7 +97,6 @@ struct Manager {
 
         /* dbus */
         sd_bus *bus;
-        sd_event_source *bus_retry_event_source;
 
         /* The hostname we publish on LLMNR and mDNS */
         char *full_hostname;

@@ -1484,7 +1484,6 @@ void manager_free(Manager *m) {
         sd_bus_unref(m->bus);
         sd_bus_slot_unref(m->prepare_for_sleep_slot);
         sd_bus_slot_unref(m->connected_slot);
-        sd_event_source_unref(m->bus_retry_event_source);
 
         free(m->dynamic_timezone);
         free(m->dynamic_hostname);
