@@ -79,6 +79,7 @@ units = [
         ['sysinit.target',                      ''],
         ['syslog.socket',                       ''],
         ['system-update.target',                ''],
+        ['system-update-cleanup.service',       ''],
         ['systemd-ask-password-console.path',   '',
          'sysinit.target.wants/'],
         ['systemd-ask-password-wall.path',      '',
@@ -127,7 +128,6 @@ in_units = [
         ['quotaon.service',                      'ENABLE_QUOTACHECK'],
         ['rc-local.service',                     'HAVE_SYSV_COMPAT'],
         ['rescue.service',                       ''],
-        ['system-update-cleanup.service',        ''],
         ['systemd-ask-password-console.service', ''],
         ['systemd-ask-password-wall.service',    ''],
         ['systemd-backlight@.service',           'ENABLE_BACKLIGHT'],
@@ -222,27 +222,13 @@ in_units = [
 ]
 
 m4_units = [
+        ['console-getty.service',              ''],
+        ['container-getty@.service',           ''],
         ['getty@.service',                     '',
          'autovt@.service ' +
          join_paths(pkgsysconfdir, 'system/getty.target.wants/getty@tty1.service')],
         ['serial-getty@.service',              ''],
 ]
-
-m4_in_units = [
-        ['console-getty.service',              ''],
-        ['container-getty@.service',           ''],
-]
-
-foreach tuple : m4_in_units
-        file = tuple[0]
-
-        gen = configure_file(
-                input : file + '.m4.in',
-                output : file + '.m4',
-                configuration : substs)
-
-        m4_units += [[file, tuple.get(1, ''), tuple.get(2, ''), gen]]
-endforeach
 
 foreach tuple : in_units
         file = tuple[0]
