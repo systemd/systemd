@@ -355,6 +355,7 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
 
         /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
         (void) touch("/var/lib/systemd/timesync/clock");
+        (void) touch("/run/systemd/timesync/synchronized");
 
         m->drift_ppm = tmx.freq / 65536;
 
