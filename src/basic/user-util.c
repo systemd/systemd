@@ -221,8 +221,7 @@ int get_user_creds_clean(
             (isempty(*shell) || is_nologin_shell(*shell)))
                 *shell = NULL;
 
-        if (home &&
-            (isempty(*home) || path_equal(*home, "/")))
+        if (home && empty_or_root(*home))
                 *home = NULL;
 
         return 0;

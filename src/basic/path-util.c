@@ -640,7 +640,7 @@ char *prefix_root(const char *root, const char *path) {
         while (path[0] == '/' && path[1] == '/')
                 path++;
 
-        if (isempty(root) || path_equal(root, "/"))
+        if (empty_or_root(root))
                 return strdup(path);
 
         l = strlen(root) + 1 + strlen(path) + 1;
@@ -964,4 +964,15 @@ bool dot_or_dot_dot(const char *path) {
                 return false;
 
         return path[2] == 0;
+}
+
+bool empty_or_root(const char *root) {
+
+        /* For operations relative to some root directory, returns true if the specified root directory is redundant,
+         * i.e. either / or NULL or the empty string or any equivalent. */
+
+        if (!root)
+                return true;
+
+        return root[strspn(root, "/")] == 0;
 }

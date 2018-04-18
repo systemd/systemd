@@ -134,7 +134,7 @@ static bool is_root_cgroup(const char *path) {
         if (detect_container() > 0)
                 return false;
 
-        return isempty(path) || path_equal(path, "/");
+        return empty_or_root(path);
 }
 
 static int process(

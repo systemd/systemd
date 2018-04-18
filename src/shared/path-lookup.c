@@ -484,7 +484,7 @@ int lookup_paths_init(
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
-        if (!isempty(root_dir) && !path_equal(root_dir, "/")) {
+        if (!empty_or_root(root_dir)) {
                 if (scope == UNIT_FILE_USER)
                         return -EINVAL;
 

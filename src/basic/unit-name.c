@@ -385,7 +385,7 @@ int unit_name_path_escape(const char *f, char **ret) {
 
         path_kill_slashes(p);
 
-        if (STR_IN_SET(p, "/", ""))
+        if (empty_or_root(p))
                 s = strdup("-");
         else {
                 if (!path_is_normalized(p))
