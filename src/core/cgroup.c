@@ -40,7 +40,7 @@ bool manager_owns_root_cgroup(Manager *m) {
         if (detect_container() > 0)
                 return false;
 
-        return isempty(m->cgroup_root) || path_equal(m->cgroup_root, "/");
+        return empty_or_root(m->cgroup_root);
 }
 
 bool unit_has_root_cgroup(Unit *u) {

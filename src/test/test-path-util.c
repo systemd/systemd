@@ -474,6 +474,19 @@ static void test_skip_dev_prefix(void) {
         assert_se(streq(skip_dev_prefix("foo"), "foo"));
 }
 
+static void test_empty_or_root(void) {
+        assert_se(empty_or_root(NULL));
+        assert_se(empty_or_root(""));
+        assert_se(empty_or_root("/"));
+        assert_se(empty_or_root("//"));
+        assert_se(empty_or_root("///"));
+        assert_se(empty_or_root("/////////////////"));
+        assert_se(!empty_or_root("xxx"));
+        assert_se(!empty_or_root("/xxx"));
+        assert_se(!empty_or_root("/xxx/"));
+        assert_se(!empty_or_root("//yy//"));
+}
+
 int main(int argc, char **argv) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
@@ -494,6 +507,7 @@ int main(int argc, char **argv) {
         test_filename_is_valid();
         test_hidden_or_backup_file();
         test_skip_dev_prefix();
+        test_empty_or_root();
 
         test_systemd_installation_has_version(argv[1]); /* NULL is OK */
 

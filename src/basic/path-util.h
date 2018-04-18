@@ -111,7 +111,7 @@ char *prefix_root(const char *root, const char *path);
                 size_t _l;                                              \
                 while (_path[0] == '/' && _path[1] == '/')              \
                         _path ++;                                       \
-                if (isempty(_root) || path_equal(_root, "/"))           \
+                if (empty_or_root(_root))                               \
                         _ret = _path;                                   \
                 else {                                                  \
                         _l = strlen(_root) + 1 + strlen(_path) + 1;     \
@@ -155,3 +155,5 @@ static inline const char *skip_dev_prefix(const char *p) {
 
         return e ?: p;
 }
+
+bool empty_or_root(const char *root);

@@ -564,10 +564,6 @@ int inotify_add_watch_fd(int fd, int what, uint32_t mask) {
         return r;
 }
 
-static bool noop_root(const char *root) {
-        return isempty(root) || path_equal(root, "/");
-}
-
 static bool safe_transition(const struct stat *a, const struct stat *b) {
         /* Returns true if the transition from a to b is safe, i.e. that we never transition from unprivileged to
          * privileged files or directories. Why bother? So that unprivileged code can't symlink to privileged files
@@ -618,7 +614,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
          * specified path. */
 
         /* A root directory of "/" or "" is identical to none */
-        if (noop_root(original_root))
+        if (empty_or_root(original_root))
                 original_root = NULL;
 
         if (!original_root && !ret && (flags & (CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_OPEN)) == CHASE_OPEN) {
@@ -703,7 +699,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
 
                         /* If we already are at the top, then going up will not change anything. This is in-line with
                          * how the kernel handles this. */
-                        if (isempty(done) || path_equal(done, "/"))
+                        if (empty_or_root(done))
                                 continue;
 
                         parent = dirname_malloc(done);
@@ -889,7 +885,7 @@ int chase_symlinks_and_open(
         if (chase_flags & CHASE_NONEXISTENT)
                 return -EINVAL;
 
-        if (noop_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
                 r = open(path, open_flags);
                 if (r < 0)
@@ -929,7 +925,7 @@ int chase_symlinks_and_opendir(
         if (chase_flags & CHASE_NONEXISTENT)
                 return -EINVAL;
 
-        if (noop_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
                 d = opendir(path);
                 if (!d)

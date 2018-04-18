@@ -421,7 +421,7 @@ int cg_migrate(
                          * exist in the root cgroup, we only check for
                          * them there. */
                         if (cfrom &&
-                            (isempty(pfrom) || path_equal(pfrom, "/")) &&
+                            empty_or_root(pfrom) &&
                             is_kernel_thread(pid) > 0)
                                 continue;
 
@@ -1185,7 +1185,7 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
         assert(path);
 
         /* The root cgroup is always populated */
-        if (controller && (isempty(path) || path_equal(path, "/")))
+        if (controller && empty_or_root(path))
                 return false;
 
         r = cg_unified_controller(controller);
