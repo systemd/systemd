@@ -1491,6 +1491,10 @@ RestrictNamespaces=~cgroup net</programlisting>
                 <entry>Synchronizing files and memory to disk: (<citerefentry project='man-pages'><refentrytitle>fsync</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>msync</refentrytitle><manvolnum>2</manvolnum></citerefentry>, and related calls)</entry>
               </row>
               <row>
+                <entry>@system-service</entry>
+                <entry>A reasonable set of system calls used by common system services, excluding any special purpose calls. This is the recommended starting point for whitelisting system calls for system services, as it contains what is typically needed by system services, but excludes overly specific interfaces. For example, the following APIs are excluded: <literal>@clock</literal>, <literal>@mount</literal>, <literal>@swap</literal>, <literal>@reboot</literal>.</entry>
+              </row>
+              <row>
                 <entry>@timer</entry>
                 <entry>System calls for scheduling operations by time (<citerefentry project='man-pages'><refentrytitle>alarm</refentrytitle><manvolnum>2</manvolnum></citerefentry>, <citerefentry project='man-pages'><refentrytitle>timer_create</refentrytitle><manvolnum>2</manvolnum></citerefentry>, …)</entry>
               </row>
@@ -1503,6 +1507,14 @@ RestrictNamespaces=~cgroup net</programlisting>
         depends on the kernel version and architecture for which systemd was compiled. Use
         <command>systemd-analyze syscall-filter</command> to list the actual list of system calls in each
         filter.</para>
+
+        <para>Generally, whitelisting system calls (rather than blacklisting) is the safer mode of operation. It is
+        recommended to enforce system call whitelists for all long-running system services. Specifically, the
+        following lines are a relatively safe basic choice for the majority of system services:</para>
+
+        <programlisting>[Service]
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM</programlisting>
 
         <para>It is recommended to combine the file system namespacing related options with
         <varname>SystemCallFilter=~@mount</varname>, in order to prohibit the unit's processes to undo the
