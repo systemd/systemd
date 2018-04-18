@@ -1986,6 +1986,8 @@ finish:
         free_database(database_user, database_uid);
         free_database(database_group, database_gid);
 
+        free(uid_range);
+
         free(arg_root);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
