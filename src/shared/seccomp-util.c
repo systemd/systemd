@@ -632,7 +632,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "setresuid32\0"
                 "setreuid\0"
                 "setreuid32\0"
-                "setuid\0"
+                "setuid\0"      /* We list the explicit system calls here, as @setuid also includes setgid() which is not necessarily privileged */
                 "setuid32\0"
                 "vhangup\0"
         },
