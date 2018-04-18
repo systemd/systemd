@@ -75,7 +75,11 @@ enum {
         CHASE_SAFE        = 1U << 3,   /* If set, return EPERM if we ever traverse from unprivileged to privileged files or directories */
         CHASE_OPEN        = 1U << 4,   /* If set, return an O_PATH object to the final component */
         CHASE_TRAIL_SLASH = 1U << 5,   /* If set, any trailing slash will be preserved */
+        CHASE_STEP        = 1U << 6,   /* If set, just execute a single step of the normalization */
 };
+
+/* How many iterations to execute before returning -ELOOP */
+#define CHASE_SYMLINKS_MAX 32
 
 int chase_symlinks(const char *path_with_prefix, const char *root, unsigned flags, char **ret);
 

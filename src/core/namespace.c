@@ -61,12 +61,14 @@ typedef struct MountEntry {
         bool ignore:1;            /* Ignore if path does not exist? */
         bool has_prefix:1;        /* Already is prefixed by the root dir? */
         bool read_only:1;         /* Shall this mount point be read-only? */
+        bool applied:1;           /* Already applied */
         char *path_malloc;        /* Use this instead of 'path_const' if we had to allocate memory */
         const char *source_const; /* The source path, for bind mounts */
         char *source_malloc;
         const char *options_const;/* Mount options for tmpfs */
         char *options_malloc;
         unsigned long flags;      /* Mount flags used by EMPTY_DIR and TMPFS. Do not include MS_RDONLY here, but please use read_only. */
+        unsigned n_followed;
 } MountEntry;
 
 /* If MountAPIVFS= is used, let's mount /sys and /proc into the it, but only as a fallback if the user hasn't mounted
@@ -410,7 +412,6 @@ static int mount_path_compare(const void *a, const void *b) {
         /* If the paths are equal, check the mode */
         if (p->mode < q->mode)
                 return -1;
-
         if (p->mode > q->mode)
                 return 1;
 
@@ -454,8 +455,10 @@ static void drop_duplicates(MountEntry *m, unsigned *n) {
         for (f = m, t = m, previous = NULL; f < m + *n; f++) {
 
                 /* The first one wins (which is the one with the more restrictive mode), see mount_path_compare()
-                 * above. */
-                if (previous && path_equal(mount_entry_path(f), mount_entry_path(previous))) {
+                 * above. Note that we only drop duplicates that haven't been mounted yet. */
+                if (previous &&
+                    path_equal(mount_entry_path(f), mount_entry_path(previous)) &&
+                    !f->applied && !previous->applied) {
                         log_debug("%s is duplicate.", mount_entry_path(f));
                         previous->read_only = previous->read_only || mount_entry_read_only(f); /* Propagate the read-only flag to the remaining entry */
                         mount_entry_done(f);
@@ -817,36 +820,37 @@ static int mount_tmpfs(const MountEntry *m) {
         return 1;
 }
 
-static int mount_entry_chase(
+static int follow_symlink(
                 const char *root_directory,
-                const MountEntry *m,
-                const char *path,
-                bool chase_nonexistent,
-                char **location) {
+                MountEntry *m) {
 
-        char *chased;
+        _cleanup_free_ char *target = NULL;
         int r;
 
-        assert(m);
+        /* Let's chase symlinks, but only one step at a time. That's because depending where the symlink points we
+         * might need to change the order in which we mount stuff. Hence: let's normalize piecemeal, and do one step at
+         * a time by specifying CHASE_STEP. This function returns 0 if we resolved one step, and > 0 if we reached the
+         * end and already have a fully normalized name. */
 
-        /* Since mount() will always follow symlinks and we need to take the different root directory into account we
-         * chase the symlinks on our own first. This is called for the destination path, as well as the source path (if
-         * that applies). The result is stored in "location". */
-
-        r = chase_symlinks(path, root_directory, CHASE_TRAIL_SLASH | (chase_nonexistent ? CHASE_NONEXISTENT : 0), &chased);
-        if (r == -ENOENT && m->ignore) {
-                log_debug_errno(r, "Path %s does not exist, ignoring.", path);
-                return 0;
-        }
+        r = chase_symlinks(mount_entry_path(m), root_directory, CHASE_STEP|CHASE_NONEXISTENT, &target);
         if (r < 0)
-                return log_debug_errno(r, "Failed to follow symlinks on %s: %m", path);
+                return log_debug_errno(r, "Failed to chase symlinks '%s': %m", mount_entry_path(m));
+        if (r > 0) /* Reached the end, nothing more to resolve */
+                return 1;
 
-        log_debug("Followed symlinks %s → %s.", path, chased);
+        if (m->n_followed >= CHASE_SYMLINKS_MAX) { /* put a boundary on things */
+                log_debug("Symlink loop on '%s'.", mount_entry_path(m));
+                return -ELOOP;
+        }
 
-        free(*location);
-        *location = chased;
+        log_debug("Followed mount entry path symlink %s → %s.", mount_entry_path(m), target);
 
-        return 1;
+        free_and_replace(m->path_malloc, target);
+        m->has_prefix = true;
+
+        m->n_followed ++;
+
+        return 0;
 }
 
 static int apply_mount(
@@ -858,10 +862,6 @@ static int apply_mount(
         int r;
 
         assert(m);
-
-        r = mount_entry_chase(root_directory, m, mount_entry_path(m), !IN_SET(m->mode, INACCESSIBLE, READONLY, READWRITE), &m->path_malloc);
-        if (r <= 0)
-                return r;
 
         log_debug("Applying namespace mount on %s", mount_entry_path(m));
 
@@ -875,8 +875,12 @@ static int apply_mount(
                  * inaccessible path. */
                 (void) umount_recursive(mount_entry_path(m), 0);
 
-                if (lstat(mount_entry_path(m), &target) < 0)
+                if (lstat(mount_entry_path(m), &target) < 0) {
+                        if (errno == ENOENT && m->ignore)
+                                return 0;
+
                         return log_debug_errno(errno, "Failed to lstat() %s to determine what to mount over it: %m", mount_entry_path(m));
+                }
 
                 what = mode_to_inaccessible_node(target.st_mode);
                 if (!what) {
@@ -889,6 +893,8 @@ static int apply_mount(
         case READONLY:
         case READWRITE:
                 r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
+                if (r == -ENOENT && m->ignore)
+                        return 0;
                 if (r < 0)
                         return log_debug_errno(r, "Failed to determine whether %s is already a mount point: %m", mount_entry_path(m));
                 if (r > 0) /* Nothing to do here, it is already a mount. We just later toggle the MS_RDONLY bit for the mount point if needed. */
@@ -901,16 +907,29 @@ static int apply_mount(
                 rbind = false;
 
                 _fallthrough_;
-        case BIND_MOUNT_RECURSIVE:
-                /* Also chase the source mount */
+        case BIND_MOUNT_RECURSIVE: {
+                _cleanup_free_ char *chased = NULL;
 
-                r = mount_entry_chase(root_directory, m, mount_entry_source(m), false, &m->source_malloc);
-                if (r <= 0)
-                        return r;
+                /* Since mount() will always follow symlinks we chase the symlinks on our own first. Note that bind
+                 * mount source paths are always relative to the host root, hence we pass NULL as root directory to
+                 * chase_symlinks() here. */
+
+                r = chase_symlinks(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH, &chased);
+                if (r == -ENOENT && m->ignore) {
+                        log_debug_errno(r, "Path %s does not exist, ignoring.", mount_entry_source(m));
+                        return 0;
+                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to follow symlinks on %s: %m", mount_entry_source(m));
+
+                log_debug("Followed source symlinks %s → %s.", mount_entry_source(m), chased);
+
+                free_and_replace(m->source_malloc, chased);
 
                 what = mount_entry_source(m);
                 make = true;
                 break;
+        }
 
         case EMPTY_DIR:
         case TMPFS:
@@ -948,14 +967,22 @@ static int apply_mount(
 
                         /* Hmm, either the source or the destination are missing. Let's see if we can create the destination, then try again */
 
-                        if (stat(what, &st) >= 0) {
+                        if (stat(what, &st) < 0)
+                                log_debug_errno(errno, "Mount point source '%s' is not accessible: %m", what);
+                        else {
+                                int q;
 
                                 (void) mkdir_parents(mount_entry_path(m), 0755);
 
                                 if (S_ISDIR(st.st_mode))
-                                        try_again = mkdir(mount_entry_path(m), 0755) >= 0;
+                                        q = mkdir(mount_entry_path(m), 0755) < 0 ? -errno : 0;
                                 else
-                                        try_again = touch(mount_entry_path(m)) >= 0;
+                                        q = touch(mount_entry_path(m));
+
+                                if (q < 0)
+                                        log_debug_errno(q, "Failed to create destination mount point node '%s': %m", mount_entry_path(m));
+                                else
+                                        try_again = true;
                         }
                 }
 
@@ -1066,6 +1093,18 @@ static unsigned namespace_calculate_mounts(
                 (namespace_info_mount_apivfs(root_directory, ns_info) ? ELEMENTSOF(apivfs_table) : 0);
 }
 
+static void normalize_mounts(const char *root_directory, MountEntry *mounts, unsigned *n_mounts) {
+        assert(n_mounts);
+        assert(mounts || *n_mounts == 0);
+
+        qsort_safe(mounts, *n_mounts, sizeof(MountEntry), mount_path_compare);
+
+        drop_duplicates(mounts, n_mounts);
+        drop_outside_root(root_directory, mounts, n_mounts);
+        drop_inaccessible(mounts, n_mounts);
+        drop_nop(mounts, n_mounts);
+}
+
 int setup_namespace(
                 const char* root_directory,
                 const char* root_image,
@@ -1105,7 +1144,9 @@ int setup_namespace(
         if (root_image) {
                 dissect_image_flags |= DISSECT_IMAGE_REQUIRE_ROOT;
 
-                if (protect_system == PROTECT_SYSTEM_STRICT && strv_isempty(read_write_paths))
+                if (protect_system == PROTECT_SYSTEM_STRICT &&
+                    protect_home != PROTECT_HOME_NO &&
+                    strv_isempty(read_write_paths))
                         dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
 
                 r = loop_device_make_by_path(root_image,
@@ -1248,12 +1289,7 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                qsort(mounts, n_mounts, sizeof(MountEntry), mount_path_compare);
-
-                drop_duplicates(mounts, &n_mounts);
-                drop_outside_root(root, mounts, &n_mounts);
-                drop_inaccessible(mounts, &n_mounts);
-                drop_nop(mounts, &n_mounts);
+                normalize_mounts(root_directory, mounts, &n_mounts);
         }
 
         if (unshare(CLONE_NEWNS) < 0) {
@@ -1323,11 +1359,38 @@ int setup_namespace(
                         goto finish;
                 }
 
-                /* First round, add in all special mounts we need */
-                for (m = mounts; m < mounts + n_mounts; ++m) {
-                        r = apply_mount(root, m);
-                        if (r < 0)
-                                goto finish;
+                /* First round, establish all mounts we need */
+                for (;;) {
+                        bool again = false;
+
+                        for (m = mounts; m < mounts + n_mounts; ++m) {
+
+                                if (m->applied)
+                                        continue;
+
+                                r = follow_symlink(root, m);
+                                if (r < 0)
+                                        goto finish;
+                                if (r == 0) {
+                                        /* We hit a symlinked mount point. The entry got rewritten and might point to a
+                                         * very different place now. Let's normalize the changed list, and start from
+                                         * the beginning. After all to mount the entry at the new location we might
+                                         * need some other mounts first */
+                                        again = true;
+                                        break;
+                                }
+
+                                r = apply_mount(root, m);
+                                if (r < 0)
+                                        goto finish;
+
+                                m->applied = true;
+                        }
+
+                        if (!again)
+                                break;
+
+                        normalize_mounts(root_directory, mounts, &n_mounts);
                 }
 
                 /* Create a blacklist we can pass to bind_mount_recursive() */
