@@ -3411,7 +3411,7 @@ int config_parse_delegate(
          * mask to delegate. */
 
         if (isempty(rvalue)) {
-                c->delegate = true;
+                c->delegate = false;
                 c->delegate_controllers = 0;
                 return 0;
         }
@@ -3432,7 +3432,7 @@ int config_parse_delegate(
                                 return log_oom();
                         if (r < 0) {
                                 log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
-                                return r;
+                                return 0;
                         }
 
                         cc = cgroup_controller_from_string(word);
