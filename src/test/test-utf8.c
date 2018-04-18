@@ -102,6 +102,15 @@ static void test_utf8_n_codepoints(void) {
         assert_se(utf8_n_codepoints("\xF1") == (size_t) -1);
 }
 
+static void test_utf8_console_width(void) {
+        assert_se(utf8_console_width("abc") == 3);
+        assert_se(utf8_console_width("zażółcić gęślą jaźń") == 19);
+        assert_se(utf8_console_width("串") == 2);
+        assert_se(utf8_console_width("") == 0);
+        assert_se(utf8_console_width("…👊🔪💐…") == 8);
+        assert_se(utf8_console_width("\xF1") == (size_t) -1);
+}
+
 int main(int argc, char *argv[]) {
         test_utf8_is_valid();
         test_utf8_is_printable();
@@ -111,6 +120,7 @@ int main(int argc, char *argv[]) {
         test_utf8_escaping_printable();
         test_utf16_to_utf8();
         test_utf8_n_codepoints();
+        test_utf8_console_width();
 
         return 0;
 }
