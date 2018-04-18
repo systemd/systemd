@@ -53,7 +53,7 @@
     <title>Description</title>
 
     <para><command>systemd-journal-upload</command> will upload journal entries to the URL specified
-    with <option>--url</option>. This program reads journal entries from one or more journal files,
+    with <option>--url=</option>. This program reads journal entries from one or more journal files,
     similarly to
     <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
     Unless limited by one of the options specified below, all journal entries accessible to the user
@@ -109,7 +109,7 @@
         entries from the specified journal directory
         <replaceable>DIR</replaceable> instead of the default runtime
         and system journal paths. This has the same meaning as
-        <option>--directory</option> option for
+        <option>--directory=</option> option for
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
@@ -122,7 +122,7 @@
         <replaceable>GLOB</replaceable> instead of the default runtime
         and system journal paths. May be specified multiple times, in
         which case files will be suitably interleaved. This has the same meaning as
-        <option>--file</option> option for
+        <option>--file=</option> option for
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
@@ -132,7 +132,7 @@
 
         <listitem><para>Upload entries from the location in the
         journal specified by the passed cursor. This has the same
-        meaning as <option>--cursor</option> option for
+        meaning as <option>--cursor=</option> option for
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
@@ -142,7 +142,7 @@
         <listitem><para>Upload entries from the location in the
         journal <emphasis>after</emphasis> the location specified by
         the this cursor.  This has the same meaning as
-        <option>--after-cursor</option> option for
+        <option>--after-cursor=</option> option for
         <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         </para></listitem>
       </varlistentry>
