@@ -10,7 +10,7 @@
 #include "fileio.h"
 #include "parse-util.h"
 #include "resolvconf-compat.h"
-#include "resolve-tool.h"
+#include "resolvectl.h"
 #include "resolved-def.h"
 #include "string-util.h"
 #include "strv.h"

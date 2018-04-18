@@ -24,7 +24,7 @@
 #include "pager.h"
 #include "parse-util.h"
 #include "resolvconf-compat.h"
-#include "resolve-tool.h"
+#include "resolvectl.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
 #include "strv.h"
