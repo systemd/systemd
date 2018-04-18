@@ -102,57 +102,61 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>The following dependencies are implicitly added:</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>If a mount unit is beneath another mount unit in the file
-      system hierarchy, both a requirement dependency and an ordering
-      dependency between both units are created automatically.</para></listitem>
+      <para>The following dependencies are implicitly added:</para>
 
-      <listitem><para>Block device backed file systems automatically gain
-      <varname>BindsTo=</varname> and <varname>After=</varname> type
-      dependencies on the device unit encapsulating the block
-      device (see below).</para></listitem>
+      <itemizedlist>
+        <listitem><para>If a mount unit is beneath another mount unit in the file
+        system hierarchy, both a requirement dependency and an ordering
+        dependency between both units are created automatically.</para></listitem>
 
-      <listitem><para>If traditional file system quota is enabled for a mount
-      unit, automatic <varname>Wants=</varname> and
-      <varname>Before=</varname> dependencies on
-      <filename>systemd-quotacheck.service</filename> and
-      <filename>quotaon.service</filename> are added.</para></listitem>
+        <listitem><para>Block device backed file systems automatically gain
+        <varname>BindsTo=</varname> and <varname>After=</varname> type
+        dependencies on the device unit encapsulating the block
+        device (see below).</para></listitem>
 
-      <listitem><para>Additional implicit dependencies may be added as result of
-      execution and resource control parameters as documented in
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      and
-      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      </para></listitem>
-    </itemizedlist>
-  </refsect1>
+        <listitem><para>If traditional file system quota is enabled for a mount
+        unit, automatic <varname>Wants=</varname> and
+        <varname>Before=</varname> dependencies on
+        <filename>systemd-quotacheck.service</filename> and
+        <filename>quotaon.service</filename> are added.</para></listitem>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+        <listitem><para>Additional implicit dependencies may be added as result of
+        execution and resource control parameters as documented in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        and
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </itemizedlist>
+    </refsect2>
 
-    <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>All mount units acquire automatic <varname>Before=</varname> and <varname>Conflicts=</varname> on
-      <filename>umount.target</filename> in order to be stopped during shutdown.</para></listitem>
+      <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
 
-      <listitem><para>Mount units referring to local file systems automatically gain
-      an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>.</para></listitem>
+      <itemizedlist>
+        <listitem><para>All mount units acquire automatic <varname>Before=</varname> and <varname>Conflicts=</varname> on
+        <filename>umount.target</filename> in order to be stopped during shutdown.</para></listitem>
 
-      <listitem><para>Network mount units
-      automatically acquire <varname>After=</varname> dependencies on <filename>remote-fs-pre.target</filename>,
-      <filename>network.target</filename> and <filename>network-online.target</filename>. Towards the latter a
-      <varname>Wants=</varname> unit is added as well.</para></listitem>
-    </itemizedlist>
+        <listitem><para>Mount units referring to local file systems automatically gain
+        an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>.</para></listitem>
 
-    <para>Mount units referring to local and network file systems are
-    distinguished by their file system type specification. In some cases this is not sufficient (for example network
-    block device based mounts, such as iSCSI), in which case <option>_netdev</option> may be added to the mount option
-    string of the unit, which forces systemd to consider the mount unit a network mount.</para>
+        <listitem><para>Network mount units
+        automatically acquire <varname>After=</varname> dependencies on <filename>remote-fs-pre.target</filename>,
+        <filename>network.target</filename> and <filename>network-online.target</filename>. Towards the latter a
+        <varname>Wants=</varname> unit is added as well.</para></listitem>
+      </itemizedlist>
+
+      <para>Mount units referring to local and network file systems are distinguished by their file system type
+      specification. In some cases this is not sufficient (for example network block device based mounts, such as
+      iSCSI), in which case <option>_netdev</option> may be added to the mount option string of the unit, which forces
+      systemd to consider the mount unit a network mount.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>

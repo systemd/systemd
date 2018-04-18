@@ -83,18 +83,13 @@
   <refsect1>
     <title>Description</title>
 
-    <para>A unit configuration file encodes information about a
-    service, a socket, a device, a mount point, an automount point, a
-    swap file or partition, a start-up target, a watched file system
-    path, a timer controlled and supervised by
-    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-    a resource management slice or
-    a group of externally created processes. The syntax is inspired by
-    <ulink
-    url="http://standards.freedesktop.org/desktop-entry-spec/latest/">XDG
-    Desktop Entry Specification</ulink> <filename>.desktop</filename>
-    files, which are in turn inspired by Microsoft Windows
-    <filename>.ini</filename> files.</para>
+    <para>A unit file is a plain text ini-style file that encodes information about a service, a
+    socket, a device, a mount point, an automount point, a swap file or partition, a start-up
+    target, a watched file system path, a timer controlled and supervised by
+    <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>, a
+    resource management slice or a group of externally created processes. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
 
     <para>This man page lists the common configuration options of all
     the unit types. These options need to be configured in the [Unit]
@@ -117,17 +112,16 @@
     <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 
-    <para>Various settings are allowed to be specified more than once,
-    in which case the interpretation depends on the setting. Often,
-    multiple settings form a list, and setting to an empty value
-    "resets", which means that previous assignments are ignored. When
-    this is allowed, it is mentioned in the description of the
-    setting. Note that using multiple assignments to the same value
-    makes the unit file incompatible with parsers for the XDG
-    <filename>.desktop</filename> file format.</para>
-
     <para>Unit files are loaded from a set of paths determined during
     compilation, described in the next section.</para>
+
+    <para>Unit files can be parameterized by a single argument called the "instance name". The unit
+    is then constructed based on a "template file" which serves as the definition of multiple
+    services or other units. A template unit must have a single <literal>@</literal> at the end of
+    the name (right before the type suffix). The name of the full unit is formed by inserting the
+    instance name between <literal>@</literal> and the unit type suffix. In the unit file itself,
+    the instance parameter may be referred to using <literal>%i</literal> and other specifiers, see
+    below.</para>
 
     <para>Unit files may contain additional options on top of those
     listed here. If systemd encounters an unknown option, it will
@@ -153,11 +147,6 @@
     <literal>s</literal>, <literal>min</literal>, <literal>h</literal>, <literal>d</literal>,
     <literal>w</literal>, <literal>ms</literal>, <literal>us</literal>.  For details see
     <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
-
-    <para>Empty lines and lines starting with <literal>#</literal> or <literal>;</literal> are
-    ignored. This may be used for commenting. Lines ending in a backslash are concatenated with the
-    following line while reading and the backslash is replaced by a space character. This may be
-    used to wrap long lines.</para>
 
     <para>Units can be aliased (have an alternative name), by creating a symlink from the new name
     to the existing name in one of the unit search paths. For example,
@@ -223,21 +212,15 @@
     socket-based activation which make dependencies implicit,
     resulting in a both simpler and more flexible system.</para>
 
-    <para>Optionally, units may be instantiated from a
-    template file at runtime. This allows creation of
-    multiple units from a single configuration file. If
-    systemd looks for a unit configuration file, it will
-    first search for the literal unit name in the
-    file system. If that yields no success and the unit
-    name contains an <literal>@</literal> character, systemd will look for a
-    unit template that shares the same name but with the
-    instance string (i.e. the part between the <literal>@</literal> character
-    and the suffix) removed. Example: if a service
-    <filename>getty@tty3.service</filename> is requested
-    and no file by that name is found, systemd will look
-    for <filename>getty@.service</filename> and
-    instantiate a service from that configuration file if
-    it is found.</para>
+    <para>As mentioned above, a unit may be instantiated from a template file. This allows creation
+    of multiple units from a single configuration file. If systemd looks for a unit configuration
+    file, it will first search for the literal unit name in the file system. If that yields no
+    success and the unit name contains an <literal>@</literal> character, systemd will look for a
+    unit template that shares the same name but with the instance string (i.e. the part between the
+    <literal>@</literal> character and the suffix) removed. Example: if a service
+    <filename>getty@tty3.service</filename> is requested and no file by that name is found, systemd
+    will look for <filename>getty@.service</filename> and instantiate a service from that
+    configuration file if it is found.</para>
 
     <para>To refer to the instance string from within the
     configuration file you may use the special <literal>%i</literal>
@@ -285,40 +268,40 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Automatic dependencies</title>
 
-    <para>A number of unit dependencies are implicitly established,
-    depending on unit type and unit configuration. These implicit
-    dependencies can make unit configuration file cleaner. For the
-    implicit dependencies in each unit type, please refer to
-    section "Implicit Dependencies" in respective man pages.</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <para>For example, service units with <varname>Type=dbus</varname>
-    automatically acquire dependencies of type <varname>Requires=</varname>
-    and <varname>After=</varname> on <filename>dbus.socket</filename>. See
-    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details.</para>
-  </refsect1>
+      <para>A number of unit dependencies are implicitly established, depending on unit type and
+      unit configuration. These implicit dependencies can make unit configuration file cleaner. For
+      the implicit dependencies in each unit type, please refer to section "Implicit Dependencies"
+      in respective man pages.</para>
 
-  <refsect1>
-    <title>Default Dependencies</title>
+      <para>For example, service units with <varname>Type=dbus</varname> automatically acquire
+      dependencies of type <varname>Requires=</varname> and <varname>After=</varname> on
+      <filename>dbus.socket</filename>. See
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for details.</para>
+    </refsect2>
 
-    <para>Default dependencies are similar to implicit dependencies,
-    but can be turned on and off by setting
-    <varname>DefaultDependencies=</varname> to <varname>yes</varname>
-    (the default) and <varname>no</varname>, while implicit dependencies
-    are always in effect. See section "Default Dependencies" in respective
-    man pages for the effect of enabling
-    <varname>DefaultDependencies=</varname> in each unit types.</para>
+    <refsect2>
+      <title>Default Dependencies</title>
 
-    <para>For example, target units will complement all configured
-    dependencies of type <varname>Wants=</varname> or
-    <varname>Requires=</varname> with dependencies of type
-    <varname>After=</varname> unless <varname>DefaultDependencies=no</varname>
-    is set in the specified units. See
-    <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for details. Note that this behavior can be turned off by setting
-    <varname>DefaultDependencies=no</varname>.</para>
+      <para>Default dependencies are similar to implicit dependencies, but can be turned on and off
+      by setting <varname>DefaultDependencies=</varname> to <varname>yes</varname> (the default) and
+      <varname>no</varname>, while implicit dependencies are always in effect. See section "Default
+      Dependencies" in respective man pages for the effect of enabling
+      <varname>DefaultDependencies=</varname> in each unit types.</para>
+
+      <para>For example, target units will complement all configured dependencies of type
+      <varname>Wants=</varname> or <varname>Requires=</varname> with dependencies of type
+      <varname>After=</varname> unless <varname>DefaultDependencies=no</varname> is set in the
+      specified units. See
+      <citerefentry><refentrytitle>systemd.target</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for details. Note that this behavior can be turned off by setting
+      <varname>DefaultDependencies=no</varname>.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -1331,7 +1314,7 @@
     <para>Unit settings that create a relationship with a second unit usually show up
     in properties of both units, for example in <command>systemctl show</command>
     output. In some cases the name of the property is the same as the name of the
-    configuration setting, but not always. This table lists the pairs of properties
+    configuration setting, but not always. This table lists the properties
     that are shown on two units which are connected through some dependency, and shows
     which property on "source" unit corresponds to which property on the "target" unit.
     </para>
@@ -1406,6 +1389,11 @@
             <entry><varname>ReloadPropagatedFrom=</varname></entry>
             <entry><varname>PropagatesReloadTo=</varname></entry>
           </row>
+          <row>
+            <entry><varname>Following=</varname></entry>
+            <entry>n/a</entry>
+            <entry>An automatic property</entry>
+          </row>
         </tbody>
       </tgroup>
     </table>
@@ -1431,6 +1419,10 @@
     <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for details. <varname>TriggersBy=</varname> is created implicitly on the
     triggered unit.</para>
+
+    <para>Note: <varname>Following=</varname> is used to group device aliases and points to the
+    "primary" device unit that systemd is using to track device state, usually corresponding to a
+    sysfs path. It does not show up in the "target" unit.</para>
   </refsect1>
 
   <refsect1>
