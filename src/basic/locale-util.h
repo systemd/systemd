@@ -53,6 +53,7 @@ typedef enum {
         BLACK_CIRCLE,
         ARROW,
         MDASH,
+        ELLIPSIS,
         _SPECIAL_GLYPH_MAX
 } SpecialGlyph;
 

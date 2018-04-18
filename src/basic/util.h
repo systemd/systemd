@@ -111,6 +111,14 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_
                 qsort_safe((p), (n), sizeof((p)[0]), (__compar_fn_t) _func_); \
         })
 
+static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, int (*compar)(const void*, const void*, void*), void *userdata) {
+        if (nmemb <= 1)
+                return;
+
+        assert(base);
+        qsort_r(base, nmemb, size, compar, userdata);
+}
+
 /**
  * Normal memcpy requires src to be nonnull. We do nothing if n is 0.
  */

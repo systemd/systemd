@@ -24,6 +24,13 @@ Janitorial Clean-ups:
 
 Features:
 
+* Fix DECIMAL_STR_MAX or DECIMAL_STR_WIDTH. One includes a trailing NUL, the
+  other doesn't. What a desaster. Probably to exclude it. Also
+  DECIMAL_STR_WIDTH should probably add an extra "-" into account for negative
+  numbers.
+
+* port systemctl, systemd-inhibit, busctl, … over to format-table.[ch]'s table formatters
+
 * pid1: lock image configured with RootDirectory=/RootImage= using the usual nspawn semantics while the unit is up
 
 * add --vacuum-xyz options to coredumpctl, matching those journalctl already has.

@@ -77,6 +77,8 @@ basic_sources = files('''
         fileio-label.h
         fileio.c
         fileio.h
+        format-table.c
+        format-table.h
         format-util.h
         fs-util.c
         fs-util.h
@@ -127,6 +129,8 @@ basic_sources = files('''
         nss-util.h
         ordered-set.c
         ordered-set.h
+        pager.c
+        pager.h
         parse-util.c
         parse-util.h
         path-util.c

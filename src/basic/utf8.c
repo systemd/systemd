@@ -35,6 +35,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "gunicode.h"
 #include "hexdecoct.h"
 #include "macro.h"
 #include "utf8.h"
@@ -410,6 +411,26 @@ size_t utf8_n_codepoints(const char *str) {
 
                 str += k;
                 n++;
+        }
+
+        return n;
+}
+
+size_t utf8_console_width(const char *str) {
+        size_t n = 0;
+
+        /* Returns the approximate width a string will take on screen when printed on a character cell
+         * terminal/console. */
+
+        while (*str != 0) {
+                char32_t c;
+
+                if (utf8_encoded_to_unichar(str, &c) < 0)
+                        return (size_t) -1;
+
+                str = utf8_next_char(str);
+
+                n += unichar_iswide(c) ? 2 : 1;
         }
 
         return n;
