@@ -42,6 +42,7 @@ if bashcompletiondir != 'no'
                  ['machinectl',          'ENABLE_MACHINED'],
                  ['networkctl',          'ENABLE_NETWORKD'],
                  ['systemd-resolve',     'ENABLE_RESOLVE'],
+                 ['resolvectl',          'ENABLE_RESOLVE'],
                  ['timedatectl',         'ENABLE_TIMEDATED'],
                 ]
 
