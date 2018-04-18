@@ -565,14 +565,14 @@ static void drop_outside_root(const char *root_directory, MountEntry *m, unsigne
         *n = t - m;
 }
 
-static int clone_device_node(const char *d, const char *temporary_mount) {
+static int clone_device_node(const char *d, const char *temporary_mount, bool *make_devnode) {
         const char *dn;
         struct stat st;
         int r;
 
         if (stat(d, &st) < 0) {
                 if (errno == ENOENT)
-                        return 0;
+                        return -ENXIO;
                 return -errno;
         }
 
@@ -581,17 +581,41 @@ static int clone_device_node(const char *d, const char *temporary_mount) {
                 return -EINVAL;
 
         if (st.st_rdev == 0)
-                return 0;
+                return -ENXIO;
 
         dn = strjoina(temporary_mount, d);
 
-        mac_selinux_create_file_prepare(d, st.st_mode);
-        r = mknod(dn, st.st_mode, st.st_rdev);
-        mac_selinux_create_file_clear();
-        if (r < 0)
-                return log_debug_errno(errno, "mknod failed for %s: %m", d);
+        if (*make_devnode) {
+                mac_selinux_create_file_prepare(d, st.st_mode);
+                r = mknod(dn, st.st_mode, st.st_rdev);
+                mac_selinux_create_file_clear();
 
-        return 1;
+                if (r == 0)
+                        return 0;
+                if (errno != EPERM)
+                        return log_debug_errno(errno, "mknod failed for %s: %m", d);
+
+                *make_devnode = false;
+        }
+
+        /* We're about to fallback to bind-mounting the device
+         * node. So create a dummy bind-mount target. */
+        mac_selinux_create_file_prepare(d, 0);
+        r = mknod(dn, S_IFREG, 0);
+        mac_selinux_create_file_clear();
+
+        if (r < 0 && errno != EEXIST)
+                return log_debug_errno(errno, "mknod fallback failed for %s: %m", d);
+
+        /* Fallback to bind-mounting:
+         * The assumption here is that all used device nodes carry standard
+         * properties. Specifically, the devices nodes we bind-mount should
+         * either be owned by root:root or root:tty (e.g. /dev/tty, /dev/ptmx)
+         * and should not carry ACLs. */
+        if (mount(d, dn, NULL, MS_BIND, NULL) < 0)
+                return log_debug_errno(errno, "mount failed for %s: %m", d);
+
+        return 0;
 }
 
 static int mount_private_dev(MountEntry *m) {
@@ -605,6 +629,7 @@ static int mount_private_dev(MountEntry *m) {
 
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
         const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
+        bool can_mknod = true;
         _cleanup_umask_ mode_t u;
         int r;
 
@@ -645,13 +670,9 @@ static int mount_private_dev(MountEntry *m) {
                         goto fail;
                 }
         } else {
-                r = clone_device_node("/dev/ptmx", temporary_mount);
+                r = clone_device_node("/dev/ptmx", temporary_mount, &can_mknod);
                 if (r < 0)
                         goto fail;
-                if (r == 0) {
-                        r = -ENXIO;
-                        goto fail;
-                }
         }
 
         devshm = strjoina(temporary_mount, "/dev/shm");
@@ -674,8 +695,9 @@ static int mount_private_dev(MountEntry *m) {
         (void) symlink("/run/systemd/journal/dev-log", devlog);
 
         NULSTR_FOREACH(d, devnodes) {
-                r = clone_device_node(d, temporary_mount);
-                if (r < 0)
+                r = clone_device_node(d, temporary_mount, &can_mknod);
+                /* ENXIO means the the *source* is not a device file, skip creation in that case */
+                if (r < 0 && r != -ENXIO)
                         goto fail;
         }
 
