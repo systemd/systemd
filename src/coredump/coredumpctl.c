@@ -44,6 +44,7 @@
 
 static usec_t arg_since = USEC_INFINITY, arg_until = USEC_INFINITY;
 static const char* arg_field = NULL;
+static const char *arg_debugger = NULL;
 static const char *arg_directory = NULL;
 static bool arg_no_pager = false;
 static int arg_no_legend = false;
@@ -142,23 +143,24 @@ static int help(void) {
         printf("%s [OPTIONS...]\n\n"
                "List or retrieve coredumps from the journal.\n\n"
                "Flags:\n"
-               "  -h --help          Show this help\n"
-               "     --version       Print version string\n"
-               "     --no-pager      Do not pipe output into a pager\n"
-               "     --no-legend     Do not print the column headers.\n"
-               "  -1                 Show information about most recent entry only\n"
-               "  -S --since=DATE    Only print coredumps since the date\n"
-               "  -U --until=DATE    Only print coredumps until the date\n"
-               "  -r --reverse       Show the newest entries first\n"
-               "  -F --field=FIELD   List all values a certain field takes\n"
-               "  -o --output=FILE   Write output to FILE\n"
-               "  -D --directory=DIR Use journal files from directory\n\n"
-               "  -q --quiet         Do not show info messages and privilege warning\n"
+               "  -h --help              Show this help\n"
+               "     --version           Print version string\n"
+               "     --no-pager          Do not pipe output into a pager\n"
+               "     --no-legend         Do not print the column headers\n"
+               "     --debugger=DEBUGGER Use the given debugger\n"
+               "  -1                     Show information about most recent entry only\n"
+               "  -S --since=DATE        Only print coredumps since the date\n"
+               "  -U --until=DATE        Only print coredumps until the date\n"
+               "  -r --reverse           Show the newest entries first\n"
+               "  -F --field=FIELD       List all values a certain field takes\n"
+               "  -o --output=FILE       Write output to FILE\n"
+               "  -D --directory=DIR     Use journal files from directory\n\n"
+               "  -q --quiet             Do not show info messages and privilege warning\n"
                "Commands:\n"
                "  list [MATCHES...]  List available coredumps (default)\n"
                "  info [MATCHES...]  Show detailed information about one or more coredumps\n"
                "  dump [MATCHES...]  Print first matching coredump to stdout\n"
-               "  gdb [MATCHES...]   Start gdb for the first matching coredump\n"
+               "  debug [MATCHES...] Start a debugger for the first matching coredump\n"
                , program_invocation_short_name);
 
         return 0;
@@ -169,6 +171,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_DEBUGGER,
         };
 
         int c, r;
@@ -178,6 +181,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version" ,     no_argument,       NULL, ARG_VERSION   },
                 { "no-pager",     no_argument,       NULL, ARG_NO_PAGER  },
                 { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND },
+                { "debugger",     required_argument, NULL, ARG_DEBUGGER  },
                 { "output",       required_argument, NULL, 'o'           },
                 { "field",        required_argument, NULL, 'F'           },
                 { "directory",    required_argument, NULL, 'D'           },
@@ -205,6 +209,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_LEGEND:
                         arg_no_legend = true;
+                        break;
+
+                case ARG_DEBUGGER:
+                        arg_debugger = optarg;
                         break;
 
                 case 'o':
@@ -883,14 +891,24 @@ static int dump_core(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int run_gdb(int argc, char **argv, void *userdata) {
+static int run_debug(int argc, char **argv, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_free_ char *exe = NULL, *path = NULL;
         bool unlink_path = false;
-        const char *data;
+        const char *data, *fork_name;
         size_t len;
         pid_t pid;
         int r;
+
+        if (!arg_debugger) {
+                char *env_debugger;
+
+                env_debugger = getenv("SYSTEMD_DEBUGGER");
+                if (env_debugger)
+                        arg_debugger = env_debugger;
+                else
+                        arg_debugger = "gdb";
+        }
 
         if (arg_field) {
                 log_error("Option --field/-F only makes sense with list");
@@ -937,17 +955,19 @@ static int run_gdb(int argc, char **argv, void *userdata) {
         /* Don't interfere with gdb and its handling of SIGINT. */
         (void) ignore_signals(SIGINT, -1);
 
-        r = safe_fork("(gdb)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
+        fork_name = strjoina("(", arg_debugger, ")");
+
+        r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
         if (r < 0)
                 goto finish;
         if (r == 0) {
-                execlp("gdb", "gdb", exe, path, NULL);
+                execlp(arg_debugger, arg_debugger, exe, "-c", path, NULL);
                 log_open();
-                log_error_errno(errno, "Failed to invoke gdb: %m");
+                log_error_errno(errno, "Failed to invoke %s: %m", arg_debugger);
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_check("gdb", pid, WAIT_LOG_ABNORMAL);
+        r = wait_for_terminate_and_check(arg_debugger, pid, WAIT_LOG_ABNORMAL);
 
 finish:
         (void) default_signals(SIGINT, -1);
@@ -1023,10 +1043,11 @@ static int check_units_active(void) {
 static int coredumpctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "list", VERB_ANY, VERB_ANY, VERB_DEFAULT, dump_list },
-                { "info", VERB_ANY, VERB_ANY, 0,            dump_list },
-                { "dump", VERB_ANY, VERB_ANY, 0,            dump_core },
-                { "gdb",  VERB_ANY, VERB_ANY, 0,            run_gdb   },
+                { "list",  VERB_ANY, VERB_ANY, VERB_DEFAULT, dump_list },
+                { "info",  VERB_ANY, VERB_ANY, 0,            dump_list },
+                { "dump",  VERB_ANY, VERB_ANY, 0,            dump_core },
+                { "debug", VERB_ANY, VERB_ANY, 0,            run_debug },
+                { "gdb",   VERB_ANY, VERB_ANY, 0,            run_debug },
                 {}
         };
 
