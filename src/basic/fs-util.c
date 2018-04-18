@@ -951,6 +951,46 @@ int chase_symlinks_and_opendir(
         return 0;
 }
 
+int chase_symlinks_and_stat(
+                const char *path,
+                const char *root,
+                unsigned chase_flags,
+                char **ret_path,
+                struct stat *ret_stat) {
+
+        _cleanup_close_ int path_fd = -1;
+        _cleanup_free_ char *p = NULL;
+
+        assert(path);
+        assert(ret_stat);
+
+        if (chase_flags & CHASE_NONEXISTENT)
+                return -EINVAL;
+
+        if (empty_or_root(root) && !ret_path && (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE)) == 0) {
+                /* Shortcut this call if none of the special features of this call are requested */
+                if (stat(path, ret_stat) < 0)
+                        return -errno;
+
+                return 1;
+        }
+
+        path_fd = chase_symlinks(path, root, chase_flags|CHASE_OPEN, ret_path ? &p : NULL);
+        if (path_fd < 0)
+                return path_fd;
+
+        if (fstat(path_fd, ret_stat) < 0)
+                return -errno;
+
+        if (ret_path)
+                *ret_path = TAKE_PTR(p);
+
+        if (chase_flags & CHASE_OPEN)
+                return TAKE_FD(path_fd);
+
+        return 1;
+}
+
 int access_fd(int fd, int mode) {
         char p[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(fd) + 1];
         int r;
