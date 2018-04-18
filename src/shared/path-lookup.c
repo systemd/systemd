@@ -723,14 +723,13 @@ int lookup_paths_reduce(LookupPaths *p) {
         assert(p);
 
         /* Drop duplicates and non-existing directories from the search path. We figure out whether two directories are
-         * the same by comparing their device and inode numbers. Note one special tweak: when we have a root path set,
-         * we do not follow symlinks when retrieving them, because the kernel wouldn't take the root prefix into
-         * account when following symlinks. When we have no root path set this restriction does not apply however. */
+         * the same by comparing their device and inode numbers. */
 
         if (!p->search_path)
                 return 0;
 
         while (p->search_path[c]) {
+                _cleanup_free_ char *chased = NULL;
                 struct stat st;
                 unsigned k;
 
@@ -742,25 +741,20 @@ int lookup_paths_reduce(LookupPaths *p) {
                         continue;
                 }
 
-                if (p->root_dir)
-                        r = lstat(p->search_path[c], &st);
-                else
-                        r = stat(p->search_path[c], &st);
+                r = chase_symlinks_and_stat(p->search_path[c], p->root_dir, 0, NULL, &st);
+                if (r == -ENOENT)
+                        goto remove_item;
                 if (r < 0) {
-                        if (errno == ENOENT)
-                                goto remove_item;
-
                         /* If something we don't grok happened, let's better leave it in. */
-                        log_debug_errno(errno, "Failed to stat %s: %m", p->search_path[c]);
+                        log_debug_errno(r, "Failed to chase and stat %s: %m", p->search_path[c]);
                         c++;
                         continue;
                 }
 
-                for (k = 0; k < n_stats; k++) {
+                for (k = 0; k < n_stats; k++)
                         if (stats[k].st_dev == st.st_dev &&
                             stats[k].st_ino == st.st_ino)
                                 break;
-                }
 
                 if (k < n_stats) /* Is there already an entry with the same device/inode? */
                         goto remove_item;
