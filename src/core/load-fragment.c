@@ -3404,7 +3404,16 @@ int config_parse_delegate(
                 void *userdata) {
 
         CGroupContext *c = data;
+        UnitType t;
         int r;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_delegate) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Delegate= setting not supported for this unit type, ignoring.");
+                return 0;
+        }
 
         /* We either accept a boolean value, which may be used to turn on delegation for all controllers, or turn it
          * off for all. Or it takes a list of controller names, in which case we add the specified controllers to the
