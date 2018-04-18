@@ -1961,10 +1961,10 @@ int main(int argc, char *argv[]) {
         }
 
         ORDERED_HASHMAP_FOREACH(i, groups, iterator)
-                process_item(i);
+                (void) process_item(i);
 
         ORDERED_HASHMAP_FOREACH(i, users, iterator)
-                process_item(i);
+                (void) process_item(i);
 
         r = write_files();
         if (r < 0)
