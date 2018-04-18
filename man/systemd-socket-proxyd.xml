@@ -111,7 +111,7 @@ Requires=proxy-to-nginx.socket
 After=proxy-to-nginx.socket
 
 [Service]
-ExecStart=/usr/lib/systemd/systemd-socket-proxyd /tmp/nginx.sock
+ExecStart=/usr/lib/systemd/systemd-socket-proxyd /run/nginx/socket
 PrivateTmp=yes
 PrivateNetwork=yes]]></programlisting>
       </example>
@@ -120,7 +120,7 @@ PrivateNetwork=yes]]></programlisting>
         <programlisting>
 <![CDATA[[…]
 server {
-    listen       unix:/tmp/nginx.sock;
+    listen       unix:/run/nginx/socket;
     […]]]>
 </programlisting>
       </example>
