@@ -26,35 +26,45 @@
 #include "signal-util.h"
 #include "special.h"
 
-Manager *manager_new(void) {
-        Manager *m;
+static Manager* manager_unref(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
+
+static int manager_new(Manager **ret) {
+        _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
+
+        assert(ret);
 
         m = new0(Manager, 1);
         if (!m)
-                return NULL;
+                return -ENOMEM;
 
         m->machines = hashmap_new(&string_hash_ops);
         m->machine_units = hashmap_new(&string_hash_ops);
         m->machine_leaders = hashmap_new(NULL);
 
-        if (!m->machines || !m->machine_units || !m->machine_leaders) {
-                manager_free(m);
-                return NULL;
-        }
+        if (!m->machines || !m->machine_units || !m->machine_leaders)
+                return -ENOMEM;
 
         r = sd_event_default(&m->event);
-        if (r < 0) {
-                manager_free(m);
-                return NULL;
-        }
+        if (r < 0)
+                return r;
 
-        sd_event_set_watchdog(m->event, true);
+        r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        if (r < 0)
+                return r;
 
-        return m;
+        r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_set_watchdog(m->event, true);
+
+        *ret = TAKE_PTR(m);
+        return 0;
 }
 
-void manager_free(Manager *m) {
+static Manager* manager_unref(Manager *m) {
         Machine *machine;
 
         assert(m);
@@ -80,7 +90,7 @@ void manager_free(Manager *m) {
         sd_bus_unref(m->bus);
         sd_event_unref(m->event);
 
-        free(m);
+        return mfree(m);
 }
 
 static int manager_add_host_machine(Manager *m) {
@@ -121,7 +131,7 @@ static int manager_add_host_machine(Manager *m) {
         return 0;
 }
 
-int manager_enumerate_machines(Manager *m) {
+static int manager_enumerate_machines(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;
@@ -268,7 +278,7 @@ static int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-void manager_gc(Manager *m, bool drop_not_started) {
+static void manager_gc(Manager *m, bool drop_not_started) {
         Machine *machine;
 
         assert(m);
@@ -292,7 +302,7 @@ void manager_gc(Manager *m, bool drop_not_started) {
         }
 }
 
-int manager_startup(Manager *m) {
+static int manager_startup(Manager *m) {
         Machine *machine;
         Iterator i;
         int r;
@@ -328,7 +338,7 @@ static bool check_idle(void *userdata) {
         return hashmap_isempty(m->machines);
 }
 
-int manager_run(Manager *m) {
+static int manager_run(Manager *m) {
         assert(m);
 
         return bus_event_loop_with_idle(
@@ -340,7 +350,7 @@ int manager_run(Manager *m) {
 }
 
 int main(int argc, char *argv[]) {
-        Manager *m = NULL;
+        _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -356,18 +366,16 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* Always create the directories people can create inotify
-         * watches in. Note that some applications might check for the
-         * existence of /run/systemd/machines/ to determine whether
-         * machined is available, so please always make sure this
-         * check stays in. */
-        mkdir_label("/run/systemd/machines", 0755);
+        /* Always create the directories people can create inotify watches in. Note that some applications might check
+         * for the existence of /run/systemd/machines/ to determine whether machined is available, so please always
+         * make sure this check stays in. */
+        (void) mkdir_label("/run/systemd/machines", 0755);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, -1) >= 0);
 
-        m = manager_new();
-        if (!m) {
-                r = log_oom();
+        r = manager_new(&m);
+        if (r < 0) {
+                log_error_errno(r, "Failed to allocate manager object: %m");
                 goto finish;
         }
 
@@ -388,7 +396,5 @@ int main(int argc, char *argv[]) {
         log_debug("systemd-machined stopped as pid "PID_FMT, getpid_cached());
 
 finish:
-        manager_free(m);
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
