@@ -34,6 +34,7 @@ BuildPackages=
         gnu-efi-devel
         gnutls-devel
         gperf
+        hostname
         iptables-devel
         kmod-devel
         libacl-devel
