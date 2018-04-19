@@ -3954,11 +3954,11 @@ static void print_status_info(
                 UnitStatusInfo *i,
                 bool *ellipsized) {
 
-        ExecStatusInfo *p;
+        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1, since2[FORMAT_TIMESTAMP_MAX], *s2;
         const char *active_on, *active_off, *on, *off, *ss;
+        _cleanup_free_ char *formatted_path = NULL;
+        ExecStatusInfo *p;
         usec_t timestamp;
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
-        char since2[FORMAT_TIMESTAMP_MAX], *s2;
         const char *path;
         char **t, **t2;
         int r;
@@ -3993,7 +3993,9 @@ static void print_status_info(
         } else
                 on = off = "";
 
-        path = i->source_path ? i->source_path : i->fragment_path;
+        path = i->source_path ?: i->fragment_path;
+        if (path && terminal_urlify_path(path, NULL, &formatted_path) >= 0)
+                path = formatted_path;
 
         if (i->load_error != 0)
                 printf("   Loaded: %s%s%s (Reason: %s)\n",
@@ -4021,6 +4023,9 @@ static void print_status_info(
                 char ** dropin;
 
                 STRV_FOREACH(dropin, i->dropin_paths) {
+                        _cleanup_free_ char *dropin_formatted = NULL;
+                        const char *df;
+
                         if (!dir || last) {
                                 printf(dir ? "           " :
                                              "  Drop-In: ");
@@ -4040,7 +4045,12 @@ static void print_status_info(
 
                         last = ! (*(dropin + 1) && startswith(*(dropin + 1), dir));
 
-                        printf("%s%s", basename(*dropin), last ? "\n" : ", ");
+                        if (terminal_urlify_path(*dropin, basename(*dropin), &dropin_formatted) >= 0)
+                                df = dropin_formatted;
+                        else
+                                df = *dropin;
+
+                        printf("%s%s", df, last ? "\n" : ", ");
                 }
         }
 
