@@ -20,6 +20,7 @@
 #include "bus-util.h"
 #include "hostname-util.h"
 #include "spawn-polkit-agent.h"
+#include "terminal-util.h"
 #include "util.h"
 #include "verbs.h"
 
@@ -44,6 +45,7 @@ typedef struct StatusInfo {
         const char *os_cpe_name;
         const char *virtualization;
         const char *architecture;
+        const char *home_url;
 } StatusInfo;
 
 static void print_status_info(StatusInfo *i) {
@@ -87,8 +89,17 @@ static void print_status_info(StatusInfo *i) {
         if (!isempty(i->virtualization))
                 printf("    Virtualization: %s\n", i->virtualization);
 
-        if (!isempty(i->os_pretty_name))
-                printf("  Operating System: %s\n", i->os_pretty_name);
+        if (!isempty(i->os_pretty_name)) {
+                _cleanup_free_ char *formatted = NULL;
+                const char *t = i->os_pretty_name;
+
+                if (i->home_url) {
+                        if (terminal_urlify(i->home_url, i->os_pretty_name, &formatted) >= 0)
+                                t = formatted;
+                }
+
+                printf("  Operating System: %s\n", t);
+        }
 
         if (!isempty(i->os_cpe_name))
                 printf("       CPE OS Name: %s\n", i->os_cpe_name);
@@ -141,6 +152,7 @@ static int show_all_names(sd_bus *bus, sd_bus_error *error) {
                 { "KernelRelease",             "s", NULL, offsetof(StatusInfo, kernel_release)  },
                 { "OperatingSystemPrettyName", "s", NULL, offsetof(StatusInfo, os_pretty_name)  },
                 { "OperatingSystemCPEName",    "s", NULL, offsetof(StatusInfo, os_cpe_name)     },
+                { "HomeURL",                   "s", NULL, offsetof(StatusInfo, home_url)        },
                 {}
         };
 
