@@ -156,3 +156,6 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode);
 
 int vt_default_utf8(void);
 int vt_reset_keyboard(int fd);
+
+int terminal_urlify(const char *url, const char *text, char **ret);
+int terminal_urlify_path(const char *path, const char *text, char **ret);

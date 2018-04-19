@@ -8,21 +8,22 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/inotify.h>
-#include <sys/socket.h>
-#include <sys/sysmacros.h>
-#include <sys/time.h>
 #include <linux/kd.h>
 #include <linux/tiocl.h>
 #include <linux/vt.h>
 #include <poll.h>
 #include <signal.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/inotify.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/sysmacros.h>
+#include <sys/time.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -34,6 +35,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
+#include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -1268,4 +1270,95 @@ int vt_reset_keyboard(int fd) {
                 return -errno;
 
         return 0;
+}
+
+static bool urlify_enabled(void) {
+        static int cached_urlify_enabled = -1;
+
+        /* Unfortunately 'less' doesn't support links like this yet 😭, hence let's disable this as long as there's a
+         * pager in effect. Let's drop this check as soon as less got fixed a and enough time passed so that it's safe
+         * to assume that a link-enabled 'less' version has hit most installations. */
+
+        if (cached_urlify_enabled < 0) {
+                int val;
+
+                val = getenv_bool("SYSTEMD_URLIFY");
+                if (val >= 0)
+                        cached_urlify_enabled = val;
+                else
+                        cached_urlify_enabled = colors_enabled() && !pager_have();
+        }
+
+        return cached_urlify_enabled;
+}
+
+int terminal_urlify(const char *url, const char *text, char **ret) {
+        char *n;
+
+        assert(url);
+
+        /* Takes an URL and a pretty string and formats it as clickable link for the terminal. See
+         * https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda for details. */
+
+        if (isempty(text))
+                text = url;
+
+        if (urlify_enabled())
+                n = strjoin("\x1B]8;;", url, "\a", text, "\x1B]8;;\a");
+        else
+                n = strdup(text);
+        if (!n)
+                return -ENOMEM;
+
+        *ret = n;
+        return 0;
+}
+
+int terminal_urlify_path(const char *path, const char *text, char **ret) {
+        _cleanup_free_ char *absolute = NULL;
+        struct utsname u;
+        const char *url;
+        int r;
+
+        assert(path);
+
+        /* Much like terminal_urlify() above, but takes a file system path as input, and turns it into a properl
+         * file:// URL first. */
+
+        if (isempty(path))
+                return -EINVAL;
+
+        if (isempty(text))
+                text = path;
+
+        if (!urlify_enabled()) {
+                char *n;
+
+                n = strdup(text);
+                if (!n)
+                        return -ENOMEM;
+
+                *ret = n;
+                return 0;
+        }
+
+        if (uname(&u) < 0)
+                return -errno;
+
+        if (!path_is_absolute(path)) {
+                r = path_make_absolute_cwd(path, &absolute);
+                if (r < 0)
+                        return r;
+
+                path = absolute;
+        }
+
+        /* As suggested by https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda, let's include the local
+         * hostname here. Note that we don't use gethostname_malloc() or gethostname_strict() since we are interested
+         * in the raw string the kernel has set, whatever it may be, under the assumption that terminals are not overly
+         * careful with validating the strings either. */
+
+        url = strjoina("file://", u.nodename, path);
+
+        return terminal_urlify(url, text, ret);
 }

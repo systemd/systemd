@@ -856,6 +856,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>$SYSTEMD_URLIFY</varname></term>
+
+        <listitem><para>The value must be a boolean. Controls whether clickable links should be generated in the output
+        for terminal emulators supporting this. This can be specified to override the decision that
+        <command>systemd</command> makes based on <varname>$TERM</varname> and other conditions.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>$LISTEN_PID</varname></term>
         <term><varname>$LISTEN_FDS</varname></term>
         <term><varname>$LISTEN_FDNAMES</varname></term>

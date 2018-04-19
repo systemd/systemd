@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "alloc-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
@@ -63,12 +64,25 @@ static void test_read_one_char(void) {
         unlink(name);
 }
 
+static void test_terminal_urlify(void) {
+        _cleanup_free_ char *formatted = NULL;
+
+        assert_se(terminal_urlify("https://www.freedesktop.org/wiki/Software/systemd/", "systemd homepage", &formatted) >= 0);
+        printf("Hey, considere visiting the %s right now! It is very good!\n", formatted);
+
+        formatted = mfree(formatted);
+
+        assert_se(terminal_urlify_path("/etc/fstab", "this link to your /etc/fstab", &formatted) >= 0);
+        printf("Or click on %s to have a look at it!\n", formatted);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
         test_default_term_for_tty();
         test_read_one_char();
+        test_terminal_urlify();
 
         return 0;
 }
