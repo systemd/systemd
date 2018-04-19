@@ -39,6 +39,7 @@ enum {
         PROP_KERNEL_VERSION,
         PROP_OS_PRETTY_NAME,
         PROP_OS_CPE_NAME,
+        PROP_HOME_URL,
         _PROP_MAX
 };
 
@@ -100,6 +101,7 @@ static int context_read_data(Context *c) {
         r = parse_env_file("/etc/os-release", NEWLINE,
                            "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
                            "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
+                           "HOME_URL", &c->data[PROP_HOME_URL],
                            NULL);
         if (r == -ENOENT)
                 r = parse_env_file("/usr/lib/os-release", NEWLINE,
@@ -640,6 +642,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("KernelVersion", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_VERSION, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemCPEName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HomeURL", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_HOME_URL, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_METHOD("SetHostname", "sb", NULL, method_set_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetStaticHostname", "sb", NULL, method_set_static_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetPrettyHostname", "sb", NULL, method_set_pretty_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
