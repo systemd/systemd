@@ -5,6 +5,7 @@
 #include <sys/types.h>
 
 extern int arg_ifindex;
+extern const char *arg_ifname;
 extern bool arg_ifindex_permissive;
 
 typedef enum ExecutionMode {
@@ -25,6 +26,5 @@ typedef enum ExecutionMode {
 
 extern ExecutionMode arg_mode;
 
-extern struct in_addr_data *arg_set_dns;
-extern size_t arg_n_set_dns;
+extern char **arg_set_dns;
 extern char **arg_set_domain;

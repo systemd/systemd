@@ -67,11 +67,11 @@ systemd_resolved_sources = files('''
         resolved-etc-hosts.c
 '''.split())
 
-systemd_resolve_sources = files('''
+resolvectl_sources = files('''
          resolvconf-compat.c
          resolvconf-compat.h
-         resolve-tool.c
-         resolve-tool.h
+         resolvectl.c
+         resolvectl.h
 '''.split())
 
 ############################################################

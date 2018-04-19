@@ -201,10 +201,10 @@ TxtText=path=/stats/index.html t=temperature_sensor</programlisting>
       <para>This makes the http server running on the host discoverable in the local network
       given MulticastDNS is enabled on the network interface.</para>
 
-      <para>Now the utility <literal>systemd-resolve</literal> should be able to resolve the
+      <para>Now the utility <literal>resolvectl</literal> should be able to resolve the
       service to the host's name:</para>
 
-      <programlisting>$ systemd-resolve  --service meteo._http._tcp.local
+      <programlisting>$ resolvectl service meteo._http._tcp.local
 meteo._http._tcp.local: meteo.local:80 [priority=0, weight=0]
                         169.254.208.106%senp0s21f0u2u4
                         fe80::213:3bff:fe49:8aa%senp0s21f0u2u4
@@ -238,7 +238,8 @@ meteo._http._tcp.local: meteo.local:80 [priority=0, weight=0]
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>resolvectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 
