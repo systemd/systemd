@@ -4839,7 +4839,6 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
         } else
                 return 0;
 
-
         /* If the object is newly created, then put it to the hashmap which manages ExecRuntime objects. */
         if (rt_create) {
                 r = hashmap_put(u->manager->exec_runtime_by_id, rt_create->id, rt_create);

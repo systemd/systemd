@@ -920,7 +920,6 @@ int transaction_add_job_and_dependencies(
                                          "Job type %s is not applicable for unit %s.",
                                          job_type_to_string(type), unit->id);
 
-
         /* First add the job. */
         ret = transaction_add_one_job(tr, type, unit, &is_new);
         if (!ret)

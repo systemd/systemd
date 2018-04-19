@@ -1062,7 +1062,6 @@ static int show_pool_info(sd_bus *bus) {
         return 0;
 }
 
-
 static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) {
         int r;
 

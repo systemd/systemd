@@ -96,7 +96,6 @@ static int signature_element_length_internal(
         return -EINVAL;
 }
 
-
 int signature_element_length(const char *s, size_t *l) {
         return signature_element_length_internal(s, true, 0, 0, l);
 }

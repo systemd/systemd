@@ -116,7 +116,6 @@ _public_ sd_bus_creds *sd_bus_creds_unref(sd_bus_creds *c) {
                 sd_bus_message_unref(m);
         }
 
-
         return NULL;
 }
 
@@ -208,7 +207,6 @@ _public_ int sd_bus_creds_get_suid(sd_bus_creds *c, uid_t *suid) {
         *suid = c->suid;
         return 0;
 }
-
 
 _public_ int sd_bus_creds_get_fsuid(sd_bus_creds *c, uid_t *fsuid) {
         assert_return(c, -EINVAL);

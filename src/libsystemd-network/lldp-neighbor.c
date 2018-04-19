@@ -328,7 +328,6 @@ int lldp_neighbor_parse(sd_lldp_neighbor *n) {
                         break;
                 }
 
-
                 p += length, left -= length;
         }
 

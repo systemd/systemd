@@ -1462,7 +1462,6 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         break;
                 }
 
-
                 case SD_BUS_TYPE_DOUBLE: {
                         double z;
 
@@ -1980,7 +1979,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_expect_reply = !!r;
                         break;
 
-
                 case ARG_AUTO_START:
                         r = parse_boolean(optarg);
                         if (r < 0) {
@@ -1990,7 +1988,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_auto_start = !!r;
                         break;
-
 
                 case ARG_ALLOW_INTERACTIVE_AUTHORIZATION:
                         r = parse_boolean(optarg);

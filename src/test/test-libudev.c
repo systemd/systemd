@@ -394,7 +394,6 @@ int main(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option code.");
                 }
 
-
         /* add sys path if needed */
         if (!startswith(syspath, "/sys"))
                 syspath = strjoina("/sys/", syspath);

@@ -42,7 +42,6 @@ int import_url_last_component(const char *url, char **ret) {
         return 0;
 }
 
-
 int import_url_change_last_component(const char *url, const char *suffix, char **ret) {
         const char *e;
         char *s;

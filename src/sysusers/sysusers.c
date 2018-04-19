@@ -1478,7 +1478,6 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 }
         }
 
-
         switch (action[0]) {
 
         case ADD_RANGE:

@@ -24,7 +24,6 @@ const struct hash_ops string_hash_ops = {
         .compare = string_compare_func
 };
 
-
 void path_hash_func(const void *p, struct siphash *state) {
         const char *q = p;
         size_t n;

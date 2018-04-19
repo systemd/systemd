@@ -383,7 +383,6 @@ static void test_config_parse_exec(void) {
         c1 = c1->command_next;
         check_execcommand(c1, "/bin/grep", NULL, "\\w+\\K", NULL, false);
 
-
         log_info("/* trailing backslash: \\ */");
         /* backslash is invalid */
         r = config_parse_exec(NULL, "fake", 4, "section", 1,

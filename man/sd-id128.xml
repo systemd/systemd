@@ -114,7 +114,6 @@ int main(int argc, char **argv) {
 }
     </programlisting>
 
-
     <para><function>SD_ID128_CONST_STR()</function> may be used to
     convert constant 128-bit IDs into constant strings for output. The
     following example code will output the string

@@ -107,7 +107,6 @@ static void test_link_get(sd_netlink *rtnl, int ifindex) {
         assert_se((r = sd_netlink_message_unref(r)) == NULL);
 }
 
-
 static void test_address_get(sd_netlink *rtnl, int ifindex) {
         sd_netlink_message *m;
         sd_netlink_message *r;

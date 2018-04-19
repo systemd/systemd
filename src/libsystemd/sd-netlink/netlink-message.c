@@ -298,7 +298,6 @@ int sd_netlink_message_append_u8(sd_netlink_message *m, unsigned short type, uin
         return 0;
 }
 
-
 int sd_netlink_message_append_u16(sd_netlink_message *m, unsigned short type, uint16_t data) {
         int r;
 

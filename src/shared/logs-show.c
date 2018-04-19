@@ -52,7 +52,6 @@ static int print_catalog(FILE *f, sd_journal *j) {
         int r;
         _cleanup_free_ char *t = NULL, *z = NULL;
 
-
         r = sd_journal_get_catalog(j, &t);
         if (r < 0)
                 return r;
@@ -83,7 +82,6 @@ static int parse_field(const void *data, size_t length, const char *field, size_
                 return 0;
 
         nl = length - field_len;
-
 
         buf = newdup_suffix0(char, (const char*) data + field_len, nl);
         if (!buf)

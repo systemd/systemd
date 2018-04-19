@@ -33,7 +33,6 @@ static int property_get_listen(
                 void *userdata,
                 sd_bus_error *error) {
 
-
         Socket *s = SOCKET(userdata);
         SocketPort *p;
         int r;
@@ -78,7 +77,6 @@ static int property_get_listen(
 
         return sd_bus_message_close_container(reply);
 }
-
 
 static int property_get_fdname(
                 sd_bus *bus,

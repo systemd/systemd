@@ -48,7 +48,6 @@ static void test_is_symlink(void) {
         assert_se(is_symlink(name_link) == 1);
         assert_se(is_symlink("/a/file/which/does/not/exist/i/guess") < 0);
 
-
         unlink(name);
         unlink(name_link);
 }

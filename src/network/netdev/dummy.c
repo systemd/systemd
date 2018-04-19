@@ -6,7 +6,6 @@
   Copyright 2014 Tom Gundersen
 ***/
 
-
 #include "netdev/dummy.h"
 
 const NetDevVTable dummy_vtable = {

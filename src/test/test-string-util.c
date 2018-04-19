@@ -135,7 +135,6 @@ static void test_strrep(void) {
         assert_se(streq(zero, ""));
 }
 
-
 static void test_strappend(void) {
         _cleanup_free_ char *t1, *t2, *t3, *t4;
 

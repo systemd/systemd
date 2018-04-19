@@ -89,7 +89,6 @@ static const char* const input_table_one_empty[] = {
         NULL,
 };
 
-
 static void test_strv_find(void) {
         assert_se(strv_find((char **)input_table_multiple, "three"));
         assert_se(!strv_find((char **)input_table_multiple, "four"));

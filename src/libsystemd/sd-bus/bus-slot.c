@@ -157,7 +157,6 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                                         key.interface = slot->node_vtable.interface;
                                         key.member = v->x.method.member;
 
-
                                         x = hashmap_remove(slot->bus->vtable_properties, &key);
                                         break;
                                 }}

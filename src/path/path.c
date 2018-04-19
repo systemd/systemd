@@ -181,7 +181,6 @@ int main(int argc, char* argv[]) {
         } else
                 r = list_homes();
 
-
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

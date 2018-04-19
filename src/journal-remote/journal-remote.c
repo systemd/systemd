@@ -686,7 +686,6 @@ static int setup_microhttpd_server(RemoteServer *s,
         log_debug("Started MHD %s daemon on fd:%d (wrapper @ %p)",
                   key ? "HTTPS" : "HTTP", fd, d);
 
-
         info = MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
         if (!info) {
                 log_error("µhttp returned NULL daemon info");
@@ -1576,7 +1575,6 @@ int main(int argc, char **argv) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-
 
         if (arg_listen_http || arg_listen_https) {
                 r = setup_gnutls_logger(arg_gnutls_log);

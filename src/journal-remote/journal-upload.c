@@ -167,8 +167,6 @@ static int load_cursor_state(Uploader *u) {
         return 0;
 }
 
-
-
 int start_upload(Uploader *u,
                  size_t (*input_callback)(void *ptr,
                                           size_t size,

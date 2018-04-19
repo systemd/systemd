@@ -343,7 +343,6 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         } else
                 log_debug("Locale settings were not modified.");
 
-
         return sd_bus_reply_method_return(m, NULL);
 }
 

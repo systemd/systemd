@@ -100,7 +100,6 @@ static int property_get_oom_score_adjust(
                 void *userdata,
                 sd_bus_error *error) {
 
-
         ExecContext *c = userdata;
         int32_t n;
 
@@ -130,7 +129,6 @@ static int property_get_nice(
                 void *userdata,
                 sd_bus_error *error) {
 
-
         ExecContext *c = userdata;
         int32_t n;
 
@@ -159,7 +157,6 @@ static int property_get_ioprio(
                 void *userdata,
                 sd_bus_error *error) {
 
-
         ExecContext *c = userdata;
 
         assert(bus);
@@ -178,7 +175,6 @@ static int property_get_ioprio_class(
                 void *userdata,
                 sd_bus_error *error) {
 
-
         ExecContext *c = userdata;
 
         assert(bus);
@@ -196,7 +192,6 @@ static int property_get_ioprio_priority(
                 sd_bus_message *reply,
                 void *userdata,
                 sd_bus_error *error) {
-
 
         ExecContext *c = userdata;
 

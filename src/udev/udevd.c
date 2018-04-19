@@ -1740,8 +1740,6 @@ int main(int argc, char *argv[]) {
                                 log_warning_errno(r, "Failed to redirect standard streams to /dev/null: %m");
                 }
 
-
-
                 pid = fork();
                 switch (pid) {
                 case 0:

@@ -563,7 +563,6 @@ int job_run_and_invalidate(Job *j) {
         job_set_state(j, JOB_RUNNING);
         job_add_to_dbus_queue(j);
 
-
         switch (j->type) {
 
                 case JOB_VERIFY_ACTIVE: {

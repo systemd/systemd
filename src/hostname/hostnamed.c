@@ -248,7 +248,6 @@ static char* context_fallback_icon_name(Context *c) {
         return strdup("computer");
 }
 
-
 static bool hostname_is_useful(const char *hn) {
         return !isempty(hn) && !is_localhost(hn);
 }

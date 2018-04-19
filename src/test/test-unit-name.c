@@ -412,7 +412,6 @@ static void test_unit_name_escape(void) {
         assert_se(streq(r, "ab\\x2b\\x2dc.a-bc\\x40foo.service"));
 }
 
-
 static void test_u_n_t_one(const char *name, const char *expected, int ret) {
         _cleanup_free_ char *f = NULL;
 

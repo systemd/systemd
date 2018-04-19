@@ -835,7 +835,6 @@ static int request_handler(
         if (!streq(method, "GET"))
                 return mhd_respond(connection, MHD_HTTP_NOT_ACCEPTABLE, "Unsupported method.");
 
-
         if (!*connection_cls) {
                 if (!request_meta(connection_cls))
                         return respond_oom(connection);

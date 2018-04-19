@@ -544,7 +544,6 @@ static int parse_xml_node(Context *context, const char *prefix, unsigned n_depth
 
                         break;
 
-
                 case STATE_SIGNAL_ARG:
 
                         if (t == XML_ATTRIBUTE_NAME) {

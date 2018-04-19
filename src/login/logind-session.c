@@ -254,7 +254,6 @@ int session_save(Session *s) {
         if (s->desktop) {
                 _cleanup_free_ char *escaped;
 
-
                 escaped = cescape(s->desktop);
                 if (!escaped) {
                         r = -ENOMEM;

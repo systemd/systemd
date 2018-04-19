@@ -130,7 +130,6 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-
         enum {
                 TYPE_REGULAR,
                 TYPE_PRIVATE,   /* -p: Not supported, treated identically to TYPE_REGULAR */

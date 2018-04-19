@@ -147,7 +147,6 @@
         </para></listitem>
       </varlistentry>
 
-
       <varlistentry>
         <term><option>--save-state</option><optional>=<replaceable>PATH</replaceable></optional></term>
 

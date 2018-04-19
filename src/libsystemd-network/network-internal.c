@@ -379,7 +379,6 @@ int config_parse_bridge_port_priority(
         return 0;
 }
 
-
 void serialize_in_addrs(FILE *f, const struct in_addr *addresses, size_t size) {
         unsigned i;
 

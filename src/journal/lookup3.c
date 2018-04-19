@@ -214,7 +214,6 @@ uint32_t        initval)         /* the previous hash, or an arbitrary value */
   return c;
 }
 
-
 /*
 --------------------------------------------------------------------
 hashword2() -- same as hashword(), but take two seeds and return two
@@ -259,7 +258,6 @@ uint32_t       *pb)               /* IN: more seed OUT: secondary hash value */
   /*------------------------------------------------------ report the result */
   *pc=c; *pb=b;
 }
-
 
 /*
 -------------------------------------------------------------------------------
@@ -458,7 +456,6 @@ uint32_t jenkins_hashlittle( const void *key, size_t length, uint32_t initval)
   return c;
 }
 
-
 /*
  * hashlittle2: return 2 32-bit hash values
  *
@@ -644,8 +641,6 @@ void jenkins_hashlittle2(
   *pc=c; *pb=b;
 }
 
-
-
 /*
  * hashbig():
  * This is the same as hashword() on big-endian machines.  It is different
@@ -774,7 +769,6 @@ uint32_t jenkins_hashbig( const void *key, size_t length, uint32_t initval)
   final(a,b,c);
   return c;
 }
-
 
 #ifdef SELF_TEST
 
@@ -967,7 +961,6 @@ void driver3()
   uint8_t buf[1];
   uint32_t h,i,state[HASHSTATE];
 
-
   buf[0] = ~0;
   for (i=0; i<HASHSTATE; ++i) state[i] = 1;
   printf("These should all be different\n");
@@ -998,7 +991,6 @@ void driver5()
   c = hashlittle("Four score and seven years ago", 30, 1);
   printf("hash is %.8lx\n", c);   /* cd628161 */
 }
-
 
 int main()
 {

@@ -188,7 +188,6 @@ typedef struct tdEFI_TCG2_PROTOCOL {
         EFI_TCG2_GET_RESULT_OF_SET_ACTIVE_PCR_BANKS GetResultOfSetActivePcrBanks;
 } EFI_TCG2;
 
-
 static EFI_STATUS tpm1_measure_to_pcr_and_event_log(const EFI_TCG *tcg, UINT32 pcrindex, const EFI_PHYSICAL_ADDRESS buffer,
                                                     UINTN buffer_size, const CHAR16 *description) {
         EFI_STATUS status;

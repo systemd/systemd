@@ -275,7 +275,6 @@ int utmp_put_dead_process(const char *id, pid_t pid, int code, int status) {
         return write_utmp_wtmp(&store, &store_wtmp);
 }
 
-
 int utmp_put_runlevel(int runlevel, int previous) {
         struct utmpx store = {};
         int r;

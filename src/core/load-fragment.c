@@ -1166,7 +1166,6 @@ int config_parse_exec_cpu_sched_policy(const char *unit,
                                        void *data,
                                        void *userdata) {
 
-
         ExecContext *c = data;
         int x;
 
@@ -1457,7 +1456,6 @@ int config_parse_exec_mount_flags(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
-
 
         ExecContext *c = data;
         int r;
