@@ -4143,8 +4143,17 @@ static void print_status_info(
         if (i->what)
                 printf("     What: %s\n", i->what);
 
-        STRV_FOREACH(t, i->documentation)
-                printf(" %*s %s\n", 9, t == i->documentation ? "Docs:" : "", *t);
+        STRV_FOREACH(t, i->documentation) {
+                _cleanup_free_ char *formatted = NULL;
+                const char *q;
+
+                if (terminal_urlify(*t, NULL, &formatted) >= 0)
+                        q = formatted;
+                else
+                        q = *t;
+
+                printf(" %*s %s\n", 9, t == i->documentation ? "Docs:" : "", q);
+        }
 
         STRV_FOREACH_PAIR(t, t2, i->listen)
                 printf(" %*s %s (%s)\n", 9, t == i->listen ? "Listen:" : "", *t2, *t);
