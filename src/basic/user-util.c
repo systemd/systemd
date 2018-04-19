@@ -775,11 +775,11 @@ int fgetpwent_sane(FILE *stream, struct passwd **pw) {
 
         errno = 0;
         p = fgetpwent(stream);
-        if (p == NULL && errno != ENOENT)
+        if (!p && errno != ENOENT)
                 return errno > 0 ? -errno : -EIO;
 
         *pw = p;
-        return p != NULL;
+        return !!p;
 }
 
 int fgetspent_sane(FILE *stream, struct spwd **sp) {
@@ -790,11 +790,11 @@ int fgetspent_sane(FILE *stream, struct spwd **sp) {
 
         errno = 0;
         s = fgetspent(stream);
-        if (s == NULL && errno != ENOENT)
+        if (!s && errno != ENOENT)
                 return errno > 0 ? -errno : -EIO;
 
         *sp = s;
-        return s != NULL;
+        return !!s;
 }
 
 int fgetgrent_sane(FILE *stream, struct group **gr) {
@@ -805,11 +805,11 @@ int fgetgrent_sane(FILE *stream, struct group **gr) {
 
         errno = 0;
         g = fgetgrent(stream);
-        if (g == NULL && errno != ENOENT)
+        if (!g && errno != ENOENT)
                 return errno > 0 ? -errno : -EIO;
 
         *gr = g;
-        return g != NULL;
+        return !!g;
 }
 
 #if ENABLE_GSHADOW
@@ -821,10 +821,10 @@ int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
 
         errno = 0;
         s = fgetsgent(stream);
-        if (s == NULL && errno != ENOENT)
+        if (!s && errno != ENOENT)
                 return errno > 0 ? -errno : -EIO;
 
         *sg = s;
-        return s != NULL;
+        return !!s;
 }
 #endif
