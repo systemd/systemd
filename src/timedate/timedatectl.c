@@ -36,19 +36,19 @@ typedef struct StatusInfo {
         usec_t rtc_time;
         bool rtc_local;
 
-        bool ntp_enabled;
         bool ntp_capable;
+        bool ntp_active;
         bool ntp_synced;
 } StatusInfo;
 
 static void print_status_info(const StatusInfo *i) {
+        const char *old_tz = NULL, *tz;
+        bool have_time = false;
         char a[LINE_MAX];
         struct tm tm;
         time_t sec;
-        bool have_time = false;
-        const char *old_tz = NULL, *tz;
-        int r;
         size_t n;
+        int r;
 
         assert(i);
 
@@ -74,13 +74,13 @@ static void print_status_info(const StatusInfo *i) {
 
         if (have_time) {
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S %Z", localtime_r(&sec, &tm));
-                printf("                      Local time: %s\n", n > 0 ? a : "n/a");
+                printf("               Local time: %s\n", n > 0 ? a : "n/a");
 
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S UTC", gmtime_r(&sec, &tm));
-                printf("                  Universal time: %s\n", n > 0 ? a : "n/a");
+                printf("           Universal time: %s\n", n > 0 ? a : "n/a");
         } else {
-                printf("                      Local time: %s\n", "n/a");
-                printf("                  Universal time: %s\n", "n/a");
+                printf("               Local time: %s\n", "n/a");
+                printf("           Universal time: %s\n", "n/a");
         }
 
         if (i->rtc_time > 0) {
@@ -88,9 +88,9 @@ static void print_status_info(const StatusInfo *i) {
 
                 rtc_sec = (time_t) (i->rtc_time / USEC_PER_SEC);
                 n = strftime(a, sizeof a, "%a %Y-%m-%d %H:%M:%S", gmtime_r(&rtc_sec, &tm));
-                printf("                        RTC time: %s\n", n > 0 ? a : "n/a");
+                printf("                 RTC time: %s\n", n > 0 ? a : "n/a");
         } else
-                printf("                        RTC time: %s\n", "n/a");
+                printf("                 RTC time: %s\n", "n/a");
 
         if (have_time)
                 n = strftime(a, sizeof a, "%Z, %z", localtime_r(&sec, &tm));
@@ -105,13 +105,13 @@ static void print_status_info(const StatusInfo *i) {
         else
                 tzset();
 
-        printf("                       Time zone: %s (%s)\n"
-               "       System clock synchronized: %s\n"
-               "systemd-timesyncd.service active: %s\n"
-               "                 RTC in local TZ: %s\n",
+        printf("                Time zone: %s (%s)\n"
+               "System clock synchronized: %s\n"
+               "              NTP service: %s\n"
+               "          RTC in local TZ: %s\n",
                strna(i->timezone), have_time && n > 0 ? a : "n/a",
                yes_no(i->ntp_synced),
-               i->ntp_capable ? yes_no(i->ntp_enabled) : "n/a",
+               i->ntp_capable ? (i->ntp_active ? "active" : "inactive") : "n/a",
                yes_no(i->rtc_local));
 
         if (i->rtc_local)
@@ -127,13 +127,13 @@ static void print_status_info(const StatusInfo *i) {
 static int show_status(int argc, char **argv, void *userdata) {
         StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
-                { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone) },
-                { "LocalRTC",        "b", NULL, offsetof(StatusInfo, rtc_local) },
-                { "NTP",             "b", NULL, offsetof(StatusInfo, ntp_enabled) },
+                { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone)    },
+                { "LocalRTC",        "b", NULL, offsetof(StatusInfo, rtc_local)   },
+                { "NTP",             "b", NULL, offsetof(StatusInfo, ntp_active)  },
                 { "CanNTP",          "b", NULL, offsetof(StatusInfo, ntp_capable) },
-                { "NTPSynchronized", "b", NULL, offsetof(StatusInfo, ntp_synced) },
-                { "TimeUSec",        "t", NULL, offsetof(StatusInfo, time) },
-                { "RTCTimeUSec",     "t", NULL, offsetof(StatusInfo, rtc_time) },
+                { "NTPSynchronized", "b", NULL, offsetof(StatusInfo, ntp_synced)  },
+                { "TimeUSec",        "t", NULL, offsetof(StatusInfo, time)        },
+                { "RTCTimeUSec",     "t", NULL, offsetof(StatusInfo, rtc_time)    },
                 {}
         };
 
