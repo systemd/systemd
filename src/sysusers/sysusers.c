@@ -97,8 +97,8 @@ static int load_user_database(void) {
                 return r;
 
         while ((r = fgetpwent_sane(f, &pw)) > 0) {
-                char *n;
                 int k, q;
+                char *n;
 
                 n = strdup(pw->pw_name);
                 if (!n)
@@ -112,12 +112,12 @@ static int load_user_database(void) {
 
                 q = hashmap_put(database_uid, UID_TO_PTR(pw->pw_uid), n);
                 if (q < 0 && q != -EEXIST) {
-                        if (k < 0)
+                        if (k <= 0)
                                 free(n);
                         return q;
                 }
 
-                if (q < 0 && k < 0)
+                if (q <= 0 && k <= 0)
                         free(n);
         }
         return r;
@@ -159,12 +159,12 @@ static int load_group_database(void) {
 
                 q = hashmap_put(database_gid, GID_TO_PTR(gr->gr_gid), n);
                 if (q < 0 && q != -EEXIST) {
-                        if (k < 0)
+                        if (k <= 0)
                                 free(n);
                         return q;
                 }
 
-                if (q < 0 && k < 0)
+                if (q <= 0 && k <= 0)
                         free(n);
 
                 errno = 0;
@@ -1960,10 +1960,10 @@ int main(int argc, char *argv[]) {
         }
 
         ORDERED_HASHMAP_FOREACH(i, groups, iterator)
-                process_item(i);
+                (void) process_item(i);
 
         ORDERED_HASHMAP_FOREACH(i, users, iterator)
-                process_item(i);
+                (void) process_item(i);
 
         r = write_files();
         if (r < 0)
@@ -1984,6 +1984,8 @@ finish:
 
         free_database(database_user, database_uid);
         free_database(database_group, database_gid);
+
+        free(uid_range);
 
         free(arg_root);
 

@@ -48,7 +48,6 @@ static void uid_range_coalesce(UidRange **p, unsigned *n) {
                         }
                 }
         }
-
 }
 
 static int uid_range_compare(const void *a, const void *b) {
