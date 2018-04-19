@@ -84,7 +84,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ] ; then
 fi
 
 ninja -C "$BUILDDIR" all
-[ "$WITH_TESTS" = 0 ] || ninja -C "$BUILDDIR" test || ( RET="$?" ; cat "$BUILDDIR"/meson-logs/testlog.txt ; exit "$RET" )
+[ "$WITH_TESTS" = 0 ] || ninja -C "$BUILDDIR" test
 ninja -C "$BUILDDIR" install
 
 mkdir -p "$DESTDIR"/etc
