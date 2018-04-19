@@ -5169,6 +5169,9 @@ void unit_export_state_files(Unit *u) {
         if (!MANAGER_IS_SYSTEM(u->manager))
                 return;
 
+        if (u->manager->test_run_flags != 0)
+                return;
+
         /* Exports a couple of unit properties to /run/systemd/units/, so that journald can quickly query this data
          * from there. Ideally, journald would use IPC to query this, like everybody else, but that's hard, as long as
          * the IPC system itself and PID 1 also log to the journal.
