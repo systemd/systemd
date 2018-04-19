@@ -160,7 +160,6 @@ static int create_disk(
                         "RequiresMountsFor=%s\n",
                         u_escaped);
 
-
         r = generator_write_timeouts(arg_dest, device, name, options, &filtered);
         if (r < 0)
                 return r;

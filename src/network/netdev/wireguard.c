@@ -315,7 +315,6 @@ static void resolve_endpoints(NetDev *netdev) {
         }
 }
 
-
 static int netdev_wireguard_post_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Wireguard *w;
 
@@ -454,7 +453,6 @@ int config_parse_wireguard_preshared_key(const char *unit,
                                    data,
                                    peer->preshared_key);
 }
-
 
 int config_parse_wireguard_public_key(const char *unit,
                                       const char *filename,

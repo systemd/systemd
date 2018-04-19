@@ -5,7 +5,6 @@
   Copyright 2014 Ronny Chevalier
 ***/
 
-
 #include "locale-util.h"
 #include "macro.h"
 #include "strv.h"

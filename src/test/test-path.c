@@ -102,7 +102,6 @@ static void check_stop_unlink(Manager *m, Unit *unit, const char *test_path, con
                                 service_state_to_string(service->state),
                                 service_result_to_string(service->result));
 
-
                 /* But we timeout if the service has not been started in the allocated time */
                 n = now(CLOCK_MONOTONIC);
                 if (ts + timeout < n) {

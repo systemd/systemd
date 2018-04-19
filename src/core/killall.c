@@ -198,7 +198,6 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                         make sure to only send this after SIGTERM so
                         that SIGTERM is always first in the queue. */
 
-
                         if (get_ctty_devnr(pid, NULL) >= 0)
                                 /* it's OK if the process is gone, just ignore the result */
                                 (void) kill(pid, SIGHUP);

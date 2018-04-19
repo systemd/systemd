@@ -603,7 +603,6 @@ static int check_fill_0x83_prespc3(struct udev *udev,
         return 0;
 }
 
-
 /* Get device identification VPD page */
 static int do_scsi_page83_inquiry(struct udev *udev,
                                   struct scsi_id_device *dev_scsi, int fd,

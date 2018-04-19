@@ -109,7 +109,6 @@ void initialize_srand(void) {
 #endif
                 x = 0;
 
-
         x ^= (unsigned) now(CLOCK_REALTIME);
         x ^= (unsigned) gettid();
 

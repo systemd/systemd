@@ -716,7 +716,6 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_SETUP_KEYS;
                         break;
 
-
                 case ARG_VERIFY_KEY:
                         arg_action = ACTION_VERIFY;
                         r = free_and_strdup(&arg_verify_key, optarg);
@@ -968,7 +967,6 @@ static int parse_argv(int argc, char *argv[]) {
 
                 arg_system_units = strv_free(arg_system_units);
         }
-
 
 #if HAVE_PCRE2
         if (arg_pattern) {
@@ -1643,7 +1641,6 @@ static int add_priorities(sd_journal *j) {
 
         return 0;
 }
-
 
 static int add_syslog_identifier(sd_journal *j) {
         int r;

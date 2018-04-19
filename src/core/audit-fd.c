@@ -5,7 +5,6 @@
   Copyright 2012 Lennart Poettering
 ***/
 
-
 #include <errno.h>
 
 #include "audit-fd.h"

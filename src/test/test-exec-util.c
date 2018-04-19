@@ -236,7 +236,6 @@ const gather_stdout_callback_t gather_stdout[] = {
         gather_stdout_three,
 };
 
-
 static void test_stdout_gathering(void) {
         char template[] = "/tmp/test-exec-util.XXXXXXX";
         const char *dirs[] = {template, NULL};

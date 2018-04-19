@@ -33,7 +33,6 @@ void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         REENABLE_WARNING;
 }
 
-
 static int mhd_respond_internal(struct MHD_Connection *connection,
                                 enum MHD_RequestTerminationCode code,
                                 const char *buffer,

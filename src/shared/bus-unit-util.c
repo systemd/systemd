@@ -1098,7 +1098,6 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         } else
                                 d = s;
 
-
                         r = sd_bus_message_append(m, "(ssbt)", s, d, ignore_enoent, flags);
                         if (r < 0)
                                 return bus_log_create_error(r);

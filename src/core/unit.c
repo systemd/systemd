@@ -3592,7 +3592,6 @@ void unit_deserialize_skip(FILE *f) {
         }
 }
 
-
 int unit_add_node_dependency(Unit *u, const char *what, bool wants, UnitDependency dep, UnitDependencyMask mask) {
         Unit *device;
         _cleanup_free_ char *e = NULL;

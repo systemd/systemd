@@ -571,7 +571,6 @@ static int test_client_verify_request(DHCP6Message *request, size_t len) {
                         assert_se(!found_iana);
                         found_iana = true;
 
-
                         assert_se(optlen == 40);
                         assert_se(!memcmp(optval, &test_iaid, sizeof(test_iaid)));
 

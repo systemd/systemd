@@ -681,7 +681,6 @@ static void dump_catalog_entry(FILE *f, sd_id128_t id, const char *s, bool oneli
                         SD_ID128_FORMAT_VAL(id), s);
 }
 
-
 int catalog_list(FILE *f, const char *database, bool oneline) {
         _cleanup_close_ int fd = -1;
         void *p = NULL;

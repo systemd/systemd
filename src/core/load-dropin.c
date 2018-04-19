@@ -5,7 +5,6 @@
   Copyright 2010 Lennart Poettering
 ***/
 
-
 #include "conf-parser.h"
 #include "fs-util.h"
 #include "load-dropin.h"

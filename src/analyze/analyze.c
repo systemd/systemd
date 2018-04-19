@@ -118,7 +118,6 @@ struct host_info {
         char *architecture;
 };
 
-
 static int acquire_systemd_bus(sd_bus **bus) {
         bool user = arg_scope != UNIT_FILE_SYSTEM;
 
@@ -564,7 +563,6 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
                 size = strpcpyf(&ptr, size, "\nCould not get time to reach %s.",unit_id);
         else if (!unit_id)
                 size = strpcpyf(&ptr, size, "\ncould not find default.target");
-
 
         ptr = strdup(buf);
         if (!ptr)

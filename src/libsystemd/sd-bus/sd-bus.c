@@ -3677,7 +3677,6 @@ _public_ int sd_bus_default_system(sd_bus **ret) {
         return bus_default(sd_bus_open_system, &default_system_bus, ret);
 }
 
-
 _public_ int sd_bus_default_user(sd_bus **ret) {
         return bus_default(sd_bus_open_user, &default_user_bus, ret);
 }

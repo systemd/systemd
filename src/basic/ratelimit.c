@@ -5,7 +5,6 @@
   Copyright 2010 Lennart Poettering
 ***/
 
-
 #include <sys/time.h>
 
 #include "macro.h"

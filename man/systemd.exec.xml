@@ -353,7 +353,6 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
     </variablelist>
   </refsect1>
 
-
   <refsect1>
     <title>Security</title>
 
@@ -745,7 +744,6 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
     </variablelist>
   </refsect1>
-
 
   <refsect1>
     <title>Sandboxing</title>
@@ -2636,6 +2634,5 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <citerefentry project='man-pages'><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       </para>
   </refsect1>
-
 
 </refentry>

@@ -206,7 +206,6 @@ int fdset_new_listen_fds(FDSet **_s, bool unset) {
         *_s = s;
         return 0;
 
-
 fail:
         if (s)
                 set_free(MAKE_SET(s));

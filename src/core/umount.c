@@ -111,7 +111,6 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                     path_startswith(p, "/proc"))
                         continue;
 
-
                 /* If we are in a container, don't attempt to
                  * read-only mount anything as that brings no real
                  * benefits, but might confuse the host, as we remount

@@ -1150,7 +1150,6 @@ static int link_enter_set_addresses(Link *link) {
                                 log_link_warning_errno(link, r, "Failed to set DNS server for DHCP server, ignoring: %m");
                 }
 
-
                 if (link->network->dhcp_server_emit_ntp) {
 
                         if (link->network->n_dhcp_server_ntp > 0)

@@ -664,7 +664,6 @@ int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_
                 return -EOPNOTSUPP;
         }
 
-
         *ret = p;
         return 0;
 }
@@ -1126,7 +1125,6 @@ int flush_accept(int fd) {
                 .events = POLLIN,
         };
         int r;
-
 
         /* Similar to flush_fd() but flushes all incoming connection by accepting them and immediately closing them. */
 

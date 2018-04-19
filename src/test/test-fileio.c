@@ -561,7 +561,6 @@ static void test_search_and_fopen(void) {
         assert_se(r < 0);
 }
 
-
 static void test_search_and_fopen_nulstr(void) {
         const char dirs[] = "/tmp/foo/bar\0/tmp\0";
         char name[] = "/tmp/test-search_and_fopen.XXXXXX";

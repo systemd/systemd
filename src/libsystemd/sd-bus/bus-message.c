@@ -3221,7 +3221,6 @@ end:
         return 0;
 }
 
-
 static int message_peek_body(
                 sd_bus_message *m,
                 size_t *rindex,
@@ -5314,7 +5313,6 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         }
 
                         break;
-
 
                 case BUS_MESSAGE_HEADER_SIGNATURE: {
                         const char *s;

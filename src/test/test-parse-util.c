@@ -662,7 +662,6 @@ static void test_parse_nice(void) {
         assert_se(parse_nice("19", &n) >= 0 && n == 19);
         assert_se(parse_nice("+19", &n) >= 0 && n == 19);
 
-
         assert_se(parse_nice("", &n) == -EINVAL);
         assert_se(parse_nice("-", &n) == -EINVAL);
         assert_se(parse_nice("+", &n) == -EINVAL);

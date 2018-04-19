@@ -167,7 +167,6 @@ static void patch_min_use(JournalStorage *storage) {
         storage->metrics.min_use = MAX(storage->metrics.min_use, storage->space.vfs_used);
 }
 
-
 static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
         JournalStorage *js;
         int r;

@@ -181,7 +181,6 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
         }
 }
 
-
 static void test_gethostbyname3_r(void *handle, const char *module, const char *name, int af) {
         const char *fname;
         _nss_gethostbyname3_r_t f;
@@ -400,7 +399,6 @@ static int test_one_module(const char* dir,
         void *handle;
         char **name;
         int i;
-
 
         log_info("======== %s ========", module);
 

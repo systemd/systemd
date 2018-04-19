@@ -894,7 +894,6 @@ int bus_match_parse(
                 components[n_components].value_u8 = u;
                 n_components++;
 
-
                 if (q[quoted] == 0)
                         break;
 

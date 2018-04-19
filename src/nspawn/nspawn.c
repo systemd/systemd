@@ -1897,7 +1897,6 @@ static int reset_audit_loginuid(void) {
         return 0;
 }
 
-
 static int setup_propagate(const char *root) {
         const char *p, *q;
         int r;

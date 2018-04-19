@@ -1232,7 +1232,6 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
                 *out = rr->tlsa.data;
                 return rr->tlsa.data_size;
 
-
         case DNS_TYPE_OPENPGPKEY:
         default:
                 *out = rr->generic.data;

@@ -678,7 +678,6 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                         return 0;
 
-
                 default:
                         log_debug("Auxiliary DNSSEC RR query failed with %s", dns_transaction_state_to_string(dt->state));
                         goto fail;
@@ -1224,7 +1223,6 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         assert(t);
         assert(t->scope);
-
 
         switch (t->scope->protocol) {
 

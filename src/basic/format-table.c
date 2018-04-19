@@ -855,7 +855,6 @@ static const char *table_data_format(TableData *d) {
                 assert_not_reached("Unexpected type?");
         }
 
-
         return d->formatted;
 }
 

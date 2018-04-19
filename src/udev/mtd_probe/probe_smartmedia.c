@@ -35,7 +35,6 @@ static const uint8_t cis_signature[] = {
         0x01, 0x03, 0xD9, 0x01, 0xFF, 0x18, 0x02, 0xDF, 0x01, 0x20
 };
 
-
 void probe_smart_media(int mtd_fd, mtd_info_t* info) {
         int sector_size;
         int block_size;

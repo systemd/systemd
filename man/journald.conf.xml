@@ -276,7 +276,6 @@
         seconds.</para></listitem>
       </varlistentry>
 
-
       <varlistentry>
         <term><varname>SyncIntervalSec=</varname></term>
 

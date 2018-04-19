@@ -150,7 +150,6 @@ static int netdev_geneve_create(NetDev *netdev) {
 
         log_netdev_debug(netdev, "Creating");
 
-
         return r;
 }
 

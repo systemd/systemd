@@ -168,7 +168,6 @@ int fw_add_local_dnat(
                 uint16_t remote_port,
                 const union in_addr_union *previous_remote) {
 
-
         _cleanup_(iptc_freep) struct xtc_handle *h = NULL;
         struct ipt_entry *entry, *mask;
         struct ipt_entry_target *t;

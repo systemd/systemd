@@ -315,7 +315,6 @@ char* mac_selinux_free(char *label) {
         if (!mac_selinux_use())
                 return NULL;
 
-
         freecon(label);
 #endif
 
