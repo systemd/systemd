@@ -144,7 +144,7 @@ static void tuntap_done(NetDev *netdev) {
 static int tuntap_verify(NetDev *netdev, const char *filename) {
         assert(netdev);
 
-        if (netdev->mtu)
+        if (netdev->mtu != 0)
                 log_netdev_warning(netdev, "MTU configured for %s, ignoring", netdev_kind_to_string(netdev->kind));
 
         if (netdev->mac)

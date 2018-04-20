@@ -91,7 +91,7 @@ typedef struct NetDev {
         char *description;
         char *ifname;
         struct ether_addr *mac;
-        size_t mtu;
+        uint32_t mtu;
         int ifindex;
 
         LIST_HEAD(netdev_join_callback, callbacks);

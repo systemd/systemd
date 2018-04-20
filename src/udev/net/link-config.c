@@ -169,7 +169,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         else
                 log_debug("Parsed configuration file %s", filename);
 
-        if (link->mtu > UINT_MAX || link->speed > UINT_MAX)
+        if (link->speed > UINT_MAX)
                 return -ERANGE;
 
         link->filename = strdup(filename);
