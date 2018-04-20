@@ -128,109 +128,258 @@ exit:
         return err;
 }
 
+static const char links_dirname[] = "/run/udev/links/";
+#define PRIONAME_SIZE 32
+static const char prio_prefix[] = "L:";
+
+static int make_prio_name(int prio, char *buf, size_t buflen)
+{
+        return snprintf(buf, buflen, "%s%d", prio_prefix, prio);
+}
+
+static bool is_prio_name(const char *name, int *priority)
+{
+        int len = sizeof(prio_prefix) - 1;
+        long prio;
+        char *e;
+
+        if (name == NULL ||
+            strncmp(name, prio_prefix, len) || name[len] == '\0')
+                return false;
+
+        prio = strtol(name + len, &e, 10);
+        if (*e != '\0' || prio < INT_MIN || prio >INT_MAX)
+                return false;
+
+        *priority = prio;
+        return true;
+}
+
+static bool is_prio_dirent(DIR *dir, struct dirent *de, int *priority)
+{
+        int prio;
+
+        if (!is_prio_name(de->d_name, &prio))
+                return  false;
+
+        dirent_ensure_type(dir, de);
+        if (de->d_type != DT_DIR)
+                return false;
+
+        *priority = prio;
+        return true;
+}
+
+enum {
+        NO_TARGET_FOUND,
+        TARGET_FOUND,
+};
+
 /* find device node of device with highest priority */
-static const char *link_find_prioritized(struct udev_device *dev, bool add, const char *stackdir, char *buf, size_t bufsize) {
+static int link_find_prioritized(struct udev_device *dev, bool add, int dfd,
+                                 DIR *dir, char *buf, size_t bufsize,
+                                 const char *slink) {
         struct udev *udev = udev_device_get_udev(dev);
-        DIR *dir;
-        struct dirent *dent;
-        int priority = 0;
-        const char *target = NULL;
+        int ret, priority;
+        struct dirent *de;
 
         if (add) {
                 priority = udev_device_get_devlink_priority(dev);
                 strscpy(buf, bufsize, udev_device_get_devnode(dev));
-                target = buf;
+                ret = TARGET_FOUND;
+        } else {
+                priority = INT_MIN;
+                buf[0] = '\0';
+                ret = NO_TARGET_FOUND;
         }
 
-        dir = opendir(stackdir);
-        if (dir == NULL)
-                return target;
-        FOREACH_DIRENT_ALL(dent, dir, break) {
-                struct udev_device *dev_db;
+        rewinddir(dir);
+        FOREACH_DIRENT_ALL(de, dir, break) {
+                const char *name = de->d_name;
+                int prio = INT_MIN;
 
-                if (dent->d_name[0] == '\0')
+                if (name[0] == '\0')
                         break;
-                if (dent->d_name[0] == '.')
+                if (dot_or_dot_dot(name))
                         continue;
 
-                log_debug("found '%s' claiming '%s'", dent->d_name, stackdir);
-
-                /* did we find ourself? */
-                if (streq(dent->d_name, udev_device_get_id_filename(dev)))
-                        continue;
-
-                dev_db = udev_device_new_from_device_id(udev, dent->d_name);
-                if (dev_db != NULL) {
+                if (prio > priority) {
+                        int priofd;
+                        DIR *pdir;
+                        struct dirent *dent;
                         const char *devnode;
+                        struct udev_device *dev_db;
 
+                        priofd = openat(dfd, name, O_RDONLY|O_DIRECTORY);
+                        /* May race with another remove */
+                        if (priofd == -1)
+                                continue;
+                        pdir = fdopendir(priofd);
+                        if (pdir == NULL)
+                                continue;
+
+                        dent = readdir_no_dot(pdir);
+
+                        if (dent == NULL)
+                                continue;
+                        dev_db = udev_device_new_from_device_id(udev,
+                                                                dent->d_name);
+                        if (dev_db == NULL)
+                                continue;
                         devnode = udev_device_get_devnode(dev_db);
                         if (devnode != NULL) {
-                                if (target == NULL || udev_device_get_devlink_priority(dev_db) > priority) {
-                                        log_debug("'%s' claims priority %i for '%s'",
-                                                  udev_device_get_syspath(dev_db), udev_device_get_devlink_priority(dev_db), stackdir);
-                                        priority = udev_device_get_devlink_priority(dev_db);
-                                        strscpy(buf, bufsize, devnode);
-                                        target = buf;
-                                }
+                                strscpy(buf, bufsize, devnode);
+                                priority = prio;
+                                ret = TARGET_FOUND;
+                                log_debug("'%s' claims priority %i for '%s'",
+                                          udev_device_get_syspath(dev_db), prio,
+                                          slink);
                         }
                         udev_device_unref(dev_db);
+                        closedir(pdir);
                 }
         }
-        closedir(dir);
-        return target;
+
+        return ret;
+}
+
+static int create_target_entry(int dirfd, const char *prioname,
+                               const char *filename, const char *slink)
+{
+        int priofd;
+        int ret = 0;
+
+        mkdirat(dirfd, prioname, 0755);
+        priofd = openat(dirfd, prioname, O_RDONLY|O_DIRECTORY);
+        if (priofd == -1) {
+                ret = -1;
+                goto out;
+        }
+
+        if (symlinkat(".", priofd, filename) != 0)
+                log_debug("added target %s/%s for %s",
+                          prioname, filename, slink);
+        else if (errno != EEXIST)
+                ret = -1;
+        close(priofd);
+
+out:
+        if (ret  == -1)
+                log_error_errno(-errno,
+                                "failed to add target %s/%s for %s",
+                                prioname, filename, filename);
+        return ret;
+}
+
+static int delete_target_entry(int dirfd, const char *prioname,
+                               const char *filename, const char *slink)
+{
+        int priofd;
+        int ret = 0, r;
+
+        priofd = openat(dirfd, prioname, O_RDONLY|O_DIRECTORY);
+        if (priofd == -1) {
+                if (errno == ENOENT)
+                        return 0;
+                else {
+                        ret = -1;
+                        goto out;
+                }
+        }
+
+        r = unlinkat(priofd, filename, 0);
+        if (r ==  0)
+                log_debug("removed target %s/%s for %s",
+                          prioname, filename, slink);
+        else if (errno != ENOENT)
+                ret = -1;
+
+        r = unlinkat(dirfd, prioname, AT_REMOVEDIR);
+        if (r == 0)
+                log_debug("removed last target for %s in %s",
+                          slink, prioname);
+        else if (errno != ENOTEMPTY && errno != ENOENT)
+                log_warning_errno(-errno, "failed to rmdir %s for %s",
+                                  prioname, slink);
+        close(priofd);
+out:
+        if (ret == -1)
+                log_error("failed to remove target %s/%s for %s",
+                          prioname, filename, slink);
+        return ret;
 }
 
 /* manage "stack of names" with possibly specified device priorities */
 static void link_update(struct udev_device *dev, const char *slink, bool add) {
         char name_enc[UTIL_PATH_SIZE];
-        char filename[UTIL_PATH_SIZE * 2];
         char dirname[UTIL_PATH_SIZE];
-        const char *target;
         char buf[UTIL_PATH_SIZE];
+        char prioname[PRIONAME_SIZE];
+        const char *filename;
         LockFile lf;
-        int r;
+        int r, links_fd, dfd, priority;
+        DIR *dir = NULL;
 
-        util_path_encode(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
-        strscpyl(dirname, sizeof(dirname), "/run/udev/links/", name_enc, NULL);
-        strscpyl(filename, sizeof(filename), dirname, "/", udev_device_get_id_filename(dev), NULL);
-
-        mkdir_parents(dirname, 0755);
-        r = make_lock_file_for(dirname, LOCK_EX, &lf);
-        if (r < 0) {
-                log_warning_errno(r, "failed to lock %s", dirname);
+        mkdir_p(links_dirname, 0755);
+        links_fd = open(links_dirname, O_RDONLY|O_DIRECTORY);
+        if (links_fd == -1) {
+                log_error_errno(-errno, "failed to open %s", dirname);
                 return;
         }
 
-        if (!add && unlink(filename) == 0)
-                rmdir(dirname);
+        util_path_encode(slink + STRLEN("/dev"), name_enc, sizeof(name_enc));
+        strscpyl(dirname, sizeof(dirname), links_dirname, "/", name_enc, NULL);
+        priority = udev_device_get_devlink_priority(dev);
+        make_prio_name(priority, prioname, sizeof(prioname));
+        filename = udev_device_get_id_filename(dev);
 
-        target = link_find_prioritized(dev, add, dirname, buf, sizeof(buf));
-        if (target == NULL) {
+        if (add) {
+                mkdirat(links_fd, name_enc, 0755);
+                dfd = openat(links_fd, name_enc, O_RDONLY|O_DIRECTORY);
+                if (dfd == -1) {
+                        log_error_errno(-errno, "failed to open %s", dirname);
+                        goto out;
+                }
+                create_target_entry(dfd, prioname, filename, slink);
+        } else {
+                dfd = openat(links_fd, name_enc, O_RDONLY|O_DIRECTORY);
+                if (dfd == -1 && errno != ENOENT) {
+                        log_error_errno(-errno, "failed to open %s", dirname);
+                        goto out;
+                }
+                delete_target_entry(dfd, prioname, filename, slink);
+        }
+
+        dir = fdopendir(dfd);
+        if (dir == NULL) {
+                close(dfd);
+                goto out;
+        }
+
+        r = make_lock_file_for(dirname, LOCK_EX, &lf);
+        if (r < 0) {
+                log_warning_errno(r, "failed to lock %s", dirname);
+                goto out_dir;
+        }
+
+        r = link_find_prioritized(dev, add, dfd, dir,
+                                  buf, sizeof(buf), slink);
+        if (r == NO_TARGET_FOUND) {
                 log_debug("no reference left, remove '%s'", slink);
                 if (unlink(slink) == 0)
                         rmdir_parents(slink, "/");
         } else {
-                log_debug("creating link '%s' to '%s'", slink, target);
-                node_symlink(dev, target, slink);
+                log_debug("creating link '%s' to '%s'", slink, buf);
+                mkdir_parents(slink, 0755);
+                node_symlink(dev, buf, slink);
         }
 
-        if (add) {
-                int err;
-
-                do {
-                        int fd;
-
-                        err = mkdir_parents(filename, 0755);
-                        if (!IN_SET(err, 0, -ENOENT))
-                                break;
-                        fd = open(filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_TRUNC|O_NOFOLLOW, 0444);
-                        if (fd >= 0)
-                                close(fd);
-                        else
-                                err = -errno;
-                } while (err == -ENOENT);
-        }
         release_lock_file(&lf);
+
+out_dir:
+        closedir(dir);
+out:
+        close(links_fd);
 }
 
 void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old) {
