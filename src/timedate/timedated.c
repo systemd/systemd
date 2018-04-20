@@ -83,7 +83,6 @@ static void context_free(Context *c) {
 }
 
 static int context_add_ntp_service(Context *c, const char *s) {
-        _cleanup_free_ char *name = NULL;
         UnitStatusInfo *u;
 
         if (!unit_name_is_valid(s, UNIT_NAME_PLAIN))
@@ -322,7 +321,6 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
 
         LIST_FOREACH(units, u, c->units) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ char *path = NULL;
 
                 unit_status_info_clear(u);

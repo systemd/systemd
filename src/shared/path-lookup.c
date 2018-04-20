@@ -729,7 +729,6 @@ int lookup_paths_reduce(LookupPaths *p) {
                 return 0;
 
         while (p->search_path[c]) {
-                _cleanup_free_ char *chased = NULL;
                 struct stat st;
                 unsigned k;
 
