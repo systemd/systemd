@@ -225,7 +225,7 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_netlink_message_h
         assert(link);
         assert(callback);
 
-        if (link->flags & IFF_UP) {
+        if (link->flags & IFF_UP && netdev->kind == NETDEV_KIND_BOND) {
                 log_netdev_debug(netdev, "Link '%s' was up when attempting to enslave it. Bringing link down.", link->ifname);
                 r = link_down(link);
                 if (r < 0)
