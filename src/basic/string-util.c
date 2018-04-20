@@ -21,6 +21,7 @@
 #include "terminal-util.h"
 #include "utf8.h"
 #include "util.h"
+#include "fileio.h"
 
 int strcmp_ptr(const char *a, const char *b) {
 
@@ -794,7 +795,7 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 }
         }
 
-        if (ferror(f)) {
+        if (fflush_and_check(f) < 0) {
                 fclose(f);
                 return mfree(obuf);
         }
