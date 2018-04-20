@@ -1255,7 +1255,7 @@ Manager* manager_free(Manager *m) {
         return mfree(m);
 }
 
-void manager_enumerate(Manager *m) {
+static void manager_enumerate(Manager *m) {
         UnitType c;
 
         assert(m);
