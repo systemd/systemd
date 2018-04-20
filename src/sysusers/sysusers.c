@@ -97,8 +97,8 @@ static int load_user_database(void) {
                 return r;
 
         while ((r = fgetpwent_sane(f, &pw)) > 0) {
-                int k, q;
                 char *n;
+                int k, q;
 
                 n = strdup(pw->pw_name);
                 if (!n)
@@ -117,7 +117,7 @@ static int load_user_database(void) {
                         return q;
                 }
 
-                if (q <= 0 && k <= 0)
+                if (k <= 0 && q <= 0)
                         free(n);
         }
         return r;
@@ -164,7 +164,7 @@ static int load_group_database(void) {
                         return q;
                 }
 
-                if (q <= 0 && k <= 0)
+                if (k <= 0 && q <= 0)
                         free(n);
 
                 errno = 0;
