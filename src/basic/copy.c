@@ -81,7 +81,7 @@ static int fd_is_nonblock_pipe(int fd) {
         if (flags < 0)
                 return -errno;
 
-        return (flags & O_NONBLOCK) == O_NONBLOCK ? FD_IS_NONBLOCKING_PIPE : FD_IS_BLOCKING_PIPE;
+        return FLAGS_SET(flags, O_NONBLOCK) ? FD_IS_NONBLOCKING_PIPE : FD_IS_BLOCKING_PIPE;
 }
 
 int copy_bytes_full(

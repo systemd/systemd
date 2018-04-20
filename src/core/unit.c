@@ -1053,7 +1053,7 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
                 if (mask == 0)
                         break;
 
-                if ((mask & table[i].mask) == table[i].mask) {
+                if (FLAGS_SET(mask, table[i].mask)) {
                         if (*space)
                                 fputc(' ', f);
                         else
@@ -2695,8 +2695,8 @@ static int unit_add_dependency_hashmap(
         if (info.data) {
                 /* Entry already exists. Add in our mask. */
 
-                if ((info.origin_mask & origin_mask) == info.origin_mask &&
-                    (info.destination_mask & destination_mask) == info.destination_mask)
+                if (FLAGS_SET(origin_mask, info.origin_mask) &&
+                    FLAGS_SET(destination_mask, info.destination_mask))
                         return 0; /* NOP */
 
                 info.origin_mask |= origin_mask;

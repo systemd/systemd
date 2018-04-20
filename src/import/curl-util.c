@@ -37,7 +37,7 @@ static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *u
 
         translated_fd = PTR_TO_FD(hashmap_get(g->translate_fds, FD_TO_PTR(fd)));
 
-        if ((revents & (EPOLLIN|EPOLLOUT)) == (EPOLLIN|EPOLLOUT))
+        if (FLAGS_SET(revents, EPOLLIN | EPOLLOUT))
                 action = CURL_POLL_INOUT;
         else if (revents & EPOLLIN)
                 action = CURL_POLL_IN;
