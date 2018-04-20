@@ -2267,7 +2267,7 @@ static int inner_child(
         char as_uuid[37];
         unsigned n_env = 1;
         const char *envp[] = {
-                "PATH=" DEFAULT_PATH_SPLIT_USR,
+                "PATH=" DEFAULT_PATH_COMPAT,
                 NULL, /* container */
                 NULL, /* TERM */
                 NULL, /* HOME */

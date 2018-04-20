@@ -15,18 +15,25 @@
 #include "string-util.h"
 #include "time-util.h"
 
+#define PATH_SPLIT_SBIN_BIN(x) x "sbin:" x "bin"
+#define PATH_SPLIT_SBIN_BIN_NULSTR(x) x "sbin\0" x "bin\0"
+
+#define PATH_NORMAL_SBIN_BIN(x) x "bin"
+#define PATH_NORMAL_SBIN_BIN_NULSTR(x) x "bin\0"
+
 #if HAVE_SPLIT_BIN
-#  define PATH_SBIN_BIN(x) x "sbin:" x "bin"
-#  define PATH_SBIN_BIN_NULSTR(x) x "sbin\0" x "bin\0"
+#  define PATH_SBIN_BIN(x) PATH_SPLIT_SBIN_BIN(x)
+#  define PATH_SBIN_BIN_NULSTR(x) PATH_SPLIT_SBIN_BIN_NULSTR(x)
 #else
-#  define PATH_SBIN_BIN(x) x "bin"
-#  define PATH_SBIN_BIN_NULSTR(x) x "bin\0"
+#  define PATH_SBIN_BIN(x) PATH_NORMAL_SBIN_BIN(x)
+#  define PATH_SBIN_BIN_NULSTR(x) PATH_NORMAL_SBIN_BIN_NULSTR(x)
 #endif
 
 #define DEFAULT_PATH_NORMAL PATH_SBIN_BIN("/usr/local/") ":" PATH_SBIN_BIN("/usr/")
 #define DEFAULT_PATH_NORMAL_NULSTR PATH_SBIN_BIN_NULSTR("/usr/local/") PATH_SBIN_BIN_NULSTR("/usr/")
 #define DEFAULT_PATH_SPLIT_USR DEFAULT_PATH_NORMAL ":" PATH_SBIN_BIN("/")
 #define DEFAULT_PATH_SPLIT_USR_NULSTR DEFAULT_PATH_NORMAL_NULSTR PATH_SBIN_BIN_NULSTR("/")
+#define DEFAULT_PATH_COMPAT PATH_SPLIT_SBIN_BIN("/usr/local/") ":" PATH_SPLIT_SBIN_BIN("/usr/") ":" PATH_SPLIT_SBIN_BIN("/")
 
 #if HAVE_SPLIT_USR
 #  define DEFAULT_PATH DEFAULT_PATH_SPLIT_USR
