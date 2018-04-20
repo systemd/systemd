@@ -300,6 +300,18 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+      <varlistentry>
+        <term><varname>$SYSTEMD_DEBUGGER</varname></term>
+        <listitem><para>Use the given debugger for the <command>debug</command>
+        command. See the <option>--debugger=</option> option.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Examples</title>
 
     <example>
