@@ -1268,10 +1268,8 @@ void manager_enumerate(Manager *m) {
                         continue;
                 }
 
-                if (!unit_vtable[c]->enumerate)
-                        continue;
-
-                unit_vtable[c]->enumerate(m);
+                if (unit_vtable[c]->enumerate)
+                        unit_vtable[c]->enumerate(m);
         }
 
         manager_dispatch_load_queue(m);
