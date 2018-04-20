@@ -33,6 +33,8 @@
 #define BRIDGE_VLAN_BITMAP_MAX 4096
 #define BRIDGE_VLAN_BITMAP_LEN (BRIDGE_VLAN_BITMAP_MAX / 32)
 
+#define IPV6_MIN_MTU 1280
+
 typedef enum DHCPClientIdentifier {
         DHCP_CLIENT_ID_MAC,
         DHCP_CLIENT_ID_DUID,
@@ -199,6 +201,7 @@ struct Network {
         int ipv6_hop_limit;
         int ipv6_proxy_ndp;
         int proxy_arp;
+        unsigned ipv6_mtu;
 
         bool ipv6_accept_ra_use_dns;
         bool active_slave;
@@ -291,7 +294,7 @@ int config_parse_dhcp_use_domains(const char *unit, const char *filename, unsign
 int config_parse_lldp_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_dhcp_route_table(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_ntp(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-
+int config_parse_ipv6_mtu(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 /* Legacy IPv4LL support */
 int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 

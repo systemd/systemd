@@ -247,6 +247,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->arp = -1;
         network->ipv6_accept_ra_use_dns = true;
         network->ipv6_accept_ra_route_table = RT_TABLE_MAIN;
+        network->ipv6_mtu = 0;
 
         dropin_dirname = strjoina(network->name, ".network.d");
 
@@ -1412,6 +1413,42 @@ int config_parse_dhcp_route_table(const char *unit,
 
         network->dhcp_route_table = rt;
         network->dhcp_route_table_set = true;
+
+        return 0;
+}
+
+int config_parse_ipv6_mtu(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = data;
+        uint32_t mtu;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = safe_atou32(rvalue, &mtu);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IPv6 MTU, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        if (mtu < IPV6_MIN_MTU) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IPv6 MTU for interface. Allowed minimum MTU is 1280 bytes, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        network->ipv6_mtu = mtu;
 
         return 0;
 }
