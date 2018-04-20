@@ -43,10 +43,10 @@
     their syntax but with fields that can include binary data.
     Primarily, fields are formatted UTF-8 text strings, and binary
     formatting is used only where formatting as UTF-8 text strings
-    makes little sense. New fields may freely be defined by
-    applications, but a few fields have special meaning. All fields
-    with special meanings are optional. In some cases, fields may
-    appear more than once per entry.</para>
+    makes little sense. Applications can add custom fields, and
+    those fields can occur more than once. systemd-journald will 
+    attach special fields (starting with an underscore). 
+    Those fields occur a single time.</para>
   </refsect1>
 
   <refsect1>
