@@ -34,7 +34,10 @@ Features:
 * cgroups: use inotify to get notified when somebody else modifies cgroups
   owned by us, then log a friendly warning.
 
-* doc: document NTP env var timedated groks in doc/ENVIRONMENT.md.
+* beef up log.c with support for stripping ANSI sequences from strings, so that
+  it is OK to include them in log strings. This would be particularly useful so
+  that our log messages could contain clickable links for example for unit
+  files and suchlike we operate on.
 
 * Fix DECIMAL_STR_MAX or DECIMAL_STR_WIDTH. One includes a trailing NUL, the
   other doesn't. What a desaster. Probably to exclude it. Also
