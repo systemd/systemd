@@ -33,8 +33,6 @@
 #define BRIDGE_VLAN_BITMAP_MAX 4096
 #define BRIDGE_VLAN_BITMAP_LEN (BRIDGE_VLAN_BITMAP_MAX / 32)
 
-#define IPV6_MIN_MTU 1280
-
 typedef enum DHCPClientIdentifier {
         DHCP_CLIENT_ID_MAC,
         DHCP_CLIENT_ID_DUID,
