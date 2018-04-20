@@ -146,6 +146,7 @@ int config_parse_personality(GENERIC_PARSER_ARGS);
 int config_parse_ifname(GENERIC_PARSER_ARGS);
 int config_parse_ip_port(GENERIC_PARSER_ARGS);
 int config_parse_join_controllers(GENERIC_PARSER_ARGS);
+int config_parse_mtu(GENERIC_PARSER_ARGS);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,

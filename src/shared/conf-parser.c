@@ -1158,3 +1158,38 @@ int config_parse_join_controllers(
 
         return 0;
 }
+
+int config_parse_mtu(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t *mtu = data;
+        int r;
+
+        assert(rvalue);
+        assert(mtu);
+
+        r = parse_mtu(ltype, rvalue, mtu);
+        if (r == -ERANGE) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Maximum transfer unit (MTU) value out of range. Permitted range is %" PRIu32 "…%" PRIu32 ", ignoring: %s",
+                           (uint32_t) (ltype == AF_INET6 ? IPV6_MIN_MTU : IPV4_MIN_MTU), (uint32_t) UINT32_MAX,
+                           rvalue);
+                return 0;
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse MTU value '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
