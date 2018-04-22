@@ -2333,6 +2333,31 @@ int dns_packet_is_reply_for(DnsPacket *p, const DnsResourceKey *key) {
         return dns_resource_key_equal(p->question->keys[0], key);
 }
 
+static void dns_packet_hash_func(const void *p, struct siphash *state) {
+        const DnsPacket *s = p;
+
+        assert(s);
+
+        siphash24_compress(&s->size, sizeof(s->size), state);
+        siphash24_compress(DNS_PACKET_DATA((DnsPacket*) s), s->size, state);
+}
+
+static int dns_packet_compare_func(const void *a, const void *b) {
+        const DnsPacket *x = a, *y = b;
+
+        if (x->size < y->size)
+                return -1;
+        if (x->size > y->size)
+                return 1;
+
+        return memcmp(DNS_PACKET_DATA((DnsPacket*) x), DNS_PACKET_DATA((DnsPacket*) y), x->size);
+}
+
+const struct hash_ops dns_packet_hash_ops = {
+        .hash = dns_packet_hash_func,
+        .compare = dns_packet_compare_func
+};
+
 static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_SUCCESS] = "SUCCESS",
         [DNS_RCODE_FORMERR] = "FORMERR",

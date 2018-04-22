@@ -31,6 +31,13 @@ static int dns_stream_update_io(DnsStream *s) {
 
         if (s->write_packet && s->n_written < sizeof(s->write_size) + s->write_packet->size)
                 f |= EPOLLOUT;
+        else if (!ordered_set_isempty(s->write_queue)) {
+                dns_packet_unref(s->write_packet);
+                s->write_packet = ordered_set_steal_first(s->write_queue);
+                s->write_size = htobe16(s->write_packet->size);
+                s->n_written = 0;
+                f |= EPOLLOUT;
+        }
         if (!s->read_packet || s->n_read < sizeof(s->read_size) + s->read_packet->size)
                 f |= EPOLLIN;
 
@@ -291,15 +298,18 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
                         /* Are we done? If so, disable the event source for EPOLLIN */
                         if (s->n_read >= sizeof(s->read_size) + be16toh(s->read_size)) {
-                                r = dns_stream_update_io(s);
-                                if (r < 0)
-                                        return dns_stream_complete(s, -r);
-
                                 /* If there's a packet handler
                                  * installed, call that. Note that
                                  * this is optional... */
-                                if (s->on_packet)
-                                        return s->on_packet(s);
+                                if (s->on_packet) {
+                                        r = s->on_packet(s);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                r = dns_stream_update_io(s);
+                                if (r < 0)
+                                        return dns_stream_complete(s, -r);
                         }
                 }
         }
@@ -312,6 +322,9 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 }
 
 DnsStream *dns_stream_unref(DnsStream *s) {
+        DnsPacket *p;
+        Iterator i;
+
         if (!s)
                 return NULL;
 
@@ -323,18 +336,25 @@ DnsStream *dns_stream_unref(DnsStream *s) {
 
         dns_stream_stop(s);
 
+        if (s->server && s->server->stream == s)
+                s->server->stream = NULL;
+
         if (s->manager) {
                 LIST_REMOVE(streams, s->manager->dns_streams, s);
                 s->manager->n_dns_streams--;
         }
 
+        ORDERED_SET_FOREACH(p, s->write_queue, i)
+                dns_packet_unref(ordered_set_remove(s->write_queue, p));
+
         dns_packet_unref(s->write_packet);
         dns_packet_unref(s->read_packet);
+        dns_server_unref(s->server);
+
+        ordered_set_free(s->write_queue);
 
         return mfree(s);
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_unref);
 
 DnsStream *dns_stream_ref(DnsStream *s) {
         if (!s)
@@ -359,6 +379,10 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
         s = new0(DnsStream, 1);
         if (!s)
                 return -ENOMEM;
+
+        r = ordered_set_ensure_allocated(&s->write_queue, &dns_packet_hash_ops);
+        if (r < 0)
+                return r;
 
         s->n_ref = 1;
         s->fd = -1;
@@ -392,14 +416,15 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
 }
 
 int dns_stream_write_packet(DnsStream *s, DnsPacket *p) {
+        int r;
+
         assert(s);
 
-        if (s->write_packet)
-                return -EBUSY;
+        r = ordered_set_put(s->write_queue, p);
+        if (r < 0)
+                return r;
 
-        s->write_packet = dns_packet_ref(p);
-        s->write_size = htobe16(p->size);
-        s->n_written = 0;
+        dns_packet_ref(p);
 
         return dns_stream_update_io(s);
 }

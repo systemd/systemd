@@ -53,6 +53,7 @@ struct DnsServer {
         int ifindex; /* for IPv6 link-local DNS servers */
 
         char *server_string;
+        DnsStream *stream;
 
         usec_t resend_timeout;
         usec_t max_rtt;

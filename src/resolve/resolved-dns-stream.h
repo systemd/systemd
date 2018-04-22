@@ -43,11 +43,13 @@ struct DnsStream {
         be16_t write_size, read_size;
         DnsPacket *write_packet, *read_packet;
         size_t n_written, n_read;
+        OrderedSet *write_queue;
 
         int (*on_packet)(DnsStream *s);
         int (*complete)(DnsStream *s, int error);
 
-        DnsTransaction *transaction; /* when used by the transaction logic */
+        LIST_HEAD(DnsTransaction, transactions); /* when used by the transaction logic */
+        DnsServer *server;                       /* when used by the transaction logic */
         DnsQuery *query;             /* when used by the DNS stub logic */
 
         LIST_FIELDS(DnsStream, streams);
@@ -56,6 +58,8 @@ struct DnsStream {
 int dns_stream_new(Manager *m, DnsStream **s, DnsProtocol protocol, int fd);
 DnsStream *dns_stream_unref(DnsStream *s);
 DnsStream *dns_stream_ref(DnsStream *s);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_unref);
 
 int dns_stream_write_packet(DnsStream *s, DnsPacket *p);
 
