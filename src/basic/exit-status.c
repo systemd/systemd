@@ -7,6 +7,7 @@
 
 #include <signal.h>
 #include <stdlib.h>
+#include <sysexits.h>
 
 #include "exit-status.h"
 #include "macro.h"
@@ -14,10 +15,21 @@
 
 const char* exit_status_to_string(int status, ExitStatusLevel level) {
 
-        /* We cast to int here, so that -Wenum doesn't complain that
-         * EXIT_SUCCESS/EXIT_FAILURE aren't in the enum */
+        /* Exit status ranges:
+         *
+         *   0…1   │ ISO C, EXIT_SUCCESS + EXIT_FAILURE
+         *   2…7   │ LSB exit codes for init scripts
+         *   8…63  │ (Currently unmapped)
+         *  64…78  │ BSD defined exit codes
+         *  79…199 │ (Currently unmapped)
+         * 200…241 │ systemd's private error codes (might be extended to 254 in future development)
+         * 242…254 │ (Currently unmapped, but see above)
+         *   255   │ (We should probably stay away from that one, it's frequently used by applications to indicate an
+         *         │ exit reason that cannot really be expressed in a single exit status value — such as a propagated
+         *         │ signal or such)
+         */
 
-        switch (status) {
+        switch (status) {  /* We always cover the ISO C ones */
 
         case EXIT_SUCCESS:
                 return "SUCCESS";
@@ -26,8 +38,8 @@ const char* exit_status_to_string(int status, ExitStatusLevel level) {
                 return "FAILURE";
         }
 
-        if (IN_SET(level, EXIT_STATUS_SYSTEMD, EXIT_STATUS_LSB)) {
-                switch (status) {
+        if (IN_SET(level, EXIT_STATUS_SYSTEMD, EXIT_STATUS_LSB, EXIT_STATUS_FULL)) {
+                switch (status) { /* Optionally we cover our own ones */
 
                 case EXIT_CHDIR:
                         return "CHDIR";
@@ -151,8 +163,8 @@ const char* exit_status_to_string(int status, ExitStatusLevel level) {
                 }
         }
 
-        if (level == EXIT_STATUS_LSB) {
-                switch (status) {
+        if (IN_SET(level, EXIT_STATUS_LSB, EXIT_STATUS_FULL)) {
+                switch (status) { /* Optionally we support LSB ones */
 
                 case EXIT_INVALIDARGUMENT:
                         return "INVALIDARGUMENT";
@@ -171,6 +183,56 @@ const char* exit_status_to_string(int status, ExitStatusLevel level) {
 
                 case EXIT_NOTRUNNING:
                         return "NOTRUNNING";
+                }
+        }
+
+        if (level == EXIT_STATUS_FULL) {
+                switch (status) { /* Optionally, we support BSD exit statusses */
+
+                case EX_USAGE:
+                        return "USAGE";
+
+                case EX_DATAERR:
+                        return "DATAERR";
+
+                case EX_NOINPUT:
+                        return "NOINPUT";
+
+                case EX_NOUSER:
+                        return "NOUSER";
+
+                case EX_NOHOST:
+                        return "NOHOST";
+
+                case EX_UNAVAILABLE:
+                        return "UNAVAILABLE";
+
+                case EX_SOFTWARE:
+                        return "SOFTWARE";
+
+                case EX_OSERR:
+                        return "OSERR";
+
+                case EX_OSFILE:
+                        return "OSFILE";
+
+                case EX_CANTCREAT:
+                        return "CANTCREAT";
+
+                case EX_IOERR:
+                        return "IOERR";
+
+                case EX_TEMPFAIL:
+                        return "TEMPFAIL";
+
+                case EX_PROTOCOL:
+                        return "PROTOCOL";
+
+                case EX_NOPERM:
+                        return "NOPERM";
+
+                case EX_CONFIG:
+                        return "CONFIG";
                 }
         }
 
