@@ -1322,8 +1322,8 @@ int terminal_urlify_path(const char *path, const char *text, char **ret) {
 
         assert(path);
 
-        /* Much like terminal_urlify() above, but takes a file system path as input, and turns it into a properl
-         * file:// URL first. */
+        /* Much like terminal_urlify() above, but takes a file system path as input
+         * and turns it into a proper file:// URL first. */
 
         if (isempty(path))
                 return -EINVAL;
