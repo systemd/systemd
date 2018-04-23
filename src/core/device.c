@@ -17,6 +17,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "swap.h"
 #include "udev-util.h"
@@ -132,6 +133,13 @@ static int device_coldplug(Unit *u) {
         assert(d);
         assert(d->state == DEVICE_DEAD);
 
+        /* This should happen only when we reexecute PID1 from an old version
+         * which didn't serialize d->found. In this case simply assume that the
+         * device was in plugged state right before we started reexecuting which
+         * might be a wrong assumption. */
+        if (d->found == DEVICE_FOUND_UDEV_DB)
+                d->found = DEVICE_FOUND_UDEV;
+
         if (d->found & DEVICE_FOUND_UDEV)
                 /* If udev says the device is around, it's around */
                 device_set_state(d, DEVICE_PLUGGED);
@@ -152,6 +160,7 @@ static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         unit_serialize_item(u, f, "state", device_state_to_string(d->state));
+        unit_serialize_item(u, f, "found", device_found_to_string(d->found));
 
         return 0;
 }
@@ -164,6 +173,18 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
         assert(value);
         assert(fds);
 
+        /* The device was known at the time units were serialized but it's not
+         * anymore at the time units are deserialized. This happens when PID1 is
+         * re-executed after having switched to the new rootfs: devices were
+         * enumerated but udevd wasn't running yet thus the list of devices
+         * (handled by systemd) to initialize was empty. In such case we wait
+         * for the device events to be re-triggered by udev so device units are
+         * properly re-initialized. */
+        if (d->found == DEVICE_NOT_FOUND) {
+                assert(d->sysfs == NULL);
+                return 0;
+        }
+
         if (streq(key, "state")) {
                 DeviceState state;
 
@@ -172,6 +193,16 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "Failed to parse state value: %s", value);
                 else
                         d->deserialized_state = state;
+
+        } else if (streq(key, "found")) {
+                DeviceFound found;
+
+                found = device_found_from_string(value);
+                if (found < 0)
+                        log_unit_debug(u, "Failed to parse found value: %s", value);
+                else
+                        d->found = found;
+
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
@@ -731,7 +762,7 @@ static void device_enumerate(Manager *m) {
 
                 (void) device_process_new(m, dev);
 
-                device_update_found_by_sysfs(m, sysfs, true, DEVICE_FOUND_UDEV, false);
+                device_update_found_by_sysfs(m, sysfs, true, DEVICE_FOUND_UDEV_DB, false);
         }
 
         return;
@@ -902,6 +933,16 @@ bool device_shall_be_bound_by(Unit *device, Unit *u) {
 
         return DEVICE(device)->bind_mounts;
 }
+
+static const char* const device_found_table[] = {
+        [DEVICE_NOT_FOUND]     = "not-found",
+        [DEVICE_FOUND_UDEV]    = "found-udev",
+        [DEVICE_FOUND_UDEV_DB] = "found-udev-db",
+        [DEVICE_FOUND_MOUNT]   = "found-mount",
+        [DEVICE_FOUND_SWAP]    = "found-swap",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(device_found, DeviceFound);
 
 const UnitVTable device_vtable = {
         .object_size = sizeof(Device),
