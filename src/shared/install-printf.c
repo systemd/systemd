@@ -88,6 +88,27 @@ static int specifier_instance(char specifier, void *data, void *userdata, char *
         return 0;
 }
 
+static int specifier_last_component(char specifier, void *data, void *userdata, char **ret) {
+        _cleanup_free_ char *prefix = NULL;
+        char *dash;
+        int r;
+
+        r = specifier_prefix(specifier, data, userdata, &prefix);
+        if (r < 0)
+                return r;
+
+        dash = strrchr(prefix, '-');
+        if (dash) {
+                dash = strdup(dash + 1);
+                if (!dash)
+                        return -ENOMEM;
+                *ret = dash;
+        } else
+                *ret = TAKE_PTR(prefix);
+
+        return 0;
+}
+
 int install_full_printf(UnitFileInstallInfo *i, const char *format, char **ret) {
 
         /* This is similar to unit_full_printf() but does not support
@@ -111,6 +132,7 @@ int install_full_printf(UnitFileInstallInfo *i, const char *format, char **ret) 
                 { 'N', specifier_prefix_and_instance, NULL },
                 { 'p', specifier_prefix,              NULL },
                 { 'i', specifier_instance,            NULL },
+                { 'j', specifier_last_component,      NULL },
 
                 { 'U', specifier_user_id,             NULL },
                 { 'u', specifier_user_name,           NULL },

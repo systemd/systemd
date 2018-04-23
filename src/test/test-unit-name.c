@@ -198,7 +198,7 @@ static void test_unit_name_mangle(void) {
 static int test_unit_printf(void) {
         _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
-        Unit *u, *u2;
+        Unit *u;
         int r;
 
         assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
@@ -245,6 +245,9 @@ static int test_unit_printf(void) {
         expect(u, "%p", "blah");
         expect(u, "%P", "blah");
         expect(u, "%i", "");
+        expect(u, "%I", "");
+        expect(u, "%j", "blah");
+        expect(u, "%J", "blah");
         expect(u, "%u", user);
         expect(u, "%U", uid);
         expect(u, "%h", home);
@@ -254,24 +257,41 @@ static int test_unit_printf(void) {
         expect(u, "%t", "/run/user/*");
 
         /* templated */
-        assert_se(u2 = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(u2, "blah@foo-foo.service") == 0);
-        assert_se(unit_add_name(u2, "blah@foo-foo.service") == 0);
+        assert_se(u = unit_new(m, sizeof(Service)));
+        assert_se(unit_add_name(u, "blah@foo-foo.service") == 0);
+        assert_se(unit_add_name(u, "blah@foo-foo.service") == 0);
 
-        expect(u2, "%n", "blah@foo-foo.service");
-        expect(u2, "%N", "blah@foo-foo");
-        expect(u2, "%f", "/foo/foo");
-        expect(u2, "%p", "blah");
-        expect(u2, "%P", "blah");
-        expect(u2, "%i", "foo-foo");
-        expect(u2, "%I", "foo/foo");
-        expect(u2, "%u", user);
-        expect(u2, "%U", uid);
-        expect(u2, "%h", home);
-        expect(u2, "%m", mid);
-        expect(u2, "%b", bid);
-        expect(u2, "%H", host);
-        expect(u2, "%t", "/run/user/*");
+        expect(u, "%n", "blah@foo-foo.service");
+        expect(u, "%N", "blah@foo-foo");
+        expect(u, "%f", "/foo/foo");
+        expect(u, "%p", "blah");
+        expect(u, "%P", "blah");
+        expect(u, "%i", "foo-foo");
+        expect(u, "%I", "foo/foo");
+        expect(u, "%j", "blah");
+        expect(u, "%J", "blah");
+        expect(u, "%u", user);
+        expect(u, "%U", uid);
+        expect(u, "%h", home);
+        expect(u, "%m", mid);
+        expect(u, "%b", bid);
+        expect(u, "%H", host);
+        expect(u, "%t", "/run/user/*");
+
+        /* templated with components */
+        assert_se(u = unit_new(m, sizeof(Slice)));
+        assert_se(unit_add_name(u, "blah-blah\\x2d.slice") == 0);
+
+        expect(u, "%n", "blah-blah\\x2d.slice");
+        expect(u, "%N", "blah-blah\\x2d");
+        expect(u, "%f", "/blah/blah-");
+        expect(u, "%p", "blah-blah\\x2d");
+        expect(u, "%P", "blah/blah-");
+        expect(u, "%i", "");
+        expect(u, "%I", "");
+        expect(u, "%j", "blah\\x2d");
+        expect(u, "%J", "blah-");
+
 #undef expect
 
         return 0;

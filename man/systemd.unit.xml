@@ -1508,7 +1508,7 @@
     </variablelist>
 
     <para>The following specifiers are interpreted in the Install
-    section: %n, %N, %p, %i, %U, %u, %m, %H, %b, %v. For their meaning
+    section: %n, %N, %p, %i, %j, %U, %u, %m, %H, %b, %v. For their meaning
     see the next section.
     </para>
   </refsect1>
@@ -1565,6 +1565,16 @@
             <entry><literal>%I</literal></entry>
             <entry>Unescaped instance name</entry>
             <entry>Same as <literal>%i</literal>, but with escaping undone.</entry>
+          </row>
+          <row>
+            <entry><literal>%j</literal></entry>
+            <entry>Final component of the prefix</entry>
+            <entry>This is the string between the last <literal>-</literal> and the end of the prefix name. If there is no <literal>-</literal>, this is the same as <literal>%p</literal>.</entry>
+          </row>
+          <row>
+            <entry><literal>%J</literal></entry>
+            <entry>Unescaped final component of the prefix</entry>
+            <entry>Same as <literal>%j</literal>, but with escaping undone.</entry>
           </row>
           <row>
             <entry><literal>%f</literal></entry>
