@@ -61,7 +61,8 @@
     shell style. All strings should be in UTF-8 format, and
     non-printable characters should not be used. It is not supported
     to concatenate multiple individually quoted strings. Lines
-    beginning with "#" shall be ignored as comments.</para>
+    beginning with "#" shall be ignored as comments. Blank lines are
+    permitted and ignored.</para>
 
     <para>The file <filename>/etc/os-release</filename> takes
     precedence over <filename>/usr/lib/os-release</filename>.
