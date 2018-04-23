@@ -1538,7 +1538,7 @@ sub udev_setup {
         system("umount", $udev_tmpfs);
         rmdir($udev_tmpfs);
         mkdir($udev_tmpfs) || die "unable to create udev_tmpfs: $udev_tmpfs\n";
-        system("mount", "-o", "rw,mode=755,nosuid,noexec,nodev", "-t", "tmpfs", "tmpfs", $udev_tmpfs) && die "unable to mount tmpfs";
+        system("mount", "-o", "rw,mode=755,nosuid,noexec", "-t", "tmpfs", "tmpfs", $udev_tmpfs) && die "unable to mount tmpfs";
 
         mkdir($udev_dev) || die "unable to create udev_dev: $udev_dev\n";
         # setting group and mode of udev_dev ensures the tests work
@@ -1546,6 +1546,8 @@ sub udev_setup {
         chown (0, 0, $udev_dev) || die "unable to chown $udev_dev\n";
         chmod (0755, $udev_dev) || die "unable to chmod $udev_dev\n";
 
+        system ("/usr/bin/mknod", "$udev_dev/null", "b", "1", "3");
+        chown (0666, "$udev_dev/null");
         system("cp", "-r", "test/sys/", $udev_sys) && die "unable to copy test/sys";
 
         system("rm", "-rf", "$udev_run");
