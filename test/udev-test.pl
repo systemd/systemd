@@ -18,6 +18,10 @@
 
 use warnings;
 use strict;
+use POSIX qw(WIFEXITED WEXITSTATUS);
+use IPC::SysV qw(IPC_PRIVATE S_IRUSR S_IWUSR IPC_CREAT);
+use IPC::Semaphore;
+use Time::HiRes qw(usleep);
 
 my $udev_bin            = "./test-udev";
 my $valgrind            = 0;
@@ -2044,6 +2048,8 @@ sub check_add {
                         sleep(1);
                 }
         }
+
+        print "device \'$device->{devpath}\' expecting node/link \'$device->{exp_name}\'\n";
         if ((-e "$udev_dev/$device->{exp_name}") ||
             (-l "$udev_dev/$device->{exp_name}")) {
 
@@ -2091,21 +2097,72 @@ sub check_remove {
         }
 }
 
+sub run_udev {
+        my ($action, $dev, $sleep_us, $sema) = @_;
+
+        # Notify main process that this worker has started
+        $sema->op(0, 1, 0);
+
+        # Wait for start
+        $sema->op(0, 0, 0);
+        usleep($sleep_us) if defined ($sleep_us);
+        my $rc = udev($action, $dev->{devpath});
+        exit $rc;
+}
+
+sub fork_and_run_udev {
+        my ($action, $rules, $sema) = @_;
+        my @devices = @{$rules->{devices}};
+        my $dev;
+        my $k = 0;
+
+        $sema->setval(0, 1);
+        foreach $dev (@devices) {
+                my $pid = fork();
+
+                if (!$pid) {
+                        run_udev($action, $dev,
+                                 defined($rules->{sleep_us}) ? $k * $rules->{sleep_us} : undef,
+                                 $sema);
+                } else {
+                        $dev->{pid} = $pid;
+                }
+                $k++;
+        }
+
+        # This operation waits for all workers to become ready, and
+        # starts them off when that's the case.
+        $sema->op(0, -($#devices + 2), 0);
+
+        foreach $dev (@devices) {
+                my $rc;
+                my $pid;
+
+                $pid = waitpid($dev->{pid}, 0);
+                if ($pid == -1) {
+                        print "error waiting for pid dev->{pid}\n";
+                        $error += 1;
+                }
+                if (WIFEXITED($?)) {
+                        $rc = WEXITSTATUS($?);
+
+                        if ($rc) {
+                                print "$udev_bin $action for $dev->{devpath} failed with code $rc\n";
+                                $error += 1;
+                        }
+                }
+        }
+}
+
 sub run_test {
-        my ($rules, $number) = @_;
+        my ($rules, $number, $sema) = @_;
         my $rc;
         my @devices = @{$rules->{devices}};
 
         print "TEST $number: $rules->{desc}\n";
         create_rules(\$rules->{rules});
-        foreach my $dev (@devices) {
-                print "device \'$dev->{devpath}\' expecting node/link \'$dev->{exp_name}\'\n";
-                $rc = udev("add", $dev->{devpath});
-                if ($rc != 0) {
-                        print "$udev_bin add failed with code $rc\n";
-                        $error++;
-                }
-        }
+
+        fork_and_run_udev("add", $rules, $sema);
 
         foreach my $dev (@devices) {
                 check_add($dev);
@@ -2116,13 +2173,8 @@ sub run_test {
                 return;
         }
 
-        foreach my $dev (@devices) {
-                $rc = udev("remove", $dev->{devpath});
-                if ($rc != 0) {
-                        print "$udev_bin remove failed with code $rc\n";
-                        $error++;
-                }
-        }
+        fork_and_run_udev("remove", $rules, $sema);
+
         foreach my $dev (@devices) {
                 check_remove($dev);
         }
@@ -2176,12 +2228,13 @@ foreach my $arg (@ARGV) {
                 push(@list, $arg);
         }
 }
+my $sema = IPC::Semaphore->new(IPC_PRIVATE, 1, S_IRUSR | S_IWUSR | IPC_CREAT);
 
 if ($list[0]) {
         foreach my $arg (@list) {
                 if (defined($tests[$arg-1]->{desc})) {
                         print "udev-test will run test number $arg:\n\n";
-                        run_test($tests[$arg-1], $arg);
+                        run_test($tests[$arg-1], $arg, $sema);
                 } else {
                         print "test does not exist.\n";
                 }
@@ -2191,11 +2244,12 @@ if ($list[0]) {
         print "\nudev-test will run ".($#tests + 1)." tests:\n\n";
 
         foreach my $rules (@tests) {
-                run_test($rules, $test_num);
+                run_test($rules, $test_num, $sema);
                 $test_num++;
         }
 }
 
+$sema->remove;
 print "$error errors occurred\n\n";
 
 # cleanup
