@@ -89,3 +89,10 @@ nss-systemd:
 * `$SYSTEMD_NSS_BYPASS_BUS=1` — if set, `nss-systemd` won't use D-Bus to do
   dynamic user lookups. This is primarily useful to make `nss-systemd` work
   safely from within `dbus-daemon`.
+
+systemd-timedated:
+
+* `$SYSTEMD_TIMEDATED_NTP_SERVICES=…` — colon-separated list of unit names of
+  NTP client services. If set, `timedatectl set-ntp on` enables and starts the
+  first existing unit listed in the environment variable, and
+  `timedatectl set-ntp off` disables and stops all listed units.
