@@ -2551,17 +2551,32 @@ foreach tuple : tests
         endif
 endforeach
 
-test_libsystemd_sym = executable(
+exe = executable(
         'test-libsystemd-sym',
         test_libsystemd_sym_c,
         include_directories : includes,
         link_with : [libsystemd],
         install : install_tests,
         install_dir : testsdir)
-test('test-libsystemd-sym',
-     test_libsystemd_sym)
+test('test-libsystemd-sym', exe)
 
-test_libudev_sym = executable(
+exe = executable(
+        'test-libsystemd-static-sym',
+        test_libsystemd_sym_c,
+        include_directories : includes,
+        c_args : static_libsystemd_pic ? [] : ['-fno-PIC'],
+        link_args : static_libsystemd_pic ? [] : ['-fno-PIC'],
+        link_with : [install_libsystemd_static],
+        dependencies : [threads], # threads is already included in dependencies on the library,
+                                  # but does not seem to get propagated. Add here as a work-around.
+        build_by_default : static_libsystemd != 'false',
+        install : install_tests and static_libsystemd != 'false',
+        install_dir : testsdir)
+if static_libsystemd != 'false'
+        test('test-libsystemd-static-sym', exe)
+endif
+
+exe = executable(
         'test-libudev-sym',
         test_libudev_sym_c,
         include_directories : includes,
@@ -2569,8 +2584,21 @@ test_libudev_sym = executable(
         link_with : [libudev],
         install : install_tests,
         install_dir : testsdir)
-test('test-libudev-sym',
-     test_libudev_sym)
+test('test-libudev-sym', exe)
+
+exe = executable(
+        'test-libudev-static-sym',
+        test_libudev_sym_c,
+        include_directories : includes,
+        c_args : ['-Wno-deprecated-declarations'] +
+                 (static_libsystemd_pic ? [] : ['-fno-PIC']),
+        link_with : [install_libudev_static],
+        build_by_default : static_libudev != 'false',
+        install : install_tests and static_libudev != 'false',
+        install_dir : testsdir)
+if static_libudev != 'false'
+        test('test-libudev-static-sym', exe)
+endif
 
 ############################################################
 
