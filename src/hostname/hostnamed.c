@@ -107,6 +107,7 @@ static int context_read_data(Context *c) {
                 r = parse_env_file("/usr/lib/os-release", NEWLINE,
                                    "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
                                    "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
+                                   "HOME_URL", &c->data[PROP_HOME_URL],
                                    NULL);
 
         if (r < 0 && r != -ENOENT)
