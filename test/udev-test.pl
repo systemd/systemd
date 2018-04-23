@@ -1903,14 +1903,18 @@ EOF
         },
 );
 
-sub udev {
-        my ($action, $devpath, $rules) = @_;
+sub create_rules {
+        my ($rules) = @_;
 
         # create temporary rules
         system("mkdir", "-p", "$udev_rules_dir");
         open CONF, ">$udev_rules" || die "unable to create rules file: $udev_rules";
         print CONF $$rules;
         close CONF;
+}
+
+sub udev {
+        my ($action, $devpath) = @_;
 
         if ($valgrind > 0) {
                 return system("$udev_bin_valgrind $action $devpath");
@@ -2093,9 +2097,10 @@ sub run_test {
         my @devices = @{$rules->{devices}};
 
         print "TEST $number: $rules->{desc}\n";
+        create_rules(\$rules->{rules});
         foreach my $dev (@devices) {
                 print "device \'$dev->{devpath}\' expecting node/link \'$dev->{exp_name}\'\n";
-                $rc = udev("add", $dev->{devpath}, \$rules->{rules});
+                $rc = udev("add", $dev->{devpath});
                 if ($rc != 0) {
                         print "$udev_bin add failed with code $rc\n";
                         $error++;
@@ -2112,7 +2117,7 @@ sub run_test {
         }
 
         foreach my $dev (@devices) {
-                $rc = udev("remove", $dev->{devpath}, \$rules->{rules});
+                $rc = udev("remove", $dev->{devpath});
                 if ($rc != 0) {
                         print "$udev_bin remove failed with code $rc\n";
                         $error++;
