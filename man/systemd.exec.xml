@@ -2612,6 +2612,98 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </tbody>
       </tgroup>
     </table>
+
+    <para>Finally, the BSD operating systems define a set of exit codes, typically defined on Linux systems too:</para>
+
+    <table>
+      <title>BSD exit codes</title>
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Exit Code</entry>
+            <entry>Symbolic Name</entry>
+            <entry>Description</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>64</entry>
+            <entry><constant>EX_USAGE</constant></entry>
+            <entry>Command line usage error</entry>
+          </row>
+          <row>
+            <entry>65</entry>
+            <entry><constant>EX_DATAERR</constant></entry>
+            <entry>Data format error</entry>
+          </row>
+          <row>
+            <entry>66</entry>
+            <entry><constant>EX_NOINPUT</constant></entry>
+            <entry>Cannot open input</entry>
+          </row>
+          <row>
+            <entry>67</entry>
+            <entry><constant>EX_NOUSER</constant></entry>
+            <entry>Addressee unknown</entry>
+          </row>
+          <row>
+            <entry>68</entry>
+            <entry><constant>EX_NOHOST</constant></entry>
+            <entry>Host name unknown</entry>
+          </row>
+          <row>
+            <entry>69</entry>
+            <entry><constant>EX_UNAVAILABLE</constant></entry>
+            <entry>Service unavailable</entry>
+          </row>
+          <row>
+            <entry>70</entry>
+            <entry><constant>EX_SOFTWARE</constant></entry>
+            <entry>internal software error</entry>
+          </row>
+          <row>
+            <entry>71</entry>
+            <entry><constant>EX_OSERR</constant></entry>
+            <entry>System error (e.g., can't fork)</entry>
+          </row>
+          <row>
+            <entry>72</entry>
+            <entry><constant>EX_OSFILE</constant></entry>
+            <entry>Critical OS file missing</entry>
+          </row>
+          <row>
+            <entry>73</entry>
+            <entry><constant>EX_CANTCREAT</constant></entry>
+            <entry>Can't create (user) output file</entry>
+          </row>
+          <row>
+            <entry>74</entry>
+            <entry><constant>EX_IOERR</constant></entry>
+            <entry>Input/output error</entry>
+          </row>
+          <row>
+            <entry>75</entry>
+            <entry><constant>EX_TEMPFAIL</constant></entry>
+            <entry>Temporary failure; user is invited to retry</entry>
+          </row>
+          <row>
+            <entry>76</entry>
+            <entry><constant>EX_PROTOCOL</constant></entry>
+            <entry>Remote error in protocol</entry>
+          </row>
+          <row>
+            <entry>77</entry>
+            <entry><constant>EX_NOPERM</constant></entry>
+            <entry>Permission denied</entry>
+          </row>
+          <row>
+            <entry>78</entry>
+            <entry><constant>EX_CONFIG</constant></entry>
+            <entry>Configuration error</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
   </refsect1>
 
   <refsect1>
