@@ -1071,10 +1071,10 @@ _public_ int sd_bus_message_is_signal(
         if (m->header->type != SD_BUS_MESSAGE_SIGNAL)
                 return 0;
 
-        if (interface && (!m->interface || !streq(m->interface, interface)))
+        if (interface && !streq_ptr(m->interface, interface))
                 return 0;
 
-        if (member &&  (!m->member || !streq(m->member, member)))
+        if (member && !streq_ptr(m->member, member))
                 return 0;
 
         return 1;
@@ -1090,10 +1090,10 @@ _public_ int sd_bus_message_is_method_call(
         if (m->header->type != SD_BUS_MESSAGE_METHOD_CALL)
                 return 0;
 
-        if (interface && (!m->interface || !streq(m->interface, interface)))
+        if (interface && !streq_ptr(m->interface, interface))
                 return 0;
 
-        if (member &&  (!m->member || !streq(m->member, member)))
+        if (member && !streq_ptr(m->member, member))
                 return 0;
 
         return 1;
@@ -1105,7 +1105,7 @@ _public_ int sd_bus_message_is_method_error(sd_bus_message *m, const char *name)
         if (m->header->type != SD_BUS_MESSAGE_METHOD_ERROR)
                 return 0;
 
-        if (name && (!m->error.name || !streq(m->error.name, name)))
+        if (name && !streq_ptr(m->error.name, name))
                 return 0;
 
         return 1;
