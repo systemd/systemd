@@ -24,7 +24,7 @@
 #include "util.h"
 
 static void test_chase_symlinks(void) {
-        _cleanup_free_ char *result = NULL, *z = NULL, *w = NULL;
+        _cleanup_free_ char *result = NULL;
         char temp[] = "/tmp/test-chase.XXXXXX";
         const char *top, *p, *pslash, *q, *qslash;
         int r, pfd;
