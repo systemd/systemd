@@ -21,6 +21,7 @@
 #include "terminal-util.h"
 #include "utf8.h"
 #include "util.h"
+#include "fileio.h"
 
 int strcmp_ptr(const char *a, const char *b) {
 
@@ -694,7 +695,8 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         enum {
                 STATE_OTHER,
                 STATE_ESCAPE,
-                STATE_BRACKET
+                STATE_CSI,
+                STATE_CSO,
         } state = STATE_OTHER;
         char *obuf = NULL;
         size_t osz = 0, isz, shift[2] = {};
@@ -703,7 +705,17 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         assert(ibuf);
         assert(*ibuf);
 
-        /* Strips ANSI color and replaces TABs by 8 spaces */
+        /* This does three things:
+         *
+         * 1. Replaces TABs by 8 spaces
+         * 2. Strips ANSI color sequences (a subset of CSI), i.e. ESC '[' … 'm' sequences
+         * 3. Strips ANSI operating system sequences (CSO), i.e. ESC ']' … BEL sequences
+         *
+         * Everything else will be left as it is. In particular other ANSI sequences are left as they are, as are any
+         * other special characters. Truncated ANSI sequences are left-as is too. This call is supposed to suppress the
+         * most basic formatting noise, but nothing else.
+         *
+         * Why care for CSO sequences? Well, to undo what terminal_urlify() and friends generate. */
 
         isz = _isz ? *_isz : strlen(*ibuf);
 
@@ -738,8 +750,11 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                                 fputc('\x1B', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 1);
                                 break;
-                        } else if (*i == '[') {
-                                state = STATE_BRACKET;
+                        } else if (*i == '[') { /* ANSI CSI */
+                                state = STATE_CSI;
+                                begin = i + 1;
+                        } else if (*i == ']') { /* ANSI CSO */
+                                state = STATE_CSO;
                                 begin = i + 1;
                         } else {
                                 fputc('\x1B', f);
@@ -750,10 +765,10 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
 
                         break;
 
-                case STATE_BRACKET:
+                case STATE_CSI:
 
-                        if (i >= *ibuf + isz || /* EOT */
-                            (!(*i >= '0' && *i <= '9') && !IN_SET(*i, ';', 'm'))) {
+                        if (i >= *ibuf + isz || /* EOT … */
+                            !strchr("01234567890;m", *i)) { /* … or invalid chars in sequence */
                                 fputc('\x1B', f);
                                 fputc('[', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 2);
@@ -761,11 +776,26 @@ char *strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                                 i = begin-1;
                         } else if (*i == 'm')
                                 state = STATE_OTHER;
+
+                        break;
+
+                case STATE_CSO:
+
+                        if (i >= *ibuf + isz || /* EOT … */
+                            (*i != '\a' && (uint8_t) *i < 32U) || (uint8_t) *i > 126U) { /* … or invalid chars in sequence */
+                                fputc('\x1B', f);
+                                fputc(']', f);
+                                advance_offsets(i - *ibuf, highlight, shift, 2);
+                                state = STATE_OTHER;
+                                i = begin-1;
+                        } else if (*i == '\a')
+                                state = STATE_OTHER;
+
                         break;
                 }
         }
 
-        if (ferror(f)) {
+        if (fflush_and_check(f) < 0) {
                 fclose(f);
                 return mfree(obuf);
         }
