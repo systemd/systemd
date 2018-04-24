@@ -2564,15 +2564,13 @@ exe = executable(
         'test-libsystemd-static-sym',
         test_libsystemd_sym_c,
         include_directories : includes,
-        c_args : static_libsystemd_pic ? [] : ['-fno-PIC'],
-        link_args : static_libsystemd_pic ? [] : ['-fno-PIC'],
         link_with : [install_libsystemd_static],
         dependencies : [threads], # threads is already included in dependencies on the library,
                                   # but does not seem to get propagated. Add here as a work-around.
-        build_by_default : static_libsystemd != 'false',
-        install : install_tests and static_libsystemd != 'false',
+        build_by_default : static_libsystemd_pic,
+        install : install_tests and static_libsystemd_pic,
         install_dir : testsdir)
-if static_libsystemd != 'false'
+if static_libsystemd_pic
         test('test-libsystemd-static-sym', exe)
 endif
 
@@ -2590,13 +2588,12 @@ exe = executable(
         'test-libudev-static-sym',
         test_libudev_sym_c,
         include_directories : includes,
-        c_args : ['-Wno-deprecated-declarations'] +
-                 (static_libsystemd_pic ? [] : ['-fno-PIC']),
+        c_args : ['-Wno-deprecated-declarations'],
         link_with : [install_libudev_static],
-        build_by_default : static_libudev != 'false',
-        install : install_tests and static_libudev != 'false',
+        build_by_default : static_libudev_pic,
+        install : install_tests and static_libudev_pic,
         install_dir : testsdir)
-if static_libudev != 'false'
+if static_libudev_pic
         test('test-libudev-static-sym', exe)
 endif
 
