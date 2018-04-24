@@ -402,15 +402,15 @@ static int neighbor_compare_func(const void *a, const void *b) {
 
 static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_lldp *lldp = userdata;
-        int r, q;
+        int r;
 
         r = lldp_make_space(lldp, 0);
         if (r < 0)
                 return log_lldp_errno(r, "Failed to make space: %m");
 
-        q = lldp_start_timer(lldp, NULL);
-        if (q < 0)
-                return log_lldp_errno(q, "Failed to restart timer: %m");
+        r = lldp_start_timer(lldp, NULL);
+        if (r < 0)
+                return log_lldp_errno(r, "Failed to restart timer: %m");
 
         return 0;
 }
