@@ -154,7 +154,6 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error_tty = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_tty = NULL;
                 const char *id, *user, *seat, *object, *tty = NULL;
-                _cleanup_free_ char *path = NULL;
                 uint32_t uid;
 
                 r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object);
