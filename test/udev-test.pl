@@ -207,7 +207,7 @@ KERNEL=="ttyACM[0-9]*", SYMLINK+="modem/%n"
 EOF
         },
         {
-                desc            => "replace kernel name",
+                desc            => "don't replace kernel name",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
@@ -218,7 +218,7 @@ KERNEL=="ttyACM0", SYMLINK+="modem"
 EOF
         },
         {
-                desc            => "Handle comment lines in config file (and replace kernel name)",
+                desc            => "Handle comment lines in config file (and don't replace kernel name)",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
@@ -231,7 +231,7 @@ KERNEL=="ttyACM0", SYMLINK+="modem"
 EOF
         },
         {
-                desc            => "Handle comment lines in config file with whitespace (and replace kernel name)",
+                desc            => "Handle comment lines in config file with whitespace (and don't replace kernel name)",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
@@ -244,7 +244,7 @@ KERNEL=="ttyACM0", SYMLINK+="modem"
 EOF
         },
         {
-                desc            => "Handle whitespace only lines (and replace kernel name)",
+                desc            => "Handle whitespace only lines (and don't replace kernel name)",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
@@ -262,7 +262,7 @@ KERNEL=="ttyACM0", SYMLINK+="whitespace"
 EOF
         },
         {
-                desc            => "Handle empty lines in config file (and replace kernel name)",
+                desc            => "Handle empty lines in config file (and don't replace kernel name)",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
@@ -275,7 +275,7 @@ KERNEL=="ttyACM0", SYMLINK+="modem"
 EOF
         },
         {
-                desc            => "Handle backslashed multi lines in config file (and replace kernel name)",
+                desc            => "Handle backslashed multi lines in config file (and don't replace kernel name)",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
@@ -298,8 +298,9 @@ EOF
 KERNEL=="ttyACM0", PROGRAM=="/bin/echo -e \\101", RESULT=="A", SYMLINK+="aaa"
 EOF
         },
+        # 20
         {
-                desc            => "Handle stupid backslashed multi lines in config file (and replace kernel name)",
+                desc            => "Handle stupid backslashed multi lines in config file (and don't replace kernel name)",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
