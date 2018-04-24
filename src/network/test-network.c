@@ -133,7 +133,7 @@ static void test_network_get(Manager *manager, struct udev_device *loopback) {
 }
 
 static void test_address_equality(void) {
-        _cleanup_address_free_ Address *a1 = NULL, *a2 = NULL;
+        _cleanup_(address_freep) Address *a1 = NULL, *a2 = NULL;
 
         assert_se(address_new(&a1) >= 0);
         assert_se(address_new(&a2) >= 0);
@@ -223,10 +223,10 @@ static void test_dhcp_hostname_shorten_overlong(void) {
 }
 
 int main(void) {
-        _cleanup_manager_free_ Manager *manager = NULL;
+        _cleanup_(manager_freep) Manager *manager = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *loopback = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *loopback = NULL;
         int r;
 
         test_deserialize_in_addr();

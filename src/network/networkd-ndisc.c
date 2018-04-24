@@ -18,7 +18,7 @@
 #define NDISC_PREFIX_LFT_MIN 7200U
 
 static int ndisc_netlink_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -39,7 +39,7 @@ static int ndisc_netlink_handler(sd_netlink *rtnl, sd_netlink_message *m, void *
 }
 
 static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
-        _cleanup_route_free_ Route *route = NULL;
+        _cleanup_(route_freep) Route *route = NULL;
         struct in6_addr gateway;
         uint16_t lifetime;
         unsigned preference;
@@ -138,7 +138,7 @@ static void ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 }
 
 static void ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
-        _cleanup_address_free_ Address *address = NULL;
+        _cleanup_(address_freep) Address *address = NULL;
         Address *existing_address;
         uint32_t lifetime_valid, lifetime_preferred, lifetime_remaining;
         usec_t time_now;
@@ -236,7 +236,7 @@ static void ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *
 }
 
 static void ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
-        _cleanup_route_free_ Route *route = NULL;
+        _cleanup_(route_freep) Route *route = NULL;
         usec_t time_now;
         uint32_t lifetime;
         unsigned prefixlen;
@@ -294,7 +294,7 @@ static void ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) 
 }
 
 static void ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
-        _cleanup_route_free_ Route *route = NULL;
+        _cleanup_(route_freep) Route *route = NULL;
         struct in6_addr gateway;
         uint32_t lifetime;
         unsigned preference, prefixlen;

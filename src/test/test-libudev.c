@@ -91,7 +91,7 @@ static void print_device(struct udev_device *device) {
 }
 
 static void test_device(struct udev *udev, const char *syspath) {
-        _cleanup_udev_device_unref_ struct udev_device *device;
+        _cleanup_(udev_device_unrefp) struct udev_device *device;
 
         log_info("looking at device: %s", syspath);
         device = udev_device_new_from_syspath(udev, syspath);
@@ -102,7 +102,7 @@ static void test_device(struct udev *udev, const char *syspath) {
 }
 
 static void test_device_parents(struct udev *udev, const char *syspath) {
-        _cleanup_udev_device_unref_ struct udev_device *device;
+        _cleanup_(udev_device_unrefp) struct udev_device *device;
         struct udev_device *device_parent;
 
         log_info("looking at device: %s", syspath);
@@ -127,7 +127,7 @@ static void test_device_parents(struct udev *udev, const char *syspath) {
 
 static void test_device_devnum(struct udev *udev) {
         dev_t devnum = makedev(1, 3);
-        _cleanup_udev_device_unref_ struct udev_device *device;
+        _cleanup_(udev_device_unrefp) struct udev_device *device;
 
         log_info("looking up device: %u:%u", major(devnum), minor(devnum));
         device = udev_device_new_from_devnum(udev, 'c', devnum);
@@ -138,7 +138,7 @@ static void test_device_devnum(struct udev *udev) {
 }
 
 static void test_device_subsys_name(struct udev *udev, const char *subsys, const char *dev) {
-        _cleanup_udev_device_unref_ struct udev_device *device;
+        _cleanup_(udev_device_unrefp) struct udev_device *device;
 
         log_info("looking up device: '%s:%s'", subsys, dev);
         device = udev_device_new_from_subsystem_sysname(udev, subsys, dev);
@@ -170,7 +170,7 @@ static int test_enumerate_print_list(struct udev_enumerate *enumerate) {
 }
 
 static void test_monitor(struct udev *udev) {
-        _cleanup_udev_monitor_unref_ struct udev_monitor *udev_monitor;
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor;
         _cleanup_close_ int fd_ep;
         int fd_udev;
         struct epoll_event ep_udev = {
@@ -337,7 +337,7 @@ static void test_hwdb(struct udev *udev, const char *modalias) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         bool arg_monitor = false;
         static const struct option options[] = {
                 { "syspath",   required_argument, NULL, 'p' },

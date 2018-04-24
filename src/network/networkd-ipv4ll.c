@@ -14,8 +14,8 @@
 #include "networkd-link.h"
 
 static int ipv4ll_address_lost(Link *link) {
-        _cleanup_address_free_ Address *address = NULL;
-        _cleanup_route_free_ Route *route = NULL;
+        _cleanup_(address_freep) Address *address = NULL;
+        _cleanup_(route_freep) Route *route = NULL;
         struct in_addr addr;
         int r;
 
@@ -61,7 +61,7 @@ static int ipv4ll_address_lost(Link *link) {
 }
 
 static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -82,7 +82,7 @@ static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
 }
 
 static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -104,8 +104,8 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void 
 }
 
 static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
-        _cleanup_address_free_ Address *ll_addr = NULL;
-        _cleanup_route_free_ Route *route = NULL;
+        _cleanup_(address_freep) Address *ll_addr = NULL;
+        _cleanup_(route_freep) Route *route = NULL;
         struct in_addr address;
         int r;
 

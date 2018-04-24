@@ -220,7 +220,7 @@ static int manager_udev_process_link(Manager *m, struct udev_device *device) {
 static int manager_dispatch_link_udev(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
         struct udev_monitor *monitor = m->udev_monitor;
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
 
         device = udev_monitor_receive_device(monitor);
         if (!device)
@@ -1376,7 +1376,7 @@ static const struct hash_ops dhcp6_prefixes_hash_ops = {
 };
 
 int manager_new(Manager **ret, sd_event *event) {
-        _cleanup_manager_free_ Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         m = new0(Manager, 1);

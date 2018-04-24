@@ -915,8 +915,8 @@ static int stop_mounts(
 }
 
 static int umount_by_device(sd_bus *bus, const char *what) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_strv_free_ char **list = NULL;
         struct stat st;
         const char *v;
@@ -1237,8 +1237,8 @@ static int acquire_removable(struct udev_device *d) {
 }
 
 static int discover_loop_backing_file(void) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_free_ char *loop_dev = NULL;
         struct stat st;
         const char *v;
@@ -1312,8 +1312,8 @@ static int discover_loop_backing_file(void) {
 }
 
 static int discover_device(void) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         struct stat st;
         const char *v;
         int r;
@@ -1406,8 +1406,8 @@ static int list_devices(void) {
                 [COLUMN_UUID] = "UUID"
         };
 
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         size_t n_allocated = 0, n = 0, i;
         size_t column_width[_COLUMN_MAX];
@@ -1440,7 +1440,7 @@ static int list_devices(void) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *d;
+                _cleanup_(udev_device_unrefp) struct udev_device *d;
                 struct item *j;
 
                 d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));

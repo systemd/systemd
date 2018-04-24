@@ -109,7 +109,7 @@ void network_apply_anonymize_if_set(Network *network) {
 }
 
 static int network_load_one(Manager *manager, const char *filename) {
-        _cleanup_network_free_ Network *network = NULL;
+        _cleanup_(network_freep) Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         char *d;
         const char *dropin_dirname;

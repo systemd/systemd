@@ -645,7 +645,6 @@ static void dhcp_request_free(DHCPRequest *req) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPRequest*, dhcp_request_free);
-#define _cleanup_dhcp_request_free_ _cleanup_(dhcp_request_freep)
 
 static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMessage *message) {
         assert(req);
@@ -698,7 +697,7 @@ static int get_pool_offset(sd_dhcp_server *server, be32_t requested_ip) {
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length) {
-        _cleanup_dhcp_request_free_ DHCPRequest *req = NULL;
+        _cleanup_(dhcp_request_freep) DHCPRequest *req = NULL;
         _cleanup_free_ char *error_message = NULL;
         DHCPLease *existing_lease;
         int type, r;

@@ -120,8 +120,8 @@ int prefix_new(Prefix **ret) {
 
 int prefix_new_static(Network *network, const char *filename,
                       unsigned section_line, Prefix **ret) {
-        _cleanup_network_config_section_free_ NetworkConfigSection *n = NULL;
-        _cleanup_prefix_free_ Prefix *prefix = NULL;
+        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(prefix_freep) Prefix *prefix = NULL;
         int r;
 
         assert(network);
@@ -177,7 +177,7 @@ int config_parse_prefix(const char *unit,
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_prefix_free_ Prefix *p = NULL;
+        _cleanup_(prefix_freep) Prefix *p = NULL;
         uint8_t prefixlen = 64;
         union in_addr_union in6addr;
         int r;
@@ -219,7 +219,7 @@ int config_parse_prefix_flags(const char *unit,
                               void *data,
                               void *userdata) {
         Network *network = userdata;
-        _cleanup_prefix_free_ Prefix *p = NULL;
+        _cleanup_(prefix_freep) Prefix *p = NULL;
         int r, val;
 
         assert(filename);
@@ -263,7 +263,7 @@ int config_parse_prefix_lifetime(const char *unit,
                                  void *data,
                                  void *userdata) {
         Network *network = userdata;
-        _cleanup_prefix_free_ Prefix *p = NULL;
+        _cleanup_(prefix_freep) Prefix *p = NULL;
         usec_t usec;
         int r;
 

@@ -43,7 +43,7 @@ static int show_sysfs_one(
                 max_width = n_columns;
 
         while (*item) {
-                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
                 struct udev_list_entry *next, *lookahead;
                 const char *sn, *name, *sysfs, *subsystem, *sysname;
                 _cleanup_free_ char *k = NULL, *l = NULL;
@@ -86,7 +86,7 @@ static int show_sysfs_one(
 
                         if (path_startswith(lookahead_sysfs, sub) &&
                             !path_startswith(lookahead_sysfs, sysfs)) {
-                                _cleanup_udev_device_unref_ struct udev_device *lookahead_d = NULL;
+                                _cleanup_(udev_device_unrefp) struct udev_device *lookahead_d = NULL;
 
                                 lookahead_d = udev_device_new_from_syspath(udev, lookahead_sysfs);
                                 if (lookahead_d) {
@@ -142,8 +142,8 @@ static int show_sysfs_one(
 }
 
 int show_sysfs(const char *seat, const char *prefix, unsigned n_columns, OutputFlags flags) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         struct udev_list_entry *first = NULL;
         int r;
 

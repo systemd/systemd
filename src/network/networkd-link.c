@@ -404,7 +404,7 @@ static int link_update_flags(Link *link, sd_netlink_message *m) {
 }
 
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
-        _cleanup_link_unref_ Link *link = NULL;
+        _cleanup_(link_unrefp) Link *link = NULL;
         uint16_t type;
         const char *ifname, *kind = NULL;
         int r, ifindex;
@@ -807,7 +807,7 @@ static int link_set_routing_policy_rule(Link *link) {
 }
 
 static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link->route_messages > 0);
@@ -866,7 +866,7 @@ static int link_enter_set_routes(Link *link) {
 }
 
 int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(m);
@@ -884,7 +884,7 @@ int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *use
 }
 
 static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(rtnl);
@@ -915,7 +915,7 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 }
 
 static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(rtnl);
@@ -1217,7 +1217,7 @@ static int link_enter_set_addresses(Link *link) {
 }
 
 int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(m);
@@ -1261,7 +1261,7 @@ static int link_set_proxy_arp(Link *link) {
 }
 
 static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         log_link_debug(link, "Set link");
@@ -1277,7 +1277,7 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userd
 }
 
 static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(m);
@@ -1324,7 +1324,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
 }
 
 static int set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(m);
@@ -1703,7 +1703,7 @@ bool link_has_carrier(Link *link) {
 }
 
 static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -1826,7 +1826,7 @@ int link_up(Link *link) {
 }
 
 static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -2190,7 +2190,7 @@ static int link_joined(Link *link) {
 }
 
 static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -2742,7 +2742,7 @@ static int link_configure(Link *link) {
 
 static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
                                        void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         Network *network;
         int r;
 
@@ -3033,7 +3033,7 @@ ipv4ll_address_fail:
 
 int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         Link *link;
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         char ifindex_str[2 + DECIMAL_STR_MAX(int)];
         int r;
 

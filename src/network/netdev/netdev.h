@@ -156,7 +156,6 @@ NetDev *netdev_unref(NetDev *netdev);
 NetDev *netdev_ref(NetDev *netdev);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
-#define _cleanup_netdev_unref_ _cleanup_(netdev_unrefp)
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);

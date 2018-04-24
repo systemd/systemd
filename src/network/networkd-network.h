@@ -96,7 +96,6 @@ int network_config_section_new(const char *filename, unsigned line, NetworkConfi
 void network_config_section_free(NetworkConfigSection *network);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetworkConfigSection*, network_config_section_free);
-#define _cleanup_network_config_section_free_ _cleanup_(network_config_section_freep)
 
 typedef struct Manager Manager;
 
@@ -264,7 +263,6 @@ struct Network {
 void network_free(Network *network);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_free);
-#define _cleanup_network_free_ _cleanup_(network_freep)
 
 int network_load(Manager *manager);
 

@@ -681,7 +681,7 @@ static void device_shutdown(Manager *m) {
 }
 
 static void device_enumerate(Manager *m) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         int r;
 
@@ -746,7 +746,7 @@ static void device_enumerate(Manager *m) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
                 const char *sysfs;
 
                 sysfs = udev_list_entry_get_name(item);
@@ -772,7 +772,7 @@ fail:
 }
 
 static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         Manager *m = userdata;
         const char *action, *sysfs;
         int r;
@@ -873,7 +873,7 @@ static bool device_supported(void) {
 }
 
 int device_found_node(Manager *m, const char *node, bool add, DeviceFound found, bool now) {
-        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         struct stat st;
 
         assert(m);

@@ -17,7 +17,7 @@
 #include "socket-util.h"
 
 int address_label_new(AddressLabel **ret) {
-        _cleanup_address_label_free_ AddressLabel *addrlabel = NULL;
+        _cleanup_(address_label_freep) AddressLabel *addrlabel = NULL;
 
         addrlabel = new0(AddressLabel, 1);
         if (!addrlabel)
@@ -47,8 +47,8 @@ void address_label_free(AddressLabel *label) {
 }
 
 static int address_label_new_static(Network *network, const char *filename, unsigned section_line, AddressLabel **ret) {
-        _cleanup_network_config_section_free_ NetworkConfigSection *n = NULL;
-        _cleanup_address_label_free_ AddressLabel *label = NULL;
+        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(address_label_freep) AddressLabel *label = NULL;
         int r;
 
         assert(network);
@@ -137,7 +137,7 @@ int config_parse_address_label_prefix(const char *unit,
                                       void *data,
                                       void *userdata) {
 
-        _cleanup_address_label_free_ AddressLabel *n = NULL;
+        _cleanup_(address_label_freep) AddressLabel *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -174,7 +174,7 @@ int config_parse_address_label(
                 void *data,
                 void *userdata) {
 
-        _cleanup_address_label_free_ AddressLabel *n = NULL;
+        _cleanup_(address_label_freep) AddressLabel *n = NULL;
         Network *network = userdata;
         uint32_t k;
         int r;

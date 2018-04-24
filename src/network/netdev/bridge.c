@@ -16,7 +16,7 @@
 
 /* callback for brige netdev's parameter set */
 static int netdev_bridge_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_netdev_unref_ NetDev *netdev = userdata;
+        _cleanup_(netdev_unrefp) NetDev *netdev = userdata;
         int r;
 
         assert(netdev);

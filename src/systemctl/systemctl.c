@@ -5338,7 +5338,7 @@ static int cat_file(const char *filename, bool newline) {
 }
 
 static int cat(int argc, char *argv[], void *userdata) {
-        _cleanup_lookup_paths_free_ LookupPaths lp = {};
+        _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         char **name;
         sd_bus *bus;
@@ -5865,7 +5865,7 @@ static int enable_sysv_units(const char *verb, char **args) {
         int r = 0;
 
 #if HAVE_SYSV_COMPAT
-        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        _cleanup_(lookup_paths_free) LookupPaths paths = {};
         unsigned f = 0;
 
         /* Processes all SysV units, and reshuffles the array so that afterwards only the native units remain */
@@ -6189,7 +6189,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                 if (STR_IN_SET(verb, "mask", "unmask")) {
                         char **name;
-                        _cleanup_lookup_paths_free_ LookupPaths lp = {};
+                        _cleanup_(lookup_paths_free) LookupPaths lp = {};
 
                         r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
                         if (r < 0)
@@ -6871,7 +6871,7 @@ static int run_editor(char **paths) {
 }
 
 static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
-        _cleanup_lookup_paths_free_ LookupPaths lp = {};
+        _cleanup_(lookup_paths_free) LookupPaths lp = {};
         char **name;
         int r;
 

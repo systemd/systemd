@@ -397,7 +397,7 @@ static int verify_esp(
                 uint64_t *ret_psize,
                 sd_id128_t *ret_uuid) {
 #if HAVE_BLKID
-        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         char t[DEV_NUM_PATH_MAX];
         const char *v;
 #endif

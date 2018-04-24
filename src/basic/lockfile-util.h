@@ -22,6 +22,4 @@ int make_lock_file(const char *p, int operation, LockFile *ret);
 int make_lock_file_for(const char *p, int operation, LockFile *ret);
 void release_lock_file(LockFile *f);
 
-#define _cleanup_release_lock_file_ _cleanup_(release_lock_file)
-
 #define LOCK_FILE_INIT { .fd = -1, .path = NULL }

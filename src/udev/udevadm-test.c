@@ -48,9 +48,9 @@ static int adm_test(struct udev *udev, int argc, char *argv[]) {
         const char *action = "add";
         const char *syspath = NULL;
         struct udev_list_entry *entry;
-        _cleanup_udev_rules_unref_ struct udev_rules *rules = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
-        _cleanup_udev_event_unref_ struct udev_event *event = NULL;
+        _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+        _cleanup_(udev_event_unrefp) struct udev_event *event = NULL;
         sigset_t mask, sigmask_orig;
         int rc = 0, c;
 

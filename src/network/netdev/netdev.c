@@ -285,7 +285,7 @@ static int netdev_enter_ready(NetDev *netdev) {
 
 /* callback for netdev's created without a backing Link */
 static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_netdev_unref_ NetDev *netdev = userdata;
+        _cleanup_(netdev_unrefp) NetDev *netdev = userdata;
         int r;
 
         assert(netdev->state != _NETDEV_STATE_INVALID);
@@ -599,7 +599,7 @@ int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t callbac
 }
 
 static int netdev_load_one(Manager *manager, const char *filename) {
-        _cleanup_netdev_unref_ NetDev *netdev_raw = NULL, *netdev = NULL;
+        _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
         bool independent = false;

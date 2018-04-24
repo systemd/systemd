@@ -25,7 +25,7 @@ int fdb_entry_new_static(
                 unsigned section,
                 FdbEntry **ret) {
 
-        _cleanup_fdbentry_free_ FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
         struct ether_addr *mac_addr = NULL;
 
         assert(network);
@@ -177,7 +177,7 @@ int config_parse_fdb_hwaddr(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_fdbentry_free_ FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
         int r;
 
         assert(filename);
@@ -223,7 +223,7 @@ int config_parse_fdb_vlan_id(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_fdbentry_free_ FdbEntry *fdb_entry = NULL;
+        _cleanup_(fdb_entry_freep) FdbEntry *fdb_entry = NULL;
         int r;
 
         assert(filename);

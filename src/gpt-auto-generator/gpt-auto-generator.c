@@ -458,8 +458,8 @@ static int add_esp(DissectedPartition *p) {
 #endif
 
 static int open_parent(dev_t devnum, int *ret) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         const char *name, *devtype, *node;
         struct udev_device *parent;
         dev_t pn;

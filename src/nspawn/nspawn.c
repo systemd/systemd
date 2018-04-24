@@ -2878,7 +2878,7 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
 
         for (;;) {
                 char lock_path[STRLEN("/run/systemd/nspawn-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
-                _cleanup_release_lock_file_ LockFile lf = LOCK_FILE_INIT;
+                _cleanup_(release_lock_file) LockFile lf = LOCK_FILE_INIT;
 
                 if (--n_tries <= 0)
                         return -EBUSY;
@@ -3286,7 +3286,7 @@ static int run(int master,
                 .sa_flags = SA_NOCLDSTOP|SA_RESTART,
         };
 
-        _cleanup_release_lock_file_ LockFile uid_shift_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile uid_shift_lock = LOCK_FILE_INIT;
         _cleanup_close_ int etc_passwd_lock = -1;
         _cleanup_close_pair_ int
                 kmsg_socket_pair[2] = { -1, -1 },
@@ -3791,7 +3791,7 @@ int main(int argc, char *argv[]) {
         bool secondary = false, remove_directory = false, remove_image = false;
         pid_t pid = 0;
         union in_addr_union exposed = {};
-        _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         bool interactive, veth_created = false, remove_tmprootdir = false;
         char tmprootdir[] = "/tmp/nspawn-root-XXXXXX";
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;

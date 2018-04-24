@@ -32,7 +32,6 @@ Writer* writer_ref(Writer *w);
 Writer* writer_unref(Writer *w);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Writer*, writer_unref);
-#define _cleanup_writer_unref_ _cleanup_(writer_unrefp)
 
 int writer_write(Writer *s,
                  struct iovec_wrapper *iovw,

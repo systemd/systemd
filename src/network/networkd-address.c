@@ -24,7 +24,7 @@
 #define STATIC_ADDRESSES_PER_NETWORK_MAX 1024U
 
 int address_new(Address **ret) {
-        _cleanup_address_free_ Address *address = NULL;
+        _cleanup_(address_freep) Address *address = NULL;
 
         address = new0(Address, 1);
         if (!address)
@@ -41,8 +41,8 @@ int address_new(Address **ret) {
 }
 
 int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret) {
-        _cleanup_network_config_section_free_ NetworkConfigSection *n = NULL;
-        _cleanup_address_free_ Address *address = NULL;
+        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(address_freep) Address *address = NULL;
         int r;
 
         assert(network);
@@ -241,7 +241,7 @@ static int address_add_internal(Link *link, Set **addresses,
                                 const union in_addr_union *in_addr,
                                 unsigned char prefixlen,
                                 Address **ret) {
-        _cleanup_address_free_ Address *address = NULL;
+        _cleanup_(address_freep) Address *address = NULL;
         int r;
 
         assert(link);
@@ -471,7 +471,7 @@ int address_remove(
 static int address_acquire(Link *link, Address *original, Address **ret) {
         union in_addr_union in_addr = {};
         struct in_addr broadcast = {};
-        _cleanup_address_free_ Address *na = NULL;
+        _cleanup_(address_freep) Address *na = NULL;
         int r;
 
         assert(link);
@@ -667,7 +667,7 @@ int config_parse_broadcast(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_address_free_ Address *n = NULL;
+        _cleanup_(address_freep) Address *n = NULL;
         int r;
 
         assert(filename);
@@ -709,7 +709,7 @@ int config_parse_address(const char *unit,
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_address_free_ Address *n = NULL;
+        _cleanup_(address_freep) Address *n = NULL;
         const char *address, *e;
         union in_addr_union buffer;
         int r, f;
@@ -795,7 +795,7 @@ int config_parse_label(
                 void *data,
                 void *userdata) {
 
-        _cleanup_address_free_ Address *n = NULL;
+        _cleanup_(address_freep) Address *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -834,7 +834,7 @@ int config_parse_lifetime(const char *unit,
                           void *data,
                           void *userdata) {
         Network *network = userdata;
-        _cleanup_address_free_ Address *n = NULL;
+        _cleanup_(address_freep) Address *n = NULL;
         unsigned k;
         int r;
 
@@ -882,7 +882,7 @@ int config_parse_address_flags(const char *unit,
                                void *data,
                                void *userdata) {
         Network *network = userdata;
-        _cleanup_address_free_ Address *n = NULL;
+        _cleanup_(address_freep) Address *n = NULL;
         int r;
 
         assert(filename);
@@ -926,7 +926,7 @@ int config_parse_address_scope(const char *unit,
                                void *data,
                                void *userdata) {
         Network *network = userdata;
-        _cleanup_address_free_ Address *n = NULL;
+        _cleanup_(address_freep) Address *n = NULL;
         int r;
 
         assert(filename);

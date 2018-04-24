@@ -440,7 +440,7 @@ int image_discover(Hashmap *h) {
 }
 
 int image_remove(Image *i) {
-        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
         _cleanup_free_ char *roothash = NULL;
         char **j;
@@ -531,7 +531,7 @@ static int rename_auxiliary_file(const char *path, const char *new_name, const c
 }
 
 int image_rename(Image *i, const char *new_name) {
-        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
         _cleanup_free_ char *new_path = NULL, *nn = NULL, *roothash = NULL;
         _cleanup_strv_free_ char **settings = NULL;
         unsigned file_attr = 0;
@@ -652,7 +652,7 @@ static int clone_auxiliary_file(const char *path, const char *new_name, const ch
 }
 
 int image_clone(Image *i, const char *new_name, bool read_only) {
-        _cleanup_release_lock_file_ LockFile name_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile name_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
         _cleanup_free_ char *roothash = NULL;
         const char *new_path;
@@ -735,7 +735,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 }
 
 int image_read_only(Image *i, bool b) {
-        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;
 
         assert(i);
@@ -906,7 +906,7 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
 }
 
 int image_read_metadata(Image *i) {
-        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;
 
         assert(i);

@@ -1246,7 +1246,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int trigger_device(Manager *m, struct udev_device *d) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
         struct udev_list_entry *first, *item;
         int r;
 
@@ -1284,7 +1284,7 @@ static int trigger_device(Manager *m, struct udev_device *d) {
 }
 
 static int attach_device(Manager *m, const char *seat, const char *sysfs) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
         _cleanup_free_ char *rule = NULL, *file = NULL;
         const char *id_for_seat;
         int r;

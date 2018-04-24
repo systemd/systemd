@@ -1425,7 +1425,7 @@ static int get_or_set_log_target(int argc, char *argv[], void *userdata) {
 }
 
 static int dump_unit_paths(int argc, char *argv[], void *userdata) {
-        _cleanup_lookup_paths_free_ LookupPaths paths = {};
+        _cleanup_(lookup_paths_free) LookupPaths paths = {};
         int r;
         char **p;
 

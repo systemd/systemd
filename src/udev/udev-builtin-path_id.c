@@ -104,7 +104,7 @@ static struct udev_device *skip_subsystem(struct udev_device *dev, const char *s
 static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent, char **path) {
         struct udev *udev;
         struct udev_device *targetdev;
-        _cleanup_udev_device_unref_ struct udev_device *fcdev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *fcdev = NULL;
         const char *port;
         _cleanup_free_ char *lun = NULL;
 
@@ -133,7 +133,7 @@ static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent,
 static struct udev_device *handle_scsi_sas_wide_port(struct udev_device *parent, char **path) {
         struct udev *udev;
         struct udev_device *targetdev, *target_parent;
-        _cleanup_udev_device_unref_ struct udev_device *sasdev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *sasdev = NULL;
         const char *sas_address;
         _cleanup_free_ char *lun = NULL;
 
@@ -168,7 +168,7 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
 {
         struct udev *udev;
         struct udev_device *targetdev, *target_parent, *port, *expander;
-        _cleanup_udev_device_unref_ struct udev_device
+        _cleanup_(udev_device_unrefp) struct udev_device
                 *target_sasdev = NULL, *expander_sasdev = NULL, *port_sasdev = NULL;
         const char *sas_address = NULL;
         const char *phy_id;
@@ -244,7 +244,7 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
 static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **path) {
         struct udev *udev;
         struct udev_device *transportdev;
-        _cleanup_udev_device_unref_ struct udev_device
+        _cleanup_(udev_device_unrefp) struct udev_device
                 *sessiondev = NULL, *conndev = NULL;
         const char *target, *connname, *addr, *port;
         _cleanup_free_ char *lun = NULL;
@@ -291,7 +291,7 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
 static struct udev_device *handle_scsi_ata(struct udev_device *parent, char **path) {
         struct udev *udev;
         struct udev_device *targetdev, *target_parent;
-        _cleanup_udev_device_unref_ struct udev_device *atadev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *atadev = NULL;
         const char *port_no;
 
         assert(parent);

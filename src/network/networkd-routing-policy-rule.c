@@ -238,7 +238,7 @@ static int routing_policy_rule_add_internal(Manager *m,
                                             char *oif,
                                             RoutingPolicyRule **ret) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *rule = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
         int r;
 
         assert_return(rules, -EINVAL);
@@ -307,7 +307,7 @@ int routing_policy_rule_add_foreign(Manager *m,
 }
 
 static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(m);
@@ -379,8 +379,8 @@ int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *lin
 }
 
 static int routing_policy_rule_new_static(Network *network, const char *filename, unsigned section_line, RoutingPolicyRule **ret) {
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *rule = NULL;
-        _cleanup_network_config_section_free_ NetworkConfigSection *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
+        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         int r;
 
         assert(network);
@@ -419,7 +419,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
 }
 
 int link_routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(rtnl);
@@ -592,7 +592,7 @@ int config_parse_routing_policy_rule_tos(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -629,7 +629,7 @@ int config_parse_routing_policy_rule_priority(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -666,7 +666,7 @@ int config_parse_routing_policy_rule_table(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -703,7 +703,7 @@ int config_parse_routing_policy_rule_fwmark_mask(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -740,7 +740,7 @@ int config_parse_routing_policy_rule_prefix(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         union in_addr_union buffer;
         uint8_t prefixlen;
@@ -793,7 +793,7 @@ int config_parse_routing_policy_rule_device(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -940,7 +940,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                 return r;
 
         STRV_FOREACH(i, l) {
-                _cleanup_routing_policy_rule_free_ RoutingPolicyRule *rule = NULL;
+                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
 
                 p = startswith(*i, "RULE=");
                 if (!p)

@@ -214,9 +214,9 @@ int swap_list_get(const char *swaps, MountPoint **head) {
 }
 
 static int loopback_list_get(MountPoint **head) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         int r;
 
         assert(head);
@@ -247,7 +247,7 @@ static int loopback_list_get(MountPoint **head) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *d;
+                _cleanup_(udev_device_unrefp) struct udev_device *d;
                 const char *dn;
                 _cleanup_free_ MountPoint *lb = NULL;
 
@@ -275,9 +275,9 @@ static int loopback_list_get(MountPoint **head) {
 }
 
 static int dm_list_get(MountPoint **head) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         int r;
 
         assert(head);
@@ -304,7 +304,7 @@ static int dm_list_get(MountPoint **head) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *d;
+                _cleanup_(udev_device_unrefp) struct udev_device *d;
                 dev_t devnum;
                 const char *dn;
                 _cleanup_free_ MountPoint *m = NULL;
