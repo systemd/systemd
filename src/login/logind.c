@@ -69,6 +69,14 @@ static int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
+        r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        if (r < 0)
+                return r;
+
         (void) sd_event_set_watchdog(m->event, true);
 
         manager_reset_config(m);
@@ -1084,8 +1092,6 @@ static int manager_startup(Manager *m) {
 
         assert(m);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGHUP, -1) >= 0);
-
         r = sd_event_add_signal(m->event, NULL, SIGHUP, manager_dispatch_reload_signal, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register SIGHUP handler: %m");
@@ -1223,6 +1229,8 @@ int main(int argc, char *argv[]) {
         mkdir_label("/run/systemd/seats", 0755);
         mkdir_label("/run/systemd/users", 0755);
         mkdir_label("/run/systemd/sessions", 0755);
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, -1) >= 0);
 
         r = manager_new(&m);
         if (r < 0) {
