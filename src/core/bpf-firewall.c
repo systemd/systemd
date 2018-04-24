@@ -691,13 +691,14 @@ int bpf_firewall_supported(void) {
                          1,
                          BPF_F_NO_PREALLOC);
         if (fd < 0) {
-                log_debug_errno(r, "Can't allocate BPF LPM TRIE map, BPF firewalling is not supported: %m");
+                log_debug_errno(fd, "Can't allocate BPF LPM TRIE map, BPF firewalling is not supported: %m");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
         safe_close(fd);
 
-        if (bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &program) < 0) {
+        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &program);
+        if (r < 0) {
                 log_debug_errno(r, "Can't allocate CGROUP SKB BPF program, BPF firewalling is not supported: %m");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
@@ -728,8 +729,7 @@ int bpf_firewall_supported(void) {
                 .attach_bpf_fd = -1,
         };
 
-        r = bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
-        if (r < 0) {
+        if (bpf(BPF_PROG_ATTACH, &attr, sizeof(attr)) < 0) {
                 if (errno != EBADF) {
                         log_debug_errno(errno, "Didn't get EBADF from BPF_PROG_ATTACH, BPF firewalling is not supported: %m");
                         return supported = BPF_FIREWALL_UNSUPPORTED;
@@ -753,8 +753,7 @@ int bpf_firewall_supported(void) {
                 .attach_flags = BPF_F_ALLOW_MULTI,
         };
 
-        r = bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
-        if (r < 0) {
+        if (bpf(BPF_PROG_ATTACH, &attr, sizeof(attr)) < 0) {
                 if (errno == EBADF) {
                         log_debug_errno(errno, "Got EBADF when using BPF_F_ALLOW_MULTI, which indicates it is supported. Yay!");
                         return supported = BPF_FIREWALL_SUPPORTED_WITH_MULTI;

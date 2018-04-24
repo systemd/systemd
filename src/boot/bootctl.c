@@ -428,8 +428,7 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
 
         (void) fsync_directory_of_file(fd_to);
 
-        r = renameat(AT_FDCWD, t, AT_FDCWD, to);
-        if (r < 0) {
+        if (renameat(AT_FDCWD, t, AT_FDCWD, to) < 0) {
                 (void) unlink_noerrno(t);
                 return log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", t, to);
         }

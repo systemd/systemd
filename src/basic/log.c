@@ -686,9 +686,8 @@ int log_internalv_realm(
         if (_likely_(LOG_PRI(level) > log_max_level[realm]))
                 return -error;
 
-        /* Make sure that %m maps to the specified error */
-        if (error != 0)
-                errno = error;
+        /* Make sure that %m maps to the specified error (or "Success"). */
+        errno = error;
 
         (void) vsnprintf(buffer, sizeof buffer, format, ap);
 
