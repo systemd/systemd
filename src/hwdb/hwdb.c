@@ -694,15 +694,14 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
 static void help(void) {
         printf("Usage: %s OPTIONS COMMAND\n\n"
                "Update or query the hardware database.\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "  -s --strict          When updating, return non-zero exit value on any parsing\n"
-               "                       error\n"
-               "     --usr             Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
-               "  -r --root=PATH       Alternative root path in the filesystem\n\n"
+               "  -h --help       Show this help\n"
+               "     --version    Show package version\n"
+               "  -s --strict     When updating, return non-zero exit value on any parsing error\n"
+               "     --usr        Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
+               "  -r --root=PATH  Alternative root path in the filesystem\n\n"
                "Commands:\n"
-               "  update               Update the hwdb database\n"
-               "  query MODALIAS       Query database and print result\n",
+               "  update          Update the hwdb database\n"
+               "  query MODALIAS  Query database and print result\n",
                program_invocation_short_name);
 }
 
