@@ -18,6 +18,7 @@
  * Boston, MA  02110-1301  USA
  */
 
+#include <errno.h>
 #include <fcntl.h>
 #include <mtd/mtd-user.h>
 #include <stdint.h>
@@ -35,7 +36,7 @@ static const uint8_t cis_signature[] = {
         0x01, 0x03, 0xD9, 0x01, 0xFF, 0x18, 0x02, 0xDF, 0x01, 0x20
 };
 
-void probe_smart_media(int mtd_fd, mtd_info_t* info) {
+int probe_smart_media(int mtd_fd, mtd_info_t* info) {
         int sector_size;
         int block_size;
         int size_in_megs;
@@ -46,17 +47,21 @@ void probe_smart_media(int mtd_fd, mtd_info_t* info) {
 
         cis_buffer = malloc(SM_SECTOR_SIZE);
         if (!cis_buffer)
-                return;
+                return log_oom();
 
-        if (info->type != MTD_NANDFLASH)
-                goto exit;
+        if (info->type != MTD_NANDFLASH) {
+                log_debug("Not marked MTD_NANDFLASH.");
+                return -EINVAL;
+        }
 
         sector_size = info->writesize;
         block_size = info->erasesize;
         size_in_megs = info->size / (1024 * 1024);
 
-        if (!IN_SET(sector_size, SM_SECTOR_SIZE, SM_SMALL_PAGE))
-                goto exit;
+        if (!IN_SET(sector_size, SM_SECTOR_SIZE, SM_SMALL_PAGE)) {
+                log_debug("Unexpected sector size: %i", sector_size);
+                return -EINVAL;
+        }
 
         switch(size_in_megs) {
         case 1:
@@ -71,26 +76,26 @@ void probe_smart_media(int mtd_fd, mtd_info_t* info) {
                 break;
         }
 
-        for (offset = 0 ; offset < block_size * spare_count ;
-                                                offset += sector_size) {
-                lseek(mtd_fd, SEEK_SET, offset);
+        for (offset = 0; offset < block_size * spare_count; offset += sector_size) {
+                (void) lseek(mtd_fd, SEEK_SET, offset);
+
                 if (read(mtd_fd, cis_buffer, SM_SECTOR_SIZE) == SM_SECTOR_SIZE) {
                         cis_found = 1;
                         break;
                 }
         }
 
-        if (!cis_found)
-                goto exit;
+        if (!cis_found) {
+                log_debug("CIS not found");
+                return -EINVAL;
+        }
 
         if (memcmp(cis_buffer, cis_signature, sizeof(cis_signature)) != 0 &&
-                (memcmp(cis_buffer + SM_SMALL_PAGE, cis_signature,
-                        sizeof(cis_signature)) != 0))
-                goto exit;
+            memcmp(cis_buffer + SM_SMALL_PAGE, cis_signature, sizeof(cis_signature)) != 0) {
+                log_debug("CIS signature didn't match");
+                return -EINVAL;
+        }
 
         printf("MTD_FTL=smartmedia\n");
-        exit(EXIT_SUCCESS);
-
-exit:
-        return;
+        return 0;
 }
