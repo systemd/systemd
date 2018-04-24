@@ -728,8 +728,7 @@ int bpf_firewall_supported(void) {
                 .attach_bpf_fd = -1,
         };
 
-        r = bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
-        if (r < 0) {
+        if (bpf(BPF_PROG_ATTACH, &attr, sizeof(attr)) < 0) {
                 if (errno != EBADF) {
                         log_debug_errno(errno, "Didn't get EBADF from BPF_PROG_ATTACH, BPF firewalling is not supported: %m");
                         return supported = BPF_FIREWALL_UNSUPPORTED;
@@ -753,8 +752,7 @@ int bpf_firewall_supported(void) {
                 .attach_flags = BPF_F_ALLOW_MULTI,
         };
 
-        r = bpf(BPF_PROG_ATTACH, &attr, sizeof(attr));
-        if (r < 0) {
+        if (bpf(BPF_PROG_ATTACH, &attr, sizeof(attr)) < 0) {
                 if (errno == EBADF) {
                         log_debug_errno(errno, "Got EBADF when using BPF_F_ALLOW_MULTI, which indicates it is supported. Yay!");
                         return supported = BPF_FIREWALL_SUPPORTED_WITH_MULTI;

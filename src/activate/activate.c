@@ -35,16 +35,14 @@ static bool arg_inetd = false;
 
 static int add_epoll(int epoll_fd, int fd) {
         struct epoll_event ev = {
-                .events = EPOLLIN
+                .events = EPOLLIN,
+                .data.fd = fd,
         };
-        int r;
 
         assert(epoll_fd >= 0);
         assert(fd >= 0);
 
-        ev.data.fd = fd;
-        r = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
-        if (r < 0)
+        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
                 return log_error_errno(errno, "Failed to add event on epoll fd:%d for fd:%d: %m", epoll_fd, fd);
 
         return 0;
@@ -194,8 +192,7 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
                 if (start_fd != SD_LISTEN_FDS_START) {
                         assert(n_fds == 1);
 
-                        r = dup2(start_fd, SD_LISTEN_FDS_START);
-                        if (r < 0)
+                        if (dup2(start_fd, SD_LISTEN_FDS_START) < 0)
                                 return log_error_errno(errno, "Failed to dup connection: %m");
 
                         safe_close(start_fd);
@@ -312,10 +309,7 @@ static int install_chld_handler(void) {
                 .sa_handler = sigchld_hdl,
         };
 
-        int r;
-
-        r = sigaction(SIGCHLD, &act, 0);
-        if (r < 0)
+        if (sigaction(SIGCHLD, &act, 0) < 0)
                 return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
 
         return 0;
@@ -490,8 +484,7 @@ int main(int argc, char **argv, char **envp) {
         for (;;) {
                 struct epoll_event event;
 
-                r = epoll_wait(epoll_fd, &event, 1, -1);
-                if (r < 0) {
+                if (epoll_wait(epoll_fd, &event, 1, -1) < 0) {
                         if (errno == EINTR)
                                 continue;
 

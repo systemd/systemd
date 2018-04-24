@@ -301,8 +301,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (prctl(PR_SET_KEEPCAPS, 1) < 0)
                 return log_error_errno(errno, "Failed to enable keep capabilities flag: %m");
 
-        r = setresuid(uid, uid, uid);
-        if (r < 0)
+        if (setresuid(uid, uid, uid) < 0)
                 return log_error_errno(errno, "Failed to change user ID: %m");
 
         if (prctl(PR_SET_KEEPCAPS, 0) < 0)

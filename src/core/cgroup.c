@@ -308,13 +308,11 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
 
 static int lookup_block_device(const char *p, dev_t *dev) {
         struct stat st;
-        int r;
 
         assert(p);
         assert(dev);
 
-        r = stat(p, &st);
-        if (r < 0)
+        if (stat(p, &st) < 0)
                 return log_warning_errno(errno, "Couldn't stat device %s: %m", p);
 
         if (S_ISBLK(st.st_mode))
