@@ -6,7 +6,7 @@ what systemd has to offer there. Here's a bit of documentation about the
 concepts and interfaces involved with this.
 
 What's described here has been part of systemd and documented since v205
-times. However, it has been updated and improved substantially since, even
+times. However, it has been updated and improved substantially, even
 though the concepts stayed mostly the same. This is an attempt to provide more
 comprehensive up-to-date information about all this, particular in light of the
 poor implementations of the components interfacing with systemd of current
@@ -39,7 +39,7 @@ to have processes directly attached to a cgroup that also has child cgroups and
 vice versa. A cgroup is either an inner node or a leaf node of the tree, and if
 it's an inner node it may not contain processes directly, and if it's a leaf
 node then it may not have child cgroups. (Note that there are some minor
-exceptions to this rule, though. i.e. the root cgroup is special and allows
+exceptions to this rule, though. E.g. the root cgroup is special and allows
 both processes and children — which is used in particular to maintain kernel
 threads.)
 
@@ -64,14 +64,14 @@ root can do anything, modulo SELinux and friends), but if you ignore it you'll
 be in constant pain as various pieces of software will fight over cgroup
 ownership.
 
-Note that cgroupsv1 is currently the most deployed implementation of all of
-this, even though it's semantically broken in many ways, and in many cases
-doesn't actually do what people think it does. cgroupsv2 is where things are
-going, and most new kernel features in this area are only added to cgroupsv2,
-and not cgroupsv1 anymore. For example cgroupsv2 provides proper cgroup-empty
-notifications, has support for all kinds of per-cgroup BPF magic, supports
-secure delegation of cgroup trees to less privileged processes and so on, which
-all are not available on cgroupsv1.
+Note that cgroupsv1 is currently the most deployed implementation, even though
+it's semantically broken in many ways, and in many cases doesn't actually do
+what people think it does. cgroupsv2 is where things are going, and most new
+kernel features in this area are only added to cgroupsv2, and not cgroupsv1
+anymore. For example cgroupsv2 provides proper cgroup-empty notifications, has
+support for all kinds of per-cgroup BPF magic, supports secure delegation of
+cgroup trees to less privileged processes and so on, which all are not
+available on cgroupsv1.
 
 ## Three Different Tree Setups 🌳
 
@@ -105,11 +105,11 @@ sync (at least mostly: sub-trees might be suppressed in certain hierarchies if
 no controller usage is required for them). The fact that systemd keeps these
 hierarchies in sync means that the legacy and hybrid hierarchies are
 conceptually very close to the unified hierarchy. In particular this allows us
-talk of one specific cgroup and actually mean the same cgroup in all available
-controller hierarchies. e.g. if we talk about the cgroup `/foo/bar/` then we
-actually mean `/sys/fs/cgroup/cpu/foo/bar/` as well as
-`/sys/fs/cgroup/memory/foo/bar/`, `/sys/fs/cgroup/pids/foo/bar/`, and so on, in
-one. Note that in cgroupsv2 the controller hierarchies aren't orthogonal, hence
+to talk of one specific cgroup and actually mean the same cgroup in all
+available controller hierarchies. E.g. if we talk about the cgroup `/foo/bar/`
+then we actually mean `/sys/fs/cgroup/cpu/foo/bar/` as well as
+`/sys/fs/cgroup/memory/foo/bar/`, `/sys/fs/cgroup/pids/foo/bar/`, and so on.
+Note that in cgroupsv2 the controller hierarchies aren't orthogonal, hence
 thinking about them as orthogonal won't help you in the long run anyway.
 
 If you wonder how to detect which of these three modes is currently used, use
@@ -187,15 +187,14 @@ clear which manager manages which part of the tree each one can do within its
 sub-graph of the tree whatever it wants.
 
 Only sub-trees can be delegated (though whoever decides to request a sub-tree
-can delegate sub-sub-trees further to somebody else if they like
-it). Delegation takes place at a specific cgroup: in systemd there's a
-`Delegate=` property you can set for a service or scope unit. If you do, it's
-the cut-off point for systemd's cgroup management: the unit itself is managed
-by systemd, i.e. all its attributes are managed exclusively by systemd, however
-your program may create/remove sub-cgroups inside it freely, and those then
-become exclusive property of your program, systemd won't touch them — all
-attributes of *those* sub-cgroups can be manipulated freely and exclusively by
-your program.
+can delegate sub-sub-trees further to somebody else if they like). Delegation
+takes place at a specific cgroup: in systemd there's a `Delegate=` property you
+can set for a service or scope unit. If you do, it's the cut-off point for
+systemd's cgroup management: the unit itself is managed by systemd, i.e. all
+its attributes are managed exclusively by systemd, however your program may
+create/remove sub-cgroups inside it freely, and those then become exclusive
+property of your program, systemd won't touch them — all attributes of *those*
+sub-cgroups can be manipulated freely and exclusively by your program.
 
 By turning on the `Delegate=` property for a scope or service you get a few
 guarantees:
@@ -228,11 +227,11 @@ the current kernel or was turned off) or more.  If no list is specified
 delegated.
 
 Let's stress one thing: delegation is available on scope and service units
-only. It's expressly not available on slice units. Why that? Because slice
-units are our *inner* nodes of the cgroup trees and we freely attach service
-and scopes to them. If we'd allow delegation on slice units then this would
-mean that that both systemd and your own manager would create/delete cgroups
-below the slice unit and that conflicts with the single-writer rule.
+only. It's expressly not available on slice units. Why? Because slice units are
+our *inner* nodes of the cgroup trees and we freely attach service and scopes
+to them. If we'd allow delegation on slice units then this would mean that that
+both systemd and your own manager would create/delete cgroups below the slice
+unit and that conflicts with the single-writer rule.
 
 So, if you want to do your own raw cgroups kernel level access, then allocate a
 scope unit, or a service unit (or just use the service unit you already have
@@ -245,18 +244,19 @@ cgroups for it, as you want your manager to be able to run on systemd systems.
 
 You basically have three options:
 
-1. 😊 The *integration-is-good* option. For this, you register each container you
-   have either as systemd service (i.e. let systemd invoke the executor binary
-   for you) or systemd scope (i.e. your manager executes the binary directly,
-   but then tells systemd about it. In this mode the administrator can use the
-   usual systemd resource management commands individually on containers. By
-   turning on `Delegate=` for these scopes or services you make it possible to
-   run cgroup-enabled programs in your containers, for example a systemd
-   instance running inside it. This option has two sub-options:
+1. 😊 The *integration-is-good* option. For this, you register each container
+   you have either as a systemd service (i.e. let systemd invoke the executor
+   binary for you) or a systemd scope (i.e. your manager executes the binary
+   directly, but then tells systemd about it. In this mode the administrator
+   can use the usual systemd resource management and reporting commands
+   individually on those containers. By turning on `Delegate=` for these scopes
+   or services you make it possible to run cgroup-enabled programs in your
+   containers, for example a nested systemd instance. This option has two
+   sub-options:
 
-   a. You register the service or scope transiently directly by contacting
-      systemd via D-Bus. In this case systemd will just manage the unit for you and
-      nothing else.
+   a. You transiently register the service or scope by directly contacting
+      systemd via D-Bus. In this case systemd will just manage the unit for you
+      and nothing else.
 
    b. Instead you register the service or scope through `systemd-machined`
       (also via D-Bus). This mini-daemon is basically just a proxy for the same
@@ -305,9 +305,9 @@ are:
 * on cgroupsv1: `cpu`, `cpuacct`, `blkio`, `memory`, `devices`, `pids`
 * on cgroupsv2: `cpu`, `io`, `memory`, `pids`
 
-It is our intention to natively support all cgroupsv2 controllers that might
-come up sooner or later. However, regarding cgroupsv1: at this point we will
-not add support for any other controllers anymore. This means systemd currently
+It is our intention to natively support all cgroupsv2 controllers as they are
+added to the kernel. However, regarding cgroupsv1: at this point we will not
+add support for any other controllers anymore. This means systemd currently
 does not and will never manage the following controllers on cgroupsv1:
 `freezer`, `cpuset`, `net_cls`, `perf_event`, `net_prio`, `hugetlb`. Why not?
 Depending on the case, either their API semantics or implementations aren't
