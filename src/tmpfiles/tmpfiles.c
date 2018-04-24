@@ -859,6 +859,9 @@ static int path_set_perms(Item *i, const char *path) {
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
 
+        if (i->type == EMPTY_DIRECTORY && !S_ISDIR(st.st_mode))
+                return log_error_errno(EEXIST, "'%s' already exists and is not a directory. ", path);
+
         return fd_set_perms(i, fd, &st);
 }
 
