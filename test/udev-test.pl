@@ -1677,28 +1677,21 @@ KERNEL=="ttyACM0a|nothing", SYMLINK+="wrong3"
 EOF
         },
         {
-                desc            => "IMPORT parent test sequence 1/2 (keep)",
+                desc            => "IMPORT parent test",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                                 exp_links       => ["parent"],
-                        }],
-                option          => "keep",
-                rules           => <<EOF
-KERNEL=="sda", IMPORT{program}="/bin/echo -e \'PARENT_KEY=parent_right\\nWRONG_PARENT_KEY=parent_wrong'"
-KERNEL=="sda", SYMLINK+="parent"
-EOF
-        },
-        {
-                desc            => "IMPORT parent test sequence 2/2 (keep)",
-                devices => [
+                        },
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
                                 exp_links       => ["parentenv-parent_right"],
                         }],
-                option          => "clean",
+                sleep_us        => 500000,  # Serialized! We need to sleep here after adding sda
                 rules           => <<EOF
 KERNEL=="sda1", IMPORT{parent}="PARENT*", SYMLINK+="parentenv-\$env{PARENT_KEY}\$env{WRONG_PARENT_KEY}"
+KERNEL=="sda", IMPORT{program}="/bin/echo -e \'PARENT_KEY=parent_right\\nWRONG_PARENT_KEY=parent_wrong'"
+KERNEL=="sda", SYMLINK+="parent"
 EOF
         },
         {
