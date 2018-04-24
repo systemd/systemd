@@ -782,8 +782,8 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         if (revents != EPOLLIN) {
                 static RATELIMIT_DEFINE(limit, 10*USEC_PER_SEC, 5);
 
-                if (!ratelimit_test(&limit))
-                        log_error_errno(errno, "Failed to get udev event: %m");
+                if (ratelimit_test(&limit))
+                        log_warning("Failed to get udev event");
                 if (!(revents & EPOLLIN))
                         return 0;
         }
