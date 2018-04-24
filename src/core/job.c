@@ -43,6 +43,7 @@ Job* job_new_raw(Unit *unit) {
         j->manager = unit->manager;
         j->unit = unit;
         j->type = _JOB_TYPE_INVALID;
+        j->reloaded = false;
 
         return j;
 }
@@ -64,6 +65,32 @@ Job* job_new(Unit *unit, JobType type) {
         return j;
 }
 
+void job_unlink(Job *j) {
+        assert(j);
+        assert(!j->installed);
+        assert(!j->transaction_prev);
+        assert(!j->transaction_next);
+        assert(!j->subject_list);
+        assert(!j->object_list);
+
+        if (j->in_run_queue) {
+                LIST_REMOVE(run_queue, j->manager->run_queue, j);
+                j->in_run_queue = false;
+        }
+
+        if (j->in_dbus_queue) {
+                LIST_REMOVE(dbus_queue, j->manager->dbus_job_queue, j);
+                j->in_dbus_queue = false;
+        }
+
+        if (j->in_gc_queue) {
+                LIST_REMOVE(gc_queue, j->manager->gc_job_queue, j);
+                j->in_gc_queue = false;
+        }
+
+        j->timer_event_source = sd_event_source_unref(j->timer_event_source);
+}
+
 void job_free(Job *j) {
         assert(j);
         assert(!j->installed);
@@ -72,16 +99,7 @@ void job_free(Job *j) {
         assert(!j->subject_list);
         assert(!j->object_list);
 
-        if (j->in_run_queue)
-                LIST_REMOVE(run_queue, j->manager->run_queue, j);
-
-        if (j->in_dbus_queue)
-                LIST_REMOVE(dbus_queue, j->manager->dbus_job_queue, j);
-
-        if (j->in_gc_queue)
-                LIST_REMOVE(gc_queue, j->manager->gc_job_queue, j);
-
-        sd_event_source_unref(j->timer_event_source);
+        job_unlink(j);
 
         sd_bus_track_unref(j->bus_track);
         strv_free(j->deserialized_clients);
@@ -241,6 +259,7 @@ int job_install_deserialized(Job *j) {
 
         *pj = j;
         j->installed = true;
+        j->reloaded = true;
 
         if (j->state == JOB_RUNNING)
                 j->unit->manager->n_running_jobs++;
@@ -839,6 +858,19 @@ static void job_fail_dependencies(Unit *u, UnitDependency d) {
         }
 }
 
+static int job_save_pending_finished_job(Job *j) {
+        int r;
+
+        assert(j);
+
+        r = set_ensure_allocated(&j->manager->pending_finished_jobs, NULL);
+        if (r < 0)
+                return r;
+
+        job_unlink(j);
+        return set_put(j->manager->pending_finished_jobs, j);
+}
+
 int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool already) {
         Unit *u;
         Unit *other;
@@ -878,7 +910,12 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                 j->manager->n_failed_jobs++;
 
         job_uninstall(j);
-        job_free(j);
+        /* Remember jobs started before the reload */
+        if (MANAGER_IS_RELOADING(j->manager) && j->reloaded) {
+                if (job_save_pending_finished_job(j) < 0)
+                        job_free(j);
+        } else
+                job_free(j);
 
         /* Fail depending jobs on failure */
         if (result != JOB_DONE && recursive) {

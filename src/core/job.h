@@ -161,10 +161,12 @@ struct Job {
         bool irreversible:1;
         bool in_gc_queue:1;
         bool ref_by_private_bus:1;
+        bool reloaded:1;
 };
 
 Job* job_new(Unit *unit, JobType type);
 Job* job_new_raw(Unit *unit);
+void job_unlink(Job *job);
 void job_free(Job *job);
 Job* job_install(Job *j);
 int job_install_deserialized(Job *j);
