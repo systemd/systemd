@@ -50,12 +50,10 @@ my @tests = (
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "sda" ,
                                 exp_rem_error   => "yes",
                         },
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "sda1" ,
                                 exp_rem_error   => "yes",
                         }],
                 rules           => <<EOF
@@ -654,7 +652,6 @@ EOF
                         {
                                 devpath         => "/devices/virtual/block/fake!blockdev0",
                                 devnode         => "fake/blockdev0",
-                                exp_name        => "fake/blockdev0" ,
                                 exp_rem_error   => "yes",
                         }],
                 rules           => <<EOF
@@ -765,7 +762,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/virtual/tty/tty33",
-                                exp_name        => "tty33",
                                 exp_perms       => "0:0:0600",
                         }],
                 rules           => <<EOF
@@ -861,7 +857,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "1::",
                         }],
                 rules           => <<EOF
@@ -873,7 +868,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => ":1:0660",
                         }],
                 rules           => <<EOF
@@ -885,7 +879,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "::0060",
                         }],
                 rules           => <<EOF
@@ -897,7 +890,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "1:1:0777",
                         }],
                 rules           => <<EOF
@@ -909,7 +901,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "1:1:0777",
                         }],
                 rules           => <<EOF
@@ -923,7 +914,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "1:1:0777",
                         }],
                 rules           => <<EOF
@@ -939,7 +929,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "1:2:0777",
                         }],
                 rules           => <<EOF
@@ -1821,7 +1810,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "sda",
                                 exp_perms       => "0:0:0000",
                                 exp_rem_error   => "yes",
                         }],
@@ -1834,7 +1822,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "sda",
                                 exp_perms       => "1:1:0400",
                                 exp_rem_error   => "yes",
                         }],
@@ -1848,7 +1835,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "sda",
                                 exp_perms       => "0:0:0440",
                                 exp_rem_error   => "yes",
                         }],
