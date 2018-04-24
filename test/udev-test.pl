@@ -1097,34 +1097,9 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_links        => ["first"],
-                                not_exp_links    => [" "],
-                        }],
-                rules           => <<EOF
-ENV{WITH_WS}="   one  two  three   "
-SYMLINK="  first  name-\$env{WITH_WS}-end another_symlink a b c "
-EOF
-        },
-        {
-                desc            => "symlink with space and var with space, part 2",
-                devices => [
-                        {
-                                devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_links        => ["name-one_two_three-end"],
-                                not_exp_links    => [" "],
-                        }],
-                rules           => <<EOF
-ENV{WITH_WS}="   one  two  three   "
-SYMLINK="  first  name-\$env{WITH_WS}-end another_symlink a b c "
-EOF
-        },
-        {
-                desc            => "symlink with space and var with space, part 3",
-                devices => [
-                        {
-                                devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_links        => ["another_symlink"],
-                                not_exp_links    => [" "],
+                                exp_links       => ["first", "name-one_two_three-end",
+                                                    "another_symlink", "a", "b", "c"],
+                                not_exp_links   => [" "],
                         }],
                 rules           => <<EOF
 ENV{WITH_WS}="   one  two  three   "
