@@ -1971,8 +1971,6 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_ar
                         if (q < 0 && r == 0)
                                 r = q;
 
-                        errno = 0; /* Reset errno explicitly, so that log_debug_errno() will properly print 'Success'
-                                    * for q == 0, instead of whatever is set in errno */
                         log_debug_errno(q, "Got result %s/%m for job %s", strna(d->result), strna(d->name));
                 }
 
