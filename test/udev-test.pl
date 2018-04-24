@@ -1948,6 +1948,7 @@ sub udev {
 }
 
 my $error = 0;
+my $good = 0;
 
 sub permissions_test {
         my($rules, $uid, $gid, $mode) = @_;
@@ -1978,6 +1979,7 @@ sub permissions_test {
         }
         if ($wrong == 0) {
                 print "permissions: ok\n";
+                $good++;
         } else {
                 printf "  expected permissions are: %s:%s:%#o\n", $1, $2, oct($3);
                 printf "  created permissions are : %i:%i:%#o\n", $uid, $gid, $mode & 07777;
@@ -2003,6 +2005,7 @@ sub major_minor_test {
         }
         if ($wrong == 0) {
                 print "major:minor: ok\n";
+                $good++;
         } else {
                 printf "  expected major:minor is: %i:%i\n", $1, $2;
                 printf "  created major:minor is : %i:%i\n", $major, $minor;
@@ -2088,6 +2091,7 @@ sub check_devnode {
                 major_minor_test($device, $rdev);
         }
         print "add $devnode:         ok\n";
+        $good++;
         return $devnode;
 }
 
@@ -2116,11 +2120,13 @@ sub check_link_add {
                         system("tree", "$udev_dev");
                 } else {
                         print "symlink $link:         ok\n";
+                        $good++;
                 }
         } else {
                 print "symlink $link:         error";
                 if ($err_expected) {
                         print " as expected\n";
+                        $good++;
                 } else {
                         print "\n";
                         system("tree", "$udev_dev");
@@ -2139,10 +2145,12 @@ sub check_link_nonexistent {
 
                 if ($tgt ne $devnode) {
                         print "nonexistent: '$link' points to other device (ok)\n";
+                        $good++;
                 } else {
                         print "nonexistent: error \'$link\' should not be there";
                         if ($err_expected) {
                                 print " (as expected)\n";
+                                $good++;
                         } else {
                                 print "\n";
                                 system("tree", "$udev_dev");
@@ -2153,6 +2161,7 @@ sub check_link_nonexistent {
                 }
         } else {
                 print "nonexistent $link:         ok\n";
+                $good++;
         }
 }
 
@@ -2187,6 +2196,7 @@ sub check_remove_devnode {
                 sleep(1);
         } else {
                 print "remove $devnode:         ok\n";
+                $good++;
         }
 }
 
@@ -2198,6 +2208,7 @@ sub check_link_remove {
                 print "remove  $link:      error";
                 if ($err_expected) {
                         print " as expected\n";
+                        $good++;
                 } else {
                         print "\n";
                         system("tree", "$udev_dev");
@@ -2207,6 +2218,7 @@ sub check_link_remove {
                 }
         } else {
                 print "remove  $link:      ok\n";
+                $good++;
         }
 }
 
@@ -2266,7 +2278,6 @@ sub fork_and_run_udev {
                 $pid = waitpid($dev->{pid}, 0);
                 if ($pid == -1) {
                         print "error waiting for pid dev->{pid}\n";
-                        $error += 1;
                 }
                 if (WIFEXITED($?)) {
                         $rc = WEXITSTATUS($?);
@@ -2274,6 +2285,8 @@ sub fork_and_run_udev {
                         if ($rc) {
                                 print "$udev_bin $action for $dev->{devpath} failed with code $rc\n";
                                 $error += 1;
+                        } else {
+                                $good++;
                         }
                 }
         }
@@ -2375,7 +2388,7 @@ if ($list[0]) {
 }
 
 $sema->remove;
-print "$error errors occurred\n\n";
+print "$error errors occurred. $good good results.\n\n";
 
 # cleanup
 system("rm", "-rf", "$udev_run");
