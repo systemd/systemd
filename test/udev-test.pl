@@ -71,7 +71,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "boot_disk" ,
+                                exp_links       => ["boot_disk"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
@@ -83,7 +83,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "boot_disk" ,
+                                exp_links       => ["boot_disk"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
@@ -95,7 +95,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "boot_disk" ,
+                                exp_links       => ["boot_disk"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
@@ -107,7 +107,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "boot_disk1" ,
+                                exp_links       => ["boot_disk1"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="boot_disk%n"
@@ -118,13 +118,16 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "boot_disk1" ,
+                                exp_links       => ["boot_disk1", "boot_disk1-4", "boot_disk1-5"],
+                                not_exp_links   => ["boot_disk1-1", "boot_disk1-2", "boot_disk1-3"]
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="?ATA", SYMLINK+="boot_disk%n-1"
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA?", SYMLINK+="boot_disk%n-2"
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="A??", SYMLINK+="boot_disk%n"
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATAS", SYMLINK+="boot_disk%n-3"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="AT?", SYMLINK+="boot_disk%n-4"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="??A", SYMLINK+="boot_disk%n-5"
 EOF
         },
         {
@@ -132,7 +135,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "boot_disk1" ,
+                                exp_links       => ["boot_disk1"],
+                                not_exp_links   => ["boot_diskX1"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS X ", SYMLINK+="boot_diskX%n"
@@ -144,10 +148,12 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "boot_disk1" ,
+                                exp_links       => ["boot_disk1", "boot_diskXY1"],
+                                not_exp_links   => ["boot_diskXX1"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ATTRS{scsi_level}=="6", ATTRS{rev}=="4.06", ATTRS{type}=="0", ATTRS{queue_depth}=="32", SYMLINK+="boot_diskXX%n"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ATTRS{scsi_level}=="6", ATTRS{rev}=="4.06", ATTRS{type}=="0", ATTRS{queue_depth}=="1", SYMLINK+="boot_diskXY%n"
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", ATTRS{model}=="ST910021AS", ATTRS{scsi_level}=="6", ATTRS{rev}=="4.06", ATTRS{type}=="0", SYMLINK+="boot_disk%n"
 EOF
         },
@@ -156,18 +162,21 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem/0" ,
+                                exp_links       => ["modem/0", "catch-all"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM*", SYMLINK+="modem/%n"
+KERNEL=="*", SYMLINK+="catch-all"
 EOF
         },
+        # 10
         {
                 desc            => "catch device by * - take 2",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem/0" ,
+                                exp_links       => ["modem/0"],
+                                not_exp_links   => ["bad"],
                         }],
                 rules           => <<EOF
 KERNEL=="*ACM1", SYMLINK+="bad"
@@ -179,7 +188,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem/0" ,
+                                exp_links       => ["modem/0"],
+                                not_exp_links   => ["modem/0-1", "modem/0-2"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM??*", SYMLINK+="modem/%n-1"
@@ -192,7 +202,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem/0" ,
+                                exp_links       => ["modem/0"],
+                                not_exp_links   => ["modem/0-1", "modem/0-2"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[A-Z]*", SYMLINK+="modem/%n-1"
@@ -205,7 +216,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem" ,
+                                exp_links       => ["modem"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM0", SYMLINK+="modem"
@@ -216,7 +227,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem" ,
+                                exp_links       => ["modem"],
                         }],
                 rules           => <<EOF
 # this is a comment
@@ -229,7 +240,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem" ,
+                                exp_links       => ["modem"],
                         }],
                 rules           => <<EOF
  # this is a comment with whitespace before the comment
@@ -242,7 +253,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "whitespace" ,
+                                exp_links       => ["whitespace"],
                         }],
                 rules           => <<EOF
 
@@ -260,7 +271,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem" ,
+                                exp_links       => ["modem"],
                         }],
                 rules           => <<EOF
 
@@ -273,7 +284,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem" ,
+                                exp_links       => ["modem"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM0", \\
@@ -286,7 +297,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "aaa",
+                                exp_links       => ["aaa"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM0", PROGRAM=="/bin/echo -e \\101", RESULT=="A", SYMLINK+="aaa"
@@ -297,7 +308,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem" ,
+                                exp_links       => ["modem"],
                         }],
                 rules           => <<EOF
 
@@ -318,7 +329,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "sub/direct/ory/modem" ,
+                                exp_links       => ["sub/direct/ory/modem"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM0", SYMLINK+="sub/direct/ory/modem"
@@ -329,7 +340,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "first_disk5" ,
+                                exp_links       => ["first_disk5"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", SYMLINK+="first_disk%n"
@@ -340,7 +351,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "Major:8:minor:5:kernelnumber:5:id:0:0:0:0" ,
+                                exp_links       => ["Major:8:minor:5:kernelnumber:5:id:0:0:0:0"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", SYMLINK+="Major:%M:minor:%m:kernelnumber:%n:id:%b"
@@ -351,7 +362,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node12345678",
+                                exp_links       => ["node12345678"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", IMPORT{program}="/bin/echo -e \' TEST_KEY=12345678\\n  TEST_key2=98765\'", SYMLINK+="node\$env{TEST_KEY}"
@@ -363,7 +374,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "disk-ATA-sda" ,
+                                exp_links       => ["disk-ATA-sda"],
+                                not_exp_links   => ["modem"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", SYMLINK+="disk-%s{vendor}-%k"
@@ -375,8 +387,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "special-device-5" ,
-                                not_exp_name    => "not" ,
+                                exp_links       => ["special-device-5"],
+                                not_exp_links   => ["not"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n special-device", RESULT=="-special-*", SYMLINK+="not"
@@ -388,7 +400,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "newline_removed" ,
+                                exp_links       => ["newline_removed"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo test", RESULT=="test", SYMLINK+="newline_removed"
@@ -399,7 +411,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "test-0:0:0:0" ,
+                                exp_links       => ["test-0:0:0:0"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n test-%b", RESULT=="test-0:0*", SYMLINK+="%c"
@@ -410,7 +422,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "foo9" ,
+                                exp_links       => ["foo9"],
+                                not_exp_links   => ["foo3", "foo4", "foo5", "foo6", "foo7", "foo8"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="%c{7}"
@@ -421,7 +434,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "bar9" ,
+                                exp_links       => ["bar9"],
+                                not_exp_links   => ["foo3", "foo4", "foo5", "foo6", "foo7", "foo8"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'echo foo3 foo4 foo5 foo6 foo7 foo8 foo9 | sed  s/foo9/bar9/'", KERNEL=="sda5", SYMLINK+="%c{7}"
@@ -432,7 +446,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "foo7" ,
+                                exp_links       => ["foo7"],
+                                not_exp_links   => ["foo3", "foo4", "foo5", "foo6", "foo8"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n 'foo3 foo4'   'foo5   foo6   foo7 foo8'", KERNEL=="sda5", SYMLINK+="%c{5}"
@@ -443,7 +458,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "foo2" ,
+                                exp_links       => ["foo2"],
+                                not_exp_links   => ["foo1"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'printf %%s \\\"foo1 foo2\\\" | grep \\\"foo1 foo2\\\"'", KERNEL=="sda5", SYMLINK+="%c{2}"
@@ -454,7 +470,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "foo2" ,
+                                exp_links       => ["foo2"],
+                                not_exp_links   => ["foo1"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c \\\"printf %%s 'foo1 foo2' | grep 'foo1 foo2'\\\"", KERNEL=="sda5", SYMLINK+="%c{2}"
@@ -465,7 +482,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "foo2" ,
+                                exp_links       => ["foo2"],
+                                not_exp_links   => ["foo1", "foo3"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/sh -c 'printf \\\"%%s %%s\\\" \\\"foo1 foo2\\\" \\\"foo3\\\"| grep \\\"foo1 foo2\\\"'", KERNEL=="sda5", SYMLINK+="%c{2}"
@@ -476,7 +494,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "my-foo9" ,
+                                exp_links       => ["my-foo9"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="my-%c{7}"
@@ -487,7 +505,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "my-foo8" ,
+                                exp_links       => ["my-foo8"],
+                                not_exp_links   => ["my-foo3", "my-foo4", "my-foo5", "my-foo6", "my-foo7", "my-foo9"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda5", SYMLINK+="my-%c{6}"
@@ -498,7 +517,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "Major:8-minor:5-kernelnumber:5-id:0:0:0:0",
+                                exp_links       => ["Major:8-minor:5-kernelnumber:5-id:0:0:0:0"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", SYMLINK+="Major:\$major-minor:\$minor-kernelnumber:\$number-id:\$id"
@@ -509,7 +528,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "Major:8-minor:5-kernelnumber:5-id:0:0:0:0",
+                                exp_links       => ["Major:8-minor:5-kernelnumber:5-id:0:0:0:0"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", DEVPATH=="*/sda/*", SYMLINK+="Major:\$major-minor:%m-kernelnumber:\$number-id:\$id"
@@ -520,7 +539,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "850:0:0:05" ,
+                                exp_links       => ["850:0:0:05"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", DEVPATH=="*/sda/*", SYMLINK+="%M%m%b%n"
@@ -531,7 +550,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "855" ,
+                                exp_links       => ["855"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", DEVPATH=="*/sda/*", SYMLINK+="\$major\$minor\$number"
@@ -542,7 +561,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "8550:0:0:0" ,
+                                exp_links       => ["8550:0:0:0"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", DEVPATH=="*/sda/*", SYMLINK+="\$major%m%n\$id"
@@ -553,7 +572,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/virtual/tty/console",
-                                exp_name        => "TTY",
+                                exp_links       => ["TTY"],
+                                not_exp_links   => ["foo"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n foo", RESULT=="foo", SYMLINK+="foo"
@@ -565,7 +585,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/virtual/tty/console",
-                                exp_name        => "TTY" ,
+                                exp_links       => ["TTY"],
+                                not_exp_links   => ["foo"],
                         }],
                 rules                => <<EOF
 SUBSYSTEMS=="foo", ATTRS{dev}=="5:1", SYMLINK+="foo"
@@ -577,7 +598,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/virtual/tty/console",
-                                exp_name        => "foo" ,
+                                exp_links       => ["foo", "TTY"],
                         }],
                 rules           => <<EOF
 KERNEL=="console", SYMLINK+="TTY"
@@ -589,7 +610,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "empty" ,
+                                exp_links       => ["empty", "not-something"],
+                                not_exp_links   => ["something", "not-empty"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda", ATTR{test_empty_file}=="?*", SYMLINK+="something"
@@ -603,7 +625,9 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "non-existent" ,
+                                exp_links       => ["non-existent", "wrong"],
+                                not_exp_links   => ["something", "empty", "not-empty",
+                                                    "not-something", "something"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda", ATTR{nofile}=="?*", SYMLINK+="something"
@@ -619,7 +643,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "scsi-0:0:0:0" ,
+                                exp_links       => ["scsi-0:0:0:0"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="usb", PROGRAM=="/bin/echo -n usb-%b", SYMLINK+="%c"
@@ -632,7 +656,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem" ,
+                                exp_links       => ["modem"],
                         }],
                 rules           => <<EOF
 ATTRS{idProduct}=="007b", SYMLINK+="modem"
@@ -644,7 +668,8 @@ EOF
                         {
                                 devpath         => "/devices/virtual/block/fake!blockdev0",
                                 devnode         => "fake/blockdev0",
-                                exp_name        => "is/a/fake/blockdev0" ,
+                                exp_links       => ["is/a/fake/blockdev0"],
+                                not_exp_links       => ["is/not/a/fake/blockdev0", "modem"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", SYMLINK+="is/not/a/%k"
@@ -658,7 +683,7 @@ EOF
                         {
                                 devpath         => "/devices/virtual/block/fake!blockdev0",
                                 devnode         => "fake/blockdev0",
-                                exp_rem_error   => "yes",
+                                not_exp_links       => ["modem"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM0", SYMLINK+="modem"
@@ -669,7 +694,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "scsi-0:0:0:0",
+                                exp_links       => ["scsi-0:0:0:0"],
+                                not_exp_links       => ["no-match", "short-id", "not-scsi"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="usb", KERNELS=="0:0:0:0", SYMLINK+="not-scsi"
@@ -684,7 +710,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "scsi-0:0:0:0",
+                                exp_links       => ["scsi-0:0:0:0"],
+                                not_exp_links   => ["no-match", "before"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="*:1", SYMLINK+="no-match"
@@ -699,7 +726,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "scsi-0:0:0:0",
+                                exp_links       => ["scsi-0:0:0:0", "before"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", SYMLINK+="before"
@@ -711,7 +738,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "scsi-0:0:0:0",
+                                exp_links       => ["scsi-0:0:0:0", "before"],
                         }],
                 rules                => <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", SYMLINK+="before"
@@ -723,7 +750,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "driver-is-sd",
+                                exp_links       => ["driver-is-sd"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", SYMLINK+="driver-is-\$attr{driver}"
@@ -734,7 +761,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "driver-is-ahci",
+                                exp_links       => ["driver-is-ahci"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="pci", SYMLINK+="driver-is-\$attr{driver}"
@@ -745,7 +772,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "ignored",
+                                exp_links       => ["ignored"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{whitespace_test}=="WHITE  SPACE", SYMLINK+="ignored"
@@ -756,7 +783,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "matched-with-space",
+                                exp_links       => ["matched-with-space"],
+                                not_exp_links   => ["wrong-to-ignore"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{whitespace_test}=="WHITE  SPACE ", SYMLINK+="wrong-to-ignore"
@@ -779,7 +807,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
                                 exp_perms       => "1::0600",
                         }],
                 rules           => <<EOF
@@ -791,7 +819,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
                                 exp_perms       => ":1:0660",
                         }],
                 rules           => <<EOF
@@ -803,7 +831,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
                                 exp_perms       => "daemon::0600",
                         }],
                 rules           => <<EOF
@@ -815,7 +843,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
                                 exp_perms       => ":daemon:0660",
                         }],
                 rules           => <<EOF
@@ -827,7 +855,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
                                 exp_perms       => "root:audio:0660",
                         }],
                 rules           => <<EOF
@@ -839,7 +867,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
                                 exp_perms       => "::0777",
                         }],
                 rules           => <<EOF
@@ -851,7 +879,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
                                 exp_perms       => "1:1:0777",
                         }],
                 rules           => <<EOF
@@ -950,7 +978,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
                                 exp_majorminor  => "8:0",
                         }],
                 rules           => <<EOF
@@ -962,7 +990,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/virtual/misc/misc-fake1",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
                                 exp_majorminor  => "4095:1",
                         }],
                 rules                => <<EOF
@@ -974,7 +1002,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/virtual/misc/misc-fake89999",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
                                 exp_majorminor  => "4095:89999",
                         }],
                 rules           => <<EOF
@@ -986,7 +1014,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "symlink2-ttyACM0",
+                                exp_links       => ["symlink1-0", "symlink2-ttyACM0", "symlink3-"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", SYMLINK="symlink1-%n symlink2-%k symlink3-%b"
@@ -997,8 +1025,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "one",
-                                not_exp_name        => " ",
+                                exp_links       => ["one", "two"],
+                                not_exp_links       => [" "],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", SYMLINK="  one     two        "
@@ -1009,8 +1037,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "name-one_two_three-end",
-                                not_exp_name    => " ",
+                                exp_links       => ["name-one_two_three-end"],
+                                not_exp_links   => [" "],
                         }],
                 rules           => <<EOF
 ENV{WITH_WS}="one two three"
@@ -1022,8 +1050,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "name-one_two_three-end",
-                                not_exp_name    => " ",
+                                exp_links       => ["name-one_two_three-end"],
+                                not_exp_links   => [" "],
                         }],
                 rules           => <<EOF
 ENV{WITH_WS}="   one two three"
@@ -1035,8 +1063,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "name-one_two_three-end",
-                                not_exp_name    => " ",
+                                exp_links       => ["name-one_two_three-end"],
+                                not_exp_links   => [" "],
                         }],
                 rules           => <<EOF
 ENV{WITH_WS}="one two three   "
@@ -1048,8 +1076,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "name-one_two_three-end",
-                                not_exp_name    => " ",
+                                exp_links       => ["name-one_two_three-end"],
+                                not_exp_links   => [" "],
                         }],
                 rules           => <<EOF
 ENV{WITH_WS}="   one two three   "
@@ -1061,8 +1089,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "name-one_two_three-end",
-                                not_exp_name    => " ",
+                                exp_links       => ["name-one_two_three-end"],
+                                not_exp_links   => [" "],
                         }],
                 rules           => <<EOF
 ENV{WITH_WS}="   one  two  three   "
@@ -1070,12 +1098,12 @@ SYMLINK="name-\$env{WITH_WS}-end"
 EOF
         },
         {
-                desc            => "symlink with space and var with space, part 1",
+                desc            => "symlink with space and var with space",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "first",
-                                not_exp_name    => " ",
+                                exp_links        => ["first"],
+                                not_exp_links    => [" "],
                         }],
                 rules           => <<EOF
 ENV{WITH_WS}="   one  two  three   "
@@ -1087,8 +1115,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "name-one_two_three-end",
-                                not_exp_name    => " ",
+                                exp_links        => ["name-one_two_three-end"],
+                                not_exp_links    => [" "],
                         }],
                 rules           => <<EOF
 ENV{WITH_WS}="   one  two  three   "
@@ -1100,8 +1128,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "another_symlink",
-                                not_exp_name    => " ",
+                                exp_links        => ["another_symlink"],
+                                not_exp_links    => [" "],
                         }],
                 rules           => <<EOF
 ENV{WITH_WS}="   one  two  three   "
@@ -1113,7 +1141,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "modem0",
+                                exp_links       => ["modem0"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", SYMLINK="modem%n"
@@ -1124,7 +1152,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "second-0" ,
+                                exp_links       => ["first-0", "second-0", "third-0"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM0", SYMLINK="first-%n second-%n third-%n"
@@ -1135,7 +1163,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => ".",
+                                exp_links       => ["."],
                                 exp_add_error        => "yes",
                                 exp_rem_error        => "yes",
                         }],
@@ -1148,7 +1176,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/virtual/tty/tty0",
-                                exp_name        => "link",
+                                exp_links       => ["link"],
                                 exp_add_error        => "yes",
                                 exp_rem_error        => "yes",
                         }],
@@ -1162,7 +1190,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "symlink0",
+                                exp_links       => ["symlink0"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", SYMLINK+="symlink%n"
@@ -1173,7 +1201,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "symlink-ttyACM0",
+                                exp_links       => ["symlink-ttyACM0"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", SYMLINK+="symlink-%k"
@@ -1184,7 +1212,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "major-166:0",
+                                exp_links       => ["major-166:0"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", SYMLINK+="ttyACM%n", SYMLINK+="major-%M:%m"
@@ -1195,7 +1223,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "symlink-0:0:0:0",
+                                exp_links       => ["symlink-0:0:0:0"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="symlink-%b"
@@ -1206,7 +1234,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "test",
+                                exp_links       => ["test"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", PROGRAM=="/bin/echo test", SYMLINK+="%c"
@@ -1217,7 +1245,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "test",
+                                exp_links       => ["test"],
+                                not_exp_links   => ["symlink", "this"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", PROGRAM=="/bin/echo symlink test this", SYMLINK+="%c{2}"
@@ -1228,7 +1257,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "this",
+                                exp_links       => ["test", "this"],
+                                not_exp_links   => ["symlink"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", PROGRAM=="/bin/echo symlink test this", SYMLINK+="%c{2+}"
@@ -1239,7 +1269,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "test",
+                                exp_links       => ["test", "this"],
+                                not_exp_links   => ["symlink"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="/bin/echo link test this" SYMLINK+="%c{2+}"
@@ -1250,7 +1281,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "166:0",
+                                exp_links       => ["166:0"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", SYMLINK+="%s{dev}"
@@ -1261,7 +1292,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "link1",
+                                exp_links       => ["link1", "link2"],
+                                not_exp_links   => ["node"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n node link1 link2", RESULT=="node *", SYMLINK+="%c{2} %c{3}"
@@ -1272,7 +1304,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-                                exp_name        => "link4",
+                                exp_links       => ["link1", "link2", "link3", "link4"],
+                                not_exp_links   => ["node"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n node link1 link2 link3 link4", RESULT=="node *", SYMLINK+="%c{2+}"
@@ -1283,7 +1316,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
+                                not_exp_links   => ["should_not_match", "should_not_match2"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="should_not_match", SUBSYSTEM=="vc"
@@ -1296,7 +1330,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
+                                not_exp_links   => ["should_not_match"]
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="should_not_match", DRIVERS=="sd-wrong"
@@ -1308,7 +1343,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node",
+                                exp_links       => ["node"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="/usr/bin/test -b %N" SYMLINK+="node"
@@ -1319,7 +1354,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "sda-part-1",
+                                exp_links       => ["sda-part-1"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="%P-part-1"
@@ -1330,7 +1365,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "start-/dev-end",
+                                exp_links       => ["start-/dev-end"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="start-%r-end"
@@ -1341,7 +1376,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "last",
+                                exp_links       => ["last"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="last", OPTIONS="last_rule"
@@ -1353,7 +1388,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "match",
+                                exp_links       => ["match", "before"],
+                                not_exp_links   => ["matches-but-is-negated"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL!="sda1", SYMLINK+="matches-but-is-negated"
@@ -1366,7 +1402,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "not-anything",
+                                exp_links       => ["before", "not-anything"],
+                                not_exp_links   => ["matches-but-is-negated"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", SUBSYSTEM=="block", KERNEL!="sda1", SYMLINK+="matches-but-is-negated"
@@ -1379,7 +1416,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "nonzero-program",
+                                exp_links       => ["before", "nonzero-program"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="before"
@@ -1391,7 +1428,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "true",
+                                exp_links       => ["true"],
+                                not_exp_links   => ["bad", "wrong"],
                         }],
                 rules           => <<EOF
 ENV{ENV_KEY_TEST}="test"
@@ -1405,7 +1443,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "true",
+                                exp_links       => ["true"],
+                                not_exp_links   => ["bad", "wrong", "no"],
                         }],
                 rules           => <<EOF
 ENV{ENV_KEY_TEST}="test"
@@ -1420,7 +1459,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "true",
+                                exp_links       => ["true", "before"],
+                                not_exp_links   => ["no"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}="true"
@@ -1434,7 +1474,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "true",
+                                exp_links       => ["true", "before"],
+                                not_exp_links   => ["no", "bad"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}="true"
@@ -1449,8 +1490,10 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "part",
-                        }],
+                                exp_links       => ["part"],
+                                not_exp_links   => ["disk"],
+                        },
+                    ],
                 rules           => <<EOF
 SUBSYSTEM=="block", KERNEL=="*[0-9]", ENV{PARTITION}="true", ENV{MAINDEVICE}="false"
 SUBSYSTEM=="block", KERNEL=="*[!0-9]", ENV{PARTITION}="false", ENV{MAINDEVICE}="true"
@@ -1464,7 +1507,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "sane",
+                                exp_links       => ["sane"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e name; (/usr/bin/badprogram)", RESULT=="name_ _/usr/bin/badprogram_", SYMLINK+="sane"
@@ -1475,7 +1518,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "uber",
+                                exp_links       => ["uber"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e \\xc3\\xbcber" RESULT=="\xc3\xbcber", SYMLINK+="uber"
@@ -1486,7 +1529,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "replaced",
+                                exp_links       => ["replaced"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e \\xef\\xe8garbage", RESULT=="__garbage", SYMLINK+="replaced"
@@ -1497,7 +1540,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "serial-354172020305000",
+                                exp_links       => ["serial-354172020305000"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM*", ATTRS{serial}=="?*", SYMLINK+="serial-%s{serial}"
@@ -1508,7 +1551,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "ok",
+                                exp_links       => ["ok"],
+                                not_exp_links   => ["not-1-ok", "not-2-ok", "not-3-ok"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda", ATTRS{nothing}!="", SYMLINK+="not-1-ok"
@@ -1522,7 +1566,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "ok",
+                                exp_links       => ["ok"],
+                                not_exp_links   => ["unknown-not-ok"],
                         }],
                 rules           => <<EOF
 ACTION=="unknown", KERNEL=="sda", SYMLINK+="unknown-not-ok"
@@ -1534,7 +1579,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "ok",
+                                exp_links       => ["ok"],
                                 exp_perms       => "root:tty:0640",
                         }],
                 rules           => <<EOF
@@ -1547,7 +1592,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "ok",
+                                exp_links       => ["ok"],
                                 exp_perms       => "root:tty:0640",
                         }],
                 rules           => <<EOF
@@ -1561,7 +1606,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "node-add-me",
+                                exp_links       => ["node-add-me"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda", MODE="0666", SYMLINK+="node-\$env{ACTION}-me"
@@ -1572,8 +1617,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "three",
-                                not_exp_name    => "two",
+                                exp_links       => ["three"],
+                                not_exp_links   => ["two", "one"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", SYMLINK+="one"
@@ -1586,8 +1631,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "right",
-                                not_exp_name    => "wrong",
+                                exp_links       => ["right"],
+                                not_exp_links   => ["wrong"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM[0-9]*", SYMLINK+="wrong"
@@ -1600,7 +1645,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "right",
+                                exp_links       => ["right", "before"],
                         }],
                 rules           => <<EOF
 KERNEL=="ttyACM*", SYMLINK+="before"
@@ -1612,7 +1657,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "right",
+                                exp_links       => ["right", "before"],
+                                not_exp_links   => ["nomatch"],
                         }],
                 rules           => <<EOF
 KERNEL=="dontknow*|*nothing", SYMLINK+="nomatch"
@@ -1625,7 +1671,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "right",
+                                exp_links       => ["right"],
+                                not_exp_links   => ["nomatch", "wrong1", "wrong2"],
                         }],
                 rules           => <<EOF
 KERNEL=="dontknow|nothing", SYMLINK+="nomatch"
@@ -1639,7 +1686,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "right",
+                                exp_links       => ["right"],
+                                not_exp_links   => ["nomatch", "wrong1", "wrong2", "wrong3"],
                         }],
                 rules           => <<EOF
 KERNEL=="dontknow|nothing", SYMLINK+="nomatch"
@@ -1654,7 +1702,7 @@ EOF
                devices => [
                        {
                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                               exp_name        => "found",
+                               exp_links       => ["found"],
                                not_exp_name    => "bad",
                        }],
                 rules           => <<EOF
@@ -1668,7 +1716,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found",
+                                exp_links       => ["found"],
                                 not_exp_name    => "bad",
                        }],
                 rules           => <<EOF
@@ -1682,7 +1730,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found",
+                                exp_links       => ["found"],
                                 not_exp_name    => "bad",
                         }],
                 rules           => <<EOF
@@ -1696,7 +1744,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found",
+                                exp_links       => ["found"],
                                 not_exp_name    => "bad",
                         }],
                 rules           => <<EOF
@@ -1710,7 +1758,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found",
+                                exp_links       => ["found"],
                                 not_exp_name    => "bad",
                         }],
                 rules           => <<EOF
@@ -1724,7 +1772,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found",
+                                exp_links       => ["found"],
                                 not_exp_name    => "bad",
                         }],
                 rules           => <<EOF
@@ -1738,7 +1786,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found",
+                                exp_links       => ["found"],
                                 not_exp_name    => "bad",
                         }],
                 rules           => <<EOF
@@ -1752,7 +1800,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "parent",
+                                exp_links       => ["parent"],
                         }],
                 option          => "keep",
                 rules           => <<EOF
@@ -1765,7 +1813,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "parentenv-parent_right",
+                                exp_links       => ["parentenv-parent_right"],
                         }],
                 option          => "clean",
                 rules           => <<EOF
@@ -1777,7 +1825,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "right",
+                                exp_links       => ["right"],
+                                not_exp_test    => ["wrong", "wrong2"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda1", GOTO="TEST"
@@ -1794,7 +1843,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "right",
+                                exp_links       => ["right"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda1", GOTO="does-not-exist"
@@ -1807,8 +1856,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "right",
-                                not_exp_name    => "wrong",
+                                exp_links       => ["right", "link"],
+                                not_exp_links   => ["wrong"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda1", SYMLINK+="link"
@@ -1821,7 +1870,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "yes",
+                                exp_links       => ["yes"],
+                                not_exp_links   => ["no"],
                         }],
                 rules           => <<EOF
 KERNEL="sda1", SYMLINK+="no"
@@ -1833,7 +1883,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "yes",
+                                exp_links       => ["yes"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda", ATTR{test:colon+plus}=="?*", SYMLINK+="yes"
@@ -1844,7 +1894,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "yes",
+                                exp_links       => ["yes"],
+                                not_exp_links   => ["no"],
                         }],
                 rules           => <<EOF
 # 012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
@@ -1858,7 +1909,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "00:16:41:e2:8d:ff",
+                                exp_links       => ["00:16:41:e2:8d:ff"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda", SYMLINK+="\$attr{[net/eth0]address}"
@@ -1869,7 +1920,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "there",
+                                exp_links       => ["there"],
+                                not_exp_links   => ["notthere"],
                         }],
                 rules           => <<EOF
 TEST=="/etc/machine-id", SYMLINK+="there"
@@ -1881,7 +1933,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "yes",
+                                exp_links       => ["yes"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda", TEST=="[net/eth0]", SYMLINK+="yes"
@@ -1892,7 +1944,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "relative",
+                                exp_links       => ["relative"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda", TEST=="size", SYMLINK+="relative"
@@ -1903,7 +1955,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found-subdir",
+                                exp_links       => ["found-subdir"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda", TEST=="*/nr_requests", SYMLINK+="found-subdir"
@@ -1952,7 +2004,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "sda-8741C4G-end",
+                                exp_links       => ["sda-8741C4G-end"],
                                 exp_perms       => "0:0:0600",
                         }],
                 rules           => <<EOF
@@ -1966,7 +2018,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0",
+                                exp_links       => ["disk/by-path/pci-0000:00:1f.2-scsi-0:0:0:0"],
                         }],
                 rules           => <<EOF
 KERNEL=="sda", IMPORT{builtin}="path_id"
@@ -1978,8 +2030,8 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found",
-                                not_exp_name    => "bad" ,
+                                exp_links       => ["found"],
+                                not_exp_links   => ["bad"],
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", TAG+="green"
@@ -1992,7 +2044,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found",
+                                exp_links       => ["found"],
                         }],
                 rules           => $rules_10k_tags . <<EOF
 TAGS=="test1", TAGS=="test500", TAGS=="test1234", TAGS=="test9999", TAGS=="test10000", SYMLINK+="found"
@@ -2003,7 +2055,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found",
+                                exp_links       => ["found"],
                                 not_exp_name    => "bad",
                         }],
                 rules           => $rules_10k_tags_continuation . <<EOF
@@ -2026,7 +2078,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found",
+                                exp_links       => ["found"],
                                 not_exp_name    => "bad",
 
                         }],
@@ -2046,7 +2098,7 @@ TAGS=="aaa", SYMLINK+="bad"
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "found",
+                                exp_links       => ["found"],
                                 not_exp_name    => "bad",
                         }],
                 rules           => <<EOF
@@ -2230,41 +2282,35 @@ sub check_devnode {
         return $devnode;
 }
 
-sub check_add {
-        my ($device) = @_;
+sub get_link_target {
+        my ($link) = @_;
 
-        if (defined($device->{not_exp_name})) {
-                if ((-e "$udev_dev/$device->{not_exp_name}") ||
-                    (-l "$udev_dev/$device->{not_exp_name}")) {
-                        print "nonexistent: error \'$device->{not_exp_name}\' not expected to be there\n";
-                        $error++;
-                        sleep(1);
-                }
-        }
+        my $cwd = getcwd();
+        my $dir = "$udev_dev/$link";
+        my $tgt = readlink("$udev_dev/$link");
+        $dir =~ s!/[^/]*$!!;
+        $tgt = abs_path("$dir/$tgt");
+        $tgt =~ s!^$cwd/!!;
+        return $tgt;
+}
 
-        my $devnode = check_devnode($device);
+sub check_link_add {
+        my ($link, $devnode, $err_expected) = @_;
 
-        return if (!defined($device->{exp_name}));
-
-        my @st = lstat("$udev_dev/$device->{exp_name}");
+        my @st = lstat("$udev_dev/$link");
         if (-l _) {
-                my $cwd = getcwd();
-                my $dir = "$udev_dev/$device->{exp_name}";
-                $dir =~ s!/[^/]*$!!;
-                my $tgt = readlink("$udev_dev/$device->{exp_name}");
-                $tgt = abs_path("$dir/$tgt");
-                $tgt =~ s!^$cwd/!!;
+                my $tgt = get_link_target($link);
 
                 if ($tgt ne $devnode) {
-                        print "symlink $device->{exp_name}:         error, found -> $tgt\n";
+                        print "symlink $link:         error, found -> $tgt\n";
                         $error++;
                         system("tree", "$udev_dev");
                 } else {
-                        print "symlink $device->{exp_name}:         ok\n";
+                        print "symlink $link:         ok\n";
                 }
         } else {
-                print "symlink $device->{exp_name}:         error";
-                if ($device->{exp_add_error}) {
+                print "symlink $link:         error";
+                if ($err_expected) {
                         print " as expected\n";
                 } else {
                         print "\n";
@@ -2272,6 +2318,49 @@ sub check_add {
                         print "\n";
                         $error++;
                         sleep(1);
+                }
+        }
+}
+
+sub check_link_nonexistent {
+        my ($link, $devnode, $err_expected) = @_;
+
+        if ((-e "$udev_dev/$link") || (-l "$udev_dev/$link")) {
+                my $tgt = get_link_target($link);
+
+                if ($tgt ne $devnode) {
+                        print "nonexistent: '$link' points to other device (ok)\n";
+                } else {
+                        print "nonexistent: error \'$link\' should not be there";
+                        if ($err_expected) {
+                                print " (as expected)\n";
+                        } else {
+                                print "\n";
+                                system("tree", "$udev_dev");
+                                print "\n";
+                                $error++;
+                                sleep(1);
+                        }
+                }
+        } else {
+                print "nonexistent $link:         ok\n";
+        }
+}
+
+sub check_add {
+        my ($device) = @_;
+        my $devnode = check_devnode($device);
+
+        if (defined($device->{exp_links})) {
+                foreach my $link (@{$device->{exp_links}}) {
+                        check_link_add($link, $devnode,
+                                       $device->{exp_add_error});
+                }
+        }
+        if (defined $device->{not_exp_links}) {
+                foreach my $link (@{$device->{not_exp_links}}) {
+                        check_link_nonexistent($link, $devnode,
+                                               $device->{exp_nodev_error});
                 }
         }
 }
@@ -2292,17 +2381,13 @@ sub check_remove_devnode {
         }
 }
 
-sub check_remove {
-        my ($device) = @_;
+sub check_link_remove {
+        my ($link, $err_expected) = @_;
 
-        check_remove_devnode($device);
-
-        return if (!defined($device->{exp_name}));
-
-        if ((-e "$udev_dev/$device->{exp_name}") ||
-            (-l "$udev_dev/$device->{exp_name}")) {
-                print "remove  $device->{exp_name}:      error";
-                if ($device->{exp_rem_error}) {
+        if ((-e "$udev_dev/$link") ||
+            (-l "$udev_dev/$link")) {
+                print "remove  $link:      error";
+                if ($err_expected) {
                         print " as expected\n";
                 } else {
                         print "\n";
@@ -2312,7 +2397,19 @@ sub check_remove {
                         sleep(1);
                 }
         } else {
-                print "remove  $device->{exp_name}:      ok\n";
+                print "remove  $link:      ok\n";
+        }
+}
+
+sub check_remove {
+        my ($device) = @_;
+
+        check_remove_devnode($device);
+
+        return if (!defined($device->{exp_links}));
+
+        foreach my $link (@{$device->{exp_links}}) {
+                check_link_remove($link, $device->{exp_rem_error});
         }
 }
 
