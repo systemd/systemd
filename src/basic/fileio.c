@@ -50,6 +50,7 @@ int write_string_stream_ts(
                 struct timespec *ts) {
 
         bool needs_nl;
+        int r;
 
         assert(f);
         assert(line);
@@ -74,6 +75,13 @@ int write_string_stream_ts(
                 if (fputc('\n', f) == EOF)
                         return -errno;
 
+        if (flags & WRITE_STRING_FILE_SYNC)
+                r = fflush_sync_and_check(f);
+        else
+                r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
         if (ts) {
                 struct timespec twice[2] = {*ts, *ts};
 
@@ -81,10 +89,7 @@ int write_string_stream_ts(
                         return -errno;
         }
 
-        if (flags & WRITE_STRING_FILE_SYNC)
-                return fflush_sync_and_check(f);
-        else
-                return fflush_and_check(f);
+        return 0;
 }
 
 static int write_string_file_atomic(
