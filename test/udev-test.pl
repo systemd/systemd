@@ -1921,6 +1921,175 @@ EOF
 TAGS=="test1", TAGS=="test500", TAGS=="test1234", TAGS=="test9999", TAGS=="test10000", SYMLINK+="found"
 EOF
         },
+        {
+                desc            => "multiple devices",
+                devices => [
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
+                                exp_links       => ["part-1"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
+                                exp_links       => ["part-5"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda6",
+                                exp_links       => ["part-6"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda7",
+                                exp_links       => ["part-7"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda8",
+                                exp_links       => ["part-8"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda9",
+                                exp_links       => ["part-9"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda10",
+                                exp_links       => ["part-10"],
+                        },
+                    ],
+                rules          => <<EOF
+SUBSYSTEM=="block", SUBSYSTEMS=="scsi", KERNEL=="sda?*", ENV{DEVTYPE}=="partition", SYMLINK+="part-%n"
+EOF
+        },
+        {
+                desc            => "multiple devices, same link name, positive prio",
+                devices => [
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
+                                exp_links       => ["part-1"],
+                                not_exp_links   => ["partition"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
+                                exp_links       => ["part-5"],
+                                not_exp_links   => ["partition"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda6",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-6"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda7",
+                                exp_links       => ["part-7", "partition"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda8",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-8"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda9",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-9"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda10",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-10"],
+                        },
+                    ],
+                rules          => <<EOF
+SUBSYSTEM=="block", SUBSYSTEMS=="scsi", KERNEL=="sda?*", ENV{DEVTYPE}=="partition", SYMLINK+="part-%n"
+SUBSYSTEM=="block", SUBSYSTEMS=="scsi", KERNEL=="sda?*", ENV{DEVTYPE}=="partition", SYMLINK+="partition"
+KERNEL=="*7", OPTIONS+="link_priority=10"
+EOF
+        },
+        {
+                desc            => "multiple devices, same link name, negative prio",
+                devices => [
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
+                                exp_links       => ["part-1"],
+                                not_exp_links   => ["partition"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
+                                exp_links       => ["part-5"],
+                                not_exp_links   => ["partition"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda6",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-6"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda7",
+                                exp_links       => ["part-7", "partition"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda8",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-8"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda9",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-9"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda10",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-10"],
+                        },
+                    ],
+                rules          => <<EOF
+SUBSYSTEM=="block", SUBSYSTEMS=="scsi", KERNEL=="sda?*", ENV{DEVTYPE}=="partition", SYMLINK+="part-%n"
+SUBSYSTEM=="block", SUBSYSTEMS=="scsi", KERNEL=="sda?*", ENV{DEVTYPE}=="partition", SYMLINK+="partition"
+KERNEL!="*7", OPTIONS+="link_priority=-10"
+EOF
+        },
+        {
+                desc            => "multiple devices, same link name, positive prio, sleep",
+                devices => [
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
+                                exp_links       => ["part-1"],
+                                not_exp_links   => ["partition"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
+                                exp_links       => ["part-5"],
+                                not_exp_links   => ["partition"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda6",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-6"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda7",
+                                exp_links       => ["part-7", "partition"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda8",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-8"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda9",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-9"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda10",
+                                not_exp_links   => ["partition"],
+                                exp_links       => ["part-10"],
+                        },
+                    ],
+                sleep_us       => 10000,
+                rules          => <<EOF
+SUBSYSTEM=="block", SUBSYSTEMS=="scsi", KERNEL=="sda?*", ENV{DEVTYPE}=="partition", SYMLINK+="part-%n"
+SUBSYSTEM=="block", SUBSYSTEMS=="scsi", KERNEL=="sda?*", ENV{DEVTYPE}=="partition", SYMLINK+="partition"
+KERNEL=="*7", OPTIONS+="link_priority=10"
+EOF
+        },
 );
 
 sub create_rules {
