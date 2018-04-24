@@ -236,7 +236,6 @@ static void machine_unlink(Machine *m) {
         assert(m);
 
         if (m->unit) {
-
                 char *sl;
 
                 sl = strjoina("/run/systemd/machines/unit:", m->unit);
