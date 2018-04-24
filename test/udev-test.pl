@@ -1367,11 +1367,14 @@ SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="start-%r-end"
 EOF
         },
         {
+                # This is not supported any more
                 desc            => "last_rule option",
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
                                 exp_links       => ["last"],
+                                not_exp_links   => ["very-last"],
+                                exp_nodev_error => "yes",
                         }],
                 rules           => <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="last", OPTIONS="last_rule"
