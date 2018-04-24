@@ -2043,41 +2043,35 @@ sub check_devnode {
         return $devnode;
 }
 
-sub check_add {
-        my ($device) = @_;
+sub get_link_target {
+        my ($link) = @_;
 
-        if (defined($device->{not_exp_name})) {
-                if ((-e "$udev_dev/$device->{not_exp_name}") ||
-                    (-l "$udev_dev/$device->{not_exp_name}")) {
-                        print "nonexistent: error \'$device->{not_exp_name}\' not expected to be there\n";
-                        $error++;
-                        sleep(1);
-                }
-        }
+        my $cwd = getcwd();
+        my $dir = "$udev_dev/$link";
+        my $tgt = readlink("$udev_dev/$link");
+        $dir =~ s!/[^/]*$!!;
+        $tgt = abs_path("$dir/$tgt");
+        $tgt =~ s!^$cwd/!!;
+        return $tgt;
+}
 
-        my $devnode = check_devnode($device);
+sub check_link_add {
+        my ($link, $devnode, $err_expected) = @_;
 
-        return if (!defined($device->{exp_name}));
-
-        my @st = lstat("$udev_dev/$device->{exp_name}");
+        my @st = lstat("$udev_dev/$link");
         if (-l _) {
-                my $cwd = getcwd();
-                my $dir = "$udev_dev/$device->{exp_name}";
-                $dir =~ s!/[^/]*$!!;
-                my $tgt = readlink("$udev_dev/$device->{exp_name}");
-                $tgt = abs_path("$dir/$tgt");
-                $tgt =~ s!^$cwd/!!;
+                my $tgt = get_link_target($link);
 
                 if ($tgt ne $devnode) {
-                        print "symlink $device->{exp_name}:         error, found -> $tgt\n";
+                        print "symlink $link:         error, found -> $tgt\n";
                         $error++;
                         system("tree", "$udev_dev");
                 } else {
-                        print "symlink $device->{exp_name}:         ok\n";
+                        print "symlink $link:         ok\n";
                 }
         } else {
-                print "symlink $device->{exp_name}:         error";
-                if ($device->{exp_add_error}) {
+                print "symlink $link:         error";
+                if ($err_expected) {
                         print " as expected\n";
                 } else {
                         print "\n";
@@ -2085,6 +2079,49 @@ sub check_add {
                         print "\n";
                         $error++;
                         sleep(1);
+                }
+        }
+}
+
+sub check_link_nonexistent {
+        my ($link, $devnode, $err_expected) = @_;
+
+        if ((-e "$udev_dev/$link") || (-l "$udev_dev/$link")) {
+                my $tgt = get_link_target($link);
+
+                if ($tgt ne $devnode) {
+                        print "nonexistent: '$link' points to other device (ok)\n";
+                } else {
+                        print "nonexistent: error \'$link\' should not be there";
+                        if ($err_expected) {
+                                print " (as expected)\n";
+                        } else {
+                                print "\n";
+                                system("tree", "$udev_dev");
+                                print "\n";
+                                $error++;
+                                sleep(1);
+                        }
+                }
+        } else {
+                print "nonexistent $link:         ok\n";
+        }
+}
+
+sub check_add {
+        my ($device) = @_;
+        my $devnode = check_devnode($device);
+
+        if (defined($device->{exp_links})) {
+                foreach my $link (@{$device->{exp_links}}) {
+                        check_link_add($link, $devnode,
+                                       $device->{exp_add_error});
+                }
+        }
+        if (defined $device->{not_exp_links}) {
+                foreach my $link (@{$device->{not_exp_links}}) {
+                        check_link_nonexistent($link, $devnode,
+                                               $device->{exp_nodev_error});
                 }
         }
 }
@@ -2105,17 +2142,13 @@ sub check_remove_devnode {
         }
 }
 
-sub check_remove {
-        my ($device) = @_;
+sub check_link_remove {
+        my ($link, $err_expected) = @_;
 
-        check_remove_devnode($device);
-
-        return if (!defined($device->{exp_name}));
-
-        if ((-e "$udev_dev/$device->{exp_name}") ||
-            (-l "$udev_dev/$device->{exp_name}")) {
-                print "remove  $device->{exp_name}:      error";
-                if ($device->{exp_rem_error}) {
+        if ((-e "$udev_dev/$link") ||
+            (-l "$udev_dev/$link")) {
+                print "remove  $link:      error";
+                if ($err_expected) {
                         print " as expected\n";
                 } else {
                         print "\n";
@@ -2125,7 +2158,19 @@ sub check_remove {
                         sleep(1);
                 }
         } else {
-                print "remove  $device->{exp_name}:      ok\n";
+                print "remove  $link:      ok\n";
+        }
+}
+
+sub check_remove {
+        my ($device) = @_;
+
+        check_remove_devnode($device);
+
+        return if (!defined($device->{exp_links}));
+
+        foreach my $link (@{$device->{exp_links}}) {
+                check_link_remove($link, $device->{exp_rem_error});
         }
 }
 
