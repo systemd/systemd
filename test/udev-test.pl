@@ -2017,8 +2017,6 @@ EOF
                                 exp_perms       => "0:0:0600",
                         }],
                 rules           => <<EOF
-KERNEL=="sda", PROGRAM="/bin/true create-envp"
-KERNEL=="sda", ENV{TESTENV}="change-envp"
 KERNEL=="sda", SYMLINK+="%k-%s{[dmi/id]product_name}-end"
 EOF
         },
