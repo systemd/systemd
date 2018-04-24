@@ -1352,7 +1352,7 @@ EOF
                                 exp_links       => ["sda-part-1"],
                         }],
                 rules           => <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="%P-part-1"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="%P-part-%n"
 EOF
         },
         {
@@ -1480,6 +1480,7 @@ SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}="true"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}="absolutely-\$env{ASSIGN}"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", SYMLINK+="before"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}=="yes", SYMLINK+="no"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}=="true", SYMLINK+="bad"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}=="absolutely-true", SYMLINK+="true"
 EOF
         },
@@ -1490,6 +1491,11 @@ EOF
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
                                 exp_links       => ["part"],
                                 not_exp_links   => ["disk"],
+                        },
+                        {
+                                devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+                                exp_links       => ["disk"],
+                                not_exp_links   => ["part"],
                         },
                     ],
                 rules           => <<EOF
@@ -1582,7 +1588,7 @@ EOF
                         }],
                 rules           => <<EOF
 KERNEL=="sda", GROUP:="tty"
-KERNEL=="sda", GROUP="not-ok", MODE="0640", SYMLINK+="ok"
+KERNEL=="sda", GROUP="root", MODE="0640", SYMLINK+="ok"
 EOF
         },
         {
@@ -1596,7 +1602,7 @@ EOF
                 rules           => <<EOF
 KERNEL=="sda", GROUP:="tty"
 SUBSYSTEM=="block", MODE:="640"
-KERNEL=="sda", GROUP="not-ok", MODE="0666", SYMLINK+="ok"
+KERNEL=="sda", GROUP="root", MODE="0666", SYMLINK+="ok"
 EOF
         },
         {
@@ -1879,7 +1885,6 @@ EOF
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
                                 exp_perms       => "1:1:0400",
-                                exp_rem_error   => "yes",
                         }],
                 rules           => <<EOF
 KERNEL=="sda", MODE="666"
