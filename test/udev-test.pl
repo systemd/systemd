@@ -55,12 +55,10 @@ my @tests = (
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "sda" ,
                                 exp_rem_error   => "yes",
                         },
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-                                exp_name        => "sda1" ,
                                 exp_rem_error   => "yes",
                         }],
                 rules           => <<EOF
@@ -644,6 +642,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/virtual/block/fake!blockdev0",
+                                devnode         => "fake/blockdev0",
                                 exp_name        => "is/a/fake/blockdev0" ,
                         }],
                 rules           => <<EOF
@@ -657,7 +656,7 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/virtual/block/fake!blockdev0",
-                                exp_name        => "fake/blockdev0" ,
+                                devnode         => "fake/blockdev0",
                                 exp_rem_error   => "yes",
                         }],
                 rules           => <<EOF
@@ -768,7 +767,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/virtual/tty/tty33",
-                                exp_name        => "tty33",
                                 exp_perms       => "0:0:0600",
                         }],
                 rules           => <<EOF
@@ -864,7 +862,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "1::",
                         }],
                 rules           => <<EOF
@@ -876,7 +873,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => ":1:0660",
                         }],
                 rules           => <<EOF
@@ -888,7 +884,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "::0060",
                         }],
                 rules           => <<EOF
@@ -900,7 +895,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "1:1:0777",
                         }],
                 rules           => <<EOF
@@ -912,7 +906,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "1:1:0777",
                         }],
                 rules           => <<EOF
@@ -926,7 +919,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "1:1:0777",
                         }],
                 rules           => <<EOF
@@ -942,7 +934,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-                                exp_name        => "ttyACM0",
                                 exp_perms       => "1:2:0777",
                         }],
                 rules           => <<EOF
@@ -1922,7 +1913,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "sda",
                                 exp_perms       => "0:0:0000",
                                 exp_rem_error   => "yes",
                         }],
@@ -1935,7 +1925,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "sda",
                                 exp_perms       => "1:1:0400",
                                 exp_rem_error   => "yes",
                         }],
@@ -1949,7 +1938,6 @@ EOF
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-                                exp_name        => "sda",
                                 exp_perms       => "0:0:0440",
                                 exp_rem_error   => "yes",
                         }],
@@ -2203,6 +2191,44 @@ sub udev_setup {
         return 1;
 }
 
+sub get_devnode {
+        my ($device) = @_;
+        my $devnode;
+
+        if (defined($device->{devnode})) {
+                $devnode = "$udev_dev/$device->{devnode}";
+        } else {
+                $devnode = "$device->{devpath}";
+                $devnode =~ s!.*/!$udev_dev/!;
+        }
+        return $devnode;
+}
+
+sub check_devnode {
+        my ($device) = @_;
+        my $devnode = get_devnode($device);
+
+        my @st = lstat("$devnode");
+        if (! (-b _  || -c _)) {
+                print "add $devnode:         error\n";
+                system("tree", "$udev_dev");
+                $error++;
+                return undef;
+        }
+
+        my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+            $atime, $mtime, $ctime, $blksize, $blocks) = @st;
+
+        if (defined($device->{exp_perms})) {
+                permissions_test($device, $uid, $gid, $mode);
+        }
+        if (defined($device->{exp_majorminor})) {
+                major_minor_test($device, $rdev);
+        }
+        print "add $devnode:         ok\n";
+        return $devnode;
+}
+
 sub check_add {
         my ($device) = @_;
 
@@ -2215,19 +2241,13 @@ sub check_add {
                 }
         }
 
+        my $devnode = check_devnode($device);
+
         print "device \'$device->{devpath}\' expecting node/link \'$device->{exp_name}\'\n";
+        return if (!defined($device->{exp_name}));
+
         if ((-e "$udev_dev/$device->{exp_name}") ||
             (-l "$udev_dev/$device->{exp_name}")) {
-
-                my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
-                    $atime, $mtime, $ctime, $blksize, $blocks) = stat("$udev_dev/$device->{exp_name}");
-
-                if (defined($device->{exp_perms})) {
-                        permissions_test($device, $uid, $gid, $mode);
-                }
-                if (defined($device->{exp_majorminor})) {
-                        major_minor_test($device, $rdev);
-                }
                 print "add $device->{devpath}:         ok\n";
         } else {
                 print "add  $device->{devpath}:         error";
@@ -2243,12 +2263,32 @@ sub check_add {
         }
 }
 
+sub check_remove_devnode {
+        my ($device) = @_;
+        my $devnode = get_devnode($device);
+
+        if (-e "$devnode") {
+                print "remove  $devnode:      error";
+                print "\n";
+                system("tree", "$udev_dev");
+                print "\n";
+                $error++;
+                sleep(1);
+        } else {
+                print "remove $devnode:         ok\n";
+        }
+}
+
 sub check_remove {
         my ($device) = @_;
 
+        check_remove_devnode($device);
+
+        return if (!defined($device->{exp_name}));
+
         if ((-e "$udev_dev/$device->{exp_name}") ||
             (-l "$udev_dev/$device->{exp_name}")) {
-                print "remove  $device->{devpath}:      error";
+                print "remove  $device->{exp_name}:      error";
                 if ($device->{exp_rem_error}) {
                         print " as expected\n";
                 } else {
@@ -2259,7 +2299,7 @@ sub check_remove {
                         sleep(1);
                 }
         } else {
-                print "remove  $device->{devpath}:      ok\n";
+                print "remove  $device->{exp_name}:      ok\n";
         }
 }
 
