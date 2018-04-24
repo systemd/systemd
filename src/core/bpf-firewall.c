@@ -691,13 +691,14 @@ int bpf_firewall_supported(void) {
                          1,
                          BPF_F_NO_PREALLOC);
         if (fd < 0) {
-                log_debug_errno(r, "Can't allocate BPF LPM TRIE map, BPF firewalling is not supported: %m");
+                log_debug_errno(fd, "Can't allocate BPF LPM TRIE map, BPF firewalling is not supported: %m");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
 
         safe_close(fd);
 
-        if (bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &program) < 0) {
+        r = bpf_program_new(BPF_PROG_TYPE_CGROUP_SKB, &program);
+        if (r < 0) {
                 log_debug_errno(r, "Can't allocate CGROUP SKB BPF program, BPF firewalling is not supported: %m");
                 return supported = BPF_FIREWALL_UNSUPPORTED;
         }
