@@ -1959,6 +1959,7 @@ EOF
         },
         {
                 desc            => "multiple devices, same link name, positive prio",
+                repeat          => 100,
                 devices => [
                         {
                                 devpath         => "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
@@ -2469,6 +2470,7 @@ sub run_test {
         print "TEST $number: $rules->{desc}\n";
         create_rules(\$rules->{rules});
 
+      REPEAT:
         fork_and_run_udev("add", $rules, $sema);
 
         foreach my $dev (@devices) {
@@ -2487,6 +2489,9 @@ sub run_test {
         }
 
         print "\n";
+        if (defined($rules->{repeat}) && --($rules->{repeat}) > 0) {
+                goto REPEAT;
+        }
 
         if (defined($rules->{option}) && $rules->{option} eq "clean") {
                 udev_setup();
