@@ -241,6 +241,21 @@ int fchmod_umask(int fd, mode_t m) {
         return r;
 }
 
+int fchmod_opath(int fd, mode_t m) {
+        char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+
+        /* This function operates also on fd that might have been opened with
+         * O_PATH. Indeed fchmodat() doesn't have the AT_EMPTY_PATH flag like
+         * fchownat() does. */
+
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+
+        if (chmod(procfs_path, m) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int fd_warn_permissions(const char *path, int fd) {
         struct stat st;
 
