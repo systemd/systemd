@@ -22,6 +22,7 @@ use POSIX qw(WIFEXITED WEXITSTATUS);
 use IPC::SysV qw(IPC_PRIVATE S_IRUSR S_IWUSR IPC_CREAT);
 use IPC::Semaphore;
 use Time::HiRes qw(usleep);
+use Cwd qw(getcwd abs_path);
 
 my $udev_bin            = "./test-udev";
 my $valgrind            = 0;
@@ -2077,14 +2078,26 @@ sub check_add {
 
         my $devnode = check_devnode($device);
 
-        print "device \'$device->{devpath}\' expecting node/link \'$device->{exp_name}\'\n";
         return if (!defined($device->{exp_name}));
 
-        if ((-e "$udev_dev/$device->{exp_name}") ||
-            (-l "$udev_dev/$device->{exp_name}")) {
-                print "add $device->{devpath}:         ok\n";
+        my @st = lstat("$udev_dev/$device->{exp_name}");
+        if (-l _) {
+                my $cwd = getcwd();
+                my $dir = "$udev_dev/$device->{exp_name}";
+                $dir =~ s!/[^/]*$!!;
+                my $tgt = readlink("$udev_dev/$device->{exp_name}");
+                $tgt = abs_path("$dir/$tgt");
+                $tgt =~ s!^$cwd/!!;
+
+                if ($tgt ne $devnode) {
+                        print "symlink $device->{exp_name}:         error, found -> $tgt\n";
+                        $error++;
+                        system("tree", "$udev_dev");
+                } else {
+                        print "symlink $device->{exp_name}:         ok\n";
+                }
         } else {
-                print "add  $device->{devpath}:         error";
+                print "symlink $device->{exp_name}:         error";
                 if ($device->{exp_add_error}) {
                         print " as expected\n";
                 } else {
