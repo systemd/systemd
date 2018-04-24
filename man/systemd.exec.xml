@@ -1972,7 +1972,9 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
       <listitem><para>Variables read from files specified via <varname>EnvironmentFile=</varname> in the unit file</para></listitem>
 
-      <listitem><para>Variables set by any PAM modules in case <varname>PAMName=</varname> is in effect, cf. <citerefentry project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem>
+      <listitem><para>Variables set by any PAM modules in case <varname>PAMName=</varname> is in effect,
+      cf. <citerefentry
+      project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem>
     </itemizedlist>
 
     <para>If the same environment variables are set by multiple of these sources, the later source — according to the
@@ -1980,7 +1982,8 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
     <varname>UnsetEnvironment=</varname> are removed again from the compiled environment variable list, immediately
     before it is passed to the executed process.</para>
 
-    <para>The following select environment variables are set by the service manager itself for each invoked process:</para>
+    <para>The following select environment variables are set or propagated by the service manager for each invoked
+    process:</para>
 
     <variablelist class='environment-variables'>
       <varlistentry>
@@ -2031,24 +2034,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       <varlistentry>
         <term><varname>$XDG_RUNTIME_DIR</varname></term>
 
-        <listitem><para>The directory for volatile state. Set for the
-        user <command>systemd</command> instance, and also in user
-        sessions. See
-        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>$XDG_SESSION_ID</varname></term>
-        <term><varname>$XDG_SEAT</varname></term>
-        <term><varname>$XDG_VTNR</varname></term>
-
-        <listitem><para>The identifier of the session, the seat name,
-        and virtual terminal of the session. Set by
-        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for login sessions. <varname>$XDG_SEAT</varname> and
-        <varname>$XDG_VTNR</varname> will only be set when attached to
-        a seat and a tty.</para></listitem>
+        <listitem><para>The directory to use for runtime objects (such as IPC objects) and volatile state. Set for all
+        services run by the user <command>systemd</command> instance, as well as any system services that use
+        <varname>PAMName=</varname> with a PAM stack that includes <command>pam_systemd</command>. See below and
+        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
+        information.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2302,6 +2292,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </listitem>
       </varlistentry>
     </variablelist>
+
+    <para>For system services, when <varname>PAMName=</varname> is enabled and <command>pam_systemd</command> is part
+    of the selected PAM stack, additional environment variables defined by systemd may be set for
+    services. Specifically, these are <varname>$XDG_SEAT</varname>, <varname>$XDG_VTNR</varname>, see
+    <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for details.</para>
   </refsect1>
 
   <refsect1>
