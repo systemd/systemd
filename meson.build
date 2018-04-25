@@ -1349,9 +1349,9 @@ install_libsystemd_static = static_library(
         'systemd',
         libsystemd_sources,
         journal_client_sources,
+        basic_sources,
+        basic_gcrypt_sources,
         include_directories : includes,
-        link_with : [libbasic,
-                     libbasic_gcrypt],
         build_by_default : static_libsystemd != 'false',
         install : static_libsystemd != 'false',
         install_dir : rootlibdir,
@@ -1360,6 +1360,10 @@ install_libsystemd_static = static_library(
                         librt,
                         libxz,
                         liblz4,
+                        libcap,
+                        libblkid,
+                        libmount,
+                        libselinux,
                         libgcrypt],
         c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
 

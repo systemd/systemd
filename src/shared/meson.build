@@ -2,7 +2,7 @@
 #
 # Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
-shared_sources = '''
+shared_sources = files('''
         acl-util.h
         acpi-fpdt.c
         acpi-fpdt.h
@@ -104,25 +104,25 @@ shared_sources = '''
         watchdog.c
         watchdog.h
         wireguard-netlink.h
-'''.split()
+'''.split())
 
 test_tables_h = files('test-tables.h')
 shared_sources += [test_tables_h]
 
 if conf.get('HAVE_ACL') == 1
-        shared_sources += ['acl-util.c']
+        shared_sources += files('acl-util.c')
 endif
 
 if conf.get('ENABLE_UTMP') == 1
-        shared_sources += ['utmp-wtmp.c']
+        shared_sources += files('utmp-wtmp.c')
 endif
 
 if conf.get('HAVE_SECCOMP') == 1
-        shared_sources += ['seccomp-util.c']
+        shared_sources += files('seccomp-util.c')
 endif
 
 if conf.get('HAVE_LIBIPTC') == 1
-        shared_sources += ['firewall-util.c']
+        shared_sources += files('firewall-util.c')
 endif
 
 libshared_name = 'systemd-shared-@0@'.format(meson.project_version())

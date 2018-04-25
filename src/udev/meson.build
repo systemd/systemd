@@ -121,16 +121,16 @@ static_libudev = get_option('static-libudev')
 static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
 install_libudev_static = static_library(
         'udev',
+        basic_sources,
+        shared_sources,
+        libsystemd_sources,
         libudev_sources,
         include_directories : includes,
-        link_with : [libshared_static,
-                     libsystemd_static],
-        link_whole : libudev_basic,
         build_by_default : static_libudev != 'false',
         install : static_libudev != 'false',
         install_dir : rootlibdir,
         link_depends : libudev_sym,
-        dependencies : [threads],
+        dependencies : libshared_deps + [libmount],
         c_args : static_libudev_pic ? [] : ['-fno-PIC'],
         pic : static_libudev_pic)
 
