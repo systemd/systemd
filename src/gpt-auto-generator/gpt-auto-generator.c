@@ -230,7 +230,7 @@ static int add_mount(
         return 0;
 }
 
-static bool path_is_busy(const char *where) {
+static int path_is_busy(const char *where) {
         int r;
 
         /* already a mountpoint; generators run during reload */
@@ -243,13 +243,17 @@ static bool path_is_busy(const char *where) {
                 return false;
 
         if (r < 0)
-                return true;
+                return log_warning_errno(r, "Cannot check if \"%s\" is a mount point: %m", where);
 
         /* not a mountpoint but it contains files */
-        if (dir_is_empty(where) <= 0)
-                return true;
+        r = dir_is_empty(where);
+        if (r < 0)
+                return log_warning_errno(r, "Cannot check if \"%s\" is empty: %m", where);
+        if (r > 0)
+                return false;
 
-        return false;
+        log_debug("\"%s\" already populated, ignoring.", where);
+        return true;
 }
 
 static int add_partition_mount(
@@ -258,12 +262,12 @@ static int add_partition_mount(
                 const char *where,
                 const char *description) {
 
+        int r;
         assert(p);
 
-        if (path_is_busy(where)) {
-                log_debug("%s already populated, ignoring.", where);
-                return 0;
-        }
+        r = path_is_busy(where);
+        if (r != 0)
+                return r < 0 ? r : 0;
 
         return add_mount(
                         id,
@@ -407,10 +411,9 @@ static int add_esp(DissectedPartition *p) {
                 return 0;
         }
 
-        if (path_is_busy(esp)) {
-                log_debug("%s already populated, ignoring.", esp);
-                return 0;
-        }
+        r = path_is_busy(esp);
+        if (r != 0)
+                return r < 0 ? r : 0;
 
         if (is_efi_boot()) {
                 sd_id128_t loader_uuid;
