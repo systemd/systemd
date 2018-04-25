@@ -37,6 +37,3 @@ extern const UnitVTable device_vtable;
 
 int device_found_node(Manager *m, const char *node, bool add, DeviceFound found, bool now);
 bool device_shall_be_bound_by(Unit *device, Unit *u);
-
-const char *device_found_to_string(DeviceFound f) _const_;
-DeviceFound device_found_from_string(const char *s) _pure_;
