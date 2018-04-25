@@ -407,11 +407,15 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
 
         if (streq(field, "Delegate")) {
 
-                r = parse_boolean(eq);
-                if (r < 0)
-                        return bus_append_strv(m, "DelegateControllers", eq, EXTRACT_QUOTES);
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", "Delegate", "b", 0);
+                else {
+                        r = parse_boolean(eq);
+                        if (r < 0)
+                                return bus_append_strv(m, "DelegateControllers", eq, EXTRACT_QUOTES);
 
-                r = sd_bus_message_append(m, "(sv)", "Delegate", "b", r);
+                        r = sd_bus_message_append(m, "(sv)", "Delegate", "b", r);
+                }
                 if (r < 0)
                         return bus_log_create_error(r);
 
