@@ -168,7 +168,7 @@ int devnode_acl_all(struct udev *udev,
                     bool del, uid_t old_uid,
                     bool add, uid_t new_uid) {
 
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         _cleanup_set_free_free_ Set *nodes = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
@@ -209,7 +209,7 @@ int devnode_acl_all(struct udev *udev,
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
                 const char *node, *sn;
 
                 d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));

@@ -126,7 +126,7 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
         const char *device = NULL;
         const char *subsystem = NULL;
         const char *prefix = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *srcdev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *srcdev = NULL;
 
         if (!hwdb)
                 return EXIT_FAILURE;

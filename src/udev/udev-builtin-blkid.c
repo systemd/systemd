@@ -228,7 +228,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         int64_t offset = 0;
         bool noraid = false;
         _cleanup_close_ int fd = -1;
-        _cleanup_blkid_free_probe_ blkid_probe pr = NULL;
+        _cleanup_(blkid_free_probep) blkid_probe pr = NULL;
         const char *data;
         const char *name;
         int nvals;

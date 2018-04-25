@@ -90,7 +90,7 @@ static bool same_device(struct udev_device *a, struct udev_device *b) {
 }
 
 static bool validate_device(struct udev *udev, struct udev_device *device) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *enumerate = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *enumerate = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         struct udev_device *parent;
         const char *v, *subsystem;
@@ -143,7 +143,7 @@ static bool validate_device(struct udev *udev, struct udev_device *device) {
 
         first = udev_enumerate_get_list_entry(enumerate);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *other;
+                _cleanup_(udev_device_unrefp) struct udev_device *other;
                 struct udev_device *other_parent;
                 const char *other_subsystem;
 
@@ -276,8 +276,8 @@ static bool shall_clamp(struct udev_device *d) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         _cleanup_free_ char *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
         const char *sysname, *path_id, *ss, *saved;
         unsigned max_brightness;

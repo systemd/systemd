@@ -22,7 +22,7 @@
 
 static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -98,7 +98,7 @@ static int link_set_dhcp_routes(Link *link) {
         }
 
         for (i = 0; i < n; i++) {
-                _cleanup_route_free_ Route *route = NULL;
+                _cleanup_(route_freep) Route *route = NULL;
 
                 /* if the DHCP server returns both a Classless Static Routes option and a Static Routes option,
                    the DHCP client MUST ignore the Static Routes option. */
@@ -137,8 +137,8 @@ static int link_set_dhcp_routes(Link *link) {
                 log_link_warning(link, "Classless static routes received from DHCP server: ignoring static-route option and router option");
 
         if (r >= 0 && !classless_route) {
-                _cleanup_route_free_ Route *route = NULL;
-                _cleanup_route_free_ Route *route_gw = NULL;
+                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_freep) Route *route_gw = NULL;
 
                 r = route_new(&route);
                 if (r < 0)
@@ -188,7 +188,7 @@ static int link_set_dhcp_routes(Link *link) {
 }
 
 static int dhcp_lease_lost(Link *link) {
-        _cleanup_address_free_ Address *address = NULL;
+        _cleanup_(address_freep) Address *address = NULL;
         struct in_addr addr;
         struct in_addr netmask;
         struct in_addr gateway;
@@ -207,7 +207,7 @@ static int dhcp_lease_lost(Link *link) {
                 n = sd_dhcp_lease_get_routes(link->dhcp_lease, &routes);
                 if (n >= 0) {
                         for (i = 0; i < n; i++) {
-                                _cleanup_route_free_ Route *route = NULL;
+                                _cleanup_(route_freep) Route *route = NULL;
 
                                 r = route_new(&route);
                                 if (r >= 0) {
@@ -227,8 +227,8 @@ static int dhcp_lease_lost(Link *link) {
         if (r >= 0) {
                 r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
                 if (r >= 0) {
-                        _cleanup_route_free_ Route *route_gw = NULL;
-                        _cleanup_route_free_ Route *route = NULL;
+                        _cleanup_(route_freep) Route *route_gw = NULL;
+                        _cleanup_(route_freep) Route *route = NULL;
 
                         r = route_new(&route_gw);
                         if (r >= 0) {
@@ -305,7 +305,7 @@ static int dhcp_lease_lost(Link *link) {
 
 static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                  void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -331,7 +331,7 @@ static int dhcp4_update_address(Link *link,
                                 struct in_addr *address,
                                 struct in_addr *netmask,
                                 uint32_t lifetime) {
-        _cleanup_address_free_ Address *addr = NULL;
+        _cleanup_(address_freep) Address *addr = NULL;
         unsigned prefixlen;
         int r;
 

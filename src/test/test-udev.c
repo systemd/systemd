@@ -56,10 +56,10 @@ static int fake_filesystems(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_udev_event_unref_ struct udev_event *event = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
-        _cleanup_udev_rules_unref_ struct udev_rules *rules = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
+        _cleanup_(udev_event_unrefp) struct udev_event *event = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+        _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
         char syspath[UTIL_PATH_SIZE];
         const char *devpath;
         const char *action;

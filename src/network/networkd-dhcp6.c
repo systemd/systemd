@@ -252,7 +252,7 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
 
 static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                  void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -284,7 +284,7 @@ static int dhcp6_address_change(
                 uint32_t lifetime_preferred,
                 uint32_t lifetime_valid) {
 
-        _cleanup_address_free_ Address *addr = NULL;
+        _cleanup_(address_freep) Address *addr = NULL;
         char buffer[INET6_ADDRSTRLEN];
         int r;
 

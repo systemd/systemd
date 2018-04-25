@@ -16,7 +16,7 @@
 
 int main(int argc, char *argv[]) {
         sd_event *event = NULL;
-        _cleanup_manager_free_ Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         const char *user = "systemd-network";
         uid_t uid;
         gid_t gid;

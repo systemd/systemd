@@ -49,7 +49,7 @@ int probe_filesystem(const char *node, char **ret_fstype) {
          * different error otherwise. */
 
 #if HAVE_BLKID
-        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         const char *fstype;
         int r;
 
@@ -124,12 +124,12 @@ int dissect_image(
 
 #if HAVE_BLKID
         sd_id128_t root_uuid = SD_ID128_NULL, verity_uuid = SD_ID128_NULL;
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
         bool is_gpt, is_mbr, generic_rw, multiple_generic = false;
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
-        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
         const char *pttype = NULL;
@@ -287,7 +287,7 @@ int dissect_image(
                 n = 0;
                 first = udev_enumerate_get_list_entry(e);
                 udev_list_entry_foreach(item, first) {
-                        _cleanup_udev_device_unref_ struct udev_device *q;
+                        _cleanup_(udev_device_unrefp) struct udev_device *q;
                         dev_t qn;
 
                         q = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
@@ -360,7 +360,7 @@ int dissect_image(
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *q;
+                _cleanup_(udev_device_unrefp) struct udev_device *q;
                 unsigned long long pflags;
                 blkid_partition pp;
                 const char *node;

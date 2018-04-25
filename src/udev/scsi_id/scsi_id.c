@@ -569,9 +569,8 @@ out:
         return retval;
 }
 
-int main(int argc, char **argv)
-{
-        _cleanup_udev_unref_ struct udev *udev;
+int main(int argc, char **argv) {
+        _cleanup_(udev_unrefp) struct udev *udev;
         int retval = 0;
         char maj_min_dev[MAX_PATH_LEN];
         int newargc;

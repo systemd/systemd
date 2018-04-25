@@ -97,7 +97,7 @@ static int wait_for_initialized(
                 struct udev_device *device,
                 struct udev_device **ret) {
 
-        _cleanup_udev_monitor_unref_ struct udev_monitor *monitor = NULL;
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *monitor = NULL;
         struct udev_device *d;
         const char *sysname;
         int watch_fd, r;
@@ -144,7 +144,7 @@ static int wait_for_initialized(
         }
 
         for (;;) {
-                _cleanup_udev_device_unref_ struct udev_device *t = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *t = NULL;
 
                 r = fd_wait_for_event(watch_fd, POLLIN, EXIT_USEC);
                 if (r == -EINTR)
@@ -172,8 +172,8 @@ static int determine_state_file(
                 const struct rfkill_event *event,
                 char **ret) {
 
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         const char *path_id, *type;
         char *state_file;
         int r;
@@ -363,7 +363,7 @@ static int save_state_write(struct write_queue_item **write_queue) {
 
 int main(int argc, char *argv[]) {
         LIST_HEAD(write_queue_item, write_queue);
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_close_ int rfkill_fd = -1;
         bool ready = false;
         int r, n;

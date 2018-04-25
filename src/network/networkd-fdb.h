@@ -29,7 +29,6 @@ void fdb_entry_free(FdbEntry *fdb_entry);
 int fdb_entry_configure(Link *link, FdbEntry *fdb_entry);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FdbEntry*, fdb_entry_free);
-#define _cleanup_fdbentry_free_ _cleanup_(fdb_entry_freep)
 
 int config_parse_fdb_hwaddr(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_fdb_vlan_id(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

@@ -38,7 +38,6 @@ int address_label_new(AddressLabel **ret);
 void address_label_free(AddressLabel *label);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(AddressLabel*, address_label_free);
-#define _cleanup_address_label_free_ _cleanup_(address_label_freep)
 
 int address_label_configure(AddressLabel *address, Link *link, sd_netlink_message_handler_t callback, bool update);
 

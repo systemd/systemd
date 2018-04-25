@@ -44,7 +44,7 @@ static void print_help(void) {
 }
 
 static int adm_control(struct udev *udev, int argc, char *argv[]) {
-        _cleanup_udev_ctrl_unref_ struct udev_ctrl *uctrl = NULL;
+        _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
         int timeout = 60;
         int rc = 1, c;
 

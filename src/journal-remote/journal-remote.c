@@ -203,10 +203,9 @@ static int init_writer_hashmap(RemoteServer *s) {
         return 0;
 }
 
-static int get_writer(RemoteServer *s, const char *host,
-                      Writer **writer) {
+static int get_writer(RemoteServer *s, const char *host, Writer **writer) {
+        _cleanup_(writer_unrefp) Writer *w = NULL;
         const void *key;
-        _cleanup_writer_unref_ Writer *w = NULL;
         int r;
 
         switch(arg_split_mode) {

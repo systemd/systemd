@@ -79,10 +79,10 @@ static int adm_monitor(struct udev *udev, int argc, char *argv[]) {
         bool prop = false;
         bool print_kernel = false;
         bool print_udev = false;
-        _cleanup_udev_list_cleanup_ struct udev_list subsystem_match_list;
-        _cleanup_udev_list_cleanup_ struct udev_list tag_match_list;
-        _cleanup_udev_monitor_unref_ struct udev_monitor *udev_monitor = NULL;
-        _cleanup_udev_monitor_unref_ struct udev_monitor *kernel_monitor = NULL;
+        _cleanup_(udev_list_cleanup) struct udev_list subsystem_match_list;
+        _cleanup_(udev_list_cleanup) struct udev_list tag_match_list;
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor = NULL;
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *kernel_monitor = NULL;
         _cleanup_close_ int fd_ep = -1;
         int fd_kernel = -1, fd_udev = -1;
         struct epoll_event ep_kernel, ep_udev;

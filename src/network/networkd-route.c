@@ -49,7 +49,7 @@ static unsigned routes_max(void) {
 }
 
 int route_new(Route **ret) {
-        _cleanup_route_free_ Route *route = NULL;
+        _cleanup_(route_freep) Route *route = NULL;
 
         route = new0(Route, 1);
         if (!route)
@@ -69,8 +69,8 @@ int route_new(Route **ret) {
 }
 
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret) {
-        _cleanup_network_config_section_free_ NetworkConfigSection *n = NULL;
-        _cleanup_route_free_ Route *route = NULL;
+        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(route_freep) Route *route = NULL;
         int r;
 
         assert(network);
@@ -261,7 +261,7 @@ static int route_add_internal(
                 uint32_t table,
                 Route **ret) {
 
-        _cleanup_route_free_ Route *route = NULL;
+        _cleanup_(route_freep) Route *route = NULL;
         int r;
 
         assert(link);
@@ -689,7 +689,7 @@ int config_parse_gateway(const char *unit,
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         union in_addr_union buffer;
         int r, f;
 
@@ -734,7 +734,7 @@ int config_parse_preferred_src(const char *unit,
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         union in_addr_union buffer;
         int r, f;
 
@@ -774,7 +774,7 @@ int config_parse_destination(const char *unit,
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         union in_addr_union buffer;
         unsigned char prefixlen;
         int r;
@@ -828,7 +828,7 @@ int config_parse_route_priority(const char *unit,
                                 void *data,
                                 void *userdata) {
         Network *network = userdata;
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         uint32_t k;
         int r;
 
@@ -866,7 +866,7 @@ int config_parse_route_scope(const char *unit,
                              void *data,
                              void *userdata) {
         Network *network = userdata;
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         int r;
 
         assert(filename);
@@ -905,7 +905,7 @@ int config_parse_route_table(const char *unit,
                              const char *rvalue,
                              void *data,
                              void *userdata) {
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         Network *network = userdata;
         uint32_t k;
         int r;
@@ -945,7 +945,7 @@ int config_parse_gateway_onlink(const char *unit,
                                 void *data,
                                 void *userdata) {
         Network *network = userdata;
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         int r;
 
         assert(filename);
@@ -982,7 +982,7 @@ int config_parse_ipv6_route_preference(const char *unit,
                                        void *data,
                                        void *userdata) {
         Network *network = userdata;
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         int r;
 
         r = route_new_static(network, filename, section_line, &n);
@@ -1016,7 +1016,7 @@ int config_parse_route_protocol(const char *unit,
                                 void *data,
                                 void *userdata) {
         Network *network = userdata;
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         int r;
 
         r = route_new_static(network, filename, section_line, &n);
@@ -1053,7 +1053,7 @@ int config_parse_route_type(const char *unit,
                             void *data,
                             void *userdata) {
         Network *network = userdata;
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         int r;
 
         r = route_new_static(network, filename, section_line, &n);
@@ -1088,7 +1088,7 @@ int config_parse_tcp_window(const char *unit,
                              const char *rvalue,
                              void *data,
                              void *userdata) {
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         Network *network = userdata;
         uint64_t k;
         int r;
@@ -1134,7 +1134,7 @@ int config_parse_quickack(const char *unit,
                           const char *rvalue,
                           void *data,
                           void *userdata) {
-        _cleanup_route_free_ Route *n = NULL;
+        _cleanup_(route_freep) Route *n = NULL;
         Network *network = userdata;
         int k, r;
 

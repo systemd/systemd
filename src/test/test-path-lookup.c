@@ -17,8 +17,8 @@
 static void test_paths(UnitFileScope scope) {
         char template[] = "/tmp/test-path-lookup.XXXXXXX";
 
-        _cleanup_lookup_paths_free_ LookupPaths lp_without_env = {};
-        _cleanup_lookup_paths_free_ LookupPaths lp_with_env = {};
+        _cleanup_(lookup_paths_free) LookupPaths lp_without_env = {};
+        _cleanup_(lookup_paths_free) LookupPaths lp_with_env = {};
         char *systemd_unit_path;
 
         assert_se(mkdtemp(template));
@@ -40,7 +40,7 @@ static void test_paths(UnitFileScope scope) {
 }
 
 static void test_user_and_global_paths(void) {
-        _cleanup_lookup_paths_free_ LookupPaths lp_global = {}, lp_user = {};
+        _cleanup_(lookup_paths_free) LookupPaths lp_global = {}, lp_user = {};
         char **u, **g, **p;
         unsigned k = 0;
 

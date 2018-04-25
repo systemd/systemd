@@ -296,7 +296,7 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
         size_t l;
         char *s;
         const char *attr, *port_name;
-        _cleanup_udev_device_unref_ struct udev_device *pci = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *pci = NULL;
         struct udev_device *hotplug_slot_dev;
         char slots[PATH_MAX];
         _cleanup_closedir_ DIR *dir = NULL;

@@ -251,7 +251,7 @@ static int swap_verify(Swap *s) {
 }
 
 static int swap_load_devnode(Swap *s) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
         struct stat st;
         const char *p;
 
@@ -425,7 +425,7 @@ fail:
 }
 
 static int swap_process_new(Manager *m, const char *device, int prio, bool set_flags) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         const char *dn;
         struct stat st;

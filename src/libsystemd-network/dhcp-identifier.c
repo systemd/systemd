@@ -78,13 +78,13 @@ int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len) {
 int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, void *_id) {
         /* name is a pointer to memory in the udev_device struct, so must
            have the same scope */
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         const char *name = NULL;
         uint64_t id;
 
         if (detect_container() <= 0) {
                 /* not in a container, udev will be around */
-                _cleanup_udev_unref_ struct udev *udev;
+                _cleanup_(udev_unrefp) struct udev *udev;
                 char ifindex_str[2 + DECIMAL_STR_MAX(int)];
 
                 udev = udev_new();

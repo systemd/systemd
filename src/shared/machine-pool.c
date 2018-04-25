@@ -158,7 +158,7 @@ fail:
 }
 
 int setup_machine_directory(uint64_t size, sd_bus_error *error) {
-        _cleanup_release_lock_file_ LockFile lock_file = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile lock_file = LOCK_FILE_INIT;
         struct loop_info64 info = {
                 .lo_flags = LO_FLAGS_AUTOCLEAR,
         };

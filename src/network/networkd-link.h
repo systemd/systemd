@@ -179,7 +179,6 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
 int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
-#define _cleanup_link_unref_ _cleanup_(link_unrefp)
 
 /* Macros which append INTERFACE= to the message */
 

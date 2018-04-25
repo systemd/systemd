@@ -405,9 +405,8 @@ out:
         return ret;
 }
 
-int main(int argc, char *argv[])
-{
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+int main(int argc, char *argv[]) {
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         struct hd_driveid id;
         union {
                 uint8_t  byte[512];
