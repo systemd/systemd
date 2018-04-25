@@ -173,6 +173,7 @@ static bool is_prio_dirent(DIR *dir, struct dirent *de, int *priority)
 enum {
         NO_TARGET_FOUND,
         TARGET_FOUND,
+        TARGET_NEEDS_CLEANUP,
 };
 
 /* find device node of device with highest priority */
@@ -202,6 +203,11 @@ static int link_find_prioritized(struct udev_device *dev, bool add, int dfd,
                         break;
                 if (dot_or_dot_dot(name))
                         continue;
+
+                if (!is_prio_dirent(dir, de, &prio)) {
+                        ret = TARGET_NEEDS_CLEANUP;
+                        break;
+                }
 
                 if (prio > priority) {
                         int priofd;
@@ -277,6 +283,8 @@ static int delete_target_entry(int dirfd, const char *prioname,
         int priofd;
         int ret = 0, r;
 
+        unlinkat(dirfd, filename, 0);
+
         priofd = openat(dirfd, prioname, O_RDONLY|O_DIRECTORY);
         if (priofd == -1) {
                 if (errno == ENOENT)
@@ -307,6 +315,74 @@ out:
                 log_error("failed to remove target %s/%s for %s",
                           prioname, filename, slink);
         return ret;
+}
+
+static int cleanup_filter(const struct dirent *de)
+{
+        /*
+         * can't use  is_prio_dirent() here, because it needs to call
+         * dirent_ensure_type()
+         */
+        return !dot_or_dot_dot(de->d_name);
+}
+
+static void cleanup_old_targets(const char *dirname, struct udev_device *dev)
+{
+        struct udev *udev = udev_device_get_udev(dev);
+        struct dirent **darr;
+        int n;
+        int dfd = -1;
+        DIR *dir;
+
+        log_info("migrating symlink targets in %s", dirname);
+
+        /* Use scandir here to avoid races with deleting entries */
+        n = scandir(dirname, &darr, cleanup_filter, alphasort);
+        if (n < 0) {
+                log_error_errno(-errno, "error scanning %s", dirname);
+                return;
+        }
+        if (n == 0)
+                return;
+
+        dir = opendir(dirname);
+        if (dir != NULL)
+                dfd = dirfd(dir);
+        if (dfd == -1) {
+                log_error_errno(-errno, "error opening %s", dirname);
+                return;
+        }
+
+        while (n--) {
+                struct dirent *de = darr[n];
+                struct udev_device *ud;
+                int prio, r;
+                char prioname[PRIONAME_SIZE];
+
+                if (is_prio_dirent(dir, de, &prio))
+                        continue;
+                /* is_prio_dirent() called dirent_ensure_type() */
+                r = unlinkat(dfd, de->d_name,
+                             de->d_type == DT_DIR ? AT_REMOVEDIR : 0);
+                if (r == 0)
+                        log_debug("removed %s/%s", dirname, de->d_name);
+                else
+                        log_error_errno(-errno, "failed to remove %s/%s",
+                                        dirname, de->d_name);
+
+                ud = udev_device_new_from_device_id(udev, de->d_name);
+                if (ud == NULL)
+                        continue;
+
+                prio = udev_device_get_devlink_priority(ud);
+                udev_device_unref(ud);
+
+                make_prio_name(prio, prioname, sizeof(prioname));
+                create_target_entry(dfd, prioname, de->d_name, dirname);
+        }
+
+        closedir(dir);
+        free(darr);
 }
 
 /* manage "stack of names" with possibly specified device priorities */
@@ -364,6 +440,13 @@ static void link_update(struct udev_device *dev, const char *slink, bool add) {
 
         r = link_find_prioritized(dev, add, dfd, dir,
                                   buf, sizeof(buf), slink);
+        if (r == TARGET_NEEDS_CLEANUP) {
+                cleanup_old_targets(dirname, dev);
+                r = link_find_prioritized(dev, add, dfd, dir,
+                                          buf, sizeof(buf), slink);
+                /* A single cleanup must be enough */
+                assert(r != TARGET_NEEDS_CLEANUP);
+        }
         if (r == NO_TARGET_FOUND) {
                 log_debug("no reference left, remove '%s'", slink);
                 if (unlink(slink) == 0)
