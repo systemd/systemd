@@ -44,6 +44,50 @@ for (my $i = 1; $i <= 10000; ++$i) {
         $rules_10k_tags .= 'KERNEL=="sda", TAG+="test' . $i . "\"\n";
 }
 
+# Create a device list with all block devices under /sys
+# (except virtual devices and cd-roms)
+# the optional argument exp_func returns expected and non-expected
+# symlinks for the device.
+sub all_block_devs {
+        my ($exp_func) = @_;
+        my @devices;
+
+        foreach my $bd (glob "$udev_sys/dev/block/*") {
+                my $tgt = readlink($bd);
+                my ($exp, $notexp) = (undef, undef);
+
+                next if ($tgt =~ m!/virtual/! || $tgt =~ m!/sr[0-9]*$!);
+
+                $tgt =~ s!^\.\./\.\.!!;
+                ($exp, $notexp) = $exp_func->($tgt) if defined($exp_func);
+                my $device = {
+                        devpath => $tgt,
+                        exp_links => $exp,
+                        not_exp_links => $notexp,
+                };
+                push(@devices, $device);
+        }
+        return \@devices;
+}
+
+# This generator returns a suitable exp_func for use with
+# all_block_devs().
+sub expect_for_some {
+        my ($pattern, $links, $donot) = @_;
+        my $_expect = sub {
+                my ($name) = @_;
+
+                if ($name =~ /$pattern/) {
+                        return ($links, undef);
+                } elsif ($donot) {
+                        return (undef, $links);
+                } else {
+                        return (undef, undef);
+                }
+        };
+        return $_expect;
+}
+
 my @tests = (
         {
                 desc            => "no rules",
@@ -2091,6 +2135,15 @@ SUBSYSTEM=="block", SUBSYSTEMS=="scsi", KERNEL=="sda?*", ENV{DEVTYPE}=="partitio
 KERNEL=="*7", OPTIONS+="link_priority=10"
 EOF
         },
+        {
+                desc           => 'all_block_devs',
+                generator      => expect_for_some("\\/sda6\$", ["blockdev"]),
+                repeat         => 10,
+                rules          => <<EOF
+SUBSYSTEM=="block", SUBSYSTEMS=="scsi", KERNEL=="sd*", SYMLINK+="blockdev"
+KERNEL=="sda6", OPTIONS+="link_priority=10"
+EOF
+        }
 );
 
 sub create_rules {
@@ -2465,7 +2518,12 @@ sub fork_and_run_udev {
 sub run_test {
         my ($rules, $number, $sema) = @_;
         my $rc;
-        my @devices = @{$rules->{devices}};
+        my @devices;
+
+        if (!defined $rules->{devices}) {
+                $rules->{devices} = all_block_devs($rules->{generator});
+        }
+        @devices = @{$rules->{devices}};
 
         print "TEST $number: $rules->{desc}\n";
         create_rules(\$rules->{rules});
