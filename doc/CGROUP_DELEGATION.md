@@ -431,7 +431,17 @@ unified you (of course, I guess) need to provide only `/sys/fs/cgroup/` itself.
    replace it with an intermediary `tmpfs`, as long as the path to the
    delegated sub-tree remains accessible as-is.
 
-5. ⚡ Think twice before delegating cgroupsv1 controllers to less privileged
+5. ⚡ Currently, the algorithm for mapping between slice/scope/service unit
+   naming and their cgroup paths is not considered public API of systemd, and
+   may change in future versions. This means: it's best to avoid implementing a
+   local logic of translating cgroup paths to slice/scope/service names in your
+   program, or vice versa — it's likely going to break sooner or later. Use the
+   appropriate D-Bus API calls for that instead, so that systemd translates
+   this for you. (Specifically: each Unit object has a `ControlGroup` property
+   to get the cgroup for a unit. The method `GetUnitByControlGroup()` may be
+   used to get the unit for a cgroup.)
+
+6. ⚡ Think twice before delegating cgroupsv1 controllers to less privileged
    containers. It's not safe, you basically allow your containers to freeze the
    system with that and worse. Delegation is a strongpoint of cgroupsv2 though,
    and there it's safe to treat delegation boundaries as privilege boundaries.
