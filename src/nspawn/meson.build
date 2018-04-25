@@ -10,6 +10,8 @@ libnspawn_core_sources = files('''
         nspawn-mount.h
         nspawn-network.c
         nspawn-network.h
+        nspawn-oci.c
+        nspawn-oci.h
         nspawn-patch-uid.c
         nspawn-patch-uid.h
         nspawn-register.c

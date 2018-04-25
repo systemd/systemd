@@ -112,6 +112,7 @@ int register_machine(
                 unsigned n_mounts,
                 int kill_signal,
                 char **properties,
+                sd_bus_message *properties_message,
                 bool keep_unit,
                 const char *service) {
 
@@ -185,6 +186,12 @@ int register_machine(
                 if (r < 0)
                         return r;
 
+                if (properties_message) {
+                        r = sd_bus_message_copy(m, properties_message, true);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
                 r = bus_append_unit_property_assignment_many(m, UNIT_SERVICE, properties);
                 if (r < 0)
                         return r;
@@ -235,7 +242,8 @@ int allocate_scope(
                 CustomMount *mounts,
                 unsigned n_mounts,
                 int kill_signal,
-                char **properties) {
+                char **properties,
+                sd_bus_message *properties_message) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -288,6 +296,12 @@ int allocate_scope(
         r = append_controller_property(bus, m);
         if (r < 0)
                 return r;
+
+        if (properties_message) {
+                r = sd_bus_message_copy(m, properties_message, true);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         r = append_machine_properties(
                         m,
