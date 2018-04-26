@@ -1381,13 +1381,18 @@ static int cat_file(const char *filename, bool newline) {
         return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, 0);
 }
 
-int cat_files(const char *file, char **dropins) {
+int cat_files(const char *file, char **dropins, CatFlags flags) {
         char **path;
         int r;
 
         if (file) {
                 r = cat_file(file, false);
-                if (r < 0)
+                if (r == -ENOENT && (flags & CAT_FLAGS_MAIN_FILE_OPTIONAL))
+                        printf("%s# config file %s not found%s\n",
+                               ansi_highlight_magenta(),
+                               file,
+                               ansi_normal());
+                else if (r < 0)
                         return log_warning_errno(r, "Failed to cat %s: %m", file);
         }
 

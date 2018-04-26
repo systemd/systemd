@@ -78,10 +78,11 @@ static void test_terminal_urlify(void) {
 }
 
 static void test_cat_files(void) {
-        assert_se(cat_files("/no/such/file", NULL) == -ENOENT);
+        assert_se(cat_files("/no/such/file", NULL, 0) == -ENOENT);
+        assert_se(cat_files("/no/such/file", NULL, CAT_FLAGS_MAIN_FILE_OPTIONAL) == 0);
 
         if (access("/etc/fstab", R_OK) >= 0)
-                assert_se(cat_files("/etc/fstab", STRV_MAKE("/etc/fstab", "/etc/fstab")) == 0);
+                assert_se(cat_files("/etc/fstab", STRV_MAKE("/etc/fstab", "/etc/fstab"), 0) == 0);
 }
 
 int main(int argc, char *argv[]) {

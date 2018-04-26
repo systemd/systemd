@@ -133,6 +133,7 @@ DEFINE_ANSI_FUNC(highlight_red,              HIGHLIGHT_RED);
 DEFINE_ANSI_FUNC(highlight_green,            HIGHLIGHT_GREEN);
 DEFINE_ANSI_FUNC(highlight_yellow,           HIGHLIGHT_YELLOW);
 DEFINE_ANSI_FUNC(highlight_blue,             HIGHLIGHT_BLUE);
+DEFINE_ANSI_FUNC(highlight_magenta,          HIGHLIGHT_MAGENTA);
 DEFINE_ANSI_FUNC(normal,                     NORMAL);
 
 DEFINE_ANSI_FUNC_UNDERLINE(underline,                  UNDERLINE, NORMAL);
@@ -160,4 +161,8 @@ int vt_reset_keyboard(int fd);
 int terminal_urlify(const char *url, const char *text, char **ret);
 int terminal_urlify_path(const char *path, const char *text, char **ret);
 
-int cat_files(const char *file, char **files);
+typedef enum CatFlags {
+        CAT_FLAGS_MAIN_FILE_OPTIONAL = 1 << 1,
+} CatFlags;
+
+int cat_files(const char *file, char **dropins, CatFlags flags);

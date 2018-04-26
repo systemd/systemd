@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "conf-files.h"
+#include "def.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
@@ -23,6 +24,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "util.h"
 
 static int files_add(Hashmap *h, const char *suffix, const char *root, unsigned flags, const char *path) {
@@ -255,4 +257,34 @@ int conf_files_list_nulstr(char ***strv, const char *suffix, const char *root, u
                 return -ENOMEM;
 
         return conf_files_list_strv_internal(strv, suffix, root, flags, d);
+}
+
+int conf_files_cat(const char *name) {
+        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
+        const char *dir;
+        char **t;
+        int r;
+
+        NULSTR_FOREACH(dir, CONF_PATHS_NULSTR("")) {
+                assert(endswith(dir, "/"));
+                r = strv_extendf(&dirs, "%s%s.d", dir, name);
+                if (r < 0)
+                        return log_error("Failed to build directory list: %m");
+        }
+
+        r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char* const*) dirs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query file list: %m");
+
+        name = strjoina("/etc/", name);
+
+        if (DEBUG_LOGGING) {
+                log_debug("Looking for configuration in:");
+                log_debug("   %s", name);
+                STRV_FOREACH(t, dirs)
+                        log_debug("   %s/*.conf", *t);
+        }
+
+        /* show */
+        return cat_files(name, files, CAT_FLAGS_MAIN_FILE_OPTIONAL);
 }

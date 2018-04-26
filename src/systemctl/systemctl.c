@@ -5376,7 +5376,7 @@ static int cat(int argc, char *argv[], void *userdata) {
                                 arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
                                 ansi_normal());
 
-                r = cat_files(fragment_path, dropin_paths);
+                r = cat_files(fragment_path, dropin_paths, 0);
                 if (r < 0)
                         return r;
         }
