@@ -1527,6 +1527,86 @@ static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
+static int create_directory_or_subvolume(Item *i, const char *path) {
+        CreationMode creation;
+        int r, q = 0;
+
+        assert(i);
+        assert(IN_SET(i->type,
+                      CREATE_DIRECTORY, TRUNCATE_DIRECTORY,
+                      CREATE_SUBVOLUME, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA));
+
+        if (IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA)) {
+
+                if (btrfs_is_subvol(empty_to_root(arg_root)) <= 0)
+
+                        /* Don't create a subvolume unless the root directory is
+                         * one, too. We do this under the assumption that if the
+                         * root directory is just a plain directory (i.e. very
+                         * light-weight), we shouldn't try to split it up into
+                         * subvolumes (i.e. more heavy-weight). Thus, chroot()
+                         * environments and suchlike will get a full brtfs
+                         * subvolume set up below their tree only if they
+                         * specifically set up a btrfs subvolume for the root
+                         * dir too. */
+
+                        r = -ENOTTY;
+                else {
+                        RUN_WITH_UMASK((~i->mode) & 0777)
+                                r = btrfs_subvol_make(i->path);
+                }
+        } else
+                r = 0;
+
+        if (IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY) || r == -ENOTTY)
+                RUN_WITH_UMASK(0000)
+                        r = mkdir_label(i->path, i->mode);
+
+        if (r < 0) {
+                int k;
+
+                if (!IN_SET(r, -EEXIST, -EROFS))
+                        return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", i->path);
+
+                k = is_dir(i->path, false);
+                if (k == -ENOENT && r == -EROFS)
+                        return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", i->path);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to check if %s exists: %m", i->path);
+                if (!k) {
+                        log_warning("\"%s\" already exists and is not a directory.", i->path);
+                        return 0;
+                }
+
+                creation = CREATION_EXISTING;
+        } else
+                creation = CREATION_NORMAL;
+
+        log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), i->path);
+
+        if (IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
+                r = btrfs_subvol_auto_qgroup(i->path, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
+                if (r == -ENOTTY)
+                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
+                else if (r == -EROFS)
+                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (fs is read-only).", i->path);
+                else if (r == -ENOPROTOOPT)
+                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (quota support is disabled).", i->path);
+                else if (r < 0)
+                        q = log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
+                else if (r > 0)
+                        log_debug("Adjusted quota for subvolume \"%s\".", i->path);
+                else if (r == 0)
+                        log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
+        }
+
+        r = path_set_perms(i, i->path);
+        if (q < 0)
+                return q;
+
+        return r;
+}
+
 static int create_device(Item *i, mode_t file_type) {
         _cleanup_close_ int dfd = -1, fd = -1;
         CreationMode creation;
@@ -1716,7 +1796,6 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
 static int create_item(Item *i) {
         struct stat st;
         int r = 0;
-        int q = 0;
         CreationMode creation;
 
         assert(i);
@@ -1773,82 +1852,15 @@ static int create_item(Item *i) {
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                if (IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA)) {
-
-                        if (btrfs_is_subvol(empty_to_root(arg_root)) <= 0)
-
-                                /* Don't create a subvolume unless the
-                                 * root directory is one, too. We do
-                                 * this under the assumption that if
-                                 * the root directory is just a plain
-                                 * directory (i.e. very light-weight),
-                                 * we shouldn't try to split it up
-                                 * into subvolumes (i.e. more
-                                 * heavy-weight). Thus, chroot()
-                                 * environments and suchlike will get
-                                 * a full brtfs subvolume set up below
-                                 * their tree only if they
-                                 * specifically set up a btrfs
-                                 * subvolume for the root dir too. */
-
-                                r = -ENOTTY;
-                        else {
-                                RUN_WITH_UMASK((~i->mode) & 0777)
-                                        r = btrfs_subvol_make(i->path);
-                        }
-                } else
-                        r = 0;
-
-                if (IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY) || r == -ENOTTY)
-                        RUN_WITH_UMASK(0000)
-                                r = mkdir_label(i->path, i->mode);
-
-                if (r < 0) {
-                        int k;
-
-                        if (!IN_SET(r, -EEXIST, -EROFS))
-                                return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", i->path);
-
-                        k = is_dir(i->path, false);
-                        if (k == -ENOENT && r == -EROFS)
-                                return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", i->path);
-                        if (k < 0)
-                                return log_error_errno(k, "Failed to check if %s exists: %m", i->path);
-                        if (!k) {
-                                log_warning("\"%s\" already exists and is not a directory.", i->path);
-                                return 0;
-                        }
-
-                        creation = CREATION_EXISTING;
-                } else
-                        creation = CREATION_NORMAL;
-
-                log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), i->path);
-
-                if (IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
-                        r = btrfs_subvol_auto_qgroup(i->path, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
-                        if (r == -ENOTTY)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
-                        else if (r == -EROFS)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (fs is read-only).", i->path);
-                        else if (r == -ENOPROTOOPT)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (quota support is disabled).", i->path);
-                        else if (r < 0)
-                                q = log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
-                        else if (r > 0)
-                                log_debug("Adjusted quota for subvolume \"%s\".", i->path);
-                        else if (r == 0)
-                                log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
-                }
-
-                _fallthrough_;
-        case EMPTY_DIRECTORY:
-                r = glob_item(i, path_set_perms);
-                if (q < 0)
-                        return q;
+                r = create_directory_or_subvolume(i, i->path);
                 if (r < 0)
                         return r;
+                break;
 
+        case EMPTY_DIRECTORY:
+                r = glob_item(i, path_set_perms);
+                if (r < 0)
+                        return r;
                 break;
 
         case CREATE_FIFO:
