@@ -218,6 +218,7 @@ in_units = [
          'multi-user.target.wants/'],
         ['systemd-vconsole-setup.service',       'ENABLE_VCONSOLE'],
         ['systemd-volatile-root.service',        ''],
+        ['user-runtime-dir@.service',            ''],
         ['user@.service',                        ''],
 ]
 
@@ -303,6 +304,9 @@ foreach tuple : units
                 endif
         endif
 endforeach
+
+install_data('user-.slice.d/10-defaults.conf',
+             install_dir : systemunitdir + '/user-.slice.d')
 
 ############################################################
 

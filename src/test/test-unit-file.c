@@ -662,6 +662,7 @@ static void test_install_printf(void) {
         expect(i, "%N", "name");
         expect(i, "%p", "name");
         expect(i, "%i", "");
+        expect(i, "%j", "name");
         expect(i, "%u", user);
         expect(i, "%U", uid);
 

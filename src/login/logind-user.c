@@ -319,85 +319,6 @@ int user_load(User *u) {
         return r;
 }
 
-static int user_mkdir_runtime_path(User *u) {
-        int r;
-
-        assert(u);
-
-        r = mkdir_safe_label("/run/user", 0755, 0, 0, MKDIR_WARN_MODE);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create /run/user: %m");
-
-        if (path_is_mount_point(u->runtime_path, NULL, 0) <= 0) {
-                _cleanup_free_ char *t = NULL;
-
-                r = asprintf(&t, "mode=0700,uid=" UID_FMT ",gid=" GID_FMT ",size=%zu%s",
-                             u->uid, u->gid, u->manager->runtime_dir_size,
-                             mac_smack_use() ? ",smackfsroot=*" : "");
-                if (r < 0)
-                        return log_oom();
-
-                (void) mkdir_label(u->runtime_path, 0700);
-
-                r = mount("tmpfs", u->runtime_path, "tmpfs", MS_NODEV|MS_NOSUID, t);
-                if (r < 0) {
-                        if (!IN_SET(errno, EPERM, EACCES)) {
-                                r = log_error_errno(errno, "Failed to mount per-user tmpfs directory %s: %m", u->runtime_path);
-                                goto fail;
-                        }
-
-                        log_debug_errno(errno, "Failed to mount per-user tmpfs directory %s, assuming containerized execution, ignoring: %m", u->runtime_path);
-
-                        r = chmod_and_chown(u->runtime_path, 0700, u->uid, u->gid);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to change runtime directory ownership and mode: %m");
-                                goto fail;
-                        }
-                }
-
-                r = label_fix(u->runtime_path, 0);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to fix label of '%s', ignoring: %m", u->runtime_path);
-        }
-
-        return 0;
-
-fail:
-        /* Try to clean up, but ignore errors */
-        (void) rmdir(u->runtime_path);
-        return r;
-}
-
-static int user_start_slice(User *u) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        const char *description;
-        char *job;
-        int r;
-
-        assert(u);
-
-        u->slice_job = mfree(u->slice_job);
-        description = strjoina("User Slice of ", u->name);
-
-        r = manager_start_slice(
-                        u->manager,
-                        u->slice,
-                        description,
-                        "systemd-logind.service",
-                        "systemd-user-sessions.service",
-                        u->manager->user_tasks_max,
-                        &error,
-                        &job);
-        if (r >= 0)
-                u->slice_job = job;
-        else if (!sd_bus_error_has_name(&error, BUS_ERROR_UNIT_EXISTS))
-                /* we don't fail due to this, let's try to continue */
-                log_error_errno(r, "Failed to start user slice %s, ignoring: %s (%s)",
-                                u->slice, bus_error_message(&error, r), error.name);
-
-        return 0;
-}
-
 static int user_start_service(User *u) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char *job;
@@ -444,19 +365,8 @@ int user_start(User *u) {
          */
         u->stopping = false;
 
-        if (!u->started) {
+        if (!u->started)
                 log_debug("Starting services for new user %s.", u->name);
-
-                /* Make XDG_RUNTIME_DIR */
-                r = user_mkdir_runtime_path(u);
-                if (r < 0)
-                        return r;
-        }
-
-        /* Create cgroup */
-        r = user_start_slice(u);
-        if (r < 0)
-                return r;
 
         /* Save the user data so far, because pam_systemd will read the
          * XDG_RUNTIME_DIR out of it while starting up systemd --user.
@@ -518,29 +428,6 @@ static int user_stop_service(User *u) {
         return r;
 }
 
-static int user_remove_runtime_path(User *u) {
-        int r;
-
-        assert(u);
-
-        r = rm_rf(u->runtime_path, 0);
-        if (r < 0)
-                log_error_errno(r, "Failed to remove runtime directory %s (before unmounting): %m", u->runtime_path);
-
-        /* Ignore cases where the directory isn't mounted, as that's
-         * quite possible, if we lacked the permissions to mount
-         * something */
-        r = umount2(u->runtime_path, MNT_DETACH);
-        if (r < 0 && !IN_SET(errno, EINVAL, ENOENT))
-                log_error_errno(errno, "Failed to unmount user runtime directory %s: %m", u->runtime_path);
-
-        r = rm_rf(u->runtime_path, REMOVE_ROOT);
-        if (r < 0)
-                log_error_errno(r, "Failed to remove runtime directory %s (after unmounting): %m", u->runtime_path);
-
-        return r;
-}
-
 int user_stop(User *u, bool force) {
         Session *s;
         int r = 0, k;
@@ -589,11 +476,6 @@ int user_finalize(User *u) {
                 if (k < 0)
                         r = k;
         }
-
-        /* Kill XDG_RUNTIME_DIR */
-        k = user_remove_runtime_path(u);
-        if (k < 0)
-                r = k;
 
         /* Clean SysV + POSIX IPC objects, but only if this is not a system user. Background: in many setups cronjobs
          * are run in full PAM and thus logind sessions, even if the code run doesn't belong to actual users but to
@@ -858,8 +740,8 @@ int config_parse_tmpfs_size(
         return 0;
 }
 
-int config_parse_user_tasks_max(
-                const char* unit,
+int config_parse_compat_user_tasks_max(
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -870,45 +752,17 @@ int config_parse_user_tasks_max(
                 void *data,
                 void *userdata) {
 
-        uint64_t *m = data;
-        uint64_t k;
-        int r;
-
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (isempty(rvalue)) {
-                *m = system_tasks_max_scale(DEFAULT_USER_TASKS_MAX_PERCENTAGE, 100U);
-                return 0;
-        }
-
-        if (streq(rvalue, "infinity")) {
-                *m = CGROUP_LIMIT_MAX;
-                return 0;
-        }
-
-        /* Try to parse as percentage */
-        r = parse_percent(rvalue);
-        if (r >= 0)
-                k = system_tasks_max_scale(r, 100U);
-        else {
-
-                /* If the passed argument was not a percentage, or out of range, parse as byte size */
-
-                r = safe_atou64(rvalue, &k);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse tasks maximum, ignoring: %s", rvalue);
-                        return 0;
-                }
-        }
-
-        if (k <= 0 || k >= UINT64_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Tasks maximum out of range, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *m = k;
+        log_syntax(unit, LOG_NOTICE, filename, line, 0,
+                   "Support for option %s= has been removed.",
+                   lvalue);
+        log_info("Hint: try creating /etc/systemd/system/user-.slice/50-limits.conf with:\n"
+                 "        [Slice]\n"
+                 "        TasksMax=%s",
+                 rvalue);
         return 0;
 }

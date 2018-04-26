@@ -126,6 +126,9 @@ struct Manager {
         uint64_t inhibitors_max;
 };
 
+void manager_reset_config(Manager *m);
+int manager_parse_config_file(Manager *m);
+
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device);
 int manager_add_button(Manager *m, const char *name, Button **_button);
 int manager_add_seat(Manager *m, const char *id, Seat **_seat);
@@ -163,7 +166,6 @@ int bus_manager_shutdown_or_sleep_now_or_later(Manager *m, const char *unit_name
 
 int manager_send_changed(Manager *manager, const char *property, ...) _sentinel_;
 
-int manager_start_slice(Manager *manager, const char *slice, const char *description, const char *after, const char *after2, uint64_t tasks_max, sd_bus_error *error, char **job);
 int manager_start_scope(Manager *manager, const char *scope, pid_t pid, const char *slice, const char *description, const char *after, const char *after2, sd_bus_message *more_properties, sd_bus_error *error, char **job);
 int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job);
@@ -179,7 +181,6 @@ int manager_set_lid_switch_ignore(Manager *m, usec_t until);
 
 int config_parse_n_autovts(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_tmpfs_size(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_user_tasks_max(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret);
 int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret);

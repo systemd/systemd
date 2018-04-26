@@ -253,13 +253,18 @@ static void test_controller_is_valid(void) {
 
 static void test_slice_to_path_one(const char *unit, const char *path, int error) {
         _cleanup_free_ char *ret = NULL;
+        int r;
 
-        assert_se(cg_slice_to_path(unit, &ret) == error);
+        log_info("unit: %s", unit);
+
+        r = cg_slice_to_path(unit, &ret);
+        log_info("actual: %s / %d", strnull(ret), r);
+        log_info("expect: %s / %d", strnull(path), error);
+        assert_se(r == error);
         assert_se(streq_ptr(ret, path));
 }
 
 static void test_slice_to_path(void) {
-
         test_slice_to_path_one("foobar.slice", "foobar.slice", 0);
         test_slice_to_path_one("foobar-waldo.slice", "foobar.slice/foobar-waldo.slice", 0);
         test_slice_to_path_one("foobar-waldo.service", NULL, -EINVAL);
@@ -273,6 +278,15 @@ static void test_slice_to_path(void) {
         test_slice_to_path_one("foo.slice/foo--bar.slice", NULL, -EINVAL);
         test_slice_to_path_one("a-b.slice", "a.slice/a-b.slice", 0);
         test_slice_to_path_one("a-b-c-d-e.slice", "a.slice/a-b.slice/a-b-c.slice/a-b-c-d.slice/a-b-c-d-e.slice", 0);
+
+        test_slice_to_path_one("foobar@.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foobar@waldo.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foobar@waldo.service", NULL, -EINVAL);
+        test_slice_to_path_one("-foo@-.slice", NULL, -EINVAL);
+        test_slice_to_path_one("-foo@.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foo@-.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foo@@bar.slice", NULL, -EINVAL);
+        test_slice_to_path_one("foo.slice/foo@@bar.slice", NULL, -EINVAL);
 }
 
 static void test_shift_path_one(const char *raw, const char *root, const char *shifted) {

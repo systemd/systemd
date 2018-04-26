@@ -332,6 +332,20 @@ static int property_get_current_inhibitors(
         return sd_bus_message_append(reply, "t", (uint64_t) hashmap_size(m->inhibitors));
 }
 
+static int property_get_compat_user_tasks_max(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        assert(reply);
+
+        return sd_bus_message_append(reply, "t", CGROUP_LIMIT_MAX);
+}
+
 static int method_get_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *p = NULL;
         Manager *m = userdata;
@@ -2720,7 +2734,7 @@ const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("NCurrentInhibitors", "t", property_get_current_inhibitors, 0, 0),
         SD_BUS_PROPERTY("SessionsMax", "t", NULL, offsetof(Manager, sessions_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NCurrentSessions", "t", property_get_current_sessions, 0, 0),
-        SD_BUS_PROPERTY("UserTasksMax", "t", NULL, offsetof(Manager, user_tasks_max), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("UserTasksMax", "t", property_get_compat_user_tasks_max, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
 
         SD_BUS_METHOD("GetSession", "s", "o", method_get_session, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetSessionByPID", "u", "o", method_get_session_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -2978,78 +2992,6 @@ static int strdup_job(sd_bus_message *reply, char **job) {
 
         *job = copy;
         return 1;
-}
-
-int manager_start_slice(
-                Manager *manager,
-                const char *slice,
-                const char *description,
-                const char *after,
-                const char *after2,
-                uint64_t tasks_max,
-                sd_bus_error *error,
-                char **job) {
-
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        int r;
-
-        assert(manager);
-        assert(slice);
-        assert(job);
-
-        r = sd_bus_message_new_method_call(
-                        manager->bus,
-                        &m,
-                        "org.freedesktop.systemd1",
-                        "/org/freedesktop/systemd1",
-                        "org.freedesktop.systemd1.Manager",
-                        "StartTransientUnit");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "ss", strempty(slice), "fail");
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_open_container(m, 'a', "(sv)");
-        if (r < 0)
-                return r;
-
-        if (!isempty(description)) {
-                r = sd_bus_message_append(m, "(sv)", "Description", "s", description);
-                if (r < 0)
-                        return r;
-        }
-
-        if (!isempty(after)) {
-                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, after);
-                if (r < 0)
-                        return r;
-        }
-
-        if (!isempty(after2)) {
-                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, after2);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_bus_message_append(m, "(sv)", "TasksMax", "t", tasks_max);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_close_container(m);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_append(m, "a(sa(sv))", 0);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_call(manager->bus, m, 0, error, &reply);
-        if (r < 0)
-                return r;
-
-        return strdup_job(reply, job);
 }
 
 int manager_start_scope(

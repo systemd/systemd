@@ -55,6 +55,37 @@ static int specifier_instance_unescaped(char specifier, void *data, void *userda
         return unit_name_unescape(strempty(u->instance), ret);
 }
 
+static int specifier_last_component(char specifier, void *data, void *userdata, char **ret) {
+        Unit *u = userdata;
+        _cleanup_free_ char *prefix = NULL;
+        char *dash;
+        int r;
+
+        assert(u);
+
+        r = unit_name_to_prefix(u->id, &prefix);
+        if (r < 0)
+                return r;
+
+        dash = strrchr(prefix, '-');
+        if (dash)
+                return specifier_string(specifier, dash + 1, userdata, ret);
+
+        *ret = TAKE_PTR(prefix);
+        return 0;
+}
+
+static int specifier_last_component_unescaped(char specifier, void *data, void *userdata, char **ret) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        r = specifier_last_component(specifier, data, userdata, &p);
+        if (r < 0)
+                return r;
+
+        return unit_name_unescape(p, ret);
+}
+
 static int specifier_filename(char specifier, void *data, void *userdata, char **ret) {
         Unit *u = userdata;
 
@@ -213,31 +244,33 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
          */
 
         const Specifier table[] = {
-                { 'n', specifier_string,              u->id },
-                { 'N', specifier_prefix_and_instance, NULL },
-                { 'p', specifier_prefix,              NULL },
-                { 'P', specifier_prefix_unescaped,    NULL },
-                { 'i', specifier_string,              u->instance },
-                { 'I', specifier_instance_unescaped,  NULL },
+                { 'n', specifier_string,                   u->id },
+                { 'N', specifier_prefix_and_instance,      NULL },
+                { 'p', specifier_prefix,                   NULL },
+                { 'P', specifier_prefix_unescaped,         NULL },
+                { 'i', specifier_string,                   u->instance },
+                { 'I', specifier_instance_unescaped,       NULL },
+                { 'j', specifier_last_component,           NULL },
+                { 'J', specifier_last_component_unescaped, NULL },
 
-                { 'f', specifier_filename,            NULL },
-                { 'c', specifier_cgroup,              NULL },
-                { 'r', specifier_cgroup_slice,        NULL },
-                { 'R', specifier_cgroup_root,         NULL },
-                { 't', specifier_special_directory,   UINT_TO_PTR(EXEC_DIRECTORY_RUNTIME) },
-                { 'S', specifier_special_directory,   UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
-                { 'C', specifier_special_directory,   UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
-                { 'L', specifier_special_directory,   UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
+                { 'f', specifier_filename,                 NULL },
+                { 'c', specifier_cgroup,                   NULL },
+                { 'r', specifier_cgroup_slice,             NULL },
+                { 'R', specifier_cgroup_root,              NULL },
+                { 't', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_RUNTIME) },
+                { 'S', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
+                { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
+                { 'L', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
 
-                { 'U', specifier_user_id,             NULL },
-                { 'u', specifier_user_name,           NULL },
-                { 'h', specifier_user_home,           NULL },
-                { 's', specifier_user_shell,          NULL },
+                { 'U', specifier_user_id,                  NULL },
+                { 'u', specifier_user_name,                NULL },
+                { 'h', specifier_user_home,                NULL },
+                { 's', specifier_user_shell,               NULL },
 
-                { 'm', specifier_machine_id,          NULL },
-                { 'H', specifier_host_name,           NULL },
-                { 'b', specifier_boot_id,             NULL },
-                { 'v', specifier_kernel_release,      NULL },
+                { 'm', specifier_machine_id,               NULL },
+                { 'H', specifier_host_name,                NULL },
+                { 'b', specifier_boot_id,                  NULL },
+                { 'v', specifier_kernel_release,           NULL },
                 {}
         };
 
