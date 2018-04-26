@@ -3418,7 +3418,8 @@ int config_parse_delegate(
          * mask to delegate. */
 
         if (isempty(rvalue)) {
-                c->delegate = false;
+                /* An empty string resets controllers and set Delegate=yes. */
+                c->delegate = true;
                 c->delegate_controllers = 0;
                 return 0;
         }
