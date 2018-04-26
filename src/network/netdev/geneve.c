@@ -66,7 +66,7 @@ static int netdev_geneve_create(NetDev *netdev) {
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_ADDRESS attribute: %m");
         }
 
-        if (netdev->mtu) {
+        if (netdev->mtu != 0) {
                 r = sd_netlink_message_append_u32(m, IFLA_MTU, netdev->mtu);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Could not append IFLA_MTU attribute: %m");

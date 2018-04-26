@@ -40,7 +40,7 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
 }
 
 int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias,
-                             const struct ether_addr *mac, unsigned mtu) {
+                             const struct ether_addr *mac, uint32_t mtu) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
 
@@ -72,7 +72,7 @@ int rtnl_set_link_properties(sd_netlink **rtnl, int ifindex, const char *alias,
                         return r;
         }
 
-        if (mtu > 0) {
+        if (mtu != 0) {
                 r = sd_netlink_message_append_u32(message, IFLA_MTU, mtu);
                 if (r < 0)
                         return r;

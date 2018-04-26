@@ -1757,7 +1757,7 @@ int link_up(Link *link) {
            for this interface, or if it is a bridge slave, then disable IPv6 else enable it. */
         (void) link_enable_ipv6(link);
 
-        if (link->network->mtu) {
+        if (link->network->mtu != 0) {
                 /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
                    on the interface. Bump up MTU bytes to IPV6_MTU_MIN. */
                 if (link_ipv6_enabled(link) && link->network->mtu < IPV6_MIN_MTU) {
@@ -2486,7 +2486,7 @@ static int link_set_ipv6_mtu(Link *link) {
 
         p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/mtu");
 
-        xsprintf(buf, "%u", link->network->ipv6_mtu);
+        xsprintf(buf, "%" PRIu32, link->network->ipv6_mtu);
 
         r = write_string_file(p, buf, 0);
         if (r < 0)
@@ -3229,7 +3229,7 @@ int link_update(Link *link, sd_netlink_message *m) {
         r = sd_netlink_message_read_u32(m, IFLA_MTU, &mtu);
         if (r >= 0 && mtu > 0) {
                 link->mtu = mtu;
-                if (!link->original_mtu) {
+                if (link->original_mtu == 0) {
                         link->original_mtu = mtu;
                         log_link_debug(link, "Saved original MTU: %" PRIu32, link->original_mtu);
                 }

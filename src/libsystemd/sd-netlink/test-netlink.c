@@ -40,7 +40,7 @@ static void test_link_configure(sd_netlink *rtnl, int ifindex) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         const char *mac = "98:fe:94:3f:c6:18", *name = "test";
         char buffer[ETHER_ADDR_TO_STRING_MAX];
-        unsigned int mtu = 1450, mtu_out;
+        uint32_t mtu = 1450, mtu_out;
         const char *name_out;
         struct ether_addr mac_out;
 
@@ -66,7 +66,7 @@ static void test_link_configure(sd_netlink *rtnl, int ifindex) {
 static void test_link_get(sd_netlink *rtnl, int ifindex) {
         sd_netlink_message *m;
         sd_netlink_message *r;
-        unsigned int mtu = 1500;
+        uint32_t mtu = 1500;
         const char *str_data;
         uint8_t u8_data;
         uint32_t u32_data;

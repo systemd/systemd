@@ -821,7 +821,7 @@ static int link_status_one(
         }
 
         if (info->has_mtu)
-                printf("             MTU: %u\n", info->mtu);
+                printf("             MTU: %" PRIu32 "\n", info->mtu);
 
         (void) dump_addresses(rtnl, "         Address: ", info->ifindex);
         (void) dump_gateways(rtnl, hwdb, "         Gateway: ", info->ifindex);

@@ -55,7 +55,7 @@ struct link_config {
         NamePolicy *name_policy;
         char *name;
         char *alias;
-        size_t mtu;
+        uint32_t mtu;
         size_t speed;
         Duplex duplex;
         int autonegotiation;

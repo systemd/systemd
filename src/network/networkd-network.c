@@ -1417,42 +1417,6 @@ int config_parse_dhcp_route_table(const char *unit,
         return 0;
 }
 
-int config_parse_ipv6_mtu(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = data;
-        uint32_t mtu;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = safe_atou32(rvalue, &mtu);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IPv6 MTU, ignoring assignment: %s", rvalue);
-                return 0;
-        }
-
-        if (mtu < IPV6_MIN_MTU) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IPv6 MTU for interface. Allowed minimum MTU is 1280 bytes, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        network->ipv6_mtu = mtu;
-
-        return 0;
-}
-
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dhcp_use_domains, dhcp_use_domains, DHCPUseDomains, "Failed to parse DHCP use domains setting");
 
 static const char* const dhcp_use_domains_table[_DHCP_USE_DOMAINS_MAX] = {

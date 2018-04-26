@@ -11,12 +11,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #include "alloc-util.h"
 #include "errno-list.h"
 #include "extract-word.h"
 #include "locale-util.h"
 #include "macro.h"
+#include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -90,6 +92,30 @@ int parse_ifindex(const char *s, int *ret) {
                 return -EINVAL;
 
         *ret = ifi;
+        return 0;
+}
+
+int parse_mtu(int family, const char *s, uint32_t *ret) {
+        uint64_t u;
+        size_t m;
+        int r;
+
+        r = parse_size(s, 1024, &u);
+        if (r < 0)
+                return r;
+
+        if (u > UINT32_MAX)
+                return -ERANGE;
+
+        if (family == AF_INET6)
+                m = IPV6_MIN_MTU; /* This is 1280 */
+        else
+                m = IPV4_MIN_MTU; /* For all other protocols, including 'unspecified' we assume the IPv4 minimal MTU */
+
+        if (u < m)
+                return -ERANGE;
+
+        *ret = (uint32_t) u;
         return 0;
 }
 
