@@ -73,6 +73,7 @@ enum {
         CHASE_OPEN        = 1 << 4, /* If set, return an O_PATH object to the final component */
         CHASE_TRAIL_SLASH = 1 << 5, /* If set, any trailing slash will be preserved */
         CHASE_STEP        = 1 << 6, /* If set, just execute a single step of the normalization */
+        CHASE_NOFOLLOW    = 1 << 7, /* Only valid with CHASE_OPEN: when the path's right-most component refers to symlink return O_PATH fd of the symlink, rather than following it. */
 };
 
 /* How many iterations to execute before returning -ELOOP */

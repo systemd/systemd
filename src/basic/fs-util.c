@@ -695,7 +695,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         if (!original_root && !ret && (flags & (CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_OPEN|CHASE_STEP)) == CHASE_OPEN) {
                 /* Shortcut the CHASE_OPEN case if the caller isn't interested in the actual path and has no root set
                  * and doesn't care about any of the other special features we provide either. */
-                r = open(path, O_PATH|O_CLOEXEC);
+                r = open(path, O_PATH|O_CLOEXEC|((flags & CHASE_NOFOLLOW) ? O_NOFOLLOW : 0));
                 if (r < 0)
                         return -errno;
 
@@ -850,7 +850,7 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
                     fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
                         return -EREMOTE;
 
-                if (S_ISLNK(st.st_mode)) {
+                if (S_ISLNK(st.st_mode) && !((flags & CHASE_NOFOLLOW) && isempty(todo))) {
                         char *joined;
 
                         _cleanup_free_ char *destination = NULL;
