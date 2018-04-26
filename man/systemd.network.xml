@@ -1634,7 +1634,7 @@
           <listitem>
             <para>A boolean. Controls whether the bridge should flood
             traffic for which an FDB entry is missing and the destination
-            is unknown through this port. Defaults to on.
+            is unknown through this port. Defaults to unset.
             </para>
           </listitem>
         </varlistentry>
@@ -1642,7 +1642,7 @@
           <term><varname>HairPin=</varname></term>
           <listitem>
             <para>A boolean. Configures whether traffic may be sent back
-            out of the port on which it was received. By default, this
+            out of the port on which it was received. Defaults to unset. When this
             flag is false, and the bridge will not forward traffic back
             out of the receiving port.</para>
           </listitem>
@@ -1651,7 +1651,7 @@
           <term><varname>UseBPDU=</varname></term>
           <listitem>
             <para>A boolean. Configures whether STP Bridge Protocol Data Units will be
-            processed by the bridge port. Defaults to yes.</para>
+            processed by the bridge port. Defaults to unset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1659,7 +1659,7 @@
           <listitem>
             <para>A boolean. This flag allows the bridge to immediately stop multicast
             traffic on a port that receives an IGMP Leave message. It is only used with
-            IGMP snooping if enabled on the bridge. Defaults to off.</para>
+            IGMP snooping if enabled on the bridge. Defaults to unset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1667,7 +1667,7 @@
           <listitem>
             <para>A boolean. Configures whether a given port is allowed to
             become a root port. Only used when STP is enabled on the bridge.
-            Defaults to on.</para>
+            Defaults to unset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
