@@ -28,6 +28,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "copy.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1361,4 +1362,40 @@ int terminal_urlify_path(const char *path, const char *text, char **ret) {
         url = strjoina("file://", u.nodename, path);
 
         return terminal_urlify(url, text, ret);
+}
+
+static int cat_file(const char *filename, bool newline) {
+        _cleanup_close_ int fd;
+
+        fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        if (fd < 0)
+                return -errno;
+
+        printf("%s%s# %s%s\n",
+               newline ? "\n" : "",
+               ansi_highlight_blue(),
+               filename,
+               ansi_normal());
+        fflush(stdout);
+
+        return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, 0);
+}
+
+int cat_files(const char *file, char **dropins) {
+        char **path;
+        int r;
+
+        if (file) {
+                r = cat_file(file, false);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to cat %s: %m", file);
+        }
+
+        STRV_FOREACH(path, dropins) {
+                r = cat_file(*path, file || path != dropins);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to cat %s: %m", *path);
+        }
+
+        return 0;
 }

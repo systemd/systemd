@@ -14,6 +14,7 @@
 #include "fileio.h"
 #include "log.h"
 #include "macro.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
 
@@ -76,6 +77,13 @@ static void test_terminal_urlify(void) {
         printf("Or click on %s to have a look at it!\n", formatted);
 }
 
+static void test_cat_files(void) {
+        assert_se(cat_files("/no/such/file", NULL) == -ENOENT);
+
+        if (access("/etc/fstab", R_OK) >= 0)
+                assert_se(cat_files("/etc/fstab", STRV_MAKE("/etc/fstab", "/etc/fstab")) == 0);
+}
+
 int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
@@ -83,6 +91,7 @@ int main(int argc, char *argv[]) {
         test_default_term_for_tty();
         test_read_one_char();
         test_terminal_urlify();
+        test_cat_files();
 
         return 0;
 }

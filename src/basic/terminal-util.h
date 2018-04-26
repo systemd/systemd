@@ -159,3 +159,5 @@ int vt_reset_keyboard(int fd);
 
 int terminal_urlify(const char *url, const char *text, char **ret);
 int terminal_urlify_path(const char *path, const char *text, char **ret);
+
+int cat_files(const char *file, char **files);
