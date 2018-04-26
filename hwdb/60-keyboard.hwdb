@@ -326,6 +326,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*E7*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS*:pvr*
  KEYBOARD_KEY_8c=!unknown
 
+# Dell XPS L702x
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDellInc.:pnDellSystemXPSL702X:pvr*
+ KEYBOARD_KEY_84=prog1
+ KEYBOARD_KEY_85=prog2
+
 # Dell XPS12 9Q33
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS12-9Q33*:pvr*
  KEYBOARD_KEY_88=wlan
