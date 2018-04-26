@@ -273,14 +273,19 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
 
 static void device_dump(Unit *u, FILE *f, const char *prefix) {
         Device *d = DEVICE(u);
+        _cleanup_free_ char *s = NULL;
 
         assert(d);
 
+        (void) device_found_to_string_many(d->found, &s);
+
         fprintf(f,
                 "%sDevice State: %s\n"
-                "%sSysfs Path: %s\n",
+                "%sSysfs Path: %s\n"
+                "%sFound: %s\n",
                 prefix, device_state_to_string(d->state),
-                prefix, strna(d->sysfs));
+                prefix, strna(d->sysfs),
+                prefix, strna(s));
 }
 
 _pure_ static UnitActiveState device_active_state(Unit *u) {
