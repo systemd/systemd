@@ -2251,7 +2251,7 @@ sub udev_setup {
         chown (0, 0, $udev_dev) || die "unable to chown $udev_dev\n";
         chmod (0755, $udev_dev) || die "unable to chmod $udev_dev\n";
 
-        system ("/usr/bin/mknod", "$udev_dev/null", "b", "1", "3");
+        system ("mknod", "$udev_dev/null", "b", "1", "3");
         chown (0666, "$udev_dev/null");
         system("cp", "-r", "test/sys/", $udev_sys) && die "unable to copy test/sys";
 
