@@ -2338,6 +2338,7 @@ sub udev {
 
 my $error = 0;
 my $good = 0;
+my $exp_good = 0;
 
 sub permissions_test {
         my($rules, $uid, $gid, $mode) = @_;
@@ -2685,12 +2686,27 @@ sub run_test {
         my ($rules, $number, $sema) = @_;
         my $rc;
         my @devices;
+        my $ntests;
+        my $cur_good = $good;
+        my $cur_error = $error;
 
         if (!defined $rules->{devices}) {
                 $rules->{devices} = all_block_devs($rules->{generator});
         }
         @devices = @{$rules->{devices}};
+        # For each device: exit status and devnode test for add & remove
+        $ntests += 4 * ($#devices + 1);
 
+        foreach my $dev (@devices) {
+                $ntests += 2 * ($#{$dev->{exp_links}} + 1)
+                    + ($#{$dev->{not_exp_links}} + 1)
+                    + (defined $dev->{exp_perms} ? 1 : 0)
+                    + (defined $dev->{exp_majorminor} ? 1 : 0);
+        }
+        if (defined $rules->{repeat}) {
+                $ntests *= $rules->{repeat};
+        }
+        $exp_good += $ntests;
         print "TEST $number: $rules->{desc}\n";
         create_rules(\$rules->{rules});
 
@@ -2712,10 +2728,11 @@ sub run_test {
                 check_remove($dev);
         }
 
-        print "\n";
         if (defined($rules->{repeat}) && --($rules->{repeat}) > 0) {
                 goto REPEAT;
         }
+        printf "TEST $number: errors: %d good: %d/%d\n\n", $error-$cur_error,
+            $good-$cur_good, $ntests;
 
         if (defined($rules->{option}) && $rules->{option} eq "clean") {
                 udev_setup();
@@ -2794,7 +2811,7 @@ if ($list[0]) {
 }
 
 $sema->remove;
-print "$error errors occurred. $good good results.\n\n";
+print "$error errors occurred. $good/$exp_good good results.\n\n";
 
 cleanup();
 
