@@ -17,7 +17,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "swap.h"
 #include "udev-util.h"
@@ -152,7 +151,71 @@ static int device_coldplug(Unit *u) {
         return 0;
 }
 
+static const struct {
+        DeviceFound flag;
+        const char *name;
+} device_found_map[] = {
+        { DEVICE_FOUND_UDEV,    "found-udev"    },
+        { DEVICE_FOUND_UDEV_DB, "found-udev-db" },
+        { DEVICE_FOUND_MOUNT,   "found-mount"   },
+        { DEVICE_FOUND_SWAP,    "found-swap"    },
+        {}
+};
+
+static int device_found_to_string_many(DeviceFound flags, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        unsigned i;
+
+        assert(ret);
+
+        for (i = 0; device_found_map[i].name; i++) {
+                if ((flags & device_found_map[i].flag) != device_found_map[i].flag)
+                        continue;
+
+                if (!strextend_with_separator(&s, ",", device_found_map[i].name, NULL))
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(s);
+
+        return 0;
+}
+
+static int device_found_from_string_many(const char *name, DeviceFound *ret) {
+        DeviceFound flags = 0;
+        int r;
+
+        assert(ret);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                DeviceFound f = 0;
+                unsigned i;
+
+                r = extract_first_word(&name, &word, ",", 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                for (i = 0; device_found_map[i].name; i++)
+                        if (streq(word, device_found_map[i].name)) {
+                                f = device_found_map[i].flag;
+                                break;
+                        }
+
+                if (f == 0)
+                        return -EINVAL;
+
+                flags |= f;
+        }
+
+        *ret = flags;
+        return 0;
+}
+
 static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
+        _cleanup_free_ char *s = NULL;
         Device *d = DEVICE(u);
 
         assert(u);
@@ -160,13 +223,16 @@ static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
         assert(fds);
 
         unit_serialize_item(u, f, "state", device_state_to_string(d->state));
-        unit_serialize_item(u, f, "found", device_found_to_string(d->found));
+
+        (void) device_found_to_string_many(d->found, &s);
+        unit_serialize_item(u, f, "found", s);
 
         return 0;
 }
 
 static int device_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Device *d = DEVICE(u);
+        int r;
 
         assert(u);
         assert(key);
@@ -195,13 +261,9 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
                         d->deserialized_state = state;
 
         } else if (streq(key, "found")) {
-                DeviceFound found;
-
-                found = device_found_from_string(value);
-                if (found < 0)
+                r = device_found_from_string_many(value, &d->found);
+                if (r < 0)
                         log_unit_debug(u, "Failed to parse found value: %s", value);
-                else
-                        d->found = found;
 
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
@@ -211,14 +273,19 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
 
 static void device_dump(Unit *u, FILE *f, const char *prefix) {
         Device *d = DEVICE(u);
+        _cleanup_free_ char *s = NULL;
 
         assert(d);
 
+        (void) device_found_to_string_many(d->found, &s);
+
         fprintf(f,
                 "%sDevice State: %s\n"
-                "%sSysfs Path: %s\n",
+                "%sSysfs Path: %s\n"
+                "%sFound: %s\n",
                 prefix, device_state_to_string(d->state),
-                prefix, strna(d->sysfs));
+                prefix, strna(d->sysfs),
+                prefix, strna(s));
 }
 
 _pure_ static UnitActiveState device_active_state(Unit *u) {
@@ -933,16 +1000,6 @@ bool device_shall_be_bound_by(Unit *device, Unit *u) {
 
         return DEVICE(device)->bind_mounts;
 }
-
-static const char* const device_found_table[] = {
-        [DEVICE_NOT_FOUND]     = "not-found",
-        [DEVICE_FOUND_UDEV]    = "found-udev",
-        [DEVICE_FOUND_UDEV_DB] = "found-udev-db",
-        [DEVICE_FOUND_MOUNT]   = "found-mount",
-        [DEVICE_FOUND_SWAP]    = "found-swap",
-};
-
-DEFINE_STRING_TABLE_LOOKUP(device_found, DeviceFound);
 
 const UnitVTable device_vtable = {
         .object_size = sizeof(Device),
