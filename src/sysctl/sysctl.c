@@ -23,11 +23,13 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
+#include "terminal-util.h"
 #include "util.h"
 
 static char **arg_prefixes = NULL;
+static bool arg_cat_config = false;
 
-static const char conf_file_dirs[] = CONF_PATHS_NULSTR("sysctl.d");
+static char **config_dirs = CONF_PATHS_STRV("sysctl.d");
 
 static int apply_all(OrderedHashmap *sysctl_options) {
         char *property, *value;
@@ -83,7 +85,7 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
 
         assert(path);
 
-        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f);
+        r = search_and_fopen(path, "re", NULL, (const char**) config_dirs, &f);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
@@ -168,6 +170,7 @@ static void help(void) {
                "Applies kernel sysctl settings.\n\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
+               "     --cat-config       Show configuration files\n"
                "     --prefix=PATH      Only apply rules with the specified prefix\n"
                , program_invocation_short_name);
 }
@@ -176,13 +179,15 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
-                ARG_PREFIX
+                ARG_CAT_CONFIG,
+                ARG_PREFIX,
         };
 
         static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "prefix",    required_argument, NULL, ARG_PREFIX    },
+                { "help",       no_argument,       NULL, 'h'            },
+                { "version",    no_argument,       NULL, ARG_VERSION    },
+                { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
+                { "prefix",     required_argument, NULL, ARG_PREFIX     },
                 {}
         };
 
@@ -201,6 +206,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_CAT_CONFIG:
+                        arg_cat_config = true;
+                        break;
 
                 case ARG_PREFIX: {
                         char *p;
@@ -230,6 +239,11 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
+
+        if (arg_cat_config && argc > optind) {
+                log_error("Positional arguments are not allowed with --cat-config");
+                return -EINVAL;
+        }
 
         return 1;
 }
@@ -268,9 +282,14 @@ int main(int argc, char *argv[]) {
                 _cleanup_strv_free_ char **files = NULL;
                 char **f;
 
-                r = conf_files_list_nulstr(&files, ".conf", NULL, 0, conf_file_dirs);
+                r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) config_dirs);
                 if (r < 0) {
                         log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
+                        goto finish;
+                }
+
+                if (arg_cat_config) {
+                        r = cat_files(NULL, files, 0);
                         goto finish;
                 }
 
