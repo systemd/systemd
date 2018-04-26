@@ -2239,7 +2239,7 @@ sub major_minor_test {
 }
 
 sub udev_setup {
-        system("umount", $udev_tmpfs);
+        system("umount \"$udev_tmpfs\" 2>/dev/null");
         rmdir($udev_tmpfs);
         mkdir($udev_tmpfs) || die "unable to create udev_tmpfs: $udev_tmpfs\n";
 
