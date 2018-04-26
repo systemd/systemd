@@ -313,7 +313,7 @@
         inverted. Note that this option also affects the respective capabilities in the effective, permitted and
         inheritable capability sets. If this option is not used, the capability bounding set is not modified on process
         execution, hence no limits on the capabilities of the process are enforced. This option may appear more than
-        once, in which case the bounding sets are merged by <constant>AND</constant>, or by <constant>OR</constant> if
+        once, in which case the bounding sets are merged by <constant>OR</constant>, or by <constant>AND</constant> if
         the lines are prefixed with <literal>~</literal> (see below). If the empty string is assigned to this option,
         the bounding set is reset to the empty capability set, and all prior settings have no effect.  If set to
         <literal>~</literal> (without any further argument), the bounding set is reset to the full set of available
