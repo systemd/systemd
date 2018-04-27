@@ -82,7 +82,7 @@
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">cat-config</arg>
-      <arg choice="plain" rep="repeat"><replaceable>NAME</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>NAME</replaceable>|<replaceable>PATH</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
@@ -190,7 +190,11 @@
     to <command>systemctl cat</command>, but operates on config files.
     It will copy the contents of a config file and any drop-ins to standard
     output, using the usual systemd set of directories and rules for
-    precedence.</para>
+    precedence. Each argument must be either an absolute path including
+    the prefix (such as <filename>/etc/systemd/logind.conf</filename> or
+    <filename>/usr/lib/systemd/logind.conf</filename>), or a name
+    relative to the prefix (such as <filename>systemd/logind.conf</filename>).
+    </para>
 
     <example>
       <title>Showing logind configuration</title>

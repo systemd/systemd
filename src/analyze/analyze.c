@@ -19,6 +19,7 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "calendarspec.h"
+#include "def.h"
 #include "conf-files.h"
 #include "glob-util.h"
 #include "hashmap.h"
@@ -1322,6 +1323,8 @@ static int cat_config(int argc, char *argv[], void *userdata) {
         (void) pager_open(arg_no_pager, false);
 
         STRV_FOREACH(arg, argv + 1) {
+                const char *t = NULL;
+
                 if (arg != argv + 1)
                         printf("%s%*s%s\n\n",
                                ansi_underline(),
@@ -1329,11 +1332,22 @@ static int cat_config(int argc, char *argv[], void *userdata) {
                                ansi_normal());
 
                 if (path_is_absolute(*arg)) {
-                        log_error("Arguments must be config file names (relative to /etc/");
-                        return -EINVAL;
-                }
+                        const char *dir;
 
-                r = conf_files_cat(arg_root, *arg);
+                        NULSTR_FOREACH(dir, CONF_PATHS_NULSTR("")) {
+                                t = path_startswith(*arg, dir);
+                                if (t)
+                                        break;
+                        }
+
+                        if (!t) {
+                                log_error("Path %s does not start with any known prefix.", *arg);
+                                return -EINVAL;
+                        }
+                } else
+                        t = *arg;
+
+                r = conf_files_cat(arg_root, t);
                 if (r < 0)
                         return r;
         }
