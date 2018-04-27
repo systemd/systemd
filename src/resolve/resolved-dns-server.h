@@ -9,6 +9,10 @@
 
 #include "in-addr-util.h"
 
+#if HAVE_GNUTLS
+#include <gnutls/gnutls.h>
+#endif
+
 typedef struct DnsServer DnsServer;
 
 typedef enum DnsServerType {
@@ -25,14 +29,17 @@ typedef enum DnsServerFeatureLevel {
         DNS_SERVER_FEATURE_LEVEL_TCP,
         DNS_SERVER_FEATURE_LEVEL_UDP,
         DNS_SERVER_FEATURE_LEVEL_EDNS0,
+        DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN,
         DNS_SERVER_FEATURE_LEVEL_DO,
         DNS_SERVER_FEATURE_LEVEL_LARGE,
+        DNS_SERVER_FEATURE_LEVEL_TLS_DO,
         _DNS_SERVER_FEATURE_LEVEL_MAX,
         _DNS_SERVER_FEATURE_LEVEL_INVALID = -1
 } DnsServerFeatureLevel;
 
 #define DNS_SERVER_FEATURE_LEVEL_WORST 0
 #define DNS_SERVER_FEATURE_LEVEL_BEST (_DNS_SERVER_FEATURE_LEVEL_MAX - 1)
+#define DNS_SERVER_FEATURE_LEVEL_IS_TLS(x) IN_SET(x, DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN, DNS_SERVER_FEATURE_LEVEL_TLS_DO)
 
 const char* dns_server_feature_level_to_string(int i) _const_;
 int dns_server_feature_level_from_string(const char *s) _pure_;
@@ -55,6 +62,11 @@ struct DnsServer {
         char *server_string;
         DnsStream *stream;
 
+#if HAVE_GNUTLS
+        gnutls_certificate_credentials_t tls_cert_cred;
+        gnutls_datum_t tls_session_data;
+#endif
+
         usec_t resend_timeout;
         usec_t max_rtt;
 
@@ -65,6 +77,7 @@ struct DnsServer {
 
         unsigned n_failed_udp;
         unsigned n_failed_tcp;
+        unsigned n_failed_tls;
 
         bool packet_truncated:1;
         bool packet_bad_opt:1;
@@ -134,6 +147,7 @@ void manager_next_dns_server(Manager *m);
 bool dns_server_address_valid(int family, const union in_addr_union *sa);
 
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
+PrivateDnsMode dns_server_get_private_dns_mode(DnsServer *s);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
 

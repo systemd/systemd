@@ -15,6 +15,10 @@ typedef struct DnsStream DnsStream;
 #include "resolved-dns-transaction.h"
 #include "resolved-manager.h"
 
+#if HAVE_GNUTLS
+#include <gnutls/gnutls.h>
+#endif
+
 /* Streams are used by three subsystems:
  *
  *   1. The normal transaction logic when doing a DNS or LLMNR lookup via TCP
@@ -41,6 +45,12 @@ struct DnsStream {
         union sockaddr_union tfo_address;
         socklen_t tfo_salen;
 
+#if HAVE_GNUTLS
+        gnutls_session_t tls_session;
+        int tls_handshake;
+        bool tls_bye;
+#endif
+
         sd_event_source *io_event_source;
         sd_event_source *timeout_event_source;
 
@@ -49,6 +59,7 @@ struct DnsStream {
         size_t n_written, n_read;
         OrderedSet *write_queue;
 
+        int (*on_connection)(DnsStream *s);
         int (*on_packet)(DnsStream *s);
         int (*complete)(DnsStream *s, int error);
 
@@ -56,10 +67,16 @@ struct DnsStream {
         DnsServer *server;                       /* when used by the transaction logic */
         DnsQuery *query;             /* when used by the DNS stub logic */
 
+        /* used when DNS-over-TLS is enabled */
+        bool encrypted:1;
+
         LIST_FIELDS(DnsStream, streams);
 };
 
 int dns_stream_new(Manager *m, DnsStream **s, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address);
+#if HAVE_GNUTLS
+int dns_stream_connect_tls(DnsStream *s, gnutls_session_t tls_session);
+#endif
 DnsStream *dns_stream_unref(DnsStream *s);
 DnsStream *dns_stream_ref(DnsStream *s);
 

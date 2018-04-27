@@ -18,6 +18,10 @@
 #include "resolved-llmnr.h"
 #include "string-table.h"
 
+#if HAVE_GNUTLS
+#include <gnutls/socket.h>
+#endif
+
 #define TRANSACTIONS_MAX 4096
 #define TRANSACTION_TCP_TIMEOUT_USEC (10U*USEC_PER_SEC)
 
@@ -499,6 +503,20 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsPacket *p) {
         return 0;
 }
 
+static int on_stream_connection(DnsStream *s) {
+#if HAVE_GNUTLS
+        /* Store TLS Ticket for faster succesive TLS handshakes */
+        if (s->tls_session && s->server) {
+                if (s->server->tls_session_data.data)
+                        gnutls_free(s->server->tls_session_data.data);
+
+                gnutls_session_get_data2(s->tls_session, &s->server->tls_session_data);
+        }
+#endif
+
+        return 0;
+}
+
 static int on_stream_complete(DnsStream *s, int error) {
         DnsTransaction *t, *n;
         int r = 0;
@@ -559,6 +577,9 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
         union sockaddr_union sa;
         int r;
+#if HAVE_GNUTLS
+        gnutls_session_t gs;
+#endif
 
         assert(t);
 
@@ -578,10 +599,10 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
-                if (t->server->stream)
+                if (t->server->stream && (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) == t->server->stream->encrypted))
                         s = dns_stream_ref(t->server->stream);
                 else
-                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, 53, &sa);
+                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) ? 853 : 53, &sa);
 
                 break;
 
@@ -630,6 +651,33 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         s->server = dns_server_ref(t->server);
                 }
 
+#if HAVE_GNUTLS
+                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
+                        r = gnutls_init(&gs, GNUTLS_CLIENT | GNUTLS_ENABLE_FALSE_START | GNUTLS_NONBLOCK);
+                        if (r < 0)
+                                return r;
+
+                        /* As DNS-over-TLS is a recent protocol, older TLS versions can be disabled */
+                        r = gnutls_priority_set_direct(gs, "NORMAL:-VERS-ALL:+VERS-TLS1.2", NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = gnutls_credentials_set(gs, GNUTLS_CRD_CERTIFICATE, t->server->tls_cert_cred);
+                        if (r < 0)
+                                return r;
+
+                        if (t->server && t->server->tls_session_data.size > 0)
+                                gnutls_session_set_data(gs, t->server->tls_session_data.data, t->server->tls_session_data.size);
+
+                        gnutls_handshake_set_timeout(gs, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
+
+                        r = dns_stream_connect_tls(s, gs);
+                        if (r < 0)
+                                return r;
+                }
+#endif
+
+                s->on_connection = on_stream_connection;
                 s->complete = on_stream_complete;
                 s->on_packet = dns_stream_on_packet;
 
@@ -993,7 +1041,17 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         }
 
                         /* Reduce this feature level by one and try again. */
-                        t->clamp_feature_level = t->current_feature_level - 1;
+                        switch (t->current_feature_level) {
+                        case DNS_SERVER_FEATURE_LEVEL_TLS_DO:
+                                t->clamp_feature_level = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
+                                break;
+                        case DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN + 1:
+                                /* Skip plain TLS when TLS is not supported */
+                                t->clamp_feature_level = DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN - 1;
+                                break;
+                        default:
+                                t->clamp_feature_level = t->current_feature_level - 1;
+                        }
 
                         log_debug("Server returned error %s, retrying transaction with reduced feature level %s.",
                                   dns_rcode_to_string(DNS_PACKET_RCODE(p)),
@@ -1209,7 +1267,7 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
-                if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP)
+                if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP || DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level))
                         return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
 
                 if (!dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(t->key->type))
@@ -1699,7 +1757,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 if (r == -EMSGSIZE)
                         log_debug("Sending query via TCP since it is too large.");
                 else if (r == -EAGAIN)
-                        log_debug("Sending query via TCP since server doesn't support UDP.");
+                        log_debug("Sending query via TCP since UDP isn't supported.");
                 if (IN_SET(r, -EMSGSIZE, -EAGAIN))
                         r = dns_transaction_emit_tcp(t);
         }

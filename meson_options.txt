@@ -193,6 +193,10 @@ option('default-dnssec', type : 'combo',
        description : 'default DNSSEC mode',
        choices : ['yes', 'allow-downgrade', 'no'],
        value : 'allow-downgrade')
+option('default-private-dns', type : 'combo',
+       description : 'default private DNS mode',
+       choices : ['opportunistic', 'no'],
+       value : 'no')
 option('dns-servers', type : 'string',
        description : 'space-separated list of default DNS servers',
        value : '8.8.8.8 8.8.4.4 2001:4860:4860::8888 2001:4860:4860::8844')

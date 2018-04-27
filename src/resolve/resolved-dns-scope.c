@@ -56,8 +56,12 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                         s->dnssec_mode = link_get_dnssec_mode(l);
                 else
                         s->dnssec_mode = manager_get_dnssec_mode(m);
-        } else
+
+                s->private_dns_mode = manager_get_private_dns_mode(m);
+        } else {
                 s->dnssec_mode = DNSSEC_NO;
+                s->private_dns_mode = PRIVATE_DNS_NO;
+        }
 
         LIST_PREPEND(scopes, m->dns_scopes, s);
 
