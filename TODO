@@ -52,8 +52,6 @@ Features:
 
 * add --vacuum-xyz options to coredumpctl, matching those journalctl already has.
 
-* enforce that transient units are started exactly once only
-
 * list the exit codes from the BSD/glibc <sysexits.h> in our own
   exit-codes.[ch] tables.
 
@@ -517,7 +515,6 @@ Features:
 
 * transient units:
   - add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
-  - ensure scope units may be started only a single time
 
 * Automatically configure swap partition to use for hibernation by looking for largest swap partition on the root disk?
 
@@ -626,7 +623,6 @@ Features:
   - logind: wakelock/opportunistic suspend support
   - Add pretty name for seats in logind
   - logind: allow showing logout dialog from system?
-  - we should probably handle SIGTERM/SIGINT to not leave dot files around, just in case
   - session scopes/user unit: add RequiresMountsFor for the home directory of the user
   - add Suspend() bus calls which take timestamps to fix double suspend issues when somebody hits suspend and closes laptop quickly.
   - if pam_systemd is invoked by su from a process that is outside of a
@@ -641,10 +637,6 @@ Features:
     logout dialog. If it is pressed for 1s, do the usual
     shutdown. Inspiration are Macs here.
   - expose "Locked" property on logind sesison objects
-  - given that logind now lets PID 1 do all nasty work, we can
-    probably reduce the capability set it retains substantially.
-    (we need CAP_SYS_ADMIN for drmSetMaster(), so maybe not worth it)
-  - expose orientation sensors and tablet mode through logind
   - maybe allow configuration of the StopTimeout for session scopes
   - rename session scope so that it includes the UID. THat way
     the session scope can be arranged freely in slices and we don't have
@@ -701,8 +693,6 @@ Features:
     lazily. Encode just enough information in the file name, so that we
     do not have to open it to know that it is not interesting for us, for
     the most common operations.
-  - journal-or-kmsg is currently broken? See reverted
-    commit 4a01181e460686d8b4a543b1dfa7f77c9e3c5ab8.
   - man: document that corrupted journal files is nothing to act on
   - rework journald sigbus stuff to use mutex
   - Set RLIMIT_NPROC for systemd-journal-xyz, and all other of our
