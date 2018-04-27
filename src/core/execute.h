@@ -205,9 +205,9 @@ struct ExecContext {
         char **read_write_paths, **read_only_paths, **inaccessible_paths;
         unsigned long mount_flags;
         BindMount *bind_mounts;
-        unsigned n_bind_mounts;
+        size_t n_bind_mounts;
         TemporaryFileSystem *temporary_filesystems;
-        unsigned n_temporary_filesystems;
+        size_t n_temporary_filesystems;
 
         uint64_t capability_bounding_set;
         uint64_t capability_ambient_set;
@@ -301,8 +301,8 @@ struct ExecParameters {
 
         int *fds;
         char **fd_names;
-        unsigned n_storage_fds;
-        unsigned n_socket_fds;
+        size_t n_storage_fds;
+        size_t n_socket_fds;
 
         ExecFlags flags;
         bool selinux_context_net:1;
@@ -334,10 +334,10 @@ int exec_spawn(Unit *unit,
                DynamicCreds *dynamic_creds,
                pid_t *ret);
 
-void exec_command_done_array(ExecCommand *c, unsigned n);
+void exec_command_done_array(ExecCommand *c, size_t n);
 
 ExecCommand* exec_command_free_list(ExecCommand *c);
-void exec_command_free_array(ExecCommand **c, unsigned n);
+void exec_command_free_array(ExecCommand **c, size_t n);
 
 void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_append_list(ExecCommand **l, ExecCommand *e);

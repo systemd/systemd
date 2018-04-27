@@ -717,7 +717,7 @@ void lookup_paths_free(LookupPaths *p) {
 int lookup_paths_reduce(LookupPaths *p) {
         _cleanup_free_ struct stat *stats = NULL;
         size_t n_stats = 0, allocated = 0;
-        unsigned c = 0;
+        size_t c = 0;
         int r;
 
         assert(p);
@@ -730,7 +730,7 @@ int lookup_paths_reduce(LookupPaths *p) {
 
         while (p->search_path[c]) {
                 struct stat st;
-                unsigned k;
+                size_t k;
 
                 /* Never strip the transient and control directories from the path */
                 if (path_equal_ptr(p->search_path[c], p->transient) ||

@@ -170,7 +170,7 @@ struct Service {
         NotifyState notify_state;
 
         ServiceFDStore *fd_store;
-        unsigned n_fd_store;
+        size_t n_fd_store;
         unsigned n_fd_store_max;
         unsigned n_keep_fd_store;
 

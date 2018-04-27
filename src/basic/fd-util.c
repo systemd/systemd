@@ -85,8 +85,8 @@ void safe_close_pair(int p[]) {
         p[1] = safe_close(p[1]);
 }
 
-void close_many(const int fds[], unsigned n_fd) {
-        unsigned i;
+void close_many(const int fds[], size_t n_fd) {
+        size_t i;
 
         assert(fds || n_fd <= 0);
 
@@ -178,8 +178,8 @@ int fd_cloexec(int fd, bool cloexec) {
         return 0;
 }
 
-_pure_ static bool fd_in_set(int fd, const int fdset[], unsigned n_fdset) {
-        unsigned i;
+_pure_ static bool fd_in_set(int fd, const int fdset[], size_t n_fdset) {
+        size_t i;
 
         assert(n_fdset == 0 || fdset);
 
@@ -190,7 +190,7 @@ _pure_ static bool fd_in_set(int fd, const int fdset[], unsigned n_fdset) {
         return false;
 }
 
-int close_all_fds(const int except[], unsigned n_except) {
+int close_all_fds(const int except[], size_t n_except) {
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
         int r = 0;

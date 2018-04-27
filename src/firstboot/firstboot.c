@@ -110,8 +110,8 @@ static void print_welcome(void) {
 }
 
 static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned percentage) {
-        unsigned n, per_column, i, j;
         unsigned break_lines, break_modulo;
+        size_t n, per_column, i, j;
 
         assert(n_columns > 0);
 
@@ -140,7 +140,7 @@ static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned perc
                         if (!e)
                                 return log_oom();
 
-                        printf("%4u) %-*s", j * per_column + i + 1, width, e);
+                        printf("%4zu) %-*s", j * per_column + i + 1, width, e);
                 }
 
                 putchar('\n');

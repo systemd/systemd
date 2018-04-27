@@ -188,7 +188,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) 
                 /* C++11 style 16bit unicode */
 
                 int a[4];
-                unsigned i;
+                size_t i;
                 uint32_t c;
 
                 if (length != (size_t) -1 && length < 5)
@@ -215,7 +215,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit) 
                 /* C++11 style 32bit unicode */
 
                 int a[8];
-                unsigned i;
+                size_t i;
                 char32_t c;
 
                 if (length != (size_t) -1 && length < 9)

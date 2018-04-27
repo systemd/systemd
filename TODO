@@ -24,6 +24,8 @@ Janitorial Clean-ups:
 
 Features:
 
+* the error paths in usbffs_dispatch_ep() leak memory
+
 * cgroups: figure out if we can somehow communicate in a cleaner way whether a
   systemd instance not running in the cgroup root shall or shall not manage the
   attributes of its top-level cgroup. Currently it assumes it manages all, but

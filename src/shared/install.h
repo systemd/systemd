@@ -83,8 +83,8 @@ struct UnitFileChange {
         char *source;
 };
 
-static inline bool unit_file_changes_have_modification(const UnitFileChange* changes, unsigned n_changes) {
-        unsigned i;
+static inline bool unit_file_changes_have_modification(const UnitFileChange* changes, size_t n_changes) {
+        size_t i;
         for (i = 0; i < n_changes; i++)
                 if (IN_SET(changes[i].type, UNIT_FILE_SYMLINK, UNIT_FILE_UNLINK))
                         return true;
@@ -129,21 +129,21 @@ int unit_file_enable(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes);
+                size_t *n_changes);
 int unit_file_disable(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes);
+                size_t *n_changes);
 int unit_file_reenable(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes);
+                size_t *n_changes);
 int unit_file_preset(
                 UnitFileScope scope,
                 UnitFileFlags flags,
@@ -151,48 +151,48 @@ int unit_file_preset(
                 char **files,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
-                unsigned *n_changes);
+                size_t *n_changes);
 int unit_file_preset_all(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
-                unsigned *n_changes);
+                size_t *n_changes);
 int unit_file_mask(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes);
+                size_t *n_changes);
 int unit_file_unmask(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes);
+                size_t *n_changes);
 int unit_file_link(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes);
+                size_t *n_changes);
 int unit_file_revert(
                 UnitFileScope scope,
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes);
+                size_t *n_changes);
 int unit_file_set_default(
                 UnitFileScope scope,
                 UnitFileFlags flags,
                 const char *root_dir,
                 const char *file,
                 UnitFileChange **changes,
-                unsigned *n_changes);
+                size_t *n_changes);
 int unit_file_get_default(
                 UnitFileScope scope,
                 const char *root_dir,
@@ -205,7 +205,7 @@ int unit_file_add_dependency(
                 const char *target,
                 UnitDependency dep,
                 UnitFileChange **changes,
-                unsigned *n_changes);
+                size_t *n_changes);
 
 int unit_file_get_state(UnitFileScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
 int unit_file_exists(UnitFileScope scope, const LookupPaths *paths, const char *name);
@@ -213,9 +213,9 @@ int unit_file_exists(UnitFileScope scope, const LookupPaths *paths, const char *
 int unit_file_get_list(UnitFileScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
 Hashmap* unit_file_list_free(Hashmap *h);
 
-int unit_file_changes_add(UnitFileChange **changes, unsigned *n_changes, UnitFileChangeType type, const char *path, const char *source);
-void unit_file_changes_free(UnitFileChange *changes, unsigned n_changes);
-void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, unsigned n_changes, bool quiet);
+int unit_file_changes_add(UnitFileChange **changes, size_t *n_changes, UnitFileChangeType type, const char *path, const char *source);
+void unit_file_changes_free(UnitFileChange *changes, size_t n_changes);
+void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, size_t n_changes, bool quiet);
 
 int unit_file_query_preset(UnitFileScope scope, const char *root_dir, const char *name);
 

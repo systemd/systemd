@@ -84,8 +84,8 @@ static int component_compare(const void *_a, const void *_b) {
 }
 
 static void normalize_chain(CalendarComponent **c) {
-        unsigned n = 0, k;
         CalendarComponent **b, *i, **j, *next;
+        size_t n = 0, k;
 
         assert(c);
 
@@ -104,7 +104,7 @@ static void normalize_chain(CalendarComponent **c) {
         if (n <= 1)
                 return;
 
-        j = b = alloca(sizeof(CalendarComponent*) * n);
+        j = b = newa(CalendarComponent*, n);
         for (i = *c; i; i = i->next)
                 *(j++) = i;
 
@@ -420,7 +420,7 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
         assert(c);
 
         for (;;) {
-                unsigned i;
+                size_t i;
 
                 for (i = 0; i < ELEMENTSOF(day_nr); i++) {
                         size_t skip;

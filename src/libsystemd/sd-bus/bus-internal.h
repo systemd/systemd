@@ -265,7 +265,7 @@ struct sd_bus {
         uint64_t creds_mask;
 
         int *fds;
-        unsigned n_fds;
+        size_t n_fds;
 
         char *exec_path;
         char **exec_argv;

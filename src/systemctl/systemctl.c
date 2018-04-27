@@ -2098,7 +2098,7 @@ static int get_default(int argc, char *argv[], void *userdata) {
 static int set_default(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *unit = NULL;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         int r;
 
         assert(argc >= 2);
@@ -6115,7 +6115,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **names = NULL;
         const char *verb = argv[0];
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         int carries_install_info = -1;
         bool ignore_carries_install_info = arg_quiet;
         int r;
@@ -6311,7 +6311,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
         if (arg_now && STR_IN_SET(argv[0], "enable", "disable", "mask")) {
                 sd_bus *bus;
-                unsigned len, i;
+                size_t len, i;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
@@ -6341,7 +6341,7 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *target = NULL;
         const char *verb = argv[0];
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         UnitDependency dep;
         int r = 0;
 
@@ -6422,7 +6422,7 @@ finish:
 
 static int preset_all(int argc, char *argv[], void *userdata) {
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         int r;
 
         if (install_client_side()) {
@@ -6477,7 +6477,7 @@ finish:
 
 static int show_installation_targets_client_side(const char *name) {
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0, i;
+        size_t n_changes = 0, i;
         UnitFileFlags flags;
         char **p;
         int r;
@@ -6809,7 +6809,7 @@ static int run_editor(char **paths) {
                 const char **args;
                 char *editor, **editor_args = NULL;
                 char **tmp_path, **original_path, *p;
-                unsigned n_editor_args = 0, i = 1;
+                size_t n_editor_args = 0, i = 1;
                 size_t argc;
 
                 argc = strv_length(paths)/2 + 1;

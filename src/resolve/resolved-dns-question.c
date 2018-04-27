@@ -10,7 +10,7 @@
 #include "dns-type.h"
 #include "resolved-dns-question.h"
 
-DnsQuestion *dns_question_new(unsigned n) {
+DnsQuestion *dns_question_new(size_t n) {
         DnsQuestion *q;
 
         assert(n > 0);
@@ -41,7 +41,7 @@ DnsQuestion *dns_question_unref(DnsQuestion *q) {
         assert(q->n_ref > 0);
 
         if (q->n_ref == 1) {
-                unsigned i;
+                size_t i;
 
                 for (i = 0; i < q->n_keys; i++)
                         dns_resource_key_unref(q->keys[i]);
@@ -53,7 +53,7 @@ DnsQuestion *dns_question_unref(DnsQuestion *q) {
 }
 
 int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
-        unsigned i;
+        size_t i;
         int r;
 
         assert(key);
@@ -77,7 +77,7 @@ int dns_question_add(DnsQuestion *q, DnsResourceKey *key) {
 }
 
 int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain) {
-        unsigned i;
+        size_t i;
         int r;
 
         assert(rr);
@@ -95,7 +95,7 @@ int dns_question_matches_rr(DnsQuestion *q, DnsResourceRecord *rr, const char *s
 }
 
 int dns_question_matches_cname_or_dname(DnsQuestion *q, DnsResourceRecord *rr, const char *search_domain) {
-        unsigned i;
+        size_t i;
         int r;
 
         assert(rr);
@@ -121,7 +121,7 @@ int dns_question_matches_cname_or_dname(DnsQuestion *q, DnsResourceRecord *rr, c
 
 int dns_question_is_valid_for_query(DnsQuestion *q) {
         const char *name;
-        unsigned i;
+        size_t i;
         int r;
 
         if (!q)
@@ -155,7 +155,7 @@ int dns_question_is_valid_for_query(DnsQuestion *q) {
 }
 
 int dns_question_contains(DnsQuestion *a, const DnsResourceKey *k) {
-        unsigned j;
+        size_t j;
         int r;
 
         assert(k);
@@ -173,7 +173,7 @@ int dns_question_contains(DnsQuestion *a, const DnsResourceKey *k) {
 }
 
 int dns_question_is_equal(DnsQuestion *a, DnsQuestion *b) {
-        unsigned j;
+        size_t j;
         int r;
 
         if (a == b)

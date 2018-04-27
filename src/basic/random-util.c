@@ -35,7 +35,7 @@ int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
         static int have_syscall = -1;
 
         _cleanup_close_ int fd = -1;
-        unsigned already_done = 0;
+        size_t already_done = 0;
         int r;
 
         /* Gathers some randomness from the kernel. This call will never block. If

@@ -18,9 +18,17 @@
 
 #define new0(t, n) ((t*) calloc((n), sizeof(t)))
 
-#define newa(t, n) ((t*) alloca(sizeof(t)*(n)))
+#define newa(t, n)                                              \
+        ({                                                      \
+                assert(!size_multiply_overflow(sizeof(t), n));  \
+                (t*) alloca(sizeof(t)*(n));                     \
+        })
 
-#define newa0(t, n) ((t*) alloca0(sizeof(t)*(n)))
+#define newa0(t, n)                                             \
+        ({                                                      \
+                assert(!size_multiply_overflow(sizeof(t), n));  \
+                (t*) alloca0(sizeof(t)*(n));                    \
+        })
 
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
 

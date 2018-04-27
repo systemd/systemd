@@ -36,11 +36,11 @@ struct DnsAnswerItem {
 
 struct DnsAnswer {
         unsigned n_ref;
-        unsigned n_rrs, n_allocated;
+        size_t n_rrs, n_allocated;
         DnsAnswerItem items[0];
 };
 
-DnsAnswer *dns_answer_new(unsigned n);
+DnsAnswer *dns_answer_new(size_t n);
 DnsAnswer *dns_answer_ref(DnsAnswer *a);
 DnsAnswer *dns_answer_unref(DnsAnswer *a);
 
@@ -62,8 +62,8 @@ int dns_answer_extend(DnsAnswer **a, DnsAnswer *b);
 
 void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local);
 
-int dns_answer_reserve(DnsAnswer **a, unsigned n_free);
-int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free);
+int dns_answer_reserve(DnsAnswer **a, size_t n_free);
+int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free);
 
 int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key);
 int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rr);
@@ -73,7 +73,7 @@ int dns_answer_move_by_key(DnsAnswer **to, DnsAnswer **from, const DnsResourceKe
 
 bool dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname);
 
-static inline unsigned dns_answer_size(DnsAnswer *a) {
+static inline size_t dns_answer_size(DnsAnswer *a) {
         return a ? a->n_rrs : 0;
 }
 
@@ -86,7 +86,7 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 
 #define _DNS_ANSWER_FOREACH(q, kk, a)                                   \
-        for (unsigned UNIQ_T(i, q) = ({                                 \
+        for (size_t UNIQ_T(i, q) = ({                                   \
                                 (kk) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].rr : NULL; \
                                 0;                                      \
                         });                                             \
@@ -96,7 +96,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 #define DNS_ANSWER_FOREACH(kk, a) _DNS_ANSWER_FOREACH(UNIQ, kk, a)
 
 #define _DNS_ANSWER_FOREACH_IFINDEX(q, kk, ifi, a)                      \
-        for (unsigned UNIQ_T(i, q) = ({                                 \
+        for (size_t UNIQ_T(i, q) = ({                                   \
                                 (kk) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].rr : NULL; \
                                 (ifi) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].ifindex : 0; \
                                 0;                                      \
@@ -109,7 +109,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 #define DNS_ANSWER_FOREACH_IFINDEX(kk, ifindex, a) _DNS_ANSWER_FOREACH_IFINDEX(UNIQ, kk, ifindex, a)
 
 #define _DNS_ANSWER_FOREACH_FLAGS(q, kk, fl, a)                         \
-        for (unsigned UNIQ_T(i, q) = ({                                 \
+        for (size_t UNIQ_T(i, q) = ({                                   \
                                 (kk) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].rr : NULL; \
                                 (fl) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].flags : 0; \
                                 0;                                      \
@@ -122,7 +122,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 #define DNS_ANSWER_FOREACH_FLAGS(kk, flags, a) _DNS_ANSWER_FOREACH_FLAGS(UNIQ, kk, flags, a)
 
 #define _DNS_ANSWER_FOREACH_FULL(q, kk, ifi, fl, a)                     \
-        for (unsigned UNIQ_T(i, q) = ({                                 \
+        for (size_t UNIQ_T(i, q) = ({                                   \
                                 (kk) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].rr : NULL; \
                                 (ifi) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].ifindex : 0; \
                                 (fl) = ((a) && (a)->n_rrs > 0) ? (a)->items[0].flags : 0; \

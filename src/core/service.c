@@ -866,7 +866,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         if (s->n_fd_store_max > 0)
                 fprintf(f,
                         "%sFile Descriptor Store Max: %u\n"
-                        "%sFile Descriptor Store Current: %u\n",
+                        "%sFile Descriptor Store Current: %zu\n",
                         prefix, s->n_fd_store_max,
                         prefix, s->n_fd_store);
 

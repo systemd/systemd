@@ -1800,7 +1800,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         int carries_install_info = 0;
         const char *method = NULL;
         sd_bus *bus = userdata;

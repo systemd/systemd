@@ -29,8 +29,8 @@ FDSet *fdset_new(void) {
         return MAKE_FDSET(set_new(NULL));
 }
 
-int fdset_new_array(FDSet **ret, const int *fds, unsigned n_fds) {
-        unsigned i;
+int fdset_new_array(FDSet **ret, const int *fds, size_t n_fds) {
+        size_t i;
         FDSet *s;
         int r;
 
@@ -217,10 +217,10 @@ int fdset_close_others(FDSet *fds) {
         void *e;
         Iterator i;
         int *a;
-        unsigned j, m;
+        size_t j = 0, m;
 
-        j = 0, m = fdset_size(fds);
-        a = alloca(sizeof(int) * m);
+        m = fdset_size(fds);
+        a = newa(int, m);
         SET_FOREACH(e, MAKE_SET(fds), i)
                 a[j++] = PTR_TO_FD(e);
 

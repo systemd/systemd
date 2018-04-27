@@ -78,9 +78,9 @@ int setup_namespace(
                 char **inaccessible_paths,
                 char **empty_directories,
                 const BindMount *bind_mounts,
-                unsigned n_bind_mounts,
+                size_t n_bind_mounts,
                 const TemporaryFileSystem *temporary_filesystems,
-                unsigned n_temporary_filesystems,
+                size_t n_temporary_filesystems,
                 const char *tmp_dir,
                 const char *var_tmp_dir,
                 ProtectHome protect_home,
@@ -103,11 +103,11 @@ const char* protect_system_to_string(ProtectSystem p) _const_;
 ProtectSystem protect_system_from_string(const char *s) _pure_;
 ProtectSystem parse_protect_system_or_bool(const char *s);
 
-void bind_mount_free_many(BindMount *b, unsigned n);
-int bind_mount_add(BindMount **b, unsigned *n, const BindMount *item);
+void bind_mount_free_many(BindMount *b, size_t n);
+int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);
 
-void temporary_filesystem_free_many(TemporaryFileSystem *t, unsigned n);
-int temporary_filesystem_add(TemporaryFileSystem **t, unsigned *n,
+void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n);
+int temporary_filesystem_add(TemporaryFileSystem **t, size_t *n,
                              const char *path, const char *options);
 
 const char* namespace_type_to_string(NamespaceType t) _const_;

@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
         const char *const files[] = { "avahi-daemon.service", NULL };
         const char *const files2[] = { "/home/lennart/test.service", NULL };
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         UnitFileState state = 0;
 
         log_set_max_level(LOG_DEBUG);

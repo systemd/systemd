@@ -15,12 +15,12 @@
 
 struct pool {
         struct pool *next;
-        unsigned n_tiles;
-        unsigned n_used;
+        size_t n_tiles;
+        size_t n_used;
 };
 
 void* mempool_alloc_tile(struct mempool *mp) {
-        unsigned i;
+        size_t i;
 
         /* When a tile is released we add it to the list and simply
          * place the next pointer at its offset 0. */
@@ -38,8 +38,7 @@ void* mempool_alloc_tile(struct mempool *mp) {
 
         if (_unlikely_(!mp->first_pool) ||
             _unlikely_(mp->first_pool->n_used >= mp->first_pool->n_tiles)) {
-                unsigned n;
-                size_t size;
+                size_t size, n;
                 struct pool *p;
 
                 n = mp->first_pool ? mp->first_pool->n_tiles : 0;

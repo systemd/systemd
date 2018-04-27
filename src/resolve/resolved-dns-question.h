@@ -16,11 +16,11 @@ typedef struct DnsQuestion DnsQuestion;
 
 struct DnsQuestion {
         unsigned n_ref;
-        unsigned n_keys, n_allocated;
+        size_t n_keys, n_allocated;
         DnsResourceKey* keys[0];
 };
 
-DnsQuestion *dns_question_new(unsigned n);
+DnsQuestion *dns_question_new(size_t n);
 DnsQuestion *dns_question_ref(DnsQuestion *q);
 DnsQuestion *dns_question_unref(DnsQuestion *q);
 
@@ -40,7 +40,7 @@ int dns_question_cname_redirect(DnsQuestion *q, const DnsResourceRecord *cname, 
 
 const char *dns_question_first_name(DnsQuestion *q);
 
-static inline unsigned dns_question_size(DnsQuestion *q) {
+static inline size_t dns_question_size(DnsQuestion *q) {
         return q ? q->n_keys : 0;
 }
 
@@ -51,7 +51,7 @@ static inline bool dns_question_isempty(DnsQuestion *q) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);
 
 #define _DNS_QUESTION_FOREACH(u, key, q)                                \
-        for (unsigned UNIQ_T(i, u) = ({                                 \
+        for (size_t UNIQ_T(i, u) = ({                                 \
                                 (key) = ((q) && (q)->n_keys > 0) ? (q)->keys[0] : NULL; \
                                 0;                                      \
                         });                                             \

@@ -221,7 +221,7 @@ int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, sd_dhcp_route ***routes) {
 }
 
 int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains) {
-        unsigned r;
+        size_t r;
 
         assert_return(lease, -EINVAL);
         assert_return(domains, -EINVAL);
