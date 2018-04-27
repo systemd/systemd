@@ -116,8 +116,25 @@ int btrfs_is_subvol(const char *path) {
         return btrfs_is_subvol_fd(fd);
 }
 
-int btrfs_subvol_make(const char *path) {
+int btrfs_subvol_make_fd(int fd, const char *subvolume) {
         struct btrfs_ioctl_vol_args args = {};
+        int r;
+
+        assert(subvolume);
+
+        r = validate_subvolume_name(subvolume);
+        if (r < 0)
+                return r;
+
+        strncpy(args.name, subvolume, sizeof(args.name)-1);
+
+        if (ioctl(fd, BTRFS_IOC_SUBVOL_CREATE, &args) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int btrfs_subvol_make(const char *path) {
         _cleanup_close_ int fd = -1;
         const char *subvolume;
         int r;
@@ -132,12 +149,7 @@ int btrfs_subvol_make(const char *path) {
         if (fd < 0)
                 return fd;
 
-        strncpy(args.name, subvolume, sizeof(args.name)-1);
-
-        if (ioctl(fd, BTRFS_IOC_SUBVOL_CREATE, &args) < 0)
-                return -errno;
-
-        return 0;
+        return btrfs_subvol_make_fd(fd, subvolume);
 }
 
 int btrfs_subvol_set_read_only_fd(int fd, bool b) {
