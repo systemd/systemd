@@ -7,7 +7,6 @@
 
 #include <errno.h>
 #include <string.h>
-#include <sys/mount.h>
 #include <unistd.h>
 #include <stdio_ext.h>
 
@@ -17,7 +16,6 @@
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "clean-ipc.h"
-#include "conf-parser.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -27,11 +25,9 @@
 #include "label.h"
 #include "logind-user.h"
 #include "mkdir.h"
-#include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
-#include "smack-util.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
