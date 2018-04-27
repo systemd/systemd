@@ -9,6 +9,7 @@ typedef enum MkdirFlags {
 } MkdirFlags;
 
 int mkdir_errno_wrapper(const char *pathname, mode_t mode);
+int mkdirat_errno_wrapper(int dirfd, const char *pathname, mode_t mode);
 int mkdir_safe(const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags);
 int mkdir_parents(const char *path, mode_t mode);
 int mkdir_p(const char *path, mode_t mode);
