@@ -9,6 +9,8 @@ ExecStart=test %p = exec-specifier
 ExecStart=test %P = exec/specifier
 ExecStart=test %i = foo-bar
 ExecStart=test %I = foo/bar
+ExecStart=test %j = specifier
+ExecStart=test %J = specifier
 ExecStart=test %f = /foo/bar
 ExecStart=test %t = /run
 ExecStart=test %S = /var/lib
