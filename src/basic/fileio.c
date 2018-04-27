@@ -1533,8 +1533,6 @@ int mkdtemp_malloc(const char *template, char **ret) {
         return 0;
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(FILE*, funlockfile);
-
 int read_line(FILE *f, size_t limit, char **ret) {
         _cleanup_free_ char *buffer = NULL;
         size_t n = 0, allocated = 0, count = 0;
@@ -1559,10 +1557,7 @@ int read_line(FILE *f, size_t limit, char **ret) {
                         return -ENOMEM;
         }
 
-        {
-                _unused_ _cleanup_(funlockfilep) FILE *flocked = f;
-                flockfile(f);
-
+        WITH_FLOCKFILE(f) {
                 for (;;) {
                         int c;
 
