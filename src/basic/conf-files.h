@@ -23,4 +23,4 @@ int conf_files_list_with_replacement(
                 const char *replacement,
                 char ***files,
                 char **replace_file);
-int conf_files_cat(const char *name);
+int conf_files_cat(const char *root, const char *name);

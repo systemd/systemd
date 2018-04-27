@@ -367,6 +367,13 @@ NAutoVTs=8
         generators enabled will generally result in some warnings.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--root=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>With <command>cat-files</command>, show config files underneath
+        the specified root path <replaceable>PATH</replaceable>.</para></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 

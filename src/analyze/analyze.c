@@ -72,6 +72,7 @@ static const char *arg_host = NULL;
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static bool arg_man = true;
 static bool arg_generators = false;
+static const char *arg_root = NULL;
 
 struct boot_times {
         usec_t firmware_time;
@@ -1329,7 +1330,7 @@ static int cat_config(int argc, char *argv[], void *userdata) {
                         return -EINVAL;
                 }
 
-                r = conf_files_cat(*arg);
+                r = conf_files_cat(arg_root, *arg);
                 if (r < 0)
                         return r;
         }
@@ -1688,6 +1689,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_ORDER,
                 ARG_REQUIRE,
+                ARG_ROOT,
                 ARG_SYSTEM,
                 ARG_USER,
                 ARG_GLOBAL,
@@ -1704,6 +1706,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",      no_argument,       NULL, ARG_VERSION          },
                 { "order",        no_argument,       NULL, ARG_ORDER            },
                 { "require",      no_argument,       NULL, ARG_REQUIRE          },
+                { "root",         required_argument, NULL, ARG_ROOT             },
                 { "system",       no_argument,       NULL, ARG_SYSTEM           },
                 { "user",         no_argument,       NULL, ARG_USER             },
                 { "global",       no_argument,       NULL, ARG_GLOBAL           },
@@ -1731,6 +1734,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_ROOT:
+                        arg_root = optarg;
+                        break;
 
                 case ARG_SYSTEM:
                         arg_scope = UNIT_FILE_SYSTEM;
@@ -1822,6 +1829,11 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_scope == UNIT_FILE_GLOBAL &&
             !STR_IN_SET(argv[optind] ?: "time", "dot", "unit-paths", "verify")) {
                 log_error("Option --global only makes sense with verbs dot, unit-paths, verify.");
+                return -EINVAL;
+        }
+
+        if (arg_root && !streq_ptr(argv[optind], "cat-config")) {
+                log_error("Option --root is only supported for cat-config right now.");
                 return -EINVAL;
         }
 
