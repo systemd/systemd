@@ -1714,6 +1714,49 @@ static int create_device(Item *i, mode_t file_type) {
         return fd_set_perms(i, fd, NULL);
 }
 
+static int create_fifo(Item *i, const char *path) {
+        CreationMode creation;
+        struct stat st;
+        int r;
+
+        RUN_WITH_UMASK(0000) {
+                mac_selinux_create_file_prepare(path, S_IFIFO);
+                r = mkfifo(path, i->mode);
+                mac_selinux_create_file_clear();
+        }
+
+        if (r < 0) {
+                if (errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create fifo %s: %m", path);
+
+                if (lstat(path, &st) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", path);
+
+                if (!S_ISFIFO(st.st_mode)) {
+
+                        if (i->force) {
+                                RUN_WITH_UMASK(0000) {
+                                        mac_selinux_create_file_prepare(path, S_IFIFO);
+                                        r = mkfifo_atomic(path, i->mode);
+                                        mac_selinux_create_file_clear();
+                                }
+
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create fifo %s: %m", path);
+                                creation = CREATION_FORCE;
+                        } else {
+                                log_warning("\"%s\" already exists and is not a fifo.", path);
+                                return 0;
+                        }
+                } else
+                        creation = CREATION_EXISTING;
+        } else
+                creation = CREATION_NORMAL;
+        log_debug("%s fifo \"%s\".", creation_mode_verb_to_string(creation), path);
+
+        return path_set_perms(i, path);
+}
+
 typedef int (*action_t)(Item *, const char *);
 typedef int (*fdaction_t)(Item *, int fd, const struct stat *st);
 
@@ -1827,9 +1870,8 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
 }
 
 static int create_item(Item *i) {
-        struct stat st;
-        int r = 0;
         CreationMode creation;
+        int r = 0;
 
         assert(i);
 
@@ -1905,47 +1947,12 @@ static int create_item(Item *i) {
                 break;
 
         case CREATE_FIFO:
-                RUN_WITH_UMASK(0000) {
+                RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                        mac_selinux_create_file_prepare(i->path, S_IFIFO);
-                        r = mkfifo(i->path, i->mode);
-                        mac_selinux_create_file_clear();
-                }
-
-                if (r < 0) {
-                        if (errno != EEXIST)
-                                return log_error_errno(errno, "Failed to create fifo %s: %m", i->path);
-
-                        if (lstat(i->path, &st) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                        if (!S_ISFIFO(st.st_mode)) {
-
-                                if (i->force) {
-                                        RUN_WITH_UMASK(0000) {
-                                                mac_selinux_create_file_prepare(i->path, S_IFIFO);
-                                                r = mkfifo_atomic(i->path, i->mode);
-                                                mac_selinux_create_file_clear();
-                                        }
-
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to create fifo %s: %m", i->path);
-                                        creation = CREATION_FORCE;
-                                } else {
-                                        log_warning("\"%s\" already exists and is not a fifo.", i->path);
-                                        return 0;
-                                }
-                        } else
-                                creation = CREATION_EXISTING;
-                } else
-                        creation = CREATION_NORMAL;
-                log_debug("%s fifo \"%s\".", creation_mode_verb_to_string(creation), i->path);
-
-                r = path_set_perms(i, i->path);
+                r = create_fifo(i, i->path);
                 if (r < 0)
                         return r;
-
                 break;
 
         case CREATE_SYMLINK: {
