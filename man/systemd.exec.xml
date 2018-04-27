@@ -1972,7 +1972,9 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
       <listitem><para>Variables read from files specified via <varname>EnvironmentFile=</varname> in the unit file</para></listitem>
 
-      <listitem><para>Variables set by any PAM modules in case <varname>PAMName=</varname> is in effect, cf. <citerefentry project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem>
+      <listitem><para>Variables set by any PAM modules in case <varname>PAMName=</varname> is in effect,
+      cf. <citerefentry
+      project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem>
     </itemizedlist>
 
     <para>If the same environment variables are set by multiple of these sources, the later source — according to the
@@ -1980,7 +1982,8 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
     <varname>UnsetEnvironment=</varname> are removed again from the compiled environment variable list, immediately
     before it is passed to the executed process.</para>
 
-    <para>The following select environment variables are set by the service manager itself for each invoked process:</para>
+    <para>The following select environment variables are set or propagated by the service manager for each invoked
+    process:</para>
 
     <variablelist class='environment-variables'>
       <varlistentry>
@@ -2031,24 +2034,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       <varlistentry>
         <term><varname>$XDG_RUNTIME_DIR</varname></term>
 
-        <listitem><para>The directory for volatile state. Set for the
-        user <command>systemd</command> instance, and also in user
-        sessions. See
-        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>$XDG_SESSION_ID</varname></term>
-        <term><varname>$XDG_SEAT</varname></term>
-        <term><varname>$XDG_VTNR</varname></term>
-
-        <listitem><para>The identifier of the session, the seat name,
-        and virtual terminal of the session. Set by
-        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for login sessions. <varname>$XDG_SEAT</varname> and
-        <varname>$XDG_VTNR</varname> will only be set when attached to
-        a seat and a tty.</para></listitem>
+        <listitem><para>The directory to use for runtime objects (such as IPC objects) and volatile state. Set for all
+        services run by the user <command>systemd</command> instance, as well as any system services that use
+        <varname>PAMName=</varname> with a PAM stack that includes <command>pam_systemd</command>. See below and
+        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
+        information.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2302,6 +2292,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </listitem>
       </varlistentry>
     </variablelist>
+
+    <para>For system services, when <varname>PAMName=</varname> is enabled and <command>pam_systemd</command> is part
+    of the selected PAM stack, additional environment variables defined by systemd may be set for
+    services. Specifically, these are <varname>$XDG_SEAT</varname>, <varname>$XDG_VTNR</varname>, see
+    <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for details.</para>
   </refsect1>
 
   <refsect1>
@@ -2608,6 +2603,98 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
             <entry>241</entry>
             <entry><constant>EXIT_CONFIGURATION_DIRECTORY</constant></entry>
             <entry>Failed to set up unit's configuration directory. See <varname>ConfigurationDirectory=</varname> above.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+
+    <para>Finally, the BSD operating systems define a set of exit codes, typically defined on Linux systems too:</para>
+
+    <table>
+      <title>BSD exit codes</title>
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Exit Code</entry>
+            <entry>Symbolic Name</entry>
+            <entry>Description</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>64</entry>
+            <entry><constant>EX_USAGE</constant></entry>
+            <entry>Command line usage error</entry>
+          </row>
+          <row>
+            <entry>65</entry>
+            <entry><constant>EX_DATAERR</constant></entry>
+            <entry>Data format error</entry>
+          </row>
+          <row>
+            <entry>66</entry>
+            <entry><constant>EX_NOINPUT</constant></entry>
+            <entry>Cannot open input</entry>
+          </row>
+          <row>
+            <entry>67</entry>
+            <entry><constant>EX_NOUSER</constant></entry>
+            <entry>Addressee unknown</entry>
+          </row>
+          <row>
+            <entry>68</entry>
+            <entry><constant>EX_NOHOST</constant></entry>
+            <entry>Host name unknown</entry>
+          </row>
+          <row>
+            <entry>69</entry>
+            <entry><constant>EX_UNAVAILABLE</constant></entry>
+            <entry>Service unavailable</entry>
+          </row>
+          <row>
+            <entry>70</entry>
+            <entry><constant>EX_SOFTWARE</constant></entry>
+            <entry>internal software error</entry>
+          </row>
+          <row>
+            <entry>71</entry>
+            <entry><constant>EX_OSERR</constant></entry>
+            <entry>System error (e.g., can't fork)</entry>
+          </row>
+          <row>
+            <entry>72</entry>
+            <entry><constant>EX_OSFILE</constant></entry>
+            <entry>Critical OS file missing</entry>
+          </row>
+          <row>
+            <entry>73</entry>
+            <entry><constant>EX_CANTCREAT</constant></entry>
+            <entry>Can't create (user) output file</entry>
+          </row>
+          <row>
+            <entry>74</entry>
+            <entry><constant>EX_IOERR</constant></entry>
+            <entry>Input/output error</entry>
+          </row>
+          <row>
+            <entry>75</entry>
+            <entry><constant>EX_TEMPFAIL</constant></entry>
+            <entry>Temporary failure; user is invited to retry</entry>
+          </row>
+          <row>
+            <entry>76</entry>
+            <entry><constant>EX_PROTOCOL</constant></entry>
+            <entry>Remote error in protocol</entry>
+          </row>
+          <row>
+            <entry>77</entry>
+            <entry><constant>EX_NOPERM</constant></entry>
+            <entry>Permission denied</entry>
+          </row>
+          <row>
+            <entry>78</entry>
+            <entry><constant>EX_CONFIG</constant></entry>
+            <entry>Configuration error</entry>
           </row>
         </tbody>
       </tgroup>

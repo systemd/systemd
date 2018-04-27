@@ -1,5 +1,8 @@
 # Control Group APIs and Delegation
 
+*Intended audience: hackers working on userspace subsystems that require direct
+cgroup access, such as container managers and similar.*
+
 So you are wondering about resource management with systemd, you know Linux
 control groups (cgroups) a bit and are trying to integrate your software with
 what systemd has to offer there. Here's a bit of documentation about the

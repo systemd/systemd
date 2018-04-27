@@ -29,10 +29,10 @@ enum {
         EXIT_NOTCONFIGURED = 6,
         EXIT_NOTRUNNING = 7,
 
-        /* The LSB suggests that error codes >= 200 are "reserved". We
-         * use them here under the assumption that they hence are
-         * unused by init scripts. */
+        /* BSD's sysexits.h defines a couple EX_xyz exit codes in the range 64 … 78 */
 
+        /* The LSB suggests that error codes >= 200 are "reserved". We use them here under the assumption that they
+         * hence are unused by init scripts. */
         EXIT_CHDIR = 200,
         EXIT_NICE,
         EXIT_FDS,
@@ -81,7 +81,7 @@ typedef enum ExitStatusLevel {
         EXIT_STATUS_MINIMAL,   /* only cover libc EXIT_STATUS/EXIT_FAILURE */
         EXIT_STATUS_SYSTEMD,   /* cover libc and systemd's own exit codes */
         EXIT_STATUS_LSB,       /* cover libc, systemd's own and LSB exit codes */
-        EXIT_STATUS_FULL = EXIT_STATUS_LSB
+        EXIT_STATUS_FULL,      /* cover libc, systemd's own, LSB and BSD (EX_xyz) exit codes */
 } ExitStatusLevel;
 
 typedef struct ExitStatusSet {
