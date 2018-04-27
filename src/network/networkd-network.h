@@ -177,11 +177,11 @@ struct Network {
         char **router_search_domains;
 
         /* Bridge Support */
-        bool use_bpdu;
-        bool hairpin;
-        bool fast_leave;
-        bool allow_port_to_be_root;
-        bool unicast_flood;
+        int use_bpdu;
+        int hairpin;
+        int fast_leave;
+        int allow_port_to_be_root;
+        int unicast_flood;
         uint32_t cost;
         uint16_t priority;
 
