@@ -627,7 +627,7 @@ static void display(Hashmap *a) {
         if (!terminal_is_dumb())
                 fputs(ANSI_HOME_CLEAR, stdout);
 
-        array = alloca(sizeof(Group*) * hashmap_size(a));
+        array = newa(Group*, hashmap_size(a));
 
         HASHMAP_FOREACH(g, a, i)
                 if (g->n_tasks_valid || g->cpu_valid || g->memory_valid || g->io_valid)

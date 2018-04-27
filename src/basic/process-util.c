@@ -1433,7 +1433,7 @@ int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret
         va_end(ap);
 
         /* Allocate strv */
-        l = alloca(sizeof(char *) * (n + 1));
+        l = newa(char*, n + 1);
 
         /* Fill in arguments */
         va_start(ap, path);

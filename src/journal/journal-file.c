@@ -1965,7 +1965,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
 #endif
 
         /* alloca() can't take 0, hence let's allocate at least one */
-        items = alloca(sizeof(EntryItem) * MAX(1u, n_iovec));
+        items = newa(EntryItem, MAX(1u, n_iovec));
 
         for (i = 0; i < n_iovec; i++) {
                 uint64_t p;
@@ -3581,7 +3581,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 
         n = journal_file_entry_n_items(o);
         /* alloca() can't take 0, hence let's allocate at least one */
-        items = alloca(sizeof(EntryItem) * MAX(1u, n));
+        items = newa(EntryItem, MAX(1u, n));
 
         for (i = 0; i < n; i++) {
                 uint64_t l, h;

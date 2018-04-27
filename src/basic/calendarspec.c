@@ -104,7 +104,7 @@ static void normalize_chain(CalendarComponent **c) {
         if (n <= 1)
                 return;
 
-        j = b = alloca(sizeof(CalendarComponent*) * n);
+        j = b = newa(CalendarComponent*, n);
         for (i = *c; i; i = i->next)
                 *(j++) = i;
 

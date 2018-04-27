@@ -608,7 +608,7 @@ static void test_condition_test_group(void) {
         ngroups_max = sysconf(_SC_NGROUPS_MAX);
         assert(ngroups_max > 0);
 
-        gids = alloca(sizeof(gid_t) * ngroups_max);
+        gids = newa(gid_t, ngroups_max);
 
         ngroups = getgroups(ngroups_max, gids);
         assert(ngroups >= 0);
