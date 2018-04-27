@@ -30,15 +30,18 @@
 #include "strv.h"
 #include "udev-util.h"
 
-static void manager_free(Manager *m);
+static Manager* manager_unref(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 
-static Manager *manager_new(void) {
-        Manager *m;
+static int manager_new(Manager **ret) {
+        _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
+
+        assert(ret);
 
         m = new0(Manager, 1);
         if (!m)
-                return NULL;
+                return -ENOMEM;
 
         m->console_active_fd = -1;
         m->reserve_vt_fd = -1;
@@ -56,28 +59,33 @@ static Manager *manager_new(void) {
         m->session_units = hashmap_new(&string_hash_ops);
 
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
-                goto fail;
+                return -ENOMEM;
 
         m->udev = udev_new();
         if (!m->udev)
-                goto fail;
+                return -errno;
 
         r = sd_event_default(&m->event);
         if (r < 0)
-                goto fail;
+                return r;
 
-        sd_event_set_watchdog(m->event, true);
+        r = sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_set_watchdog(m->event, true);
 
         manager_reset_config(m);
 
-        return m;
-
-fail:
-        manager_free(m);
-        return NULL;
+        *ret = TAKE_PTR(m);
+        return 0;
 }
 
-static void manager_free(Manager *m) {
+static Manager* manager_unref(Manager *m) {
         Session *session;
         User *u;
         Device *d;
@@ -86,7 +94,7 @@ static void manager_free(Manager *m) {
         Button *b;
 
         if (!m)
-                return;
+                return NULL;
 
         while ((session = hashmap_first(m->sessions)))
                 session_free(session);
@@ -155,7 +163,8 @@ static void manager_free(Manager *m) {
         free(m->scheduled_shutdown_tty);
         free(m->wall_message);
         free(m->action_job);
-        free(m);
+
+        return mfree(m);
 }
 
 static int manager_enumerate_devices(Manager *m) {
@@ -1083,8 +1092,6 @@ static int manager_startup(Manager *m) {
 
         assert(m);
 
-        assert_se(sigprocmask_many(SIG_SETMASK, NULL, SIGHUP, -1) >= 0);
-
         r = sd_event_add_signal(m->event, NULL, SIGHUP, manager_dispatch_reload_signal, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to register SIGHUP handler: %m");
@@ -1192,7 +1199,7 @@ static int manager_run(Manager *m) {
 }
 
 int main(int argc, char *argv[]) {
-        Manager *m = NULL;
+        _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
         log_set_target(LOG_TARGET_AUTO);
@@ -1214,22 +1221,22 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        /* Always create the directories people can create inotify
-         * watches in. Note that some applications might check for the
-         * existence of /run/systemd/seats/ to determine whether
-         * logind is available, so please always make sure this check
-         * stays in. */
-        mkdir_label("/run/systemd/seats", 0755);
-        mkdir_label("/run/systemd/users", 0755);
-        mkdir_label("/run/systemd/sessions", 0755);
+        /* Always create the directories people can create inotify watches in. Note that some applications might check
+         * for the existence of /run/systemd/seats/ to determine whether logind is available, so please always make
+         * sure these directories are created early on and unconditionally. */
+        (void) mkdir_label("/run/systemd/seats", 0755);
+        (void) mkdir_label("/run/systemd/users", 0755);
+        (void) mkdir_label("/run/systemd/sessions", 0755);
 
-        m = manager_new();
-        if (!m) {
-                r = log_oom();
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGHUP, SIGTERM, SIGINT, -1) >= 0);
+
+        r = manager_new(&m);
+        if (r < 0) {
+                log_error_errno(r, "Failed to allocate manager object: %m");
                 goto finish;
         }
 
-        manager_parse_config_file(m);
+        (void) manager_parse_config_file(m);
 
         r = manager_startup(m);
         if (r < 0) {
@@ -1239,20 +1246,18 @@ int main(int argc, char *argv[]) {
 
         log_debug("systemd-logind running as pid "PID_FMT, getpid_cached());
 
-        sd_notify(false,
-                  "READY=1\n"
-                  "STATUS=Processing requests...");
+        (void) sd_notify(false,
+                         "READY=1\n"
+                         "STATUS=Processing requests...");
 
         r = manager_run(m);
 
         log_debug("systemd-logind stopped as pid "PID_FMT, getpid_cached());
 
+        (void) sd_notify(false,
+                         "STOPPING=1\n"
+                         "STATUS=Shutting down...");
+
 finish:
-        sd_notify(false,
-                  "STOPPING=1\n"
-                  "STATUS=Shutting down...");
-
-        manager_free(m);
-
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

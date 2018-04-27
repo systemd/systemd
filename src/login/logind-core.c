@@ -26,6 +26,8 @@
 #include "user-util.h"
 
 void manager_reset_config(Manager *m) {
+        assert(m);
+
         m->n_autovts = 6;
         m->reserve_vt = 6;
         m->remove_ipc = true;

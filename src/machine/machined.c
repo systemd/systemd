@@ -67,7 +67,8 @@ static int manager_new(Manager **ret) {
 static Manager* manager_unref(Manager *m) {
         Machine *machine;
 
-        assert(m);
+        if (!m)
+                return NULL;
 
         while (m->operations)
                 operation_free(m->operations);
@@ -387,13 +388,17 @@ int main(int argc, char *argv[]) {
 
         log_debug("systemd-machined running as pid "PID_FMT, getpid_cached());
 
-        sd_notify(false,
-                  "READY=1\n"
-                  "STATUS=Processing requests...");
+        (void) sd_notify(false,
+                         "READY=1\n"
+                         "STATUS=Processing requests...");
 
         r = manager_run(m);
 
         log_debug("systemd-machined stopped as pid "PID_FMT, getpid_cached());
+
+        (void) sd_notify(false,
+                         "STOPPING=1\n"
+                         "STATUS=Shutting down...");
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
