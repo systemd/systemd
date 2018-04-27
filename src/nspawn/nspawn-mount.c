@@ -133,8 +133,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                         if (!s)
                                 return log_oom();
 
-                        free(m->source);
-                        m->source = s;
+                        free_and_replace(m->source, s);
                 } else {
                         /* No source specified? In that case, use a throw-away temporary directory in /var/tmp */
 
@@ -165,8 +164,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                                 if (!s)
                                         return log_oom();
 
-                                free(*j);
-                                *j = s;
+                                free_and_replace(*j, s);
                         }
 
                         if (m->work_dir) {
@@ -176,8 +174,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
                                 if (!s)
                                         return log_oom();
 
-                                free(m->work_dir);
-                                m->work_dir = s;
+                                free_and_replace(m->work_dir, s);
                         } else {
                                 assert(m->source);
 
