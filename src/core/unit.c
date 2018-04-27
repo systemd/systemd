@@ -1753,6 +1753,7 @@ static bool unit_verify_deps(Unit *u) {
  *         -EINVAL:     Unit not loaded
  *         -EOPNOTSUPP: Unit type not supported
  *         -ENOLINK:    The necessary dependencies are not fulfilled.
+ *         -ESTALE:     This unit has been started before and can't be started a second time
  */
 int unit_start(Unit *u) {
         UnitActiveState state;
@@ -1771,6 +1772,10 @@ int unit_start(Unit *u) {
         /* Units that aren't loaded cannot be started */
         if (u->load_state != UNIT_LOADED)
                 return -EINVAL;
+
+        /* Refuse starting scope units more than once */
+        if (UNIT_VTABLE(u)->once_only && dual_timestamp_is_set(&u->inactive_enter_timestamp))
+                return -ESTALE;
 
         /* If the conditions failed, don't do anything at all. If we
          * already are activating this call might still be useful to
@@ -1833,6 +1838,10 @@ bool unit_can_start(Unit *u) {
                 return false;
 
         if (!unit_supported(u))
+                return false;
+
+        /* Scope units may be started only once */
+        if (UNIT_VTABLE(u)->once_only && dual_timestamp_is_set(&u->inactive_exit_timestamp))
                 return false;
 
         return !!UNIT_VTABLE(u)->start;

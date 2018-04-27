@@ -1900,8 +1900,6 @@ finish:
 }
 
 static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const* extra_args) {
-        int r = 0;
-
         assert(d->result);
 
         if (!quiet) {
@@ -1919,6 +1917,8 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                         log_error("Operation on or unit type of %s not supported on this system.", strna(d->name));
                 else if (streq(d->result, "collected"))
                         log_error("Queued job for %s was garbage collected.", strna(d->name));
+                else if (streq(d->result, "once"))
+                        log_error("Unit %s was started already once and can't be started again.", strna(d->name));
                 else if (!STR_IN_SET(d->result, "done", "skipped")) {
                         if (d->name) {
                                 _cleanup_free_ char *result = NULL;
@@ -1935,21 +1935,24 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
         }
 
         if (STR_IN_SET(d->result, "canceled", "collected"))
-                r = -ECANCELED;
+                return -ECANCELED;
         else if (streq(d->result, "timeout"))
-                r = -ETIME;
+                return -ETIME;
         else if (streq(d->result, "dependency"))
-                r = -EIO;
+                return -EIO;
         else if (streq(d->result, "invalid"))
-                r = -ENOEXEC;
+                return -ENOEXEC;
         else if (streq(d->result, "assert"))
-                r = -EPROTO;
+                return -EPROTO;
         else if (streq(d->result, "unsupported"))
-                r = -EOPNOTSUPP;
-        else if (!STR_IN_SET(d->result, "done", "skipped"))
-                r = -EIO;
+                return -EOPNOTSUPP;
+        else if (streq(d->result, "once"))
+                return -ESTALE;
+        else if (STR_IN_SET(d->result, "done", "skipped"))
+                return 0;
 
-        return r;
+        log_debug("Unexpected job result, assuming server side newer than us: %s", d->result);
+        return -EIO;
 }
 
 int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_args) {

@@ -612,6 +612,8 @@ int job_run_and_invalidate(Job *j) {
                         r = job_finish_and_invalidate(j, JOB_UNSUPPORTED, true, false);
                 else if (r == -ENOLINK)
                         r = job_finish_and_invalidate(j, JOB_DEPENDENCY, true, false);
+                else if (r == -ESTALE)
+                        r = job_finish_and_invalidate(j, JOB_ONCE, true, false);
                 else if (r == -EAGAIN)
                         job_set_state(j, JOB_WAITING);
                 else if (r < 0)
@@ -631,6 +633,7 @@ _pure_ static const char *job_get_status_message_format(Unit *u, JobType t, JobR
                 [JOB_ASSERT]      = "Assertion failed for %s.",
                 [JOB_UNSUPPORTED] = "Starting of %s not supported.",
                 [JOB_COLLECTED]   = "Unnecessary job for %s was removed.",
+                [JOB_ONCE]        = "Unit %s has been started before and cannot be started again."
         };
         static const char *const generic_finished_stop_job[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = "Stopped %s.",
@@ -690,6 +693,7 @@ static const struct {
         [JOB_ASSERT]      = { ANSI_HIGHLIGHT_YELLOW, "ASSERT" },
         [JOB_UNSUPPORTED] = { ANSI_HIGHLIGHT_YELLOW, "UNSUPP" },
         /* JOB_COLLECTED */
+        [JOB_ONCE]        = { ANSI_HIGHLIGHT_RED,    " ONCE " },
 };
 
 static void job_print_status_message(Unit *u, JobType t, JobResult result) {
@@ -747,6 +751,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                 [JOB_ASSERT]      = LOG_WARNING,
                 [JOB_UNSUPPORTED] = LOG_WARNING,
                 [JOB_COLLECTED]   = LOG_INFO,
+                [JOB_ONCE]        = LOG_ERR,
         };
 
         assert(u);
@@ -1523,6 +1528,7 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_ASSERT] = "assert",
         [JOB_UNSUPPORTED] = "unsupported",
         [JOB_COLLECTED] = "collected",
+        [JOB_ONCE] = "once",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);
