@@ -1527,17 +1527,18 @@ static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
-static int create_directory_or_subvolume(Item *i, const char *path) {
+static int create_directory_or_subvolume(const char *path, mode_t mode, bool subvol) {
+        _cleanup_close_ int pfd = -1;
         CreationMode creation;
-        int r, q = 0;
+        int r;
 
-        assert(i);
-        assert(IN_SET(i->type,
-                      CREATE_DIRECTORY, TRUNCATE_DIRECTORY,
-                      CREATE_SUBVOLUME, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA));
+        assert(path);
 
-        if (IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA)) {
+        pfd = path_open_parent_safe(path);
+        if (pfd < 0)
+                return pfd;
 
+        if (subvol) {
                 if (btrfs_is_subvol(empty_to_root(arg_root)) <= 0)
 
                         /* Don't create a subvolume unless the root directory is
@@ -1550,42 +1551,76 @@ static int create_directory_or_subvolume(Item *i, const char *path) {
                          * specifically set up a btrfs subvolume for the root
                          * dir too. */
 
-                        r = -ENOTTY;
+                        subvol = false;
                 else {
-                        RUN_WITH_UMASK((~i->mode) & 0777)
-                                r = btrfs_subvol_make(i->path);
+                        RUN_WITH_UMASK((~mode) & 0777)
+                                r = btrfs_subvol_make_fd(pfd, basename(path));
                 }
         } else
                 r = 0;
 
-        if (IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY) || r == -ENOTTY)
+        if (!subvol || r == -ENOTTY)
                 RUN_WITH_UMASK(0000)
-                        r = mkdir_label(i->path, i->mode);
+                        r = mkdirat_label(pfd, basename(path), mode);
 
         if (r < 0) {
                 int k;
 
                 if (!IN_SET(r, -EEXIST, -EROFS))
-                        return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", i->path);
+                        return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", path);
 
-                k = is_dir(i->path, false);
+                k = is_dir_fd(pfd);
                 if (k == -ENOENT && r == -EROFS)
-                        return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", i->path);
+                        return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", path);
                 if (k < 0)
-                        return log_error_errno(k, "Failed to check if %s exists: %m", i->path);
+                        return log_error_errno(k, "Failed to check if %s exists: %m", path);
                 if (!k) {
-                        log_warning("\"%s\" already exists and is not a directory.", i->path);
-                        return 0;
+                        log_warning("\"%s\" already exists and is not a directory.", path);
+                        return -EEXIST;
                 }
 
                 creation = CREATION_EXISTING;
         } else
                 creation = CREATION_NORMAL;
 
-        log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), i->path);
+        log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), path);
+
+        r = openat(pfd, basename(path), O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (r < 0)
+                return -errno;
+        return r;
+}
+
+static int create_directory(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
+
+        assert(i);
+        assert(IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY));
+
+        fd = create_directory_or_subvolume(path, i->mode, false);
+        if (fd == -EEXIST)
+                return 0;
+        if (fd < 0)
+                return fd;
+
+        return fd_set_perms(i, fd, NULL);
+}
+
+static int create_subvolume(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
+        int r, q = 0;
+
+        assert(i);
+        assert(IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA));
+
+        fd = create_directory_or_subvolume(path, i->mode, true);
+        if (fd == -EEXIST)
+                return 0;
+        if (fd < 0)
+                return fd;
 
         if (IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
-                r = btrfs_subvol_auto_qgroup(i->path, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
+                r = btrfs_subvol_auto_qgroup_fd(fd, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
                 if (r == -ENOTTY)
                         log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
                 else if (r == -EROFS)
@@ -1600,7 +1635,7 @@ static int create_directory_or_subvolume(Item *i, const char *path) {
                         log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
         }
 
-        r = path_set_perms(i, i->path);
+        r = fd_set_perms(i, fd, NULL);
         if (q < 0)
                 return q;
 
@@ -1846,13 +1881,21 @@ static int create_item(Item *i) {
 
         case CREATE_DIRECTORY:
         case TRUNCATE_DIRECTORY:
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
+                r = create_directory(i, i->path);
+                if (r < 0)
+                        return r;
+                break;
+
         case CREATE_SUBVOLUME:
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                r = create_directory_or_subvolume(i, i->path);
+                r = create_subvolume(i, i->path);
                 if (r < 0)
                         return r;
                 break;
