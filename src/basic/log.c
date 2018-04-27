@@ -735,9 +735,8 @@ static int log_object_internalv(
         if (_likely_(LOG_PRI(level) > log_max_level[LOG_REALM_SYSTEMD]))
                 return -error;
 
-        /* Make sure that %m maps to the specified error */
-        if (error != 0)
-                errno = error;
+        /* Make sure that %m maps to the specified error (or "Success"). */
+        errno = error;
 
         /* Prepend the object name before the message */
         if (object) {
@@ -860,8 +859,7 @@ int log_format_iovec(
                  * since vasprintf() leaves it afterwards at
                  * an undefined location */
 
-                if (error != 0)
-                        errno = error;
+                errno = error;
 
                 va_copy(aq, ap);
                 r = vasprintf(&m, format, aq);
@@ -962,8 +960,7 @@ int log_struct_internal(
         while (format) {
                 va_list aq;
 
-                if (error != 0)
-                        errno = error;
+                errno = error;
 
                 va_copy(aq, ap);
                 (void) vsnprintf(buf, sizeof buf, format, aq);
@@ -1261,8 +1258,7 @@ int log_syntax_internal(
         if (log_target == LOG_TARGET_NULL)
                 return -error;
 
-        if (error != 0)
-                errno = error;
+        errno = error;
 
         va_start(ap, format);
         (void) vsnprintf(buffer, sizeof buffer, format, ap);
