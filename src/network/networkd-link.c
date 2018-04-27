@@ -3519,7 +3519,7 @@ int link_save(Link *link) {
                 /* Make sure to flush out old entries before we use the NDISC data */
                 ndisc_vacuum(link);
 
-                if (link->network->dhcp_use_dns && link->ndisc_rdnss) {
+                if (link->network->ipv6_accept_ra_use_dns && link->ndisc_rdnss) {
                         NDiscRDNSS *dd;
 
                         SET_FOREACH(dd, link->ndisc_rdnss, i) {
