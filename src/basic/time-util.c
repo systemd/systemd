@@ -434,7 +434,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 { "us",    1               },
         };
 
-        unsigned i;
+        size_t i;
         char *p = buf;
         bool something = false;
 
@@ -612,7 +612,7 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
         time_t x;
         usec_t x_usec, plus = 0, minus = 0, ret;
         int r, weekday = -1, dst = -1;
-        unsigned i;
+        size_t i;
 
         /*
          * Allowed syntaxes:
@@ -960,7 +960,7 @@ static char* extract_multiplier(char *p, usec_t *multiplier) {
                 { "us",      1ULL            },
                 { "µs",      1ULL            },
         };
-        unsigned i;
+        size_t i;
 
         for (i = 0; i < ELEMENTSOF(table); i++) {
                 char *e;
@@ -1134,8 +1134,8 @@ int parse_nsec(const char *t, nsec_t *nsec) {
 
         for (;;) {
                 long long l, z = 0;
+                size_t n = 0, i;
                 char *e;
-                unsigned i, n = 0;
 
                 p += strspn(p, WHITESPACE);
 

@@ -71,7 +71,7 @@ static int add_locales_from_archive(Set *locales) {
         _cleanup_close_ int fd = -1;
         size_t sz = 0;
         struct stat st;
-        unsigned i;
+        size_t i;
         int r;
 
         fd = open("/usr/lib/locale/locale-archive", O_RDONLY|O_NOCTTY|O_CLOEXEC);

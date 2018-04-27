@@ -196,11 +196,11 @@ static int env_append(char **r, char ***k, char **a) {
         return 0;
 }
 
-char **strv_env_merge(unsigned n_lists, ...) {
+char **strv_env_merge(size_t n_lists, ...) {
         size_t n = 0;
         char **l, **k, **r;
         va_list ap;
-        unsigned i;
+        size_t i;
 
         /* Merges an arbitrary number of environment sets */
 
@@ -275,7 +275,7 @@ static bool env_entry_has_name(const char *entry, const char *name) {
         return *t == '=';
 }
 
-char **strv_env_delete(char **x, unsigned n_lists, ...) {
+char **strv_env_delete(char **x, size_t n_lists, ...) {
         size_t n, i = 0;
         char **k, **r;
         va_list ap;
@@ -290,7 +290,7 @@ char **strv_env_delete(char **x, unsigned n_lists, ...) {
                 return NULL;
 
         STRV_FOREACH(k, x) {
-                unsigned v;
+                size_t v;
 
                 va_start(ap, n_lists);
                 for (v = 0; v < n_lists; v++) {
@@ -676,7 +676,7 @@ char *replace_env_n(const char *format, size_t n, char **env, unsigned flags) {
 
 char **replace_env_argv(char **argv, char **env) {
         char **ret, **i;
-        unsigned k = 0, l = 0;
+        size_t k = 0, l = 0;
 
         l = strv_length(argv);
 
@@ -690,7 +690,7 @@ char **replace_env_argv(char **argv, char **env) {
                 if ((*i)[0] == '$' && !IN_SET((*i)[1], '{', '$')) {
                         char *e;
                         char **w, **m = NULL;
-                        unsigned q;
+                        size_t q;
 
                         e = strv_env_get(env, *i+1);
                         if (e) {

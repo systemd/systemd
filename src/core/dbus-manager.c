@@ -1972,9 +1972,10 @@ static int install_error(
                 sd_bus_error *error,
                 int c,
                 UnitFileChange *changes,
-                unsigned n_changes) {
+                size_t n_changes) {
+
+        size_t i;
         int r;
-        unsigned i;
 
         for (i = 0; i < n_changes; i++)
 
@@ -2030,12 +2031,12 @@ static int reply_unit_file_changes_and_free(
                 sd_bus_message *message,
                 int carries_install_info,
                 UnitFileChange *changes,
-                unsigned n_changes,
+                size_t n_changes,
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         bool bad = false, good = false;
-        unsigned i;
+        size_t i;
         int r;
 
         if (unit_file_changes_have_modification(changes, n_changes)) {
@@ -2096,13 +2097,13 @@ fail:
 static int method_enable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, unsigned *n_changes),
+                int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes),
                 bool carries_install_info,
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         UnitFileFlags flags;
         int runtime, force, r;
 
@@ -2144,7 +2145,7 @@ static int method_link_unit_files(sd_bus_message *message, void *userdata, sd_bu
         return method_enable_unit_files_generic(message, userdata, unit_file_link, false, error);
 }
 
-static int unit_file_preset_without_mode(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char **files, UnitFileChange **changes, unsigned *n_changes) {
+static int unit_file_preset_without_mode(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char **files, UnitFileChange **changes, size_t *n_changes) {
         return unit_file_preset(scope, flags, root_dir, files, UNIT_FILE_PRESET_FULL, changes, n_changes);
 }
 
@@ -2160,7 +2161,7 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
 
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         Manager *m = userdata;
         UnitFilePresetMode mm;
         int runtime, force, r;
@@ -2204,12 +2205,12 @@ static int method_preset_unit_files_with_mode(sd_bus_message *message, void *use
 static int method_disable_unit_files_generic(
                 sd_bus_message *message,
                 Manager *m,
-                int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, unsigned *n_changes),
+                int (*call)(UnitFileScope scope, UnitFileFlags flags, const char *root_dir, char *files[], UnitFileChange **changes, size_t *n_changes),
                 sd_bus_error *error) {
 
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         int r, runtime;
 
         assert(message);
@@ -2247,7 +2248,7 @@ static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_strv_free_ char **l = NULL;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         Manager *m = userdata;
         int r;
 
@@ -2273,7 +2274,7 @@ static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_
 
 static int method_set_default_target(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         Manager *m = userdata;
         const char *name;
         int force, r;
@@ -2304,7 +2305,7 @@ static int method_set_default_target(sd_bus_message *message, void *userdata, sd
 
 static int method_preset_all_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         Manager *m = userdata;
         UnitFilePresetMode mm;
         const char *mode;
@@ -2349,7 +2350,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         int runtime, force, r;
         char *target, *type;
         UnitDependency dep;
@@ -2388,7 +2389,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
 static int method_get_unit_file_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0, i;
+        size_t n_changes = 0, i;
         UnitFileFlags flags;
         const char *name;
         char **p;

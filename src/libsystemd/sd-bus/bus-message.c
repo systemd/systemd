@@ -399,7 +399,7 @@ int bus_message_from_header(
                 size_t footer_accessible,
                 size_t message_size,
                 int *fds,
-                unsigned n_fds,
+                size_t n_fds,
                 const char *label,
                 size_t extra,
                 sd_bus_message **ret) {
@@ -510,7 +510,7 @@ int bus_message_from_malloc(
                 void *buffer,
                 size_t length,
                 int *fds,
-                unsigned n_fds,
+                size_t n_fds,
                 const char *label,
                 sd_bus_message **ret) {
 
@@ -1651,7 +1651,7 @@ _public_ int sd_bus_message_append_string_space(
 _public_ int sd_bus_message_append_string_iovec(
                 sd_bus_message *m,
                 const struct iovec *iov,
-                unsigned n) {
+                unsigned n /* should be size_t, but is API now… 😞 */) {
 
         size_t size;
         unsigned i;
@@ -2575,7 +2575,7 @@ _public_ int sd_bus_message_append_array_iovec(
                 sd_bus_message *m,
                 char type,
                 const struct iovec *iov,
-                unsigned n) {
+                unsigned n /* should be size_t, but is API now… 😞 */) {
 
         size_t size;
         unsigned i;
@@ -5485,7 +5485,7 @@ _public_ int sd_bus_message_set_sender(sd_bus_message *m, const char *sender) {
 int bus_message_get_blob(sd_bus_message *m, void **buffer, size_t *sz) {
         size_t total;
         void *p, *e;
-        unsigned i;
+        size_t i;
         struct bus_body_part *part;
 
         assert(m);

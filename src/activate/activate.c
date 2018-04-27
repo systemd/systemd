@@ -116,11 +116,11 @@ static int open_sockets(int *epoll_fd, bool accept) {
         return count;
 }
 
-static int exec_process(const char* name, char **argv, char **env, int start_fd, int n_fds) {
+static int exec_process(const char* name, char **argv, char **env, int start_fd, size_t n_fds) {
 
         _cleanup_strv_free_ char **envp = NULL;
         _cleanup_free_ char *joined = NULL;
-        unsigned n_env = 0, length;
+        size_t n_env = 0, length;
         const char *tocopy;
         char **s;
         int r;
@@ -199,7 +199,7 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
                         start_fd = SD_LISTEN_FDS_START;
                 }
 
-                if (asprintf((char**)(envp + n_env++), "LISTEN_FDS=%i", n_fds) < 0)
+                if (asprintf((char**)(envp + n_env++), "LISTEN_FDS=%zu", n_fds) < 0)
                         return log_oom();
 
                 if (asprintf((char**)(envp + n_env++), "LISTEN_PID=" PID_FMT, getpid_cached()) < 0)
@@ -209,18 +209,18 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
                         _cleanup_free_ char *names = NULL;
                         size_t len;
                         char *e;
-                        int i;
 
                         len = strv_length(arg_fdnames);
-                        if (len == 1)
+                        if (len == 1) {
+                                size_t i;
+
                                 for (i = 1; i < n_fds; i++) {
                                         r = strv_extend(&arg_fdnames, arg_fdnames[0]);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to extend strv: %m");
                                 }
-                        else if (len != (unsigned) n_fds)
-                                log_warning("The number of fd names is different than number of fds: %zu vs %d",
-                                            len, n_fds);
+                        } else if (len != n_fds)
+                                log_warning("The number of fd names is different than number of fds: %zu vs %zu", len, n_fds);
 
                         names = strv_join(arg_fdnames, ":");
                         if (!names)
@@ -501,7 +501,7 @@ int main(int argc, char **argv, char **envp) {
                         break;
         }
 
-        exec_process(argv[optind], argv + optind, envp, SD_LISTEN_FDS_START, n);
+        exec_process(argv[optind], argv + optind, envp, SD_LISTEN_FDS_START, (size_t) n);
 
         return EXIT_SUCCESS;
 }

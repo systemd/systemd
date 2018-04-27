@@ -2103,7 +2103,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         _cleanup_free_ Unit **array_copy = NULL;
         Unit *u1, *u2, **array;
         int r, *fd_array = NULL;
-        unsigned n_fds = 0;
+        size_t n_fds = 0;
         bool found = false;
         ssize_t n;
 

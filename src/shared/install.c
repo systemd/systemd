@@ -285,7 +285,7 @@ static int path_is_vendor(const LookupPaths *p, const char *path) {
 
 int unit_file_changes_add(
                 UnitFileChange **changes,
-                unsigned *n_changes,
+                size_t *n_changes,
                 UnitFileChangeType type,
                 const char *path,
                 const char *source) {
@@ -321,8 +321,8 @@ int unit_file_changes_add(
         return 0;
 }
 
-void unit_file_changes_free(UnitFileChange *changes, unsigned n_changes) {
-        unsigned i;
+void unit_file_changes_free(UnitFileChange *changes, size_t n_changes) {
+        size_t i;
 
         assert(changes || n_changes == 0);
 
@@ -334,8 +334,8 @@ void unit_file_changes_free(UnitFileChange *changes, unsigned n_changes) {
         free(changes);
 }
 
-void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, unsigned n_changes, bool quiet) {
-        unsigned i;
+void unit_file_dump_changes(int r, const char *verb, const UnitFileChange *changes, size_t n_changes, bool quiet) {
+        size_t i;
         bool logged = false;
 
         assert(changes || n_changes == 0);
@@ -434,7 +434,7 @@ static int create_symlink(
                 const char *new_path,
                 bool force,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_free_ char *dest = NULL, *dirname = NULL;
         const char *rp;
@@ -538,7 +538,7 @@ static int remove_marked_symlinks_fd(
                 bool dry_run,
                 bool *restart,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_closedir_ DIR *d = NULL;
         struct dirent *de;
@@ -655,7 +655,7 @@ static int remove_marked_symlinks(
                 const LookupPaths *lp,
                 bool dry_run,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_close_ int fd = -1;
         bool restart;
@@ -1001,7 +1001,7 @@ static int install_info_may_process(
                 UnitFileInstallInfo *i,
                 const LookupPaths *paths,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
         assert(i);
         assert(paths);
 
@@ -1669,7 +1669,7 @@ static int install_info_discover(
                 SearchFlags flags,
                 UnitFileInstallInfo **ret,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         UnitFileInstallInfo *i;
         int r;
@@ -1693,7 +1693,7 @@ static int install_info_symlink_alias(
                 const char *config_path,
                 bool force,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         char **s;
         int r = 0, q;
@@ -1728,7 +1728,7 @@ static int install_info_symlink_wants(
                 char **list,
                 const char *suffix,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_free_ char *buf = NULL;
         const char *n;
@@ -1798,7 +1798,7 @@ static int install_info_symlink_link(
                 const char *config_path,
                 bool force,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_free_ char *path = NULL;
         int r;
@@ -1827,7 +1827,7 @@ static int install_info_apply(
                 const char *config_path,
                 bool force,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         int r, q;
 
@@ -1864,7 +1864,7 @@ static int install_context_apply(
                 bool force,
                 SearchFlags flags,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         UnitFileInstallInfo *i;
         int r;
@@ -1927,7 +1927,7 @@ static int install_context_mark_for_removal(
                 Set **remove_symlinks_to,
                 const char *config_path,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         UnitFileInstallInfo *i;
         int r;
@@ -1990,7 +1990,7 @@ int unit_file_mask(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         const char *config_path;
@@ -2036,7 +2036,7 @@ int unit_file_unmask(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
@@ -2130,7 +2130,7 @@ int unit_file_link(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_strv_free_ char **todo = NULL;
@@ -2230,7 +2230,7 @@ int unit_file_revert(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_set_free_free_ Set *remove_symlinks_to = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
@@ -2387,7 +2387,7 @@ int unit_file_add_dependency(
                 const char *target,
                 UnitDependency dep,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
@@ -2461,7 +2461,7 @@ int unit_file_enable(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
@@ -2507,7 +2507,7 @@ int unit_file_disable(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
@@ -2549,7 +2549,7 @@ int unit_file_reenable(
                 const char *root_dir,
                 char **files,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         char **n;
         int r;
@@ -2576,7 +2576,7 @@ int unit_file_set_default(
                 const char *root_dir,
                 const char *name,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_(install_context_done) InstallContext c = {};
@@ -2928,7 +2928,7 @@ static int execute_preset(
                 UnitFilePresetMode mode,
                 bool force,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         int r;
 
@@ -2972,7 +2972,7 @@ static int preset_prepare_one(
                 const char *name,
                 Presets presets,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext tmp = {};
         UnitFileInstallInfo *i;
@@ -3017,7 +3017,7 @@ int unit_file_preset(
                 char **files,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
@@ -3057,7 +3057,7 @@ int unit_file_preset_all(
                 const char *root_dir,
                 UnitFilePresetMode mode,
                 UnitFileChange **changes,
-                unsigned *n_changes) {
+                size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext plus = {}, minus = {};
         _cleanup_(lookup_paths_free) LookupPaths paths = {};

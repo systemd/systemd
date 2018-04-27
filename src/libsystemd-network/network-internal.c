@@ -83,7 +83,7 @@ static bool net_condition_test_strv(char * const *raw_patterns,
         /* If the patterns begin with "!", edit it out and negate the test. */
         if (raw_patterns[0][0] == '!') {
                 char **patterns;
-                unsigned i, length;
+                size_t i, length;
 
                 length = strv_length(raw_patterns) + 1; /* Include the NULL. */
                 patterns = newa(char*, length);

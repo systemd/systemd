@@ -341,8 +341,8 @@ static int write_to_console(
 
         char location[256], prefix[1 + DECIMAL_STR_MAX(int) + 2];
         struct iovec iovec[6] = {};
-        unsigned n = 0;
         bool highlight;
+        size_t n = 0;
 
         if (console_fd < 0)
                 return 0;

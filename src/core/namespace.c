@@ -275,8 +275,8 @@ static int append_empty_dir_mounts(MountEntry **p, char **strv) {
         return 0;
 }
 
-static int append_bind_mounts(MountEntry **p, const BindMount *binds, unsigned n) {
-        unsigned i;
+static int append_bind_mounts(MountEntry **p, const BindMount *binds, size_t n) {
+        size_t i;
 
         assert(p);
 
@@ -295,8 +295,8 @@ static int append_bind_mounts(MountEntry **p, const BindMount *binds, unsigned n
         return 0;
 }
 
-static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs, unsigned n) {
-        unsigned i;
+static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs, size_t n) {
+        size_t i;
         int r;
 
         assert(p);
@@ -338,8 +338,8 @@ static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs,
         return 0;
 }
 
-static int append_static_mounts(MountEntry **p, const MountEntry *mounts, unsigned n, bool ignore_protect) {
-        unsigned i;
+static int append_static_mounts(MountEntry **p, const MountEntry *mounts, size_t n, bool ignore_protect) {
+        size_t i;
 
         assert(p);
         assert(mounts);
@@ -418,8 +418,8 @@ static int mount_path_compare(const void *a, const void *b) {
         return 0;
 }
 
-static int prefix_where_needed(MountEntry *m, unsigned n, const char *root_directory) {
-        unsigned i;
+static int prefix_where_needed(MountEntry *m, size_t n, const char *root_directory) {
+        size_t i;
 
         /* Prefixes all paths in the bind mount table with the root directory if it is specified and the entry needs
          * that. */
@@ -444,7 +444,7 @@ static int prefix_where_needed(MountEntry *m, unsigned n, const char *root_direc
         return 0;
 }
 
-static void drop_duplicates(MountEntry *m, unsigned *n) {
+static void drop_duplicates(MountEntry *m, size_t *n) {
         MountEntry *f, *t, *previous;
 
         assert(m);
@@ -473,7 +473,7 @@ static void drop_duplicates(MountEntry *m, unsigned *n) {
         *n = t - m;
 }
 
-static void drop_inaccessible(MountEntry *m, unsigned *n) {
+static void drop_inaccessible(MountEntry *m, size_t *n) {
         MountEntry *f, *t;
         const char *clear = NULL;
 
@@ -502,7 +502,7 @@ static void drop_inaccessible(MountEntry *m, unsigned *n) {
         *n = t - m;
 }
 
-static void drop_nop(MountEntry *m, unsigned *n) {
+static void drop_nop(MountEntry *m, size_t *n) {
         MountEntry *f, *t;
 
         assert(m);
@@ -541,7 +541,7 @@ static void drop_nop(MountEntry *m, unsigned *n) {
         *n = t - m;
 }
 
-static void drop_outside_root(const char *root_directory, MountEntry *m, unsigned *n) {
+static void drop_outside_root(const char *root_directory, MountEntry *m, size_t *n) {
         MountEntry *f, *t;
 
         assert(m);
@@ -1047,22 +1047,22 @@ static bool namespace_info_mount_apivfs(const char *root_directory, const Namesp
                  ns_info->protect_kernel_tunables);
 }
 
-static unsigned namespace_calculate_mounts(
+static size_t namespace_calculate_mounts(
                 const char* root_directory,
                 const NamespaceInfo *ns_info,
                 char** read_write_paths,
                 char** read_only_paths,
                 char** inaccessible_paths,
                 char** empty_directories,
-                unsigned n_bind_mounts,
-                unsigned n_temporary_filesystems,
+                size_t n_bind_mounts,
+                size_t n_temporary_filesystems,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 ProtectHome protect_home,
                 ProtectSystem protect_system) {
 
-        unsigned protect_home_cnt;
-        unsigned protect_system_cnt =
+        size_t protect_home_cnt;
+        size_t protect_system_cnt =
                 (protect_system == PROTECT_SYSTEM_STRICT ?
                  ELEMENTSOF(protect_system_strict_table) :
                  ((protect_system == PROTECT_SYSTEM_FULL) ?
@@ -1093,7 +1093,7 @@ static unsigned namespace_calculate_mounts(
                 (namespace_info_mount_apivfs(root_directory, ns_info) ? ELEMENTSOF(apivfs_table) : 0);
 }
 
-static void normalize_mounts(const char *root_directory, MountEntry *mounts, unsigned *n_mounts) {
+static void normalize_mounts(const char *root_directory, MountEntry *mounts, size_t *n_mounts) {
         assert(n_mounts);
         assert(mounts || *n_mounts == 0);
 
@@ -1114,9 +1114,9 @@ int setup_namespace(
                 char** inaccessible_paths,
                 char** empty_directories,
                 const BindMount *bind_mounts,
-                unsigned n_bind_mounts,
+                size_t n_bind_mounts,
                 const TemporaryFileSystem *temporary_filesystems,
-                unsigned n_temporary_filesystems,
+                size_t n_temporary_filesystems,
                 const char* tmp_dir,
                 const char* var_tmp_dir,
                 ProtectHome protect_home,
@@ -1132,7 +1132,7 @@ int setup_namespace(
         size_t root_hash_size = 0;
         bool make_slave = false;
         const char *root;
-        unsigned n_mounts;
+        size_t n_mounts;
         bool require_prefix = false;
         int r = 0;
 
@@ -1349,7 +1349,7 @@ int setup_namespace(
         if (n_mounts > 0) {
                 _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
                 char **blacklist;
-                unsigned j;
+                size_t j;
 
                 /* Open /proc/self/mountinfo now as it may become unavailable if we mount anything on top of /proc.
                  * For example, this is the case with the option: 'InaccessiblePaths=/proc' */
@@ -1431,8 +1431,8 @@ finish:
         return r;
 }
 
-void bind_mount_free_many(BindMount *b, unsigned n) {
-        unsigned i;
+void bind_mount_free_many(BindMount *b, size_t n) {
+        size_t i;
 
         assert(b || n == 0);
 
@@ -1444,7 +1444,7 @@ void bind_mount_free_many(BindMount *b, unsigned n) {
         free(b);
 }
 
-int bind_mount_add(BindMount **b, unsigned *n, const BindMount *item) {
+int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
         BindMount *c;
 
@@ -1477,8 +1477,8 @@ int bind_mount_add(BindMount **b, unsigned *n, const BindMount *item) {
         return 0;
 }
 
-void temporary_filesystem_free_many(TemporaryFileSystem *t, unsigned n) {
-        unsigned i;
+void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n) {
+        size_t i;
 
         assert(t || n == 0);
 
@@ -1492,7 +1492,7 @@ void temporary_filesystem_free_many(TemporaryFileSystem *t, unsigned n) {
 
 int temporary_filesystem_add(
                 TemporaryFileSystem **t,
-                unsigned *n,
+                size_t *n,
                 const char *path,
                 const char *options) {
 

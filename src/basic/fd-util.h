@@ -29,7 +29,7 @@ static inline int safe_close_above_stdio(int fd) {
         return safe_close(fd);
 }
 
-void close_many(const int fds[], unsigned n_fd);
+void close_many(const int fds[], size_t n_fd);
 
 int fclose_nointr(FILE *f);
 FILE* safe_fclose(FILE *f);
@@ -59,7 +59,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DIR*, closedir);
 int fd_nonblock(int fd, bool nonblock);
 int fd_cloexec(int fd, bool cloexec);
 
-int close_all_fds(const int except[], unsigned n_except);
+int close_all_fds(const int except[], size_t n_except);
 
 int same_fd(int a, int b);
 

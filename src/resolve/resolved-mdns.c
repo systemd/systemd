@@ -133,7 +133,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
         assert(ret_rrs);
         assert_return(DNS_PACKET_NSCOUNT(p) > 0, -EINVAL);
 
-        for (unsigned i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
+        for (size_t i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
                 r = dns_resource_key_match_rr(key, p->answer->items[i].rr, NULL);
                 if (r < 0)
                         return r;
@@ -148,7 +148,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
         if (!list)
                 return -ENOMEM;
 
-        for (unsigned i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
+        for (size_t i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
                 r = dns_resource_key_match_rr(key, p->answer->items[i].rr, NULL);
                 if (r < 0)
                         return r;
@@ -166,8 +166,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
 static int mdns_do_tiebreak(DnsResourceKey *key, DnsAnswer *answer, DnsPacket *p) {
         _cleanup_free_ DnsResourceRecord **our = NULL, **remote = NULL;
         DnsResourceRecord *rr;
-        unsigned i = 0;
-        unsigned size;
+        size_t i = 0, size;
         int r;
 
         size = dns_answer_size(answer);

@@ -106,7 +106,7 @@
 
 #define SNDBUF_SIZE (8*1024*1024)
 
-static int shift_fds(int fds[], unsigned n_fds) {
+static int shift_fds(int fds[], size_t n_fds) {
         int start, restart_from;
 
         if (n_fds <= 0)
@@ -151,8 +151,8 @@ static int shift_fds(int fds[], unsigned n_fds) {
         return 0;
 }
 
-static int flags_fds(const int fds[], unsigned n_storage_fds, unsigned n_socket_fds, bool nonblock) {
-        unsigned i, n_fds;
+static int flags_fds(const int fds[], size_t n_storage_fds, size_t n_socket_fds, bool nonblock) {
+        size_t i, n_fds;
         int r;
 
         n_fds = n_storage_fds + n_socket_fds;
@@ -1113,7 +1113,7 @@ static int setup_pam(
                 gid_t gid,
                 const char *tty,
                 char ***env,
-                int fds[], unsigned n_fds) {
+                int fds[], size_t n_fds) {
 
 #if HAVE_PAM
 
@@ -1596,7 +1596,7 @@ static int build_environment(
                 const Unit *u,
                 const ExecContext *c,
                 const ExecParameters *p,
-                unsigned n_fds,
+                size_t n_fds,
                 const char *home,
                 const char *username,
                 const char *shell,
@@ -1605,7 +1605,7 @@ static int build_environment(
                 char ***ret) {
 
         _cleanup_strv_free_ char **our_env = NULL;
-        unsigned n_env = 0;
+        size_t n_env = 0;
         char *x;
 
         assert(u);
@@ -1623,7 +1623,7 @@ static int build_environment(
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
-                if (asprintf(&x, "LISTEN_FDS=%u", n_fds) < 0)
+                if (asprintf(&x, "LISTEN_FDS=%zu", n_fds) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
@@ -2152,12 +2152,12 @@ static int compile_bind_mounts(
                 const ExecContext *context,
                 const ExecParameters *params,
                 BindMount **ret_bind_mounts,
-                unsigned *ret_n_bind_mounts,
+                size_t *ret_n_bind_mounts,
                 char ***ret_empty_directories) {
 
         _cleanup_strv_free_ char **empty_directories = NULL;
         BindMount *bind_mounts;
-        unsigned n, h = 0, i;
+        size_t n, h = 0, i;
         ExecDirectoryType t;
         int r;
 
@@ -2303,7 +2303,7 @@ static int apply_mount_namespace(
         };
         bool needs_sandboxing;
         BindMount *bind_mounts = NULL;
-        unsigned n_bind_mounts = 0;
+        size_t n_bind_mounts = 0;
         int r;
 
         assert(context);
@@ -2526,7 +2526,7 @@ out:
         return r;
 }
 
-static void append_socket_pair(int *array, unsigned *n, const int pair[2]) {
+static void append_socket_pair(int *array, size_t *n, const int pair[2]) {
         assert(array);
         assert(n);
 
@@ -2545,9 +2545,9 @@ static int close_remaining_fds(
                 const DynamicCreds *dcreds,
                 int user_lookup_fd,
                 int socket_fd,
-                int *fds, unsigned n_fds) {
+                int *fds, size_t n_fds) {
 
-        unsigned n_dont_close = 0;
+        size_t n_dont_close = 0;
         int dont_close[n_fds + 12];
 
         assert(params);
@@ -2697,8 +2697,8 @@ static int exec_child(
                 int socket_fd,
                 int named_iofds[3],
                 int *fds,
-                unsigned n_storage_fds,
-                unsigned n_socket_fds,
+                size_t n_storage_fds,
+                size_t n_socket_fds,
                 char **files_env,
                 int user_lookup_fd,
                 int *exit_status) {
@@ -2727,7 +2727,7 @@ static int exec_child(
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         int i, r, ngids = 0;
-        unsigned n_fds;
+        size_t n_fds;
         ExecDirectoryType dt;
         int secure_bits;
 
@@ -3433,7 +3433,7 @@ int exec_spawn(Unit *unit,
 
         _cleanup_strv_free_ char **files_env = NULL;
         int *fds = NULL;
-        unsigned n_storage_fds = 0, n_socket_fds = 0;
+        size_t n_storage_fds = 0, n_socket_fds = 0;
         _cleanup_free_ char *line = NULL;
         int socket_fd, r;
         int named_iofds[3] = { -1, -1, -1 };
@@ -3658,8 +3658,8 @@ static void exec_command_done(ExecCommand *c) {
         c->argv = strv_free(c->argv);
 }
 
-void exec_command_done_array(ExecCommand *c, unsigned n) {
-        unsigned i;
+void exec_command_done_array(ExecCommand *c, size_t n) {
+        size_t i;
 
         for (i = 0; i < n; i++)
                 exec_command_done(c+i);
@@ -3677,8 +3677,8 @@ ExecCommand* exec_command_free_list(ExecCommand *c) {
         return NULL;
 }
 
-void exec_command_free_array(ExecCommand **c, unsigned n) {
-        unsigned i;
+void exec_command_free_array(ExecCommand **c, size_t n) {
+        size_t i;
 
         for (i = 0; i < n; i++)
                 c[i] = exec_command_free_list(c[i]);
@@ -3724,9 +3724,9 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index) {
 }
 
 static int exec_context_named_iofds(const ExecContext *c, const ExecParameters *p, int named_iofds[3]) {
-        unsigned i, targets;
+        size_t i, targets;
         const char* stdio_fdname[3];
-        unsigned n_fds;
+        size_t n_fds;
 
         assert(c);
         assert(p);

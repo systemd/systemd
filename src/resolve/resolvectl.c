@@ -2865,9 +2865,9 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
         return dispatch_verb(argc, argv, verbs, bus);
 }
 
-static int translate(const char *verb, const char *single_arg, unsigned num_args, char **args, sd_bus *bus) {
+static int translate(const char *verb, const char *single_arg, size_t num_args, char **args, sd_bus *bus) {
         char **fake, **p;
-        unsigned num, i;
+        size_t num, i;
 
         assert(verb);
         assert(num_args == 0 || args);
@@ -2882,7 +2882,7 @@ static int translate(const char *verb, const char *single_arg, unsigned num_args
                 *p++ = args[i];
 
         optind = 0;
-        return native_main(num, fake, bus);
+        return native_main((int) num, fake, bus);
 }
 
 static int compat_main(int argc, char *argv[], sd_bus *bus) {

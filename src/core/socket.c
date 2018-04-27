@@ -1366,13 +1366,14 @@ static int usbffs_select_ep(const struct dirent *d) {
 
 static int usbffs_dispatch_eps(SocketPort *p) {
         _cleanup_free_ struct dirent **ent = NULL;
-        int r, i, n, k;
+        size_t n, k, i;
+        int r;
 
         r = scandir(p->path, &ent, usbffs_select_ep, alphasort);
         if (r < 0)
                 return -errno;
 
-        n = r;
+        n = (size_t) r;
         p->auxiliary_fds = new(int, n);
         if (!p->auxiliary_fds)
                 return -ENOMEM;
@@ -1393,9 +1394,7 @@ static int usbffs_dispatch_eps(SocketPort *p) {
                 if (r < 0)
                         goto fail;
 
-                p->auxiliary_fds[k] = r;
-
-                ++k;
+                p->auxiliary_fds[k++] = r;
                 free(ent[i]);
         }
 
@@ -3097,8 +3096,9 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
 }
 
 int socket_collect_fds(Socket *s, int **fds) {
-        int *rfds, k = 0, n = 0;
+        size_t k = 0, n = 0;
         SocketPort *p;
+        int *rfds;
 
         assert(s);
         assert(fds);
@@ -3121,7 +3121,7 @@ int socket_collect_fds(Socket *s, int **fds) {
                 return -ENOMEM;
 
         LIST_FOREACH(port, p, s->ports) {
-                int i;
+                size_t i;
 
                 if (p->fd >= 0)
                         rfds[k++] = p->fd;
@@ -3132,7 +3132,7 @@ int socket_collect_fds(Socket *s, int **fds) {
         assert(k == n);
 
         *fds = rfds;
-        return n;
+        return (int) n;
 }
 
 static void socket_reset_failed(Unit *u) {

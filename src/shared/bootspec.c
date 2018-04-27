@@ -125,7 +125,7 @@ int boot_entry_load(const char *path, BootEntry *entry) {
 }
 
 void boot_config_free(BootConfig *config) {
-        unsigned i;
+        size_t i;
 
         assert(config);
 
@@ -247,7 +247,7 @@ int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_en
 }
 
 static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
-        unsigned i, j;
+        size_t i, j;
         bool non_unique = false;
 
         assert(entries || n_entries == 0);
@@ -267,7 +267,7 @@ static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
 
 static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
         char *s;
-        unsigned i;
+        size_t i;
         int r;
         bool arr[n_entries];
 

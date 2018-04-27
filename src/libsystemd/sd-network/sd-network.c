@@ -65,7 +65,7 @@ static int network_get_strv(const char *key, char ***ret) {
                 return -ENOMEM;
 
         strv_uniq(a);
-        r = strv_length(a);
+        r = (int) strv_length(a);
 
         *ret = TAKE_PTR(a);
 
@@ -136,7 +136,7 @@ static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
                 return -ENOMEM;
 
         strv_uniq(a);
-        r = strv_length(a);
+        r = (int) strv_length(a);
 
         *ret = TAKE_PTR(a);
 

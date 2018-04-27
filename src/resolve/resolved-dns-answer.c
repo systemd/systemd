@@ -11,7 +11,7 @@
 #include "resolved-dns-dnssec.h"
 #include "string-util.h"
 
-DnsAnswer *dns_answer_new(unsigned n) {
+DnsAnswer *dns_answer_new(size_t n) {
         DnsAnswer *a;
 
         a = malloc0(offsetof(DnsAnswer, items) + sizeof(DnsAnswerItem) * n);
@@ -93,7 +93,7 @@ static int dns_answer_add_raw_all(DnsAnswer *a, DnsAnswer *source) {
 }
 
 int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags) {
-        unsigned i;
+        size_t i;
         int r;
 
         assert(rr);
@@ -453,7 +453,7 @@ int dns_answer_extend(DnsAnswer **a, DnsAnswer *b) {
 int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
         bool found = false, other = false;
         DnsResourceRecord *rr;
-        unsigned i;
+        size_t i;
         int r;
 
         assert(a);
@@ -538,7 +538,7 @@ int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
 int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rm) {
         bool found = false, other = false;
         DnsResourceRecord *rr;
-        unsigned i;
+        size_t i;
         int r;
 
         assert(a);
@@ -667,7 +667,7 @@ int dns_answer_move_by_key(DnsAnswer **to, DnsAnswer **from, const DnsResourceKe
 
 void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
         DnsAnswerItem *items;
-        unsigned i, start, end;
+        size_t i, start, end;
 
         if (!a)
                 return;
@@ -698,7 +698,7 @@ void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
         memcpy(a->items, items, sizeof(DnsAnswerItem) * a->n_rrs);
 }
 
-int dns_answer_reserve(DnsAnswer **a, unsigned n_free) {
+int dns_answer_reserve(DnsAnswer **a, size_t n_free) {
         DnsAnswer *n;
 
         assert(a);
@@ -707,7 +707,7 @@ int dns_answer_reserve(DnsAnswer **a, unsigned n_free) {
                 return 0;
 
         if (*a) {
-                unsigned ns;
+                size_t ns;
 
                 if ((*a)->n_ref > 1)
                         return -EBUSY;
@@ -735,7 +735,7 @@ int dns_answer_reserve(DnsAnswer **a, unsigned n_free) {
         return 0;
 }
 
-int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free) {
+int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *n = NULL;
         int r;
 
