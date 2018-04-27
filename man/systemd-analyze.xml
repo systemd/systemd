@@ -144,7 +144,11 @@
     This information may be used to optimize boot-up times. Note that
     the output might be misleading as the initialization of one
     service might be slow simply because it waits for the
-    initialization of another service to complete.</para>
+    initialization of another service to complete.
+    Also note: <command>systemd-analyze blame</command> doesn't display
+    results for services with <varname>Type=simple</varname>,
+    because systemd considers such services to be started immediately,
+    hence no measurement of the initialization delays can be done.</para>
 
     <para><command>systemd-analyze critical-chain
     [<replaceable>UNIT…</replaceable>]</command> prints a tree of
