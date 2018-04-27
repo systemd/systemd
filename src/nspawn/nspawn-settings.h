@@ -76,7 +76,7 @@ typedef struct Settings {
         int read_only;
         VolatileMode volatile_mode;
         CustomMount *custom_mounts;
-        unsigned n_custom_mounts;
+        size_t n_custom_mounts;
         int userns_chown;
 
         /* [Network] */

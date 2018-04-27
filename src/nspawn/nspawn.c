@@ -165,7 +165,7 @@ static uint64_t arg_caps_retain =
         (1ULL << CAP_SYS_RESOURCE) |
         (1ULL << CAP_SYS_TTY_CONFIG);
 static CustomMount *arg_custom_mounts = NULL;
-static unsigned arg_n_custom_mounts = 0;
+static size_t arg_n_custom_mounts = 0;
 static char **arg_setenv = NULL;
 static bool arg_quiet = false;
 static bool arg_register = true;
@@ -291,7 +291,7 @@ static void help(void) {
 }
 
 static int custom_mount_check_all(void) {
-        unsigned i;
+        size_t i;
 
         for (i = 0; i < arg_n_custom_mounts; i++) {
                 CustomMount *m = &arg_custom_mounts[i];
@@ -2265,7 +2265,7 @@ static int inner_child(
 
         _cleanup_free_ char *home = NULL;
         char as_uuid[37];
-        unsigned n_env = 1;
+        size_t n_env = 1;
         const char *envp[] = {
                 "PATH=" DEFAULT_PATH_COMPAT,
                 NULL, /* container */

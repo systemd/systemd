@@ -27,7 +27,7 @@
 #include "user-util.h"
 #include "util.h"
 
-CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t) {
+CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
         CustomMount *c, *ret;
 
         assert(l);
@@ -48,8 +48,8 @@ CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t) {
         return ret;
 }
 
-void custom_mount_free_all(CustomMount *l, unsigned n) {
-        unsigned i;
+void custom_mount_free_all(CustomMount *l, size_t n) {
+        size_t i;
 
         for (i = 0; i < n; i++) {
                 CustomMount *m = l + i;
@@ -110,8 +110,8 @@ static char *resolve_source_path(const char *dest, const char *source) {
         return strdup(source);
 }
 
-int custom_mount_prepare_all(const char *dest, CustomMount *l, unsigned n) {
-        unsigned i;
+int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
+        size_t i;
         int r;
 
         /* Prepare all custom mounts. This will make source we know all temporary directories. This is called in the
@@ -193,7 +193,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, unsigned n) {
         return 0;
 }
 
-int bind_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only) {
+int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) {
         _cleanup_free_ char *source = NULL, *destination = NULL, *opts = NULL;
         const char *p = s;
         CustomMount *m;
@@ -239,7 +239,7 @@ int bind_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only
         return 0;
 }
 
-int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s) {
+int tmpfs_mount_parse(CustomMount **l, size_t *n, const char *s) {
         _cleanup_free_ char *path = NULL, *opts = NULL;
         const char *p = s;
         CustomMount *m;
@@ -275,7 +275,7 @@ int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s) {
         return 0;
 }
 
-int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only) {
+int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) {
         _cleanup_free_ char *upper = NULL, *destination = NULL;
         _cleanup_strv_free_ char **lower = NULL;
         CustomMount *m;
@@ -544,12 +544,12 @@ int mount_all(const char *dest,
 #endif
         };
 
-        unsigned k;
-        int r;
+        size_t k;
         bool use_userns = (mount_settings & MOUNT_USE_USERNS);
         bool netns = (mount_settings & MOUNT_APPLY_APIVFS_NETNS);
         bool ro = (mount_settings & MOUNT_APPLY_APIVFS_RO);
         bool in_userns = (mount_settings & MOUNT_IN_USERNS);
+        int r;
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
                 _cleanup_free_ char *where = NULL, *options = NULL;
@@ -766,11 +766,11 @@ static int mount_overlay(const char *dest, CustomMount *m) {
 
 int mount_custom(
                 const char *dest,
-                CustomMount *mounts, unsigned n,
+                CustomMount *mounts, size_t n,
                 bool userns, uid_t uid_shift, uid_t uid_range,
                 const char *selinux_apifs_context) {
 
-        unsigned i;
+        size_t i;
         int r;
 
         assert(dest);
