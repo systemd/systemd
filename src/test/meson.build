@@ -434,7 +434,7 @@ tests += [
 
         [['src/test/test-fileio.c'],
          [],
-         []],
+         [threads]],
 
         [['src/test/test-time-util.c'],
          [],

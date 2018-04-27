@@ -13,6 +13,7 @@
 #include <sys/socket.h>
 
 #include "macro.h"
+#include "mp.h"
 
 /* Make sure we can distinguish fd 0 and NULL */
 #define FD_TO_PTR(fd) INT_TO_PTR((fd)+1)
@@ -106,3 +107,11 @@ static inline int make_null_stdio(void) {
         })
 
 int fd_reopen(int fd, int flags);
+
+static inline void _release_funlockfile_(FILE **f) {
+        if (f)
+                funlockfile(*f);
+}
+
+#define WITH_FLOCKFILE(f) \
+        MPP_DECLARE(1, _cleanup_(_release_funlockfile_) FILE *_flocked_ = ({ flockfile(f); (f); }))
