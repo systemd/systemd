@@ -29,8 +29,6 @@
 static char **arg_prefixes = NULL;
 static bool arg_cat_config = false;
 
-static char **config_dirs = CONF_PATHS_STRV("sysctl.d");
-
 static int apply_all(OrderedHashmap *sysctl_options) {
         char *property, *value;
         Iterator i;
@@ -85,7 +83,7 @@ static int parse_file(OrderedHashmap *sysctl_options, const char *path, bool ign
 
         assert(path);
 
-        r = search_and_fopen(path, "re", NULL, (const char**) config_dirs, &f);
+        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("sysctl.d"), &f);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
@@ -282,7 +280,7 @@ int main(int argc, char *argv[]) {
                 _cleanup_strv_free_ char **files = NULL;
                 char **f;
 
-                r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) config_dirs);
+                r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) CONF_PATHS_STRV("sysctl.d"));
                 if (r < 0) {
                         log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
                         goto finish;

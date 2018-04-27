@@ -66,8 +66,6 @@ static bool arg_cat_config = false;
 static const char *arg_replace = NULL;
 static bool arg_inline = false;
 
-static char **config_dirs = CONF_PATHS_STRV("sysusers.d");
-
 static OrderedHashmap *users = NULL, *groups = NULL;
 static OrderedHashmap *todo_uids = NULL, *todo_gids = NULL;
 static OrderedHashmap *members = NULL;
@@ -1690,7 +1688,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         if (streq(fn, "-"))
                 f = stdin;
         else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) config_dirs, &rf);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT)
                                 return 0;
@@ -1751,7 +1749,7 @@ static int cat_config(void) {
         _cleanup_free_ char *replace_file = NULL;
         int r;
 
-        r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, NULL);
+        r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, NULL);
         if (r < 0)
                 return r;
 
@@ -1876,7 +1874,7 @@ static int read_config_files(char **args) {
         char **f;
         int r;
 
-        r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, &p);
+        r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, &p);
         if (r < 0)
                 return r;
 
