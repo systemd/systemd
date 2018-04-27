@@ -358,6 +358,9 @@ static void test_exec_restrictnamespaces(Manager *m) {
         test(m, "exec-restrictnamespaces-yes.service", 1, CLD_EXITED);
         test(m, "exec-restrictnamespaces-mnt.service", 0, CLD_EXITED);
         test(m, "exec-restrictnamespaces-mnt-blacklist.service", 1, CLD_EXITED);
+        test(m, "exec-restrictnamespaces-merge-and.service", 0, CLD_EXITED);
+        test(m, "exec-restrictnamespaces-merge-or.service", 0, CLD_EXITED);
+        test(m, "exec-restrictnamespaces-merge-all.service", 0, CLD_EXITED);
 #endif
 }
 
