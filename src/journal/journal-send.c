@@ -518,7 +518,7 @@ _public_ int sd_journal_sendv_with_location(
         assert_return(iov, -EINVAL);
         assert_return(n > 0, -EINVAL);
 
-        niov = newa(struct iovec, (n + 3));
+        niov = newa(struct iovec, n + 3);
         memcpy(niov, iov, sizeof(struct iovec) * n);
 
         ALLOCA_CODE_FUNC(f, func);
