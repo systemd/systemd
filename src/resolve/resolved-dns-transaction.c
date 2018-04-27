@@ -557,6 +557,7 @@ static int dns_stream_on_packet(DnsStream *s) {
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
         _cleanup_close_ int fd = -1;
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
+        union sockaddr_union sa;
         int r;
 
         assert(t);
@@ -580,14 +581,14 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (t->server->stream)
                         s = dns_stream_ref(t->server->stream);
                 else
-                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, 53);
+                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, 53, &sa);
 
                 break;
 
         case DNS_PROTOCOL_LLMNR:
                 /* When we already received a reply to this (but it was truncated), send to its sender address */
                 if (t->received)
-                        fd = dns_scope_socket_tcp(t->scope, t->received->family, &t->received->sender, NULL, t->received->sender_port);
+                        fd = dns_scope_socket_tcp(t->scope, t->received->family, &t->received->sender, NULL, t->received->sender_port, &sa);
                 else {
                         union in_addr_union address;
                         int family = AF_UNSPEC;
@@ -604,7 +605,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         if (family != t->scope->family)
                                 return -ESRCH;
 
-                        fd = dns_scope_socket_tcp(t->scope, family, &address, NULL, LLMNR_PORT);
+                        fd = dns_scope_socket_tcp(t->scope, family, &address, NULL, LLMNR_PORT, &sa);
                 }
 
                 break;
@@ -617,7 +618,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (fd < 0)
                         return fd;
 
-                r = dns_stream_new(t->scope->manager, &s, t->scope->protocol, fd);
+                r = dns_stream_new(t->scope->manager, &s, t->scope->protocol, fd, &sa);
                 if (r < 0)
                         return r;
 

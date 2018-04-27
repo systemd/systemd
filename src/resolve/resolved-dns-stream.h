@@ -37,6 +37,10 @@ struct DnsStream {
         uint32_t ttl;
         bool identified;
 
+        /* only when using TCP fast open */
+        union sockaddr_union tfo_address;
+        socklen_t tfo_salen;
+
         sd_event_source *io_event_source;
         sd_event_source *timeout_event_source;
 
@@ -55,7 +59,7 @@ struct DnsStream {
         LIST_FIELDS(DnsStream, streams);
 };
 
-int dns_stream_new(Manager *m, DnsStream **s, DnsProtocol protocol, int fd);
+int dns_stream_new(Manager *m, DnsStream **s, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address);
 DnsStream *dns_stream_unref(DnsStream *s);
 DnsStream *dns_stream_ref(DnsStream *s);
 

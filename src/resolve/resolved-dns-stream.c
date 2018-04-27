@@ -182,6 +182,39 @@ static int dns_stream_identify(DnsStream *s) {
         return 0;
 }
 
+static ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt) {
+        ssize_t r;
+
+        assert(s);
+        assert(iov);
+
+        if (s->tfo_salen > 0) {
+                struct msghdr hdr = {
+                        .msg_iov = (struct iovec*) iov,
+                        .msg_iovlen = iovcnt,
+                        .msg_name = &s->tfo_address.sa,
+                        .msg_namelen = s->tfo_salen
+                };
+
+                r = sendmsg(s->fd, &hdr, MSG_FASTOPEN);
+                if (r < 0) {
+                        if (errno == EOPNOTSUPP) {
+                                s->tfo_salen = 0;
+                                r = connect(s->fd, &s->tfo_address.sa, s->tfo_salen);
+                                if (r < 0)
+                                        return -errno;
+
+                                r = -EAGAIN;
+                        } else if (errno == EINPROGRESS)
+                                r = -EAGAIN;
+                } else
+                        s->tfo_salen = 0; /* connection is made */
+        } else
+                r = writev(s->fd, iov, iovcnt);
+
+        return r;
+}
+
 static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
         DnsStream *s = userdata;
 
@@ -196,9 +229,12 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
         assert(s);
 
-        r = dns_stream_identify(s);
-        if (r < 0)
-                return dns_stream_complete(s, -r);
+        /* only identify after connecting */
+        if (s->tfo_salen == 0) {
+                r = dns_stream_identify(s);
+                if (r < 0)
+                        return dns_stream_complete(s, -r);
+        }
 
         if ((revents & EPOLLOUT) &&
             s->write_packet &&
@@ -214,7 +250,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
                 IOVEC_INCREMENT(iov, 2, s->n_written);
 
-                ss = writev(fd, iov, 2);
+                ss = dns_stream_writev(s, iov, 2);
                 if (ss < 0) {
                         if (!IN_SET(errno, EINTR, EAGAIN))
                                 return dns_stream_complete(s, errno);
@@ -366,7 +402,7 @@ DnsStream *dns_stream_ref(DnsStream *s) {
         return s;
 }
 
-int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
+int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address) {
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
         int r;
 
@@ -408,6 +444,11 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
         LIST_PREPEND(streams, m->dns_streams, s);
         s->manager = m;
         s->fd = fd;
+        if (tfo_address) {
+                s->tfo_address = *tfo_address;
+                s->tfo_salen = tfo_address->sa.sa_family == AF_INET6 ? sizeof(tfo_address->in6) : sizeof(tfo_address->in);
+        }
+
         m->n_dns_streams++;
 
         *ret = TAKE_PTR(s);
