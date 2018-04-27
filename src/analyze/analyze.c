@@ -1323,7 +1323,10 @@ static int cat_config(int argc, char *argv[], void *userdata) {
 
         STRV_FOREACH(arg, argv + 1) {
                 if (arg != argv + 1)
-                        puts("");
+                        printf("%s%*s%s\n\n",
+                               ansi_underline(),
+                               columns(), "",
+                               ansi_normal());
 
                 if (path_is_absolute(*arg)) {
                         log_error("Arguments must be config file names (relative to /etc/");
