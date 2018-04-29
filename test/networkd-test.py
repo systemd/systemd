@@ -205,6 +205,29 @@ Priority=0
         subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
         self.assertEqual(self.read_attr('port2', 'brport/priority'), '0')
 
+    def test_bridge_port_property(self):
+        """Test the "[Bridge]" section keys"""
+        self.assertEqual(self.read_attr('port2', 'brport/priority'), '32')
+        self.write_network_dropin('port2.network', 'property', '''\
+[Bridge]
+UnicastFlood=true
+HairPin=true
+UseBPDU=true
+FastLeave=true
+AllowPortToBeRoot=true
+Cost=555
+Priority=23
+''')
+        subprocess.check_call(['systemctl', 'restart', 'systemd-networkd'])
+
+        self.assertEqual(self.read_attr('port2', 'brport/priority'), '23')
+        self.assertEqual(self.read_attr('port2', 'brport/hairpin_mode'), '1')
+        self.assertEqual(self.read_attr('port2', 'brport/path_cost'), '555')
+        self.assertEqual(self.read_attr('port2', 'brport/multicast_fast_leave'), '1')
+        self.assertEqual(self.read_attr('port2', 'brport/unicast_flood'), '1')
+        self.assertEqual(self.read_attr('port2', 'brport/bpdu_guard'), '1')
+        self.assertEqual(self.read_attr('port2', 'brport/root_block'), '1')
+
 class ClientTestBase(NetworkdTestingUtilities):
     """Provide common methods for testing networkd against servers."""
 
