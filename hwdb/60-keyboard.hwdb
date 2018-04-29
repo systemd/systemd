@@ -322,6 +322,11 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*E7*:pvr*
  KEYBOARD_KEY_88=unknown                                # Fn-PrtScr rfkill - handled in HW
 
+# Dell Vostro 1520
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDellInc.:pnVostro1520:pvr*
+ KEYBOARD_KEY_e0=unknown # Brightness Down, also emitted by acpi-video, ignore
+ KEYBOARD_KEY_e1=unknown # Brightness Up, also emitted by acpi-video, ignore
+
 # Dell XPS
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnXPS*:pvr*
  KEYBOARD_KEY_8c=!unknown
