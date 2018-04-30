@@ -8,8 +8,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=System Time Synchronized
+Description=System Time Set
 Documentation=man:systemd.special(7)
 RefuseManualStart=yes
-After=time-set.target
-Wants=time-set.target

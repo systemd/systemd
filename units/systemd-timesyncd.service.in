@@ -14,9 +14,9 @@ ConditionCapability=CAP_SYS_TIME
 ConditionVirtualization=!container
 DefaultDependencies=no
 After=systemd-remount-fs.service systemd-sysusers.service
-Before=time-sync.target sysinit.target shutdown.target
+Before=time-set.target sysinit.target shutdown.target
 Conflicts=shutdown.target
-Wants=time-sync.target
+Wants=time-set.target time-sync.target
 
 [Service]
 AmbientCapabilities=CAP_SYS_TIME

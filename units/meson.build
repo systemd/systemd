@@ -104,6 +104,7 @@ units = [
          'sockets.target.wants/'],
         ['systemd-udevd-kernel.socket',         '',
          'sockets.target.wants/'],
+        ['time-set.target',                     ''],
         ['time-sync.target',                    ''],
         ['timers.target',                       ''],
         ['tmp.mount',                           '',

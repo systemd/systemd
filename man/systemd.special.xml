@@ -77,6 +77,7 @@
     <filename>sysinit.target</filename>,
     <filename>system-update.target</filename>,
     <filename>system-update-pre.target</filename>,
+    <filename>time-set.target</filename>,
     <filename>time-sync.target</filename>,
     <filename>timers.target</filename>,
     <filename>umount.target</filename>,
@@ -948,6 +949,18 @@
             <varname>After=</varname> for this target unit to all SysV
             init script service units with an LSB header referring to
             the <literal>$portmap</literal> facility.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>time-set.target</filename></term>
+          <listitem>
+            <para>Services responsible for setting the system clock from
+            a local source (such as a maintained timestamp file or
+            imprecise real-time clock) should pull in this target and
+            order themselves before it.  Services where approximate time
+            is desired should be ordered after this unit, but not pull
+            it in.  This target does not provide the accuracy guarantees
+            of <filename>time-sync.target</filename>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
