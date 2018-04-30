@@ -10,6 +10,7 @@ systemd_timesyncd_sources = files('''
         timesyncd-conf.h
         timesyncd-manager.c
         timesyncd-manager.h
+        timesyncd-ntp-message.h
         timesyncd-server.c
         timesyncd-server.h
 '''.split())

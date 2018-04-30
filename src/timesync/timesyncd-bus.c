@@ -95,6 +95,62 @@ static int property_get_current_server_address(
         return sd_bus_message_close_container(reply);
 }
 
+static usec_t ntp_ts_short_to_usec(const struct ntp_ts_short *ts) {
+        return be16toh(ts->sec) * USEC_PER_SEC + (be16toh(ts->frac) * USEC_PER_SEC) / (usec_t) 0x10000ULL;
+}
+
+static usec_t ntp_ts_to_usec(const struct ntp_ts *ts) {
+        return (be32toh(ts->sec) - OFFSET_1900_1970) * USEC_PER_SEC + (be32toh(ts->frac) * USEC_PER_SEC) / (usec_t) 0x100000000ULL;
+}
+
+static int property_get_ntp_message(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        int r;
+
+        assert(m);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'r', "uuuuittayttttbtt");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "uuuuitt",
+                                  NTP_FIELD_LEAP(m->ntpmsg.field),
+                                  NTP_FIELD_VERSION(m->ntpmsg.field),
+                                  NTP_FIELD_MODE(m->ntpmsg.field),
+                                  m->ntpmsg.stratum,
+                                  m->ntpmsg.precision,
+                                  ntp_ts_short_to_usec(&m->ntpmsg.root_delay),
+                                  ntp_ts_short_to_usec(&m->ntpmsg.root_dispersion));
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_array(reply, 'y', m->ntpmsg.refid, 4);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(reply, "ttttbtt",
+                                  timespec_load(&m->origin_time),
+                                  ntp_ts_to_usec(&m->ntpmsg.recv_time),
+                                  ntp_ts_to_usec(&m->ntpmsg.trans_time),
+                                  timespec_load(&m->dest_time),
+                                  m->spike,
+                                  m->packet_count,
+                                  (usec_t) (m->samples_jitter * USEC_PER_SEC));
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_close_container(reply);
+}
+
 static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -107,6 +163,8 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("PollIntervalMinUSec", "t", bus_property_get_usec, offsetof(Manager, poll_interval_min_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PollIntervalMaxUSec", "t", bus_property_get_usec, offsetof(Manager, poll_interval_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PollIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, poll_interval_usec), 0),
+        SD_BUS_PROPERTY("NTPMessage", "(uuuuittayttttbtt)", property_get_ntp_message, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Frequency", "x", NULL, offsetof(Manager, drift_freq), 0),
 
         SD_BUS_VTABLE_END
 };
