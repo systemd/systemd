@@ -561,6 +561,9 @@ struct UnitVTable {
         /* True if cgroup delegation is permissible */
         bool can_delegate:1;
 
+        /* True if units of this type shall be startable only once and then never again */
+        bool once_only:1;
+
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
         bool gc_jobs:1;
 };

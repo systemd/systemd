@@ -587,6 +587,7 @@ const UnitVTable scope_vtable = {
 
         .can_transient = true,
         .can_delegate = true,
+        .once_only = true,
 
         .init = scope_init,
         .load = scope_load,
