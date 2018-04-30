@@ -143,7 +143,7 @@ _systemctl_active_units()  {_sys_active_units=(  ${${(f)"$(__systemctl list-unit
 _systemctl_startable_units(){
   _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
     _filter_units_by_property CanStart yes ${${${(f)"$(
-      __systemctl $mode list-unit-files --state enabled,disabled,static "$PREFIX*"
+      __systemctl $mode list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$PREFIX*"
       __systemctl $mode list-units --state inactive,failed "$PREFIX*"
     )"}:#*@.*}%%[[:space:]]*}
   )) )
