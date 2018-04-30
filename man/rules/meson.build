@@ -706,7 +706,7 @@ manpages = [
  ['systemd.unit', '5', [], ''],
  ['sysusers.d', '5', [], 'ENABLE_SYSUSERS'],
  ['telinit', '8', [], ''],
- ['timedatectl', '1', [], 'ENABLE_TIMEDATED'],
+ ['timedatectl', '1', [], 'ENABLE_TIMEDATECTL'],
  ['timesyncd.conf', '5', ['timesyncd.conf.d'], 'ENABLE_TIMESYNCD'],
  ['tmpfiles.d', '5', [], ''],
  ['udev', '7', [], ''],
