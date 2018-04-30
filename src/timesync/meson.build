@@ -4,6 +4,8 @@
 
 systemd_timesyncd_sources = files('''
         timesyncd.c
+        timesyncd-bus.c
+        timesyncd-bus.h
         timesyncd-conf.c
         timesyncd-conf.h
         timesyncd-manager.c
@@ -27,6 +29,10 @@ if conf.get('ENABLE_TIMESYNCD') == 1
                 configuration : substs)
         install_data(timesyncd_conf,
                      install_dir : pkgsysconfdir)
+        install_data('org.freedesktop.timesync1.conf',
+                     install_dir : dbuspolicydir)
+        install_data('org.freedesktop.timesync1.service',
+                     install_dir : dbussystemservicedir)
 endif
 
 ############################################################

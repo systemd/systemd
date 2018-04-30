@@ -986,6 +986,8 @@ void manager_free(Manager *m) {
         sd_resolve_unref(m->resolve);
         sd_event_unref(m->event);
 
+        sd_bus_unref(m->bus);
+
         free(m);
 }
 

@@ -7,6 +7,7 @@
   Copyright 2014 Kay Sievers, Lennart Poettering
 ***/
 
+#include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-network.h"
 #include "sd-resolve.h"
@@ -27,6 +28,7 @@ typedef struct Manager Manager;
 #define NTP_POLL_INTERVAL_MAX_USEC      (2048 * USEC_PER_SEC)
 
 struct Manager {
+        sd_bus *bus;
         sd_event *event;
         sd_resolve *resolve;
 
