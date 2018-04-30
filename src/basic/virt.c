@@ -311,8 +311,8 @@ static int detect_vm_zvm(void) {
 /* Returns a short identifier for the various VM implementations */
 int detect_vm(void) {
         static thread_local int cached_found = _VIRTUALIZATION_INVALID;
-        int r, dmi;
         bool other = false;
+        int r, dmi;
 
         if (cached_found >= 0)
                 return cached_found;
@@ -336,21 +336,19 @@ int detect_vm(void) {
         r = detect_vm_cpuid();
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE) {
-                if (r == VIRTUALIZATION_VM_OTHER)
-                        other = true;
-                else
-                        goto finish;
-        }
+        if (r == VIRTUALIZATION_VM_OTHER)
+                other = true;
+        else if (r != VIRTUALIZATION_NONE)
+                goto finish;
 
-        r = dmi;
-        if (r < 0)
-                return r;
-        if (r != VIRTUALIZATION_NONE) {
-                if (r == VIRTUALIZATION_VM_OTHER)
-                        other = true;
-                else
-                        goto finish;
+        /* Now, let's get back to DMI */
+        if (dmi < 0)
+                return dmi;
+        if (dmi == VIRTUALIZATION_VM_OTHER)
+                other = true;
+        else if (dmi != VIRTUALIZATION_NONE) {
+                r = dmi;
+                goto finish;
         }
 
         /* x86 xen will most likely be detected by cpuid. If not (most likely
@@ -362,42 +360,34 @@ int detect_vm(void) {
         r = detect_vm_xen();
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE) {
-                if (r == VIRTUALIZATION_VM_OTHER)
-                        other = true;
-                else
-                        goto finish;
-        }
+        if (r == VIRTUALIZATION_VM_OTHER)
+                other = true;
+        else if (r != VIRTUALIZATION_NONE)
+                goto finish;
 
         r = detect_vm_hypervisor();
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE) {
-                if (r == VIRTUALIZATION_VM_OTHER)
-                        other = true;
-                else
-                        goto finish;
-        }
+        if (r == VIRTUALIZATION_VM_OTHER)
+                other = true;
+        else if (r != VIRTUALIZATION_NONE)
+                goto finish;
 
         r = detect_vm_device_tree();
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE) {
-                if (r == VIRTUALIZATION_VM_OTHER)
-                        other = true;
-                else
-                        goto finish;
-        }
+        if (r == VIRTUALIZATION_VM_OTHER)
+                other = true;
+        else if (r != VIRTUALIZATION_NONE)
+                goto finish;
 
         r = detect_vm_uml();
         if (r < 0)
                 return r;
-        if (r != VIRTUALIZATION_NONE) {
-                if (r == VIRTUALIZATION_VM_OTHER)
-                        other = true;
-                else
-                        goto finish;
-        }
+        if (r == VIRTUALIZATION_VM_OTHER)
+                other = true;
+        else if (r != VIRTUALIZATION_NONE)
+                goto finish;
 
         r = detect_vm_zvm();
         if (r < 0)
@@ -408,10 +398,12 @@ finish:
          * In order to detect the Dom0 as not virtualization we need to
          * double-check it */
         if (r == VIRTUALIZATION_XEN) {
-                int ret = detect_vm_xen_dom0();
-                if (ret < 0)
-                        return ret;
-                if (ret > 0)
+                int dom0;
+
+                dom0 = detect_vm_xen_dom0();
+                if (dom0 < 0)
+                        return dom0;
+                if (dom0 > 0)
                         r = VIRTUALIZATION_NONE;
         } else if (r == VIRTUALIZATION_NONE && other)
                 r = VIRTUALIZATION_VM_OTHER;
