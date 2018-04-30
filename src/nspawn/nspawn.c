@@ -1470,31 +1470,35 @@ static int setup_resolv_conf(const char *dest) {
 }
 
 static int setup_boot_id(void) {
+        _cleanup_(unlink_and_freep) char *from = NULL;
+        _cleanup_free_ char *path = NULL;
         sd_id128_t rnd = SD_ID128_NULL;
-        const char *from, *to;
+        const char *to;
         int r;
 
         /* Generate a new randomized boot ID, so that each boot-up of
          * the container gets a new one */
 
-        from = "/run/proc-sys-kernel-random-boot-id";
-        to = "/proc/sys/kernel/random/boot_id";
+        r = tempfn_random_child(NULL, "proc-sys-kernel-random-boot-id", &path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate random boot ID path: %m");
 
         r = sd_id128_randomize(&rnd);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate random boot id: %m");
 
-        r = id128_write(from, ID128_UUID, rnd, false);
+        r = id128_write(path, ID128_UUID, rnd, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
-        r = mount_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
-        if (r >= 0)
-                r = mount_verbose(LOG_ERR, NULL, to, NULL,
-                                  MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+        from = TAKE_PTR(path);
+        to = "/proc/sys/kernel/random/boot_id";
 
-        (void) unlink(from);
-        return r;
+        r = mount_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
+
+        return mount_verbose(LOG_ERR, NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
 }
 
 static int copy_devnodes(const char *dest) {
