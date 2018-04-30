@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: LGPL-2.1+
+#
+# This file is part of systemd.
+#
+# Copyright 2016 Daniel Rusek
+
+# This is a settings file for OS image generation using mkosi (https://github.com/systemd/mkosi).
+# Simply invoke "mkosi" in the project directory to build an OS image.
+
+[Distribution]
+Distribution=ubuntu
+Release=bionic
+Repositories=main,universe
+
+[Output]
+Format=raw_btrfs
+Bootable=no
+
+[Partitions]
+RootSize=2G
+
+[Packages]
+BuildPackages=
+        acl
+        docbook-xml
+        docbook-xsl
+        gcc
+        gettext
+        git
+        gnu-efi
+        gperf
+        iptables-dev
+        libacl1-dev
+        libaudit-dev
+        libblkid-dev
+        libbz2-dev
+        libcap-dev
+        libcryptsetup-dev
+        libcurl4-gnutls-dev
+        libdbus-1-dev
+        libdw-dev
+        libfdisk-dev
+        libgcrypt20-dev
+        libgnutls28-dev
+        libidn2-0-dev
+        libkmod-dev
+        liblz4-dev
+        liblz4-tool
+        liblzma-dev
+        libmicrohttpd-dev
+        libmount-dev
+        libpam0g-dev
+        libqrencode-dev
+        libseccomp-dev
+        libsmartcols-dev
+        libtool
+        libxkbcommon-dev
+        m4
+        meson
+        pkg-config
+        python3
+        python3-lxml
+        tree
+        tzdata
+        uuid-dev
+        xsltproc
+        xz-utils
+
+Packages=
+        libqrencode3
+        locales
+        libidn2-0
