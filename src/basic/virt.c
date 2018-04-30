@@ -319,13 +319,16 @@ int detect_vm(void) {
 
         /* We have to use the correct order here:
          *
-         * -> First try to detect Oracle Virtualbox, even if it uses KVM.
-         * -> Second try to detect from cpuid, this will report KVM for
-         *    whatever software is used even if info in dmi is overwritten.
-         * -> Third try to detect from dmi. */
+         * → First, try to detect Oracle Virtualbox, even if it uses KVM, as well as Xen even if it cloaks as Microsoft
+         *   Hyper-V.
+         *
+         * → Second, try to detect from CPUID, this will report KVM for whatever software is used even if info in DMI is
+         *   overwritten.
+         *
+         * → Third, try to detect from DMI. */
 
         dmi = detect_vm_dmi();
-        if (dmi == VIRTUALIZATION_ORACLE) {
+        if (IN_SET(dmi, VIRTUALIZATION_ORACLE, VIRTUALIZATION_XEN)) {
                 r = dmi;
                 goto finish;
         }
