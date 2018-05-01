@@ -1219,7 +1219,13 @@ int bus_dns_server_append(sd_bus_message *reply, DnsServer *s, bool with_ifindex
         int r;
 
         assert(reply);
-        assert(s);
+
+        if (!s) {
+                if (with_ifindex)
+                        return sd_bus_message_append(reply, "(iiay)", 0, AF_UNSPEC, 0);
+                else
+                        return sd_bus_message_append(reply, "(iay)", AF_UNSPEC, 0);
+        }
 
         r = sd_bus_message_open_container(reply, 'r', with_ifindex ? "iiay" : "iay");
         if (r < 0)
@@ -1291,6 +1297,25 @@ static int bus_property_get_dns_servers(
         }
 
         return sd_bus_message_close_container(reply);
+}
+
+static int bus_property_get_current_dns_server(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        DnsServer *s;
+
+        assert(reply);
+        assert(userdata);
+
+        s = *(DnsServer **) userdata;
+
+        return bus_dns_server_append(reply, s, true);
 }
 
 static int bus_property_get_domains(
@@ -1823,6 +1848,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Manager, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Manager, mdns_support), 0),
         SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, 0),
+        SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(isb)", bus_property_get_domains, 0, 0),
         SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),
         SD_BUS_PROPERTY("CacheStatistics", "(ttt)", bus_property_get_cache_statistics, 0, 0),
