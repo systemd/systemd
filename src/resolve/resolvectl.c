@@ -1266,6 +1266,13 @@ static int map_link_dns_servers(sd_bus *bus, const char *member, sd_bus_message 
         return 0;
 }
 
+static int map_link_current_dns_server(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        assert(m);
+        assert(userdata);
+
+        return read_dns_server_one(m, false, userdata);
+}
+
 static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         char ***l = userdata;
         int r;
@@ -1330,6 +1337,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 const char *llmnr;
                 const char *mdns;
                 const char *dnssec;
+                char *current_dns;
                 char **dns;
                 char **domains;
                 char **ntas;
@@ -1337,14 +1345,15 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         } link_info = {};
 
         static const struct bus_properties_map property_map[] = {
-                { "ScopesMask",                 "t",      NULL,                 offsetof(struct link_info, scopes_mask)      },
-                { "DNS",                        "a(iay)", map_link_dns_servers, offsetof(struct link_info, dns)              },
-                { "Domains",                    "a(sb)",  map_link_domains,     offsetof(struct link_info, domains)          },
-                { "LLMNR",                      "s",      NULL,                 offsetof(struct link_info, llmnr)            },
-                { "MulticastDNS",               "s",      NULL,                 offsetof(struct link_info, mdns)             },
-                { "DNSSEC",                     "s",      NULL,                 offsetof(struct link_info, dnssec)           },
-                { "DNSSECNegativeTrustAnchors", "as",     NULL,                 offsetof(struct link_info, ntas)             },
-                { "DNSSECSupported",            "b",      NULL,                 offsetof(struct link_info, dnssec_supported) },
+                { "ScopesMask",                 "t",      NULL,                        offsetof(struct link_info, scopes_mask)      },
+                { "DNS",                        "a(iay)", map_link_dns_servers,        offsetof(struct link_info, dns)              },
+                { "CurrentDNSServer",           "(iay)",  map_link_current_dns_server, offsetof(struct link_info, current_dns)      },
+                { "Domains",                    "a(sb)",  map_link_domains,            offsetof(struct link_info, domains)          },
+                { "LLMNR",                      "s",      NULL,                        offsetof(struct link_info, llmnr)            },
+                { "MulticastDNS",               "s",      NULL,                        offsetof(struct link_info, mdns)             },
+                { "DNSSEC",                     "s",      NULL,                        offsetof(struct link_info, dnssec)           },
+                { "DNSSECNegativeTrustAnchors", "as",     NULL,                        offsetof(struct link_info, ntas)             },
+                { "DNSSECSupported",            "b",      NULL,                        offsetof(struct link_info, dnssec_supported) },
                 {}
         };
 
@@ -1448,11 +1457,13 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         printf("       LLMNR setting: %s\n"
                "MulticastDNS setting: %s\n"
                "      DNSSEC setting: %s\n"
-               "    DNSSEC supported: %s\n",
+               "    DNSSEC supported: %s\n"
+               "  Current DNS Server: %s\n",
                strna(link_info.llmnr),
                strna(link_info.mdns),
                strna(link_info.dnssec),
-               yes_no(link_info.dnssec_supported));
+               yes_no(link_info.dnssec_supported),
+               strna(link_info.current_dns));
 
         STRV_FOREACH(i, link_info.dns) {
                 printf("         %s %s\n",
@@ -1478,6 +1489,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         r = 0;
 
 finish:
+        free(link_info.current_dns);
         strv_free(link_info.dns);
         strv_free(link_info.domains);
         strv_free(link_info.ntas);
@@ -1519,6 +1531,13 @@ static int map_global_dns_servers(sd_bus *bus, const char *member, sd_bus_messag
                 return r;
 
         return 0;
+}
+
+static int map_global_current_dns_server(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        assert(m);
+        assert(userdata);
+
+        return read_dns_server_one(m, true, userdata);
 }
 
 static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
@@ -1594,13 +1613,14 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         } global_info = {};
 
         static const struct bus_properties_map property_map[] = {
-                { "DNS",                        "a(iiay)", map_global_dns_servers, offsetof(struct global_info, dns)              },
-                { "Domains",                    "a(isb)",  map_global_domains,     offsetof(struct global_info, domains)          },
-                { "DNSSECNegativeTrustAnchors", "as",      NULL,                   offsetof(struct global_info, ntas)             },
-                { "LLMNR",                      "s",       NULL,                   offsetof(struct global_info, llmnr)            },
-                { "MulticastDNS",               "s",       NULL,                   offsetof(struct global_info, mdns)             },
-                { "DNSSEC",                     "s",       NULL,                   offsetof(struct global_info, dnssec)           },
-                { "DNSSECSupported",            "b",       NULL,                   offsetof(struct global_info, dnssec_supported) },
+                { "DNS",                        "a(iiay)", map_global_dns_servers,        offsetof(struct global_info, dns)              },
+                { "CurrentDNSServer",           "(iiay)",  map_global_current_dns_server, offsetof(struct global_info, current_dns)      },
+                { "Domains",                    "a(isb)",  map_global_domains,            offsetof(struct global_info, domains)          },
+                { "DNSSECNegativeTrustAnchors", "as",      NULL,                          offsetof(struct global_info, ntas)             },
+                { "LLMNR",                      "s",       NULL,                          offsetof(struct global_info, llmnr)            },
+                { "MulticastDNS",               "s",       NULL,                          offsetof(struct global_info, mdns)             },
+                { "DNSSEC",                     "s",       NULL,                          offsetof(struct global_info, dnssec)           },
+                { "DNSSECSupported",            "b",       NULL,                          offsetof(struct global_info, dnssec_supported) },
                 {}
         };
 
@@ -1671,11 +1691,13 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         printf("       LLMNR setting: %s\n"
                "MulticastDNS setting: %s\n"
                "      DNSSEC setting: %s\n"
-               "    DNSSEC supported: %s\n",
+               "    DNSSEC supported: %s\n"
+               "  Current DNS Server: %s\n",
                strna(global_info.llmnr),
                strna(global_info.mdns),
                strna(global_info.dnssec),
-               yes_no(global_info.dnssec_supported));
+               yes_no(global_info.dnssec_supported),
+               strna(global_info.current_dns));
 
         STRV_FOREACH(i, global_info.dns) {
                 printf("         %s %s\n",
@@ -1701,6 +1723,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         r = 0;
 
 finish:
+        free(global_info.current_dns);
         strv_free(global_info.dns);
         strv_free(global_info.domains);
         strv_free(global_info.ntas);
