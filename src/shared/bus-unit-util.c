@@ -1003,12 +1003,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
         if (streq(field, "RestrictNamespaces")) {
                 bool invert = false;
-                unsigned long flags = 0;
-
-                if (eq[0] == '~') {
-                        invert = true;
-                        eq++;
-                }
+                unsigned long flags;
 
                 r = parse_boolean(eq);
                 if (r > 0)
@@ -1016,6 +1011,11 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 else if (r == 0)
                         flags = NAMESPACE_FLAGS_ALL;
                 else {
+                        if (eq[0] == '~') {
+                                invert = true;
+                                eq++;
+                        }
+
                         r = namespace_flags_from_string(eq, &flags);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s value %s.", field, eq);
