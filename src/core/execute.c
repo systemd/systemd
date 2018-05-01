@@ -2293,14 +2293,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL;
         char *tmp = NULL, *var = NULL;
         const char *root_dir = NULL, *root_image = NULL;
-        NamespaceInfo ns_info = {
-                .ignore_protect_paths = false,
-                .private_dev = context->private_devices,
-                .protect_control_groups = context->protect_control_groups,
-                .protect_kernel_tunables = context->protect_kernel_tunables,
-                .protect_kernel_modules = context->protect_kernel_modules,
-                .mount_apivfs = context->mount_apivfs,
-        };
+        NamespaceInfo ns_info = {};
         bool needs_sandboxing;
         BindMount *bind_mounts = NULL;
         size_t n_bind_mounts = 0;
@@ -2339,6 +2332,16 @@ static int apply_mount_namespace(
                 ns_info.ignore_protect_paths = true;
 
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
+
+        if (needs_sandboxing)
+                ns_info = (NamespaceInfo) {
+                        .ignore_protect_paths = false,
+                        .private_dev = context->private_devices,
+                        .protect_control_groups = context->protect_control_groups,
+                        .protect_kernel_tunables = context->protect_kernel_tunables,
+                        .protect_kernel_modules = context->protect_kernel_modules,
+                        .mount_apivfs = context->mount_apivfs,
+                };
 
         r = setup_namespace(root_dir, root_image,
                             &ns_info, context->read_write_paths,
