@@ -232,8 +232,8 @@ USERS AND GROUPS:
         groups "wheel" and "adm" will be given read-only access to
         journal files using systemd-tmpfiles.service.
 
-        The journal gateway daemon requires the
-        "systemd-journal-gateway" system user and group to
+        The journal remote daemon requires the
+        "systemd-journal-remote" system user and group to
         exist. During execution this network facing service will drop
         privileges and assume this uid/gid for security reasons.
 
