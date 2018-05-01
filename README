@@ -237,9 +237,6 @@ USERS AND GROUPS:
         exist. During execution this network facing service will drop
         privileges and assume this uid/gid for security reasons.
 
-        Similarly, the NTP daemon requires the "systemd-timesync" system
-        user and group to exist.
-
         Similarly, the network management daemon requires the
         "systemd-network" system user and group to exist.
 
