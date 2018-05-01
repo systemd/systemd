@@ -1016,7 +1016,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 else if (r == 0)
                         flags = NAMESPACE_FLAGS_ALL;
                 else {
-                        r = namespace_flag_from_string_many(eq, &flags);
+                        r = namespace_flags_from_string(eq, &flags);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s value %s.", field, eq);
                 }

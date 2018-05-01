@@ -3145,7 +3145,7 @@ int config_parse_restrict_namespaces(
         else {
                 /* Not a boolean argument, in this case it's a list of namespace types. */
 
-                r = namespace_flag_from_string_many(rvalue, &c->restrict_namespaces);
+                r = namespace_flags_from_string(rvalue, &c->restrict_namespaces);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse namespace type string, ignoring: %s", rvalue);
                         return 0;
