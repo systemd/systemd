@@ -272,7 +272,7 @@ NSS:
 
                 passwd: compat mymachines systemd
                 group: compat mymachines systemd
-                hosts: files mymachines resolve myhostname
+                hosts: files mymachines resolve [!UNAVAIL=return] dns myhostname
 
 SYSV INIT.D SCRIPTS:
         When calling "systemctl enable/disable/is-enabled" on a unit which is a
