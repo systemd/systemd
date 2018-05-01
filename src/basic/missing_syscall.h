@@ -403,8 +403,14 @@ static inline int missing_bpf(int cmd, union bpf_attr *attr, size_t size) {
 
 #if !HAVE_STATX
 #  ifndef __NR_statx
-#    if defined __i386__
+#    if defined __aarch64__ || defined __arm__
+#      define __NR_statx 397
+#    elif defined __alpha__
+#      define __NR_statx 522
+#    elif defined __i386__ || defined __powerpc64__
 #      define __NR_statx 383
+#    elif defined __sparc__
+#      define __NR_statx 360
 #    elif defined __x86_64__
 #      define __NR_statx 332
 #    else
