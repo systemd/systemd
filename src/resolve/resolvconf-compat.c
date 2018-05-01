@@ -27,7 +27,7 @@ static void resolvconf_help(void) {
                "  -f            Ignore if specified interface does not exist\n"
                "  -x            Send DNS traffic preferably over this interface\n"
                "\n"
-               "This is a compatibility alias for the systemd-resolve(1) tool, providing native\n"
+               "This is a compatibility alias for the resolvectl(1) tool, providing native\n"
                "command line compatibility with the resolvconf(8) tool of various Linux\n"
                "distributions and BSD systems. Some options supported by other implementations\n"
                "are not supported and are ignored: -m, -p. Various options supported by other\n"
