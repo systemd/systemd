@@ -287,7 +287,7 @@ static bool is_pci_multifunction(struct udev_device *dev) {
 }
 
 static bool is_pci_ari_enabled(struct udev_device *dev) {
-        return !!udev_device_get_sysattr_value(dev, "ari_enabled");
+        return streq_ptr(udev_device_get_sysattr_value(dev, "ari_enabled"), "1");
 }
 
 static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
