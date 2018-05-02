@@ -81,6 +81,7 @@ test_data_files = '''
         test-execute/exec-personality-s390.service
         test-execute/exec-personality-x86-64.service
         test-execute/exec-personality-x86.service
+        test-execute/exec-privatedevices-disabled-by-prefix.service
         test-execute/exec-privatedevices-no-capability-mknod.service
         test-execute/exec-privatedevices-no-capability-sys-rawio.service
         test-execute/exec-privatedevices-no.service
