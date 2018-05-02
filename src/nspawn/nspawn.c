@@ -3643,11 +3643,9 @@ static int run(int master,
         if (r < 0)
                 return r;
 
-        if (arg_keep_unit) {
-                r = create_subcgroup(*pid, arg_unified_cgroup_hierarchy);
-                if (r < 0)
-                        return r;
-        }
+        r = create_subcgroup(*pid, arg_keep_unit, arg_unified_cgroup_hierarchy);
+        if (r < 0)
+                return r;
 
         r = chown_cgroup(*pid, arg_unified_cgroup_hierarchy, arg_uid_shift);
         if (r < 0)
