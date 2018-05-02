@@ -401,8 +401,7 @@ endforeach
 if get_option('buildtype') != 'debug'
         foreach arg : ['-ffunction-sections',
                        '-fdata-sections']
-                if cc.has_argument(arg,
-                                   name : '@0@ is supported'.format(arg))
+                if cc.has_argument(arg)
                         add_project_arguments(arg, language : 'c')
                 endif
         endforeach
