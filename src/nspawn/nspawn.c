@@ -1469,7 +1469,7 @@ static int setup_resolv_conf(const char *dest) {
         return 0;
 }
 
-static int setup_boot_id(const char *dest) {
+static int setup_boot_id(void) {
         sd_id128_t rnd = SD_ID128_NULL;
         const char *from, *to;
         int r;
@@ -1477,8 +1477,8 @@ static int setup_boot_id(const char *dest) {
         /* Generate a new randomized boot ID, so that each boot-up of
          * the container gets a new one */
 
-        from = prefix_roota(dest, "/run/proc-sys-kernel-random-boot-id");
-        to = prefix_roota(dest, "/proc/sys/kernel/random/boot_id");
+        from = "/run/proc-sys-kernel-random-boot-id";
+        to = "/proc/sys/kernel/random/boot_id";
 
         r = sd_id128_randomize(&rnd);
         if (r < 0)
@@ -1661,7 +1661,7 @@ static int setup_keyring(void) {
         return 0;
 }
 
-static int setup_kmsg(const char *dest, int kmsg_socket) {
+static int setup_kmsg(int kmsg_socket) {
         const char *from, *to;
         _cleanup_umask_ mode_t u;
         int fd, r;
@@ -1677,8 +1677,8 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
          * that writing blocks when nothing is reading. In order to
          * avoid any problems with containers deadlocking due to this
          * we simply make /dev/kmsg unavailable to the container. */
-        from = prefix_roota(dest, "/run/kmsg");
-        to = prefix_roota(dest, "/proc/kmsg");
+        from = "/run/kmsg";
+        to = "/proc/kmsg";
 
         if (mkfifo(from, 0600) < 0)
                 return log_error_errno(errno, "mkfifo() for /run/kmsg failed: %m");
@@ -2351,11 +2351,11 @@ static int inner_child(
                         return r;
         }
 
-        r = setup_boot_id(NULL);
+        r = setup_boot_id();
         if (r < 0)
                 return r;
 
-        r = setup_kmsg(NULL, kmsg_socket);
+        r = setup_kmsg(kmsg_socket);
         if (r < 0)
                 return r;
         kmsg_socket = safe_close(kmsg_socket);
