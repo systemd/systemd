@@ -241,3 +241,38 @@ really unused. It just means that these ranges have no well-established
 pre-defined purposes between Linux, generic low-level distributions and
 `systemd`. There might very well be other packages that allocate from these
 ranges.
+
+## Notes on resolvability of user and group names
+
+User names, UIDs, group names and GIDs don't have to be resolvable using NSS
+(i.e. getpwuid() and getpwnam() and friends) all the time. However, systemd
+makes the following requirements:
+
+System users generally have to be resolvable during early boot already. This
+means they should not be provided by any networked service (as those usually
+become available during late boot only), except if a local cache is kept that
+makes them available during early boot too (i.e. before networking is
+up). Specifically, system users need to be resolvable at least before
+`systemd-udevd.service` and `systemd-tmpfiles.service` are started, as both
+need to resolve system users — but note that there might be more services
+requiring full resolvability of system users than just these two.
+
+Regular users do not need to be resolvable during early boot, it is sufficient
+if they become resolvable during late boot. Specifically, regular users need to
+be resolvable at the point in time the `nss-user-lookup.target` unit is
+reached. This target unit is generally used as synchronization point between
+providers of the user database and consumers of it. Services that require that
+the user database is fully available (for example, the login service
+`systemd-logind.service`) are ordered *after* it, while services that provide
+parts of the user database (for example an LDAP user database client) are
+ordered *before* it. Note that `nss-user-lookup.target` is a *passive* unit: in
+order to minimize synchronization points on systems that don't need it the unit
+is pulled into the initial transaction only if there's at least one service
+that really needs it, and that means only if there's a service providing the
+local user database somehow through IPC or suchlike. Or in other words: if you
+hack on some networked user database project, then make sure you order your
+service `Before=nss-user-lookup.target` and that you pull it in with
+`Wants=nss-user-lookup.target`. However, if you hack on some project that needs
+the user database to be up in full, then order your service
+`After=nss-user-lookup.target`, but do *not* pull it in via a `Wants=`
+dependency.
