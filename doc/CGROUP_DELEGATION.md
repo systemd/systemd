@@ -424,15 +424,16 @@ unified you (of course, I guess) need to provide only `/sys/fs/cgroup/` itself.
    cgroup tree of systemd itself is out of limits for you. It's fine to *read*
    from any attribute you like however. That's totally OK and welcome.
 
-4. 🚫 When not using `CLONE_NEWCGROUP` when delegating a sub-tree to a container
-   payload running systemd, then don't get the idea that you can bind mount
-   only a sub-tree of the host's cgroup tree into the container. Part of the
-   cgroup API is that `/proc/$PID/cgroup` reports the cgroup path of every
+4. 🚫 When not using `CLONE_NEWCGROUP` when delegating a sub-tree to a
+   container payload running systemd, then don't get the idea that you can bind
+   mount only a sub-tree of the host's cgroup tree into the container. Part of
+   the cgroup API is that `/proc/$PID/cgroup` reports the cgroup path of every
    process, and hence any path below `/sys/fs/cgroup/` needs to match what
    `/proc/$PID/cgroup` of the payload processes reports. What you can do safely
-   however, is mount the upper parts of the cgroup tree read-only or even
-   replace it with an intermediary `tmpfs`, as long as the path to the
-   delegated sub-tree remains accessible as-is.
+   however, is mount the upper parts of the cgroup tree read-only (or even
+   replace the middle bits with an intermediary `tmpfs` — but be careful not to
+   break the `statfs()` detection logic discussed above), as long as the path
+   to the delegated sub-tree remains accessible as-is.
 
 5. ⚡ Currently, the algorithm for mapping between slice/scope/service unit
    naming and their cgroup paths is not considered public API of systemd, and
