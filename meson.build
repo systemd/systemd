@@ -760,20 +760,17 @@ conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 substs.set('SUSHELL', get_option('debug-shell'))
 substs.set('DEBUGTTY', get_option('debug-tty'))
 
-debug = get_option('debug')
 enable_debug_hashmap = false
 enable_debug_mmap_cache = false
-if debug != ''
-        foreach name : debug.split(',')
-                if name == 'hashmap'
-                        enable_debug_hashmap = true
-                elif name == 'mmap-cache'
-                        enable_debug_mmap_cache = true
-                else
-                        message('unknown debug option "@0@", ignoring'.format(name))
-                endif
-        endforeach
-endif
+foreach name : get_option('debug')
+        if name == 'hashmap'
+                enable_debug_hashmap = true
+        elif name == 'mmap-cache'
+                enable_debug_mmap_cache = true
+        else
+                message('unknown debug option "@0@", ignoring'.format(name))
+        endif
+endforeach
 conf.set10('ENABLE_DEBUG_HASHMAP', enable_debug_hashmap)
 conf.set10('ENABLE_DEBUG_MMAP_CACHE', enable_debug_mmap_cache)
 
