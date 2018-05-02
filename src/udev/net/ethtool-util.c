@@ -403,7 +403,7 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
         if (!u)
                 return -ENOMEM;
 
-        ecmd.req = u->base;
+        u->base = ecmd.req;
 
         offset = 0;
         memcpy(u->link_modes.supported, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
