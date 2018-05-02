@@ -544,6 +544,32 @@ static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userd
         return sd_bus_reply_method_return(message, "o", path);
 }
 
+static int method_get_unit_by_control_group(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *path = NULL;
+        Manager *m = userdata;
+        const char *cgroup;
+        Unit *u;
+        int r;
+
+        r = sd_bus_message_read(message, "s", &cgroup);
+        if (r < 0)
+                return r;
+
+        u = manager_get_unit_by_cgroup(m, cgroup);
+        if (!u)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Control group '%s' is not valid or not managed by this instance", cgroup);
+
+        r = mac_selinux_unit_access_check(u, message, "status", error);
+        if (r < 0)
+                return r;
+
+        path = unit_dbus_path(u);
+        if (!path)
+                return -ENOMEM;
+
+        return sd_bus_reply_method_return(message, "o", path);
+}
+
 static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *path = NULL;
         Manager *m = userdata;
@@ -2540,6 +2566,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("GetUnit", "s", "o", method_get_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUnitByPID", "u", "o", method_get_unit_by_pid, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("GetUnitByInvocationID", "ay", "o", method_get_unit_by_invocation_id, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetUnitByControlGroup", "s", "o", method_get_unit_by_control_group, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("LoadUnit", "s", "o", method_load_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("StartUnit", "ss", "o", method_start_unit, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("StartUnitReplace", "sss", "o", method_start_unit_replace, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -2571,8 +2598,8 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_METHOD("Subscribe", NULL, NULL, method_subscribe, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Unsubscribe", NULL, NULL, method_unsubscribe, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Dump", NULL, "s", method_dump, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("CreateSnapshot", "sb", "o", method_refuse_snapshot, SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD("RemoveSnapshot", "s", NULL, method_refuse_snapshot, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("CreateSnapshot", "sb", "o", method_refuse_snapshot, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_METHOD("RemoveSnapshot", "s", NULL, method_refuse_snapshot, SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_METHOD("Reload", NULL, NULL, method_reload, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Reexecute", NULL, NULL, method_reexecute, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Exit", NULL, NULL, method_exit, 0),
