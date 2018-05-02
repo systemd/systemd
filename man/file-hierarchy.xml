@@ -74,13 +74,22 @@
         <term><filename>/boot</filename></term>
         <listitem><para>The boot partition used for bringing up the
         system. On EFI systems, this is possibly the EFI System
-        Partition, also see
+        Partition (ESP), also see
         <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         This directory is usually strictly local to the host, and
         should be considered read-only, except when a new kernel or
         boot loader is installed. This directory only exists on
         systems that run on physical or emulated hardware that
         requires boot loaders.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/efi/</filename></term>
+        <listitem><para>If the boot partition <filename>/boot/</filename> is maintained separately from the EFI System
+        Partition (ESP), the latter is mounted here. Tools that need to operate on the EFI system partition should look
+        for it at this mount point first, and fall back to <filename>/boot/</filename> — if the former doesn't qualify
+        (for example if it is not a mount point or does not have the correct file system type
+        <constant>MSDOS_SUPER_MAGIC</constant>).</para></listitem>
       </varlistentry>
 
       <varlistentry>
