@@ -525,6 +525,30 @@
           Defaults to "unset".</para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>RxChannels=</varname></term>
+        <listitem>
+          <para>Sets the number of receive channels (a number between 1 and 4294967295) .</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TxChannels=</varname></term>
+        <listitem>
+          <para>Sets the number of transmit channels (a number between 1 and 4294967295).</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>OtherChannels=</varname></term>
+        <listitem>
+          <para>Sets the number of other channels (a number between 1 and 4294967295).</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>CombinedChannels=</varname></term>
+        <listitem>
+          <para>Sets the number of combined set channels (a number between 1 and 4294967295).</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

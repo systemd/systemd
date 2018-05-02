@@ -568,3 +568,105 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
 
         return r;
 }
+
+int config_parse_channel(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
+        link_config *config = data;
+        uint32_t k;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse channel value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (k < 1) {
+                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Invalid %s value, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (streq(lvalue, "RxChannels")) {
+                config->channels.rx_count = k;
+                config->channels.rx_count_set = true;
+        } else if (streq(lvalue, "TxChannels")) {
+                config->channels.tx_count = k;
+                config->channels.tx_count_set = true;
+        } else if (streq(lvalue, "OtherChannels")) {
+                config->channels.other_count = k;
+                config->channels.other_count_set = true;
+        } else if (streq(lvalue, "CombinedChannels")) {
+                config->channels.combined_count = k;
+                config->channels.combined_count_set = true;
+        }
+
+        return 0;
+}
+
+int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels) {
+        struct ethtool_channels ecmd = {
+                .cmd = ETHTOOL_GCHANNELS
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd
+        };
+
+        bool need_update = false;
+        int r;
+
+        if (*fd < 0) {
+                r = ethtool_connect(fd);
+                if (r < 0)
+                        return log_warning_errno(r, "link_config: could not connect to ethtool: %m");
+        }
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (channels->rx_count_set && ecmd.rx_count != channels->rx_count) {
+                ecmd.rx_count = channels->rx_count;
+                need_update = true;
+        }
+
+        if (channels->tx_count_set && ecmd.tx_count != channels->tx_count) {
+                ecmd.tx_count = channels->tx_count;
+                need_update = true;
+        }
+
+        if (channels->other_count_set && ecmd.other_count != channels->other_count) {
+                ecmd.other_count = channels->other_count;
+                need_update = true;
+        }
+
+        if (channels->combined_count_set && ecmd.combined_count != channels->combined_count) {
+                ecmd.combined_count = channels->combined_count;
+                need_update = true;
+        }
+
+        if (need_update) {
+                ecmd.cmd = ETHTOOL_SCHANNELS;
+
+                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                if (r < 0)
+                        return -errno;
+        }
+
+        return 0;
+}

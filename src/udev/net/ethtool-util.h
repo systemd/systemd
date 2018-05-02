@@ -72,6 +72,18 @@ struct ethtool_link_usettings {
         } link_modes;
 };
 
+typedef struct netdev_channels {
+        uint32_t rx_count;
+        uint32_t tx_count;
+        uint32_t other_count;
+        uint32_t combined_count;
+
+        bool rx_count_set;
+        bool tx_count_set;
+        bool other_count_set;
+        bool combined_count_set;
+} netdev_channels;
+
 int ethtool_connect(int *ret);
 
 int ethtool_get_driver(int *fd, const char *ifname, char **ret);
@@ -79,6 +91,7 @@ int ethtool_set_speed(int *fd, const char *ifname, unsigned int speed, Duplex du
 int ethtool_set_wol(int *fd, const char *ifname, WakeOnLan wol);
 int ethtool_set_features(int *fd, const char *ifname, NetDevFeature *features);
 int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *link);
+int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels);
 
 const char *duplex_to_string(Duplex d) _const_;
 Duplex duplex_from_string(const char *d) _pure_;
@@ -92,3 +105,4 @@ NetDevPort port_from_string(const char *port) _pure_;
 int config_parse_duplex(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_wol(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_port(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_channel(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
