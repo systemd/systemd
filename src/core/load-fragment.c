@@ -4042,7 +4042,7 @@ int config_parse_set_status(
 
                 r = safe_atoi(temp, &val);
                 if (r < 0) {
-                        val = signal_from_string_try_harder(temp);
+                        val = signal_from_string(temp);
 
                         if (val <= 0) {
                                 log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse value, ignoring: %s", word);

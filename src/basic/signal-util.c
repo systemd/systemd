@@ -232,17 +232,22 @@ int signal_from_string(const char *s) {
         const char *p;
         int signo, r;
 
-        /* Check that the input is a signal name. */
-        signo = __signal_from_string(s);
-        if (signo > 0)
-                return signo;
-
+        /* Check that the input is a signal number. */
         if (safe_atoi(s, &signo) >= 0) {
                 if (SIGNAL_VALID(signo))
                         return signo;
                 else
                         return -ERANGE;
         }
+
+        /* Drop "SIG" prefix. */
+        if (startswith(s, "SIG"))
+                s += 3;
+
+        /* Check that the input is a signal name. */
+        signo = __signal_from_string(s);
+        if (signo > 0)
+                return signo;
 
         /* Check that the input is RTMIN or
          * RTMIN+n (0 <= n <= SIGRTMAX-SIGRTMIN). */
@@ -283,18 +288,6 @@ int signal_from_string(const char *s) {
         }
 
         return -EINVAL;
-}
-
-int signal_from_string_try_harder(const char *s) {
-        int signo;
-        assert(s);
-
-        signo = signal_from_string(s);
-        if (signo <= 0)
-                if (startswith(s, "SIG"))
-                        return signal_from_string(s+3);
-
-        return signo;
 }
 
 void nop_signal_handler(int sig) {
