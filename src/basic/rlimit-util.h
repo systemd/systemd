@@ -13,6 +13,7 @@
 
 const char *rlimit_to_string(int i) _const_;
 int rlimit_from_string(const char *s) _pure_;
+int rlimit_from_string_harder(const char *s) _pure_;
 
 int setrlimit_closest(int resource, const struct rlimit *rlim);
 

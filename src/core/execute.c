@@ -3176,7 +3176,7 @@ static int exec_child(
                         r = setrlimit_closest(i, context->rlimit[i]);
                         if (r < 0) {
                                 *exit_status = EXIT_LIMITS;
-                                return log_unit_error_errno(unit, r, "Failed to adjust resource limit %s: %m", rlimit_to_string(i));
+                                return log_unit_error_errno(unit, r, "Failed to adjust resource limit RLIMIT_%s: %m", rlimit_to_string(i));
                         }
                 }
 
@@ -3975,9 +3975,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         for (i = 0; i < RLIM_NLIMITS; i++)
                 if (c->rlimit[i]) {
-                        fprintf(f, "%s%s: " RLIM_FMT "\n",
+                        fprintf(f, "Limit%s%s: " RLIM_FMT "\n",
                                 prefix, rlimit_to_string(i), c->rlimit[i]->rlim_max);
-                        fprintf(f, "%s%sSoft: " RLIM_FMT "\n",
+                        fprintf(f, "Limit%s%sSoft: " RLIM_FMT "\n",
                                 prefix, rlimit_to_string(i), c->rlimit[i]->rlim_cur);
                 }
 

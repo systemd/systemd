@@ -289,22 +289,38 @@ int rlimit_format(const struct rlimit *rl, char **ret) {
 }
 
 static const char* const rlimit_table[_RLIMIT_MAX] = {
-        [RLIMIT_CPU] = "LimitCPU",
-        [RLIMIT_FSIZE] = "LimitFSIZE",
-        [RLIMIT_DATA] = "LimitDATA",
-        [RLIMIT_STACK] = "LimitSTACK",
-        [RLIMIT_CORE] = "LimitCORE",
-        [RLIMIT_RSS] = "LimitRSS",
-        [RLIMIT_NOFILE] = "LimitNOFILE",
-        [RLIMIT_AS] = "LimitAS",
-        [RLIMIT_NPROC] = "LimitNPROC",
-        [RLIMIT_MEMLOCK] = "LimitMEMLOCK",
-        [RLIMIT_LOCKS] = "LimitLOCKS",
-        [RLIMIT_SIGPENDING] = "LimitSIGPENDING",
-        [RLIMIT_MSGQUEUE] = "LimitMSGQUEUE",
-        [RLIMIT_NICE] = "LimitNICE",
-        [RLIMIT_RTPRIO] = "LimitRTPRIO",
-        [RLIMIT_RTTIME] = "LimitRTTIME"
+        [RLIMIT_AS]         = "AS",
+        [RLIMIT_CORE]       = "CORE",
+        [RLIMIT_CPU]        = "CPU",
+        [RLIMIT_DATA]       = "DATA",
+        [RLIMIT_FSIZE]      = "FSIZE",
+        [RLIMIT_LOCKS]      = "LOCKS",
+        [RLIMIT_MEMLOCK]    = "MEMLOCK",
+        [RLIMIT_MSGQUEUE]   = "MSGQUEUE",
+        [RLIMIT_NICE]       = "NICE",
+        [RLIMIT_NOFILE]     = "NOFILE",
+        [RLIMIT_NPROC]      = "NPROC",
+        [RLIMIT_RSS]        = "RSS",
+        [RLIMIT_RTPRIO]     = "RTPRIO",
+        [RLIMIT_RTTIME]     = "RTTIME",
+        [RLIMIT_SIGPENDING] = "SIGPENDING",
+        [RLIMIT_STACK]      = "STACK",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(rlimit, int);
+
+int rlimit_from_string_harder(const char *s) {
+        const char *suffix;
+
+        /* The official prefix */
+        suffix = startswith(s, "RLIMIT_");
+        if (suffix)
+                return rlimit_from_string(suffix);
+
+        /* Our own unit file setting prefix */
+        suffix = startswith(s, "Limit");
+        if (suffix)
+                return rlimit_from_string(suffix);
+
+        return rlimit_from_string(s);
+}

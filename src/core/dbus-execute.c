@@ -1091,8 +1091,8 @@ int bus_exec_context_set_transient_property(
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
-        const char *soft = NULL;
-        int r, ri;
+        const char *suffix;
+        int r;
 
         assert(u);
         assert(c);
@@ -2313,73 +2313,77 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
-        }
 
-        ri = rlimit_from_string(name);
-        if (ri < 0) {
-                soft = endswith(name, "Soft");
-                if (soft) {
-                        const char *n;
+        } else if ((suffix = startswith(name, "Limit"))) {
+                const char *soft = NULL;
+                int ri;
 
-                        n = strndupa(name, soft - name);
-                        ri = rlimit_from_string(n);
-                        if (ri >= 0)
-                                name = n;
+                ri = rlimit_from_string(suffix);
+                if (ri < 0) {
+                        soft = endswith(suffix, "Soft");
+                        if (soft) {
+                                const char *n;
 
-                }
-        }
-
-        if (ri >= 0) {
-                uint64_t rl;
-                rlim_t x;
-
-                r = sd_bus_message_read(message, "t", &rl);
-                if (r < 0)
-                        return r;
-
-                if (rl == (uint64_t) -1)
-                        x = RLIM_INFINITY;
-                else {
-                        x = (rlim_t) rl;
-
-                        if ((uint64_t) x != rl)
-                                return -ERANGE;
+                                n = strndupa(suffix, soft - suffix);
+                                ri = rlimit_from_string(n);
+                                if (ri >= 0)
+                                        name = strjoina("Limit", n);
+                        }
                 }
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_free_ char *f = NULL;
-                        struct rlimit nl;
+                if (ri >= 0) {
+                        uint64_t rl;
+                        rlim_t x;
 
-                        if (c->rlimit[ri]) {
-                                nl = *c->rlimit[ri];
-
-                                if (soft)
-                                        nl.rlim_cur = x;
-                                else
-                                        nl.rlim_max = x;
-                        } else
-                                /* When the resource limit is not initialized yet, then assign the value to both fields */
-                                nl = (struct rlimit) {
-                                        .rlim_cur = x,
-                                        .rlim_max = x,
-                                };
-
-                        r = rlimit_format(&nl, &f);
+                        r = sd_bus_message_read(message, "t", &rl);
                         if (r < 0)
                                 return r;
 
-                        if (c->rlimit[ri])
-                                *c->rlimit[ri] = nl;
+                        if (rl == (uint64_t) -1)
+                                x = RLIM_INFINITY;
                         else {
-                                c->rlimit[ri] = newdup(struct rlimit, &nl, 1);
-                                if (!c->rlimit[ri])
-                                        return -ENOMEM;
+                                x = (rlim_t) rl;
+
+                                if ((uint64_t) x != rl)
+                                        return -ERANGE;
                         }
 
-                        unit_write_settingf(u, flags, name, "%s=%s", name, f);
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                _cleanup_free_ char *f = NULL;
+                                struct rlimit nl;
+
+                                if (c->rlimit[ri]) {
+                                        nl = *c->rlimit[ri];
+
+                                        if (soft)
+                                                nl.rlim_cur = x;
+                                        else
+                                                nl.rlim_max = x;
+                                } else
+                                        /* When the resource limit is not initialized yet, then assign the value to both fields */
+                                        nl = (struct rlimit) {
+                                                .rlim_cur = x,
+                                                .rlim_max = x,
+                                        };
+
+                                r = rlimit_format(&nl, &f);
+                                if (r < 0)
+                                        return r;
+
+                                if (c->rlimit[ri])
+                                        *c->rlimit[ri] = nl;
+                                else {
+                                        c->rlimit[ri] = newdup(struct rlimit, &nl, 1);
+                                        if (!c->rlimit[ri])
+                                                return -ENOMEM;
+                                }
+
+                                unit_write_settingf(u, flags, name, "%s=%s", name, f);
+                        }
+
+                        return 1;
                 }
 
-                return 1;
         }
 
         return 0;
