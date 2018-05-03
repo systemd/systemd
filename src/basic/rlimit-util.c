@@ -42,6 +42,32 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
         return 0;
 }
 
+int setrlimit_closest_all(const struct rlimit *const *rlim, int *which_failed) {
+        int i, r;
+
+        assert(rlim);
+
+        /* On failure returns the limit's index that failed in *which_failed, but only if non-NULL */
+
+        for (i = 0; i < _RLIMIT_MAX; i++) {
+                if (!rlim[i])
+                        continue;
+
+                r = setrlimit_closest(i, rlim[i]);
+                if (r < 0) {
+                        if (which_failed)
+                                *which_failed = i;
+
+                        return r;
+                }
+        }
+
+        if (which_failed)
+                *which_failed = -1;
+
+        return 0;
+}
+
 static int rlimit_parse_u64(const char *val, rlim_t *ret) {
         uint64_t u;
         int r;

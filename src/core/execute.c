@@ -2727,7 +2727,7 @@ static int exec_child(
 #endif
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
-        int i, r, ngids = 0;
+        int r, ngids = 0;
         size_t n_fds;
         ExecDirectoryType dt;
         int secure_bits;
@@ -3167,17 +3167,12 @@ static int exec_child(
 
         if (needs_sandboxing) {
                 uint64_t bset;
+                int which_failed;
 
-                for (i = 0; i < _RLIMIT_MAX; i++) {
-
-                        if (!context->rlimit[i])
-                                continue;
-
-                        r = setrlimit_closest(i, context->rlimit[i]);
-                        if (r < 0) {
-                                *exit_status = EXIT_LIMITS;
-                                return log_unit_error_errno(unit, r, "Failed to adjust resource limit RLIMIT_%s: %m", rlimit_to_string(i));
-                        }
+                r = setrlimit_closest_all((const struct rlimit* const *) context->rlimit, &which_failed);
+                if (r < 0) {
+                        *exit_status = EXIT_LIMITS;
+                        return log_unit_error_errno(unit, r, "Failed to adjust resource limit RLIMIT_%s: %m", rlimit_to_string(which_failed));
                 }
 
                 /* Set the RTPRIO resource limit to 0, but only if nothing else was explicitly requested. */
