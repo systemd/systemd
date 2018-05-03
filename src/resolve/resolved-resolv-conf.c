@@ -268,7 +268,7 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
                        "# internal DNS stub resolver of systemd-resolved. This file lists all\n"
                        "# configured search domains.\n"
                        "#\n"
-                       "# Run \"systemd-resolve --status\" to see details about the uplink DNS servers\n"
+                       "# Run \"resolvectl status\" to see details about the uplink DNS servers\n"
                        "# currently in use.\n"
                        "#\n"
                        "# Third party programs must not access this file directly, but only through the\n"
