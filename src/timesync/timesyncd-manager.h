@@ -7,6 +7,9 @@
   Copyright 2014 Kay Sievers, Lennart Poettering
 ***/
 
+#include <sys/timex.h>
+
+#include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-network.h"
 #include "sd-resolve.h"
@@ -14,6 +17,7 @@
 #include "list.h"
 #include "ratelimit.h"
 #include "time-util.h"
+#include "timesyncd-ntp-message.h"
 
 typedef struct Manager Manager;
 
@@ -27,6 +31,7 @@ typedef struct Manager Manager;
 #define NTP_POLL_INTERVAL_MAX_USEC      (2048 * USEC_PER_SEC)
 
 struct Manager {
+        sd_bus *bus;
         sd_event *event;
         sd_resolve *resolve;
 
@@ -79,7 +84,7 @@ struct Manager {
         /* last change */
         bool jumped;
         bool sync;
-        int drift_ppm;
+        long drift_freq;
 
         /* watch for time changes */
         sd_event_source *event_clock_watch;
@@ -90,6 +95,11 @@ struct Manager {
 
         /* RTC runs in local time, leave it alone */
         bool rtc_local_time;
+
+        /* NTP response */
+        struct ntp_msg ntpmsg;
+        struct timespec origin_time, dest_time;
+        bool spike;
 };
 
 int manager_new(Manager **ret);

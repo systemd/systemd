@@ -1237,6 +1237,13 @@ foreach term : ['utmp',
         m4_defines += have ? ['-D' + name] : []
 endforeach
 
+if get_option('timedated') or get_option('timesyncd')
+        conf.set10('ENABLE_TIMEDATECTL', true)
+        m4_defines += ['-DENABLE_TIMEDATECTL']
+else
+        conf.set10('ENABLE_TIMEDATECTL', false)
+endif
+
 want_tests = get_option('tests')
 install_tests = get_option('install-tests')
 slow_tests = get_option('slow-tests')
@@ -1863,12 +1870,15 @@ if conf.get('ENABLE_TIMEDATED') == 1
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)
+endif
 
+if conf.get('ENABLE_TIMEDATECTL') == 1
         exe = executable('timedatectl',
                          'src/timedate/timedatectl.c',
                          include_directories : includes,
                          install_rpath : rootlibexecdir,
                          link_with : [libshared],
+                         dependencies : [libm],
                          install : true)
         public_programs += [exe]
 endif

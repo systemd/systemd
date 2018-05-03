@@ -28,7 +28,6 @@
 #include "network-util.h"
 #include "ratelimit.h"
 #include "socket-util.h"
-#include "sparse-endian.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -50,58 +49,17 @@
  */
 #define NTP_MAX_ADJUST                  0.4
 
-/* NTP protocol, packet header */
-#define NTP_LEAP_PLUSSEC                1
-#define NTP_LEAP_MINUSSEC               2
-#define NTP_LEAP_NOTINSYNC              3
-#define NTP_MODE_CLIENT                 3
-#define NTP_MODE_SERVER                 4
-#define NTP_FIELD_LEAP(f)               (((f) >> 6) & 3)
-#define NTP_FIELD_VERSION(f)            (((f) >> 3) & 7)
-#define NTP_FIELD_MODE(f)               ((f) & 7)
-#define NTP_FIELD(l, v, m)              (((l) << 6) | ((v) << 3) | (m))
-
 /* Default of maximum acceptable root distance in microseconds. */
 #define NTP_MAX_ROOT_DISTANCE           (5 * USEC_PER_SEC)
 
 /* Maximum number of missed replies before selecting another source. */
 #define NTP_MAX_MISSED_REPLIES          2
 
-/*
- * "NTP timestamps are represented as a 64-bit unsigned fixed-point number,
- * in seconds relative to 0h on 1 January 1900."
- */
-#define OFFSET_1900_1970        UINT64_C(2208988800)
-
 #define RETRY_USEC (30*USEC_PER_SEC)
 #define RATELIMIT_INTERVAL_USEC (10*USEC_PER_SEC)
 #define RATELIMIT_BURST 10
 
 #define TIMEOUT_USEC (10*USEC_PER_SEC)
-
-struct ntp_ts {
-        be32_t sec;
-        be32_t frac;
-} _packed_;
-
-struct ntp_ts_short {
-        be16_t sec;
-        be16_t frac;
-} _packed_;
-
-struct ntp_msg {
-        uint8_t field;
-        uint8_t stratum;
-        int8_t poll;
-        int8_t precision;
-        struct ntp_ts_short root_delay;
-        struct ntp_ts_short root_dispersion;
-        char refid[4];
-        struct ntp_ts reference_time;
-        struct ntp_ts origin_time;
-        struct ntp_ts recv_time;
-        struct ntp_ts trans_time;
-} _packed_;
 
 static int manager_arm_timer(Manager *m, usec_t next);
 static int manager_clock_watch_setup(Manager *m);
@@ -357,18 +315,18 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
         (void) touch("/var/lib/systemd/timesync/clock");
         (void) touch("/run/systemd/timesync/synchronized");
 
-        m->drift_ppm = tmx.freq / 65536;
+        m->drift_freq = tmx.freq;
 
         log_debug("  status       : %04i %s\n"
                   "  time now     : %"PRI_TIME".%03"PRI_USEC"\n"
                   "  constant     : %"PRI_TIMEX"\n"
                   "  offset       : %+.3f sec\n"
-                  "  freq offset  : %+"PRI_TIMEX" (%i ppm)\n",
+                  "  freq offset  : %+"PRI_TIMEX" (%+"PRI_TIMEX" ppm)\n",
                   tmx.status, tmx.status & STA_UNSYNC ? "unsync" : "sync",
                   tmx.time.tv_sec, tmx.time.tv_usec / NSEC_PER_MSEC,
                   tmx.constant,
                   (double)tmx.offset / NSEC_PER_SEC,
-                  tmx.freq, m->drift_ppm);
+                  tmx.freq, tmx.freq / 65536);
 
         return 0;
 }
@@ -652,9 +610,17 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_error_errno(r, "Failed to call clock_adjtime(): %m");
         }
 
-        log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+ippm%s",
-                  m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
+        /* Save NTP response */
+        m->ntpmsg = ntpmsg;
+        m->origin_time = m->trans_time;
+        m->dest_time = *recv_time;
+        m->spike = spike;
+
+        log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+"PRI_TIMEX"ppm%s",
+                  m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_freq / 65536,
                   spike ? " (ignored)" : "");
+
+        (void) sd_bus_emit_properties_changed(m->bus, "/org/freedesktop/timesync1", "org.freedesktop.timesync1.Manager", "NTPMessage", NULL);
 
         if (!m->good) {
                 _cleanup_free_ char *pretty = NULL;
@@ -985,6 +951,8 @@ void manager_free(Manager *m) {
 
         sd_resolve_unref(m->resolve);
         sd_event_unref(m->event);
+
+        sd_bus_unref(m->bus);
 
         free(m);
 }

@@ -16,6 +16,7 @@
 #include "network-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "timesyncd-bus.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "user-util.h"
@@ -130,6 +131,12 @@ int main(int argc, char *argv[]) {
         r = manager_new(&m);
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate manager: %m");
+                goto finish;
+        }
+
+        r = manager_connect_bus(m);
+        if (r < 0) {
+                log_error_errno(r, "Could not connect to bus: %m");
                 goto finish;
         }
 

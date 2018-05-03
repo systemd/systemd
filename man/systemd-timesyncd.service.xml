@@ -70,6 +70,10 @@
     <para><citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
     <command>set-ntp</command> command may be used to enable and
     start, or disable and stop this service.</para>
+
+    <para><citerefentry><refentrytitle>timedatectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+    <command>timesync-status</command> or <command>show-timesync</command> command can be used to show the
+    current status of this service.</para>
   </refsect1>
 
   <refsect1>
