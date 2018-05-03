@@ -229,23 +229,59 @@ const char *signal_to_string(int signo) {
 }
 
 int signal_from_string(const char *s) {
-        int signo;
-        int offset = 0;
-        unsigned u;
+        const char *p;
+        int signo, r;
 
+        /* Check that the input is a signal name. */
         signo = __signal_from_string(s);
         if (signo > 0)
                 return signo;
 
-        if (startswith(s, "RTMIN+")) {
-                s += 6;
-                offset = SIGRTMIN;
-        }
-        if (safe_atou(s, &u) >= 0) {
-                signo = (int) u + offset;
+        if (safe_atoi(s, &signo) >= 0) {
                 if (SIGNAL_VALID(signo))
                         return signo;
+                else
+                        return -ERANGE;
         }
+
+        /* Check that the input is RTMIN or
+         * RTMIN+n (0 <= n <= SIGRTMAX-SIGRTMIN). */
+        p = startswith(s, "RTMIN");
+        if (p) {
+                if (*p == '\0')
+                        return SIGRTMIN;
+                if (*p != '+')
+                        return -EINVAL;
+
+                r = safe_atoi(p, &signo);
+                if (r < 0)
+                        return r;
+
+                if (signo < 0 || signo > SIGRTMAX - SIGRTMIN)
+                        return -ERANGE;
+
+                return signo + SIGRTMIN;
+        }
+
+        /* Check that the input is RTMAX or
+         * RTMAX-n (0 <= n <= SIGRTMAX-SIGRTMIN). */
+        p = startswith(s, "RTMAX");
+        if (p) {
+                if (*p == '\0')
+                        return SIGRTMAX;
+                if (*p != '-')
+                        return -EINVAL;
+
+                r = safe_atoi(p, &signo);
+                if (r < 0)
+                        return r;
+
+                if (signo > 0 || signo < SIGRTMIN - SIGRTMAX)
+                        return -ERANGE;
+
+                return signo + SIGRTMAX;
+        }
+
         return -EINVAL;
 }
 
