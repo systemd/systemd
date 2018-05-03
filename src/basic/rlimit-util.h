@@ -22,4 +22,6 @@ int rlimit_parse(int resource, const char *val, struct rlimit *ret);
 
 int rlimit_format(const struct rlimit *rl, char **ret);
 
+void rlimit_free_all(struct rlimit **rl);
+
 #define RLIMIT_MAKE_CONST(lim) ((struct rlimit) { lim, lim })

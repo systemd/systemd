@@ -3574,8 +3574,7 @@ void exec_context_done(ExecContext *c) {
         c->pass_environment = strv_free(c->pass_environment);
         c->unset_environment = strv_free(c->unset_environment);
 
-        for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
-                c->rlimit[l] = mfree(c->rlimit[l]);
+        rlimit_free_all(c->rlimit);
 
         for (l = 0; l < 3; l++) {
                 c->stdio_fdname[l] = mfree(c->stdio_fdname[l]);
