@@ -1273,6 +1273,39 @@ static int map_link_current_dns_server(sd_bus *bus, const char *member, sd_bus_m
         return read_dns_server_one(m, false, userdata);
 }
 
+static int read_domain_one(sd_bus_message *m, bool with_ifindex, char **ret) {
+        _cleanup_free_ char *str = NULL;
+        int ifindex, route_only, r;
+        const char *domain;
+
+        assert(m);
+        assert(ret);
+
+        if (with_ifindex)
+                r = sd_bus_message_read(m, "(isb)", &ifindex, &domain, &route_only);
+        else
+                r = sd_bus_message_read(m, "(sb)", &domain, &route_only);
+        if (r <= 0)
+                return r;
+
+        if (with_ifindex && ifindex != 0) {
+                /* only show the global ones here */
+                *ret = NULL;
+                return 1;
+        }
+
+        if (route_only)
+                str = strappend("~", domain);
+        else
+                str = strdup(domain);
+        if (!str)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(str);
+
+        return 1;
+}
+
 static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         char ***l = userdata;
         int r;
@@ -1287,22 +1320,16 @@ static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, 
                 return r;
 
         for (;;) {
-                const char *domain;
-                int route_only;
-                char *pretty;
+                char *pretty = NULL;
 
-                r = sd_bus_message_read(m, "(sb)", &domain, &route_only);
+                r = read_domain_one(m, false, &pretty);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                if (route_only)
-                        pretty = strappend("~", domain);
-                else
-                        pretty = strdup(domain);
-                if (!pretty)
-                        return -ENOMEM;
+                if (isempty(pretty))
+                        continue;
 
                 r = strv_consume(l, pretty);
                 if (r < 0)
@@ -1554,25 +1581,16 @@ static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m
                 return r;
 
         for (;;) {
-                const char *domain;
-                int route_only, ifindex;
-                char *pretty;
+                char *pretty = NULL;
 
-                r = sd_bus_message_read(m, "(isb)", &ifindex, &domain, &route_only);
+                r = read_domain_one(m, true, &pretty);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                if (ifindex != 0) /* only show the global ones here */
+                if (isempty(pretty))
                         continue;
-
-                if (route_only)
-                        pretty = strappend("~", domain);
-                else
-                        pretty = strdup(domain);
-                if (!pretty)
-                        return -ENOMEM;
 
                 r = strv_consume(l, pretty);
                 if (r < 0)
