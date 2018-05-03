@@ -81,23 +81,26 @@ static const MountEntry apivfs_table[] = {
 
 /* ProtectKernelTunables= option and the related filesystem APIs */
 static const MountEntry protect_kernel_tunables_table[] = {
-        { "/proc/sys",           READONLY,     false },
-        { "/proc/sysrq-trigger", READONLY,     true  },
-        { "/proc/latency_stats", READONLY,     true  },
-        { "/proc/mtrr",          READONLY,     true  },
-        { "/proc/apm",           READONLY,     true  }, /* Obsolete API, there's no point in permitting access to this, ever */
         { "/proc/acpi",          READONLY,     true  },
-        { "/proc/timer_stats",   READONLY,     true  },
+        { "/proc/apm",           READONLY,     true  }, /* Obsolete API, there's no point in permitting access to this, ever */
         { "/proc/asound",        READONLY,     true  },
         { "/proc/bus",           READONLY,     true  },
         { "/proc/fs",            READONLY,     true  },
         { "/proc/irq",           READONLY,     true  },
+        { "/proc/kallsyms",      INACCESSIBLE, true  },
+        { "/proc/kcore",         INACCESSIBLE, true  },
+        { "/proc/latency_stats", READONLY,     true  },
+        { "/proc/mtrr",          READONLY,     true  },
+        { "/proc/scsi",          READONLY,     true  },
+        { "/proc/sys",           READONLY,     false },
+        { "/proc/sysrq-trigger", READONLY,     true  },
+        { "/proc/timer_stats",   READONLY,     true  },
         { "/sys",                READONLY,     false },
-        { "/sys/kernel/debug",   READONLY,     true  },
-        { "/sys/kernel/tracing", READONLY,     true  },
         { "/sys/fs/bpf",         READONLY,     true  },
         { "/sys/fs/cgroup",      READWRITE,    false }, /* READONLY is set by ProtectControlGroups= option */
         { "/sys/fs/selinux",     READWRITE,    true  },
+        { "/sys/kernel/debug",   READONLY,     true  },
+        { "/sys/kernel/tracing", READONLY,     true  },
 };
 
 /* ProtectKernelModules= option */
