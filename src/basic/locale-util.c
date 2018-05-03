@@ -354,6 +354,13 @@ bool keymap_is_valid(const char *name) {
 
 const char *special_glyph(SpecialGlyph code) {
 
+        /* A list of a number of interesting unicode glyphs we can use to decorate our output. It's probably wise to be
+         * conservative here, and primarily stick to the glyphs defined in the eurlatgr font, so that display still
+         * works reasonably well on the Linux console. For details see:
+         *
+         * http://git.altlinux.org/people/legion/packages/kbd.git?p=kbd.git;a=blob;f=data/consolefonts/README.eurlatgr
+         */
+
         static const char* const draw_table[2][_SPECIAL_GLYPH_MAX] = {
                 /* ASCII fallback */
                 [false] = {
