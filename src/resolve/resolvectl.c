@@ -1169,6 +1169,66 @@ static int reset_server_features(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static int read_dns_server_one(sd_bus_message *m, bool with_ifindex, char **ret) {
+        _cleanup_free_ char *pretty = NULL;
+        int ifindex, family, r;
+        const void *a;
+        size_t sz;
+
+        assert(m);
+        assert(ret);
+
+        r = sd_bus_message_enter_container(m, 'r', with_ifindex ? "iiay" : "iay");
+        if (r <= 0)
+                return r;
+
+        if (with_ifindex) {
+                r = sd_bus_message_read(m, "i", &ifindex);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_read(m, "i", &family);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read_array(m, 'y', &a, &sz);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return r;
+
+        if (with_ifindex && ifindex != 0) {
+                /* only show the global ones here */
+                *ret = NULL;
+                return 1;
+        }
+
+        if (!IN_SET(family, AF_INET, AF_INET6)) {
+                log_debug("Unexpected family, ignoring: %i", family);
+
+                *ret = NULL;
+                return 1;
+        }
+
+        if (sz != FAMILY_ADDRESS_SIZE(family)) {
+                log_debug("Address size mismatch, ignoring.");
+
+                *ret = NULL;
+                return 1;
+        }
+
+        r = in_addr_to_string(family, a, &pretty);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(pretty);
+
+        return 1;
+}
+
 static int map_link_dns_servers(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         char ***l = userdata;
         int r;
@@ -1183,42 +1243,16 @@ static int map_link_dns_servers(sd_bus *bus, const char *member, sd_bus_message 
                 return r;
 
         for (;;) {
-                const void *a;
-                char *pretty;
-                int family;
-                size_t sz;
+                char *pretty = NULL;
 
-                r = sd_bus_message_enter_container(m, 'r', "iay");
+                r = read_dns_server_one(m, false, &pretty);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                r = sd_bus_message_read(m, "i", &family);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_read_array(m, 'y', &a, &sz);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_exit_container(m);
-                if (r < 0)
-                        return r;
-
-                if (!IN_SET(family, AF_INET, AF_INET6)) {
-                        log_debug("Unexpected family, ignoring.");
+                if (isempty(pretty))
                         continue;
-                }
-
-                if (sz != FAMILY_ADDRESS_SIZE(family)) {
-                        log_debug("Address size mismatch, ignoring.");
-                        continue;
-                }
-
-                r = in_addr_to_string(family, a, &pretty);
-                if (r < 0)
-                        return r;
 
                 r = strv_consume(l, pretty);
                 if (r < 0)
@@ -1464,45 +1498,16 @@ static int map_global_dns_servers(sd_bus *bus, const char *member, sd_bus_messag
                 return r;
 
         for (;;) {
-                const void *a;
-                char *pretty;
-                int family, ifindex;
-                size_t sz;
+                char *pretty = NULL;
 
-                r = sd_bus_message_enter_container(m, 'r', "iiay");
+                r = read_dns_server_one(m, true, &pretty);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                r = sd_bus_message_read(m, "ii", &ifindex, &family);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_read_array(m, 'y', &a, &sz);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_message_exit_container(m);
-                if (r < 0)
-                        return r;
-
-                if (ifindex != 0) /* only show the global ones here */
+                if (isempty(pretty))
                         continue;
-
-                if (!IN_SET(family, AF_INET, AF_INET6)) {
-                        log_debug("Unexpected family, ignoring.");
-                        continue;
-                }
-
-                if (sz != FAMILY_ADDRESS_SIZE(family)) {
-                        log_debug("Address size mismatch, ignoring.");
-                        continue;
-                }
-
-                r = in_addr_to_string(family, a, &pretty);
-                if (r < 0)
-                        return r;
 
                 r = strv_consume(l, pretty);
                 if (r < 0)
@@ -1578,6 +1583,7 @@ static int status_print_strv_global(char **p) {
 static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         struct global_info {
+                char *current_dns;
                 char **dns;
                 char **domains;
                 char **ntas;
