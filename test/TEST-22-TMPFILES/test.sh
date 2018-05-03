@@ -9,7 +9,7 @@ TEST_NO_QEMU=1
 
 test_setup() {
     # create the basic filesystem layout
-    setup_basic_environment >/dev/null
+    setup_basic_environment
     inst_binary mv
     inst_binary stat
     inst_binary seq
