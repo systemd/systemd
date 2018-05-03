@@ -7601,7 +7601,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 's':
-                        arg_signal = signal_from_string_try_harder(optarg);
+                        arg_signal = signal_from_string(optarg);
                         if (arg_signal < 0) {
                                 log_error("Failed to parse signal string %s.", optarg);
                                 return -EINVAL;

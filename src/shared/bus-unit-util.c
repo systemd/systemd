@@ -109,7 +109,7 @@ DEFINE_BUS_APPEND_PARSE("i", log_level_from_string);
 DEFINE_BUS_APPEND_PARSE("i", parse_errno);
 DEFINE_BUS_APPEND_PARSE("i", sched_policy_from_string);
 DEFINE_BUS_APPEND_PARSE("i", secure_bits_from_string);
-DEFINE_BUS_APPEND_PARSE("i", signal_from_string_try_harder);
+DEFINE_BUS_APPEND_PARSE("i", signal_from_string);
 DEFINE_BUS_APPEND_PARSE("i", socket_protocol_from_name);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, ioprio_parse_priority);
 DEFINE_BUS_APPEND_PARSE_PTR("i", int32_t, int, parse_nice);
@@ -1189,7 +1189,7 @@ static int bus_append_kill_property(sd_bus_message *m, const char *field, const 
 
         if (streq(field, "KillSignal"))
 
-                return bus_append_signal_from_string_try_harder(m, field, eq);
+                return bus_append_signal_from_string(m, field, eq);
 
         return 0;
 }
@@ -1298,7 +1298,7 @@ static int bus_append_service_property(sd_bus_message *m, const char *field, con
 
                         r = safe_atoi(word, &val);
                         if (r < 0) {
-                                val = signal_from_string_try_harder(word);
+                                val = signal_from_string(word);
                                 if (val < 0)
                                         return log_error_errno(r, "Invalid status or signal %s in %s: %m", word, field);
 

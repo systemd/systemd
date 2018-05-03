@@ -972,7 +972,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KILL_SIGNAL:
-                        arg_kill_signal = signal_from_string_try_harder(optarg);
+                        arg_kill_signal = signal_from_string(optarg);
                         if (arg_kill_signal < 0) {
                                 log_error("Cannot parse signal: %s", optarg);
                                 return -EINVAL;

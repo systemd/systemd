@@ -927,7 +927,7 @@ int config_parse_signal(
         assert(rvalue);
         assert(sig);
 
-        r = signal_from_string_try_harder(rvalue);
+        r = signal_from_string(rvalue);
         if (r <= 0) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse signal name, ignoring: %s", rvalue);
                 return 0;
