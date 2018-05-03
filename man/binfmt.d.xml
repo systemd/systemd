@@ -54,11 +54,9 @@
   <refsect1>
     <title>Configuration Format</title>
 
-    <para>Each file contains a list of binfmt_misc kernel binary
-    format rules. Consult <ulink
-    url="https://www.kernel.org/doc/Documentation/admin-guide/binfmt-misc.rst">binfmt-misc.rst</ulink>
-    for more information on registration of additional binary formats
-    and how to write rules.</para>
+    <para>Each file contains a list of binfmt_misc kernel binary format rules. Consult the kernel's <ulink
+    url="https://www.kernel.org/doc/html/latest/admin-guide/binfmt-misc.html">binfmt-misc.rst</ulink> documentation
+    file for more information on registration of additional binary formats and how to write rules.</para>
 
     <para>Empty lines and lines beginning with ; and # are ignored.
     Note that this means you may not use ; and # as delimiter in
