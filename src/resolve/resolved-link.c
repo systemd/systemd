@@ -41,6 +41,7 @@ int link_new(Manager *m, Link **ret, int ifindex) {
         l->llmnr_support = RESOLVE_SUPPORT_YES;
         l->mdns_support = RESOLVE_SUPPORT_NO;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
+        l->private_dns_mode = _PRIVATE_DNS_MODE_INVALID;
         l->operstate = IF_OPER_UNKNOWN;
 
         if (asprintf(&l->state_file, "/run/systemd/resolve/netif/%i", ifindex) < 0)
@@ -65,6 +66,7 @@ void link_flush_settings(Link *l) {
         l->llmnr_support = RESOLVE_SUPPORT_YES;
         l->mdns_support = RESOLVE_SUPPORT_NO;
         l->dnssec_mode = _DNSSEC_MODE_INVALID;
+        l->private_dns_mode = _PRIVATE_DNS_MODE_INVALID;
 
         dns_server_unlink_all(l->dns_servers);
         dns_search_domain_unlink_all(l->search_domains);
@@ -352,6 +354,46 @@ clear:
         return r;
 }
 
+void link_set_private_dns_mode(Link *l, PrivateDnsMode mode) {
+
+        assert(l);
+
+#if ! HAVE_GNUTLS
+        if (mode != PRIVATE_DNS_NO)
+                log_warning("Private DNS option for the link cannot be set to opportunistic when systemd-resolved is built without gnutls support. Turning off Private DNS support.");
+        return;
+#endif
+
+        l->private_dns_mode = mode;
+}
+
+static int link_update_private_dns_mode(Link *l) {
+        _cleanup_free_ char *b = NULL;
+        int r;
+
+        assert(l);
+
+        r = sd_network_link_get_private_dns(l->ifindex, &b);
+        if (r == -ENODATA) {
+                r = 0;
+                goto clear;
+        }
+        if (r < 0)
+                goto clear;
+
+        l->private_dns_mode = private_dns_mode_from_string(b);
+        if (l->private_dns_mode < 0) {
+                r = -EINVAL;
+                goto clear;
+        }
+
+        return 0;
+
+clear:
+        l->private_dns_mode = _PRIVATE_DNS_MODE_INVALID;
+        return r;
+}
+
 void link_set_dnssec_mode(Link *l, DnssecMode mode) {
 
         assert(l);
@@ -559,6 +601,10 @@ static void link_read_settings(Link *l) {
         if (r < 0)
                 log_warning_errno(r, "Failed to read mDNS support for interface %s, ignoring: %m", l->name);
 
+        r = link_update_private_dns_mode(l);
+        if (r < 0)
+                log_warning_errno(r, "Failed to read Private DNS mode for interface %s, ignoring: %m", l->name);
+
         r = link_update_dnssec_mode(l);
         if (r < 0)
                 log_warning_errno(r, "Failed to read DNSSEC mode for interface %s, ignoring: %m", l->name);
@@ -690,6 +736,15 @@ void link_next_dns_server(Link *l) {
         }
 
         link_set_dns_server(l, l->dns_servers);
+}
+
+PrivateDnsMode link_get_private_dns_mode(Link *l) {
+        assert(l);
+
+        if (l->private_dns_mode != _PRIVATE_DNS_MODE_INVALID)
+                return l->private_dns_mode;
+
+        return manager_get_private_dns_mode(l->manager);
 }
 
 DnssecMode link_get_dnssec_mode(Link *l) {

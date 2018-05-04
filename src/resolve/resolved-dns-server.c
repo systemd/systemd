@@ -831,6 +831,9 @@ DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
 PrivateDnsMode dns_server_get_private_dns_mode(DnsServer *s) {
         assert(s);
 
+        if (s->link)
+                return link_get_private_dns_mode(s->link);
+
         return manager_get_private_dns_mode(s->manager);
 }
 

@@ -52,12 +52,14 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                  * not update it from the on, even if the setting
                  * changes. */
 
-                if (l)
+                if (l) {
                         s->dnssec_mode = link_get_dnssec_mode(l);
-                else
+                        s->private_dns_mode = link_get_private_dns_mode(l);
+                } else {
                         s->dnssec_mode = manager_get_dnssec_mode(m);
+                        s->private_dns_mode = manager_get_private_dns_mode(m);
+                }
 
-                s->private_dns_mode = manager_get_private_dns_mode(m);
         } else {
                 s->dnssec_mode = DNSSEC_NO;
                 s->private_dns_mode = PRIVATE_DNS_NO;

@@ -60,6 +60,7 @@ Network.Domains,                        config_parse_domains,                   
 Network.DNS,                            config_parse_dns,                               0,                             0
 Network.LLMNR,                          config_parse_resolve_support,                   0,                             offsetof(Network, llmnr)
 Network.MulticastDNS,                   config_parse_resolve_support,                   0,                             offsetof(Network, mdns)
+Network.PrivateDNS,                     config_parse_private_dns_mode,                  0,                             offsetof(Network, private_dns_mode)
 Network.DNSSEC,                         config_parse_dnssec_mode,                       0,                             offsetof(Network, dnssec_mode)
 Network.DNSSECNegativeTrustAnchors,     config_parse_dnssec_negative_trust_anchors,     0,                             0
 Network.NTP,                            config_parse_ntp,                               0,                             offsetof(Network, ntp)
