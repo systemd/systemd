@@ -45,7 +45,7 @@ bool ether_addr_equal(const struct ether_addr *a, const struct ether_addr *b) {
                 a->ether_addr_octet[5] == b->ether_addr_octet[5];
 }
 
-int ether_addr_from_string(const char *s, struct ether_addr *ret, size_t *offset) {
+int ether_addr_from_string(const char *s, struct ether_addr *ret) {
         size_t pos = 0, n, field;
         char sep = '\0';
         const char *hex = HEXDIGITS, *hexoff;
@@ -84,31 +84,35 @@ int ether_addr_from_string(const char *s, struct ether_addr *ret, size_t *offset
         assert(s);
         assert(ret);
 
+        s += strspn(s, WHITESPACE);
         sep = s[strspn(s, hex)];
-        if (sep == '\n')
-                return -EINVAL;
-        if (!strchr(":.-", sep))
-                return -EINVAL;
 
         if (sep == '.') {
                 uint16_t shorts[3] = { 0 };
 
                 parse_fields(shorts);
 
+                if (s[pos] != '\0')
+                        return -EINVAL;
+
                 for (n = 0; n < ELEMENTSOF(shorts); n++) {
                         ret->ether_addr_octet[2*n] = ((shorts[n] & (uint16_t)0xff00) >> 8);
                         ret->ether_addr_octet[2*n + 1] = (shorts[n] & (uint16_t)0x00ff);
                 }
-        } else {
-                struct ether_addr out = { .ether_addr_octet = { 0 } };
+
+        } else if (IN_SET(sep, ':', '-')) {
+                struct ether_addr out = ETHER_ADDR_NULL;
 
                 parse_fields(out.ether_addr_octet);
 
+                if (s[pos] != '\0')
+                        return -EINVAL;
+
                 for (n = 0; n < ELEMENTSOF(out.ether_addr_octet); n++)
                         ret->ether_addr_octet[n] = out.ether_addr_octet[n];
-        }
 
-        if (offset)
-                *offset = pos;
+        } else
+                return -EINVAL;
+
         return 0;
 }

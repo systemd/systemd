@@ -58,10 +58,10 @@ static void test_config_parse_hwaddr_one(const char *rvalue, int ret, const stru
         assert_se(ret == r);
         if (expected) {
                 assert_se(actual);
-                assert(ether_addr_equal(expected, actual));
-        } else {
+                assert_se(ether_addr_equal(expected, actual));
+        } else
                 assert_se(actual == NULL);
-        }
+
         free(actual);
 }
 
@@ -90,12 +90,13 @@ static void test_config_parse_hwaddr(void) {
                 { .ether_addr_octet = { 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff } },
                 { .ether_addr_octet = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab } },
         };
+
         test_config_parse_hwaddr_one("", 0, NULL);
         test_config_parse_hwaddr_one("no:ta:ma:ca:dd:re", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:fx", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff", 0, &t[0]);
         test_config_parse_hwaddr_one(" aa:bb:cc:dd:ee:ff", 0, &t[0]);
-        test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff \t\n", 0, &t[0]);
+        test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff \t\n", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:dd:ee:ff \t\nxxx", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc: dd:ee:ff", 0, NULL);
         test_config_parse_hwaddr_one("aa:bb:cc:d d:ee:ff", 0, NULL);
