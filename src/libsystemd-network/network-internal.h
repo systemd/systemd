@@ -12,6 +12,7 @@
 #include "sd-dhcp-lease.h"
 
 #include "condition.h"
+#include "set.h"
 #include "udev.h"
 
 #define LINK_BRIDGE_PORT_PRIORITY_INVALID 128
@@ -41,6 +42,10 @@ int config_parse_net_condition(const char *unit, const char *filename, unsigned 
 int config_parse_hwaddr(const char *unit, const char *filename, unsigned line,
                         const char *section, unsigned section_line, const char *lvalue,
                         int ltype, const char *rvalue, void *data, void *userdata);
+
+int config_parse_hwaddrs(const char *unit, const char *filename, unsigned line,
+                         const char *section, unsigned section_line, const char *lvalue,
+                         int ltype, const char *rvalue, void *data, void *userdata);
 
 int config_parse_ifnames(const char *unit, const char *filename, unsigned line,
                          const char *section, unsigned section_line, const char *lvalue,

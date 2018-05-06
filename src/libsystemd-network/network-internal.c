@@ -306,6 +306,79 @@ int config_parse_hwaddr(const char *unit,
         return 0;
 }
 
+int config_parse_hwaddrs(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
+
+        _cleanup_set_free_free_ Set *s = NULL;
+        const char *p = rvalue;
+        Set **hwaddrs = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                set_free_free(*hwaddrs);
+                return 0;
+        }
+
+        s = set_new(&ether_addr_hash_ops);
+        if (!s)
+                return log_oom();
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                _cleanup_free_ struct ether_addr *n = NULL;
+
+                r = extract_first_word(&p, &word, NULL, 0);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+
+                n = new0(struct ether_addr, 1);
+                if (!n)
+                        return log_oom();
+
+                r = ether_addr_from_string(word, n);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not a valid MAC address, ignoring: %s", word);
+                        continue;
+                }
+
+                r = set_put(s, n);
+                if (r < 0)
+                        return log_oom();
+                if (r > 0)
+                        n = NULL; /* avoid cleanup */
+        }
+
+        r = set_ensure_allocated(hwaddrs, &ether_addr_hash_ops);
+        if (r < 0)
+                return log_oom();
+
+        r = set_move(*hwaddrs, s);
+        if (r < 0)
+                return log_oom();
+
+        return 0;
+}
+
 int config_parse_iaid(const char *unit,
                       const char *filename,
                       unsigned line,
