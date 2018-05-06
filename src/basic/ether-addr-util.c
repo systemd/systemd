@@ -33,17 +33,21 @@ char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR
         return buffer;
 }
 
-bool ether_addr_equal(const struct ether_addr *a, const struct ether_addr *b) {
+int ether_addr_compare(const void *a, const void *b) {
         assert(a);
         assert(b);
 
-        return  a->ether_addr_octet[0] == b->ether_addr_octet[0] &&
-                a->ether_addr_octet[1] == b->ether_addr_octet[1] &&
-                a->ether_addr_octet[2] == b->ether_addr_octet[2] &&
-                a->ether_addr_octet[3] == b->ether_addr_octet[3] &&
-                a->ether_addr_octet[4] == b->ether_addr_octet[4] &&
-                a->ether_addr_octet[5] == b->ether_addr_octet[5];
+        return memcmp(a, b, ETH_ALEN);
 }
+
+static void ether_addr_hash_func(const void *p, struct siphash *state) {
+        siphash24_compress(p, sizeof(struct ether_addr), state);
+}
+
+const struct hash_ops ether_addr_hash_ops = {
+        .hash = ether_addr_hash_func,
+        .compare = ether_addr_compare
+};
 
 int ether_addr_from_string(const char *s, struct ether_addr *ret) {
         size_t pos = 0, n, field;
