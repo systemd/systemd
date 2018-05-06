@@ -17,7 +17,7 @@ project('systemd', 'c',
 libsystemd_version = '0.22.0'
 libudev_version = '1.6.10'
 
-# We need the same data in three different formats, ugh!
+# We need the same data in two different formats, ugh!
 # Also, for hysterical reasons, we use different variable
 # names, sometimes. Not all variables are included in every
 # set. Ugh, ugh, ugh!
@@ -28,8 +28,6 @@ conf.set_quoted('PACKAGE_VERSION', meson.project_version())
 substs = configuration_data()
 substs.set('PACKAGE_URL',          'https://www.freedesktop.org/wiki/Software/systemd')
 substs.set('PACKAGE_VERSION',      meson.project_version())
-
-m4_defines = []
 
 #####################################################################
 
@@ -67,10 +65,8 @@ endif
 
 sysvinit_path = get_option('sysvinit-path')
 sysvrcnd_path = get_option('sysvrcnd-path')
-have = sysvinit_path != '' and sysvrcnd_path != ''
-conf.set10('HAVE_SYSV_COMPAT', have,
+conf.set10('HAVE_SYSV_COMPAT', sysvinit_path != '' and sysvrcnd_path != '',
            description : 'SysV init scripts and rcN.d links are supported')
-m4_defines += have ? ['-DHAVE_SYSV_COMPAT'] : []
 
 # join_paths ignore the preceding arguments if an absolute component is
 # encountered, so this should canonicalize various paths when they are
@@ -754,13 +750,8 @@ else
 endif
 substs.set('USERS_GID', users_gid)
 
-if get_option('adm-group')
-        m4_defines += ['-DENABLE_ADM_GROUP']
-endif
-
-if get_option('wheel-group')
-        m4_defines += ['-DENABLE_WHEEL_GROUP']
-endif
+conf.set10('ENABLE_ADM_GROUP', get_option('adm-group'))
+conf.set10('ENABLE_WHEEL_GROUP', get_option('wheel-group'))
 
 substs.set('DEV_KVM_MODE', get_option('dev-kvm-mode'))
 substs.set('GROUP_RENDER_MODE', get_option('group-render-mode'))
@@ -828,7 +819,6 @@ else
         libseccomp = []
 endif
 conf.set10('HAVE_SECCOMP', have)
-m4_defines += have ? ['-DHAVE_SECCOMP'] : []
 
 want_selinux = get_option('selinux')
 if want_selinux != 'false' and not fuzzer_build
@@ -841,7 +831,6 @@ else
         libselinux = []
 endif
 conf.set10('HAVE_SELINUX', have)
-m4_defines += have ? ['-DHAVE_SELINUX'] : []
 
 want_apparmor = get_option('apparmor')
 if want_apparmor != 'false' and not fuzzer_build
@@ -853,12 +842,10 @@ else
         libapparmor = []
 endif
 conf.set10('HAVE_APPARMOR', have)
-m4_defines += have ? ['-DHAVE_APPARMOR'] : []
 
 smack_run_label = get_option('smack-run-label')
 if smack_run_label != ''
         conf.set_quoted('SMACK_RUN_LABEL', smack_run_label)
-        m4_defines += ['-DHAVE_SMACK_RUN_LABEL']
 endif
 
 want_polkit = get_option('polkit')
@@ -885,7 +872,6 @@ else
         libacl = []
 endif
 conf.set10('HAVE_ACL', have)
-m4_defines += have ? ['-DHAVE_ACL'] : []
 
 want_audit = get_option('audit')
 if want_audit != 'false' and not fuzzer_build
@@ -930,7 +916,6 @@ else
         libpam_misc = []
 endif
 conf.set10('HAVE_PAM', have)
-m4_defines += have ? ['-DHAVE_PAM'] : []
 
 want_microhttpd = get_option('microhttpd')
 if want_microhttpd != 'false' and not fuzzer_build
@@ -943,7 +928,6 @@ else
         libmicrohttpd = []
 endif
 conf.set10('HAVE_MICROHTTPD', have)
-m4_defines += have ? ['-DHAVE_MICROHTTPD'] : []
 
 want_libcryptsetup = get_option('libcryptsetup')
 if want_libcryptsetup != 'false' and not fuzzer_build
@@ -968,7 +952,6 @@ else
         libcurl = []
 endif
 conf.set10('HAVE_LIBCURL', have)
-m4_defines += have ? ['-DHAVE_LIBCURL'] : []
 
 want_libidn = get_option('libidn')
 want_libidn2 = get_option('libidn2')
@@ -985,7 +968,6 @@ else
         libidn = []
 endif
 conf.set10('HAVE_LIBIDN', have)
-m4_defines += have ? ['-DHAVE_LIBIDN'] : []
 if not have and want_libidn2 != 'false' and not fuzzer_build
         # libidn is used for both libidn and libidn2 objects
         libidn = dependency('libidn2',
@@ -995,7 +977,6 @@ else
         have = false
 endif
 conf.set10('HAVE_LIBIDN2', have)
-m4_defines += have ? ['-DHAVE_LIBIDN2'] : []
 
 want_libiptc = get_option('libiptc')
 if want_libiptc != 'false' and not fuzzer_build
@@ -1007,7 +988,6 @@ else
         libiptc = []
 endif
 conf.set10('HAVE_LIBIPTC', have)
-m4_defines += have ? ['-DHAVE_LIBIPTC'] : []
 
 want_qrencode = get_option('qrencode')
 if want_qrencode != 'false' and not fuzzer_build
@@ -1234,15 +1214,9 @@ foreach term : ['utmp',
         have = get_option(term)
         name = 'ENABLE_' + term.underscorify().to_upper()
         conf.set10(name, have)
-        m4_defines += have ? ['-D' + name] : []
 endforeach
 
-if get_option('timedated') or get_option('timesyncd')
-        conf.set10('ENABLE_TIMEDATECTL', true)
-        m4_defines += ['-DENABLE_TIMEDATECTL']
-else
-        conf.set10('ENABLE_TIMEDATECTL', false)
-endif
+conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesyncd'))
 
 want_tests = get_option('tests')
 install_tests = get_option('install-tests')
@@ -1288,6 +1262,8 @@ conf.set10('ENABLE_EFI', have)
 config_h = configure_file(
         output : 'config.h',
         configuration : conf)
+
+meson_apply_m4 = find_program('tools/meson-apply-m4.sh')
 
 includes = include_directories('src/basic',
                                'src/shared',

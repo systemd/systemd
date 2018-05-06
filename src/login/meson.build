@@ -98,7 +98,7 @@ if conf.get('ENABLE_LOGIND') == 1
                 '73-seat-late.rules',
                 input : '73-seat-late.rules.m4',
                 output: '73-seat-late.rules',
-                command : [m4, '-P'] + m4_defines + ['@INPUT@'],
+                command : [meson_apply_m4, config_h, '@INPUT@'],
                 capture : true,
                 install : true,
                 install_dir : udevrulesdir)
@@ -107,7 +107,7 @@ if conf.get('ENABLE_LOGIND') == 1
                 'systemd-user',
                 input : 'systemd-user.m4',
                 output: 'systemd-user',
-                command : [m4, '-P'] + m4_defines + ['@INPUT@'],
+                command : [meson_apply_m4, config_h, '@INPUT@'],
                 capture : true,
                 install : pamconfdir != 'no',
                 install_dir : pamconfdir)

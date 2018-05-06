@@ -28,7 +28,7 @@ foreach file : m4_files
                 'sysusers.d_' + file,
                 input : file + '.m4',
                 output: file,
-                command : [m4, '-P'] + m4_defines + ['@INPUT@'],
+                command : [meson_apply_m4, config_h, '@INPUT@'],
                 capture : true,
                 install : enable_sysusers,
                 install_dir : sysusersdir)

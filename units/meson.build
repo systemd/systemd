@@ -272,7 +272,7 @@ foreach tuple : m4_units
                 file,
                 input : input,
                 output: file,
-                command : [m4, '-P'] + m4_defines + ['@INPUT@'],
+                command : [meson_apply_m4, config_h, '@INPUT@'],
                 capture : true,
                 install : install,
                 install_dir : systemunitdir)
