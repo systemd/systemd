@@ -737,13 +737,13 @@
       <varlistentry>
         <term><option>--kill-signal=</option></term>
 
-        <listitem><para>Specify the process signal to send to the
-        container's PID 1 when nspawn itself receives SIGTERM, in
-        order to trigger an orderly shutdown of the
-        container. Defaults to SIGRTMIN+3 if <option>--boot</option>
-        is used (on systemd-compatible init systems SIGRTMIN+3
-        triggers an orderly shutdown). For a list of valid signals, see
-        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+        <listitem><para>Specify the process signal to send to the container's PID 1 when nspawn itself receives
+        <constant>SIGTERM</constant>, in order to trigger an orderly shutdown of the container. Defaults to
+        <constant>SIGRTMIN+3</constant> if <option>--boot</option> is used (on systemd-compatible init systems
+        <constant>SIGRTMIN+3</constant> triggers an orderly shutdown). If <option>--boot</option> is not used and this
+        option is not specified the container's processes are terminated abrubtly via <constant>SIGKILL</constant>. For
+        a list of valid signals, see <citerefentry
+        project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
