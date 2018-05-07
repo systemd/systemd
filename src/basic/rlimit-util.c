@@ -33,6 +33,11 @@ int setrlimit_closest(int resource, const struct rlimit *rlim) {
         if (getrlimit(resource, &highest) < 0)
                 return -errno;
 
+        /* If the hard limit is unbounded anyway, then the EPERM had other reasons, let's propagate the original EPERM
+         * then */
+        if (highest.rlim_max == RLIM_INFINITY)
+                return -EPERM;
+
         fixed.rlim_cur = MIN(rlim->rlim_cur, highest.rlim_max);
         fixed.rlim_max = MIN(rlim->rlim_max, highest.rlim_max);
 
