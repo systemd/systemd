@@ -314,6 +314,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>OOMScoreAdjust=</varname></term>
+
+        <listitem><para>Configures the OOM score adjustment value. This is equivalent to the
+        <option>--oom-score-adjust=</option> command line switch, and takes the same argument. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Hostname=</varname></term>
 
         <listitem><para>Configures the kernel hostname set for the container. This is equivalent to the

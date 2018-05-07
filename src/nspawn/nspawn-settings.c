@@ -634,3 +634,42 @@ int config_parse_hostname(
 
         return 0;
 }
+
+int config_parse_oom_score_adjust(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        int oa, r;
+
+        assert(rvalue);
+        assert(settings);
+
+        if (isempty(rvalue)) {
+                settings->oom_score_adjust_set = false;
+                return 0;
+        }
+
+        r = parse_oom_score_adjust(rvalue, &oa);
+        if (r == -ERANGE) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "OOM score adjust value out of range, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        settings->oom_score_adjust = oa;
+        settings->oom_score_adjust_set = true;
+
+        return 0;
+}

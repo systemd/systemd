@@ -204,6 +204,8 @@ static char **arg_syscall_whitelist = NULL;
 static char **arg_syscall_blacklist = NULL;
 static struct rlimit *arg_rlimit[_RLIMIT_MAX] = {};
 static bool arg_no_new_privileges = false;
+static int arg_oom_score_adjust = 0;
+static bool arg_oom_score_adjust_set = false;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -270,6 +272,8 @@ static void help(void) {
                "     --system-call-filter=LIST|~LIST\n"
                "                            Permit/prohibit specific system calls\n"
                "     --rlimit=NAME=LIMIT    Set a resource limit for the payload\n"
+               "     --oom-score-adjust=VALUE\n"
+               "                            Adjust the OOM score value for the payload\n"
                "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
                "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, \n"
                "                            host, try-guest, try-host\n"
@@ -448,6 +452,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RLIMIT,
                 ARG_HOSTNAME,
                 ARG_NO_NEW_PRIVILEGES,
+                ARG_OOM_SCORE_ADJUST,
         };
 
         static const struct option options[] = {
@@ -504,6 +509,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "root-hash",              required_argument, NULL, ARG_ROOT_HASH              },
                 { "system-call-filter",     required_argument, NULL, ARG_SYSTEM_CALL_FILTER     },
                 { "rlimit",                 required_argument, NULL, ARG_RLIMIT                 },
+                { "oom-score-adjust",       required_argument, NULL, ARG_OOM_SCORE_ADJUST       },
                 {}
         };
 
@@ -1166,6 +1172,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_RLIMIT_FIRST << rl;
                         break;
                 }
+
+                case ARG_OOM_SCORE_ADJUST:
+                        r = parse_oom_score_adjust(optarg, &arg_oom_score_adjust);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --oom-score-adjust= parameter: %s", optarg);
+
+                        arg_oom_score_adjust_set = true;
+                        arg_settings_mask |= SETTING_OOM_SCORE_ADJUST;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -2451,6 +2466,12 @@ static int inner_child(
                 rtnl_socket = safe_close(rtnl_socket);
         }
 
+        if (arg_oom_score_adjust_set) {
+                r = set_oom_score_adjust(arg_oom_score_adjust);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to adjust OOM score: %m");
+        }
+
         r = drop_capabilities();
         if (r < 0)
                 return log_error_errno(r, "drop_capabilities() failed: %m");
@@ -3360,6 +3381,17 @@ static int load_settings(void) {
         if ((arg_settings_mask & SETTING_NO_NEW_PRIVILEGES) == 0 &&
             settings->no_new_privileges >= 0)
                 arg_no_new_privileges = settings->no_new_privileges;
+
+        if ((arg_settings_mask & SETTING_OOM_SCORE_ADJUST) == 0 &&
+            settings->oom_score_adjust_set) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring OOMScoreAdjust= setting, file '%s' is not trusted.", p);
+                else {
+                        arg_oom_score_adjust = settings->oom_score_adjust;
+                        arg_oom_score_adjust_set = true;
+                }
+        }
 
         return 0;
 }

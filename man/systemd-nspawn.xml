@@ -787,6 +787,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--oom-score-adjust=</option></term>
+
+        <listitem><para>Changes the OOM ("Out Of Memory") score adjustment value for the container payload. This controls
+        <filename>/proc/self/oom_score_adj</filename> which influences the preference with which this container is
+        terminated when memory becomes scarce. For details see <citerefentry
+        project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Takes an
+        integer in the range -1000…1000.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--kill-signal=</option></term>
 
         <listitem><para>Specify the process signal to send to the container's PID 1 when nspawn itself receives
