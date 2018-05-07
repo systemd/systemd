@@ -722,8 +722,8 @@
 
         <listitem><para>Alter the system call filter applied to containers. Takes a space-separated list of system call
         names or group names (the latter prefixed with <literal>@</literal>, as listed by the
-        <command>syscall-filter</command> command of <citerefentry
-        project='man-pages'><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>). Passed
+        <command>syscall-filter</command> command of
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>). Passed
         system calls will be permitted. The list may optionally be prefixed by <literal>~</literal>, in which case all
         listed system calls are prohibited. If this command line option is used multiple times the configured lists are
         combined. If both a positive and a negative list (that is one system call list without and one with the
