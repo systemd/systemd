@@ -708,7 +708,7 @@ int config_parse_string(
                 void *data,
                 void *userdata) {
 
-        char **s = data, *n;
+        char **s = data;
 
         assert(filename);
         assert(lvalue);
@@ -720,16 +720,8 @@ int config_parse_string(
                 return 0;
         }
 
-        if (isempty(rvalue))
-                n = NULL;
-        else {
-                n = strdup(rvalue);
-                if (!n)
-                        return log_oom();
-        }
-
-        free(*s);
-        *s = n;
+        if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
+                return log_oom();
 
         return 0;
 }
