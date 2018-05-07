@@ -222,7 +222,6 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
                 }
 
                 arg_ifindex = ifi;
-                arg_ifname = iface;
         }
 
         if (arg_mode == MODE_SET_LINK) {

@@ -34,7 +34,6 @@
 
 static int arg_family = AF_UNSPEC;
 int arg_ifindex = 0;
-const char *arg_ifname = NULL;
 static uint16_t arg_type = 0;
 static uint16_t arg_class = 0;
 static bool arg_legend = true;
@@ -1828,25 +1827,27 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         sd_bus *bus = userdata;
-        int ifindex, r;
         char **p;
+        int r;
 
         assert(bus);
 
-        if (argc <= 1)
-                return status_all(bus, STATUS_DNS);
-
-        ifindex = parse_ifindex_with_warn(argv[1]);
-        if (ifindex < 0)
-                return ifindex;
-
-        if (ifindex == LOOPBACK_IFINDEX) {
+        if (arg_ifindex == LOOPBACK_IFINDEX) {
                 log_error("Interface can't be the loopback interface (lo). Sorry.");
                 return -EINVAL;
         }
 
-        if (argc == 2)
-                return status_ifindex(bus, ifindex, NULL, STATUS_DNS, NULL);
+        if (argc <= 1) {
+                if (arg_ifindex <= 0)
+                        return status_all(bus, STATUS_DNS);
+                else
+                        return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS, NULL);
+        }
+
+        if (arg_ifindex <= 0) {
+                log_error("--interface= option is required.");
+                return -EINVAL;
+        }
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -1858,7 +1859,7 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(req, "i", ifindex);
+        r = sd_bus_message_append(req, "i", arg_ifindex);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1866,7 +1867,7 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        STRV_FOREACH(p, argv + 2) {
+        STRV_FOREACH(p, argv + 1) {
                 struct in_addr_data data;
 
                 r = in_addr_from_string_auto(*p, &data.family, &data.address);
@@ -1897,7 +1898,7 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         r = sd_bus_call(bus, req, 0, &error, NULL);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
-                        return log_interface_is_managed(r, ifindex);
+                        return log_interface_is_managed(r, arg_ifindex);
 
                 if (arg_ifindex_permissive &&
                     sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
@@ -1913,25 +1914,27 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         sd_bus *bus = userdata;
-        int ifindex, r;
         char **p;
+        int r;
 
         assert(bus);
 
-        if (argc <= 1)
-                return status_all(bus, STATUS_DOMAIN);
-
-        ifindex = parse_ifindex_with_warn(argv[1]);
-        if (ifindex < 0)
-                return ifindex;
-
-        if (ifindex == LOOPBACK_IFINDEX) {
+        if (arg_ifindex == LOOPBACK_IFINDEX) {
                 log_error("Interface can't be the loopback interface (lo). Sorry.");
                 return -EINVAL;
         }
 
-        if (argc == 2)
-                return status_ifindex(bus, ifindex, NULL, STATUS_DOMAIN, NULL);
+        if (argc <= 1) {
+                if (arg_ifindex <= 0)
+                        return status_all(bus, STATUS_DOMAIN);
+                else
+                        return status_ifindex(bus, arg_ifindex, NULL, STATUS_DOMAIN, NULL);
+        }
+
+        if (arg_ifindex <= 0) {
+                log_error("--interface= option is required.");
+                return -EINVAL;
+        }
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -1943,7 +1946,7 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(req, "i", ifindex);
+        r = sd_bus_message_append(req, "i", arg_ifindex);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1951,7 +1954,7 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        STRV_FOREACH(p, argv + 2) {
+        STRV_FOREACH(p, argv + 1) {
                 const char *n;
 
                 n = **p == '~' ? *p + 1 : *p;
@@ -1976,7 +1979,7 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         r = sd_bus_call(bus, req, 0, &error, NULL);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
-                        return log_interface_is_managed(r, ifindex);
+                        return log_interface_is_managed(r, arg_ifindex);
 
                 if (arg_ifindex_permissive &&
                     sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
@@ -1991,24 +1994,26 @@ static int verb_domain(int argc, char **argv, void *userdata) {
 static int verb_llmnr(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        int ifindex, r;
+        int r;
 
         assert(bus);
 
-        if (argc <= 1)
-                return status_all(bus, STATUS_LLMNR);
-
-        ifindex = parse_ifindex_with_warn(argv[1]);
-        if (ifindex < 0)
-                return ifindex;
-
-        if (ifindex == LOOPBACK_IFINDEX) {
+        if (arg_ifindex == LOOPBACK_IFINDEX) {
                 log_error("Interface can't be the loopback interface (lo). Sorry.");
                 return -EINVAL;
         }
 
-        if (argc == 2)
-                return status_ifindex(bus, ifindex, NULL, STATUS_LLMNR, NULL);
+        if (argc <= 1) {
+                if (arg_ifindex <= 0)
+                        return status_all(bus, STATUS_LLMNR);
+                else
+                        return status_ifindex(bus, arg_ifindex, NULL, STATUS_LLMNR, NULL);
+        }
+
+        if (arg_ifindex <= 0) {
+                log_error("--interface= option is required.");
+                return -EINVAL;
+        }
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.resolve1",
@@ -2017,10 +2022,10 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
                                "SetLinkLLMNR",
                                &error,
                                NULL,
-                               "is", ifindex, argv[2]);
+                               "is", arg_ifindex, argv[1]);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
-                        return log_interface_is_managed(r, ifindex);
+                        return log_interface_is_managed(r, arg_ifindex);
 
                 if (arg_ifindex_permissive &&
                     sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
@@ -2035,24 +2040,26 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
 static int verb_mdns(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        int ifindex, r;
+        int r;
 
         assert(bus);
 
-        if (argc <= 1)
-                return status_all(bus, STATUS_MDNS);
-
-        ifindex = parse_ifindex_with_warn(argv[1]);
-        if (ifindex < 0)
-                return ifindex;
-
-        if (ifindex == LOOPBACK_IFINDEX) {
+        if (arg_ifindex == LOOPBACK_IFINDEX) {
                 log_error("Interface can't be the loopback interface (lo). Sorry.");
                 return -EINVAL;
         }
 
-        if (argc == 2)
-                return status_ifindex(bus, ifindex, NULL, STATUS_MDNS, NULL);
+        if (argc <= 1) {
+                if (arg_ifindex <= 0)
+                        return status_all(bus, STATUS_MDNS);
+                else
+                        return status_ifindex(bus, arg_ifindex, NULL, STATUS_MDNS, NULL);
+        }
+
+        if (arg_ifindex <= 0) {
+                log_error("--interface= option is required.");
+                return -EINVAL;
+        }
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.resolve1",
@@ -2061,10 +2068,10 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
                                "SetLinkMulticastDNS",
                                &error,
                                NULL,
-                               "is", ifindex, argv[2]);
+                               "is", arg_ifindex, argv[1]);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
-                        return log_interface_is_managed(r, ifindex);
+                        return log_interface_is_managed(r, arg_ifindex);
 
                 if (arg_ifindex_permissive &&
                     sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
@@ -2079,24 +2086,26 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
 static int verb_dnssec(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        int ifindex, r;
+        int r;
 
         assert(bus);
 
-        if (argc <= 1)
-                return status_all(bus, STATUS_DNSSEC);
-
-        ifindex = parse_ifindex_with_warn(argv[1]);
-        if (ifindex < 0)
-                return ifindex;
-
-        if (ifindex == LOOPBACK_IFINDEX) {
+        if (arg_ifindex == LOOPBACK_IFINDEX) {
                 log_error("Interface can't be the loopback interface (lo). Sorry.");
                 return -EINVAL;
         }
 
-        if (argc == 2)
-                return status_ifindex(bus, ifindex, NULL, STATUS_DNSSEC, NULL);
+        if (argc <= 1) {
+                if (arg_ifindex <= 0)
+                        return status_all(bus, STATUS_DNSSEC);
+                else
+                        return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNSSEC, NULL);
+        }
+
+        if (arg_ifindex <= 0) {
+                log_error("--interface= option is required.");
+                return -EINVAL;
+        }
 
         r = sd_bus_call_method(bus,
                                "org.freedesktop.resolve1",
@@ -2105,10 +2114,10 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
                                "SetLinkDNSSEC",
                                &error,
                                NULL,
-                               "is", ifindex, argv[2]);
+                               "is", arg_ifindex, argv[1]);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
-                        return log_interface_is_managed(r, ifindex);
+                        return log_interface_is_managed(r, arg_ifindex);
 
                 if (arg_ifindex_permissive &&
                     sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
@@ -2124,26 +2133,28 @@ static int verb_nta(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         sd_bus *bus = userdata;
-        int ifindex, i, r;
+        int i, r;
 
         assert(bus);
 
-        if (argc <= 1)
-                return status_all(bus, STATUS_NTA);
-
-        ifindex = parse_ifindex_with_warn(argv[1]);
-        if (ifindex < 0)
-                return ifindex;
-
-        if (ifindex == LOOPBACK_IFINDEX) {
+        if (arg_ifindex == LOOPBACK_IFINDEX) {
                 log_error("Interface can't be the loopback interface (lo). Sorry.");
                 return -EINVAL;
         }
 
-        if (argc == 2)
-                return status_ifindex(bus, ifindex, NULL, STATUS_NTA, NULL);
+        if (argc <= 1) {
+                if (arg_ifindex <= 0)
+                        return status_all(bus, STATUS_NTA);
+                else
+                        return status_ifindex(bus, arg_ifindex, NULL, STATUS_NTA, NULL);
+        }
 
-        for (i = 2; i < argc; i++) {
+        if (arg_ifindex <= 0) {
+                log_error("--interface= option is required.");
+                return -EINVAL;
+        }
+
+        for (i = 1; i < argc; i++) {
                 r = dns_name_is_valid(argv[i]);
                 if (r < 0)
                         return log_error_errno(r, "Failed to validate specified domain %s: %m", argv[i]);
@@ -2163,18 +2174,18 @@ static int verb_nta(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append(req, "i", ifindex);
+        r = sd_bus_message_append(req, "i", arg_ifindex);
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_strv(req, argv + 2);
+        r = sd_bus_message_append_strv(req, argv + 1);
         if (r < 0)
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, req, 0, &error, NULL);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_LINK_BUSY))
-                        return log_interface_is_managed(r, ifindex);
+                        return log_interface_is_managed(r, arg_ifindex);
 
                 if (arg_ifindex_permissive &&
                     sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
@@ -2189,15 +2200,11 @@ static int verb_nta(int argc, char **argv, void *userdata) {
 static int verb_revert_link(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
-        int ifindex, r;
+        int r;
 
         assert(bus);
 
-        ifindex = parse_ifindex_with_warn(argv[1]);
-        if (ifindex < 0)
-                return ifindex;
-
-        if (ifindex == LOOPBACK_IFINDEX) {
+        if (arg_ifindex == LOOPBACK_IFINDEX) {
                 log_error("Interface can't be the loopback interface (lo). Sorry.");
                 return -EINVAL;
         }
@@ -2209,7 +2216,7 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
                                "RevertLink",
                                &error,
                                NULL,
-                               "i", ifindex);
+                               "i", arg_ifindex);
         if (r < 0) {
                 if (arg_ifindex_permissive &&
                     sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
@@ -2431,7 +2438,6 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
-                        arg_ifname = optarg;
                         arg_ifindex = r;
                         break;
 
@@ -2893,30 +2899,28 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 { "reset-server-features", VERB_ANY, 1,        0,            reset_server_features },
                 { "dns",                   VERB_ANY, VERB_ANY, 0,            verb_dns              },
                 { "domain",                VERB_ANY, VERB_ANY, 0,            verb_domain           },
-                { "llmnr",                 VERB_ANY, 3,        0,            verb_llmnr            },
-                { "mdns",                  VERB_ANY, 3,        0,            verb_mdns             },
-                { "dnssec",                VERB_ANY, 3,        0,            verb_dnssec           },
+                { "llmnr",                 VERB_ANY, 2,        0,            verb_llmnr            },
+                { "mdns",                  VERB_ANY, 2,        0,            verb_mdns             },
+                { "dnssec",                VERB_ANY, 2,        0,            verb_dnssec           },
                 { "nta",                   VERB_ANY, VERB_ANY, 0,            verb_nta              },
-                { "revert",                2,        2,        0,            verb_revert_link      },
+                { "revert",                VERB_ANY, 1,        0,            verb_revert_link      },
                 {}
         };
 
         return dispatch_verb(argc, argv, verbs, bus);
 }
 
-static int translate(const char *verb, const char *single_arg, size_t num_args, char **args, sd_bus *bus) {
+static int translate(const char *verb, size_t num_args, char **args, sd_bus *bus) {
         char **fake, **p;
         size_t num, i;
 
         assert(verb);
         assert(num_args == 0 || args);
 
-        num = !!single_arg + num_args + 1;
+        num = num_args + 1;
 
         p = fake = newa0(char *, num + 1);
         *p++ = (char *) verb;
-        if (single_arg)
-                *p++ = (char *) single_arg;
         for (i = 0; i < num_args; i++)
                 *p++ = args[i];
 
@@ -2930,65 +2934,65 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
         switch (arg_mode) {
         case MODE_RESOLVE_HOST:
         case MODE_RESOLVE_RECORD:
-                return translate("query", NULL, argc - optind, argv + optind, bus);
+                return translate("query", argc - optind, argv + optind, bus);
 
         case MODE_RESOLVE_SERVICE:
-                return translate("service", NULL, argc - optind, argv + optind, bus);
+                return translate("service", argc - optind, argv + optind, bus);
 
         case MODE_RESOLVE_OPENPGP:
-                return translate("openpgp", NULL, argc - optind, argv + optind, bus);
+                return translate("openpgp", argc - optind, argv + optind, bus);
 
         case MODE_RESOLVE_TLSA:
-                return translate("tlsa", NULL, argc - optind, argv + optind, bus);
+                return translate("tlsa", argc - optind, argv + optind, bus);
 
         case MODE_STATISTICS:
-                return translate("statistics", NULL, 0, NULL, bus);
+                return translate("statistics", 0, NULL, bus);
 
         case MODE_RESET_STATISTICS:
-                return translate("reset-statistics", NULL, 0, NULL, bus);
+                return translate("reset-statistics", 0, NULL, bus);
 
         case MODE_FLUSH_CACHES:
-                return translate("flush-caches", NULL, 0, NULL, bus);
+                return translate("flush-caches", 0, NULL, bus);
 
         case MODE_RESET_SERVER_FEATURES:
-                return translate("reset-server-features", NULL, 0, NULL, bus);
+                return translate("reset-server-features", 0, NULL, bus);
 
         case MODE_STATUS:
-                return translate("status", NULL, argc - optind, argv + optind, bus);
+                return translate("status", argc - optind, argv + optind, bus);
 
         case MODE_SET_LINK:
                 if (arg_set_dns) {
-                        r = translate("dns", arg_ifname, strv_length(arg_set_dns), arg_set_dns, bus);
+                        r = translate("dns", strv_length(arg_set_dns), arg_set_dns, bus);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_domain) {
-                        r = translate("domain", arg_ifname, strv_length(arg_set_domain), arg_set_domain, bus);
+                        r = translate("domain", strv_length(arg_set_domain), arg_set_domain, bus);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_nta) {
-                        r = translate("nta", arg_ifname, strv_length(arg_set_nta), arg_set_nta, bus);
+                        r = translate("nta", strv_length(arg_set_nta), arg_set_nta, bus);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_llmnr) {
-                        r = translate("llmnr", arg_ifname, 1, (char **) &arg_set_llmnr, bus);
+                        r = translate("llmnr", 1, (char **) &arg_set_llmnr, bus);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_mdns) {
-                        r = translate("mdns", arg_ifname, 1, (char **) &arg_set_mdns, bus);
+                        r = translate("mdns", 1, (char **) &arg_set_mdns, bus);
                         if (r < 0)
                                 return r;
                 }
 
                 if (arg_set_dnssec) {
-                        r = translate("dnssec", arg_ifname, 1, (char **) &arg_set_dnssec, bus);
+                        r = translate("dnssec", 1, (char **) &arg_set_dnssec, bus);
                         if (r < 0)
                                 return r;
                 }
@@ -2996,7 +3000,7 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
                 return r;
 
         case MODE_REVERT_LINK:
-                return translate("revert", arg_ifname, 0, NULL, bus);
+                return translate("revert", 0, NULL, bus);
 
         case _MODE_INVALID:
                 assert_not_reached("invalid mode");
