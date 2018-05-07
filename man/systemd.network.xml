@@ -1246,6 +1246,16 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>UserClass=</varname></term>
+          <listitem>
+            <para>A DHCPv4 client can use UserClass option to identify the type or category of user or applications
+            it represents. The information contained in this option is a string that represents the user class of which
+            the client is a member. Each class sets an identifying string of information to be used by the DHCP
+            service to classify clients. Takes a whitespace-separated list of strings.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>DUIDType=</varname></term>
           <listitem>
             <para>Override the global <varname>DUIDType</varname> setting for this network. See

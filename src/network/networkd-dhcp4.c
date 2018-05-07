@@ -748,6 +748,12 @@ int dhcp4_configure(Link *link) {
                         return r;
         }
 
+        if (link->network->dhcp_user_class) {
+                r = sd_dhcp_client_set_user_class(link->dhcp_client, (const char **) link->network->dhcp_user_class);
+                if (r < 0)
+                        return r;
+        }
+
         if (link->network->dhcp_client_port) {
                 r = sd_dhcp_client_set_client_port(link->dhcp_client, link->network->dhcp_client_port);
                 if (r < 0)
