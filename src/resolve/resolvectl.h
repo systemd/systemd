@@ -5,7 +5,6 @@
 #include <sys/types.h>
 
 extern int arg_ifindex;
-extern const char *arg_ifname;
 extern bool arg_ifindex_permissive;
 
 typedef enum ExecutionMode {

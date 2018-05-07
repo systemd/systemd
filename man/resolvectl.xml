@@ -135,6 +135,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--service-family=</option><replaceable>FAMILY</replaceable></term>
+
+        <listitem><para>Specifies the service family which is used by <option>tlsa</option> command. Takes one of <literal>tcp</literal>,
+        <literal>udp</literal>, or <literal>sctp</literal>. Defaults to <literal>tcp</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--cname=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>Takes a boolean parameter. If true (the default), DNS CNAME or DNAME redirections are
@@ -204,13 +211,14 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>tlsa [<replaceable>FAMILY</replaceable>] <replaceable>DOMAIN</replaceable>[:<replaceable>PORT</replaceable>]…</option></term>
+        <term><option>tlsa <replaceable>DOMAIN</replaceable>[:<replaceable>PORT</replaceable>]…</option></term>
 
         <listitem><para>Query TLS public keys stored as <ulink url="https://tools.ietf.org/html/rfc6698">TLSA</ulink>
         resource records. A query will be performed for each of the specified names prefixed with the port and family
         (<literal>_<replaceable>port</replaceable>._<replaceable>family</replaceable>.<replaceable>domain</replaceable></literal>).
         The port number may be specified after a colon (<literal>:</literal>), otherwise <constant>443</constant> will be used
-        by default. The family may be specified as the first argument, otherwise <constant>tcp</constant> will be used.</para></listitem>
+        by default. The family may be specified by the <option>--service-family</option> option, otherwise <constant>tcp</constant>
+        will be used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -252,12 +260,12 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>dns [<replaceable>LINK</replaceable> [<replaceable>SERVER</replaceable>…]]</option></term>
-        <term><option>domain [<replaceable>LINK</replaceable> [<replaceable>DOMAIN</replaceable>…]]</option></term>
-        <term><option>llmnr [<replaceable>LINK</replaceable> [<replaceable>MODE</replaceable>]]</option></term>
-        <term><option>mdns [<replaceable>LINK</replaceable> [<replaceable>MODE</replaceable>]]</option></term>
-        <term><option>dnssec [<replaceable>LINK</replaceable> [<replaceable>MODE</replaceable>]]</option></term>
-        <term><option>nta [<replaceable>LINK</replaceable> [<replaceable>DOMAIN</replaceable>…]]</option></term>
+        <term><option>dns [<replaceable>SERVER</replaceable>…]</option></term>
+        <term><option>domain [<replaceable>DOMAIN</replaceable>…]</option></term>
+        <term><option>llmnr [<replaceable>MODE</replaceable>]</option></term>
+        <term><option>mdns [<replaceable>MODE</replaceable>]</option></term>
+        <term><option>dnssec [<replaceable>MODE</replaceable>]</option></term>
+        <term><option>nta [<replaceable>DOMAIN</replaceable>…]</option></term>
 
         <listitem><para>Get/set per-interface DNS configuration. These commands may be used to configure various DNS
         settings for network interfaces that aren't managed by
@@ -265,21 +273,23 @@
         commands will fail when used on interfaces that are managed by <command>systemd-networkd</command>, please
         configure their DNS settings directly inside the <filename>.network</filename> files instead.) These commands
         may be used to inform <command>systemd-resolved</command> about per-interface DNS configuration determined
-        through external means. The <option>dns</option> command expects IPv4 or IPv6 address specifications of DNS
-        servers to use. The <option>domain</option> command expects valid DNS domains, possibly prefixed with
-        <literal>~</literal>, and configures a per-interface search or route-only domain. The <option>llmnr</option>,
-        <option>mdns</option> and <option>dnssec</option> commands may be used to configure the per-interface LLMNR,
-        MulticastDNS and DNSSEC settings. Finally, <option>nta</option> command may be used to configure additional
-        per-interface DNSSEC NTA domains. For details about these settings, their possible values and their effect,
-        see the corresponding options in
+        through external means. When the new DNS configurations are specified, it must be combined with
+        <option>--interface=</option> to indicate the network interface the configuration belongs to. The
+        <option>dns</option> command expects IPv4 or IPv6 address specifications of DNS servers to use. The
+        <option>domain</option> command expects valid DNS domains, possibly prefixed with <literal>~</literal>, and
+        configures a per-interface search or route-only domain. The <option>llmnr</option>, <option>mdns</option> and
+        <option>dnssec</option> commands may be used to configure the per-interface LLMNR, MulticastDNS and DNSSEC settings.
+        Finally, <option>nta</option> command may be used to configure additional per-interface DNSSEC NTA domains.
+        For details about these settings, their possible values and their effect, see the corresponding options in
         <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>revert <replaceable>LINK</replaceable></option></term>
+        <term><option>revert</option></term>
 
-        <listitem><para>Revert the per-interface DNS configuration. If the DNS configuration is reverted all
+        <listitem><para>Revert the per-interface DNS configuration. This option must be combined with <option>--interface=</option>
+        to indicate the network interface the DNS configuration shall be reverted on. If the DNS configuration is reverted all
         per-interface DNS setting are reset to their defaults, undoing all effects of <option>dns</option>,
         <option>domain</option>, <option>llmnr</option>, <option>mdns</option>, <option>dnssec</option>,
         <option>nta=</option>. Note that when a network interface disappears all configuration is lost automatically,
