@@ -374,6 +374,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--hostname=</option></term>
+
+        <listitem><para>Controls the hostname to set within the container, if different from the machine name. Expects
+        a valid hostname as argument. If this option is used, the kernel hostname of the container will be set to this
+        value, otherwise it will be initialized to the machine name as controlled by the <option>--machine=</option>
+        option described above. The machine name is used for various aspect of identification of the container from the
+        outside, the kernel hostname configurable with this option is useful for the container to identify itself from
+        the inside. It is usually a good idea to keep both forms of identification synchronized, in order to avoid
+        confusion. It is hence recommended to avoid usage of this option, and use <option>--machine=</option>
+        exclusively. Note that regardless whether the container's hostname is initialized from the name set with
+        <option>--hostname=</option> or the one set with <option>--machine=</option>, the container can later override
+        its kernel hostname freely on its own as well.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--uuid=</option></term>
 
         <listitem><para>Set the specified UUID for the container. The

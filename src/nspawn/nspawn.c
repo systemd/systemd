@@ -128,7 +128,8 @@ static char *arg_pivot_root_new = NULL;
 static char *arg_pivot_root_old = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
-static char *arg_machine = NULL;
+static char *arg_machine = NULL;     /* The name used by the host to refer to this */
+static char *arg_hostname = NULL;    /* The name the payload sees by default */
 static const char *arg_selinux_context = NULL;
 static const char *arg_selinux_apifs_context = NULL;
 static const char *arg_slice = NULL;
@@ -223,6 +224,7 @@ static void help(void) {
                "                            Pivot root to given directory in the container\n"
                "  -u --user=USER            Run the command under specified user or uid\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
+               "     --hostname=NAME        Override the hostname for the container\n"
                "     --uuid=UUID            Set a specific machine UUID for the container\n"
                "  -S --slice=SLICE          Place the container in the specified slice\n"
                "     --property=NAME=VALUE  Set scope unit property\n"
@@ -443,6 +445,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT_HASH,
                 ARG_SYSTEM_CALL_FILTER,
                 ARG_RLIMIT,
+                ARG_HOSTNAME,
         };
 
         static const struct option options[] = {
@@ -466,6 +469,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "overlay",                required_argument, NULL, ARG_OVERLAY                },
                 { "overlay-ro",             required_argument, NULL, ARG_OVERLAY_RO             },
                 { "machine",                required_argument, NULL, 'M'                        },
+                { "hostname",               required_argument, NULL, ARG_HOSTNAME               },
                 { "slice",                  required_argument, NULL, 'S'                        },
                 { "setenv",                 required_argument, NULL, 'E'                        },
                 { "selinux-context",        required_argument, NULL, 'Z'                        },
@@ -699,6 +703,23 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_oom();
                         }
+                        break;
+
+                case ARG_HOSTNAME:
+                        if (isempty(optarg))
+                                arg_hostname = mfree(arg_hostname);
+                        else {
+                                if (!hostname_is_valid(optarg, false)) {
+                                        log_error("Invalid hostname: %s", optarg);
+                                        return -EINVAL;
+                                }
+
+                                r = free_and_strdup(&arg_hostname, optarg);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        arg_settings_mask |= SETTING_HOSTNAME;
                         break;
 
                 case 'Z':
@@ -1762,7 +1783,7 @@ static int setup_hostname(void) {
         if ((arg_clone_ns_flags & CLONE_NEWUTS) == 0)
                 return 0;
 
-        if (sethostname_idempotent(arg_machine) < 0)
+        if (sethostname_idempotent(arg_hostname ?: arg_machine) < 0)
                 return -errno;
 
         return 0;
@@ -3314,6 +3335,10 @@ static int load_settings(void) {
                 free_and_replace(arg_rlimit[rl], settings->rlimit[rl]);
         }
 
+        if ((arg_settings_mask & SETTING_HOSTNAME) == 0 &&
+            settings->hostname)
+                free_and_replace(arg_hostname, settings->hostname);
+
         return 0;
 }
 
@@ -4274,6 +4299,7 @@ finish:
         free(arg_template);
         free(arg_image);
         free(arg_machine);
+        free(arg_hostname);
         free(arg_user);
         free(arg_pivot_root_new);
         free(arg_pivot_root_old);

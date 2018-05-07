@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "cap-list.h"
 #include "conf-parser.h"
+#include "hostname-util.h"
 #include "nspawn-network.h"
 #include "nspawn-settings.h"
 #include "parse-util.h"
@@ -82,6 +83,7 @@ Settings* settings_free(Settings *s) {
         strv_free(s->syscall_whitelist);
         strv_free(s->syscall_blacklist);
         rlimit_free_all(s->rlimit);
+        free(s->hostname);
 
         strv_free(s->network_interfaces);
         strv_free(s->network_macvlan);
@@ -600,6 +602,34 @@ int config_parse_syscall_filter(
                 if (r < 0)
                         return log_oom();
         }
+
+        return 0;
+}
+
+int config_parse_hostname(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **s = data;
+
+        assert(rvalue);
+        assert(s);
+
+        if (!hostname_is_valid(rvalue, false)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid hostname, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
+                return log_oom();
 
         return 0;
 }

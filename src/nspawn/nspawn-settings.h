@@ -49,9 +49,10 @@ typedef enum SettingsMask {
         SETTING_NOTIFY_READY      = UINT64_C(1) << 14,
         SETTING_PIVOT_ROOT        = UINT64_C(1) << 15,
         SETTING_SYSCALL_FILTER    = UINT64_C(1) << 16,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 17, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (17 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (17 + _RLIMIT_MAX))
+        SETTING_HOSTNAME          = UINT64_C(1) << 17,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 18, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (18 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (18 + _RLIMIT_MAX)) - 1
 } SettingsMask;
 
 typedef struct Settings {
@@ -74,6 +75,7 @@ typedef struct Settings {
         char **syscall_whitelist;
         char **syscall_blacklist;
         struct rlimit *rlimit[_RLIMIT_MAX];
+        char *hostname;
 
         /* [Image] */
         int read_only;
@@ -118,3 +120,4 @@ int config_parse_boot(const char *unit, const char *filename, unsigned line, con
 int config_parse_pid2(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_private_users(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_syscall_filter(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_hostname(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
