@@ -506,16 +506,17 @@ int config_parse_exec_nice(
         return 0;
 }
 
-int config_parse_exec_oom_score_adjust(const char* unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_exec_oom_score_adjust(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = data;
         int oa, r;
@@ -525,14 +526,18 @@ int config_parse_exec_oom_score_adjust(const char* unit,
         assert(rvalue);
         assert(data);
 
-        r = safe_atoi(rvalue, &oa);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
+        if (isempty(rvalue)) {
+                c->oom_score_adjust_set = false;
                 return 0;
         }
 
-        if (oa < OOM_SCORE_ADJ_MIN || oa > OOM_SCORE_ADJ_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "OOM score adjust value out of range, ignoring: %s", rvalue);
+        r = parse_oom_score_adjust(rvalue, &oa);
+        if (r == -ERANGE) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "OOM score adjust value out of range, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
                 return 0;
         }
 
