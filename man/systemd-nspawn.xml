@@ -735,6 +735,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--rlimit=</option></term>
+
+        <listitem><para>Sets the specified POSIX resource limit for the container payload. Expects an assignment of the
+        form
+        <literal><replaceable>LIMIT</replaceable>=<replaceable>SOFT</replaceable>:<replaceable>HARD</replaceable></literal>
+        or <literal><replaceable>LIMIT</replaceable>=<replaceable>VALUE</replaceable></literal>, where
+        <replaceable>LIMIT</replaceable> should refer to a resource limit type, such as
+        <constant>RLIMIT_NOFILE</constant> or <constant>RLIMIT_NICE</constant>. The <replaceable>SOFT</replaceable> and
+        <replaceable>HARD</replaceable> fields should refer to the numeric soft and hard resource limit values. If the
+        second form is used, <replaceable>VALUE</replaceable> may specifiy a value that is used both as soft and hard
+        limit. In place of a numeric value the special string <literal>infinity</literal> may be used to turn off
+        resource limiting for the specific type of resource. This command line option may be used multiple times to
+        control limits on multiple limit types. If used multiple times for the same limit type, the last last use
+        wins. For details about resource limits see <citerefentry
+        project='man-pages'><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>. By default
+        resource limits for the container's init process (PID 1) are set to the same values the Linux kernel originally
+        passed to the host init system. Note that some resource limits are enforced on resources counted per user, in
+        particular <constant>RLIMIT_NPROC</constant>. This means that unless user namespacing is deployed
+        (i.e. <option>--private-users=</option> is used, see above), any limits set will be applied to the resource
+        usage of the same user on all local containers as well as the host. This means particular care needs to be
+        taken with these limits as they might be triggered by possibly less trusted code. Example:
+        <literal>--rlimit=RLIMIT_NOFILE=8192:16384</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--kill-signal=</option></term>
 
         <listitem><para>Specify the process signal to send to the container's PID 1 when nspawn itself receives

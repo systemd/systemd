@@ -81,6 +81,7 @@
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "raw-clone.h"
+#include "rlimit-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -200,6 +201,7 @@ static void *arg_root_hash = NULL;
 static size_t arg_root_hash_size = 0;
 static char **arg_syscall_whitelist = NULL;
 static char **arg_syscall_blacklist = NULL;
+static struct rlimit *arg_rlimit[_RLIMIT_MAX] = {};
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -264,6 +266,7 @@ static void help(void) {
                "     --drop-capability=CAP  Drop the specified capability from the default set\n"
                "     --system-call-filter=LIST|~LIST\n"
                "                            Permit/prohibit specific system calls\n"
+               "     --rlimit=NAME=LIMIT    Set a resource limit for the payload\n"
                "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
                "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, \n"
                "                            host, try-guest, try-host\n"
@@ -439,6 +442,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NOTIFY_READY,
                 ARG_ROOT_HASH,
                 ARG_SYSTEM_CALL_FILTER,
+                ARG_RLIMIT,
         };
 
         static const struct option options[] = {
@@ -492,6 +496,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "notify-ready",           required_argument, NULL, ARG_NOTIFY_READY           },
                 { "root-hash",              required_argument, NULL, ARG_ROOT_HASH              },
                 { "system-call-filter",     required_argument, NULL, ARG_SYSTEM_CALL_FILTER     },
+                { "rlimit",                 required_argument, NULL, ARG_RLIMIT                 },
                 {}
         };
 
@@ -1091,6 +1096,41 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_settings_mask |= SETTING_SYSCALL_FILTER;
+                        break;
+                }
+
+                case ARG_RLIMIT: {
+                        const char *eq;
+                        char *name;
+                        int rl;
+
+                        eq = strchr(optarg, '=');
+                        if (!eq) {
+                                log_error("--rlimit= expects an '=' assignment.");
+                                return -EINVAL;
+                        }
+
+                        name = strndup(optarg, eq - optarg);
+                        if (!name)
+                                return log_oom();
+
+                        rl = rlimit_from_string_harder(name);
+                        if (rl < 0) {
+                                log_error("Unknown resource limit: %s", name);
+                                return -EINVAL;
+                        }
+
+                        if (!arg_rlimit[rl]) {
+                                arg_rlimit[rl] = new0(struct rlimit, 1);
+                                if (!arg_rlimit[rl])
+                                        return log_oom();
+                        }
+
+                        r = rlimit_parse(rl, eq + 1, arg_rlimit[rl]);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse resource limit: %s", eq + 1);
+
+                        arg_settings_mask |= SETTING_RLIMIT_FIRST << rl;
                         break;
                 }
 
@@ -2282,7 +2322,6 @@ static int inner_child(
                 NULL
         };
         const char *exec_target;
-
         _cleanup_strv_free_ char **env_use = NULL;
         int r;
 
@@ -2559,10 +2598,10 @@ static int outer_child(
                 FDSet *fds,
                 int netns_fd) {
 
+        _cleanup_close_ int fd = -1;
+        int r, which_failed;
         pid_t pid;
         ssize_t l;
-        int r;
-        _cleanup_close_ int fd = -1;
 
         assert(barrier);
         assert(directory);
@@ -2805,6 +2844,10 @@ static int outer_child(
         if (fd < 0)
                 return fd;
 
+        r = setrlimit_closest_all((const struct rlimit *const*) arg_rlimit, &which_failed);
+        if (r < 0)
+                return log_error_errno(r, "Failed to apply resource limit RLIMIT_%s: %m", rlimit_to_string(which_failed));
+
         pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         arg_clone_ns_flags |
                         (arg_userns_mode != USER_NAMESPACE_NO ? CLONE_NEWUSER : 0));
@@ -3046,7 +3089,7 @@ static int load_settings(void) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         const char *fn, *i;
-        int r;
+        int r, rl;
 
         /* If all settings are masked, there's no point in looking for
          * the settings file */
@@ -3254,6 +3297,21 @@ static int load_settings(void) {
                         strv_free_and_replace(arg_syscall_whitelist, settings->syscall_whitelist);
                         strv_free_and_replace(arg_syscall_blacklist, settings->syscall_blacklist);
                 }
+        }
+
+        for (rl = 0; rl < _RLIMIT_MAX; rl ++) {
+                if ((arg_settings_mask & (SETTING_RLIMIT_FIRST << rl)))
+                        continue;
+
+                if (!settings->rlimit[rl])
+                        continue;
+
+                if (!arg_settings_trusted) {
+                        log_warning("Ignoring Limit%s= setting, file '%s' is not trusted.", rlimit_to_string(rl), p);
+                        continue;
+                }
+
+                free_and_replace(arg_rlimit[rl], settings->rlimit[rl]);
         }
 
         return 0;
@@ -3767,6 +3825,71 @@ static int run(int master,
         return 1; /* loop again */
 }
 
+static int initialize_rlimits(void) {
+
+        /* The default resource limits the kernel passes to PID 1, as per kernel 4.16. Let's pass our container payload
+         * the same values as the kernel originally passed to PID 1, in order to minimize differences between host and
+         * container execution environments. */
+
+        static const struct rlimit kernel_defaults[_RLIMIT_MAX] = {
+                [RLIMIT_AS]       = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_CORE]     = { 0,             RLIM_INFINITY },
+                [RLIMIT_CPU]      = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_DATA]     = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_FSIZE]    = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_LOCKS]    = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_MEMLOCK]  = { 65536,         65536         },
+                [RLIMIT_MSGQUEUE] = { 819200,        819200        },
+                [RLIMIT_NICE]     = { 0,             0             },
+                [RLIMIT_NOFILE]   = { 1024,          4096          },
+                [RLIMIT_RSS]      = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_RTPRIO]   = { 0,             0             },
+                [RLIMIT_RTTIME]   = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_STACK]    = { 8388608,       RLIM_INFINITY },
+
+                /* The kernel scales the default for RLIMIT_NPROC and RLIMIT_SIGPENDING based on the system's amount of
+                 * RAM. To provide best compatibility we'll read these limits off PID 1 instead of hardcoding them
+                 * here. This is safe as we know that PID 1 doesn't change these two limits and thus the original
+                 * kernel's initialization should still be valid during runtime — at least if PID 1 is systemd. Note
+                 * that PID 1 changes a number of other resource limits during early initialization which is why we
+                 * don't read the other limits from PID 1 but prefer the static table above. */
+        };
+
+        int rl;
+
+        for (rl = 0; rl < _RLIMIT_MAX; rl++) {
+
+                /* Let's only fill in what the user hasn't explicitly configured anyway */
+                if ((arg_settings_mask & (SETTING_RLIMIT_FIRST << rl)) == 0) {
+                        const struct rlimit *v;
+                        struct rlimit buffer;
+
+                        if (IN_SET(rl, RLIMIT_NPROC, RLIMIT_SIGPENDING)) {
+                                /* For these two let's read the limits off PID 1. See above for an explanation. */
+
+                                if (prlimit(1, rl, NULL, &buffer) < 0)
+                                        return log_error_errno(errno, "Failed to read resource limit RLIMIT_%s of PID 1: %m", rlimit_to_string(rl));
+
+                                v = &buffer;
+                        } else
+                                v = kernel_defaults + rl;
+
+                        arg_rlimit[rl] = newdup(struct rlimit, v, 1);
+                        if (!arg_rlimit[rl])
+                                return log_oom();
+                }
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *k = NULL;
+
+                        (void) rlimit_format(arg_rlimit[rl], &k);
+                        log_debug("Setting RLIMIT_%s to %s.", rlimit_to_string(rl), k);
+                }
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *console = NULL;
@@ -3796,6 +3919,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         r = must_be_root();
+        if (r < 0)
+                goto finish;
+
+        r = initialize_rlimits();
         if (r < 0)
                 goto finish;
 
@@ -4161,6 +4288,7 @@ finish:
         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
         expose_port_free_all(arg_expose_ports);
         free(arg_root_hash);
+        rlimit_free_all(arg_rlimit);
 
         return r < 0 ? EXIT_FAILURE : ret;
 }

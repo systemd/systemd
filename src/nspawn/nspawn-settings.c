@@ -12,6 +12,7 @@
 #include "nspawn-settings.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -80,6 +81,7 @@ Settings* settings_free(Settings *s) {
         free(s->working_directory);
         strv_free(s->syscall_whitelist);
         strv_free(s->syscall_blacklist);
+        rlimit_free_all(s->rlimit);
 
         strv_free(s->network_interfaces);
         strv_free(s->network_macvlan);

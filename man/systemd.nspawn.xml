@@ -278,6 +278,30 @@
         details.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>LimitCPU=</varname></term>
+        <term><varname>LimitFSIZE=</varname></term>
+        <term><varname>LimitDATA=</varname></term>
+        <term><varname>LimitSTACK=</varname></term>
+        <term><varname>LimitCORE=</varname></term>
+        <term><varname>LimitRSS=</varname></term>
+        <term><varname>LimitNOFILE=</varname></term>
+        <term><varname>LimitAS=</varname></term>
+        <term><varname>LimitNPROC=</varname></term>
+        <term><varname>LimitMEMLOCK=</varname></term>
+        <term><varname>LimitLOCKS=</varname></term>
+        <term><varname>LimitSIGPENDING=</varname></term>
+        <term><varname>LimitMSGQUEUE=</varname></term>
+        <term><varname>LimitNICE=</varname></term>
+        <term><varname>LimitRTPRIO=</varname></term>
+        <term><varname>LimitRTTIME=</varname></term>
+
+        <listitem><para>Configures various types of resource limits applied to containers. This is equivalent to the
+        <option>--rlimit=</option> command line switch, and takes the same arguments. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
