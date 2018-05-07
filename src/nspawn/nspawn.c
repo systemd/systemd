@@ -1791,12 +1791,14 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *user
 }
 
 static int setup_hostname(void) {
+        int r;
 
         if ((arg_clone_ns_flags & CLONE_NEWUTS) == 0)
                 return 0;
 
-        if (sethostname_idempotent(arg_hostname ?: arg_machine) < 0)
-                return -errno;
+        r = sethostname_idempotent(arg_hostname ?: arg_machine);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set hostname: %m");
 
         return 0;
 }
@@ -2453,7 +2455,7 @@ static int inner_child(
         if (r < 0)
                 return log_error_errno(r, "drop_capabilities() failed: %m");
 
-        setup_hostname();
+        (void) setup_hostname();
 
         if (arg_personality != PERSONALITY_INVALID) {
                 r = safe_personality(arg_personality);
