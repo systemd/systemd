@@ -39,11 +39,11 @@ _resolvectl() {
                [STANDALONE]='-h --help --version --no-pager -4 -6
                              --service-address=no --service-txt=no
                              --cname=no --search=no --legend=no'
-                      [ARG]='-i --interface -p --protocol -t --type -c --class --raw'
+                      [ARG]='-i --interface -p --protocol -t --type -c --class
+                             --raw --service-family'
         )
         local -A VERBS=(
-                   [DOMAIN]='query service openpgp'
-                   [FAMILY]='tlsa'
+                   [DOMAIN]='query service openpgp tlsa'
                    [STATUS]='status'
                      [LINK]='revert dns domain nta'
                   [RESOLVE]='llmnr mdns'
@@ -51,7 +51,6 @@ _resolvectl() {
                [STANDALONE]='statistics reset-statistics flush-caches reset-server-features'
         )
         local -A ARGS=(
-                   [FAMILY]='tcp udp sctp'
                   [RESOLVE]='yes no resolve'
                    [DNSSEC]='yes no allow-downgrade'
         )
@@ -67,6 +66,9 @@ _resolvectl() {
                                 ;;
                         --raw)
                                 comps="payload packet"
+                                ;;
+                        --service-family)
+                                comps="tcp udp sctp"
                                 ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
@@ -94,20 +96,6 @@ _resolvectl() {
 
         elif __contains_word "$verb" ${VERBS[STATUS]}; then
                 comps="$interfaces"
-
-        elif __contains_word "$verb" ${VERBS[FAMILY]}; then
-                for ((i++; i < COMP_CWORD; i++)); do
-                        if __contains_word "${COMP_WORDS[i]}" ${ARGS[FAMILY]} &&
-                         ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
-                                name=${COMP_WORDS[i]}
-                                break;
-                        fi
-                done
-                if [[ -z $name ]]; then
-                        comps=${ARGS[FAMILY]}
-                else
-                        comps=""
-                fi
 
         elif __contains_word "$verb" ${VERBS[LINK]} ${VERBS[RESOLVE]} ${VERBS[DNSSEC]}; then
                 for ((i++; i < COMP_CWORD; i++)); do

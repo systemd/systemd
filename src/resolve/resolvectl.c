@@ -47,7 +47,7 @@ typedef enum ServiceFamily {
         SERVICE_FAMILY_SCTP,
         _SERVICE_FAMILY_INVALID = -1,
 } ServiceFamily;
-static const char *arg_service_family = NULL;
+static ServiceFamily arg_service_family = SERVICE_FAMILY_TCP;
 
 typedef enum RawType {
         RAW_NONE,
@@ -941,7 +941,7 @@ static int verb_openpgp(int argc, char **argv, void *userdata) {
         return r;
 }
 
-static int resolve_tlsa(sd_bus *bus, ServiceFamily family, const char *address) {
+static int resolve_tlsa(sd_bus *bus, const char *address) {
         const char *port;
         uint16_t port_num = 443;
         _cleanup_free_ char *full = NULL;
@@ -961,7 +961,7 @@ static int resolve_tlsa(sd_bus *bus, ServiceFamily family, const char *address) 
 
         r = asprintf(&full, "_%u.%s.%s",
                      port_num,
-                     service_family_to_string(family),
+                     service_family_to_string(arg_service_family),
                      address);
         if (r < 0)
                 return log_oom();
@@ -975,18 +975,11 @@ static int resolve_tlsa(sd_bus *bus, ServiceFamily family, const char *address) 
 
 static int verb_tlsa(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
-        ServiceFamily family;
-        char **p, **args = argv + 1;
+        char **p;
         int q, r = 0;
 
-        family = service_family_from_string(argv[1]);
-        if (family < 0)
-                family = SERVICE_FAMILY_TCP;
-        else
-                args++;
-
-        STRV_FOREACH(p, args) {
-                q = resolve_tlsa(bus, family, *p);
+        STRV_FOREACH(p, argv + 1) {
+                q = resolve_tlsa(bus, *p);
                 if (q < 0)
                         r = q;
         }
@@ -2531,11 +2524,11 @@ static int compat_parse_argv(int argc, char *argv[]) {
 
                 case ARG_TLSA:
                         arg_mode = MODE_RESOLVE_TLSA;
-                        if (service_family_from_string(arg_service_family) < 0) {
+                        arg_service_family = service_family_from_string(optarg);
+                        if (arg_service_family < 0) {
                                 log_error("Unknown service family \"%s\".", optarg);
                                 return -EINVAL;
                         }
-                        arg_service_family = optarg;
                         break;
 
                 case ARG_RAW:
@@ -2697,6 +2690,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 ARG_CNAME,
                 ARG_SERVICE_ADDRESS,
                 ARG_SERVICE_TXT,
+                ARG_SERVICE_FAMILY,
                 ARG_RAW,
                 ARG_SEARCH,
                 ARG_NO_PAGER,
@@ -2713,6 +2707,7 @@ static int native_parse_argv(int argc, char *argv[]) {
                 { "cname",                 required_argument, NULL, ARG_CNAME                 },
                 { "service-address",       required_argument, NULL, ARG_SERVICE_ADDRESS       },
                 { "service-txt",           required_argument, NULL, ARG_SERVICE_TXT           },
+                { "service-family",        required_argument, NULL, ARG_SERVICE_FAMILY        },
                 { "raw",                   optional_argument, NULL, ARG_RAW                   },
                 { "search",                required_argument, NULL, ARG_SEARCH                },
                 { "no-pager",              no_argument,       NULL, ARG_NO_PAGER              },
@@ -2854,6 +2849,14 @@ static int native_parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
                         break;
 
+                case ARG_SERVICE_FAMILY:
+                        arg_service_family = service_family_from_string(optarg);
+                        if (arg_service_family < 0) {
+                                log_error("Unknown service family \"%s\".", optarg);
+                                return -EINVAL;
+                        }
+                        break;
+
                 case ARG_SEARCH:
                         r = parse_boolean(optarg);
                         if (r < 0)
@@ -2947,7 +2950,7 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
                 return translate("openpgp", NULL, argc - optind, argv + optind, bus);
 
         case MODE_RESOLVE_TLSA:
-                return translate("tlsa", arg_service_family, argc - optind, argv + optind, bus);
+                return translate("tlsa", NULL, argc - optind, argv + optind, bus);
 
         case MODE_STATISTICS:
                 return translate("statistics", NULL, 0, NULL, bus);

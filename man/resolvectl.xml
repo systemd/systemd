@@ -135,6 +135,13 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--service-family=</option><replaceable>FAMILY</replaceable></term>
+
+        <listitem><para>Specifies the service family which is used by <option>tlsa</option> command. Takes one of <literal>tcp</literal>,
+        <literal>udp</literal>, or <literal>sctp</literal>. Defaults to <literal>tcp</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--cname=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>Takes a boolean parameter. If true (the default), DNS CNAME or DNAME redirections are
@@ -204,13 +211,14 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>tlsa [<replaceable>FAMILY</replaceable>] <replaceable>DOMAIN</replaceable>[:<replaceable>PORT</replaceable>]…</option></term>
+        <term><option>tlsa <replaceable>DOMAIN</replaceable>[:<replaceable>PORT</replaceable>]…</option></term>
 
         <listitem><para>Query TLS public keys stored as <ulink url="https://tools.ietf.org/html/rfc6698">TLSA</ulink>
         resource records. A query will be performed for each of the specified names prefixed with the port and family
         (<literal>_<replaceable>port</replaceable>._<replaceable>family</replaceable>.<replaceable>domain</replaceable></literal>).
         The port number may be specified after a colon (<literal>:</literal>), otherwise <constant>443</constant> will be used
-        by default. The family may be specified as the first argument, otherwise <constant>tcp</constant> will be used.</para></listitem>
+        by default. The family may be specified by the <option>--service-family</option> option, otherwise <constant>tcp</constant>
+        will be used.</para></listitem>
       </varlistentry>
 
       <varlistentry>
