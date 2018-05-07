@@ -27,6 +27,7 @@
 #include "resolvectl.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "verbs.h"
@@ -45,6 +46,7 @@ typedef enum ServiceFamily {
         SERVICE_FAMILY_TCP,
         SERVICE_FAMILY_UDP,
         SERVICE_FAMILY_SCTP,
+        _SERVICE_FAMILY_MAX,
         _SERVICE_FAMILY_INVALID = -1,
 } ServiceFamily;
 static ServiceFamily arg_service_family = SERVICE_FAMILY_TCP;
@@ -89,28 +91,13 @@ static int parse_ifindex_with_warn(const char *s) {
         return ifi;
 }
 
-static ServiceFamily service_family_from_string(const char *s) {
-        if (!s || streq(s, "tcp"))
-                return SERVICE_FAMILY_TCP;
-        if (streq(s, "udp"))
-                return SERVICE_FAMILY_UDP;
-        if (streq(s, "sctp"))
-                return SERVICE_FAMILY_SCTP;
-        return _SERVICE_FAMILY_INVALID;
-}
+static const char * const service_family_table[_SERVICE_FAMILY_MAX] = {
+        [SERVICE_FAMILY_TCP]  = "tcp",
+        [SERVICE_FAMILY_UDP]  = "udp",
+        [SERVICE_FAMILY_SCTP] = "sctp",
+};
 
-static const char* service_family_to_string(ServiceFamily service) {
-        switch(service) {
-        case SERVICE_FAMILY_TCP:
-                return "_tcp";
-        case SERVICE_FAMILY_UDP:
-                return "_udp";
-        case SERVICE_FAMILY_SCTP:
-                return "_sctp";
-        default:
-                assert_not_reached("invalid service");
-        }
-}
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(service_family, ServiceFamily);
 
 static void print_source(uint64_t flags, usec_t rtt) {
         char rtt_str[FORMAT_TIMESTAMP_MAX];
@@ -959,7 +946,7 @@ static int resolve_tlsa(sd_bus *bus, const char *address) {
                 address = strndupa(address, port - address);
         }
 
-        r = asprintf(&full, "_%u.%s.%s",
+        r = asprintf(&full, "_%u._%s.%s",
                      port_num,
                      service_family_to_string(arg_service_family),
                      address);
@@ -2524,10 +2511,12 @@ static int compat_parse_argv(int argc, char *argv[]) {
 
                 case ARG_TLSA:
                         arg_mode = MODE_RESOLVE_TLSA;
-                        arg_service_family = service_family_from_string(optarg);
-                        if (arg_service_family < 0) {
-                                log_error("Unknown service family \"%s\".", optarg);
-                                return -EINVAL;
+                        if (optarg) {
+                                arg_service_family = service_family_from_string(optarg);
+                                if (arg_service_family < 0) {
+                                        log_error("Unknown service family \"%s\".", optarg);
+                                        return -EINVAL;
+                                }
                         }
                         break;
 
