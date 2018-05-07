@@ -866,31 +866,24 @@
       <varlistentry>
         <term><filename>nss-lookup.target</filename></term>
         <listitem>
-          <para>A target that should be used as synchronization point
-          for all host/network name service lookups. Note that this is
-          independent of user/group name lookups for which
-          <filename>nss-user-lookup.target</filename> should be used.
-          All services for which the availability of full host/network
-          name resolution is essential should be ordered after this
-          target, but not pull it in. systemd automatically adds
-          dependencies of type <varname>After=</varname> for this
-          target unit to all SysV init script service units with an
-          LSB header referring to the <literal>$named</literal>
-          facility.</para>
+          <para>A target that should be used as synchronization point for all host/network name service lookups. Note
+          that this is independent of UNIX user/group name lookups for which <filename>nss-user-lookup.target</filename>
+          should be used.  All services for which the availability of full host/network name resolution is essential
+          should be ordered after this target, but not pull it in. systemd automatically adds dependencies of type
+          <varname>After=</varname> for this target unit to all SysV init script service units with an LSB header
+          referring to the <literal>$named</literal> facility.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><filename>nss-user-lookup.target</filename></term>
         <listitem>
-          <para>A target that should be used as synchronization point
-          for all user/group name service lookups. Note that this is
-          independent of host/network name lookups for which
-          <filename>nss-lookup.target</filename> should be used. All
-          services for which the availability of the full user/group
-          database is essential should be ordered after this target,
-          but not pull it in. Note that system users are always
-          resolvable, and hence do not require any special ordering
-          against this target.</para>
+          <para>A target that should be used as synchronization point for all regular UNIX user/group name service
+          lookups. Note that this is independent of host/network name lookups for which
+          <filename>nss-lookup.target</filename> should be used. All services for which the availability of the full
+          user/group database is essential should be ordered after this target, but not pull it in. All services which
+          provide parts of the user/group database should be ordered before this target, and pull it in. Note that this
+          unit is only relevant for regular users and groups — system users and groups are required to be resolvable
+          during earliest boot already, and hence do not need any special ordering against this target.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
