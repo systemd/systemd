@@ -75,6 +75,7 @@
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
+#include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -208,6 +209,9 @@ static int arg_oom_score_adjust = 0;
 static bool arg_oom_score_adjust_set = false;
 
 static void help(void) {
+
+        (void) pager_open(false, false);
+
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
                "  -h --help                 Show this help\n"
@@ -4317,6 +4321,8 @@ finish:
 
         if (pid > 0)
                 (void) wait_for_terminate(pid, NULL);
+
+        pager_close();
 
         if (remove_directory && arg_directory) {
                 int k;
