@@ -2552,7 +2552,7 @@ static int method_set_wall_message(
         int r;
         Manager *m = userdata;
         char *wall_message;
-        int enable_wall_messages;
+        unsigned enable_wall_messages;
 
         assert(message);
         assert(m);
