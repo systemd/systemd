@@ -2224,7 +2224,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         cancelled = m->scheduled_shutdown_type != NULL;
         reset_scheduled_shutdown(m);
 
-        if (cancelled) {
+        if (cancelled && m->enable_wall_messages) {
                 _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 const char *tty = NULL;
                 uid_t uid = 0;
