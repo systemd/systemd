@@ -50,9 +50,10 @@ typedef enum SettingsMask {
         SETTING_PIVOT_ROOT        = UINT64_C(1) << 15,
         SETTING_SYSCALL_FILTER    = UINT64_C(1) << 16,
         SETTING_HOSTNAME          = UINT64_C(1) << 17,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 18, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (18 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (18 + _RLIMIT_MAX)) - 1
+        SETTING_NO_NEW_PRIVILEGES = UINT64_C(1) << 18,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 19, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (19 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (19 + _RLIMIT_MAX)) - 1
 } SettingsMask;
 
 typedef struct Settings {
@@ -76,6 +77,7 @@ typedef struct Settings {
         char **syscall_blacklist;
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *hostname;
+        int no_new_privileges;
 
         /* [Image] */
         int read_only;

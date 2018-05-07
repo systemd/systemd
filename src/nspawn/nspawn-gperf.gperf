@@ -50,6 +50,7 @@ Exec.LimitNICE,               config_parse_rlimit,         RLIMIT_NICE,       of
 Exec.LimitRTPRIO,             config_parse_rlimit,         RLIMIT_RTPRIO,     offsetof(Settings, rlimit)
 Exec.LimitRTTIME,             config_parse_rlimit,         RLIMIT_RTTIME,     offsetof(Settings, rlimit)
 Exec.Hostname,                config_parse_hostname,       0,                 offsetof(Settings, hostname)
+Exec.NoNewPrivileges,         config_parse_tristate,       0,                 offsetof(Settings, no_new_privileges)
 Files.ReadOnly,               config_parse_tristate,       0,                 offsetof(Settings, read_only)
 Files.Volatile,               config_parse_volatile_mode,  0,                 offsetof(Settings, volatile_mode)
 Files.Bind,                   config_parse_bind,           0,                 0

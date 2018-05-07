@@ -203,6 +203,7 @@ static size_t arg_root_hash_size = 0;
 static char **arg_syscall_whitelist = NULL;
 static char **arg_syscall_blacklist = NULL;
 static struct rlimit *arg_rlimit[_RLIMIT_MAX] = {};
+static bool arg_no_new_privileges = false;
 
 static void help(void) {
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -446,6 +447,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM_CALL_FILTER,
                 ARG_RLIMIT,
                 ARG_HOSTNAME,
+                ARG_NO_NEW_PRIVILEGES,
         };
 
         static const struct option options[] = {
@@ -462,6 +464,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "read-only",              no_argument,       NULL, ARG_READ_ONLY              },
                 { "capability",             required_argument, NULL, ARG_CAPABILITY             },
                 { "drop-capability",        required_argument, NULL, ARG_DROP_CAPABILITY        },
+                { "no-new-privileges",      required_argument, NULL, ARG_NO_NEW_PRIVILEGES      },
                 { "link-journal",           required_argument, NULL, ARG_LINK_JOURNAL           },
                 { "bind",                   required_argument, NULL, ARG_BIND                   },
                 { "bind-ro",                required_argument, NULL, ARG_BIND_RO                },
@@ -772,6 +775,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_CAPABILITY;
                         break;
                 }
+
+                case ARG_NO_NEW_PRIVILEGES:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --no-new-privileges= argument: %s", optarg);
+
+                        arg_no_new_privileges = r;
+                        arg_settings_mask |= SETTING_NO_NEW_PRIVILEGES;
+                        break;
 
                 case 'j':
                         arg_link_journal = LINK_GUEST;
@@ -2463,6 +2475,10 @@ static int inner_child(
         if (r < 0)
                 return r;
 
+        if (arg_no_new_privileges)
+                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
+                        return log_error_errno(errno, "Failed to disable new privileges: %m");
+
         /* LXC sets container=lxc, so follow the scheme here */
         envp[n_env++] = strjoina("container=", arg_container_service_name);
 
@@ -3338,6 +3354,10 @@ static int load_settings(void) {
         if ((arg_settings_mask & SETTING_HOSTNAME) == 0 &&
             settings->hostname)
                 free_and_replace(arg_hostname, settings->hostname);
+
+        if ((arg_settings_mask & SETTING_NO_NEW_PRIVILEGES) == 0 &&
+            settings->no_new_privileges >= 0)
+                arg_no_new_privileges = settings->no_new_privileges;
 
         return 0;
 }
@@ -4229,7 +4249,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
 
-        if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
+        if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) < 0) {
                 r = log_error_errno(errno, "Failed to become subreaper: %m");
                 goto finish;
         }

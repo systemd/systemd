@@ -36,6 +36,7 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         s->userns_mode = _USER_NAMESPACE_MODE_INVALID;
         s->uid_shift = UID_INVALID;
         s->uid_range = UID_INVALID;
+        s->no_new_privileges = -1;
 
         s->read_only = -1;
         s->volatile_mode = _VOLATILE_MODE_INVALID;
