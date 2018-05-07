@@ -2916,15 +2916,9 @@ static int exec_child(
         }
 
         if (context->oom_score_adjust_set) {
-                char t[DECIMAL_STR_MAX(context->oom_score_adjust)];
-
-                /* When we can't make this change due to EPERM, then
-                 * let's silently skip over it. User namespaces
-                 * prohibit write access to this file, and we
-                 * shouldn't trip up over that. */
-
-                sprintf(t, "%i", context->oom_score_adjust);
-                r = write_string_file("/proc/self/oom_score_adj", t, 0);
+                /* When we can't make this change due to EPERM, then let's silently skip over it. User namespaces
+                 * prohibit write access to this file, and we shouldn't trip up over that. */
+                r = set_oom_score_adjust(context->oom_score_adjust);
                 if (IN_SET(r, -EPERM, -EACCES))
                         log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
                 else if (r < 0) {
