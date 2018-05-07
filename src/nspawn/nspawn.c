@@ -43,6 +43,7 @@
 #include "capability-util.h"
 #include "cgroup-util.h"
 #include "copy.h"
+#include "cpu-set-util.h"
 #include "dev-setup.h"
 #include "dissect-image.h"
 #include "env-util.h"
@@ -207,6 +208,8 @@ static struct rlimit *arg_rlimit[_RLIMIT_MAX] = {};
 static bool arg_no_new_privileges = false;
 static int arg_oom_score_adjust = 0;
 static bool arg_oom_score_adjust_set = false;
+static cpu_set_t *arg_cpuset = NULL;
+static unsigned arg_cpuset_ncpus = 0;
 
 static void help(void) {
 
@@ -278,6 +281,7 @@ static void help(void) {
                "     --rlimit=NAME=LIMIT    Set a resource limit for the payload\n"
                "     --oom-score-adjust=VALUE\n"
                "                            Adjust the OOM score value for the payload\n"
+               "     --cpu-affinity=CPUS    Adjust the CPU affinity of the container\n"
                "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
                "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, \n"
                "                            host, try-guest, try-host\n"
@@ -457,6 +461,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_HOSTNAME,
                 ARG_NO_NEW_PRIVILEGES,
                 ARG_OOM_SCORE_ADJUST,
+                ARG_CPU_AFFINITY,
         };
 
         static const struct option options[] = {
@@ -514,6 +519,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "system-call-filter",     required_argument, NULL, ARG_SYSTEM_CALL_FILTER     },
                 { "rlimit",                 required_argument, NULL, ARG_RLIMIT                 },
                 { "oom-score-adjust",       required_argument, NULL, ARG_OOM_SCORE_ADJUST       },
+                { "cpu-affinity",           required_argument, NULL, ARG_CPU_AFFINITY           },
                 {}
         };
 
@@ -1185,6 +1191,22 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_oom_score_adjust_set = true;
                         arg_settings_mask |= SETTING_OOM_SCORE_ADJUST;
                         break;
+
+                case ARG_CPU_AFFINITY: {
+                        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
+
+                        r = parse_cpu_set(optarg, &cpuset);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse CPU affinity mask: %s", optarg);
+
+                        if (arg_cpuset)
+                                CPU_FREE(arg_cpuset);
+
+                        arg_cpuset = TAKE_PTR(cpuset);
+                        arg_cpuset_ncpus = r;
+                        arg_settings_mask |= SETTING_CPU_AFFINITY;
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -2476,6 +2498,10 @@ static int inner_child(
                         return log_error_errno(r, "Failed to adjust OOM score: %m");
         }
 
+        if (arg_cpuset)
+                if (sched_setaffinity(0, CPU_ALLOC_SIZE(arg_cpuset_ncpus), arg_cpuset) < 0)
+                        return log_error_errno(errno, "Failed to set CPU affinity: %m");
+
         r = drop_capabilities();
         if (r < 0)
                 return log_error_errno(r, "drop_capabilities() failed: %m");
@@ -3394,6 +3420,19 @@ static int load_settings(void) {
                 else {
                         arg_oom_score_adjust = settings->oom_score_adjust;
                         arg_oom_score_adjust_set = true;
+                }
+        }
+
+        if ((arg_settings_mask & SETTING_CPU_AFFINITY) == 0 &&
+            settings->cpuset) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring CPUAffinity= setting, file '%s' is not trusted.", p);
+                else {
+                        if (arg_cpuset)
+                                CPU_FREE(arg_cpuset);
+                        arg_cpuset = TAKE_PTR(settings->cpuset);
+                        arg_cpuset_ncpus = settings->cpuset_ncpus;
                 }
         }
 
@@ -4375,6 +4414,7 @@ finish:
         expose_port_free_all(arg_expose_ports);
         free(arg_root_hash);
         rlimit_free_all(arg_rlimit);
+        arg_cpuset = cpu_set_mfree(arg_cpuset);
 
         return r < 0 ? EXIT_FAILURE : ret;
 }

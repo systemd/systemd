@@ -797,6 +797,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--cpu-affinity=</option></term>
+
+        <listitem><para>Controls the CPU affinity of the container payload. Takes a comma separated list of CPU numbers
+        or number ranges (the latter's start and end value separated by dashes). See <citerefentry
+        project='man-pages'><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--kill-signal=</option></term>
 
         <listitem><para>Specify the process signal to send to the container's PID 1 when nspawn itself receives

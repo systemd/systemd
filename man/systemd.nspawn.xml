@@ -323,6 +323,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CPUAffinity=</varname></term>
+
+        <listitem><para>Configures the CPU affinity. This is equivalent to the <option>--cpu-affinity=</option> command
+        line switch, and takes the same argument. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Hostname=</varname></term>
 
         <listitem><para>Configures the kernel hostname set for the container. This is equivalent to the

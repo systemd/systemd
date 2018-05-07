@@ -7,6 +7,7 @@
   Copyright 2015 Lennart Poettering
 ***/
 
+#include <sched.h>
 #include <stdio.h>
 
 #include "sd-id128.h"
@@ -52,9 +53,10 @@ typedef enum SettingsMask {
         SETTING_HOSTNAME          = UINT64_C(1) << 17,
         SETTING_NO_NEW_PRIVILEGES = UINT64_C(1) << 18,
         SETTING_OOM_SCORE_ADJUST  = UINT64_C(1) << 19,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 20, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (20 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (20 + _RLIMIT_MAX)) - 1
+        SETTING_CPU_AFFINITY      = UINT64_C(1) << 20,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 21, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (21 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (21 + _RLIMIT_MAX)) - 1
 } SettingsMask;
 
 typedef struct Settings {
@@ -81,6 +83,8 @@ typedef struct Settings {
         int no_new_privileges;
         int oom_score_adjust;
         bool oom_score_adjust_set;
+        cpu_set_t *cpuset;
+        unsigned cpuset_ncpus;
 
         /* [Image] */
         int read_only;
@@ -127,3 +131,4 @@ int config_parse_private_users(const char *unit, const char *filename, unsigned 
 int config_parse_syscall_filter(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_hostname(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_oom_score_adjust(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_cpu_affinity(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
