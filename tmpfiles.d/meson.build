@@ -37,7 +37,7 @@ foreach pair : m4_files
                         'tmpfiles.d_' + pair[0],
                          input : pair[0] + '.m4',
                          output: pair[0],
-                         command : [m4, '-P'] + m4_defines + ['@INPUT@'],
+                         command : [meson_apply_m4, config_h, '@INPUT@'],
                          capture : true,
                          install : true,
                          install_dir : tmpfilesdir)
