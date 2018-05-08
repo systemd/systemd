@@ -68,7 +68,8 @@
         <listitem><para>The URL to upload the journal entries to. See the description
         of <varname>--url=</varname> option in
         <citerefentry><refentrytitle>systemd-journal-upload</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for the description of possible values.</para></listitem>
+        for the description of possible values. There is no default value, so either this
+        option or the command-line option must be always present to make an upload.</para></listitem>
       </varlistentry>
 
       <varlistentry>

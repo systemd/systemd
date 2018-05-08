@@ -61,6 +61,12 @@
     Unless limited by one of the options specified below, all journal entries accessible to the user
     the program is running as will be uploaded, and then the program will wait and send new entries
     as they become available.</para>
+
+    <para><filename>systemd-journal-upload.service</filename> is a system service that uses
+    <command>systemd-journal-upload</command> to upload journal entries to a server. It uses the
+    configuration in
+    <citerefentry><refentrytitle>journal-upload.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+    At least the <varname>URL=</varname> option must be specified.</para>
   </refsect1>
 
   <refsect1>
