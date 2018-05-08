@@ -40,13 +40,6 @@ static bool arg_legend = true;
 static uint64_t arg_flags = 0;
 static bool arg_no_pager = false;
 bool arg_ifindex_permissive = false; /* If true, don't generate an error if the specified interface index doesn't exist */
-
-typedef enum ServiceFamily {
-        SERVICE_FAMILY_TCP,
-        SERVICE_FAMILY_UDP,
-        SERVICE_FAMILY_SCTP,
-        _SERVICE_FAMILY_INVALID = -1,
-} ServiceFamily;
 static const char *arg_service_family = NULL;
 
 typedef enum RawType {
@@ -87,29 +80,6 @@ static int parse_ifindex_with_warn(const char *s) {
         }
 
         return ifi;
-}
-
-static ServiceFamily service_family_from_string(const char *s) {
-        if (!s || streq(s, "tcp"))
-                return SERVICE_FAMILY_TCP;
-        if (streq(s, "udp"))
-                return SERVICE_FAMILY_UDP;
-        if (streq(s, "sctp"))
-                return SERVICE_FAMILY_SCTP;
-        return _SERVICE_FAMILY_INVALID;
-}
-
-static const char* service_family_to_string(ServiceFamily service) {
-        switch(service) {
-        case SERVICE_FAMILY_TCP:
-                return "_tcp";
-        case SERVICE_FAMILY_UDP:
-                return "_udp";
-        case SERVICE_FAMILY_SCTP:
-                return "_sctp";
-        default:
-                assert_not_reached("invalid service");
-        }
 }
 
 static void print_source(uint64_t flags, usec_t rtt) {
@@ -941,7 +911,7 @@ static int verb_openpgp(int argc, char **argv, void *userdata) {
         return r;
 }
 
-static int resolve_tlsa(sd_bus *bus, ServiceFamily family, const char *address) {
+static int resolve_tlsa(sd_bus *bus, const char *family, const char *address) {
         const char *port;
         uint16_t port_num = 443;
         _cleanup_free_ char *full = NULL;
@@ -959,9 +929,9 @@ static int resolve_tlsa(sd_bus *bus, ServiceFamily family, const char *address) 
                 address = strndupa(address, port - address);
         }
 
-        r = asprintf(&full, "_%u.%s.%s",
+        r = asprintf(&full, "_%u._%s.%s",
                      port_num,
-                     service_family_to_string(family),
+                     family,
                      address);
         if (r < 0)
                 return log_oom();
@@ -973,17 +943,20 @@ static int resolve_tlsa(sd_bus *bus, ServiceFamily family, const char *address) 
                               arg_type ?: DNS_TYPE_TLSA, true);
 }
 
+static bool service_family_is_valid(const char *s) {
+        return STR_IN_SET(s, "tcp", "udp", "sctp");
+}
+
 static int verb_tlsa(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
-        ServiceFamily family;
         char **p, **args = argv + 1;
+        const char *family = "tcp";
         int q, r = 0;
 
-        family = service_family_from_string(argv[1]);
-        if (family < 0)
-                family = SERVICE_FAMILY_TCP;
-        else
+        if (service_family_is_valid(argv[1])) {
+                family = argv[1];
                 args++;
+        }
 
         STRV_FOREACH(p, args) {
                 q = resolve_tlsa(bus, family, *p);
@@ -2531,11 +2504,12 @@ static int compat_parse_argv(int argc, char *argv[]) {
 
                 case ARG_TLSA:
                         arg_mode = MODE_RESOLVE_TLSA;
-                        if (service_family_from_string(arg_service_family) < 0) {
+                        if (!optarg || service_family_is_valid(optarg))
+                                arg_service_family = optarg;
+                        else {
                                 log_error("Unknown service family \"%s\".", optarg);
                                 return -EINVAL;
                         }
-                        arg_service_family = optarg;
                         break;
 
                 case ARG_RAW:
