@@ -455,6 +455,10 @@
           functionality to other hosts generally do not need to pull
           this in.</para>
 
+          <para>systemd automatically adds dependencies of type <varname>Wants=</varname> and <varname>After=</varname>
+          for this target unit to all SysV init script service units with an LSB header referring to the
+          <literal>$network</literal> facility.</para>
+
           <para>Note that this unit is only useful during the original system start-up logic. After the system has
           completed booting up, it will not track the online state of the system anymore. Due to this it cannot be used
           as a network connection monitor concept, it is purely a one-time system start-up concept.</para>
@@ -846,11 +850,6 @@
           information. Also see
           <filename>network-online.target</filename> described
           above.</para>
-
-          <para>systemd automatically adds dependencies of type
-          <varname>After=</varname> for this target unit to all SysV
-          init script service units with an LSB header referring to
-          the <literal>$network</literal> facility.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
