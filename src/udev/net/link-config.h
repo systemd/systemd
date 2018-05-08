@@ -62,6 +62,7 @@ struct link_config {
         WakeOnLan wol;
         NetDevPort port;
         NetDevFeature features[_NET_DEV_FEAT_MAX];
+        netdev_channels channels;
 
         LIST_FIELDS(link_config, links);
 };

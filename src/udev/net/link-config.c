@@ -393,6 +393,12 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (r < 0)
                 log_warning_errno(r, "Could not set offload features of %s: %m", old_name);
 
+        if (config->channels.rx_count_set || config->channels.tx_count_set || config->channels.other_count_set || config->channels.combined_count_set) {
+                r = ethtool_set_channels(&ctx->ethtool_fd, old_name, &config->channels);
+                if (r < 0)
+                        log_warning_errno(r, "Could not set channels of %s: %m", old_name);
+        }
+
         ifindex = udev_device_get_ifindex(device);
         if (ifindex <= 0) {
                 log_warning("Could not find ifindex");
