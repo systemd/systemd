@@ -370,7 +370,7 @@
     <example>
       <title>Retrieve the addresses of the <literal>www.0pointer.net</literal> domain</title>
 
-      <programlisting>$ resolvectl www.0pointer.net
+      <programlisting>$ resolvectl query www.0pointer.net
 www.0pointer.net: 2a01:238:43ed:c300:10c3:bcf3:3266:da74
                   85.214.157.71
 
@@ -382,7 +382,7 @@ www.0pointer.net: 2a01:238:43ed:c300:10c3:bcf3:3266:da74
     <example>
       <title>Retrieve the domain of the <literal>85.214.157.71</literal> IP address</title>
 
-      <programlisting>$ resolvectl 85.214.157.71
+      <programlisting>$ resolvectl query 85.214.157.71
 85.214.157.71: gardel.0pointer.net
 
 -- Information acquired via protocol DNS in 1.2997s.
@@ -393,7 +393,7 @@ www.0pointer.net: 2a01:238:43ed:c300:10c3:bcf3:3266:da74
     <example>
       <title>Retrieve the MX record of the <literal>yahoo.com</literal> domain</title>
 
-      <programlisting>$ resolvectl -t MX yahoo.com --legend=no
+      <programlisting>$ resolvectl --legend=no -t MX query yahoo.com
 yahoo.com. IN MX    1 mta7.am0.yahoodns.net
 yahoo.com. IN MX    1 mta6.am0.yahoodns.net
 yahoo.com. IN MX    1 mta5.am0.yahoodns.net
