@@ -86,7 +86,7 @@
       <varlistentry>
         <term><varname>ServerCertificateFile=</varname></term>
 
-        <listitem><para>SSL CA certificate in PEM format.</para></listitem>
+        <listitem><para>SSL certificate in PEM format.</para></listitem>
       </varlistentry>
 
       <varlistentry>
