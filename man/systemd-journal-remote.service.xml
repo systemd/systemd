@@ -56,18 +56,19 @@
   <refsect1>
     <title>Description</title>
 
-    <para>
-      <filename>systemd-journal-remote</filename> is a command to
-      receive serialized journal events and store them to the journal.
-      Input streams are in the
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/export">
-        Journal Export Format
-      </ulink>,
-      i.e. like the output from
-      <command>journalctl --output=export</command>. For transport over
-      the network, this serialized stream is usually carried over an
-      HTTPS connection.
-    </para>
+    <para><command>systemd-journal-remote</command> is a command to receive serialized journal
+    events and store them to journal files. Input streams are in the
+    <ulink url="https://www.freedesktop.org/wiki/Software/systemd/export">Journal Export Format</ulink>,
+    i.e. like the output from <command>journalctl --output=export</command>. For transport over the
+    network, this serialized stream is usually carried over an HTTPS connection.</para>
+
+    <para><filename>systemd-journal-remote.service</filename> is a system service that uses
+    <command>systemd-journal-remote</command> to listen for connections.
+    <filename>systemd-journal-remote.socket</filename> configures the network address that
+    <filename>systemd-journal-remote.service</filename> listens on. By default this is port 19532.
+    What connections are accepted and how the received data is stored can be configured through the
+    <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    configuration file.</para>
   </refsect1>
 
   <refsect1>
