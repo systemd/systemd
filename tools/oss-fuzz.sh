@@ -46,8 +46,8 @@ df=$build/dns-fuzzing
 git clone --depth 1 https://github.com/CZ-NIC/dns-fuzzing $df
 zip -jqr $OUT/fuzz-dns-packet_seed_corpus.zip $df/packet
 
-mkdir -p $OUT/src/shared
-mv $build/src/shared/libsystemd-shared-*.so $OUT/src/shared
+# install the private shared library without executable permissions
+install -Dt $OUT/src/shared/ -m 0644 $build/src/shared/libsystemd-shared-*.so
 
 find $build -maxdepth 1 -type f -executable -name "fuzz-*" -exec mv {} $OUT \;
 cp src/fuzz/*.options $OUT
