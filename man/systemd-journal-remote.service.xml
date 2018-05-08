@@ -163,8 +163,8 @@
         interpreted as the (negated) file descriptor number, or an
         address suitable for <option>ListenStream=</option> (c.f.
         <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-        In the first case, matching file descriptor must be inherited
-        through
+        In the first case, the server listens on port 19532 by default,
+        and the matching file descriptor must be inherited through
         <varname>$LISTEN_FDS</varname>/<varname>$LISTEN_PID</varname>.
         In the second case, an HTTP or HTTPS server will be spawned on
         this port, respectively for <option>--listen-http=</option> and
