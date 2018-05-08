@@ -13,7 +13,7 @@
 <refentry id="systemd-networkd-wait-online.service" conditional='ENABLE_NETWORKD'>
 
   <refentryinfo>
-    <title>systemd-networkd.service</title>
+    <title>systemd-networkd-wait-online.service</title>
     <productname>systemd</productname>
 
     <authorgroup>
