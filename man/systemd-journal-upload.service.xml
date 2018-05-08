@@ -69,13 +69,15 @@
     <variablelist>
       <varlistentry>
         <term><option>-u</option></term>
-        <term><option>--url=<optional>https://</optional><replaceable>URL</replaceable></option></term>
-        <term><option>--url=<optional>http://</optional><replaceable>URL</replaceable></option></term>
+        <term><option>--url=<optional>https://</optional><replaceable>URL</replaceable>[:<replaceable>PORT</replaceable>]</option></term>
+        <term><option>--url=<optional>http://</optional><replaceable>URL</replaceable>[:<replaceable>PORT</replaceable>]</option></term>
 
         <listitem><para>Upload to the specified
         address. <replaceable>URL</replaceable> may specify either
         just the hostname or both the protocol and
         hostname. <constant>https</constant> is the default.
+        The port number may be specified after a colon (<literal>:</literal>),
+        otherwise <constant>19532</constant> will be used by default.
         </para></listitem>
       </varlistentry>
 
