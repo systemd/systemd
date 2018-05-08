@@ -24,6 +24,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* nspawn: greater control over hostname, resolv.conf, timezone, rlim
+
+* nspawn: when operating in a scope, also create /payload subcrgoup
+
 * the error paths in usbffs_dispatch_ep() leak memory
 
 * cgroups: figure out if we can somehow communicate in a cleaner way whether a
@@ -51,9 +55,6 @@ Features:
 * pid1: lock image configured with RootDirectory=/RootImage= using the usual nspawn semantics while the unit is up
 
 * add --vacuum-xyz options to coredumpctl, matching those journalctl already has.
-
-* list the exit codes from the BSD/glibc <sysexits.h> in our own
-  exit-codes.[ch] tables.
 
 * SuccessExitStatus= and friends should probably also accept symbolic exit
   codes names, i.e. error codes from the list maintained in exit-codes.[ch]

@@ -11,6 +11,7 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "nspawn-register.h"
+#include "special.h"
 #include "stat-util.h"
 #include "strv.h"
 #include "util.h"
@@ -309,7 +310,7 @@ int allocate_scope(
                                   "PIDs", "au", 1, pid,
                                   "Description", "s", description,
                                   "Delegate", "b", 1,
-                                  "Slice", "s", isempty(slice) ? "machine.slice" : slice);
+                                  "Slice", "s", isempty(slice) ? SPECIAL_MACHINE_SLICE : slice);
         if (r < 0)
                 return bus_log_create_error(r);
 

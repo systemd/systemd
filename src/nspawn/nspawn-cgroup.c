@@ -141,44 +141,53 @@ finish:
         return r;
 }
 
-int create_subcgroup(pid_t pid, CGroupUnified unified_requested) {
+int create_subcgroup(pid_t pid, bool keep_unit, CGroupUnified unified_requested) {
         _cleanup_free_ char *cgroup = NULL;
-        const char *child;
-        int r;
         CGroupMask supported;
+        const char *payload;
+        int r;
 
-        /* In the unified hierarchy inner nodes may only contain
-         * subgroups, but not processes. Hence, if we running in the
-         * unified hierarchy and the container does the same, and we
-         * did not create a scope unit for the container move us and
-         * the container into two separate subcgroups. */
+        assert(pid > 1);
 
-        if (unified_requested == CGROUP_UNIFIED_NONE)
-                return 0;
-
-        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the systemd controller is unified: %m");
-        if (r == 0)
-                return 0;
+        /* In the unified hierarchy inner nodes may only contain subgroups, but not processes. Hence, if we running in
+         * the unified hierarchy and the container does the same, and we did not create a scope unit for the container
+         * move us and the container into two separate subcgroups.
+         *
+         * Moreover, container payloads such as systemd try to manage the cgroup they run in in full (i.e. including
+         * its attributes), while the host systemd will only delegate cgroups for children of the cgroup created for a
+         * delegation unit, instead of the cgroup itself. This means, if we'd pass on the cgroup allocated from the
+         * host systemd directly to the payload, the host and payload systemd might fight for the cgroup
+         * attributes. Hence, let's insert an intermediary cgroup to cover that case too.
+         *
+         * Note that we only bother with the main hierarchy here, not with any secondary ones. On the unified setup
+         * that's fine because there's only one hiearchy anyway and controllers are enabled directly on it. On the
+         * legacy setup, this is fine too, since delegation of controllers is generally not safe there, hence we won't
+         * do it. */
 
         r = cg_mask_supported(&supported);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+        if (keep_unit)
+                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+        else
+                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
         if (r < 0)
                 return log_error_errno(r, "Failed to get our control group: %m");
 
-        child = strjoina(cgroup, "/payload");
-        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, child, pid);
+        payload = strjoina(cgroup, "/payload");
+        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, payload, pid);
         if (r < 0)
-                return log_error_errno(r, "Failed to create %s subcgroup: %m", child);
+                return log_error_errno(r, "Failed to create %s subcgroup: %m", payload);
 
-        child = strjoina(cgroup, "/supervisor");
-        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, child, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create %s subcgroup: %m", child);
+        if (keep_unit) {
+                const char *supervisor;
+
+                supervisor = strjoina(cgroup, "/supervisor");
+                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, supervisor, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create %s subcgroup: %m", supervisor);
+        }
 
         /* Try to enable as many controllers as possible for the new payload. */
         (void) cg_enable_everywhere(supported, supported, cgroup);
