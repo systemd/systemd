@@ -3869,20 +3869,20 @@ static int run(int master,
                    "STATUS=Container running.\n"
                    "X_NSPAWN_LEADER_PID=" PID_FMT, *pid);
         if (!arg_notify_ready)
-                sd_notify(false, "READY=1\n");
+                (void) sd_notify(false, "READY=1\n");
 
         if (arg_kill_signal > 0) {
                 /* Try to kill the init system on SIGINT or SIGTERM */
-                sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(*pid));
-                sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, PID_TO_PTR(*pid));
+                (void) sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(*pid));
+                (void) sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, PID_TO_PTR(*pid));
         } else {
                 /* Immediately exit */
-                sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-                sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+                (void) sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+                (void) sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
         }
 
         /* Exit when the child exits */
-        sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, PID_TO_PTR(*pid));
+        (void) sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, PID_TO_PTR(*pid));
 
         if (arg_expose_ports) {
                 r = expose_port_watch_rtnl(event, rtnl_socket_pair[0], on_address_change, exposed, &rtnl);
