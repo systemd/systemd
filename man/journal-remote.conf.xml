@@ -86,7 +86,7 @@
       <varlistentry>
         <term><varname>ServerCertificateFile=</varname></term>
 
-        <listitem><para>SSL CA certificate in PEM format.</para></listitem>
+        <listitem><para>SSL certificate in PEM format.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -102,7 +102,7 @@
   <refsect1>
       <title>See Also</title>
       <para>
-        <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       </para>
