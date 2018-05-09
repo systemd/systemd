@@ -14,6 +14,13 @@
 #include "strv.h"
 #include "util.h"
 
+static void test_parse_sleep_config(void) {
+        const char *verb;
+
+        FOREACH_STRING(verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate")
+                assert_se(parse_sleep_config(verb, NULL, NULL, NULL) == 0);
+}
+
 static int test_fiemap(const char *path) {
         _cleanup_free_ struct fiemap *fiemap = NULL;
         _cleanup_close_ int fd = -1;
@@ -84,6 +91,7 @@ int main(int argc, char* argv[]) {
         if (getuid() != 0)
                 log_warning("This program is unlikely to work for unprivileged users");
 
+        test_parse_sleep_config();
         test_sleep();
 
         if (argc <= 1)

@@ -34,7 +34,7 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states, usec_t
                 **suspend_mode = NULL, **suspend_state = NULL,
                 **hibernate_mode = NULL, **hibernate_state = NULL,
                 **hybrid_mode = NULL, **hybrid_state = NULL;
-        char **modes, **states;
+        _cleanup_strv_free_ char **modes, **states; /* always initialized below */
         usec_t delay = 180 * USEC_PER_MINUTE;
 
         const ConfigTableItem items[] = {
@@ -90,16 +90,13 @@ int parse_sleep_config(const char *verb, char ***_modes, char ***_states, usec_t
                 assert_not_reached("what verb");
 
         if ((!modes && STR_IN_SET(verb, "hibernate", "hybrid-sleep")) ||
-            (!states && !streq(verb, "suspend-then-hibernate"))) {
-                strv_free(modes);
-                strv_free(states);
+            (!states && !streq(verb, "suspend-then-hibernate")))
                 return log_oom();
-        }
 
         if (_modes)
-                *_modes = modes;
+                *_modes = TAKE_PTR(modes);
         if (_states)
-                *_states = states;
+                *_states = TAKE_PTR(states);
         if (_delay)
                 *_delay = delay;
 
