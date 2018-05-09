@@ -389,14 +389,18 @@ static int parse_fdname(const char *fdname, char **session_id, dev_t *dev) {
 
         if (!streq(parts[0], "session"))
                 return -EINVAL;
+
         id = strdup(parts[1]);
         if (!id)
                 return -ENOMEM;
 
         if (!streq(parts[2], "device"))
                 return -EINVAL;
-        r = safe_atou(parts[3], &major) ||
-            safe_atou(parts[4], &minor);
+
+        r = safe_atou(parts[3], &major);
+        if (r < 0)
+                return r;
+        r = safe_atou(parts[4], &minor);
         if (r < 0)
                 return r;
 
