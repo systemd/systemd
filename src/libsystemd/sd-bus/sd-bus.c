@@ -232,33 +232,30 @@ static void bus_free(sd_bus *b) {
 }
 
 _public_ int sd_bus_new(sd_bus **ret) {
-        sd_bus *r;
+        _cleanup_free_ sd_bus *b = NULL;
 
         assert_return(ret, -EINVAL);
 
-        r = new0(sd_bus, 1);
-        if (!r)
+        b = new0(sd_bus, 1);
+        if (!b)
                 return -ENOMEM;
 
-        r->n_ref = REFCNT_INIT;
-        r->input_fd = r->output_fd = -1;
-        r->inotify_fd = -1;
-        r->message_version = 1;
-        r->creds_mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME;
-        r->accept_fd = true;
-        r->original_pid = getpid_cached();
-        r->n_groups = (size_t) -1;
+        b->n_ref = REFCNT_INIT;
+        b->input_fd = b->output_fd = -1;
+        b->inotify_fd = -1;
+        b->message_version = 1;
+        b->creds_mask |= SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME;
+        b->accept_fd = true;
+        b->original_pid = getpid_cached();
+        b->n_groups = (size_t) -1;
 
-        assert_se(pthread_mutex_init(&r->memfd_cache_mutex, NULL) == 0);
+        assert_se(pthread_mutex_init(&b->memfd_cache_mutex, NULL) == 0);
 
-        /* We guarantee that wqueue always has space for at least one
-         * entry */
-        if (!GREEDY_REALLOC(r->wqueue, r->wqueue_allocated, 1)) {
-                free(r);
+        /* We guarantee that wqueue always has space for at least one entry */
+        if (!GREEDY_REALLOC(b->wqueue, b->wqueue_allocated, 1))
                 return -ENOMEM;
-        }
 
-        *ret = r;
+        *ret = TAKE_PTR(b);
         return 0;
 }
 
@@ -292,7 +289,8 @@ _public_ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
 }
 
 _public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
-        char *p, **a;
+        _cleanup_free_ char *p = NULL;
+        char **a;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -306,10 +304,8 @@ _public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) 
                 return -ENOMEM;
 
         a = strv_copy(argv);
-        if (!a) {
-                free(p);
+        if (!a)
                 return -ENOMEM;
-        }
 
         free_and_replace(bus->exec_path, p);
 
