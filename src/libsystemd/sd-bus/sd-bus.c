@@ -310,10 +310,7 @@ _public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) 
                 return -ENOMEM;
 
         free_and_replace(bus->exec_path, p);
-
-        strv_free(bus->exec_argv);
-        bus->exec_argv = a;
-
+        strv_free_and_replace(bus->exec_argv, a);
         return 0;
 }
 

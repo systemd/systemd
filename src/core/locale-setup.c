@@ -97,8 +97,7 @@ int locale_setup(char ***environment) {
                         goto finish;
                 }
 
-                strv_free(*environment);
-                *environment = e;
+                strv_free_and_replace(*environment, e);
         }
 
         r = 0;

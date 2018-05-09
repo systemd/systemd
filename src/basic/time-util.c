@@ -614,8 +614,7 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
         int r, weekday = -1, dst = -1;
         size_t i;
 
-        /*
-         * Allowed syntaxes:
+        /* Allowed syntaxes:
          *
          *   2012-09-22 16:34:22
          *   2012-09-22 16:34     (seconds will be set to 0)
@@ -629,7 +628,6 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
          *   +5min
          *   -5days
          *   @2147483647          (seconds since epoch)
-         *
          */
 
         assert(t);
@@ -688,10 +686,10 @@ static int parse_timestamp_impl(const char *t, usec_t *usec, bool with_tz) {
                         tzset();
 
                         /* See if the timestamp is suffixed by either the DST or non-DST local timezone. Note that we only
-                        * support the local timezones here, nothing else. Not because we wouldn't want to, but simply because
-                        * there are no nice APIs available to cover this. By accepting the local time zone strings, we make
-                        * sure that all timestamps written by format_timestamp() can be parsed correctly, even though we don't
-                        * support arbitrary timezone specifications.  */
+                         * support the local timezones here, nothing else. Not because we wouldn't want to, but simply because
+                         * there are no nice APIs available to cover this. By accepting the local time zone strings, we make
+                         * sure that all timestamps written by format_timestamp() can be parsed correctly, even though we don't
+                         * support arbitrary timezone specifications. */
 
                         for (j = 0; j <= 1; j++) {
 
@@ -903,10 +901,10 @@ int parse_timestamp(const char *t, usec_t *usec) {
                 tzset();
 
                 /* If there is a timezone that matches the tzname fields, leave the parsing to the implementation.
-                 * Otherwise just cut it off */
+                 * Otherwise just cut it off. */
                 with_tz = !STR_IN_SET(tz, tzname[0], tzname[1]);
 
-                /*cut off the timezone if we dont need it*/
+                /* Cut off the timezone if we dont need it. */
                 if (with_tz)
                         t = strndupa(t, last_space - t);
 

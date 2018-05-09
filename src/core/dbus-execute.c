@@ -2023,9 +2023,7 @@ int bus_exec_context_set_transient_property(
                                 if (!e)
                                         return -ENOMEM;
 
-                                strv_free(c->environment);
-                                c->environment = e;
-
+                                strv_free_and_replace(c->environment, e);
                                 unit_write_settingf(u, flags, name, "Environment=%s", joined);
                         }
                 }
@@ -2059,9 +2057,7 @@ int bus_exec_context_set_transient_property(
                                 if (!e)
                                         return -ENOMEM;
 
-                                strv_free(c->unset_environment);
-                                c->unset_environment = e;
-
+                                strv_free_and_replace(c->unset_environment, e);
                                 unit_write_settingf(u, flags, name, "UnsetEnvironment=%s", joined);
                         }
                 }
