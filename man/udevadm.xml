@@ -118,9 +118,9 @@
             <filename><optional>/sys</optional>/class/block/sda</filename>.
             Note that this option usually is not very useful, since
             <command>udev</command> can guess the type of the
-            argument, so <command>udevadm
-            --devpath=/class/block/sda</command> is equivalent to
-            <command>udevadm /sys/class/block/sda</command>.</para>
+            argument, so <command>udevadm info
+            --path=/class/block/sda</command> is equivalent to
+            <command>udevadm info /sys/class/block/sda</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -131,8 +131,8 @@
             e.g. <filename><optional>/dev</optional>/sda</filename>.
             Note that this option usually is not very useful, since
             <command>udev</command> can guess the type of the
-            argument, so <command>udevadm --name=sda</command> is
-            equivalent to <command>udevadm /dev/sda</command>.</para>
+            argument, so <command>udevadm info --name=sda</command> is
+            equivalent to <command>udevadm info /dev/sda</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
