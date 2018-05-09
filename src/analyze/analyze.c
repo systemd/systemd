@@ -120,10 +120,12 @@ struct host_info {
 
 static int acquire_bus(sd_bus **bus, bool *use_full_bus) {
         bool user = arg_scope != UNIT_FILE_SYSTEM;
+        int r;
 
         if (use_full_bus && *use_full_bus) {
-                if (bus_connect_transport(arg_transport, arg_host, user, bus) == 0)
-                        return 0;
+                r = bus_connect_transport(arg_transport, arg_host, user, bus);
+                if (IN_SET(r, 0, -EHOSTDOWN))
+                        return r;
 
                 *use_full_bus = false;
         }

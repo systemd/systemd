@@ -211,12 +211,6 @@ static int acquire_bus(BusFocus focus, sd_bus **ret) {
 
                 user = arg_scope != UNIT_FILE_SYSTEM;
 
-                if (!user && sd_booted() <= 0) {
-                        /* Print a friendly message when the local system is actually not running systemd as PID 1. */
-                        log_error("System has not been booted with systemd as init system (PID 1). Can't operate.");
-                        return -EHOSTDOWN;
-                }
-
                 if (focus == BUS_MANAGER)
                         r = bus_connect_transport_systemd(arg_transport, arg_host, user, &busses[focus]);
                 else
