@@ -88,7 +88,12 @@
       <varlistentry>
         <term><varname>MACAddress=</varname></term>
         <listitem>
-          <para>The hardware address.</para>
+          <para>A whitespace-separated list of hardware addresses. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example below.
+          This option may appear more than once, in which case the lists are merged. If the empty string is assigned to this option, the list
+          of hardware addresses defined prior to this is reset.</para>
+
+          <para>Example:
+          <programlisting>MACAddress=01:23:45:67:89:ab 00-11-22-33-44-55 AABB.CCDD.EEFF</programlisting></para>
         </listitem>
       </varlistentry>
       <varlistentry>
