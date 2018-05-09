@@ -401,6 +401,27 @@ int config_parse(const char *unit,
                 continuation = mfree(continuation);
         }
 
+        if (continuation) {
+                r = parse_line(unit,
+                               filename,
+                               ++line,
+                               sections,
+                               lookup,
+                               table,
+                               flags,
+                               &section,
+                               &section_line,
+                               &section_ignored,
+                               continuation,
+                               userdata);
+                if (r < 0) {
+                        if (flags & CONFIG_PARSE_WARN)
+                                log_warning_errno(r, "%s:%u: Failed to parse file: %m", filename, line);
+                        return r;
+
+                }
+        }
+
         return 0;
 }
 
