@@ -18,7 +18,7 @@
 #define LINK_BRIDGE_PORT_PRIORITY_INVALID 128
 #define LINK_BRIDGE_PORT_PRIORITY_MAX 63
 
-bool net_match_config(const struct ether_addr *match_mac,
+bool net_match_config(Set *match_mac,
                       char * const *match_path,
                       char * const *match_driver,
                       char * const *match_type,

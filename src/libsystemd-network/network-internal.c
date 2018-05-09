@@ -97,7 +97,7 @@ static bool net_condition_test_strv(char * const *raw_patterns,
         return string && strv_fnmatch(raw_patterns, string, 0);
 }
 
-bool net_match_config(const struct ether_addr *match_mac,
+bool net_match_config(Set *match_mac,
                       char * const *match_paths,
                       char * const *match_drivers,
                       char * const *match_types,
@@ -129,7 +129,7 @@ bool net_match_config(const struct ether_addr *match_mac,
         if (match_arch && condition_test(match_arch) <= 0)
                 return false;
 
-        if (match_mac && (!dev_mac || memcmp(match_mac, dev_mac, ETH_ALEN)))
+        if (match_mac && dev_mac && !set_contains(match_mac, dev_mac))
                 return false;
 
         if (!net_condition_test_strv(match_paths, dev_path))
@@ -329,7 +329,7 @@ int config_parse_hwaddrs(const char *unit,
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                set_free_free(*hwaddrs);
+                *hwaddrs = set_free_free(*hwaddrs);
                 return 0;
         }
 
@@ -351,7 +351,7 @@ int config_parse_hwaddrs(const char *unit,
                         return 0;
                 }
 
-                n = new0(struct ether_addr, 1);
+                n = new(struct ether_addr, 1);
                 if (!n)
                         return log_oom();
 

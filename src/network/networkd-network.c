@@ -353,7 +353,7 @@ void network_free(Network *network) {
 
         free(network->filename);
 
-        free(network->match_mac);
+        set_free_free(network->match_mac);
         strv_free(network->match_path);
         strv_free(network->match_driver);
         strv_free(network->match_type);

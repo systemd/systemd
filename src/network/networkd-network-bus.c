@@ -6,6 +6,7 @@
 ***/
 
 #include "alloc-util.h"
+#include "ether-addr-util.h"
 #include "networkd-manager.h"
 #include "string-util.h"
 #include "strv.h"
@@ -19,23 +20,24 @@ static int property_get_ether_addrs(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Network *n = userdata;
-        const char *ether = NULL;
+        char buf[ETHER_ADDR_TO_STRING_MAX];
+        const struct ether_addr *p;
+        Iterator i;
+        Set *s;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(n);
+        assert(userdata);
 
-        if (n->match_mac)
-                ether = ether_ntoa(n->match_mac);
+        s = *(Set **) userdata;
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
                 return r;
 
-        if (ether) {
-                r = sd_bus_message_append(reply, "s", strempty(ether));
+        SET_FOREACH(p, s, i) {
+                r = sd_bus_message_append(reply, "s", ether_addr_to_string(p, buf));
                 if (r < 0)
                         return r;
         }
@@ -48,7 +50,7 @@ const sd_bus_vtable network_vtable[] = {
 
         SD_BUS_PROPERTY("Description", "s", NULL, offsetof(Network, description), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SourcePath", "s", NULL, offsetof(Network, filename), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("MatchMAC", "as", property_get_ether_addrs, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MatchMAC", "as", property_get_ether_addrs, offsetof(Network, match_mac), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchPath", "as", NULL, offsetof(Network, match_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchDriver", "as", NULL, offsetof(Network, match_driver), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MatchType", "as", NULL, offsetof(Network, match_type), SD_BUS_VTABLE_PROPERTY_CONST),
