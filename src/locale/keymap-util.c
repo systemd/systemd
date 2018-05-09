@@ -530,9 +530,10 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
         return 0;
 }
 
-int find_legacy_keymap(Context *c, char **new_keymap) {
+int find_legacy_keymap(Context *c, char **ret) {
         const char *map;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *new_keymap = NULL;
         unsigned n = 0;
         unsigned best_matching = 0;
         int r;
@@ -597,7 +598,7 @@ int find_legacy_keymap(Context *c, char **new_keymap) {
                         if (matching > best_matching) {
                                 best_matching = matching;
 
-                                r = free_and_strdup(new_keymap, a[0]);
+                                r = free_and_strdup(&new_keymap, a[0]);
                                 if (r < 0)
                                         return r;
                         }
@@ -617,13 +618,12 @@ int find_legacy_keymap(Context *c, char **new_keymap) {
                 r = find_converted_keymap(l, v, &converted);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        free(*new_keymap);
-                        *new_keymap = converted;
-                }
+                if (r > 0)
+                        free_and_replace(new_keymap, converted);
         }
 
-        return (bool) *new_keymap;
+        *ret = TAKE_PTR(new_keymap);
+        return (bool) *ret;
 }
 
 int find_language_fallback(const char *lang, char **language) {
