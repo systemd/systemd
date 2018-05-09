@@ -78,7 +78,8 @@
         <term><option>-d</option></term>
         <term><option>--debug</option></term>
         <listitem>
-          <para>Print debug messages to standard error.</para>
+          <para>Print debug messages to standard error. This option is implied in <command>udevadm test</command> and
+          <command>udevadm test-builtin</command> commands.</para>
         </listitem>
       </varlistentry>
 
