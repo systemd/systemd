@@ -21,6 +21,8 @@
 #include "calendarspec.h"
 #include "def.h"
 #include "conf-files.h"
+#include "copy.h"
+#include "fd-util.h"
 #include "glob-util.h"
 #include "hashmap.h"
 #include "locale-util.h"
@@ -1279,18 +1281,13 @@ static int dot(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int dump(int argc, char *argv[], void *userdata) {
+static int dump_fallback(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *text = NULL;
         int r;
 
-        r = acquire_bus(&bus, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create bus connection: %m");
-
-        (void) pager_open(arg_no_pager, false);
+        assert(bus);
 
         r = sd_bus_call_method(
                         bus,
@@ -1302,7 +1299,7 @@ static int dump(int argc, char *argv[], void *userdata) {
                         &reply,
                         NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue method call: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to issue method call Dump: %s", bus_error_message(&error, r));
 
         r = sd_bus_message_read(reply, "s", &text);
         if (r < 0)
@@ -1310,6 +1307,47 @@ static int dump(int argc, char *argv[], void *userdata) {
 
         fputs(text, stdout);
         return 0;
+}
+
+static int dump(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int fd = -1;
+        int r;
+
+        r = acquire_bus(&bus, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create bus connection: %m");
+
+        (void) pager_open(arg_no_pager, false);
+
+        if (!sd_bus_can_send(bus, SD_BUS_TYPE_UNIX_FD))
+                return dump_fallback(bus);
+
+        r = sd_bus_call_method(
+                        bus,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "DumpByFileDescriptor",
+                        &error,
+                        &reply,
+                        NULL);
+        if (r < 0) {
+                /* fall back to Dump if DumpByFileDescriptor is not supported */
+                if (!IN_SET(r, -EACCES, -EBADR))
+                        return log_error_errno(r, "Failed to issue method call DumpByFileDescriptor: %s", bus_error_message(&error, r));
+
+                return dump_fallback(bus);
+        }
+
+        r = sd_bus_message_read(reply, "h", &fd);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        fflush(stdout);
+        return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, 0);
 }
 
 static int cat_config(int argc, char *argv[], void *userdata) {
