@@ -275,9 +275,7 @@ _public_ int sd_bus_set_address(sd_bus *bus, const char *address) {
         if (!a)
                 return -ENOMEM;
 
-        free_and_replace(bus->address, a);
-
-        return 0;
+        return free_and_replace(bus->address, a);
 }
 
 _public_ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
@@ -1405,7 +1403,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
 
                 /* Let's make sure this is not a port of some kind,
                  * and is a valid machine name. */
-                if (!in_charset(m, "0123456789") && machine_name_is_valid(m)) {
+                if (!in_charset(m, DIGITS) && machine_name_is_valid(m)) {
                         char *t;
 
                         /* Cut out the host part */
@@ -1428,10 +1426,8 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
         if (!a)
                 return -ENOMEM;
 
-        free_and_replace(b->address, a);
-
-        return 0;
- }
+        return free_and_replace(b->address, a);
+}
 
 _public_ int sd_bus_open_system_remote(sd_bus **ret, const char *host) {
         sd_bus *bus;
@@ -1480,9 +1476,7 @@ int bus_set_address_system_machine(sd_bus *b, const char *machine) {
         if (!a)
                 return -ENOMEM;
 
-        free_and_replace(b->address, a);
-
-        return 0;
+        return free_and_replace(b->address, a);
 }
 
 _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *machine) {
