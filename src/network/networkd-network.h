@@ -103,7 +103,7 @@ struct Network {
         char *filename;
         char *name;
 
-        struct ether_addr *match_mac;
+        Set *match_mac;
         char **match_path;
         char **match_driver;
         char **match_type;

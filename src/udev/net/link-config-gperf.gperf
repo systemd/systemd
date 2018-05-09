@@ -4,9 +4,9 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #endif
 #include <stddef.h>
 #include "conf-parser.h"
-#include "network-internal.h"
-#include "link-config.h"
 #include "ethtool-util.h"
+#include "link-config.h"
+#include "network-internal.h"
 %}
 struct ConfigPerfItem;
 %null_strings
@@ -19,7 +19,7 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Match.MACAddress,                config_parse_hwaddr,        0,                             offsetof(link_config, match_mac)
+Match.MACAddress,                config_parse_hwaddrs,       0,                             offsetof(link_config, match_mac)
 Match.OriginalName,              config_parse_ifnames,       0,                             offsetof(link_config, match_name)
 Match.Path,                      config_parse_strv,          0,                             offsetof(link_config, match_path)
 Match.Driver,                    config_parse_strv,          0,                             offsetof(link_config, match_driver)
