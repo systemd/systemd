@@ -532,10 +532,8 @@ static int property_get_ntp(
 
 static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
+        int interactive, r;
         const char *z;
-        int interactive;
-        char *t;
-        int r;
 
         assert(m);
         assert(c);
@@ -547,7 +545,10 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         if (!timezone_is_valid(z))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid time zone '%s'", z);
 
-        if (streq_ptr(z, c->zone))
+        r = free_and_strdup(&c->zone, z);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
@@ -563,13 +564,6 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
-
-        t = strdup(z);
-        if (!t)
-                return -ENOMEM;
-
-        free(c->zone);
-        c->zone = t;
 
         /* 1. Write new configuration file */
         r = context_write_data_timezone(c);
