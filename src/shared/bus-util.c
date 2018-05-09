@@ -1078,9 +1078,7 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
                 if (r < 0)
                         return r;
 
-                strv_free(*p);
-                *p = TAKE_PTR(l);
-                return 0;
+                return strv_free_and_replace(*p, l);
         }
 
         case SD_BUS_TYPE_BOOLEAN: {

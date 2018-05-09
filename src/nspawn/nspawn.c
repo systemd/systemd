@@ -818,9 +818,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!n)
                                 return log_oom();
 
-                        strv_free(arg_setenv);
-                        arg_setenv = n;
-
+                        strv_free_and_replace(arg_setenv, n);
                         arg_settings_mask |= SETTING_ENVIRONMENT;
                         break;
                 }
@@ -3120,9 +3118,7 @@ static int load_settings(void) {
         if ((arg_settings_mask & SETTING_START_MODE) == 0 &&
             settings->start_mode >= 0) {
                 arg_start_mode = settings->start_mode;
-
-                strv_free(arg_parameters);
-                arg_parameters = TAKE_PTR(settings->parameters);
+                strv_free_and_replace(arg_parameters, settings->parameters);
         }
 
         if ((arg_settings_mask & SETTING_PIVOT_ROOT) == 0 &&
@@ -3136,10 +3132,8 @@ static int load_settings(void) {
                 free_and_replace(arg_chdir, settings->working_directory);
 
         if ((arg_settings_mask & SETTING_ENVIRONMENT) == 0 &&
-            settings->environment) {
-                strv_free(arg_setenv);
-                arg_setenv = TAKE_PTR(settings->environment);
-        }
+            settings->environment)
+                strv_free_and_replace(arg_setenv, settings->environment);
 
         if ((arg_settings_mask & SETTING_USER) == 0 &&
             settings->user)
@@ -3215,17 +3209,10 @@ static int load_settings(void) {
                         arg_network_veth = settings_network_veth(settings);
                         arg_private_network = settings_private_network(settings);
 
-                        strv_free(arg_network_interfaces);
-                        arg_network_interfaces = TAKE_PTR(settings->network_interfaces);
-
-                        strv_free(arg_network_macvlan);
-                        arg_network_macvlan = TAKE_PTR(settings->network_macvlan);
-
-                        strv_free(arg_network_ipvlan);
-                        arg_network_ipvlan = TAKE_PTR(settings->network_ipvlan);
-
-                        strv_free(arg_network_veth_extra);
-                        arg_network_veth_extra = TAKE_PTR(settings->network_veth_extra);
+                        strv_free_and_replace(arg_network_interfaces, settings->network_interfaces);
+                        strv_free_and_replace(arg_network_macvlan, settings->network_macvlan);
+                        strv_free_and_replace(arg_network_ipvlan, settings->network_ipvlan);
+                        strv_free_and_replace(arg_network_veth_extra, settings->network_veth_extra);
 
                         free_and_replace(arg_network_bridge, settings->network_bridge);
                         free_and_replace(arg_network_zone, settings->network_zone);
@@ -3264,11 +3251,8 @@ static int load_settings(void) {
                 if (!arg_settings_trusted && !strv_isempty(arg_syscall_whitelist))
                         log_warning("Ignoring SystemCallFilter= settings, file %s is not trusted.", p);
                 else {
-                        strv_free(arg_syscall_whitelist);
-                        strv_free(arg_syscall_blacklist);
-
-                        arg_syscall_whitelist = TAKE_PTR(settings->syscall_whitelist);
-                        arg_syscall_blacklist = TAKE_PTR(settings->syscall_blacklist);
+                        strv_free_and_replace(arg_syscall_whitelist, settings->syscall_whitelist);
+                        strv_free_and_replace(arg_syscall_blacklist, settings->syscall_blacklist);
                 }
         }
 

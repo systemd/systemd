@@ -1287,10 +1287,7 @@ static int setup_pam(
         if (!barrier_place_and_sync(&barrier))
                 log_error("PAM initialization failed");
 
-        strv_free(*env);
-        *env = e;
-
-        return 0;
+        return strv_free_and_replace(*env, e);
 
 fail:
         if (pam_code != PAM_SUCCESS) {
@@ -3379,8 +3376,7 @@ static int exec_child(
                         return log_oom();
                 }
 
-                strv_free(accum_env);
-                accum_env = ee;
+                strv_free_and_replace(accum_env, ee);
         }
 
         final_argv = replace_env_argv(argv, accum_env);
@@ -4492,10 +4488,7 @@ int exec_command_set(ExecCommand *c, const char *path, ...) {
         free(c->path);
         c->path = p;
 
-        strv_free(c->argv);
-        c->argv = l;
-
-        return 0;
+        return strv_free_and_replace(c->argv, l);
 }
 
 int exec_command_append(ExecCommand *c, const char *path, ...) {

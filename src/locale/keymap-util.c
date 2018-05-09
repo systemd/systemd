@@ -250,8 +250,7 @@ int locale_write_data(Context *c, char ***settings) {
                 if (!u)
                         return -ENOMEM;
 
-                strv_free(l);
-                l = u;
+                strv_free_and_replace(l, u);
         }
 
         if (strv_isempty(l)) {
@@ -291,8 +290,7 @@ int vconsole_write_data(Context *c) {
                 if (!u)
                         return -ENOMEM;
 
-                strv_free(l);
-                l = u;
+                strv_free_and_replace(l, u);
         }
 
         if (isempty(c->vc_keymap_toggle))
@@ -309,8 +307,7 @@ int vconsole_write_data(Context *c) {
                 if (!u)
                         return -ENOMEM;
 
-                strv_free(l);
-                l = u;
+                strv_free_and_replace(l, u);
         }
 
         if (strv_isempty(l)) {

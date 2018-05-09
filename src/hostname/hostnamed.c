@@ -338,8 +338,7 @@ static int context_write_data_machine_info(Context *c) {
                 if (!u)
                         return -ENOMEM;
 
-                strv_free(l);
-                l = u;
+                strv_free_and_replace(l, u);
         }
 
         if (strv_isempty(l)) {
