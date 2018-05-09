@@ -1323,6 +1323,31 @@ libsystemd = shared_library(
         install : true,
         install_dir : rootlibdir)
 
+static_libsystemd = get_option('static-libsystemd')
+static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic'
+
+install_libsystemd_static = static_library(
+        'systemd',
+        libsystemd_sources,
+        journal_client_sources,
+        basic_sources,
+        basic_gcrypt_sources,
+        include_directories : includes,
+        build_by_default : static_libsystemd != 'false',
+        install : static_libsystemd != 'false',
+        install_dir : rootlibdir,
+        pic : static_libsystemd == 'true' or static_libsystemd == 'pic',
+        dependencies : [threads,
+                        librt,
+                        libxz,
+                        liblz4,
+                        libcap,
+                        libblkid,
+                        libmount,
+                        libselinux,
+                        libgcrypt],
+        c_args : libsystemd_c_args + (static_libsystemd_pic ? [] : ['-fno-PIC']))
+
 ############################################################
 
 # binaries that have --help and are intended for use by humans,
@@ -2522,17 +2547,30 @@ foreach tuple : tests
         endif
 endforeach
 
-test_libsystemd_sym = executable(
+exe = executable(
         'test-libsystemd-sym',
         test_libsystemd_sym_c,
         include_directories : includes,
         link_with : [libsystemd],
         install : install_tests,
         install_dir : testsdir)
-test('test-libsystemd-sym',
-     test_libsystemd_sym)
+test('test-libsystemd-sym', exe)
 
-test_libudev_sym = executable(
+exe = executable(
+        'test-libsystemd-static-sym',
+        test_libsystemd_sym_c,
+        include_directories : includes,
+        link_with : [install_libsystemd_static],
+        dependencies : [threads], # threads is already included in dependencies on the library,
+                                  # but does not seem to get propagated. Add here as a work-around.
+        build_by_default : static_libsystemd_pic,
+        install : install_tests and static_libsystemd_pic,
+        install_dir : testsdir)
+if static_libsystemd_pic
+        test('test-libsystemd-static-sym', exe)
+endif
+
+exe = executable(
         'test-libudev-sym',
         test_libudev_sym_c,
         include_directories : includes,
@@ -2540,8 +2578,20 @@ test_libudev_sym = executable(
         link_with : [libudev],
         install : install_tests,
         install_dir : testsdir)
-test('test-libudev-sym',
-     test_libudev_sym)
+test('test-libudev-sym', exe)
+
+exe = executable(
+        'test-libudev-static-sym',
+        test_libudev_sym_c,
+        include_directories : includes,
+        c_args : ['-Wno-deprecated-declarations'],
+        link_with : [install_libudev_static],
+        build_by_default : static_libudev_pic,
+        install : install_tests and static_libudev_pic,
+        install_dir : testsdir)
+if static_libudev_pic
+        test('test-libudev-static-sym', exe)
+endif
 
 ############################################################
 

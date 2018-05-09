@@ -302,6 +302,9 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
 endforeach
 
 basic_sources += [missing_h] + generated_gperf_headers
+basic_gcrypt_sources = files(
+        'gcrypt-util.c',
+        'gcrypt-util.h')
 
 libbasic = static_library(
         'basic',
@@ -319,8 +322,7 @@ libbasic = static_library(
 # unnecessary linking to libgcrypt.
 libbasic_gcrypt = static_library(
         'basic-gcrypt',
-        'gcrypt-util.c',
-        'gcrypt-util.h',
+        basic_gcrypt_sources,
         include_directories : includes,
         dependencies : [libgcrypt],
         c_args : ['-fvisibility=default'])

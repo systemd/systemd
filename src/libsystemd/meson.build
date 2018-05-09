@@ -82,15 +82,17 @@ libsystemd_sources = files('''
         sd-utf8/sd-utf8.c
 '''.split()) + id128_sources + sd_daemon_c + sd_event_c + sd_login_c
 
+libsystemd_c_args = ['-fvisibility=default']
+
 libsystemd_static = static_library(
-        'systemd',
+        'systemd_static',
         libsystemd_sources,
         install : false,
         include_directories : includes,
         link_with : libbasic,
         dependencies : [threads,
                         librt],
-        c_args : ['-fvisibility=default'])
+        c_args : libsystemd_c_args)
 
 libsystemd_sym = 'src/libsystemd/libsystemd.sym'
 
