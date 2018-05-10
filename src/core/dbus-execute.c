@@ -430,24 +430,6 @@ static int property_get_syscall_archs(
         return 0;
 }
 
-static int property_get_syscall_errno(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(c);
-
-        return sd_bus_message_append(reply, "i", (int32_t) c->syscall_errno);
-}
-
 static int property_get_selinux_context(
                 sd_bus *bus,
                 const char *path,
@@ -873,7 +855,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("NoNewPrivileges", "b", bus_property_get_bool, offsetof(ExecContext, no_new_privileges), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SystemCallFilter", "(bas)", property_get_syscall_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SystemCallArchitectures", "as", property_get_syscall_archs, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SystemCallErrorNumber", "i", property_get_syscall_errno, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SystemCallErrorNumber", "i", bus_property_get_int, offsetof(ExecContext, syscall_errno), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Personality", "s", property_get_personality, offsetof(ExecContext, personality), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LockPersonality", "b", bus_property_get_bool, offsetof(ExecContext, lock_personality), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
