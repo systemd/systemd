@@ -1,5 +1,5 @@
 [Unit]
-Description=Test DynamicUser= migrate StateDirectory= (preparation)
+Description=Test DynamicUser= migrate StateDirectory=
 
 [Service]
 ExecStart=test -w /var/lib/test-dynamicuser-migrate
