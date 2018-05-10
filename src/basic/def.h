@@ -54,8 +54,10 @@
 #define NOTIFY_BUFFER_MAX PIPE_BUF
 
 #if HAVE_SPLIT_USR
-#  define _CONF_PATHS_SPLIT_USR(n) "/lib/" n "\0"
+#  define _CONF_PATHS_SPLIT_USR_NULSTR(n) "/lib/" n "\0"
+#  define _CONF_PATHS_SPLIT_USR(n) , "/lib/" n
 #else
+#  define _CONF_PATHS_SPLIT_USR_NULSTR(n)
 #  define _CONF_PATHS_SPLIT_USR(n)
 #endif
 
@@ -68,6 +70,14 @@
         "/run/" n "\0"                          \
         "/usr/local/lib/" n "\0"                \
         "/usr/lib/" n "\0"                      \
-        _CONF_PATHS_SPLIT_USR(n)
+        _CONF_PATHS_SPLIT_USR_NULSTR(n)
+
+#define CONF_PATHS_STRV(n)                      \
+        STRV_MAKE(                              \
+                "/etc/" n,                      \
+                "/run/" n,                      \
+                "/usr/local/lib/" n,            \
+                "/usr/lib/" n                   \
+                _CONF_PATHS_SPLIT_USR(n))
 
 #define LONG_LINE_MAX (1U*1024U*1024U)

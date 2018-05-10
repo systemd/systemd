@@ -5314,23 +5314,6 @@ static int show(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int cat_file(const char *filename, bool newline) {
-        _cleanup_close_ int fd;
-
-        fd = open(filename, O_RDONLY|O_CLOEXEC|O_NOCTTY);
-        if (fd < 0)
-                return -errno;
-
-        printf("%s%s# %s%s\n",
-               newline ? "\n" : "",
-               ansi_highlight_blue(),
-               filename,
-               ansi_normal());
-        fflush(stdout);
-
-        return copy_bytes(fd, STDOUT_FILENO, (uint64_t) -1, 0);
-}
-
 static int cat(int argc, char *argv[], void *userdata) {
         _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
@@ -5361,7 +5344,6 @@ static int cat(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *fragment_path = NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
-                char **path;
 
                 r = unit_find_paths(bus, *name, &lp, &fragment_path, &dropin_paths);
                 if (r < 0)
@@ -5388,17 +5370,9 @@ static int cat(int argc, char *argv[], void *userdata) {
                                 arg_scope == UNIT_FILE_SYSTEM ? "" : " --user",
                                 ansi_normal());
 
-                if (fragment_path) {
-                        r = cat_file(fragment_path, false);
-                        if (r < 0)
-                                return log_warning_errno(r, "Failed to cat %s: %m", fragment_path);
-                }
-
-                STRV_FOREACH(path, dropin_paths) {
-                        r = cat_file(*path, path == dropin_paths);
-                        if (r < 0)
-                                return log_warning_errno(r, "Failed to cat %s: %m", *path);
-                }
+                r = cat_files(fragment_path, dropin_paths, 0);
+                if (r < 0)
+                        return r;
         }
 
         return 0;

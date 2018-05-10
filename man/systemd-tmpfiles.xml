@@ -183,6 +183,7 @@
         </para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="cat-config" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

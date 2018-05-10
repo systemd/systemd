@@ -60,6 +60,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
 #include "util.h"
@@ -149,6 +150,7 @@ typedef enum DirectoryType {
         _DIRECTORY_TYPE_MAX,
 } DirectoryType;
 
+static bool arg_cat_config = false;
 static bool arg_user = false;
 static bool arg_create = false;
 static bool arg_clean = false;
@@ -2441,12 +2443,24 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         return 0;
 }
 
+static int cat_config(char **config_dirs, char **args) {
+        _cleanup_strv_free_ char **files = NULL;
+        int r;
+
+        r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, NULL);
+        if (r < 0)
+                return r;
+
+        return cat_files(NULL, files, 0);
+}
+
 static void help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
                "  -h --help                 Show this help\n"
                "     --user                 Execute user configuration\n"
                "     --version              Show package version\n"
+               "     --cat-config           Show configuration files\n"
                "     --create               Create marked files/directories\n"
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
@@ -2462,6 +2476,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_CAT_CONFIG,
                 ARG_USER,
                 ARG_CREATE,
                 ARG_CLEAN,
@@ -2477,6 +2492,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",           no_argument,         NULL, 'h'                },
                 { "user",           no_argument,         NULL, ARG_USER           },
                 { "version",        no_argument,         NULL, ARG_VERSION        },
+                { "cat-config",     no_argument,         NULL, ARG_CAT_CONFIG     },
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
@@ -2503,6 +2519,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_CAT_CONFIG:
+                        arg_cat_config = true;
+                        break;
 
                 case ARG_USER:
                         arg_user = true;
@@ -2557,8 +2577,13 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (!arg_clean && !arg_create && !arg_remove) {
+        if (!arg_clean && !arg_create && !arg_remove && !arg_cat_config) {
                 log_error("You need to specify at least one of --clean, --create or --remove.");
+                return -EINVAL;
+        }
+
+        if (arg_replace && arg_cat_config) {
+                log_error("Option --replace= is not supported with --cat-config");
                 return -EINVAL;
         }
 
@@ -2677,19 +2702,9 @@ static int read_config_files(char **config_dirs, char **args, bool *invalid_conf
         char **f;
         int r;
 
-        r = conf_files_list_strv(&files, ".conf", arg_root, 0, (const char* const*) config_dirs);
+        r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, &p);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate tmpfiles.d files: %m");
-
-        if (arg_replace) {
-                r = conf_files_insert(&files, arg_root, config_dirs, arg_replace);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extend tmpfiles.d file list: %m");
-
-                p = path_join(arg_root, arg_replace, NULL);
-                if (!p)
-                        return log_oom();
-        }
+                return r;
 
         STRV_FOREACH(f, files)
                 if (p && path_equal(*f, p)) {
@@ -2721,20 +2736,6 @@ int main(int argc, char *argv[]) {
         log_parse_environment();
         log_open();
 
-        umask(0022);
-
-        mac_selinux_init();
-
-        items = ordered_hashmap_new(&string_hash_ops);
-        globs = ordered_hashmap_new(&string_hash_ops);
-
-        if (!items || !globs) {
-                r = log_oom();
-                goto finish;
-        }
-
-        r = 0;
-
         if (arg_user) {
                 r = user_config_paths(&config_dirs);
                 if (r < 0) {
@@ -2755,6 +2756,23 @@ int main(int argc, char *argv[]) {
                 t = strv_join(config_dirs, "\n\t");
                 if (t)
                         log_debug("Looking for configuration files in (higher priority first):\n\t%s", t);
+        }
+
+        if (arg_cat_config) {
+                r = cat_config(config_dirs, argv + optind);
+                goto finish;
+        }
+
+        umask(0022);
+
+        mac_selinux_init();
+
+        items = ordered_hashmap_new(&string_hash_ops);
+        globs = ordered_hashmap_new(&string_hash_ops);
+
+        if (!items || !globs) {
+                r = log_oom();
+                goto finish;
         }
 
         /* If command line arguments are specified along with --replace, read all

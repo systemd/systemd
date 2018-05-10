@@ -8,7 +8,8 @@
 
   Copyright 2012 Lennart Poettering
 -->
-<refentry id="systemd-binfmt.service" conditional='ENABLE_BINFMT'>
+<refentry id="systemd-binfmt.service" conditional='ENABLE_BINFMT'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-binfmt.service</title>
@@ -50,6 +51,14 @@
     <para>See
     <citerefentry><refentrytitle>binfmt.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the configuration of this service.</para>
+  </refsect1>
+
+  <refsect1><title>Options</title>
+    <variablelist>
+      <xi:include href="standard-options.xml" xpointer="cat-config" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
   </refsect1>
 
   <refsect1>

@@ -19,12 +19,15 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "calendarspec.h"
+#include "def.h"
+#include "conf-files.h"
 #include "glob-util.h"
 #include "hashmap.h"
 #include "locale-util.h"
 #include "log.h"
 #include "pager.h"
 #include "parse-util.h"
+#include "path-util.h"
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
@@ -70,6 +73,7 @@ static const char *arg_host = NULL;
 static UnitFileScope arg_scope = UNIT_FILE_SYSTEM;
 static bool arg_man = true;
 static bool arg_generators = false;
+static const char *arg_root = NULL;
 
 struct boot_times {
         usec_t firmware_time;
@@ -1308,6 +1312,45 @@ static int dump(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int cat_config(int argc, char *argv[], void *userdata) {
+        char **arg;
+        int r;
+
+        (void) pager_open(arg_no_pager, false);
+
+        STRV_FOREACH(arg, argv + 1) {
+                const char *t = NULL;
+
+                if (arg != argv + 1)
+                        printf("%s%*s%s\n\n",
+                               ansi_underline(),
+                               columns(), "",
+                               ansi_normal());
+
+                if (path_is_absolute(*arg)) {
+                        const char *dir;
+
+                        NULSTR_FOREACH(dir, CONF_PATHS_NULSTR("")) {
+                                t = path_startswith(*arg, dir);
+                                if (t)
+                                        break;
+                        }
+
+                        if (!t) {
+                                log_error("Path %s does not start with any known prefix.", *arg);
+                                return -EINVAL;
+                        }
+                } else
+                        t = *arg;
+
+                r = conf_files_cat(arg_root, t);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int set_log_level(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1639,6 +1682,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  log-level [LEVEL]        Get/set logging threshold for manager\n"
                "  log-target [TARGET]      Get/set logging target for manager\n"
                "  dump                     Output state serialization of service manager\n"
+               "  cat-config               Show configuration file and drop-ins\n"
                "  unit-paths               List load directories for units\n"
                "  syscall-filter [NAME...] Print list of syscalls in seccomp filter\n"
                "  verify FILE...           Check unit files for correctness\n"
@@ -1658,6 +1702,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_ORDER,
                 ARG_REQUIRE,
+                ARG_ROOT,
                 ARG_SYSTEM,
                 ARG_USER,
                 ARG_GLOBAL,
@@ -1674,6 +1719,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",      no_argument,       NULL, ARG_VERSION          },
                 { "order",        no_argument,       NULL, ARG_ORDER            },
                 { "require",      no_argument,       NULL, ARG_REQUIRE          },
+                { "root",         required_argument, NULL, ARG_ROOT             },
                 { "system",       no_argument,       NULL, ARG_SYSTEM           },
                 { "user",         no_argument,       NULL, ARG_USER             },
                 { "global",       no_argument,       NULL, ARG_GLOBAL           },
@@ -1701,6 +1747,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_ROOT:
+                        arg_root = optarg;
+                        break;
 
                 case ARG_SYSTEM:
                         arg_scope = UNIT_FILE_SYSTEM;
@@ -1795,6 +1845,11 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (arg_root && !streq_ptr(argv[optind], "cat-config")) {
+                log_error("Option --root is only supported for cat-config right now.");
+                return -EINVAL;
+        }
+
         return 1; /* work to do */
 }
 
@@ -1815,6 +1870,7 @@ int main(int argc, char *argv[]) {
                 { "set-log-target",    2,        2,        0,            set_log_target         },
                 { "get-log-target",    VERB_ANY, 1,        0,            get_log_target         },
                 { "dump",              VERB_ANY, 1,        0,            dump                   },
+                { "cat-config",        2,        VERB_ANY, 0,            cat_config             },
                 { "unit-paths",        1,        1,        0,            dump_unit_paths        },
                 { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            dump_syscall_filters   },
                 { "verify",            2,        VERB_ANY, 0,            do_verify              },

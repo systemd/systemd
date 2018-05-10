@@ -50,4 +50,13 @@
       footer with hints.</para>
     </listitem>
   </varlistentry>
+
+  <varlistentry id='cat-config'>
+    <term><option>--cat-config</option></term>
+
+    <listitem>
+      <para>Copy the contents of config files to standard output.
+      Before each file, the filename is printed as a comment.</para>
+    </listitem>
+  </varlistentry>
 </variablelist>

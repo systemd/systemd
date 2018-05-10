@@ -28,6 +28,8 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "copy.h"
+#include "def.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -1361,4 +1363,58 @@ int terminal_urlify_path(const char *path, const char *text, char **ret) {
         url = strjoina("file://", u.nodename, path);
 
         return terminal_urlify(url, text, ret);
+}
+
+static int cat_file(const char *filename, bool newline) {
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        f = fopen(filename, "re");
+        if (!f)
+                return -errno;
+
+        printf("%s%s# %s%s\n",
+               newline ? "\n" : "",
+               ansi_highlight_blue(),
+               filename,
+               ansi_normal());
+        fflush(stdout);
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read \"%s\": %m", filename);
+                if (r == 0)
+                        break;
+
+                puts(line);
+        }
+
+        return 0;
+}
+
+int cat_files(const char *file, char **dropins, CatFlags flags) {
+        char **path;
+        int r;
+
+        if (file) {
+                r = cat_file(file, false);
+                if (r == -ENOENT && (flags & CAT_FLAGS_MAIN_FILE_OPTIONAL))
+                        printf("%s# config file %s not found%s\n",
+                               ansi_highlight_magenta(),
+                               file,
+                               ansi_normal());
+                else if (r < 0)
+                        return log_warning_errno(r, "Failed to cat %s: %m", file);
+        }
+
+        STRV_FOREACH(path, dropins) {
+                r = cat_file(*path, file || path != dropins);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to cat %s: %m", *path);
+        }
+
+        return 0;
 }

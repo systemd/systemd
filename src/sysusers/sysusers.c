@@ -23,6 +23,7 @@
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "uid-range.h"
 #include "user-util.h"
 #include "utf8.h"
@@ -61,10 +62,9 @@ typedef struct Item {
 } Item;
 
 static char *arg_root = NULL;
+static bool arg_cat_config = false;
 static const char *arg_replace = NULL;
 static bool arg_inline = false;
-
-static const char conf_file_dirs[] = CONF_PATHS_NULSTR("sysusers.d");
 
 static OrderedHashmap *users = NULL, *groups = NULL;
 static OrderedHashmap *todo_uids = NULL, *todo_gids = NULL;
@@ -1688,7 +1688,7 @@ static int read_config_file(const char *fn, bool ignore_enoent) {
         if (streq(fn, "-"))
                 f = stdin;
         else {
-                r = search_and_fopen_nulstr(fn, "re", arg_root, conf_file_dirs, &rf);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) CONF_PATHS_STRV("sysusers.d"), &rf);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT)
                                 return 0;
@@ -1744,11 +1744,24 @@ static void free_database(Hashmap *by_name, Hashmap *by_id) {
         hashmap_free(by_id);
 }
 
+static int cat_config(void) {
+        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free_ char *replace_file = NULL;
+        int r;
+
+        r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, NULL);
+        if (r < 0)
+                return r;
+
+        return cat_files(NULL, files, 0);
+}
+
 static void help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Creates system user accounts.\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
+               "     --cat-config           Show configuration files\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --inline               Treat arguments as configuration lines\n"
@@ -1759,17 +1772,19 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_CAT_CONFIG,
                 ARG_ROOT,
                 ARG_REPLACE,
                 ARG_INLINE,
         };
 
         static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'         },
-                { "version", no_argument,       NULL, ARG_VERSION },
-                { "root",    required_argument, NULL, ARG_ROOT    },
-                { "replace", required_argument, NULL, ARG_REPLACE },
-                { "inline",  no_argument,       NULL, ARG_INLINE  },
+                { "help",       no_argument,       NULL, 'h'            },
+                { "version",    no_argument,       NULL, ARG_VERSION    },
+                { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
+                { "root",       required_argument, NULL, ARG_ROOT       },
+                { "replace",    required_argument, NULL, ARG_REPLACE    },
+                { "inline",     no_argument,       NULL, ARG_INLINE     },
                 {}
         };
 
@@ -1788,6 +1803,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_CAT_CONFIG:
+                        arg_cat_config = true;
+                        break;
 
                 case ARG_ROOT:
                         r = parse_path_argument_and_warn(optarg, true, &arg_root);
@@ -1815,6 +1834,11 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached("Unhandled option");
                 }
+
+        if (arg_replace && arg_cat_config) {
+                log_error("Option --replace= is not supported with --cat-config");
+                return -EINVAL;
+        }
 
         if (arg_replace && optind >= argc) {
                 log_error("When --replace= is given, some configuration items must be specified");
@@ -1844,25 +1868,15 @@ static int parse_arguments(char **args) {
         return 0;
 }
 
-static int read_config_files(const char* dirs, char **args) {
+static int read_config_files(char **args) {
         _cleanup_strv_free_ char **files = NULL;
         _cleanup_free_ char *p = NULL;
         char **f;
         int r;
 
-        r = conf_files_list_nulstr(&files, ".conf", arg_root, 0, dirs);
+        r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, &p);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate sysusers.d files: %m");
-
-        if (arg_replace) {
-                r = conf_files_insert_nulstr(&files, arg_root, dirs, arg_replace);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extend sysusers.d file list: %m");
-
-                p = path_join(arg_root, arg_replace, NULL);
-                if (!p)
-                        return log_oom();
-        }
+                return r;
 
         STRV_FOREACH(f, files)
                 if (p && path_equal(*f, p)) {
@@ -1882,7 +1896,6 @@ static int read_config_files(const char* dirs, char **args) {
 }
 
 int main(int argc, char *argv[]) {
-
         _cleanup_close_ int lock = -1;
         Iterator iterator;
         int r;
@@ -1896,6 +1909,11 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
+
+        if (arg_cat_config) {
+                r = cat_config();
+                goto finish;
+        }
 
         umask(0022);
 
@@ -1912,7 +1930,7 @@ int main(int argc, char *argv[]) {
          * read configuration and execute it.
          */
         if (arg_replace || optind >= argc)
-                r = read_config_files(conf_file_dirs, argv + optind);
+                r = read_config_files(argv + optind);
         else
                 r = parse_arguments(argv + optind);
         if (r < 0)
