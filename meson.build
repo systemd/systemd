@@ -9,7 +9,7 @@ project('systemd', 'c',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
         ],
-        meson_version : '>= 0.44',
+        meson_version : '>= 0.45',
        )
 
 libsystemd_version = '0.23.0'
@@ -635,50 +635,51 @@ else
 endif
 
 time_epoch = get_option('time-epoch')
-if time_epoch == ''
+if time_epoch == -1
         NEWS = files('NEWS')
-        time_epoch = run_command(stat, '-c', '%Y', NEWS).stdout()
+        time_epoch = run_command(stat, '-c', '%Y', NEWS).stdout().to_int()
 endif
-time_epoch = time_epoch.to_int()
 conf.set('TIME_EPOCH', time_epoch)
 
 system_uid_max = get_option('system-uid-max')
-if system_uid_max == ''
+if system_uid_max == -1
         system_uid_max = run_command(
                 awk,
                 '/^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }',
                 '/etc/login.defs').stdout().strip()
         if system_uid_max == ''
-                system_uid_max = '999'
+                system_uid_max = 999
+        else
+                system_uid_max = system_uid_max.to_int()
         endif
 endif
-system_uid_max = system_uid_max.to_int()
 conf.set('SYSTEM_UID_MAX', system_uid_max)
 substs.set('systemuidmax', system_uid_max)
 
 system_gid_max = get_option('system-gid-max')
-if system_gid_max == ''
+if system_gid_max == -1
         system_gid_max = run_command(
                 awk,
                 '/^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }',
                 '/etc/login.defs').stdout().strip()
         if system_gid_max == ''
-                system_gid_max = '999'
+                system_gid_max = 999
+        else
+                system_gid_max = system_gid_max.to_int()
         endif
 endif
-system_gid_max = system_gid_max.to_int()
 conf.set('SYSTEM_GID_MAX', system_gid_max)
 substs.set('systemgidmax', system_gid_max)
 
-dynamic_uid_min = get_option('dynamic-uid-min').to_int()
-dynamic_uid_max = get_option('dynamic-uid-max').to_int()
+dynamic_uid_min = get_option('dynamic-uid-min')
+dynamic_uid_max = get_option('dynamic-uid-max')
 conf.set('DYNAMIC_UID_MIN', dynamic_uid_min)
 conf.set('DYNAMIC_UID_MAX', dynamic_uid_max)
 substs.set('dynamicuidmin', dynamic_uid_min)
 substs.set('dynamicuidmax', dynamic_uid_max)
 
-container_uid_base_min = get_option('container-uid-base-min').to_int()
-container_uid_base_max = get_option('container-uid-base-max').to_int()
+container_uid_base_min = get_option('container-uid-base-min')
+container_uid_base_max = get_option('container-uid-base-max')
 conf.set('CONTAINER_UID_BASE_MIN', container_uid_base_min)
 conf.set('CONTAINER_UID_BASE_MAX', container_uid_base_max)
 substs.set('containeruidbasemin', container_uid_base_min)
@@ -742,12 +743,8 @@ conf.set('TTY_GID', tty_gid)
 substs.set('TTY_GID', tty_gid)
 
 # Ensure provided GID argument is numeric, otherwise fallback to default assignment
-if get_option('users-gid') != ''
-        users_gid = get_option('users-gid').to_int()
-else
-        users_gid = '-'
-endif
-substs.set('USERS_GID', users_gid)
+users_gid = get_option('users-gid')
+substs.set('USERS_GID', users_gid < 0 ? '-' : users_gid)
 
 conf.set10('ENABLE_ADM_GROUP', get_option('adm-group'))
 conf.set10('ENABLE_WHEEL_GROUP', get_option('wheel-group'))
@@ -1300,7 +1297,7 @@ if get_option('efi')
         have = true
         conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
 
-        conf.set('SD_TPM_PCR', get_option('tpm-pcrindex').to_int())
+        conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
 else
         have = false
 endif
@@ -2896,7 +2893,7 @@ status = [
         'debug shell:                       @0@ @ @1@'.format(get_option('debug-shell'),
                                                               get_option('debug-tty')),
         'TTY GID:                           @0@'.format(tty_gid),
-        'users GID:                         @0@'.format(users_gid),
+        'users GID:                         @0@'.format(substs.get('USERS_GID')),
         'maximum system UID:                @0@'.format(system_uid_max),
         'maximum system GID:                @0@'.format(system_gid_max),
         'minimum dynamic UID:               @0@'.format(dynamic_uid_min),
