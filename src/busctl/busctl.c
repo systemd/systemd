@@ -914,10 +914,6 @@ static int on_property(const char *interface, const char *name, const char *sign
         return 0;
 }
 
-static const char *strdash(const char *x) {
-        return isempty(x) ? "-" : x;
-}
-
 static int introspect(int argc, char **argv, void *userdata) {
         static const struct hash_ops member_hash_ops = {
                 .hash = member_hash_func,
@@ -1104,15 +1100,15 @@ static int introspect(int argc, char **argv, void *userdata) {
 
                         rv = ellipsized;
                 } else
-                        rv = strdash(m->result);
+                        rv = empty_to_dash(m->result);
 
                 printf("%s%s%-*s%s %-*s %-*s %-*s%s%s%s%s%s%s\n",
                        is_interface ? ansi_highlight() : "",
                        is_interface ? "" : ".",
-                       - !is_interface + (int) name_width, strdash(streq_ptr(m->type, "interface") ? m->interface : m->name),
+                       - !is_interface + (int) name_width, empty_to_dash(streq_ptr(m->type, "interface") ? m->interface : m->name),
                        is_interface ? ansi_normal() : "",
-                       (int) type_width, strdash(m->type),
-                       (int) signature_width, strdash(m->signature),
+                       (int) type_width, empty_to_dash(m->type),
+                       (int) signature_width, empty_to_dash(m->signature),
                        (int) result_width, rv,
                        (m->flags & SD_BUS_VTABLE_DEPRECATED) ? " deprecated" : (m->flags || m->writable ? "" : " -"),
                        (m->flags & SD_BUS_VTABLE_METHOD_NO_REPLY) ? " no-reply" : "",
