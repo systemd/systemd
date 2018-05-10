@@ -38,7 +38,7 @@ _systemd_analyze() {
         local -A OPTS=(
                [STANDALONE]='-h --help --version --system --user --global --order --require --no-pager
                              --man=no --generators=yes'
-                      [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern'
+                      [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root'
         )
 
         local -A VERBS=(
@@ -50,7 +50,14 @@ _systemd_analyze() {
                 [VERIFY]='verify'
                 [SECCOMP_FILTER]='syscall-filter'
                 [SERVICE_WATCHDOGS]='service-watchdogs'
+                [CAT_CONFIG]='cat-config'
         )
+
+        local CONFIGS='systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
+                       systemd/journal-remote.conf systemd/journal-upload.conf systemd/logind.conf
+                       systemd/resolved.conf systemd/networkd.conf systemd/resolved.conf
+                       systemd/sleep.conf systemd/system.conf systemd/timedated.conf
+                       systemd/timesyncd.conf systemd/user.conf udev/udev.conf'
 
         _init_completion || return
 
@@ -132,6 +139,16 @@ _systemd_analyze() {
                         comps='on off'
                 fi
 
+        elif __contains_word "$verb" ${VERBS[CAT_CONFIG]}; then
+                if [[ $cur = -* ]]; then
+                        comps='--help --version --root --no-pager'
+                elif [[ -z $cur ]]; then
+                        comps="$CONFIGS"
+                        compopt -o filenames
+                else
+                        comps="$CONFIGS $( compgen -A file -- "$cur" )"
+                        compopt -o filenames
+                fi
         fi
 
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
