@@ -32,7 +32,7 @@ msgstr "Потрібна аутентифікація, щоб надіслати
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
 msgid "Manage system services or other units"
-msgstr "Керувати системними службами й іншими юніт-файлами"
+msgstr "Керувати системними службами або іншими юніт-файлами"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
 msgid "Authentication is required to manage system services or other units."
