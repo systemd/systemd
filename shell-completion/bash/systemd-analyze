@@ -85,12 +85,12 @@ _systemd_analyze() {
 
         elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
                 if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user --global'
+                        comps='--help --version --system --user --global --no-pager'
                 fi
 
         elif __contains_word "$verb" ${VERBS[CRITICAL_CHAIN]}; then
                 if [[ $cur = -* ]]; then
-                        comps='--help --version --system --user --fuzz'
+                        comps='--help --version --system --user --fuzz --no-pager'
                 fi
 
         elif __contains_word "$verb" ${VERBS[DOT]}; then
@@ -114,7 +114,7 @@ _systemd_analyze() {
 
         elif __contains_word "$verb" ${VERBS[SECCOMP_FILTER]}; then
                 if [[ $cur = -* ]]; then
-                        comps='--help --version'
+                        comps='--help --version --no-pager'
                 fi
 
         elif __contains_word "$verb" ${VERBS[VERIFY]}; then
