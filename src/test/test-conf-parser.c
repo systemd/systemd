@@ -278,6 +278,11 @@ static const char* const config_file[] = {
         "3\n",
 
         "[Section]\n"
+        "setting1=1\\\n"     /* continuation with extra trailing backslash at the end */
+        "2\\\n"
+        "3\\\n",
+
+        "[Section]\n"
         "setting1=1\\\\\\\n" /* continuation with trailing escape symbols */
         "\\\\2\n",           /* note that C requires one level of escaping, so the
                               * parser gets "…1 BS BS BS NL BS BS 2 NL", which
@@ -292,6 +297,11 @@ static const char* const config_file[] = {
         "setting1="          /* a line above LINE_MAX length, with continuation */
         x1000("ABCD") "\\\n"
         "foobar",
+
+        "[Section]\n"
+        "setting1="          /* a line above LINE_MAX length, with continuation */
+        x1000("ABCD") "\\\n" /* and an extra trailing backslash */
+        "foobar\\\n",
 
         "[Section]\n"
         "setting1="          /* a line above the allowed limit: 9 + 1050000 + 1 */
@@ -346,27 +356,27 @@ static void test_config_parse(unsigned i, const char *s) {
                 assert_se(streq(setting1, "1"));
                 break;
 
-        case 4:
+        case 4 ... 5:
                 assert_se(r == 0);
                 assert_se(streq(setting1, "1 2 3"));
                 break;
 
-        case 5:
+        case 6:
                 assert_se(r == 0);
                 assert_se(streq(setting1, "1\\\\ \\\\2"));
                 break;
 
-        case 6:
+        case 7:
                 assert_se(r == 0);
                 assert_se(streq(setting1, x1000("ABCD")));
                 break;
 
-        case 7:
+        case 8 ... 9:
                 assert_se(r == 0);
                 assert_se(streq(setting1, x1000("ABCD") " foobar"));
                 break;
 
-        case 8 ... 9:
+        case 10 ... 11:
                 assert_se(r == -ENOBUFS);
                 assert_se(setting1 == NULL);
                 break;
