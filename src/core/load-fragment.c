@@ -1637,7 +1637,7 @@ int config_parse_timer(const char *unit,
         usec_t usec = 0;
         TimerValue *v;
         TimerBase b;
-        CalendarSpec *c = NULL;
+        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
         Unit *u = userdata;
         _cleanup_free_ char *k = NULL;
         int r;
@@ -1678,14 +1678,12 @@ int config_parse_timer(const char *unit,
         }
 
         v = new0(TimerValue, 1);
-        if (!v) {
-                calendar_spec_free(c);
+        if (!v)
                 return log_oom();
-        }
 
         v->base = b;
         v->value = usec;
-        v->calendar_spec = c;
+        v->calendar_spec = TAKE_PTR(c);
 
         LIST_PREPEND(value, t->values, v);
 
