@@ -121,7 +121,7 @@ size_t strv_length(char * const *l) {
 
 char **strv_new_ap(const char *x, va_list ap) {
         const char *s;
-        char **a;
+        _cleanup_strv_free_ char **a = NULL;
         size_t n = 0, i = 0;
         va_list aq;
 
@@ -152,7 +152,7 @@ char **strv_new_ap(const char *x, va_list ap) {
                 if (x != STRV_IGNORE) {
                         a[i] = strdup(x);
                         if (!a[i])
-                                goto fail;
+                                return NULL;
                         i++;
                 }
 
@@ -163,7 +163,7 @@ char **strv_new_ap(const char *x, va_list ap) {
 
                         a[i] = strdup(s);
                         if (!a[i])
-                                goto fail;
+                                return NULL;
 
                         i++;
                 }
@@ -171,11 +171,7 @@ char **strv_new_ap(const char *x, va_list ap) {
 
         a[i] = NULL;
 
-        return a;
-
-fail:
-        strv_free(a);
-        return NULL;
+        return TAKE_PTR(a);
 }
 
 char **strv_new(const char *x, ...) {
