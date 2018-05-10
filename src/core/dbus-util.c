@@ -13,6 +13,26 @@
 #include "user-util.h"
 #include "unit.h"
 
+int bus_property_get_triggered_unit(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = userdata, *trigger;
+
+        assert(bus);
+        assert(reply);
+        assert(u);
+
+        trigger = UNIT_TRIGGER(u);
+
+        return sd_bus_message_append(reply, "s", trigger ? trigger->id : NULL);
+}
+
 BUS_DEFINE_SET_TRANSIENT(mode_t, "u", uint32_t, mode_t, "%040o");
 BUS_DEFINE_SET_TRANSIENT(unsigned, "u", uint32_t, unsigned, "%" PRIu32);
 BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(user, valid_user_group_name_or_id);
