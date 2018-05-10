@@ -274,10 +274,7 @@ static int property_get_cpu_affinity(
         assert(reply);
         assert(c);
 
-        if (c->cpuset)
-                return sd_bus_message_append_array(reply, 'y', c->cpuset, CPU_ALLOC_SIZE(c->cpuset_ncpus));
-        else
-                return sd_bus_message_append_array(reply, 'y', NULL, 0);
+        return sd_bus_message_append_array(reply, 'y', c->cpuset, CPU_ALLOC_SIZE(c->cpuset_ncpus));
 }
 
 static int property_get_timer_slack_nsec(
