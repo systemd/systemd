@@ -263,10 +263,10 @@ echo 0001 &gt;serial
 SERVER=server
 CLIENT=client
 
-openssl req -newkey rsa:1024 -nodes -out $SERVER.csr -keyout $SERVER.key -subj "/CN=$SERVER/"
+openssl req -newkey rsa:2048 -nodes -out $SERVER.csr -keyout $SERVER.key -subj "/CN=$SERVER/"
 openssl ca -batch -config ca.conf -notext -in $SERVER.csr -out $SERVER.pem
 
-openssl req -newkey rsa:1024 -nodes -out $CLIENT.csr -keyout $CLIENT.key -subj "/CN=$CLIENT/"
+openssl req -newkey rsa:2048 -nodes -out $CLIENT.csr -keyout $CLIENT.key -subj "/CN=$CLIENT/"
 openssl ca -batch -config ca.conf -notext -in $CLIENT.csr -out $CLIENT.pem
 </programlisting>
 
