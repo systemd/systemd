@@ -1322,10 +1322,7 @@ static int cat_config(int argc, char *argv[], void *userdata) {
                 const char *t = NULL;
 
                 if (arg != argv + 1)
-                        printf("%s%*s%s\n\n",
-                               ansi_underline(),
-                               columns(), "",
-                               ansi_normal());
+                        print_separator();
 
                 if (path_is_absolute(*arg)) {
                         const char *dir;
