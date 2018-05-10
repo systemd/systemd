@@ -2144,9 +2144,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         /* invalid quoting and such or an unknown specifier */
                         *invalid_config = true;
                 return log_error_errno(r, "[%s:%u] Failed to parse line: %m", fname, line);
-        }
-
-        else if (r < 2) {
+        } else if (r < 2) {
                 *invalid_config = true;
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
