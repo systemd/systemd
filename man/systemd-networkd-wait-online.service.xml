@@ -46,7 +46,7 @@
     <title>Description</title>
 
     <para><command>systemd-networkd-wait-online</command> is a
-    one-shot system service that waits for the network to be
+    oneshot system service (see <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>), that waits for the network to be
     configured. By default, it will wait for all links it is aware of
     and which are managed by
     <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
@@ -92,6 +92,7 @@
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     </para>
   </refsect1>
