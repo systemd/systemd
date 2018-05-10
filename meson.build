@@ -11,7 +11,7 @@ project('systemd', 'c',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
         ],
-        meson_version : '>= 0.41',
+        meson_version : '>= 0.43',
        )
 
 libsystemd_version = '0.22.0'
@@ -291,54 +291,75 @@ if want_ossfuzz
         fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
 endif
 
-foreach arg : ['-Wextra',
-               '-Werror=undef',
-               '-Wlogical-op',
-               '-Wmissing-include-dirs',
-               '-Wold-style-definition',
-               '-Wpointer-arith',
-               '-Winit-self',
-               '-Wdeclaration-after-statement',
-               '-Wfloat-equal',
-               '-Wsuggest-attribute=noreturn',
-               '-Werror=missing-prototypes',
-               '-Werror=implicit-function-declaration',
-               '-Werror=missing-declarations',
-               '-Werror=return-type',
-               '-Werror=incompatible-pointer-types',
-               '-Werror=format=2',
-               '-Wstrict-prototypes',
-               '-Wredundant-decls',
-               '-Wmissing-noreturn',
-               '-Wimplicit-fallthrough=5',
-               '-Wshadow',
-               '-Wendif-labels',
-               '-Wstrict-aliasing=2',
-               '-Wwrite-strings',
-               '-Werror=overflow',
-               '-Wdate-time',
-               '-Wnested-externs',
-               '-ffast-math',
-               '-fno-common',
-               '-fdiagnostics-show-option',
-               '-fno-strict-aliasing',
-               '-fvisibility=hidden',
-               '-fstack-protector',
-               '-fstack-protector-strong',
-               '--param=ssp-buffer-size=4',
-              ]
-        if cc.has_argument(arg)
-                add_project_arguments(arg, language : 'c')
-        endif
-endforeach
+possible_cc_flags = [
+        '-Wextra',
+        '-Werror=undef',
+        '-Wlogical-op',
+        '-Wmissing-include-dirs',
+        '-Wold-style-definition',
+        '-Wpointer-arith',
+        '-Winit-self',
+        '-Wdeclaration-after-statement',
+        '-Wfloat-equal',
+        '-Wsuggest-attribute=noreturn',
+        '-Werror=missing-prototypes',
+        '-Werror=implicit-function-declaration',
+        '-Werror=missing-declarations',
+        '-Werror=return-type',
+        '-Werror=incompatible-pointer-types',
+        '-Werror=format=2',
+        '-Wstrict-prototypes',
+        '-Wredundant-decls',
+        '-Wmissing-noreturn',
+        '-Wimplicit-fallthrough=5',
+        '-Wshadow',
+        '-Wendif-labels',
+        '-Wstrict-aliasing=2',
+        '-Wwrite-strings',
+        '-Werror=overflow',
+        '-Wdate-time',
+        '-Wnested-externs',
+        '-ffast-math',
+        '-fno-common',
+        '-fdiagnostics-show-option',
+        '-fno-strict-aliasing',
+        '-fvisibility=hidden',
+        '-fstack-protector',
+        '-fstack-protector-strong',
+        '--param=ssp-buffer-size=4',
+]
+
+# --as-needed and --no-undefined are provided by meson by default,
+# run mesonconf to see what is enabled
+possible_link_flags = [
+        '-Wl,-z,relro',
+        '-Wl,-z,now',
+]
 
 # the oss-fuzz fuzzers are not built with -fPIE, so don't
 # enable it when we are linking against them
 if not fuzzer_build
-        if cc.has_argument('-fPIE')
-              add_project_arguments('-fPIE', language : 'c')
-        endif
+        possible_cc_flags += '-fPIE'
+        possible_link_flags += '-pie'
 endif
+
+if cc.get_id() == 'clang'
+        possible_cc_flags += [
+                '-Wno-typedef-redefinition',
+                '-Wno-gnu-variable-sized-type-not-at-end',
+        ]
+endif
+
+if get_option('buildtype') != 'debug'
+        possible_cc_flags += [
+                '-ffunction-sections',
+                '-fdata-sections',
+        ]
+
+        possible_link_flags += '-Wl,--gc-sections'
+endif
+
+add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
 
 # "negative" arguments: gcc on purpose does not return an error for "-Wno-"
 # arguments, just emits a warnings. So test for the "positive" version instead.
@@ -366,52 +387,17 @@ if cc.compiles('''
         add_project_arguments('-Werror=shadow', language : 'c')
 endif
 
-if cc.get_id() == 'clang'
-        foreach arg : ['-Wno-typedef-redefinition',
-                       '-Wno-gnu-variable-sized-type-not-at-end',
-                      ]
-                if cc.has_argument(arg)
-                        add_project_arguments(arg, language : 'c')
-                endif
-        endforeach
-endif
-
 link_test_c = files('tools/meson-link-test.c')
 
-# --as-needed and --no-undefined are provided by meson by default,
-# run mesonconf to see what is enabled
-foreach arg : ['-Wl,-z,relro',
-               '-Wl,-z,now',
-               '-pie',
-              ]
-
+foreach arg : possible_link_flags
         have = run_command(check_compilation_sh,
                            cc.cmd_array(), '-x', 'c', arg,
                            '-include', link_test_c).returncode() == 0
         message('Linking with @0@ supported: @1@'.format(arg, have ? 'yes' : 'no'))
-        if have and (arg != '-pie' or not fuzzer_build)
+        if have
                 add_project_link_arguments(arg, language : 'c')
         endif
 endforeach
-
-if get_option('buildtype') != 'debug'
-        foreach arg : ['-ffunction-sections',
-                       '-fdata-sections']
-                if cc.has_argument(arg)
-                        add_project_arguments(arg, language : 'c')
-                endif
-        endforeach
-
-        foreach arg : ['-Wl,--gc-sections']
-                have = run_command(check_compilation_sh,
-                                   cc.cmd_array(), '-x', 'c', arg,
-                                   '-include', link_test_c).returncode() == 0
-                message('Linking with @0@ supported: @1@'.format(arg, have ? 'yes' : 'no'))
-                if have
-                        add_project_link_arguments(arg, language : 'c')
-                endif
-        endforeach
-endif
 
 cpp = ' '.join(cc.cmd_array()) + ' -E'
 
