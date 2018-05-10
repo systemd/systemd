@@ -1526,9 +1526,10 @@ static int create_item(Item *i) {
                 } else
                         r = 0;
 
-                if (IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY) || r == -ENOTTY)
+                if (IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY) || r == -ENOTTY) {
                         RUN_WITH_UMASK(0000)
                                 r = mkdir_label(i->path, i->mode);
+                }
 
                 if (r < 0) {
                         int k;
