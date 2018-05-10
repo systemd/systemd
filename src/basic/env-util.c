@@ -417,7 +417,8 @@ int strv_env_replace(char ***l, char *p) {
 
 char **strv_env_set(char **x, const char *p) {
 
-        char **k, **r;
+        char **k;
+        _cleanup_strv_free_ char **r = NULL;
         char* m[2] = { (char*) p, NULL };
 
         /* Overrides the env var setting of p, returns a new copy */
@@ -428,18 +429,14 @@ char **strv_env_set(char **x, const char *p) {
 
         k = r;
         if (env_append(r, &k, x) < 0)
-                goto fail;
+                return NULL;
 
         if (env_append(r, &k, m) < 0)
-                goto fail;
+                return NULL;
 
         *k = NULL;
 
-        return r;
-
-fail:
-        strv_free(r);
-        return NULL;
+        return TAKE_PTR(r);
 }
 
 char *strv_env_get_n(char **l, const char *name, size_t k, unsigned flags) {
