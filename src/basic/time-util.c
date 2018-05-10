@@ -21,11 +21,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -1276,7 +1278,9 @@ int get_timezones(char ***ret) {
 bool timezone_is_valid(const char *name) {
         bool slash = false;
         const char *p, *t;
-        struct stat st;
+        _cleanup_close_ int fd = -1;
+        char buf[4];
+        int r;
 
         if (isempty(name))
                 return false;
@@ -1305,11 +1309,30 @@ bool timezone_is_valid(const char *name) {
                 return false;
 
         t = strjoina("/usr/share/zoneinfo/", name);
-        if (stat(t, &st) < 0)
-                return false;
 
-        if (!S_ISREG(st.st_mode))
+        fd = open(t, O_RDONLY|O_CLOEXEC);
+        if (fd < 0) {
+                log_debug_errno(errno, "Failed to open timezone file '%s': %m", t);
                 return false;
+        }
+
+        r = fd_verify_regular(fd);
+        if (r < 0) {
+                log_debug_errno(r, "Timezone file '%s' is not  a regular file: %m", t);
+                return false;
+        }
+
+        r = loop_read_exact(fd, buf, 4, false);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read from timezone file '%s': %m", t);
+                return false;
+        }
+
+        /* Magic from tzfile(5) */
+        if (memcmp(buf, "TZif", 4) != 0) {
+                log_debug("Timezone file '%s' has wrong magic bytes", t);
+                return false;
+        }
 
         return true;
 }
