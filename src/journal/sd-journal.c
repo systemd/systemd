@@ -1814,7 +1814,7 @@ static int allocate_inotify(sd_journal *j) {
 }
 
 static sd_journal *journal_new(int flags, const char *path) {
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
 
         j = new0(sd_journal, 1);
         if (!j)
@@ -1831,7 +1831,7 @@ static sd_journal *journal_new(int flags, const char *path) {
 
                 t = strdup(path);
                 if (!t)
-                        goto fail;
+                        return NULL;
 
                 if (flags & SD_JOURNAL_OS_ROOT)
                         j->prefix = t;
@@ -1841,19 +1841,15 @@ static sd_journal *journal_new(int flags, const char *path) {
 
         j->files = ordered_hashmap_new(&path_hash_ops);
         if (!j->files)
-                goto fail;
+                return NULL;
 
         j->files_cache = ordered_hashmap_iterated_cache_new(j->files);
         j->directories_by_path = hashmap_new(&path_hash_ops);
         j->mmap = mmap_cache_new();
         if (!j->files_cache || !j->directories_by_path || !j->mmap)
-                goto fail;
+                return NULL;
 
-        return j;
-
-fail:
-        sd_journal_close(j);
-        return NULL;
+        return TAKE_PTR(j);
 }
 
 #define OPEN_ALLOWED_FLAGS                              \
@@ -1862,7 +1858,7 @@ fail:
          SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER)
 
 _public_ int sd_journal_open(sd_journal **ret, int flags) {
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -1874,15 +1870,10 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
 
         r = add_search_paths(j);
         if (r < 0)
-                goto fail;
+                return r;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
-
-fail:
-        sd_journal_close(j);
-
-        return r;
 }
 
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \
@@ -1890,7 +1881,7 @@ fail:
 
 _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) {
         _cleanup_free_ char *root = NULL, *class = NULL;
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         char *p;
         int r;
 
@@ -1920,14 +1911,10 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
 
         r = add_search_paths(j);
         if (r < 0)
-                goto fail;
+                return r;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
-
-fail:
-        sd_journal_close(j);
-        return r;
 }
 
 #define OPEN_DIRECTORY_ALLOWED_FLAGS                    \
@@ -1935,7 +1922,7 @@ fail:
          SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
 
 _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int flags) {
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -1951,18 +1938,14 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         else
                 r = add_root_directory(j, path, false);
         if (r < 0)
-                goto fail;
+                return r;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
-
-fail:
-        sd_journal_close(j);
-        return r;
 }
 
 _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags) {
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         const char **path;
         int r;
 
@@ -1976,17 +1959,13 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         STRV_FOREACH(path, paths) {
                 r = add_any_file(j, -1, *path);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
         j->no_new_files = true;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
-
-fail:
-        sd_journal_close(j);
-        return r;
 }
 
 #define OPEN_DIRECTORY_FD_ALLOWED_FLAGS         \
@@ -1994,7 +1973,7 @@ fail:
          SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
 
 _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         struct stat st;
         int r;
 
@@ -2019,20 +1998,16 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         else
                 r = add_root_directory(j, NULL, false);
         if (r < 0)
-                goto fail;
+                return r;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
-
-fail:
-        sd_journal_close(j);
-        return r;
 }
 
 _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags) {
         Iterator iterator;
         JournalFile *f;
-        sd_journal *j;
+        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         unsigned i;
         int r;
 
@@ -2069,7 +2044,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
         j->no_new_files = true;
         j->no_inotify = true;
 
-        *ret = j;
+        *ret = TAKE_PTR(j);
         return 0;
 
 fail:
@@ -2078,7 +2053,6 @@ fail:
         ORDERED_HASHMAP_FOREACH(f, j->files, iterator)
                 f->close_fd = false;
 
-        sd_journal_close(j);
         return r;
 }
 
