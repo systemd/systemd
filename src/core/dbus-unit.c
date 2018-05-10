@@ -931,7 +931,7 @@ static int property_get_cgroup(
          * other cases we report as-is. */
 
         if (u->cgroup_path)
-                t = isempty(u->cgroup_path) ? "/" : u->cgroup_path;
+                t = empty_to_root(u->cgroup_path);
 
         return sd_bus_message_append(reply, "s", t);
 }

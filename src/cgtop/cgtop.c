@@ -529,10 +529,6 @@ static int refresh(const char *root, Hashmap *a, Hashmap *b, unsigned iteration)
         return 0;
 }
 
-static const char *empty_to_slash(const char *p) {
-        return isempty(p) ? "/" : p;
-}
-
 static int group_compare(const void*a, const void *b) {
         const Group *x = *(Group**)a, *y = *(Group**)b;
 
@@ -542,9 +538,9 @@ static int group_compare(const void*a, const void *b) {
                  * recursive summing is off, since that is actually
                  * not accumulative for all children. */
 
-                if (path_startswith(empty_to_slash(y->path), empty_to_slash(x->path)))
+                if (path_startswith(empty_to_root(y->path), empty_to_root(x->path)))
                         return -1;
-                if (path_startswith(empty_to_slash(x->path), empty_to_slash(y->path)))
+                if (path_startswith(empty_to_root(x->path), empty_to_root(y->path)))
                         return 1;
         }
 
@@ -693,7 +689,7 @@ static void display(Hashmap *a) {
 
                 g = array[j];
 
-                path = empty_to_slash(g->path);
+                path = empty_to_root(g->path);
                 ellipsized = ellipsize(path, path_columns, 33);
                 printf("%-*s", path_columns, ellipsized ?: path);
 

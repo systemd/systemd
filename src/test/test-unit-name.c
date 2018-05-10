@@ -96,7 +96,7 @@ static void test_unit_name_from_path_one(const char *path, const char *suffix, c
                 _cleanup_free_ char *k = NULL;
                 assert_se(unit_name_to_path(t, &k) == 0);
                 puts(strna(k));
-                assert_se(path_equal(k, isempty(path) ? "/" : path));
+                assert_se(path_equal(k, empty_to_root(path)));
         }
 }
 
@@ -124,7 +124,7 @@ static void test_unit_name_from_path_instance_one(const char *pattern, const cha
 
                 assert_se(unit_name_to_instance(t, &k) > 0);
                 assert_se(unit_name_path_unescape(k, &v) == 0);
-                assert_se(path_equal(v, isempty(path) ? "/" : path));
+                assert_se(path_equal(v, empty_to_root(path)));
         }
 }
 
