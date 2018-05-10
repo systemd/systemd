@@ -568,13 +568,13 @@ static int property_get_syslog_level(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        int *s = userdata;
 
         assert(bus);
         assert(reply);
-        assert(c);
+        assert(s);
 
-        return sd_bus_message_append(reply, "i", LOG_PRI(c->syslog_priority));
+        return sd_bus_message_append(reply, "i", LOG_PRI(*s));
 }
 
 static int property_get_syslog_facility(
@@ -586,13 +586,13 @@ static int property_get_syslog_facility(
                 void *userdata,
                 sd_bus_error *error) {
 
-        ExecContext *c = userdata;
+        int *s = userdata;
 
         assert(bus);
         assert(reply);
-        assert(c);
+        assert(s);
 
-        return sd_bus_message_append(reply, "i", LOG_FAC(c->syslog_priority));
+        return sd_bus_message_append(reply, "i", LOG_FAC(*s));
 }
 
 static int property_get_stdio_fdname(
@@ -819,8 +819,8 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SyslogPriority", "i", bus_property_get_int, offsetof(ExecContext, syslog_priority), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SyslogIdentifier", "s", NULL, offsetof(ExecContext, syslog_identifier), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SyslogLevelPrefix", "b", bus_property_get_bool, offsetof(ExecContext, syslog_level_prefix), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SyslogLevel", "i", property_get_syslog_level, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SyslogFacility", "i", property_get_syslog_facility, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SyslogLevel", "i", property_get_syslog_level, offsetof(ExecContext, syslog_priority), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SyslogFacility", "i", property_get_syslog_facility, offsetof(ExecContext, syslog_priority), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogLevelMax", "i", bus_property_get_int, offsetof(ExecContext, log_level_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogExtraFields", "aay", property_get_log_extra_fields, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SecureBits", "i", bus_property_get_int, offsetof(ExecContext, secure_bits), SD_BUS_VTABLE_PROPERTY_CONST),
