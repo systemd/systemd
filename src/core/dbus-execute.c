@@ -56,6 +56,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_preserve_mode, exec_preser
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_home, protect_home, ProtectHome);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_system, protect_system, ProtectSystem);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_personality, personality, unsigned long);
 
 static int property_get_environment_files(
                 sd_bus *bus,
@@ -537,24 +538,6 @@ static int property_get_smack_process_label(
         return sd_bus_message_append(reply, "(bs)", c->smack_process_label_ignore, c->smack_process_label);
 }
 
-static int property_get_personality(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(c);
-
-        return sd_bus_message_append(reply, "s", personality_to_string(c->personality));
-}
-
 static int property_get_address_families(
                 sd_bus *bus,
                 const char *path,
@@ -927,7 +910,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("SystemCallFilter", "(bas)", property_get_syscall_filter, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SystemCallArchitectures", "as", property_get_syscall_archs, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SystemCallErrorNumber", "i", property_get_syscall_errno, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Personality", "s", property_get_personality, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Personality", "s", property_get_personality, offsetof(ExecContext, personality), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LockPersonality", "b", bus_property_get_bool, offsetof(ExecContext, lock_personality), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryPreserve", "s", property_get_exec_preserve_mode, offsetof(ExecContext, runtime_directory_preserve_mode), SD_BUS_VTABLE_PROPERTY_CONST),
