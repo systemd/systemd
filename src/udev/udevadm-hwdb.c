@@ -703,7 +703,8 @@ out:
         if (trie) {
                 if (trie->root)
                         trie_node_cleanup(trie->root);
-                strbuf_cleanup(trie->strings);
+                if (trie->strings)
+                        strbuf_cleanup(trie->strings);
                 free(trie);
         }
         return rc;

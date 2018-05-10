@@ -177,16 +177,16 @@ static void test_catalog_update(void) {
 
         /* Test what happens if there are no files. */
         r = catalog_update(database, NULL, NULL);
-        assert_se(r >= 0);
+        assert_se(r == 0);
 
         /* Test what happens if there are no files in the directory. */
         r = catalog_update(database, NULL, no_catalog_dirs);
-        assert_se(r >= 0);
+        assert_se(r == 0);
 
         /* Make sure that we at least have some files loaded or the
            catalog_list below will fail. */
         r = catalog_update(database, NULL, catalog_dirs);
-        assert_se(r >= 0);
+        assert_se(r == 0);
 }
 
 static void test_catalog_file_lang(void) {

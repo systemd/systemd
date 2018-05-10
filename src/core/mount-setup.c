@@ -279,7 +279,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
                         if (strv_find(*k, controller))
                                 break;
 
-                if (k && *k) {
+                if (*k) {
                         char **i, **j;
 
                         for (i = *k, j = *k; *i; i++) {

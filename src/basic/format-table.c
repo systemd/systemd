@@ -648,6 +648,7 @@ int table_set_display(Table *t, size_t first_column, ...) {
                         break;
 
         }
+        va_end(ap);
 
         return 0;
 }
@@ -676,6 +677,7 @@ int table_set_sort(Table *t, size_t first_column, ...) {
                 if (column == (size_t) -1)
                         break;
         }
+        va_end(ap);
 
         return 0;
 }

@@ -919,25 +919,12 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         return exists;
 
 chased_one:
-
         if (ret) {
                 char *c;
 
-                if (done) {
-                        if (todo) {
-                                c = strjoin(done, todo);
-                                if (!c)
-                                        return -ENOMEM;
-                        } else
-                                c = TAKE_PTR(done);
-                } else {
-                        if (todo)
-                                c = strdup(todo);
-                        else
-                                c = strdup("/");
-                        if (!c)
-                                return -ENOMEM;
-                }
+                c = strjoin(strempty(done), todo);
+                if (!c)
+                        return -ENOMEM;
 
                 *ret = c;
         }

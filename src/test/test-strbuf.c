@@ -18,7 +18,7 @@ static ssize_t add_string(struct strbuf *sb, const char *s) {
 }
 
 static void test_strbuf(void) {
-        struct strbuf *sb;
+        _cleanup_(strbuf_cleanupp) struct strbuf *sb;
         _cleanup_strv_free_ char **l;
         ssize_t a, b, c, d, e, f, g, h;
 
@@ -72,8 +72,6 @@ static void test_strbuf(void) {
 
         strbuf_complete(sb);
         assert_se(sb->root == NULL);
-
-        strbuf_cleanup(sb);
 }
 
 int main(int argc, const char *argv[]) {
