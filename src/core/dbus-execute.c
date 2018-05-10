@@ -312,7 +312,7 @@ static int property_get_empty_string(
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "s", "");
+        return sd_bus_message_append(reply, "s", NULL);
 }
 
 static int property_get_syscall_filter(
