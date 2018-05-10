@@ -94,5 +94,7 @@ int main(int argc, char *argv[]) {
         test_terminal_urlify();
         test_cat_files();
 
+        print_separator();
+
         return 0;
 }

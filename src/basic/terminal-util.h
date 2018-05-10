@@ -166,3 +166,5 @@ typedef enum CatFlags {
 } CatFlags;
 
 int cat_files(const char *file, char **dropins, CatFlags flags);
+
+void print_separator(void);

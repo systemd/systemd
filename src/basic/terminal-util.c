@@ -1418,3 +1418,25 @@ int cat_files(const char *file, char **dropins, CatFlags flags) {
 
         return 0;
 }
+
+void print_separator(void) {
+
+        /* Outputs a separator line that resolves to whitespace when copied from the terminal. We do that by outputting
+         * one line filled with spaces with ANSI underline set, followed by a second (empty) line. */
+
+        if (underline_enabled()) {
+                size_t i, c;
+
+                c = columns();
+
+                flockfile(stdout);
+                fputs_unlocked(ANSI_UNDERLINE, stdout);
+
+                for (i = 0; i < c; i++)
+                        fputc_unlocked(' ', stdout);
+
+                fputs_unlocked(ANSI_NORMAL "\n\n", stdout);
+                funlockfile(stdout);
+        } else
+                fputs("\n\n", stdout);
+}
