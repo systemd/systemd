@@ -76,20 +76,40 @@ static void test_undecchar(void) {
         assert_se(undecchar('9') == 9);
 }
 
-static void test_unhexmem(void) {
-        const char *hex = "efa2149213";
-        const char *hex_invalid = "efa214921o";
-        _cleanup_free_ char *hex2 = NULL;
+static void test_unhexmem_one(const char *s, size_t l, int retval) {
+        _cleanup_free_ char *hex = NULL;
         _cleanup_free_ void *mem = NULL;
         size_t len;
 
-        assert_se(unhexmem(hex_invalid, strlen(hex_invalid), &mem, &len) == -EINVAL);
-        assert_se(unhexmem(hex, strlen(hex) + 1, &mem, &len) == -EINVAL);
-        assert_se(unhexmem(hex, strlen(hex) - 1, &mem, &len) == -EINVAL);
-        assert_se(unhexmem(hex, strlen(hex), &mem, &len) == 0);
+        assert_se(unhexmem(s, l, &mem, &len) == retval);
+        if (retval == 0) {
+                char *answer;
 
-        assert_se((hex2 = hexmem(mem, len)));
-        assert_se(streq(hex, hex2));
+                if (l == (size_t) - 1)
+                        l = strlen(s);
+
+                assert_se((hex = hexmem(mem, len)));
+                answer = strndupa(s, l);
+                assert_se(streq(delete_chars(answer, WHITESPACE), hex));
+        }
+}
+
+static void test_unhexmem(void) {
+        const char *hex = "efa2149213";
+        const char *hex_space = "  e f   a\n 2\r  14\n\r\t9\t2 \n1\r3 \r\r\t";
+        const char *hex_invalid = "efa214921o";
+
+        test_unhexmem_one(NULL, 0, 0);
+        test_unhexmem_one("", 0, 0);
+        test_unhexmem_one("", (size_t) -1, 0);
+        test_unhexmem_one("   \n \t\r   \t\t \n\n\n", (size_t) -1, 0);
+        test_unhexmem_one(hex_invalid, strlen(hex_invalid), -EINVAL);
+        test_unhexmem_one(hex_invalid, (size_t) - 1, -EINVAL);
+        test_unhexmem_one(hex, strlen(hex) - 1, -EPIPE);
+        test_unhexmem_one(hex, strlen(hex), 0);
+        test_unhexmem_one(hex, (size_t) -1, 0);
+        test_unhexmem_one(hex_space, strlen(hex_space), 0);
+        test_unhexmem_one(hex_space, (size_t) -1, 0);
 }
 
 /* https://tools.ietf.org/html/rfc4648#section-10 */

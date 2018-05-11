@@ -77,33 +77,69 @@ char *hexmem(const void *p, size_t l) {
         return r;
 }
 
-int unhexmem(const char *p, size_t l, void **mem, size_t *len) {
-        _cleanup_free_ uint8_t *r = NULL;
-        uint8_t *z;
-        const char *x;
+static int unhex_next(const char **p, size_t *l) {
+        int r;
 
-        assert(mem);
-        assert(len);
+        assert(p);
+        assert(l);
+
+        /* Find the next non-whitespace character, and decode it. We
+         * greedily skip all preceeding and all following whitespace. */
+
+        for (;;) {
+                if (*l == 0)
+                        return -EPIPE;
+
+                if (!strchr(WHITESPACE, **p))
+                        break;
+
+                /* Skip leading whitespace */
+                (*p)++, (*l)--;
+        }
+
+        r = unhexchar(**p);
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                (*p)++, (*l)--;
+
+                if (*l == 0 || !strchr(WHITESPACE, **p))
+                        break;
+
+                /* Skip following whitespace */
+        }
+
+        return r;
+}
+
+int unhexmem(const char *p, size_t l, void **ret, size_t *ret_len) {
+        _cleanup_free_ uint8_t *buf = NULL;
+        const char *x;
+        uint8_t *z;
+
+        assert(ret);
+        assert(ret_len);
         assert(p || l == 0);
 
         if (l == (size_t) -1)
                 l = strlen(p);
 
-        if (l % 2 != 0)
-                return -EINVAL;
-
-        z = r = malloc((l + 1) / 2 + 1);
-        if (!r)
+        /* Note that the calculation of memory size is an upper boundary, as we ignore whitespace while decoding */
+        buf = malloc((l + 1) / 2 + 1);
+        if (!buf)
                 return -ENOMEM;
 
-        for (x = p; x < p + l; x += 2) {
+        for (x = p, z = buf;;) {
                 int a, b;
 
-                a = unhexchar(x[0]);
+                a = unhex_next(&x, &l);
+                if (a == -EPIPE) /* End of string */
+                        break;
                 if (a < 0)
                         return a;
 
-                b = unhexchar(x[1]);
+                b = unhex_next(&x, &l);
                 if (b < 0)
                         return b;
 
@@ -112,8 +148,8 @@ int unhexmem(const char *p, size_t l, void **mem, size_t *len) {
 
         *z = 0;
 
-        *mem = TAKE_PTR(r);
-        *len = (l + 1) / 2;
+        *ret_len = (size_t) (z - buf);
+        *ret = TAKE_PTR(buf);
 
         return 0;
 }
