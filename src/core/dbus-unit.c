@@ -99,7 +99,7 @@ static int property_get_dependencies(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Hashmap *h = *(Hashmap**) userdata;
+        Hashmap **h = userdata;
         Iterator j;
         Unit *u;
         void *v;
@@ -107,12 +107,13 @@ static int property_get_dependencies(
 
         assert(bus);
         assert(reply);
+        assert(h);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH_KEY(v, u, h, j) {
+        HASHMAP_FOREACH_KEY(v, u, *h, j) {
                 r = sd_bus_message_append(reply, "s", u->id);
                 if (r < 0)
                         return r;
@@ -146,7 +147,7 @@ static int property_get_requires_mounts_for(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Hashmap *h = *(Hashmap**) userdata;
+        Hashmap **h = userdata;
         const char *p;
         Iterator j;
         void *v;
@@ -154,12 +155,13 @@ static int property_get_requires_mounts_for(
 
         assert(bus);
         assert(reply);
+        assert(h);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH_KEY(v, p, h, j) {
+        HASHMAP_FOREACH_KEY(v, p, *h, j) {
                 r = sd_bus_message_append(reply, "s", p);
                 if (r < 0)
                         return r;
