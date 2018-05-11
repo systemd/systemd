@@ -189,11 +189,13 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link, Iterator *i,
                 if (r < 0)
                         return r;
 
+                route->family = AF_INET6;
+
                 while (n < n_prefixes) {
                         route_update(route, &prefix, pd_prefix_len, NULL, NULL,
                                      0, 0, RTN_UNREACHABLE);
 
-                        r = route_configure(route, link, NULL);
+                        r = route_configure(route, dhcp6_link, NULL);
                         if (r < 0) {
                                 route_free(route);
                                 return r;

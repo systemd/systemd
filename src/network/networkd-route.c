@@ -310,8 +310,7 @@ int route_add_foreign(
         return route_add_internal(link, &link->routes_foreign, family, dst, dst_prefixlen, tos, priority, table, ret);
 }
 
-int route_add(
-              Link *link,
+int route_add(Link *link,
               int family,
               const union in_addr_union *dst,
               unsigned char dst_prefixlen,
@@ -353,30 +352,29 @@ int route_add(
 }
 
 void route_update(Route *route,
-                 const union in_addr_union *src,
-                 unsigned char src_prefixlen,
-                 const union in_addr_union *gw,
-                 const union in_addr_union *prefsrc,
-                 unsigned char scope,
-                 unsigned char protocol,
-                 unsigned char type) {
+                  const union in_addr_union *src,
+                  unsigned char src_prefixlen,
+                  const union in_addr_union *gw,
+                  const union in_addr_union *prefsrc,
+                  unsigned char scope,
+                  unsigned char protocol,
+                  unsigned char type) {
 
         assert(route);
-        assert(src);
-        assert(gw);
-        assert(prefsrc);
+        assert(src || src_prefixlen == 0);
 
-        route->src = *src;
+        route->src = src ? *src : (union in_addr_union) {};
         route->src_prefixlen = src_prefixlen;
-        route->gw = *gw;
-        route->prefsrc = *prefsrc;
+        route->gw = gw ? *gw : (union in_addr_union) {};
+        route->prefsrc = prefsrc ? *prefsrc : (union in_addr_union) {};
         route->scope = scope;
         route->protocol = protocol;
         route->type = type;
 }
 
 int route_remove(Route *route, Link *link,
-               sd_netlink_message_handler_t callback) {
+                 sd_netlink_message_handler_t callback) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         int r;
 
@@ -677,7 +675,8 @@ int route_configure(
         return 0;
 }
 
-int config_parse_gateway(const char *unit,
+int config_parse_gateway(
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -722,7 +721,8 @@ int config_parse_gateway(const char *unit,
         return 0;
 }
 
-int config_parse_preferred_src(const char *unit,
+int config_parse_preferred_src(
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -762,7 +762,8 @@ int config_parse_preferred_src(const char *unit,
         return 0;
 }
 
-int config_parse_destination(const char *unit,
+int config_parse_destination(
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -817,16 +818,18 @@ int config_parse_destination(const char *unit,
         return 0;
 }
 
-int config_parse_route_priority(const char *unit,
-                                const char *filename,
-                                unsigned line,
-                                const char *section,
-                                unsigned section_line,
-                                const char *lvalue,
-                                int ltype,
-                                const char *rvalue,
-                                void *data,
-                                void *userdata) {
+int config_parse_route_priority(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(route_freep) Route *n = NULL;
         uint32_t k;
@@ -855,16 +858,18 @@ int config_parse_route_priority(const char *unit,
         return 0;
 }
 
-int config_parse_route_scope(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
+int config_parse_route_scope(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(route_freep) Route *n = NULL;
         int r;
@@ -895,16 +900,18 @@ int config_parse_route_scope(const char *unit,
         return 0;
 }
 
-int config_parse_route_table(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
+int config_parse_route_table(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         _cleanup_(route_freep) Route *n = NULL;
         Network *network = userdata;
         uint32_t k;
@@ -928,22 +935,23 @@ int config_parse_route_table(const char *unit,
         }
 
         n->table = k;
-
         n = NULL;
 
         return 0;
 }
 
-int config_parse_gateway_onlink(const char *unit,
-                                const char *filename,
-                                unsigned line,
-                                const char *section,
-                                unsigned section_line,
-                                const char *lvalue,
-                                int ltype,
-                                const char *rvalue,
-                                void *data,
-                                void *userdata) {
+int config_parse_gateway_onlink(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(route_freep) Route *n = NULL;
         int r;
@@ -971,16 +979,18 @@ int config_parse_gateway_onlink(const char *unit,
         return 0;
 }
 
-int config_parse_ipv6_route_preference(const char *unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_ipv6_route_preference(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(route_freep) Route *n = NULL;
         int r;
@@ -1005,16 +1015,18 @@ int config_parse_ipv6_route_preference(const char *unit,
         return 0;
 }
 
-int config_parse_route_protocol(const char *unit,
-                                const char *filename,
-                                unsigned line,
-                                const char *section,
-                                unsigned section_line,
-                                const char *lvalue,
-                                int ltype,
-                                const char *rvalue,
-                                void *data,
-                                void *userdata) {
+int config_parse_route_protocol(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(route_freep) Route *n = NULL;
         int r;
@@ -1042,16 +1054,18 @@ int config_parse_route_protocol(const char *unit,
         return 0;
 }
 
-int config_parse_route_type(const char *unit,
-                            const char *filename,
-                            unsigned line,
-                            const char *section,
-                            unsigned section_line,
-                            const char *lvalue,
-                            int ltype,
-                            const char *rvalue,
-                            void *data,
-                            void *userdata) {
+int config_parse_route_type(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         Network *network = userdata;
         _cleanup_(route_freep) Route *n = NULL;
         int r;
@@ -1078,16 +1092,18 @@ int config_parse_route_type(const char *unit,
         return 0;
 }
 
-int config_parse_tcp_window(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
+int config_parse_tcp_window(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         _cleanup_(route_freep) Route *n = NULL;
         Network *network = userdata;
         uint64_t k;
@@ -1124,16 +1140,18 @@ int config_parse_tcp_window(const char *unit,
         return 0;
 }
 
-int config_parse_quickack(const char *unit,
-                          const char *filename,
-                          unsigned line,
-                          const char *section,
-                          unsigned section_line,
-                          const char *lvalue,
-                          int ltype,
-                          const char *rvalue,
-                          void *data,
-                          void *userdata) {
+int config_parse_quickack(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
         _cleanup_(route_freep) Route *n = NULL;
         Network *network = userdata;
         int k, r;
