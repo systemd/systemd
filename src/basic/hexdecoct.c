@@ -769,9 +769,7 @@ int unbase64mem(const char *p, size_t l, void **ret, size_t *ret_size) {
 
         *z = 0;
 
-        if (ret_size)
-                *ret_size = (size_t) (z - buf);
-
+        *ret_size = (size_t) (z - buf);
         *ret = TAKE_PTR(buf);
 
         return 0;
