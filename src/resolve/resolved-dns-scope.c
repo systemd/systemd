@@ -221,7 +221,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
                 if (DNS_PACKET_QDCOUNT(p) > 1)
                         return -EOPNOTSUPP;
 
-                if (!ratelimit_test(&s->ratelimit))
+                if (!ratelimit_below(&s->ratelimit))
                         return -EBUSY;
 
                 family = s->family;
@@ -246,7 +246,7 @@ static int dns_scope_emit_one(DnsScope *s, int fd, DnsPacket *p) {
         case DNS_PROTOCOL_MDNS:
                 assert(fd < 0);
 
-                if (!ratelimit_test(&s->ratelimit))
+                if (!ratelimit_below(&s->ratelimit))
                         return -EBUSY;
 
                 family = s->family;
@@ -759,7 +759,7 @@ void dns_scope_process_query(DnsScope *s, DnsStream *stream, DnsPacket *p) {
         } else {
                 int fd;
 
-                if (!ratelimit_test(&s->ratelimit))
+                if (!ratelimit_below(&s->ratelimit))
                         return;
 
                 if (p->family == AF_INET)

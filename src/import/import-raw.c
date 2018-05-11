@@ -149,7 +149,7 @@ static void raw_import_report_progress(RawImport *i) {
         if (percent == i->last_percent)
                 return;
 
-        if (!ratelimit_test(&i->progress_rate_limit))
+        if (!ratelimit_below(&i->progress_rate_limit))
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);

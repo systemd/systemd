@@ -2245,7 +2245,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 return;
         }
 
-        if (!ratelimit_test(&s->trigger_limit)) {
+        if (!ratelimit_below(&s->trigger_limit)) {
                 safe_close(cfd);
                 log_unit_warning(UNIT(s), "Trigger limit hit, refusing further activation.");
                 socket_enter_stop_pre(s, SOCKET_FAILURE_TRIGGER_LIMIT_HIT);

@@ -43,4 +43,4 @@ typedef struct RateLimit {
                 _r->begin = 0;                           \
         } while (false)
 
-bool ratelimit_test(RateLimit *r);
+bool ratelimit_below(RateLimit *r);

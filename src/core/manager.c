@@ -2337,7 +2337,7 @@ static void manager_handle_ctrl_alt_del(Manager *m) {
          * 7 times within 2s, we reboot/shutdown immediately,
          * unless it was disabled in system.conf */
 
-        if (ratelimit_test(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == EMERGENCY_ACTION_NONE)
+        if (ratelimit_below(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == EMERGENCY_ACTION_NONE)
                 manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
         else
                 emergency_action(m, m->cad_burst_action, NULL,
@@ -2632,7 +2632,7 @@ int manager_loop(Manager *m) {
                 if (m->runtime_watchdog > 0 && m->runtime_watchdog != USEC_INFINITY && MANAGER_IS_SYSTEM(m))
                         watchdog_ping();
 
-                if (!ratelimit_test(&rl)) {
+                if (!ratelimit_below(&rl)) {
                         /* Yay, something is going seriously wrong, pause a little */
                         log_warning("Looping too fast. Throttling execution a little.");
                         sleep(1);
