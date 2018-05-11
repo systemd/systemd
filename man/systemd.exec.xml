@@ -1692,8 +1692,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>The <option>file:<replaceable>path</replaceable></option> option may be used to connect a specific file
         system object to standard output. The semantics are similar to the same option of
-        <varname>StandardInputText=</varname>, see above. If standard input and output are directed to the same file
-        path, it is opened only once, for reading as well as writing and duplicated. This is particular useful when the
+        <varname>StandardInput=</varname>, see above. If standard input and output are directed to the same file path,
+        it is opened only once, for reading as well as writing and duplicated. This is particular useful when the
         specified path refers to an <constant>AF_UNIX</constant> socket in the file system, as in that case only a
         single stream connection is created for both input and output.</para>
 
