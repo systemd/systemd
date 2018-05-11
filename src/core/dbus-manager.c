@@ -171,7 +171,7 @@ static int property_set_log_level(
         return r;
 }
 
-static int property_get_n_names(
+static int property_get_hashmap_size(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -180,16 +180,16 @@ static int property_get_n_names(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Hashmap **h = userdata;
 
         assert(bus);
         assert(reply);
-        assert(m);
+        assert(h);
 
-        return sd_bus_message_append(reply, "u", (uint32_t) hashmap_size(m->units));
+        return sd_bus_message_append(reply, "u", (uint32_t) hashmap_size(*h));
 }
 
-static int property_get_n_failed_units(
+static int property_get_set_size(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -198,31 +198,13 @@ static int property_get_n_failed_units(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Manager *m = userdata;
+        Set **s = userdata;
 
         assert(bus);
         assert(reply);
-        assert(m);
+        assert(s);
 
-        return sd_bus_message_append(reply, "u", (uint32_t) set_size(m->failed_units));
-}
-
-static int property_get_n_jobs(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(m);
-
-        return sd_bus_message_append(reply, "u", (uint32_t) hashmap_size(m->jobs));
+        return sd_bus_message_append(reply, "u", (uint32_t) set_size(*s));
 }
 
 static int property_get_progress(
@@ -2433,9 +2415,9 @@ const sd_bus_vtable bus_manager_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("UnitsLoadFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_WRITABLE_PROPERTY("LogLevel", "s", property_get_log_level, property_set_log_level, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("LogTarget", "s", property_get_log_target, property_set_log_target, 0, 0),
-        SD_BUS_PROPERTY("NNames", "u", property_get_n_names, 0, 0),
-        SD_BUS_PROPERTY("NFailedUnits", "u", property_get_n_failed_units, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("NJobs", "u", property_get_n_jobs, 0, 0),
+        SD_BUS_PROPERTY("NNames", "u", property_get_hashmap_size, offsetof(Manager, units), 0),
+        SD_BUS_PROPERTY("NFailedUnits", "u", property_get_set_size, offsetof(Manager, failed_units), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("NJobs", "u", property_get_hashmap_size, offsetof(Manager, jobs), 0),
         SD_BUS_PROPERTY("NInstalledJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_installed_jobs), 0),
         SD_BUS_PROPERTY("NFailedJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_failed_jobs), 0),
         SD_BUS_PROPERTY("Progress", "d", property_get_progress, 0, 0),
