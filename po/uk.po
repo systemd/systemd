@@ -32,21 +32,21 @@ msgstr "Потрібна аутентифікація, щоб надіслати
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:3
 msgid "Manage system services or other units"
-msgstr "Керувати системними службами або іншими юніт-файлами"
+msgstr "Керувати системними службами або іншими одиницями systemd"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:4
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
-"Потрібна аутентифікація, щоб керувати системними службами або іншими юніт-файлами."
+"Потрібна аутентифікація, щоб керувати системними службами або іншими одиницями systemd."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:5
 msgid "Manage system service or unit files"
-msgstr "Керувати системними службами або юніт-файлами"
+msgstr "Керувати системними службами або одиницями systemd"
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:6
 msgid "Authentication is required to manage system service or unit files."
 msgstr ""
-"Потрібна аутентифікація, щоб керувати системними службами або юніт-файлами."
+"Потрібна аутентифікація, щоб керувати системними службами або одиницями systemd."
 
 #: ../src/core/org.freedesktop.systemd1.policy.in.in.h:7
 msgid "Set or unset system and service manager environment variables"
