@@ -704,7 +704,7 @@ static Unit *device_following(Unit *u) {
 
 static int device_following_set(Unit *u, Set **_set) {
         Device *d = DEVICE(u), *other;
-        Set *set;
+        _cleanup_(set_freep) Set *set = NULL;
         int r;
 
         assert(d);
@@ -722,21 +722,17 @@ static int device_following_set(Unit *u, Set **_set) {
         LIST_FOREACH_AFTER(same_sysfs, other, d) {
                 r = set_put(set, other);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
         LIST_FOREACH_BEFORE(same_sysfs, other, d) {
                 r = set_put(set, other);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
-        *_set = set;
+        *_set = TAKE_PTR(set);
         return 1;
-
-fail:
-        set_free(set);
-        return r;
 }
 
 static void device_shutdown(Manager *m) {
