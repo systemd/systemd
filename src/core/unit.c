@@ -3815,7 +3815,7 @@ int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error) {
 }
 
 static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
-        Set *pid_set;
+        _cleanup_(set_freep) Set *pid_set = NULL;
         int r;
 
         pid_set = set_new(NULL);
@@ -3826,20 +3826,16 @@ static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
         if (main_pid > 0) {
                 r = set_put(pid_set, PID_TO_PTR(main_pid));
                 if (r < 0)
-                        goto fail;
+                        return NULL;
         }
 
         if (control_pid > 0) {
                 r = set_put(pid_set, PID_TO_PTR(control_pid));
                 if (r < 0)
-                        goto fail;
+                        return NULL;
         }
 
-        return pid_set;
-
-fail:
-        set_free(pid_set);
-        return NULL;
+        return TAKE_PTR(pid_set);
 }
 
 int unit_kill_common(

@@ -1240,7 +1240,7 @@ static Unit *swap_following(Unit *u) {
 
 static int swap_following_set(Unit *u, Set **_set) {
         Swap *s = SWAP(u), *other;
-        Set *set;
+        _cleanup_(set_freep) Set *set = NULL;
         int r;
 
         assert(s);
@@ -1258,15 +1258,11 @@ static int swap_following_set(Unit *u, Set **_set) {
         LIST_FOREACH_OTHERS(same_devnode, other, s) {
                 r = set_put(set, other);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
-        *_set = set;
+        *_set = TAKE_PTR(set);
         return 1;
-
-fail:
-        set_free(set);
-        return r;
 }
 
 static void swap_shutdown(Manager *m) {
