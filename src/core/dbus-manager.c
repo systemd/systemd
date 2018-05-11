@@ -99,7 +99,7 @@ static int property_get_virtualization(
 
         return sd_bus_message_append(
                         reply, "s",
-                        v == VIRTUALIZATION_NONE ? "" : virtualization_to_string(v));
+                        v == VIRTUALIZATION_NONE ? NULL : virtualization_to_string(v));
 }
 
 static int property_get_architecture(

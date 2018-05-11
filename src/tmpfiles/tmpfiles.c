@@ -1504,7 +1504,7 @@ static int create_item(Item *i) {
 
                 if (IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA)) {
 
-                        if (btrfs_is_subvol(isempty(arg_root) ? "/" : arg_root) <= 0)
+                        if (btrfs_is_subvol(empty_to_root(arg_root)) <= 0)
 
                                 /* Don't create a subvolume unless the
                                  * root directory is one, too. We do

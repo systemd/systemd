@@ -335,10 +335,10 @@ static int list_machines(int argc, char *argv[], void *userdata) {
                 r = table_add_many(table,
                                    TABLE_STRING, name,
                                    TABLE_STRING, class,
-                                   TABLE_STRING, strdash_if_empty(service),
-                                   TABLE_STRING, strdash_if_empty(os),
-                                   TABLE_STRING, strdash_if_empty(version_id),
-                                   TABLE_STRING, strdash_if_empty(addresses));
+                                   TABLE_STRING, empty_to_dash(service),
+                                   TABLE_STRING, empty_to_dash(os),
+                                   TABLE_STRING, empty_to_dash(version_id),
+                                   TABLE_STRING, empty_to_dash(addresses));
                 if (r < 0)
                         return log_error_errno(r, "Failed to add table row: %m");
         }

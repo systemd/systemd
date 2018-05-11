@@ -777,7 +777,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                         if (IN_SET(errno, ENOENT, ELOOP))
                                 break; /* This component doesn't exist yet, or the path contains a cyclic symlink right now */
 
-                        r = log_debug_errno(errno, "Failed to add inotify watch on %s: %m", isempty(prefix) ? "/" : prefix);
+                        r = log_debug_errno(errno, "Failed to add inotify watch on %s: %m", empty_to_root(prefix));
                         goto fail;
                 } else
                         new_watches[n++] = wd;

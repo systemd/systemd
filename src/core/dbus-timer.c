@@ -103,26 +103,6 @@ static int property_get_calendar_timers(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_unit(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata, *trigger;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        trigger = UNIT_TRIGGER(u);
-
-        return sd_bus_message_append(reply, "s", trigger ? trigger->id : "");
-}
-
 static int property_get_next_elapse_monotonic(
                 sd_bus *bus,
                 const char *path,
@@ -145,7 +125,7 @@ static int property_get_next_elapse_monotonic(
 
 const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("Unit", "s", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Unit", "s", bus_property_get_triggered_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimersMonotonic", "a(stt)", property_get_monotonic_timers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("TimersCalendar", "a(sst)", property_get_calendar_timers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("NextElapseUSecRealtime", "t", bus_property_get_usec, offsetof(Timer, next_elapse_realtime), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),

@@ -81,7 +81,7 @@ static int property_get_following(
         assert(u);
 
         f = unit_following(u);
-        return sd_bus_message_append(reply, "s", f ? f->id : "");
+        return sd_bus_message_append(reply, "s", f ? f->id : NULL);
 }
 
 static int property_get_dependencies(
@@ -235,7 +235,7 @@ static int property_get_unit_file_preset(
         r = unit_get_unit_file_preset(u);
 
         return sd_bus_message_append(reply, "s",
-                                     r < 0 ? "":
+                                     r < 0 ? NULL:
                                      r > 0 ? "enabled" : "disabled");
 }
 
@@ -918,7 +918,7 @@ static int property_get_cgroup(
                 sd_bus_error *error) {
 
         Unit *u = userdata;
-        const char *t;
+        const char *t = NULL;
 
         assert(bus);
         assert(reply);
@@ -931,9 +931,7 @@ static int property_get_cgroup(
          * other cases we report as-is. */
 
         if (u->cgroup_path)
-                t = isempty(u->cgroup_path) ? "/" : u->cgroup_path;
-        else
-                t = "";
+                t = empty_to_root(u->cgroup_path);
 
         return sd_bus_message_append(reply, "s", t);
 }

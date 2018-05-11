@@ -10,6 +10,8 @@
 #include "sd-bus.h"
 #include "unit.h"
 
+int bus_property_get_triggered_unit(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
+
 #define BUS_DEFINE_SET_TRANSIENT(function, bus_type, type, cast_type, fmt) \
         int bus_set_transient_##function(                               \
                         Unit *u,                                        \

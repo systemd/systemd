@@ -58,7 +58,7 @@ static inline const char *empty_to_null(const char *p) {
         return isempty(p) ? NULL : p;
 }
 
-static inline const char *strdash_if_empty(const char *str) {
+static inline const char *empty_to_dash(const char *str) {
         return isempty(str) ? "-" : str;
 }
 
