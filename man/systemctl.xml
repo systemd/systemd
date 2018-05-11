@@ -761,7 +761,7 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
             <para><emphasis>NEXT</emphasis> shows the next time the timer will run.</para>
             <para><emphasis>LEFT</emphasis> shows how long till the next time the timer runs.</para>
             <para><emphasis>LAST</emphasis> shows the last time the timer ran.</para>
-            <para><emphasis>PASSED</emphasis> shows has long as passed since the timer laset ran.</para>
+            <para><emphasis>PASSED</emphasis> shows how long has passed since the timer last ran.</para>
             <para><emphasis>UNIT</emphasis> shows the name of the timer</para>
             <para><emphasis>ACTIVATES</emphasis> shows the name the service the timer activates when it runs.</para>
 
