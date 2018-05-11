@@ -78,5 +78,5 @@ struct sd_dhcp_route;
 void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, size_t size);
 int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, size_t *ret_allocated, const char *string);
 
+/* It is not necessary to add deserialize_dhcp_option(). Use unhexmem() instead. */
 int serialize_dhcp_option(FILE *f, const char *key, const void *data, size_t size);
-int deserialize_dhcp_option(void **data, size_t *data_len, const char *string);
