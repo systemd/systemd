@@ -23,6 +23,7 @@
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, socket_result, SocketResult);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
+static BUS_DEFINE_PROPERTY_GET(property_get_fdname, "s", Socket, socket_fdname);
 
 static int property_get_listen(
                 sd_bus *bus,
@@ -76,24 +77,6 @@ static int property_get_listen(
         }
 
         return sd_bus_message_close_container(reply);
-}
-
-static int property_get_fdname(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Socket *s = SOCKET(userdata);
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "s", socket_fdname(s));
 }
 
 const sd_bus_vtable bus_socket_vtable[] = {
