@@ -361,14 +361,12 @@ void route_update(Route *route,
                   unsigned char type) {
 
         assert(route);
-        assert(src);
-        assert(gw);
-        assert(prefsrc);
+        assert(src || src_prefixlen == 0);
 
-        route->src = *src;
+        route->src = src ? *src : (union in_addr_union) {};
         route->src_prefixlen = src_prefixlen;
-        route->gw = *gw;
-        route->prefsrc = *prefsrc;
+        route->gw = gw ? *gw : (union in_addr_union) {};
+        route->prefsrc = prefsrc ? *prefsrc : (union in_addr_union) {};
         route->scope = scope;
         route->protocol = protocol;
         route->type = type;
