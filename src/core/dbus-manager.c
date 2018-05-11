@@ -46,35 +46,12 @@ static UnitFileFlags unit_file_bools_to_flags(bool runtime, bool force) {
                (force   ? UNIT_FILE_FORCE   : 0);
 }
 
-static int property_get_version(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", PACKAGE_VERSION);
-}
-
-static int property_get_features(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", SYSTEMD_FEATURES);
-}
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_version, "s", PACKAGE_VERSION);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_features, "s", SYSTEMD_FEATURES);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_architecture, "s", architecture_to_string(uname_architecture()));
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_log_target, "s", log_target_to_string(log_get_target()));
+static BUS_DEFINE_PROPERTY_GET2(property_get_system_state, "s", Manager, manager_state, manager_state_to_string);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_timer_slack_nsec, "t", (uint64_t) prctl(PR_GET_TIMERSLACK));
 
 static int property_get_virtualization(
                 sd_bus *bus,
@@ -102,21 +79,6 @@ static int property_get_virtualization(
                         v == VIRTUALIZATION_NONE ? NULL : virtualization_to_string(v));
 }
 
-static int property_get_architecture(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", architecture_to_string(uname_architecture()));
-}
-
 static int property_get_tainted(
                 sd_bus *bus,
                 const char *path,
@@ -138,21 +100,6 @@ static int property_get_tainted(
                 return log_oom();
 
         return sd_bus_message_append(reply, "s", s);
-}
-
-static int property_get_log_target(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", log_target_to_string(log_get_target()));
 }
 
 static int property_set_log_target(
@@ -302,24 +249,6 @@ static int property_get_progress(
         return sd_bus_message_append(reply, "d", d);
 }
 
-static int property_get_system_state(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(m);
-
-        return sd_bus_message_append(reply, "s", manager_state_to_string(manager_state(m)));
-}
-
 static int property_set_runtime_watchdog(
                 sd_bus *bus,
                 const char *path,
@@ -342,21 +271,6 @@ static int property_set_runtime_watchdog(
                 return r;
 
         return watchdog_set_timeout(t);
-}
-
-static int property_get_timer_slack_nsec(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "t", (uint64_t) prctl(PR_GET_TIMERSLACK));
 }
 
 static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
