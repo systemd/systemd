@@ -1595,6 +1595,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         struct global_info {
                 char *current_dns;
                 char **dns;
+                char **fallback_dns;
                 char **domains;
                 char **ntas;
                 const char *llmnr;
@@ -1605,6 +1606,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         static const struct bus_properties_map property_map[] = {
                 { "DNS",                        "a(iiay)", map_global_dns_servers,        offsetof(struct global_info, dns)              },
+                { "FallbackDNS",                "a(iiay)", map_global_dns_servers,        offsetof(struct global_info, fallback_dns)     },
                 { "CurrentDNSServer",           "(iiay)",  map_global_current_dns_server, offsetof(struct global_info, current_dns)      },
                 { "Domains",                    "a(isb)",  map_global_domains,            offsetof(struct global_info, domains)          },
                 { "DNSSECNegativeTrustAnchors", "as",      NULL,                          offsetof(struct global_info, ntas)             },
@@ -1696,6 +1698,12 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                        *i);
         }
 
+        STRV_FOREACH(i, global_info.fallback_dns) {
+                printf("%s %s\n",
+                       i == global_info.fallback_dns ? "Fallback DNS Servers:" : "                     ",
+                       *i);
+        }
+
         STRV_FOREACH(i, global_info.domains) {
                 printf("          %s %s\n",
                        i == global_info.domains ? "DNS Domain:" : "           ",
@@ -1716,6 +1724,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 finish:
         free(global_info.current_dns);
         strv_free(global_info.dns);
+        strv_free(global_info.fallback_dns);
         strv_free(global_info.domains);
         strv_free(global_info.ntas);
 
