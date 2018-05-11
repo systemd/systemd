@@ -1457,13 +1457,14 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         printf("       LLMNR setting: %s\n"
                "MulticastDNS setting: %s\n"
                "      DNSSEC setting: %s\n"
-               "    DNSSEC supported: %s\n"
-               "  Current DNS Server: %s\n",
+               "    DNSSEC supported: %s\n",
                strna(link_info.llmnr),
                strna(link_info.mdns),
                strna(link_info.dnssec),
-               yes_no(link_info.dnssec_supported),
-               strna(link_info.current_dns));
+               yes_no(link_info.dnssec_supported));
+
+        if (link_info.current_dns)
+                printf("  Current DNS Server: %s\n", link_info.current_dns);
 
         STRV_FOREACH(i, link_info.dns) {
                 printf("         %s %s\n",
@@ -1684,13 +1685,14 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         printf("       LLMNR setting: %s\n"
                "MulticastDNS setting: %s\n"
                "      DNSSEC setting: %s\n"
-               "    DNSSEC supported: %s\n"
-               "  Current DNS Server: %s\n",
+               "    DNSSEC supported: %s\n",
                strna(global_info.llmnr),
                strna(global_info.mdns),
                strna(global_info.dnssec),
-               yes_no(global_info.dnssec_supported),
-               strna(global_info.current_dns));
+               yes_no(global_info.dnssec_supported));
+
+        if (global_info.current_dns)
+                printf("  Current DNS Server: %s\n", global_info.current_dns);
 
         STRV_FOREACH(i, global_info.dns) {
                 printf("         %s %s\n",
