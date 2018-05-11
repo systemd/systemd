@@ -242,18 +242,18 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
         }
 
         if (strcaseeq(type, "DS")) {
-                _cleanup_free_ char *key_tag = NULL, *algorithm = NULL, *digest_type = NULL, *digest = NULL;
+                _cleanup_free_ char *key_tag = NULL, *algorithm = NULL, *digest_type = NULL;
                 _cleanup_free_ void *dd = NULL;
                 uint16_t kt;
                 int a, dt;
                 size_t l;
 
-                r = extract_many_words(&p, NULL, 0, &key_tag, &algorithm, &digest_type, &digest, NULL);
+                r = extract_many_words(&p, NULL, 0, &key_tag, &algorithm, &digest_type, NULL);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to parse DS parameters on line %s:%u: %m", path, line);
                         return -EINVAL;
                 }
-                if (r != 4) {
+                if (r != 3) {
                         log_warning("Missing DS parameters on line %s:%u", path, line);
                         return -EINVAL;
                 }
@@ -274,9 +274,14 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                         return -EINVAL;
                 }
 
-                r = unhexmem(digest, strlen(digest), &dd, &l);
+                if (isempty(p)) {
+                        log_warning("Missing DS digest on line %s:%u", path, line);
+                        return -EINVAL;
+                }
+
+                r = unhexmem(p, strlen(p), &dd, &l);
                 if (r < 0) {
-                        log_warning("Failed to parse DS digest %s on line %s:%u", digest, path, line);
+                        log_warning("Failed to parse DS digest %s on line %s:%u", p, path, line);
                         return -EINVAL;
                 }
 
@@ -291,16 +296,16 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                 rr->ds.digest = TAKE_PTR(dd);
 
         } else if (strcaseeq(type, "DNSKEY")) {
-                _cleanup_free_ char *flags = NULL, *protocol = NULL, *algorithm = NULL, *key = NULL;
+                _cleanup_free_ char *flags = NULL, *protocol = NULL, *algorithm = NULL;
                 _cleanup_free_ void *k = NULL;
                 uint16_t f;
                 size_t l;
                 int a;
 
-                r = extract_many_words(&p, NULL, 0, &flags, &protocol, &algorithm, &key, NULL);
+                r = extract_many_words(&p, NULL, 0, &flags, &protocol, &algorithm, NULL);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse DNSKEY parameters on line %s:%u: %m", path, line);
-                if (r != 4) {
+                if (r != 3) {
                         log_warning("Missing DNSKEY parameters on line %s:%u", path, line);
                         return -EINVAL;
                 }
@@ -328,9 +333,14 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                         return -EINVAL;
                 }
 
-                r = unbase64mem(key, strlen(key), &k, &l);
+                if (isempty(p)) {
+                        log_warning("Missing DNSKEY key on line %s:%u", path, line);
+                        return -EINVAL;
+                }
+
+                r = unbase64mem(p, strlen(p), &k, &l);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to parse DNSKEY key data %s on line %s:%u", key, path, line);
+                        return log_warning_errno(r, "Failed to parse DNSKEY key data %s on line %s:%u", p, path, line);
 
                 rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, domain);
                 if (!rr)
@@ -344,11 +354,6 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
 
         } else {
                 log_warning("RR type %s is not supported, ignoring line %s:%u.", type, path, line);
-                return -EINVAL;
-        }
-
-        if (!isempty(p)) {
-                log_warning("Trailing garbage on line %s:%u, ignoring line.", path, line);
                 return -EINVAL;
         }
 

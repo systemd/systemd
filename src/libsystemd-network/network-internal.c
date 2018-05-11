@@ -656,14 +656,3 @@ int serialize_dhcp_option(FILE *f, const char *key, const void *data, size_t siz
 
         return 0;
 }
-
-int deserialize_dhcp_option(void **data, size_t *data_len, const char *string) {
-        assert(data);
-        assert(data_len);
-        assert(string);
-
-        if (strlen(string) % 2)
-                return -EINVAL;
-
-        return unhexmem(string, strlen(string), (void **)data, data_len);
-}
