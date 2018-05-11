@@ -217,7 +217,7 @@ char *base32hexmem(const void *p, size_t l, bool padding) {
 
         for (x = p; x < (const uint8_t*) p + (l / 5) * 5; x += 5) {
                 /* x[0] == XXXXXXXX; x[1] == YYYYYYYY; x[2] == ZZZZZZZZ
-                   x[3] == QQQQQQQQ; x[4] == WWWWWWWW */
+                 * x[3] == QQQQQQQQ; x[4] == WWWWWWWW */
                 *(z++) = base32hexchar(x[0] >> 3);                    /* 000XXXXX */
                 *(z++) = base32hexchar((x[0] & 7) << 2 | x[1] >> 6);  /* 000XXXYY */
                 *(z++) = base32hexchar((x[1] & 63) >> 1);             /* 000YYYYY */
@@ -317,7 +317,7 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
         }
 
         /* a group of eight input bytes needs five output bytes, in case of
-           padding we need to add some extra bytes */
+         * padding we need to add some extra bytes */
         len = (l / 8) * 5;
 
         switch (l % 8) {
@@ -345,7 +345,7 @@ int unbase32hexmem(const char *p, size_t l, bool padding, void **mem, size_t *_l
 
         for (x = p; x < p + (l / 8) * 8; x += 8) {
                 /* a == 000XXXXX; b == 000YYYYY; c == 000ZZZZZ; d == 000WWWWW
-                   e == 000SSSSS; f == 000QQQQQ; g == 000VVVVV; h == 000RRRRR */
+                 * e == 000SSSSS; f == 000QQQQQ; g == 000VVVVV; h == 000RRRRR */
                 a = unbase32hexchar(x[0]);
                 if (a < 0)
                         return -EINVAL;
@@ -701,7 +701,7 @@ int unbase64mem(const char *p, size_t l, void **ret, size_t *ret_size) {
                 l = strlen(p);
 
         /* A group of four input bytes needs three output bytes, in case of padding we need to add two or three extra
-           bytes. Note that this calculation is an upper boundary, as we ignore whitespace while decoding */
+         * bytes. Note that this calculation is an upper boundary, as we ignore whitespace while decoding */
         len = (l / 4) * 3 + (l % 4 != 0 ? (l % 4) - 1 : 0);
 
         buf = malloc(len + 1);
