@@ -16,6 +16,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -35,6 +36,7 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         s->start_mode = _START_MODE_INVALID;
         s->personality = PERSONALITY_INVALID;
         s->userns_mode = _USER_NAMESPACE_MODE_INVALID;
+        s->resolv_conf = _RESOLV_CONF_MODE_INVALID;
         s->uid_shift = UID_INVALID;
         s->uid_range = UID_INVALID;
         s->no_new_privileges = -1;
@@ -724,3 +726,17 @@ int config_parse_cpu_affinity(
 
         return 0;
 }
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf, resolv_conf_mode, ResolvConfMode, "Failed to parse resolv.conf mode");
+
+static const char *const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {
+        [RESOLV_CONF_OFF] = "off",
+        [RESOLV_CONF_COPY_HOST] = "copy-host",
+        [RESOLV_CONF_COPY_STATIC] = "copy-static",
+        [RESOLV_CONF_BIND_HOST] = "bind-host",
+        [RESOLV_CONF_BIND_STATIC] = "bind-static",
+        [RESOLV_CONF_DELETE] = "delete",
+        [RESOLV_CONF_AUTO] = "auto",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolv_conf_mode, ResolvConfMode, RESOLV_CONF_AUTO);

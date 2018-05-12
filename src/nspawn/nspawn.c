@@ -211,6 +211,7 @@ static int arg_oom_score_adjust = 0;
 static bool arg_oom_score_adjust_set = false;
 static cpu_set_t *arg_cpuset = NULL;
 static unsigned arg_cpuset_ncpus = 0;
+static ResolvConfMode arg_resolv_conf = RESOLV_CONF_AUTO;
 
 static void help(void) {
 
@@ -287,6 +288,7 @@ static void help(void) {
                "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, \n"
                "                            host, try-guest, try-host\n"
                "  -j                        Equivalent to --link-journal=try-guest\n"
+               "     --resolv-conf=MODE     Select mode of /etc/resolv.conf initialization\n"
                "     --read-only            Mount the root directory read-only\n"
                "     --bind=PATH[:PATH[:OPTIONS]]\n"
                "                            Bind mount a file or directory from the host into\n"
@@ -463,6 +465,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_NEW_PRIVILEGES,
                 ARG_OOM_SCORE_ADJUST,
                 ARG_CPU_AFFINITY,
+                ARG_RESOLV_CONF,
         };
 
         static const struct option options[] = {
@@ -521,6 +524,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "rlimit",                 required_argument, NULL, ARG_RLIMIT                 },
                 { "oom-score-adjust",       required_argument, NULL, ARG_OOM_SCORE_ADJUST       },
                 { "cpu-affinity",           required_argument, NULL, ARG_CPU_AFFINITY           },
+                { "resolv-conf",            required_argument, NULL, ARG_RESOLV_CONF            },
                 {}
         };
 
@@ -1222,6 +1226,21 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_RESOLV_CONF:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(resolv_conf_mode, ResolvConfMode, _RESOLV_CONF_MODE_MAX);
+                                return 0;
+                        }
+
+                        arg_resolv_conf = resolv_conf_mode_from_string(optarg);
+                        if (arg_resolv_conf < 0) {
+                                log_error("Failed to parse /etc/resolv.conf mode: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        arg_settings_mask |= SETTING_RESOLV_CONF;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1507,6 +1526,19 @@ static int setup_timezone(const char *dest) {
         return 0;
 }
 
+static int have_resolv_conf(const char *path) {
+        assert(path);
+
+        if (access(path, F_OK) < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_debug_errno(errno, "Failed to determine whether '%s' is available: %m", path);
+        }
+
+        return 1;
+}
+
 static int resolved_listening(void) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *dns_stub_listener_mode = NULL;
@@ -1536,13 +1568,31 @@ static int resolved_listening(void) {
 }
 
 static int setup_resolv_conf(const char *dest) {
-        _cleanup_free_ char *resolved = NULL, *etc = NULL;
-        const char *where;
-        int r, found;
+        _cleanup_free_ char *etc = NULL;
+        const char *where, *what;
+        ResolvConfMode m;
+        int r;
 
         assert(dest);
 
-        if (arg_private_network)
+        if (arg_resolv_conf == RESOLV_CONF_AUTO) {
+                if (arg_private_network)
+                        m = RESOLV_CONF_OFF;
+                else if (have_resolv_conf(STATIC_RESOLV_CONF) > 0 && resolved_listening() > 0)
+                        /* resolved is enabled on the host. In this, case bind mount its static resolv.conf file into the
+                         * container, so that the container can use the host's resolver. Given that network namespacing is
+                         * disabled it's only natural of the container also uses the host's resolver. It also has the big
+                         * advantage that the container will be able to follow the host's DNS server configuration changes
+                         * transparently. */
+                        m = RESOLV_CONF_BIND_STATIC;
+                else if (have_resolv_conf("/etc/resolv.conf") > 0)
+                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_BIND_HOST : RESOLV_CONF_COPY_HOST;
+                else
+                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_OFF : RESOLV_CONF_DELETE;
+        } else
+                m = arg_resolv_conf;
+
+        if (m == RESOLV_CONF_OFF)
                 return 0;
 
         r = chase_symlinks("/etc", dest, CHASE_PREFIX_ROOT, &etc);
@@ -1552,38 +1602,46 @@ static int setup_resolv_conf(const char *dest) {
         }
 
         where = strjoina(etc, "/resolv.conf");
-        found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved);
-        if (found < 0) {
-                log_warning_errno(found, "Failed to resolve /etc/resolv.conf path in container, ignoring: %m");
+
+        if (m == RESOLV_CONF_DELETE) {
+                if (unlink(where) < 0)
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno, "Failed to remove '%s', ignoring: %m", where);
+
                 return 0;
         }
 
-        if (access(STATIC_RESOLV_CONF, F_OK) >= 0 &&
-            resolved_listening() > 0) {
+        if (IN_SET(m, RESOLV_CONF_BIND_STATIC, RESOLV_CONF_COPY_STATIC))
+                what = STATIC_RESOLV_CONF;
+        else
+                what = "/etc/resolv.conf";
 
-                /* resolved is enabled on the host. In this, case bind mount its static resolv.conf file into the
-                 * container, so that the container can use the host's resolver. Given that network namespacing is
-                 * disabled it's only natural of the container also uses the host's resolver. It also has the big
-                 * advantage that the container will be able to follow the host's DNS server configuration changes
-                 * transparently. */
+        if (IN_SET(m, RESOLV_CONF_BIND_HOST, RESOLV_CONF_BIND_STATIC)) {
+                _cleanup_free_ char *resolved = NULL;
+                int found;
+
+                found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved);
+                if (found < 0) {
+                        log_warning_errno(found, "Failed to resolve /etc/resolv.conf path in container, ignoring: %m");
+                        return 0;
+                }
 
                 if (found == 0) /* missing? */
                         (void) touch(resolved);
 
-                r = mount_verbose(LOG_DEBUG, STATIC_RESOLV_CONF, resolved, NULL, MS_BIND, NULL);
+                r = mount_verbose(LOG_WARNING, what, resolved, NULL, MS_BIND, NULL);
                 if (r >= 0)
                         return mount_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
         }
 
         /* If that didn't work, let's copy the file */
-        r = copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644, 0, COPY_REFLINK);
+        r = copy_file(what, where, O_TRUNC|O_NOFOLLOW, 0644, 0, COPY_REFLINK);
         if (r < 0) {
                 /* If the file already exists as symlink, let's suppress the warning, under the assumption that
                  * resolved or something similar runs inside and the symlink points there.
                  *
                  * If the disk image is read-only, there's also no point in complaining.
                  */
-                log_full_errno(IN_SET(r, -ELOOP, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
+                log_full_errno(!IN_SET(RESOLV_CONF_COPY_HOST, RESOLV_CONF_COPY_STATIC) && IN_SET(r, -ELOOP, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to copy /etc/resolv.conf to %s, ignoring: %m", where);
                 return 0;
         }
@@ -3384,6 +3442,10 @@ static int merge_settings(Settings *settings, const char *path) {
                         arg_cpuset_ncpus = settings->cpuset_ncpus;
                 }
         }
+
+        if ((arg_settings_mask & SETTING_RESOLV_CONF) == 0 &&
+            settings->resolv_conf != _RESOLV_CONF_MODE_INVALID)
+                arg_resolv_conf = settings->resolv_conf;
 
         return 0;
 }

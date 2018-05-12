@@ -33,6 +33,18 @@ typedef enum UserNamespaceMode {
         _USER_NAMESPACE_MODE_INVALID = -1,
 } UserNamespaceMode;
 
+typedef enum ResolvConfMode {
+        RESOLV_CONF_OFF,
+        RESOLV_CONF_COPY_HOST,
+        RESOLV_CONF_COPY_STATIC,
+        RESOLV_CONF_BIND_HOST,
+        RESOLV_CONF_BIND_STATIC,
+        RESOLV_CONF_DELETE,
+        RESOLV_CONF_AUTO,
+        _RESOLV_CONF_MODE_MAX,
+        _RESOLV_CONF_MODE_INVALID = -1
+} ResolvConfMode;
+
 typedef enum SettingsMask {
         SETTING_START_MODE        = UINT64_C(1) << 0,
         SETTING_ENVIRONMENT       = UINT64_C(1) << 1,
@@ -55,9 +67,10 @@ typedef enum SettingsMask {
         SETTING_NO_NEW_PRIVILEGES = UINT64_C(1) << 18,
         SETTING_OOM_SCORE_ADJUST  = UINT64_C(1) << 19,
         SETTING_CPU_AFFINITY      = UINT64_C(1) << 20,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 21, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (21 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (21 + _RLIMIT_MAX)) - 1,
+        SETTING_RESOLV_CONF       = UINT64_C(1) << 21,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 22, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (22 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (22 + _RLIMIT_MAX)) - 1,
         _FORCE_ENUM_WIDTH         = UINT64_MAX
 } SettingsMask;
 
@@ -96,6 +109,7 @@ typedef struct Settings {
         bool oom_score_adjust_set;
         cpu_set_t *cpuset;
         unsigned cpuset_ncpus;
+        ResolvConfMode resolv_conf;
 
         /* [Image] */
         int read_only;
@@ -143,3 +157,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_syscall_filter);
 CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_oom_score_adjust);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity);
+CONFIG_PARSER_PROTOTYPE(config_parse_resolv_conf);
+
+const char *resolv_conf_mode_to_string(ResolvConfMode a) _const_;
+ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;

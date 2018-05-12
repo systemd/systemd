@@ -340,6 +340,15 @@
         details.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>ResolvConf=</varname></term>
+
+        <listitem><para>Configures how <filename>/etc/resolv.conf</filename> in the container shall be handled. This is
+        equivalent to the <option>--resolv-conf=</option> command line switch, and takes the same argument. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
