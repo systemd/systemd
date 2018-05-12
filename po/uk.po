@@ -603,7 +603,7 @@ msgstr "Потрібна автентифікація, щоб контролюв
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
 msgid "Turn network time synchronization on or off"
-msgstr "Увімкнути або вимкнути синхронізування через мережу"
+msgstr "Увімкнути або вимкнути синхронізування часу через мережу"
 
 #: src/timedate/org.freedesktop.timedate1.policy:55
 msgid ""
