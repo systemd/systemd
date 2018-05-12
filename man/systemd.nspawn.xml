@@ -349,6 +349,15 @@
         details.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>LinkJournal=</varname></term>
+
+        <listitem><para>Configures how to link host and container journal setups. This is equivalent to the
+        <option>--link-journal=</option> command line switch, and takes the same parameter. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

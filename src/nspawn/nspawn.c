@@ -118,13 +118,6 @@ typedef enum ContainerStatus {
         CONTAINER_REBOOTED
 } ContainerStatus;
 
-typedef enum LinkJournal {
-        LINK_NO,
-        LINK_AUTO,
-        LINK_HOST,
-        LINK_GUEST
-} LinkJournal;
-
 static char *arg_directory = NULL;
 static char *arg_template = NULL;
 static char *arg_chdir = NULL;
@@ -810,32 +803,17 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'j':
                         arg_link_journal = LINK_GUEST;
                         arg_link_journal_try = true;
+                        arg_settings_mask |= SETTING_LINK_JOURNAL;
                         break;
 
                 case ARG_LINK_JOURNAL:
-                        if (streq(optarg, "auto")) {
-                                arg_link_journal = LINK_AUTO;
-                                arg_link_journal_try = false;
-                        } else if (streq(optarg, "no")) {
-                                arg_link_journal = LINK_NO;
-                                arg_link_journal_try = false;
-                        } else if (streq(optarg, "guest")) {
-                                arg_link_journal = LINK_GUEST;
-                                arg_link_journal_try = false;
-                        } else if (streq(optarg, "host")) {
-                                arg_link_journal = LINK_HOST;
-                                arg_link_journal_try = false;
-                        } else if (streq(optarg, "try-guest")) {
-                                arg_link_journal = LINK_GUEST;
-                                arg_link_journal_try = true;
-                        } else if (streq(optarg, "try-host")) {
-                                arg_link_journal = LINK_HOST;
-                                arg_link_journal_try = true;
-                        } else {
-                                log_error("Failed to parse link journal mode %s", optarg);
+                        r = parse_link_journal(optarg, &arg_link_journal, &arg_link_journal_try);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to parse link journal mode %s", optarg);
                                 return -EINVAL;
                         }
 
+                        arg_settings_mask |= SETTING_LINK_JOURNAL;
                         break;
 
                 case ARG_BIND:
@@ -3450,6 +3428,17 @@ static int merge_settings(Settings *settings, const char *path) {
         if ((arg_settings_mask & SETTING_RESOLV_CONF) == 0 &&
             settings->resolv_conf != _RESOLV_CONF_MODE_INVALID)
                 arg_resolv_conf = settings->resolv_conf;
+
+        if ((arg_settings_mask & SETTING_LINK_JOURNAL) == 0 &&
+            settings->link_journal != _LINK_JOURNAL_INVALID) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring journal link setting, file '%s' is not trusted.", path);
+                else {
+                        arg_link_journal = settings->link_journal;
+                        arg_link_journal_try = settings->link_journal_try;
+                }
+        }
 
         return 0;
 }
