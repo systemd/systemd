@@ -38,6 +38,7 @@
 #include "base-filesystem.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
+#include "bus-error.h"
 #include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
@@ -1540,6 +1541,7 @@ static int have_resolv_conf(const char *path) {
 }
 
 static int resolved_listening(void) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *dns_stub_listener_mode = NULL;
         int r;
@@ -1548,21 +1550,23 @@ static int resolved_listening(void) {
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to open system bus: %m");
 
         r = bus_name_has_owner(bus, "org.freedesktop.resolve1", NULL);
-        if (r <= 0)
-                return r;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check whether the 'org.freedesktop.resolve1' bus name is taken: %m");
+        if (r == 0)
+                return 0;
 
         r = sd_bus_get_property_string(bus,
                                        "org.freedesktop.resolve1",
                                        "/org/freedesktop/resolve1",
                                        "org.freedesktop.resolve1.Manager",
                                        "DNSStubListener",
-                                       NULL,
+                                       &error,
                                        &dns_stub_listener_mode);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to query DNSStubListener property: %s", bus_error_message(&error, r));
 
         return STR_IN_SET(dns_stub_listener_mode, "udp", "yes");
 }
