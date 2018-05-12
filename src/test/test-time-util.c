@@ -168,9 +168,9 @@ static void test_format_timespan(usec_t accuracy) {
 }
 
 static void test_timezone_is_valid(void) {
-        assert_se(timezone_is_valid("Europe/Berlin"));
-        assert_se(timezone_is_valid("Australia/Sydney"));
-        assert_se(!timezone_is_valid("Europe/Do not exist"));
+        assert_se(timezone_is_valid("Europe/Berlin", LOG_ERR));
+        assert_se(timezone_is_valid("Australia/Sydney", LOG_ERR));
+        assert_se(!timezone_is_valid("Europe/Do not exist", LOG_ERR));
 }
 
 static void test_get_timezones(void) {
@@ -182,7 +182,7 @@ static void test_get_timezones(void) {
         assert_se(r == 0);
 
         STRV_FOREACH(zone, zones)
-                assert_se(timezone_is_valid(*zone));
+                assert_se(timezone_is_valid(*zone, LOG_ERR));
 }
 
 static void test_usec_add(void) {

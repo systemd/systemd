@@ -937,7 +937,7 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                         const char *last_space;
 
                         last_space = strrchr(p, ' ');
-                        if (last_space != NULL && timezone_is_valid(last_space + 1)) {
+                        if (last_space != NULL && timezone_is_valid(last_space + 1, LOG_DEBUG)) {
                                 c->timezone = strdup(last_space + 1);
                                 if (!c->timezone)
                                         return -ENOMEM;

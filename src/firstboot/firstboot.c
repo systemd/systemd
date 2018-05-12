@@ -364,6 +364,10 @@ static int process_keymap(void) {
         return 0;
 }
 
+static bool timezone_is_valid_log_error(const char *name) {
+        return timezone_is_valid(name, LOG_ERR);
+}
+
 static int prompt_timezone(void) {
         _cleanup_strv_free_ char **zones = NULL;
         int r;
@@ -387,7 +391,7 @@ static int prompt_timezone(void) {
 
         putchar('\n');
 
-        r = prompt_loop("Please enter timezone name or number", zones, timezone_is_valid, &arg_timezone);
+        r = prompt_loop("Please enter timezone name or number", zones, timezone_is_valid_log_error, &arg_timezone);
         if (r < 0)
                 return r;
 
@@ -827,7 +831,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMEZONE:
-                        if (!timezone_is_valid(optarg)) {
+                        if (!timezone_is_valid(optarg, LOG_ERR)) {
                                 log_error("Timezone %s is not valid.", optarg);
                                 return -EINVAL;
                         }
