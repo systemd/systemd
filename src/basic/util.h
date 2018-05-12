@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <alloca.h>
@@ -92,6 +79,19 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  void *arg);
 
 /**
+ * Normal bsearch requires base to be nonnull. Here were require
+ * that only if nmemb > 0.
+ */
+static inline void* bsearch_safe(const void *key, const void *base,
+                                 size_t nmemb, size_t size, comparison_fn_t compar) {
+        if (nmemb <= 0)
+                return NULL;
+
+        assert(base);
+        return bsearch(key, base, nmemb, size, compar);
+}
+
+/**
  * Normal qsort requires base to be nonnull. Here were require
  * that only if nmemb > 0.
  */
@@ -101,6 +101,22 @@ static inline void qsort_safe(void *base, size_t nmemb, size_t size, comparison_
 
         assert(base);
         qsort(base, nmemb, size, compar);
+}
+
+/* A wrapper around the above, but that adds typesafety: the element size is automatically derived from the type and so
+ * is the prototype for the comparison function */
+#define typesafe_qsort(p, n, func)                                      \
+        ({                                                              \
+                int (*_func_)(const typeof(p[0])*, const typeof(p[0])*) = func; \
+                qsort_safe((p), (n), sizeof((p)[0]), (__compar_fn_t) _func_); \
+        })
+
+static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, int (*compar)(const void*, const void*, void*), void *userdata) {
+        if (nmemb <= 1)
+                return;
+
+        assert(base);
+        qsort_r(base, nmemb, size, compar, userdata);
 }
 
 /**
@@ -185,8 +201,6 @@ uint64_t physical_memory_scale(uint64_t v, uint64_t max);
 
 uint64_t system_tasks_max(void);
 uint64_t system_tasks_max_scale(uint64_t v, uint64_t max);
-
-int update_reboot_parameter_and_warn(const char *param);
 
 int version(void);
 

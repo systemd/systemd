@@ -3,19 +3,6 @@
   This file is part of systemd
 
   Copyright 2014 Ronny Chevalier
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <unistd.h>
@@ -146,7 +133,7 @@ static void test_copy_tree(void) {
                 assert_se((f = strjoin(original_dir, *p)));
                 assert_se((l = strjoin(copy_dir, *link)));
 
-                assert_se(readlink_and_canonicalize(l, NULL, &target) == 0);
+                assert_se(chase_symlinks(l, NULL, 0, &target) == 1);
                 assert_se(path_equal(f, target));
         }
 

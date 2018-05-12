@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
@@ -8,19 +11,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-system.conf"
@@ -73,7 +63,9 @@
     <filename>user.conf</filename> and the files in
     <filename>user.conf.d</filename> directories. These configuration
     files contain a few settings controlling basic manager
-    operations.</para>
+    operations. See
+    <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for a general description of the syntax.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
@@ -154,31 +146,27 @@
         <term><varname>RuntimeWatchdogSec=</varname></term>
         <term><varname>ShutdownWatchdogSec=</varname></term>
 
-        <listitem><para>Configure the hardware watchdog at runtime and
-        at reboot. Takes a timeout value in seconds (or in other time
-        units if suffixed with <literal>ms</literal>,
-        <literal>min</literal>, <literal>h</literal>,
-        <literal>d</literal>, <literal>w</literal>). If
-        <varname>RuntimeWatchdogSec=</varname> is set to a non-zero
-        value, the watchdog hardware
-        (<filename>/dev/watchdog</filename> or the path specified with
-        <varname>WatchdogDevice=</varname> or the kernel option
-        <varname>systemd.watchdog-device=</varname>) will be programmed
-        to automatically reboot the system if it is not contacted within
-        the specified timeout interval. The system manager will ensure
-        to contact it at least once in half the specified timeout
-        interval. This feature requires a hardware watchdog device to
-        be present, as it is commonly the case in embedded and server
-        systems. Not all hardware watchdogs allow configuration of the
-        reboot timeout, in which case the closest available timeout is
-        picked. <varname>ShutdownWatchdogSec=</varname> may be used to
-        configure the hardware watchdog when the system is asked to
-        reboot. It works as a safety net to ensure that the reboot
-        takes place even if a clean reboot attempt times out. By
-        default <varname>RuntimeWatchdogSec=</varname> defaults to 0
-        (off), and <varname>ShutdownWatchdogSec=</varname> to 10min.
-        These settings have no effect if a hardware watchdog is not
-        available.</para></listitem>
+        <listitem><para>Configure the hardware watchdog at runtime and at reboot. Takes a timeout value in seconds (or
+        in other time units if suffixed with <literal>ms</literal>, <literal>min</literal>, <literal>h</literal>,
+        <literal>d</literal>, <literal>w</literal>). If <varname>RuntimeWatchdogSec=</varname> is set to a non-zero
+        value, the watchdog hardware (<filename>/dev/watchdog</filename> or the path specified with
+        <varname>WatchdogDevice=</varname> or the kernel option <varname>systemd.watchdog-device=</varname>) will be
+        programmed to automatically reboot the system if it is not contacted within the specified timeout interval. The
+        system manager will ensure to contact it at least once in half the specified timeout interval. This feature
+        requires a hardware watchdog device to be present, as it is commonly the case in embedded and server
+        systems. Not all hardware watchdogs allow configuration of all possible reboot timeout values, in which case
+        the closest available timeout is picked. <varname>ShutdownWatchdogSec=</varname> may be used to configure the
+        hardware watchdog when the system is asked to reboot. It works as a safety net to ensure that the reboot takes
+        place even if a clean reboot attempt times out. Note that the <varname>ShutdownWatchdogSec=</varname> timeout
+        applies only to the second phase of the reboot, i.e. after all regular services are already terminated, and
+        after the system and service manager process (PID 1) got replaced by the <filename>systemd-shutdown</filename>
+        binary, see system <citerefentry><refentrytitle>bootup</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        for details. During the first phase of the shutdown operation the system and service manager remains running
+        and hence <varname>RuntimeWatchdogSec=</varname> is still honoured. In order to define a timeout on this first
+        phase of system shutdown, configure <varname>JobTimeoutSec=</varname> and <varname>JobTimeoutAction=</varname>
+        in the <literal>[Unit]</literal> section of the <filename>shutdown.target</filename> unit. By default
+        <varname>RuntimeWatchdogSec=</varname> defaults to 0 (off), and <varname>ShutdownWatchdogSec=</varname> to
+        10min. These settings have no effect if a hardware watchdog is not available.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -210,6 +198,21 @@
         for units, but note that capabilities dropped for PID 1 cannot
         be regained in individual units, they are lost for
         good.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NoNewPrivileges=</varname></term>
+
+        <listitem><para>Takes a boolean argument. If true, ensures that PID 1
+        and all its children can never gain new privileges through
+        <citerefentry project='man-pages'><refentrytitle>execve</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        (e.g. via setuid or setgid bits, or filesystem capabilities).
+        Defaults to false. General purpose distributions commonly rely
+        on executables with setuid or setgid bits and will thus not
+        function properly with this option enabled. Individual units
+        cannot disable this option.
+        Also see <ulink url="https://www.kernel.org/doc/html/latest/userspace-api/no_new_privs.html">No New Privileges Flag</ulink>.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -338,8 +341,9 @@
         <varname>CPUAccounting=</varname>, <varname>BlockIOAccounting=</varname>, <varname>MemoryAccounting=</varname>,
         <varname>TasksAccounting=</varname> and <varname>IPAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for details on the per-unit settings. <varname>DefaultTasksAccounting=</varname> defaults to on, the other
-        four settings to off.</para></listitem>
+        for details on the per-unit settings. <varname>DefaultTasksAccounting=</varname> defaults to on,
+        <varname>DefaultMemoryAccounting=</varname> to &MEMORY_ACCOUNTING_DEFAULT;,
+        the other three settings to off.</para></listitem>
       </varlistentry>
 
       <varlistentry>

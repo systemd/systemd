@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -181,7 +168,7 @@ int devnode_acl_all(struct udev *udev,
                     bool del, uid_t old_uid,
                     bool add, uid_t new_uid) {
 
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         _cleanup_set_free_free_ Set *nodes = NULL;
         _cleanup_closedir_ DIR *dir = NULL;
@@ -192,7 +179,7 @@ int devnode_acl_all(struct udev *udev,
 
         assert(udev);
 
-        nodes = set_new(&string_hash_ops);
+        nodes = set_new(&path_hash_ops);
         if (!nodes)
                 return -ENOMEM;
 
@@ -222,7 +209,7 @@ int devnode_acl_all(struct udev *udev,
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
                 const char *node, *sn;
 
                 d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));

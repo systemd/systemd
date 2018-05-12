@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <poll.h>
@@ -62,8 +49,7 @@ static int sd_netlink_new(sd_netlink **ret) {
          * responses with notifications from the kernel */
         rtnl->serial = 1;
 
-        *ret = rtnl;
-        rtnl = NULL;
+        *ret = TAKE_PTR(rtnl);
 
         return 0;
 }
@@ -90,8 +76,7 @@ int sd_netlink_new_from_netlink(sd_netlink **ret, int fd) {
 
         rtnl->fd = fd;
 
-        *ret = rtnl;
-        rtnl = NULL;
+        *ret = TAKE_PTR(rtnl);
 
         return 0;
 }
@@ -133,8 +118,7 @@ int sd_netlink_open_fd(sd_netlink **ret, int fd) {
                 return r;
         }
 
-        *ret = rtnl;
-        rtnl = NULL;
+        *ret = TAKE_PTR(rtnl);
 
         return 0;
 }
@@ -425,8 +409,7 @@ static int process_running(sd_netlink *rtnl, sd_netlink_message **ret) {
         }
 
         if (ret) {
-                *ret = m;
-                m = NULL;
+                *ret = TAKE_PTR(m);
 
                 return 1;
         }
@@ -669,10 +652,8 @@ int sd_netlink_call(sd_netlink *rtnl,
                                         return 0;
                                 }
 
-                                if (ret) {
-                                        *ret = incoming;
-                                        incoming = NULL;
-                                }
+                                if (ret)
+                                        *ret = TAKE_PTR(incoming);
 
                                 return 1;
                         }

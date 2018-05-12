@@ -179,6 +179,16 @@ test_masked_dropins () {
         ln -sf ../b.service /usr/lib/systemd/system/a.service.wants/b.service
         check_ko a Wants b.service
 
+        # 'a' is masked but has an override config file
+        echo "*** test a is masked but has an override"
+        create_services a b
+        ln -sf /dev/null /etc/systemd/system/a.service
+        cat >/usr/lib/systemd/system/a.service.d/override.conf <<EOF
+[Unit]
+After=b.service
+EOF
+        check_ok a UnitFileState masked
+
         # 'b1' is an alias for 'b': masking 'b' dep should not influence 'b1' dep
         echo "*** test a wants b, b1, and one is masked"
         create_services a b

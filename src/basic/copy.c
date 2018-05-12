@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <dirent.h>
@@ -51,54 +38,142 @@
 
 #define COPY_BUFFER_SIZE (16*1024u)
 
-static ssize_t try_copy_file_range(int fd_in, loff_t *off_in,
-                                   int fd_out, loff_t *off_out,
-                                   size_t len,
-                                   unsigned int flags) {
+static ssize_t try_copy_file_range(
+                int fd_in, loff_t *off_in,
+                int fd_out, loff_t *off_out,
+                size_t len,
+                unsigned int flags) {
+
         static int have = -1;
         ssize_t r;
 
-        if (have == false)
+        if (have == 0)
                 return -ENOSYS;
 
         r = copy_file_range(fd_in, off_in, fd_out, off_out, len, flags);
-        if (_unlikely_(have < 0))
+        if (have < 0)
                 have = r >= 0 || errno != ENOSYS;
-        if (r >= 0)
-                return r;
-        else
+        if (r < 0)
                 return -errno;
+
+        return r;
 }
 
-int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
+enum {
+        FD_IS_NO_PIPE,
+        FD_IS_BLOCKING_PIPE,
+        FD_IS_NONBLOCKING_PIPE,
+};
+
+static int fd_is_nonblock_pipe(int fd) {
+        struct stat st;
+        int flags;
+
+        /* Checks whether the specified file descriptor refers to a pipe, and if so if O_NONBLOCK is set. */
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (!S_ISFIFO(st.st_mode))
+                return FD_IS_NO_PIPE;
+
+        flags = fcntl(fd, F_GETFL);
+        if (flags < 0)
+                return -errno;
+
+        return (flags & O_NONBLOCK) == O_NONBLOCK ? FD_IS_NONBLOCKING_PIPE : FD_IS_BLOCKING_PIPE;
+}
+
+int copy_bytes_full(
+                int fdf, int fdt,
+                uint64_t max_bytes,
+                CopyFlags copy_flags,
+                void **ret_remains,
+                size_t *ret_remains_size) {
+
         bool try_cfr = true, try_sendfile = true, try_splice = true;
-        int r;
+        int r, nonblock_pipe = -1;
         size_t m = SSIZE_MAX; /* that is the maximum that sendfile and c_f_r accept */
 
         assert(fdf >= 0);
         assert(fdt >= 0);
 
-        /* Try btrfs reflinks first. */
-        if ((copy_flags & COPY_REFLINK) &&
-            max_bytes == (uint64_t) -1 &&
-            lseek(fdf, 0, SEEK_CUR) == 0 &&
-            lseek(fdt, 0, SEEK_CUR) == 0) {
+        /* Tries to copy bytes from the file descriptor 'fdf' to 'fdt' in the smartest possible way. Copies a maximum
+         * of 'max_bytes', which may be specified as UINT64_MAX, in which no maximum is applied. Returns negative on
+         * error, zero if EOF is hit before the bytes limit is hit and positive otherwise. If the copy fails for some
+         * reason but we read but didn't yet write some data an ret_remains/ret_remains_size is not NULL, then it will
+         * be initialized with an allocated buffer containing this "remaining" data. Note that these two parameters are
+         * initialized with a valid buffer only on failure and only if there's actually data already read. Otherwise
+         * these parameters if non-NULL are set to NULL. */
 
-                r = btrfs_reflink(fdf, fdt);
-                if (r >= 0)
-                        return 0; /* we copied the whole thing, hence hit EOF, return 0 */
+        if (ret_remains)
+                *ret_remains = NULL;
+        if (ret_remains_size)
+                *ret_remains_size = 0;
+
+        /* Try btrfs reflinks first. This only works on regular, seekable files, hence let's check the file offsets of
+         * source and destination first. */
+        if ((copy_flags & COPY_REFLINK)) {
+                off_t foffset;
+
+                foffset = lseek(fdf, 0, SEEK_CUR);
+                if (foffset >= 0) {
+                        off_t toffset;
+
+                        toffset = lseek(fdt, 0, SEEK_CUR);
+                        if (toffset >= 0) {
+
+                                if (foffset == 0 && toffset == 0 && max_bytes == UINT64_MAX)
+                                        r = btrfs_reflink(fdf, fdt); /* full file reflink */
+                                else
+                                        r = btrfs_clone_range(fdf, foffset, fdt, toffset, max_bytes == UINT64_MAX ? 0 : max_bytes); /* partial reflink */
+                                if (r >= 0) {
+                                        off_t t;
+
+                                        /* This worked, yay! Now — to be fully correct — let's adjust the file pointers */
+                                        if (max_bytes == UINT64_MAX) {
+
+                                                /* We cloned to the end of the source file, let's position the read
+                                                 * pointer there, and query it at the same time. */
+                                                t = lseek(fdf, 0, SEEK_END);
+                                                if (t < 0)
+                                                        return -errno;
+                                                if (t < foffset)
+                                                        return -ESPIPE;
+
+                                                /* Let's adjust the destination file write pointer by the same number
+                                                 * of bytes. */
+                                                t = lseek(fdt, toffset + (t - foffset), SEEK_SET);
+                                                if (t < 0)
+                                                        return -errno;
+
+                                                return 0; /* we copied the whole thing, hence hit EOF, return 0 */
+                                        } else {
+                                                t = lseek(fdf, foffset + max_bytes, SEEK_SET);
+                                                if (t < 0)
+                                                        return -errno;
+
+                                                t = lseek(fdt, toffset + max_bytes, SEEK_SET);
+                                                if (t < 0)
+                                                        return -errno;
+
+                                                return 1; /* we copied only some number of bytes, which worked, but this means we didn't hit EOF, return 1 */
+                                        }
+                                }
+
+                                log_debug_errno(r, "Reflinking didn't work, falling back to non-reflink copying: %m");
+                        }
+                }
         }
 
         for (;;) {
                 ssize_t n;
 
-                if (max_bytes != (uint64_t) -1) {
-                        if (max_bytes <= 0)
-                                return 1; /* return > 0 if we hit the max_bytes limit */
+                if (max_bytes <= 0)
+                        return 1; /* return > 0 if we hit the max_bytes limit */
 
-                        if (m > max_bytes)
-                                m = max_bytes;
-                }
+                if (max_bytes != UINT64_MAX && m > max_bytes)
+                        m = max_bytes;
 
                 /* First try copy_file_range(), unless we already tried */
                 if (try_cfr) {
@@ -132,9 +207,51 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
                                 goto next;
                 }
 
-                /* Then try splice, unless we already tried */
+                /* Then try splice, unless we already tried. */
                 if (try_splice) {
-                        n = splice(fdf, NULL, fdt, NULL, m, 0);
+
+                        /* splice()'s asynchronous I/O support is a bit weird. When it encounters a pipe file
+                         * descriptor, then it will ignore its O_NONBLOCK flag and instead only honour the
+                         * SPLICE_F_NONBLOCK flag specified in its flag parameter. Let's hide this behaviour here, and
+                         * check if either of the specified fds are a pipe, and if so, let's pass the flag
+                         * automatically, depending on O_NONBLOCK being set.
+                         *
+                         * Here's a twist though: when we use it to move data between two pipes of which one has
+                         * O_NONBLOCK set and the other has not, then we have no individual control over O_NONBLOCK
+                         * behaviour. Hence in that case we can't use splice() and still guarantee systematic
+                         * O_NONBLOCK behaviour, hence don't. */
+
+                        if (nonblock_pipe < 0) {
+                                int a, b;
+
+                                /* Check if either of these fds is a pipe, and if so non-blocking or not */
+                                a = fd_is_nonblock_pipe(fdf);
+                                if (a < 0)
+                                        return a;
+
+                                b = fd_is_nonblock_pipe(fdt);
+                                if (b < 0)
+                                        return b;
+
+                                if ((a == FD_IS_NO_PIPE && b == FD_IS_NO_PIPE) ||
+                                    (a == FD_IS_BLOCKING_PIPE && b == FD_IS_NONBLOCKING_PIPE) ||
+                                    (a == FD_IS_NONBLOCKING_PIPE && b == FD_IS_BLOCKING_PIPE))
+
+                                        /* splice() only works if one of the fds is a pipe. If neither is, let's skip
+                                         * this step right-away. As mentioned above, if one of the two fds refers to a
+                                         * blocking pipe and the other to a non-blocking pipe, we can't use splice()
+                                         * either, hence don't try either. This hence means we can only use splice() if
+                                         * either only one of the two fds is a pipe, or if both are pipes with the same
+                                         * nonblocking flag setting. */
+
+                                        try_splice = false;
+                                else
+                                        nonblock_pipe = a == FD_IS_NONBLOCKING_PIPE || b == FD_IS_NONBLOCKING_PIPE;
+                        }
+                }
+
+                if (try_splice) {
+                        n = splice(fdf, NULL, fdt, NULL, m, nonblock_pipe ? SPLICE_F_NONBLOCK : 0);
                         if (n < 0) {
                                 if (!IN_SET(errno, EINVAL, ENOSYS))
                                         return -errno;
@@ -150,7 +267,8 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
 
                 /* As a fallback just copy bits by hand */
                 {
-                        uint8_t buf[MIN(m, COPY_BUFFER_SIZE)];
+                        uint8_t buf[MIN(m, COPY_BUFFER_SIZE)], *p = buf;
+                        ssize_t z;
 
                         n = read(fdf, buf, sizeof buf);
                         if (n < 0)
@@ -158,9 +276,34 @@ int copy_bytes(int fdf, int fdt, uint64_t max_bytes, CopyFlags copy_flags) {
                         if (n == 0) /* EOF */
                                 break;
 
-                        r = loop_write(fdt, buf, (size_t) n, false);
-                        if (r < 0)
-                                return r;
+                        z = (size_t) n;
+                        do {
+                                ssize_t k;
+
+                                k = write(fdt, p, z);
+                                if (k < 0) {
+                                        r = -errno;
+
+                                        if (ret_remains) {
+                                                void *copy;
+
+                                                copy = memdup(p, z);
+                                                if (!copy)
+                                                        return -ENOMEM;
+
+                                                *ret_remains = copy;
+                                        }
+
+                                        if (ret_remains_size)
+                                                *ret_remains_size = z;
+
+                                        return r;
+                                }
+
+                                assert(k <= z);
+                                z -= k;
+                                p += k;
+                        } while (z > 0);
                 }
 
         next:
@@ -239,7 +382,7 @@ static int fd_copy_regular(
 
         r = copy_bytes(fdf, fdt, (uint64_t) -1, copy_flags);
         if (r < 0) {
-                unlinkat(dt, to, 0);
+                (void) unlinkat(dt, to, 0);
                 return r;
         }
 
@@ -261,7 +404,7 @@ static int fd_copy_regular(
 
         if (q < 0) {
                 r = -errno;
-                unlinkat(dt, to, 0);
+                (void) unlinkat(dt, to, 0);
         }
 
         return r;
@@ -525,7 +668,7 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned
         r = copy_file_fd(from, fdt, copy_flags);
         if (r < 0) {
                 close(fdt);
-                unlink(to);
+                (void) unlink(to);
                 return r;
         }
 

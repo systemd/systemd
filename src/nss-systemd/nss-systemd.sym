@@ -13,7 +13,13 @@
 global:
         _nss_systemd_getpwnam_r;
         _nss_systemd_getpwuid_r;
+        _nss_systemd_endpwent;
+        _nss_systemd_setpwent;
+        _nss_systemd_getpwent_r;
         _nss_systemd_getgrnam_r;
         _nss_systemd_getgrgid_r;
+        _nss_systemd_endgrent;
+        _nss_systemd_setgrent;
+        _nss_systemd_getgrent_r;
 local: *;
 };

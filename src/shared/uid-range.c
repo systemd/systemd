@@ -3,25 +3,13 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "alloc-util.h"
 #include "macro.h"
 #include "uid-range.h"
 #include "user-util.h"
@@ -60,7 +48,6 @@ static void uid_range_coalesce(UidRange **p, unsigned *n) {
                         }
                 }
         }
-
 }
 
 static int uid_range_compare(const void *a, const void *b) {
@@ -109,7 +96,7 @@ int uid_range_add(UidRange **p, unsigned *n, uid_t start, uid_t nr) {
         } else {
                 UidRange *t;
 
-                t = realloc(*p, sizeof(UidRange) * (*n + 1));
+                t = reallocarray(*p, *n + 1, sizeof(UidRange));
                 if (!t)
                         return -ENOMEM;
 

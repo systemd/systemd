@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Shawn Landden
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <stdio.h>
@@ -29,6 +16,30 @@
 static void test_one(const char *p) {
         _cleanup_free_ char *t;
         t = ellipsize(p, columns(), 70);
+        puts(t);
+        free(t);
+        t = ellipsize(p, columns(), 0);
+        puts(t);
+        free(t);
+        t = ellipsize(p, columns(), 100);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 0, 50);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 1, 50);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 2, 50);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 3, 50);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 4, 50);
+        puts(t);
+        free(t);
+        t = ellipsize(p, 5, 50);
         puts(t);
 }
 

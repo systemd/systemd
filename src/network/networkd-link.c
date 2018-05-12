@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <netinet/ether.h>
@@ -92,6 +79,9 @@ static bool link_ipv4ll_enabled(Link *link) {
         if (!link->network)
                 return false;
 
+        if (streq_ptr(link->kind, "wireguard"))
+                return false;
+
         return link->network->link_local & ADDRESS_FAMILY_IPV4;
 }
 
@@ -105,6 +95,9 @@ static bool link_ipv6ll_enabled(Link *link) {
                 return false;
 
         if (!link->network)
+                return false;
+
+        if (streq_ptr(link->kind, "wireguard"))
                 return false;
 
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
@@ -411,7 +404,7 @@ static int link_update_flags(Link *link, sd_netlink_message *m) {
 }
 
 static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
-        _cleanup_link_unref_ Link *link = NULL;
+        _cleanup_(link_unrefp) Link *link = NULL;
         uint16_t type;
         const char *ifname, *kind = NULL;
         int r, ifindex;
@@ -495,8 +488,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         if (r < 0)
                 return r;
 
-        *ret = link;
-        link = NULL;
+        *ret = TAKE_PTR(link);
 
         return 0;
 }
@@ -815,7 +807,7 @@ static int link_set_routing_policy_rule(Link *link) {
 }
 
 static int route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link->route_messages > 0);
@@ -874,7 +866,7 @@ static int link_enter_set_routes(Link *link) {
 }
 
 int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(m);
@@ -892,7 +884,7 @@ int link_route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *use
 }
 
 static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(rtnl);
@@ -923,7 +915,7 @@ static int address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 }
 
 static int address_label_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(rtnl);
@@ -1158,7 +1150,6 @@ static int link_enter_set_addresses(Link *link) {
                                 log_link_warning_errno(link, r, "Failed to set DNS server for DHCP server, ignoring: %m");
                 }
 
-
                 if (link->network->dhcp_server_emit_ntp) {
 
                         if (link->network->n_dhcp_server_ntp > 0)
@@ -1226,7 +1217,7 @@ static int link_enter_set_addresses(Link *link) {
 }
 
 int link_address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(m);
@@ -1270,7 +1261,7 @@ static int link_set_proxy_arp(Link *link) {
 }
 
 static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         log_link_debug(link, "Set link");
@@ -1286,7 +1277,7 @@ static int link_set_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userd
 }
 
 static int set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(m);
@@ -1333,7 +1324,7 @@ int link_set_mtu(Link *link, uint32_t mtu) {
 }
 
 static int set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(m);
@@ -1410,25 +1401,37 @@ static int link_set_bridge(Link *link) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append IFLA_PROTINFO attribute: %m");
 
-        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_GUARD, !link->network->use_bpdu);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_GUARD attribute: %m");
+        if (link->network->use_bpdu >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_GUARD, link->network->use_bpdu);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_GUARD attribute: %m");
+        }
 
-        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MODE, link->network->hairpin);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MODE attribute: %m");
+        if (link->network->hairpin >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_MODE, link->network->hairpin);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_MODE attribute: %m");
+        }
 
-        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_FAST_LEAVE, link->network->fast_leave);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_FAST_LEAVE attribute: %m");
+        if (link->network->fast_leave >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_FAST_LEAVE, link->network->fast_leave);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_FAST_LEAVE attribute: %m");
+        }
 
-        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, !link->network->allow_port_to_be_root);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROTECT attribute: %m");
+        if (link->network->allow_port_to_be_root >=  0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_PROTECT, link->network->allow_port_to_be_root);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_PROTECT attribute: %m");
 
-        r = sd_netlink_message_append_u8(req, IFLA_BRPORT_UNICAST_FLOOD, link->network->unicast_flood);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_UNICAST_FLOOD attribute: %m");
+        }
+
+        if (link->network->unicast_flood >= 0) {
+                r = sd_netlink_message_append_u8(req, IFLA_BRPORT_UNICAST_FLOOD, link->network->unicast_flood);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Could not append IFLA_BRPORT_UNICAST_FLOOD attribute: %m");
+
+        }
 
         if (link->network->cost != 0) {
                 r = sd_netlink_message_append_u32(req, IFLA_BRPORT_COST, link->network->cost);
@@ -1712,7 +1715,7 @@ bool link_has_carrier(Link *link) {
 }
 
 static int link_up_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -1766,7 +1769,7 @@ int link_up(Link *link) {
            for this interface, or if it is a bridge slave, then disable IPv6 else enable it. */
         (void) link_enable_ipv6(link);
 
-        if (link->network->mtu) {
+        if (link->network->mtu != 0) {
                 /* IPv6 protocol requires a minimum MTU of IPV6_MTU_MIN(1280) bytes
                    on the interface. Bump up MTU bytes to IPV6_MTU_MIN. */
                 if (link_ipv6_enabled(link) && link->network->mtu < IPV6_MIN_MTU) {
@@ -1835,7 +1838,7 @@ int link_up(Link *link) {
 }
 
 static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -2199,7 +2202,7 @@ static int link_joined(Link *link) {
 }
 
 static int netdev_join_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -2478,6 +2481,32 @@ static int link_set_ipv6_hop_limit(Link *link) {
         return 0;
 }
 
+static int link_set_ipv6_mtu(Link *link) {
+        char buf[DECIMAL_STR_MAX(unsigned) + 1];
+        const char *p = NULL;
+        int r;
+
+        /* Make this a NOP if IPv6 is not available */
+        if (!socket_ipv6_is_supported())
+                return 0;
+
+        if (link->flags & IFF_LOOPBACK)
+                return 0;
+
+        if (link->network->ipv6_mtu == 0)
+                return 0;
+
+        p = strjoina("/proc/sys/net/ipv6/conf/", link->ifname, "/mtu");
+
+        xsprintf(buf, "%" PRIu32, link->network->ipv6_mtu);
+
+        r = write_string_file(p, buf, 0);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv6 MTU for interface: %m");
+
+        return 0;
+}
+
 static int link_drop_foreign_config(Link *link) {
         Address *address;
         Route *route;
@@ -2632,6 +2661,10 @@ static int link_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_set_ipv6_mtu(link);
+        if (r < 0)
+                return r;
+
         if (link_ipv4ll_enabled(link)) {
                 r = ipv4ll_configure(link);
                 if (r < 0)
@@ -2721,7 +2754,7 @@ static int link_configure(Link *link) {
 
 static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
                                        void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         Network *network;
         int r;
 
@@ -2958,7 +2991,7 @@ network_file_fail:
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to add route: %m");
 
-                        if (lifetime != USEC_INFINITY) {
+                        if (lifetime != USEC_INFINITY && !kernel_route_expiration_supported()) {
                                 r = sd_event_add_time(link->manager->event, &expire, clock_boottime_or_monotonic(), lifetime,
                                                       0, route_expire_handler, route);
                                 if (r < 0)
@@ -2967,8 +3000,7 @@ network_file_fail:
 
                         route->lifetime = lifetime;
                         sd_event_source_unref(route->expire);
-                        route->expire = expire;
-                        expire = NULL;
+                        route->expire = TAKE_PTR(expire);
                 }
         }
 
@@ -2979,7 +3011,7 @@ network_file_fail:
                         goto dhcp4_address_fail;
                 }
 
-                r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
+                r = sd_dhcp_client_new(&link->dhcp_client, link->network ? link->network->dhcp_anonymize : 0);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to create DHCPv4 client: %m");
 
@@ -3013,7 +3045,7 @@ ipv4ll_address_fail:
 
 int link_add(Manager *m, sd_netlink_message *message, Link **ret) {
         Link *link;
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         char ifindex_str[2 + DECIMAL_STR_MAX(int)];
         int r;
 
@@ -3195,21 +3227,24 @@ int link_update(Link *link, sd_netlink_message *m) {
         if (r >= 0 && !streq(ifname, link->ifname)) {
                 log_link_info(link, "Interface name change detected, %s has been renamed to %s.", link->ifname, ifname);
 
-                link_free_carrier_maps(link);
+                if (link->state == LINK_STATE_PENDING) {
+                        r = free_and_strdup(&link->ifname, ifname);
+                        if (r < 0)
+                                return r;
+                } else {
+                        Manager *manager = link->manager;
 
-                r = free_and_strdup(&link->ifname, ifname);
-                if (r < 0)
-                        return r;
-
-                r = link_new_carrier_maps(link);
-                if (r < 0)
-                        return r;
+                        link_drop(link);
+                        r = link_add(manager, m, &link);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = sd_netlink_message_read_u32(m, IFLA_MTU, &mtu);
         if (r >= 0 && mtu > 0) {
                 link->mtu = mtu;
-                if (!link->original_mtu) {
+                if (link->original_mtu == 0) {
                         link->original_mtu = mtu;
                         log_link_debug(link, "Saved original MTU: %" PRIu32, link->original_mtu);
                 }
@@ -3274,6 +3309,17 @@ int link_update(Link *link, sd_netlink_message *m) {
                                                                          duid->raw_data_len);
                                         if (r < 0)
                                                 return log_link_warning_errno(link, r, "Could not update DUID/IAID in DHCP client: %m");
+                                        break;
+                                }
+                                case DHCP_CLIENT_ID_DUID_ONLY: {
+                                        const DUID *duid = link_duid(link);
+
+                                        r = sd_dhcp_client_set_duid(link->dhcp_client,
+                                                                    duid->type,
+                                                                    duid->raw_data_len > 0 ? duid->raw_data : NULL,
+                                                                    duid->raw_data_len);
+                                        if (r < 0)
+                                                return log_link_warning_errno(link, r, "Could not update DUID in DHCP client: %m");
                                         break;
                                 }
                                 case DHCP_CLIENT_ID_MAC:
@@ -3485,7 +3531,7 @@ int link_save(Link *link) {
                 /* Make sure to flush out old entries before we use the NDISC data */
                 ndisc_vacuum(link);
 
-                if (link->network->dhcp_use_dns && link->ndisc_rdnss) {
+                if (link->network->ipv6_accept_ra_use_dns && link->ndisc_rdnss) {
                         NDiscRDNSS *dd;
 
                         SET_FOREACH(dd, link->ndisc_rdnss, i) {

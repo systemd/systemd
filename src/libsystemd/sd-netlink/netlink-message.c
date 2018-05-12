@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <netinet/in.h>
@@ -98,8 +85,7 @@ int message_new(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t type) {
         m->hdr->nlmsg_len = size;
         m->hdr->nlmsg_type = type;
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }
@@ -311,7 +297,6 @@ int sd_netlink_message_append_u8(sd_netlink_message *m, unsigned short type, uin
 
         return 0;
 }
-
 
 int sd_netlink_message_append_u16(sd_netlink_message *m, unsigned short type, uint16_t data) {
         int r;
@@ -803,8 +788,7 @@ static int netlink_container_parse(sd_netlink_message *m,
                 attributes[type].net_byteorder = RTA_FLAGS(rta) & NLA_F_NET_BYTEORDER;
         }
 
-        container->attributes = attributes;
-        attributes = NULL;
+        container->attributes = TAKE_PTR(attributes);
         container->n_attributes = count;
 
         return 0;

@@ -8,19 +8,6 @@
   This file is part of systemd.
 
   Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="machinectl" conditional='ENABLE_MACHINED'
@@ -154,13 +141,6 @@
 
         <listitem><para>Do not ellipsize process tree entries.</para>
         </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--no-ask-password</option></term>
-
-        <listitem><para>Do not query the user for authentication for
-        privileged operations.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -322,6 +302,7 @@
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -999,12 +980,12 @@
       <title>Download a Fedora image, set a root password in it, start
       it as service</title>
 
-      <programlisting># machinectl pull-raw --verify=no https://dl.fedoraproject.org/pub/fedora/linux/releases/23/Cloud/x86_64/Images/Fedora-Cloud-Base-23-20151030.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-23-20151030
+      <programlisting># machinectl pull-raw --verify=no https://dl.fedoraproject.org/pub/fedora/linux/releases/27/CloudImages/x86_64/images/Fedora-Cloud-Base-27-1.6.x86_64.raw.xz
+# systemd-nspawn -M Fedora-Cloud-Base-27-1.6.x86_64
 # passwd
 # exit
-# machinectl start Fedora-Cloud-Base-23-20151030
-# machinectl login Fedora-Cloud-Base-23-20151030</programlisting>
+# machinectl start Fedora-Cloud-Base-27-1.6.x86_64
+# machinectl login Fedora-Cloud-Base-27-1.6.x86_64</programlisting>
 
       <para>This downloads the specified <filename>.raw</filename>
       image with verification disabled. Then, a shell is opened in it
@@ -1048,6 +1029,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,

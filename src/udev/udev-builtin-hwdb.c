@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2012 Kay Sievers <kay@vrfy.org>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <fnmatch.h>
@@ -27,6 +14,7 @@
 
 #include "alloc-util.h"
 #include "hwdb-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "udev-util.h"
 #include "udev.h"
@@ -63,7 +51,7 @@ int udev_builtin_hwdb_lookup(struct udev_device *dev,
 
 static const char *modalias_usb(struct udev_device *dev, char *s, size_t size) {
         const char *v, *p;
-        int vn, pn;
+        uint16_t vn, pn;
 
         v = udev_device_get_sysattr_value(dev, "idVendor");
         if (!v)
@@ -71,11 +59,9 @@ static const char *modalias_usb(struct udev_device *dev, char *s, size_t size) {
         p = udev_device_get_sysattr_value(dev, "idProduct");
         if (!p)
                 return NULL;
-        vn = strtol(v, NULL, 16);
-        if (vn <= 0)
+        if (safe_atoux16(v, &vn) < 0)
                 return NULL;
-        pn = strtol(p, NULL, 16);
-        if (pn <= 0)
+        if (safe_atoux16(p, &pn) < 0)
                 return NULL;
         snprintf(s, size, "usb:v%04Xp%04X*", vn, pn);
         return s;
@@ -140,7 +126,7 @@ static int builtin_hwdb(struct udev_device *dev, int argc, char *argv[], bool te
         const char *device = NULL;
         const char *subsystem = NULL;
         const char *prefix = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *srcdev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *srcdev = NULL;
 
         if (!hwdb)
                 return EXIT_FAILURE;

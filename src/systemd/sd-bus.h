@@ -122,8 +122,11 @@ int sd_bus_default_user(sd_bus **ret);
 int sd_bus_default_system(sd_bus **ret);
 
 int sd_bus_open(sd_bus **ret);
+int sd_bus_open_with_description(sd_bus **ret, const char *description);
 int sd_bus_open_user(sd_bus **ret);
+int sd_bus_open_user_with_description(sd_bus **ret, const char *description);
 int sd_bus_open_system(sd_bus **ret);
+int sd_bus_open_system_with_description(sd_bus **ret, const char *description);
 int sd_bus_open_system_remote(sd_bus **ret, const char *host);
 int sd_bus_open_system_machine(sd_bus **ret, const char *machine);
 
@@ -201,6 +204,9 @@ void* sd_bus_get_current_userdata(sd_bus *bus);
 int sd_bus_attach_event(sd_bus *bus, sd_event *e, int priority);
 int sd_bus_detach_event(sd_bus *bus);
 sd_event *sd_bus_get_event(sd_bus *bus);
+
+int sd_bus_get_n_queued_read(sd_bus *bus, uint64_t *ret);
+int sd_bus_get_n_queued_write(sd_bus *bus, uint64_t *ret);
 
 int sd_bus_add_filter(sd_bus *bus, sd_bus_slot **slot, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_add_match(sd_bus *bus, sd_bus_slot **slot, const char *match, sd_bus_message_handler_t callback, void *userdata);

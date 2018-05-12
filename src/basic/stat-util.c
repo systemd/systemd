@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010-2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <dirent.h>
@@ -214,8 +201,19 @@ int path_is_fs_type(const char *path, statfs_f_type_t magic_value) {
 }
 
 bool is_temporary_fs(const struct statfs *s) {
-    return is_fs_type(s, TMPFS_MAGIC) ||
-           is_fs_type(s, RAMFS_MAGIC);
+        return is_fs_type(s, TMPFS_MAGIC) ||
+                is_fs_type(s, RAMFS_MAGIC);
+}
+
+bool is_network_fs(const struct statfs *s) {
+        return is_fs_type(s, CIFS_MAGIC_NUMBER) ||
+                is_fs_type(s, CODA_SUPER_MAGIC) ||
+                is_fs_type(s, NCP_SUPER_MAGIC) ||
+                is_fs_type(s, NFS_SUPER_MAGIC) ||
+                is_fs_type(s, SMB_SUPER_MAGIC) ||
+                is_fs_type(s, V9FS_MAGIC) ||
+                is_fs_type(s, AFS_SUPER_MAGIC) ||
+                is_fs_type(s, OCFS2_SUPER_MAGIC);
 }
 
 int fd_is_temporary_fs(int fd) {
@@ -227,15 +225,26 @@ int fd_is_temporary_fs(int fd) {
         return is_temporary_fs(&s);
 }
 
+int fd_is_network_fs(int fd) {
+        struct statfs s;
+
+        if (fstatfs(fd, &s) < 0)
+                return -errno;
+
+        return is_network_fs(&s);
+}
+
 int fd_is_network_ns(int fd) {
         int r;
 
         r = fd_is_fs_type(fd, NSFS_MAGIC);
         if (r <= 0)
                 return r;
+
         r = ioctl(fd, NS_GET_NSTYPE);
         if (r < 0)
                 return -errno;
+
         return r == CLONE_NEWNET;
 }
 
@@ -247,4 +256,33 @@ int path_is_temporary_fs(const char *path) {
                 return -errno;
 
         return fd_is_temporary_fs(fd);
+}
+
+int stat_verify_regular(const struct stat *st) {
+        assert(st);
+
+        /* Checks whether the specified stat() structure refers to a regular file. If not returns an appropriate error
+         * code. */
+
+        if (S_ISDIR(st->st_mode))
+                return -EISDIR;
+
+        if (S_ISLNK(st->st_mode))
+                return -ELOOP;
+
+        if (!S_ISREG(st->st_mode))
+                return -EBADFD;
+
+        return 0;
+}
+
+int fd_verify_regular(int fd) {
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        return stat_verify_regular(&st);
 }

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2008-2014 Kay Sievers <kay@vrfy.org>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <ctype.h>
@@ -85,8 +72,7 @@ _public_ void udev_set_userdata(struct udev *udev, void *userdata) {
 /**
  * udev_new:
  *
- * Create udev library context. This reads the udev configuration
- * file, and fills in the default values.
+ * Create udev library context. This only allocates the basic data structure.
  *
  * The initial refcount is 1, and needs to be decremented to
  * release the resources of the udev library context.

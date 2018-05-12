@@ -4,19 +4,6 @@
 
   Copyright 2010 Lennart Poettering, Kay Sievers
   Copyright 2015 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -73,6 +60,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
 #include "util.h"
@@ -162,6 +150,7 @@ typedef enum DirectoryType {
         _DIRECTORY_TYPE_MAX,
 } DirectoryType;
 
+static bool arg_cat_config = false;
 static bool arg_user = false;
 static bool arg_create = false;
 static bool arg_clean = false;
@@ -171,6 +160,7 @@ static bool arg_boot = false;
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
 static char *arg_root = NULL;
+static char *arg_replace = NULL;
 
 #define MAX_DEPTH 256
 
@@ -309,8 +299,7 @@ static int user_config_paths(char*** ret) {
         if (r < 0)
                 return r;
 
-        *ret = res;
-        res = NULL;
+        *ret = TAKE_PTR(res);
         return 0;
 }
 
@@ -382,9 +371,11 @@ static void load_unix_sockets(void) {
 
         /* We maintain a cache of the sockets we found in /proc/net/unix to speed things up a little. */
 
-        unix_sockets = set_new(&string_hash_ops);
-        if (!unix_sockets)
+        unix_sockets = set_new(&path_hash_ops);
+        if (!unix_sockets) {
+                log_oom();
                 return;
+        }
 
         f = fopen("/proc/net/unix", "re");
         if (!f) {
@@ -564,12 +555,6 @@ static int dir_cleanup(
                 if (S_ISDIR(s.st_mode) && dir_is_mount_point(d, dent->d_name) > 0) {
                         log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.",
                                   p, dent->d_name);
-                        continue;
-                }
-
-                /* Do not delete read-only files owned by root */
-                if (s.st_uid == 0 && !(s.st_mode & S_IWUSR)) {
-                        log_debug("Ignoring \"%s/%s\": read-only and owner by root.", p, dent->d_name);
                         continue;
                 }
 
@@ -780,27 +765,83 @@ static bool dangerous_hardlinks(void) {
         return cached;
 }
 
-static bool hardlink_vulnerable(struct stat *st) {
+static bool hardlink_vulnerable(const struct stat *st) {
         assert(st);
 
         return !S_ISDIR(st->st_mode) && st->st_nlink > 1 && dangerous_hardlinks();
 }
 
+static int fd_set_perms(Item *i, int fd, const struct stat *st) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(i);
+        assert(fd);
+
+        r = fd_get_path(fd, &path);
+        if (r < 0)
+                return r;
+
+        if (!i->mode_set && !i->uid_set && !i->gid_set)
+                goto shortcut;
+
+        if (hardlink_vulnerable(st)) {
+                log_error("Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
+                return -EPERM;
+        }
+
+        if (i->mode_set) {
+                if (S_ISLNK(st->st_mode))
+                        log_debug("Skipping mode fix for symlink %s.", path);
+                else {
+                        mode_t m = i->mode;
+
+                        if (i->mask_perms) {
+                                if (!(st->st_mode & 0111))
+                                        m &= ~0111;
+                                if (!(st->st_mode & 0222))
+                                        m &= ~0222;
+                                if (!(st->st_mode & 0444))
+                                        m &= ~0444;
+                                if (!S_ISDIR(st->st_mode))
+                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
+                        }
+
+                        if (m == (st->st_mode & 07777))
+                                log_debug("\"%s\" has correct mode %o already.", path, st->st_mode);
+                        else {
+                                log_debug("Changing \"%s\" to mode %o.", path, m);
+                                if (fchmod_opath(fd, m) < 0)
+                                        return log_error_errno(errno, "fchmod() of %s failed: %m", path);
+                        }
+                }
+        }
+
+        if ((i->uid_set && i->uid != st->st_uid) ||
+            (i->gid_set && i->gid != st->st_gid)) {
+                log_debug("Changing \"%s\" to owner "UID_FMT":"GID_FMT,
+                          path,
+                          i->uid_set ? i->uid : UID_INVALID,
+                          i->gid_set ? i->gid : GID_INVALID);
+
+                if (fchownat(fd,
+                             "",
+                             i->uid_set ? i->uid : UID_INVALID,
+                             i->gid_set ? i->gid : GID_INVALID,
+                             AT_EMPTY_PATH) < 0)
+                        return log_error_errno(errno, "fchownat() of %s failed: %m", path);
+        }
+
+shortcut:
+        return label_fix(path, 0);
+}
+
 static int path_set_perms(Item *i, const char *path) {
-        char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_close_ int fd = -1;
         struct stat st;
 
         assert(i);
         assert(path);
-
-        if (!i->mode_set && !i->uid_set && !i->gid_set)
-                goto shortcut;
-
-        /* We open the file with O_PATH here, to make the operation
-         * somewhat atomic. Also there's unfortunately no fchmodat()
-         * with AT_SYMLINK_NOFOLLOW, hence we emulate it here via
-         * O_PATH. */
 
         fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
         if (fd < 0) {
@@ -817,61 +858,13 @@ static int path_set_perms(Item *i, const char *path) {
                 return r;
         }
 
-        if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
+        if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
 
-        if (hardlink_vulnerable(&st)) {
-                log_error("Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
-                return -EPERM;
-        }
+        if (i->type == EMPTY_DIRECTORY && !S_ISDIR(st.st_mode))
+                return log_error_errno(EEXIST, "'%s' already exists and is not a directory. ", path);
 
-        xsprintf(fn, "/proc/self/fd/%i", fd);
-
-        if (i->mode_set) {
-                if (S_ISLNK(st.st_mode))
-                        log_debug("Skipping mode fix for symlink %s.", path);
-                else {
-                        mode_t m = i->mode;
-
-                        if (i->mask_perms) {
-                                if (!(st.st_mode & 0111))
-                                        m &= ~0111;
-                                if (!(st.st_mode & 0222))
-                                        m &= ~0222;
-                                if (!(st.st_mode & 0444))
-                                        m &= ~0444;
-                                if (!S_ISDIR(st.st_mode))
-                                        m &= ~07000; /* remove sticky/sgid/suid bit, unless directory */
-                        }
-
-                        if (m == (st.st_mode & 07777))
-                                log_debug("\"%s\" has correct mode %o already.", path, st.st_mode);
-                        else {
-                                log_debug("Changing \"%s\" to mode %o.", path, m);
-
-                                if (chmod(fn, m) < 0)
-                                        return log_error_errno(errno, "chmod() of %s via %s failed: %m", path, fn);
-                        }
-                }
-        }
-
-        if ((i->uid_set && i->uid != st.st_uid) ||
-            (i->gid_set && i->gid != st.st_gid)) {
-                log_debug("Changing \"%s\" to owner "UID_FMT":"GID_FMT,
-                          path,
-                          i->uid_set ? i->uid : UID_INVALID,
-                          i->gid_set ? i->gid : GID_INVALID);
-
-                if (chown(fn,
-                          i->uid_set ? i->uid : UID_INVALID,
-                          i->gid_set ? i->gid : GID_INVALID) < 0)
-                        return log_error_errno(errno, "chown() of %s via %s failed: %m", path, fn);
-        }
-
-        fd = safe_close(fd);
-
-shortcut:
-        return label_fix(path, false, false);
+        return fd_set_perms(i, fd, &st);
 }
 
 static int parse_xattrs_from_arg(Item *i) {
@@ -912,19 +905,41 @@ static int parse_xattrs_from_arg(Item *i) {
         return 0;
 }
 
-static int path_set_xattrs(Item *i, const char *path) {
+static int fd_set_xattrs(Item *i, int fd, const struct stat *st) {
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *path = NULL;
         char **name, **value;
+        int r;
 
         assert(i);
-        assert(path);
+        assert(fd);
+
+        r = fd_get_path(fd, &path);
+        if (r < 0)
+                return r;
+
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
         STRV_FOREACH_PAIR(name, value, i->xattrs) {
                 log_debug("Setting extended attribute '%s=%s' on %s.", *name, *value, path);
-                if (lsetxattr(path, *name, *value, strlen(*value), 0) < 0)
+                if (setxattr(procfs_path, *name, *value, strlen(*value), 0) < 0)
                         return log_error_errno(errno, "Setting extended attribute %s=%s on %s failed: %m",
                                                *name, *value, path);
         }
         return 0;
+}
+
+static int path_set_xattrs(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
+
+        assert(i);
+        assert(path);
+
+        fd = open(path, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Cannot open '%s': %m", path);
+
+        return fd_set_xattrs(i, fd, NULL);
 }
 
 static int parse_acls_from_arg(Item *item) {
@@ -992,10 +1007,53 @@ static int path_set_acl(const char *path, const char *pretty, acl_type_t type, a
 }
 #endif
 
-static int path_set_acls(Item *item, const char *path) {
+static int fd_set_acls(Item *item, int fd, const struct stat *st) {
         int r = 0;
 #if HAVE_ACL
-        char fn[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        _cleanup_free_ char *path = NULL;
+
+        assert(item);
+        assert(fd);
+        assert(st);
+
+        r = fd_get_path(fd, &path);
+        if (r < 0)
+                return r;
+
+        if (hardlink_vulnerable(st)) {
+                log_error("Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
+                return -EPERM;
+        }
+
+        if (S_ISLNK(st->st_mode)) {
+                log_debug("Skipping ACL fix for symlink %s.", path);
+                return 0;
+        }
+
+        xsprintf(procfs_path, "/proc/self/fd/%i", fd);
+
+        if (item->acl_access)
+                r = path_set_acl(procfs_path, path, ACL_TYPE_ACCESS, item->acl_access, item->force);
+
+        if (r == 0 && item->acl_default)
+                r = path_set_acl(procfs_path, path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
+
+        if (r > 0)
+                return -r; /* already warned */
+        if (r == -EOPNOTSUPP) {
+                log_debug_errno(r, "ACLs not supported by file system at %s", path);
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "ACL operation on \"%s\" failed: %m", path);
+#endif
+        return r;
+}
+
+static int path_set_acls(Item *item, const char *path) {
+        int r = 0;
+#ifdef HAVE_ACL
         _cleanup_close_ int fd = -1;
         struct stat st;
 
@@ -1006,37 +1064,13 @@ static int path_set_acls(Item *item, const char *path) {
         if (fd < 0)
                 return log_error_errno(errno, "Adjusting ACL of %s failed: %m", path);
 
-        if (fstatat(fd, "", &st, AT_EMPTY_PATH) < 0)
+        if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
 
-        if (hardlink_vulnerable(&st)) {
-                log_error("Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
-                return -EPERM;
-        }
-
-        if (S_ISLNK(st.st_mode)) {
-                log_debug("Skipping ACL fix for symlink %s.", path);
-                return 0;
-        }
-
-        xsprintf(fn, "/proc/self/fd/%i", fd);
-
-        if (item->acl_access)
-                r = path_set_acl(fn, path, ACL_TYPE_ACCESS, item->acl_access, item->force);
-
-        if (r == 0 && item->acl_default)
-                r = path_set_acl(fn, path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
-
-        if (r > 0)
-                return -r; /* already warned */
-        else if (r == -EOPNOTSUPP) {
-                log_debug_errno(r, "ACLs not supported by file system at %s", path);
-                return 0;
-        } else if (r < 0)
-                log_error_errno(r, "ACL operation on \"%s\" failed: %m", path);
-#endif
-        return r;
-}
+        r = fd_set_acls(item, fd, &st);
+ #endif
+         return r;
+ }
 
 #define ATTRIBUTES_ALL                          \
         (FS_NOATIME_FL      |                   \
@@ -1137,30 +1171,23 @@ static int parse_attribute_from_arg(Item *item) {
         return 0;
 }
 
-static int path_set_attribute(Item *item, const char *path) {
-        _cleanup_close_ int fd = -1;
-        struct stat st;
+static int fd_set_attribute(Item *item, int fd, const struct stat *st) {
+        _cleanup_close_ int procfs_fd = -1;
+        _cleanup_free_ char *path = NULL;
         unsigned f;
         int r;
 
         if (!item->attribute_set || item->attribute_mask == 0)
                 return 0;
 
-        fd = open(path, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOATIME|O_NOFOLLOW);
-        if (fd < 0) {
-                if (errno == ELOOP)
-                        return log_error_errno(errno, "Skipping file attributes adjustment on symlink %s.", path);
-
-                return log_error_errno(errno, "Cannot open '%s': %m", path);
-        }
-
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Cannot stat '%s': %m", path);
+        r = fd_get_path(fd, &path);
+        if (r < 0)
+                return r;
 
         /* Issuing the file attribute ioctls on device nodes is not
          * safe, as that will be delivered to the drivers, not the
          * file system containing the device node. */
-        if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
+        if (!S_ISREG(st->st_mode) && !S_ISDIR(st->st_mode)) {
                 log_error("Setting file flags is only supported on regular files and directories, cannot set on '%s'.", path);
                 return -EINVAL;
         }
@@ -1168,10 +1195,14 @@ static int path_set_attribute(Item *item, const char *path) {
         f = item->attribute_value & item->attribute_mask;
 
         /* Mask away directory-specific flags */
-        if (!S_ISDIR(st.st_mode))
+        if (!S_ISDIR(st->st_mode))
                 f &= ~FS_DIRSYNC_FL;
 
-        r = chattr_fd(fd, f, item->attribute_mask);
+        procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
+        if (procfs_fd < 0)
+                return -errno;
+
+        r = chattr_fd(procfs_fd, f, item->attribute_mask);
         if (r < 0)
                 log_full_errno(IN_SET(r, -ENOTTY, -EOPNOTSUPP) ? LOG_DEBUG : LOG_WARNING,
                                r,
@@ -1179,6 +1210,23 @@ static int path_set_attribute(Item *item, const char *path) {
                                path, item->attribute_value, item->attribute_mask);
 
         return 0;
+}
+
+static int path_set_attribute(Item *item, const char *path) {
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+
+        if (!item->attribute_set || item->attribute_mask == 0)
+                return 0;
+
+        fd = open(path, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Cannot open '%s': %m", path);
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Cannot stat '%s': %m", path);
+
+        return fd_set_attribute(item, fd, &st);
 }
 
 static int write_one_file(Item *i, const char *path) {
@@ -1227,7 +1275,7 @@ static int write_one_file(Item *i, const char *path) {
 
         fd = safe_close(fd);
 
-done:
+ done:
         if (stat(path, &st) < 0)
                 return log_error_errno(errno, "stat(%s) failed: %m", path);
 
@@ -1245,48 +1293,58 @@ done:
 }
 
 typedef int (*action_t)(Item *, const char *);
+typedef int (*fdaction_t)(Item *, int fd, const struct stat *st);
 
-static int item_do_children(Item *i, const char *path, action_t action) {
-        _cleanup_closedir_ DIR *d;
-        struct dirent *de;
-        int r = 0;
+static int item_do(Item *i, int fd, const struct stat *st, fdaction_t action) {
+        int r = 0, q;
 
         assert(i);
-        assert(path);
+        assert(fd >= 0);
+        assert(st);
 
         /* This returns the first error we run into, but nevertheless
          * tries to go on */
+        r = action(i, fd, st);
 
-        d = opendir_nomod(path);
-        if (!d)
-                return IN_SET(errno, ENOENT, ENOTDIR, ELOOP) ? 0 : -errno;
+        if (S_ISDIR(st->st_mode)) {
+                char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+                _cleanup_closedir_ DIR *d = NULL;
+                struct dirent *de;
 
-        FOREACH_DIRENT_ALL(de, d, r = -errno) {
-                _cleanup_free_ char *p = NULL;
-                int q;
+                /* The passed 'fd' was opened with O_PATH. We need to convert
+                 * it into a 'regular' fd before reading the directory content. */
+                xsprintf(procfs_path, "/proc/self/fd/%i", fd);
 
-                if (dot_or_dot_dot(de->d_name))
-                        continue;
+                d = opendir(procfs_path);
+                if (!d) {
+                        r = r ?: -errno;
+                        goto finish;
+                }
 
-                p = strjoin(path, "/", de->d_name);
-                if (!p)
-                        return -ENOMEM;
+                FOREACH_DIRENT_ALL(de, d, q = -errno; goto finish) {
+                        struct stat de_st;
+                        int de_fd;
 
-                q = action(i, p);
-                if (q < 0 && q != -ENOENT && r == 0)
-                        r = q;
+                        if (dot_or_dot_dot(de->d_name))
+                                continue;
 
-                if (IN_SET(de->d_type, DT_UNKNOWN, DT_DIR)) {
-                        q = item_do_children(i, p, action);
+                        de_fd = openat(fd, de->d_name, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+                        if (de_fd >= 0 && fstat(de_fd, &de_st) >= 0)
+                                /* pass ownership of dirent fd over  */
+                                q = item_do(i, de_fd, &de_st, action);
+                        else
+                                q = -errno;
+
                         if (q < 0 && r == 0)
                                 r = q;
                 }
         }
-
+finish:
+        safe_close(fd);
         return r;
 }
 
-static int glob_item(Item *i, action_t action, bool recursive) {
+static int glob_item(Item *i, action_t action) {
         _cleanup_globfree_ glob_t g = {
                 .gl_opendir = (void *(*)(const char *)) opendir_nomod,
         };
@@ -1301,12 +1359,48 @@ static int glob_item(Item *i, action_t action, bool recursive) {
                 k = action(i, *fn);
                 if (k < 0 && r == 0)
                         r = k;
+        }
 
-                if (recursive) {
-                        k = item_do_children(i, *fn, action);
-                        if (k < 0 && r == 0)
-                                r = k;
+        return r;
+}
+
+static int glob_item_recursively(Item *i, fdaction_t action) {
+        _cleanup_globfree_ glob_t g = {
+                .gl_opendir = (void *(*)(const char *)) opendir_nomod,
+        };
+        int r = 0, k;
+        char **fn;
+
+        k = safe_glob(i->path, GLOB_NOSORT|GLOB_BRACE, &g);
+        if (k < 0 && k != -ENOENT)
+                return log_error_errno(k, "glob(%s) failed: %m", i->path);
+
+        STRV_FOREACH(fn, g.gl_pathv) {
+                _cleanup_close_ int fd = -1;
+                struct stat st;
+
+                /* Make sure we won't trigger/follow file object (such as
+                 * device nodes, automounts, ...) pointed out by 'fn' with
+                 * O_PATH. Note, when O_PATH is used, flags other than
+                 * O_CLOEXEC, O_DIRECTORY, and O_NOFOLLOW are ignored. */
+
+                fd = open(*fn, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+                if (fd < 0) {
+                        r = r ?: -errno;
+                        continue;
                 }
+
+                if (fstat(fd, &st) < 0) {
+                        r = r ?: -errno;
+                        continue;
+                }
+
+                k = item_do(i, fd, &st, action);
+                if (k < 0 && r == 0)
+                        r = k;
+
+                /* we passed fd ownership to the previous call */
+                fd = -1;
         }
 
         return r;
@@ -1356,8 +1450,7 @@ static int create_item(Item *i) {
                         return r;
                 break;
 
-        case COPY_FILES: {
-
+        case COPY_FILES:
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
@@ -1395,7 +1488,7 @@ static int create_item(Item *i) {
                 break;
 
         case WRITE_FILE:
-                r = glob_item(i, write_one_file, false);
+                r = glob_item(i, write_one_file);
                 if (r < 0)
                         return r;
 
@@ -1411,7 +1504,7 @@ static int create_item(Item *i) {
 
                 if (IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA)) {
 
-                        if (btrfs_is_subvol(isempty(arg_root) ? "/" : arg_root) <= 0)
+                        if (btrfs_is_subvol(empty_to_root(arg_root)) <= 0)
 
                                 /* Don't create a subvolume unless the
                                  * root directory is one, too. We do
@@ -1479,7 +1572,7 @@ static int create_item(Item *i) {
 
                 _fallthrough_;
         case EMPTY_DIRECTORY:
-                r = path_set_perms(i, i->path);
+                r = glob_item(i, path_set_perms);
                 if (q < 0)
                         return q;
                 if (r < 0)
@@ -1530,7 +1623,6 @@ static int create_item(Item *i) {
                         return r;
 
                 break;
-        }
 
         case CREATE_SYMLINK: {
                 RUN_WITH_UMASK(0000)
@@ -1554,7 +1646,7 @@ static int create_item(Item *i) {
                                         r = symlink_atomic(i->argument, i->path);
                                         mac_selinux_create_file_clear();
 
-                                        if (IN_SET(r, -EEXIST, -ENOTEMPTY)) {
+                                        if (IN_SET(r, -EISDIR, -EEXIST, -ENOTEMPTY)) {
                                                 r = rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL);
                                                 if (r < 0)
                                                         return log_error_errno(r, "rm -fr %s failed: %m", i->path);
@@ -1654,49 +1746,49 @@ static int create_item(Item *i) {
 
         case ADJUST_MODE:
         case RELABEL_PATH:
-                r = glob_item(i, path_set_perms, false);
+                r = glob_item(i, path_set_perms);
                 if (r < 0)
                         return r;
                 break;
 
         case RECURSIVE_RELABEL_PATH:
-                r = glob_item(i, path_set_perms, true);
+                r = glob_item_recursively(i, fd_set_perms);
                 if (r < 0)
                         return r;
                 break;
 
         case SET_XATTR:
-                r = glob_item(i, path_set_xattrs, false);
+                r = glob_item(i, path_set_xattrs);
                 if (r < 0)
                         return r;
                 break;
 
         case RECURSIVE_SET_XATTR:
-                r = glob_item(i, path_set_xattrs, true);
+                r = glob_item_recursively(i, fd_set_xattrs);
                 if (r < 0)
                         return r;
                 break;
 
         case SET_ACL:
-                r = glob_item(i, path_set_acls, false);
+                r = glob_item(i, path_set_acls);
                 if (r < 0)
                         return r;
                 break;
 
         case RECURSIVE_SET_ACL:
-                r = glob_item(i, path_set_acls, true);
+                r = glob_item_recursively(i, fd_set_acls);
                 if (r < 0)
                         return r;
                 break;
 
         case SET_ATTRIBUTE:
-                r = glob_item(i, path_set_attribute, false);
+                r = glob_item(i, path_set_attribute);
                 if (r < 0)
                         return r;
                 break;
 
         case RECURSIVE_SET_ATTRIBUTE:
-                r = glob_item(i, path_set_attribute, true);
+                r = glob_item_recursively(i, fd_set_attribute);
                 if (r < 0)
                         return r;
                 break;
@@ -1746,7 +1838,7 @@ static int remove_item(Item *i) {
         case REMOVE_PATH:
         case TRUNCATE_DIRECTORY:
         case RECURSIVE_REMOVE_PATH:
-                return glob_item(i, remove_item_instance, false);
+                return glob_item(i, remove_item_instance);
 
         default:
                 return 0;
@@ -1820,7 +1912,7 @@ static int clean_item(Item *i) {
                 return 0;
         case EMPTY_DIRECTORY:
         case IGNORE_DIRECTORY_PATH:
-                return glob_item(i, clean_item_instance, false);
+                return glob_item(i, clean_item_instance);
         default:
                 return 0;
         }
@@ -2052,9 +2144,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         /* invalid quoting and such or an unknown specifier */
                         *invalid_config = true;
                 return log_error_errno(r, "[%s:%u] Failed to parse line: %m", fname, line);
-        }
-
-        else if (r < 2) {
+        } else if (r < 2) {
                 *invalid_config = true;
                 log_error("[%s:%u] Syntax error.", fname, line);
                 return -EIO;
@@ -2351,12 +2441,24 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         return 0;
 }
 
+static int cat_config(char **config_dirs, char **args) {
+        _cleanup_strv_free_ char **files = NULL;
+        int r;
+
+        r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, NULL);
+        if (r < 0)
+                return r;
+
+        return cat_files(NULL, files, 0);
+}
+
 static void help(void) {
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Creates, deletes and cleans up volatile and temporary files and directories.\n\n"
                "  -h --help                 Show this help\n"
                "     --user                 Execute user configuration\n"
                "     --version              Show package version\n"
+               "     --cat-config           Show configuration files\n"
                "     --create               Create marked files/directories\n"
                "     --clean                Clean up marked directories\n"
                "     --remove               Remove marked files/directories\n"
@@ -2364,6 +2466,7 @@ static void help(void) {
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
+               "     --replace=PATH         Treat arguments as replacement for PATH\n"
                , program_invocation_short_name);
 }
 
@@ -2371,6 +2474,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
+                ARG_CAT_CONFIG,
                 ARG_USER,
                 ARG_CREATE,
                 ARG_CLEAN,
@@ -2379,12 +2483,14 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PREFIX,
                 ARG_EXCLUDE_PREFIX,
                 ARG_ROOT,
+                ARG_REPLACE,
         };
 
         static const struct option options[] = {
                 { "help",           no_argument,         NULL, 'h'                },
                 { "user",           no_argument,         NULL, ARG_USER           },
                 { "version",        no_argument,         NULL, ARG_VERSION        },
+                { "cat-config",     no_argument,         NULL, ARG_CAT_CONFIG     },
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
@@ -2392,6 +2498,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
                 { "root",           required_argument,   NULL, ARG_ROOT           },
+                { "replace",        required_argument,   NULL, ARG_REPLACE        },
                 {}
         };
 
@@ -2410,6 +2517,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_CAT_CONFIG:
+                        arg_cat_config = true;
+                        break;
 
                 case ARG_USER:
                         arg_user = true;
@@ -2447,6 +2558,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_REPLACE:
+                        if (!path_is_absolute(optarg) ||
+                            !endswith(optarg, ".conf")) {
+                                log_error("The argument to --replace= must an absolute path to a config file");
+                                return -EINVAL;
+                        }
+
+                        arg_replace = optarg;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -2454,15 +2575,25 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached("Unhandled option");
                 }
 
-        if (!arg_clean && !arg_create && !arg_remove) {
+        if (!arg_clean && !arg_create && !arg_remove && !arg_cat_config) {
                 log_error("You need to specify at least one of --clean, --create or --remove.");
+                return -EINVAL;
+        }
+
+        if (arg_replace && arg_cat_config) {
+                log_error("Option --replace= is not supported with --cat-config");
+                return -EINVAL;
+        }
+
+        if (arg_replace && optind >= argc) {
+                log_error("When --replace= is given, some configuration items must be specified");
                 return -EINVAL;
         }
 
         return 1;
 }
 
-static int read_config_file(const char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
+static int read_config_file(char **config_dirs, const char *fn, bool ignore_enoent, bool *invalid_config) {
         _cleanup_fclose_ FILE *_f = NULL;
         FILE *f;
         char line[LINE_MAX];
@@ -2474,11 +2605,11 @@ static int read_config_file(const char **config_dirs, const char *fn, bool ignor
         assert(fn);
 
         if (streq(fn, "-")) {
-                log_debug("Reading config from stdin.");
+                log_debug("Reading config from stdin…");
                 fn = "<stdin>";
                 f = stdin;
         } else {
-                r = search_and_fopen(fn, "re", arg_root, config_dirs, &_f);
+                r = search_and_fopen(fn, "re", arg_root, (const char**) config_dirs, &_f);
                 if (r < 0) {
                         if (ignore_enoent && r == -ENOENT) {
                                 log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
@@ -2487,7 +2618,7 @@ static int read_config_file(const char **config_dirs, const char *fn, bool ignor
 
                         return log_error_errno(r, "Failed to open '%s': %m", fn);
                 }
-                log_debug("Reading config file \"%s\".", fn);
+                log_debug("Reading config file \"%s\"…", fn);
                 f = _f;
         }
 
@@ -2550,13 +2681,50 @@ static int read_config_file(const char **config_dirs, const char *fn, bool ignor
         return r;
 }
 
+static int parse_arguments(char **config_dirs, char **args, bool *invalid_config) {
+        char **arg;
+        int r;
+
+        STRV_FOREACH(arg, args) {
+                r = read_config_file(config_dirs, *arg, false, invalid_config);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int read_config_files(char **config_dirs, char **args, bool *invalid_config) {
+        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free_ char *p = NULL;
+        char **f;
+        int r;
+
+        r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, &p);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(f, files)
+                if (p && path_equal(*f, p)) {
+                        log_debug("Parsing arguments at position \"%s\"…", *f);
+
+                        r = parse_arguments(config_dirs, args, invalid_config);
+                        if (r < 0)
+                                return r;
+                } else
+                        /* Just warn, ignore result otherwise.
+                         * read_config_file() has some debug output, so no need to print anything. */
+                        (void) read_config_file(config_dirs, *f, true, invalid_config);
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
-        int r, k;
+        int r, k, r_process = 0;
         ItemArray *a;
         Iterator iterator;
         _cleanup_strv_free_ char **config_dirs = NULL;
         bool invalid_config = false;
-        char **f;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -2565,20 +2733,6 @@ int main(int argc, char *argv[]) {
         log_set_target(LOG_TARGET_AUTO);
         log_parse_environment();
         log_open();
-
-        umask(0022);
-
-        mac_selinux_init();
-
-        items = ordered_hashmap_new(&string_hash_ops);
-        globs = ordered_hashmap_new(&string_hash_ops);
-
-        if (!items || !globs) {
-                r = log_oom();
-                goto finish;
-        }
-
-        r = 0;
 
         if (arg_user) {
                 r = user_config_paths(&config_dirs);
@@ -2599,48 +2753,53 @@ int main(int argc, char *argv[]) {
 
                 t = strv_join(config_dirs, "\n\t");
                 if (t)
-                        log_debug("Looking for configuration files in (higher priority first:\n\t%s", t);
+                        log_debug("Looking for configuration files in (higher priority first):\n\t%s", t);
         }
 
-        if (optind < argc) {
-                int j;
-
-                for (j = optind; j < argc; j++) {
-                        k = read_config_file((const char**) config_dirs, argv[j], false, &invalid_config);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
-
-        } else {
-                _cleanup_strv_free_ char **files = NULL;
-
-                r = conf_files_list_strv(&files, ".conf", arg_root, 0, (const char* const*) config_dirs);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to enumerate tmpfiles.d files: %m");
-                        goto finish;
-                }
-
-                STRV_FOREACH(f, files) {
-                        k = read_config_file((const char**) config_dirs, *f, true, &invalid_config);
-                        if (k < 0 && r == 0)
-                                r = k;
-                }
+        if (arg_cat_config) {
+                r = cat_config(config_dirs, argv + optind);
+                goto finish;
         }
+
+        umask(0022);
+
+        mac_selinux_init();
+
+        items = ordered_hashmap_new(&string_hash_ops);
+        globs = ordered_hashmap_new(&string_hash_ops);
+
+        if (!items || !globs) {
+                r = log_oom();
+                goto finish;
+        }
+
+        /* If command line arguments are specified along with --replace, read all
+         * configuration files and insert the positional arguments at the specified
+         * place. Otherwise, if command line arguments are specified, execute just
+         * them, and finally, without --replace= or any positional arguments, just
+         * read configuration and execute it.
+         */
+        if (arg_replace || optind >= argc)
+                r = read_config_files(config_dirs, argv + optind, &invalid_config);
+        else
+                r = parse_arguments(config_dirs, argv + optind, &invalid_config);
+        if (r < 0)
+                goto finish;
 
         /* The non-globbing ones usually create things, hence we apply
          * them first */
         ORDERED_HASHMAP_FOREACH(a, items, iterator) {
                 k = process_item_array(a);
-                if (k < 0 && r == 0)
-                        r = k;
+                if (k < 0 && r_process == 0)
+                        r_process = k;
         }
 
         /* The globbing ones usually alter things, hence we apply them
          * second. */
         ORDERED_HASHMAP_FOREACH(a, globs, iterator) {
                 k = process_item_array(a);
-                if (k < 0 && r == 0)
-                        r = k;
+                if (k < 0 && r_process == 0)
+                        r_process = k;
         }
 
 finish:
@@ -2655,10 +2814,12 @@ finish:
 
         mac_selinux_finish();
 
-        if (r < 0)
+        if (r < 0 || ERRNO_IS_RESOURCE(-r_process))
                 return EXIT_FAILURE;
         else if (invalid_config)
                 return EX_DATAERR;
+        else if (r_process < 0)
+                return EX_CANTCREAT;
         else
                 return EXIT_SUCCESS;
 }

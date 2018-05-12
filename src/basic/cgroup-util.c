@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <dirent.h>
@@ -434,7 +421,7 @@ int cg_migrate(
                          * exist in the root cgroup, we only check for
                          * them there. */
                         if (cfrom &&
-                            (isempty(pfrom) || path_equal(pfrom, "/")) &&
+                            empty_or_root(pfrom) &&
                             is_kernel_thread(pid) > 0)
                                 continue;
 
@@ -1062,13 +1049,11 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **path) {
                                 continue;
 
                         *e = 0;
-                        FOREACH_WORD_SEPARATOR(word, k, l, ",", state) {
+                        FOREACH_WORD_SEPARATOR(word, k, l, ",", state)
                                 if (k == cs && memcmp(word, controller_str, cs) == 0) {
                                         found = true;
                                         break;
                                 }
-                        }
-
                         if (!found)
                                 continue;
                 }
@@ -1200,7 +1185,7 @@ int cg_is_empty_recursive(const char *controller, const char *path) {
         assert(path);
 
         /* The root cgroup is always populated */
-        if (controller && (isempty(path) || path_equal(path, "/")))
+        if (controller && empty_or_root(path))
                 return false;
 
         r = cg_unified_controller(controller);
@@ -1426,10 +1411,9 @@ int cg_pid_get_path_shifted(pid_t pid, const char *root, char **cgroup) {
         if (r < 0)
                 return r;
 
-        if (c == raw) {
-                *cgroup = raw;
-                raw = NULL;
-        } else {
+        if (c == raw)
+                *cgroup = TAKE_PTR(raw);
+        else {
                 char *n;
 
                 n = strdup(c);
@@ -1979,6 +1963,14 @@ int cg_slice_to_path(const char *unit, char **ret) {
                 _cleanup_free_ char *escaped = NULL;
                 char n[dash - p + sizeof(".slice")];
 
+#if HAS_FEATURE_MEMORY_SANITIZER
+                /* msan doesn't instrument stpncpy, so it thinks
+                 * n is later used unitialized:
+                 * https://github.com/google/sanitizers/issues/926
+                 */
+                zero(n);
+#endif
+
                 /* Don't allow trailing or double dashes */
                 if (IN_SET(dash[1], 0, '-'))
                         return -EINVAL;
@@ -2004,8 +1996,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
         if (!strextend(&s, e, NULL))
                 return -ENOMEM;
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return 0;
 }
@@ -2032,46 +2023,83 @@ int cg_get_attribute(const char *controller, const char *path, const char *attri
         return read_one_line_file(p, ret);
 }
 
-int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, const char **keys, char **values) {
-        _cleanup_free_ char *filename = NULL, *content = NULL;
-        char *line, *p;
-        int i, r;
+int cg_get_keyed_attribute(
+                const char *controller,
+                const char *path,
+                const char *attribute,
+                char **keys,
+                char **ret_values) {
 
-        for (i = 0; keys[i]; i++)
-                values[i] = NULL;
+        _cleanup_free_ char *filename = NULL, *contents = NULL;
+        const char *p;
+        size_t n, i, n_done = 0;
+        char **v;
+        int r;
+
+        /* Reads one or more fields of a cgroupsv2 keyed attribute file. The 'keys' parameter should be an strv with
+         * all keys to retrieve. The 'ret_values' parameter should be passed as string size with the same number of
+         * entries as 'keys'. On success each entry will be set to the value of the matching key.
+         *
+         * If the attribute file doesn't exist at all returns ENOENT, if any key is not found returns ENXIO. */
 
         r = cg_get_path(controller, path, attribute, &filename);
         if (r < 0)
                 return r;
 
-        r = read_full_file(filename, &content, NULL);
+        r = read_full_file(filename, &contents, NULL);
         if (r < 0)
                 return r;
 
-        p = content;
-        while ((line = strsep(&p, "\n"))) {
-                char *key;
+        n = strv_length(keys);
+        if (n == 0) /* No keys to retrieve? That's easy, we are done then */
+                return 0;
 
-                key = strsep(&line, " ");
+        /* Let's build this up in a temporary array for now in order not to clobber the return parameter on failure */
+        v = newa0(char*, n);
 
-                for (i = 0; keys[i]; i++) {
-                        if (streq(key, keys[i])) {
-                                values[i] = strdup(line);
-                                break;
+        for (p = contents; *p;) {
+                const char *w = NULL;
+
+                for (i = 0; i < n; i++)
+                        if (!v[i]) {
+                                w = first_word(p, keys[i]);
+                                if (w)
+                                        break;
                         }
-                }
+
+                if (w) {
+                        size_t l;
+
+                        l = strcspn(w, NEWLINE);
+                        v[i] = strndup(w, l);
+                        if (!v[i]) {
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        n_done++;
+                        if (n_done >= n)
+                                goto done;
+
+                        p = w + l;
+                } else
+                        p += strcspn(p, NEWLINE);
+
+                p += strspn(p, NEWLINE);
         }
 
-        for (i = 0; keys[i]; i++) {
-                if (!values[i]) {
-                        for (i = 0; keys[i]; i++) {
-                                values[i] = mfree(values[i]);
-                        }
-                        return -ENOENT;
-                }
-        }
+        r = -ENXIO;
 
+fail:
+        for (i = 0; i < n; i++)
+                free(v[i]);
+
+        return r;
+
+done:
+        memcpy(ret_values, v, sizeof(char*) * n);
         return 0;
+
 }
 
 int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path) {
@@ -2258,8 +2286,7 @@ int cg_mask_to_string(CGroupMask mask, char **ret) {
         assert(s);
 
         s[n] = 0;
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return 0;
 }
@@ -2408,8 +2435,7 @@ int cg_kernel_controllers(Set **ret) {
                         return r;
         }
 
-        *ret = controllers;
-        controllers = NULL;
+        *ret = TAKE_PTR(controllers);
 
         return 0;
 }
@@ -2440,7 +2466,7 @@ static int cg_unified_update(void) {
                 return 0;
 
         if (statfs("/sys/fs/cgroup/", &fs) < 0)
-                return log_debug_errno(errno, "statfs(\"/sys/fs/cgroup/\" failed: %m");
+                return log_debug_errno(errno, "statfs(\"/sys/fs/cgroup/\") failed: %m");
 
         if (F_TYPE_EQUAL(fs.f_type, CGROUP2_SUPER_MAGIC)) {
                 log_debug("Found cgroup2 on /sys/fs/cgroup/, full unified hierarchy");
@@ -2563,8 +2589,10 @@ int cg_enable_everywhere(CGroupMask supported, CGroupMask mask, const char *p) {
                         }
 
                         r = write_string_stream(f, s, 0);
-                        if (r < 0)
+                        if (r < 0) {
                                 log_debug_errno(r, "Failed to enable controller %s for %s (%s): %m", n, p, fs);
+                                clearerr(f);
+                        }
                 }
         }
 

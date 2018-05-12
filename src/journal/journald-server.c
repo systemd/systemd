@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #if HAVE_SELINUX
@@ -79,7 +66,7 @@
 
 #define DEFAULT_SYNC_INTERVAL_USEC (5*USEC_PER_MINUTE)
 #define DEFAULT_RATE_LIMIT_INTERVAL (30*USEC_PER_SEC)
-#define DEFAULT_RATE_LIMIT_BURST 1000
+#define DEFAULT_RATE_LIMIT_BURST 10000
 #define DEFAULT_MAX_FILE_USEC USEC_PER_MONTH
 
 #define RECHECK_SPACE_USEC (30*USEC_PER_SEC)
@@ -180,7 +167,6 @@ static void patch_min_use(JournalStorage *storage) {
         storage->metrics.min_use = MAX(storage->metrics.min_use, storage->space.vfs_used);
 }
 
-
 static int determine_space(Server *s, uint64_t *available, uint64_t *limit) {
         JournalStorage *js;
         int r;
@@ -280,9 +266,12 @@ static int open_journal(
         assert(ret);
 
         if (reliably)
-                r = journal_file_open_reliably(fname, flags, 0640, s->compress, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
+                r = journal_file_open_reliably(fname, flags, 0640, s->compress.enabled, s->compress.threshold_bytes,
+                                               seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
         else
-                r = journal_file_open(-1, fname, flags, 0640, s->compress, seal, metrics, s->mmap, s->deferred_closes, NULL, &f);
+                r = journal_file_open(-1, fname, flags, 0640, s->compress.enabled, s->compress.threshold_bytes, seal,
+                                      metrics, s->mmap, s->deferred_closes, NULL, &f);
+
         if (r < 0)
                 return r;
 
@@ -463,7 +452,7 @@ static int do_rotate(
         if (!*f)
                 return -EINVAL;
 
-        r = journal_file_rotate(f, s->compress, seal, s->deferred_closes);
+        r = journal_file_rotate(f, s->compress.enabled, s->compress.threshold_bytes, seal, s->deferred_closes);
         if (r < 0) {
                 if (*f)
                         return log_error_errno(r, "Failed to rotate %s: %m", (*f)->path);
@@ -655,7 +644,7 @@ static bool shall_try_append_again(JournalFile *f, int r) {
         }
 }
 
-static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned n, int priority) {
+static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n, int priority) {
         bool vacuumed = false, rotate = false;
         struct dual_timestamp ts;
         JournalFile *f;
@@ -710,7 +699,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
         }
 
         if (vacuumed || !shall_try_append_again(f, r)) {
-                log_error_errno(r, "Failed to write entry (%d items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_error_errno(r, "Failed to write entry (%zu items, %zu bytes), ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
                 return;
         }
 
@@ -724,7 +713,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, unsigned
         log_debug("Retrying write.");
         r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
-                log_error_errno(r, "Failed to write entry (%d items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
+                log_error_errno(r, "Failed to write entry (%zu items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
         else
                 server_schedule_sync(s, priority);
 }
@@ -1080,7 +1069,7 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
         struct iovec iovec;
         ssize_t n;
         int *fds = NULL, v = 0;
-        unsigned n_fds = 0;
+        size_t n_fds = 0;
 
         union {
                 struct cmsghdr cmsghdr;
@@ -1695,7 +1684,8 @@ int server_init(Server *s) {
 
         zero(*s);
         s->syslog_fd = s->native_fd = s->stdout_fd = s->dev_kmsg_fd = s->audit_fd = s->hostname_fd = s->notify_fd = -1;
-        s->compress = true;
+        s->compress.enabled = true;
+        s->compress.threshold_bytes = (uint64_t) -1;
         s->seal = true;
         s->read_kmsg = true;
 
@@ -2035,6 +2025,40 @@ int config_parse_line_max(
                 } else
                         *sz = (size_t) v;
         }
+
+        return 0;
+}
+
+int config_parse_compress(const char* unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
+        JournalCompressOptions* compress = data;
+        int r;
+
+        if (streq(rvalue, "1")) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Compress= ambiguously specified as 1, enabling compression with default threshold");
+                compress->enabled = true;
+        } else if (streq(rvalue, "0")) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Compress= ambiguously specified as 0, disabling compression");
+                compress->enabled = false;
+        } else if ((r = parse_boolean(rvalue)) >= 0)
+                compress->enabled = r;
+        else if (parse_size(rvalue, 1024, &compress->threshold_bytes) == 0)
+                compress->enabled = true;
+        else if (isempty(rvalue)) {
+                compress->enabled = true;
+                compress->threshold_bytes = (uint64_t) -1;
+        } else
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse Compress= value, ignoring: %s", rvalue);
 
         return 0;
 }

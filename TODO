@@ -24,37 +24,98 @@ Janitorial Clean-ups:
 
 Features:
 
+* nspawn: greater control over hostname, resolv.conf, timezone, rlim
+
+* nspawn: when operating in a scope, also create /payload subcrgoup
+
+* the error paths in usbffs_dispatch_ep() leak memory
+
+* cgroups: figure out if we can somehow communicate in a cleaner way whether a
+  systemd instance not running in the cgroup root shall or shall not manage the
+  attributes of its top-level cgroup. Currently it assumes it manages all, but
+  then might get EPERM due to permission porblems/userns, which is OK, but this
+  should be revisited to make clearer and also work if the payload systemd runs
+  with full privs and without userns.
+
+* cgroups: use inotify to get notified when somebody else modifies cgroups
+  owned by us, then log a friendly warning.
+
+* beef up log.c with support for stripping ANSI sequences from strings, so that
+  it is OK to include them in log strings. This would be particularly useful so
+  that our log messages could contain clickable links for example for unit
+  files and suchlike we operate on.
+
+* Fix DECIMAL_STR_MAX or DECIMAL_STR_WIDTH. One includes a trailing NUL, the
+  other doesn't. What a desaster. Probably to exclude it. Also
+  DECIMAL_STR_WIDTH should probably add an extra "-" into account for negative
+  numbers.
+
+* port systemctl, systemd-inhibit, busctl, … over to format-table.[ch]'s table formatters
+
+* pid1: lock image configured with RootDirectory=/RootImage= using the usual nspawn semantics while the unit is up
+
+* add --vacuum-xyz options to coredumpctl, matching those journalctl already has.
+
+* SuccessExitStatus= and friends should probably also accept symbolic exit
+  codes names, i.e. error codes from the list maintained in exit-codes.[ch]
+
+* introduce Ephemeral= unit file switch, that creates an ephemeral copy of all
+  files and directories that are left writable for a unit, and which are
+  removed after the unit goes down again. A bit like --ephemeral for
+  systemd-nspawn but for system services. If used together with RootImage= this
+  should reflink the image file itself.
+
+  Related: add Ephemeral=<path1> <path2> … which would allow marking
+  specific paths only like this.
+
+* add CopyFile= or so as unit file setting that may be used to copy files or
+  directory trees from the host to te services RootImage= and RootDirectory=
+  environment. Which we can use for /etc/machine-id and in particular
+  /etc/resolv.conf. Should be smart and do something useful on read-only
+  images, for example fallback to read-only bind mounting the file instead.
+
+* nspawn's console TTY should be allocated from within the container, not
+  mounted in from the outside
+
+* show invocation ID in systemd-run output
+
+* bypass SIGTERM state in unit files if KillSignal is SIGKILL
+
+* tree-wide: ensure we always block the signals we hook into with
+  sd_event_add_signal() first
+
+* add proper dbus APIs for the various sd_notify() commands, such as MAINPID=1
+  and so on, which would mean we could report errors and such.
+
+* teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
+  project quota
+
+* introduce DefaultSlice= or so in system.conf that allows changing where we
+  place our units by default, i.e. change system.slice to something
+  else. Similar, ManagerSlice= should exist so that PID1's own scope unit could
+  be moved somewhere else too. Finally machined and logind should get similar
+  options so that it is possible to move user session scopes and machines to a
+  different slice too by default. Usecase: people who want to put resources on
+  the entire system, with the exception of one specific service. See:
+  https://lists.freedesktop.org/archives/systemd-devel/2018-February/040369.html
+
 * maybe rework get_user_creds() to query the user database if $SHELL is used
   for root, but only then.
-
-* there should be path_hash_ops and we should use it in tmpfiles' hashmap object to deal with identical but differently spelt paths
 
 * be stricter with fds we receive for the fdstore: close them asynchronously
 
 * calenderspec: add support for week numbers and day numbers within a
   year. This would allow us to define "bi-weekly" triggers safely.
 
-* add support for recursive bpf firewalling as supported by the newest kernel
-
-* add bpf-based implementation of devices cgroup controller logic for compat with cgroupsv2 as supported by newest kernel
+* add bpf-based implementation of devices cgroup controller logic for compat
+  with cgroupsv2 as supported by newest kernel
 
 * introduce sd_id128_get_boot_app_specific() which is like
   sd_id128_get_machine_app_specific(). After all on long-running systems both
   IDs have similar properties.
 
-* emulate properties of the root cgroup on controllers that don't support such
-  properties natively on cpu/io/memory, the way we already do it for
-  "pids". Also, add the same logic to cgtop.
-
-* set TasksAccounting=1 on the root slice if we are running on the root cgroup,
-  and similar for the others, as soon as we emulate them properly. After all,
-  Linux keeps these system-wide stats anyway, and it costs nothing to expose
-  them.
-
 * sd-bus: add vtable flag, that may be used to request client creds implicitly
   and asynchronously before dispatching the operation
-
-* implement transient socket unit.
 
 * make use of ethtool veth peer info in machined, for automatically finding out
   host-side interface pointing to the container.
@@ -65,7 +126,7 @@ Features:
   systemd-journald writes to /var/log/journal, which could be useful when we
   doing disk usage calculations and so on.
 
-* taint systemd if there are fewer than 65536 users assigned to the system.
+* taint systemd if there are fewer than 65536 users assigned (userns) to the system.
 
 * deprecate PermissionsStartOnly= and RootDirectoryStartOnly= in favour of the ExecStart= prefix chars
 
@@ -121,10 +182,6 @@ Features:
 
 * In DynamicUser= mode: before selecting a UID, use disk quota APIs on relevant
   disks to see if the UID is already in use.
-
-* add dissect_image_warn() as a wrapper around dissect_image() that prints
-  friendly log messages for the returned errors, so that we don't have to
-  duplicate that in nspawn, systemd-dissect and PID 1.
 
 * add "systemctl wait" or so, which does what "systemd-run --wait" does, but
   for all units. It should be both a way to pin units into memory as well as a
@@ -330,11 +387,6 @@ Features:
 * networkd/udev: implement SR_IOV configuration in .link files:
   http://lists.freedesktop.org/archives/systemd-devel/2015-January/027451.html
 
-* Rework systemctl's GetAll property parsing to use the generic bus_map_all_properties() API
-
-* Port various tools to make use of verbs.[ch], where applicable: busctl,
-  coredumpctl, hostnamectl, localectl, timedatectl
-
 * hostnamectl: show root image uuid
 
 * sysfs set api in libudev is not const
@@ -374,8 +426,6 @@ Features:
   can be used for resuming the system but nothing else.
 
 * what to do about udev db binary stability for apps? (raw access is not an option)
-
-* maybe provide an API to allow migration of foreign PIDs into existing scopes.
 
 * man: maybe use the word "inspect" rather than "introspect"?
 
@@ -466,7 +516,6 @@ Features:
 
 * transient units:
   - add field to transient units that indicate whether systemd or somebody else saves/restores its settings, for integration with libvirt
-  - ensure scope units may be started only a single time
 
 * Automatically configure swap partition to use for hibernation by looking for largest swap partition on the root disk?
 
@@ -526,8 +575,7 @@ Features:
 * maybe add a generator that looks for "systemd.run=" on the kernel cmdline for container usercases...
 
 * test/:
-  - add 'set -e' to scripts in test/
-  - make stuff in test/ work with separate output dir
+  - add unit tests for config_parse_device_allow()
 
 * seems that when we follow symlinks to units we prefer the symlink
   destination path over /etc and /usr. We should not do that. Instead
@@ -576,7 +624,6 @@ Features:
   - logind: wakelock/opportunistic suspend support
   - Add pretty name for seats in logind
   - logind: allow showing logout dialog from system?
-  - we should probably handle SIGTERM/SIGINT to not leave dot files around, just in case
   - session scopes/user unit: add RequiresMountsFor for the home directory of the user
   - add Suspend() bus calls which take timestamps to fix double suspend issues when somebody hits suspend and closes laptop quickly.
   - if pam_systemd is invoked by su from a process that is outside of a
@@ -591,10 +638,6 @@ Features:
     logout dialog. If it is pressed for 1s, do the usual
     shutdown. Inspiration are Macs here.
   - expose "Locked" property on logind sesison objects
-  - given that logind now lets PID 1 do all nasty work, we can
-    probably reduce the capability set it retains substantially.
-    (we need CAP_SYS_ADMIN for drmSetMaster(), so maybe not worth it)
-  - expose orientation sensors and tablet mode through logind
   - maybe allow configuration of the StopTimeout for session scopes
   - rename session scope so that it includes the UID. THat way
     the session scope can be arranged freely in slices and we don't have
@@ -651,8 +694,6 @@ Features:
     lazily. Encode just enough information in the file name, so that we
     do not have to open it to know that it is not interesting for us, for
     the most common operations.
-  - journal-or-kmsg is currently broken? See reverted
-    commit 4a01181e460686d8b4a543b1dfa7f77c9e3c5ab8.
   - man: document that corrupted journal files is nothing to act on
   - rework journald sigbus stuff to use mutex
   - Set RLIMIT_NPROC for systemd-journal-xyz, and all other of our
@@ -708,6 +749,7 @@ Features:
   - timer units should get the ability to trigger when:
     o CLOCK_REALTIME makes jumps (TFD_TIMER_CANCEL_ON_SET)
     o DST changes
+    o timezone changes
   - Modulate timer frequency based on battery state
 
 * add libsystemd-password or so to query passwords during boot using the password agent logic
@@ -771,8 +813,6 @@ Features:
 
 * hw watchdog: optionally try to use the preset watchdog timeout instead of always overriding it
   https://bugs.freedesktop.org/show_bug.cgi?id=54712
-
-* create /sbin/init symlinks from the build system
 
 * add a dependency on standard-conf.xml and other included files to man pages
 

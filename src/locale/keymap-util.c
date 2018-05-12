@@ -4,19 +4,6 @@
 
   Copyright 2011 Lennart Poettering
   Copyright 2013 Kay Sievers
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -263,8 +250,7 @@ int locale_write_data(Context *c, char ***settings) {
                 if (!u)
                         return -ENOMEM;
 
-                strv_free(l);
-                l = u;
+                strv_free_and_replace(l, u);
         }
 
         if (strv_isempty(l)) {
@@ -278,8 +264,7 @@ int locale_write_data(Context *c, char ***settings) {
         if (r < 0)
                 return r;
 
-        *settings = l;
-        l = NULL;
+        *settings = TAKE_PTR(l);
         return 0;
 }
 
@@ -305,8 +290,7 @@ int vconsole_write_data(Context *c) {
                 if (!u)
                         return -ENOMEM;
 
-                strv_free(l);
-                l = u;
+                strv_free_and_replace(l, u);
         }
 
         if (isempty(c->vc_keymap_toggle))
@@ -323,8 +307,7 @@ int vconsole_write_data(Context *c) {
                 if (!u)
                         return -ENOMEM;
 
-                strv_free(l);
-                l = u;
+                strv_free_and_replace(l, u);
         }
 
         if (strv_isempty(l)) {
@@ -539,8 +522,7 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
                         log_debug("Found converted keymap %s at %s",
                                   n, uncompressed ? p : pz);
 
-                        *new_keymap = n;
-                        n = NULL;
+                        *new_keymap = TAKE_PTR(n);
                         return 1;
                 }
         }
@@ -548,9 +530,10 @@ int find_converted_keymap(const char *x11_layout, const char *x11_variant, char 
         return 0;
 }
 
-int find_legacy_keymap(Context *c, char **new_keymap) {
+int find_legacy_keymap(Context *c, char **ret) {
         const char *map;
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *new_keymap = NULL;
         unsigned n = 0;
         unsigned best_matching = 0;
         int r;
@@ -615,7 +598,7 @@ int find_legacy_keymap(Context *c, char **new_keymap) {
                         if (matching > best_matching) {
                                 best_matching = matching;
 
-                                r = free_and_strdup(new_keymap, a[0]);
+                                r = free_and_strdup(&new_keymap, a[0]);
                                 if (r < 0)
                                         return r;
                         }
@@ -635,13 +618,12 @@ int find_legacy_keymap(Context *c, char **new_keymap) {
                 r = find_converted_keymap(l, v, &converted);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        free(*new_keymap);
-                        *new_keymap = converted;
-                }
+                if (r > 0)
+                        free_and_replace(new_keymap, converted);
         }
 
-        return (bool) *new_keymap;
+        *ret = TAKE_PTR(new_keymap);
+        return (bool) *ret;
 }
 
 int find_language_fallback(const char *lang, char **language) {
@@ -668,8 +650,7 @@ int find_language_fallback(const char *lang, char **language) {
 
                 if (streq(lang, a[0])) {
                         assert(strv_length(a) == 2);
-                        *language = a[1];
-                        a[1] = NULL;
+                        *language = TAKE_PTR(a[1]);
                         return 1;
                 }
         }

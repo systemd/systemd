@@ -3,19 +3,6 @@
  This file is part of systemd.
 
  Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <net/if.h>
@@ -72,7 +59,6 @@ static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
         [NET_DEV_FEAT_LRO]  = "rx-lro",
         [NET_DEV_FEAT_TSO]  = "tx-tcp-segmentation",
         [NET_DEV_FEAT_TSO6] = "tx-tcp6-segmentation",
-        [NET_DEV_FEAT_UFO]  = "tx-udp-fragmentation",
 };
 
 int ethtool_connect(int *ret) {
@@ -305,8 +291,7 @@ static int get_stringset(int fd, struct ifreq *ifr, int stringset_id, struct eth
         if (r < 0)
                 return -errno;
 
-        *gstrings = strings;
-        strings = NULL;
+        *gstrings = TAKE_PTR(strings);
 
         return 0;
 }
@@ -418,7 +403,7 @@ static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_uset
         if (!u)
                 return -ENOMEM;
 
-        ecmd.req = u->base;
+        u->base = ecmd.req;
 
         offset = 0;
         memcpy(u->link_modes.supported, &ecmd.link_mode_data[offset], 4 * ecmd.req.link_mode_masks_nwords);
@@ -582,4 +567,106 @@ int ethtool_set_glinksettings(int *fd, const char *ifname, struct link_config *l
                 return log_warning_errno(r, "link_config: Cannot set device settings for %s : %m", ifname);
 
         return r;
+}
+
+int config_parse_channel(const char *unit,
+                         const char *filename,
+                         unsigned line,
+                         const char *section,
+                         unsigned section_line,
+                         const char *lvalue,
+                         int ltype,
+                         const char *rvalue,
+                         void *data,
+                         void *userdata) {
+        link_config *config = data;
+        uint32_t k;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = safe_atou32(rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse channel value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (k < 1) {
+                log_syntax(unit, LOG_ERR, filename, line, -EINVAL, "Invalid %s value, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (streq(lvalue, "RxChannels")) {
+                config->channels.rx_count = k;
+                config->channels.rx_count_set = true;
+        } else if (streq(lvalue, "TxChannels")) {
+                config->channels.tx_count = k;
+                config->channels.tx_count_set = true;
+        } else if (streq(lvalue, "OtherChannels")) {
+                config->channels.other_count = k;
+                config->channels.other_count_set = true;
+        } else if (streq(lvalue, "CombinedChannels")) {
+                config->channels.combined_count = k;
+                config->channels.combined_count_set = true;
+        }
+
+        return 0;
+}
+
+int ethtool_set_channels(int *fd, const char *ifname, netdev_channels *channels) {
+        struct ethtool_channels ecmd = {
+                .cmd = ETHTOOL_GCHANNELS
+        };
+        struct ifreq ifr = {
+                .ifr_data = (void*) &ecmd
+        };
+
+        bool need_update = false;
+        int r;
+
+        if (*fd < 0) {
+                r = ethtool_connect(fd);
+                if (r < 0)
+                        return log_warning_errno(r, "link_config: could not connect to ethtool: %m");
+        }
+
+        strscpy(ifr.ifr_name, IFNAMSIZ, ifname);
+
+        r = ioctl(*fd, SIOCETHTOOL, &ifr);
+        if (r < 0)
+                return -errno;
+
+        if (channels->rx_count_set && ecmd.rx_count != channels->rx_count) {
+                ecmd.rx_count = channels->rx_count;
+                need_update = true;
+        }
+
+        if (channels->tx_count_set && ecmd.tx_count != channels->tx_count) {
+                ecmd.tx_count = channels->tx_count;
+                need_update = true;
+        }
+
+        if (channels->other_count_set && ecmd.other_count != channels->other_count) {
+                ecmd.other_count = channels->other_count;
+                need_update = true;
+        }
+
+        if (channels->combined_count_set && ecmd.combined_count != channels->combined_count) {
+                ecmd.combined_count = channels->combined_count;
+                need_update = true;
+        }
+
+        if (need_update) {
+                ecmd.cmd = ETHTOOL_SCHANNELS;
+
+                r = ioctl(*fd, SIOCETHTOOL, &ifr);
+                if (r < 0)
+                        return -errno;
+        }
+
+        return 0;
 }

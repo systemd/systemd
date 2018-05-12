@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <netinet/tcp.h>
@@ -325,7 +312,7 @@ static int dns_scope_socket(
         union sockaddr_union sa = {};
         socklen_t salen;
         static const int one = 1;
-        int ret, r, ifindex;
+        int r, ifindex;
 
         assert(s);
 
@@ -409,10 +396,7 @@ static int dns_scope_socket(
         if (r < 0 && errno != EINPROGRESS)
                 return -errno;
 
-        ret = fd;
-        fd = -1;
-
-        return ret;
+        return TAKE_FD(fd);
 }
 
 int dns_scope_socket_udp(DnsScope *s, DnsServer *server, uint16_t port) {
@@ -684,8 +668,7 @@ int dns_scope_make_reply_packet(
                 return r;
         DNS_PACKET_HEADER(p)->arcount = htobe16(dns_answer_size(soa));
 
-        *ret = p;
-        p = NULL;
+        *ret = TAKE_PTR(p);
 
         return 0;
 }
@@ -869,8 +852,7 @@ static int dns_scope_make_conflict_packet(
         if (r < 0)
                 return r;
 
-        *ret = p;
-        p = NULL;
+        *ret = TAKE_PTR(p);
 
         return 0;
 }

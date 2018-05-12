@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2012 Kay Sievers <kay@vrfy.org>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <ctype.h>
@@ -47,6 +34,7 @@
 
 static const char *arg_hwdb_bin_dir = "/etc/udev";
 static const char *arg_root = "";
+static bool arg_strict;
 
 static const char * const conf_file_dirs[] = {
         "/etc/udev/hwdb.d",
@@ -103,7 +91,7 @@ static int node_add_child(struct trie *trie, struct trie_node *node, struct trie
         struct trie_child_entry *child;
 
         /* extend array, add new entry, sort for bisection */
-        child = realloc(node->children, (node->children_count + 1) * sizeof(struct trie_child_entry));
+        child = reallocarray(node->children, node->children_count + 1, sizeof(struct trie_child_entry));
         if (!child)
                 return -ENOMEM;
 
@@ -123,7 +111,7 @@ static struct trie_node *node_lookup(const struct trie_node *node, uint8_t c) {
         struct trie_child_entry search;
 
         search.c = c;
-        child = bsearch(&search, node->children, node->children_count, sizeof(struct trie_child_entry), trie_children_cmp);
+        child = bsearch_safe(&search, node->children, node->children_count, sizeof(struct trie_child_entry), trie_children_cmp);
         if (child)
                 return child->child;
         return NULL;
@@ -197,7 +185,7 @@ static int trie_node_add_value(struct trie *trie, struct trie_node *node,
         }
 
         /* extend array, add new entry, sort for bisection */
-        val = realloc(node->values, (node->values_count + 1) * sizeof(struct trie_value_entry));
+        val = reallocarray(node->values, node->values_count + 1, sizeof(struct trie_value_entry));
         if (!val)
                 return -ENOMEM;
         trie->values_count++;
@@ -502,7 +490,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
         _cleanup_strv_free_ char **match_list = NULL;
         uint32_t line_number = 0;
         char *match = NULL;
-        int r;
+        int r = 0, err;
 
         f = fopen(filename, "re");
         if (!f)
@@ -537,6 +525,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                         if (line[0] == ' ') {
                                 log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
                                            "Match expected but got indented property \"%s\", ignoring line", line);
+                                r = -EINVAL;
                                 break;
                         }
 
@@ -547,9 +536,9 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                         if (!match)
                                 return -ENOMEM;
 
-                        r = strv_consume(&match_list, match);
-                        if (r < 0)
-                                return r;
+                        err = strv_consume(&match_list, match);
+                        if (err < 0)
+                                return err;
 
                         break;
 
@@ -557,7 +546,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                         if (len == 0) {
                                 log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
                                            "Property expected, ignoring record with no properties");
-
+                                r = -EINVAL;
                                 state = HW_NONE;
                                 strv_clear(match_list);
                                 break;
@@ -569,16 +558,18 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                                 if (!match)
                                         return -ENOMEM;
 
-                                r = strv_consume(&match_list, match);
-                                if (r < 0)
-                                        return r;
+                                err = strv_consume(&match_list, match);
+                                if (err < 0)
+                                        return err;
 
                                 break;
                         }
 
                         /* first data */
                         state = HW_DATA;
-                        insert_data(trie, match_list, line, filename, file_priority, line_number);
+                        err = insert_data(trie, match_list, line, filename, file_priority, line_number);
+                        if (err < 0)
+                                r = err;
                         break;
 
                 case HW_DATA:
@@ -592,12 +583,15 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                         if (line[0] != ' ') {
                                 log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
                                            "Property or empty line expected, got \"%s\", ignoring record", line);
+                                r = -EINVAL;
                                 state = HW_NONE;
                                 strv_clear(match_list);
                                 break;
                         }
 
-                        insert_data(trie, match_list, line, filename, file_priority, line_number);
+                        err = insert_data(trie, match_list, line, filename, file_priority, line_number);
+                        if (err < 0)
+                                r = err;
                         break;
                 };
         }
@@ -606,7 +600,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                 log_syntax(NULL, LOG_WARNING, filename, line_number, EINVAL,
                            "Property expected, ignoring record with no properties");
 
-        return 0;
+        return r;
 }
 
 static int hwdb_query(int argc, char *argv[], void *userdata) {
@@ -636,7 +630,7 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         uint16_t file_priority = 1;
-        int r;
+        int r = 0, err;
 
         trie = new0(struct trie, 1);
         if (!trie)
@@ -654,13 +648,15 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
 
         trie->nodes_count++;
 
-        r = conf_files_list_strv(&files, ".hwdb", arg_root, 0, conf_file_dirs);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enumerate hwdb files: %m");
+        err = conf_files_list_strv(&files, ".hwdb", arg_root, 0, conf_file_dirs);
+        if (err < 0)
+                return log_error_errno(err, "Failed to enumerate hwdb files: %m");
 
         STRV_FOREACH(f, files) {
                 log_debug("Reading file \"%s\"", *f);
-                import_file(trie, *f, file_priority++);
+                err = import_file(trie, *f, file_priority++);
+                if (err < 0 && arg_strict)
+                        r = err;
         }
 
         strbuf_complete(trie->strings);
@@ -684,23 +680,28 @@ static int hwdb_update(int argc, char *argv[], void *userdata) {
                 return -ENOMEM;
 
         mkdir_parents_label(hwdb_bin, 0755);
-        r = trie_store(trie, hwdb_bin);
-        if (r < 0)
-                return log_error_errno(r, "Failure writing database %s: %m", hwdb_bin);
+        err = trie_store(trie, hwdb_bin);
+        if (err < 0)
+                return log_error_errno(err, "Failure writing database %s: %m", hwdb_bin);
 
-        return label_fix(hwdb_bin, false, false);
+        err = label_fix(hwdb_bin, 0);
+        if (err < 0)
+                return err;
+
+        return r;
 }
 
 static void help(void) {
         printf("Usage: %s OPTIONS COMMAND\n\n"
                "Update or query the hardware database.\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --usr             Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
-               "  -r --root=PATH       Alternative root path in the filesystem\n\n"
+               "  -h --help       Show this help\n"
+               "     --version    Show package version\n"
+               "  -s --strict     When updating, return non-zero exit value on any parsing error\n"
+               "     --usr        Generate in " UDEVLIBEXECDIR " instead of /etc/udev\n"
+               "  -r --root=PATH  Alternative root path in the filesystem\n\n"
                "Commands:\n"
-               "  update               Update the hwdb database\n"
-               "  query MODALIAS       Query database and print result\n",
+               "  update          Update the hwdb database\n"
+               "  query MODALIAS  Query database and print result\n",
                program_invocation_short_name);
 }
 
@@ -714,6 +715,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",     no_argument,       NULL, 'h'         },
                 { "version",  no_argument,       NULL, ARG_VERSION },
                 { "usr",      no_argument,       NULL, ARG_USR     },
+                { "strict",   no_argument,       NULL, 's'         },
                 { "root",     required_argument, NULL, 'r'         },
                 {}
         };
@@ -723,7 +725,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "ut:r:h", options, NULL)) >= 0) {
+        while ((c = getopt_long(argc, argv, "ust:r:h", options, NULL)) >= 0) {
                 switch(c) {
 
                 case 'h':
@@ -735,6 +737,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_USR:
                         arg_hwdb_bin_dir = UDEVLIBEXECDIR;
+                        break;
+
+                case 's':
+                        arg_strict = true;
                         break;
 
                 case 'r':
@@ -753,7 +759,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int hwdb_main(int argc, char *argv[]) {
-        const Verb verbs[] = {
+        static const Verb verbs[] = {
                 { "update", 1, 1, 0, hwdb_update },
                 { "query",  2, 2, 0, hwdb_query  },
                 {},

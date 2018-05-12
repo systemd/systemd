@@ -4,19 +4,6 @@
 
   Copyright 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
   Copyright 2004-2012 Kay Sievers <kay@vrfy.org>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -69,10 +56,10 @@ static int fake_filesystems(void) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_udev_event_unref_ struct udev_event *event = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
-        _cleanup_udev_rules_unref_ struct udev_rules *rules = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
+        _cleanup_(udev_event_unrefp) struct udev_event *event = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+        _cleanup_(udev_rules_unrefp) struct udev_rules *rules = NULL;
         char syspath[UTIL_PATH_SIZE];
         const char *devpath;
         const char *action;

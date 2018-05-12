@@ -1,10 +1,10 @@
 [Unit]
-Description=Test for SystemCallFilter in system mode with User set
+Description=Test for SystemCallFilter in system mode with User set (daemon)
 
 [Service]
 ExecStart=/bin/sh -c 'echo "Foo bar"'
 Type=oneshot
-User=nobody
+User=daemon
 SystemCallFilter=~read write open execve ioperm
 SystemCallFilter=ioctl
 SystemCallFilter=read write open execve

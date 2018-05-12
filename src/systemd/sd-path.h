@@ -74,6 +74,7 @@ enum {
 
         /* Search paths */
         SD_PATH_SEARCH_BINARIES,
+        SD_PATH_SEARCH_BINARIES_DEFAULT,
         SD_PATH_SEARCH_LIBRARY_PRIVATE,
         SD_PATH_SEARCH_LIBRARY_ARCH,
         SD_PATH_SEARCH_SHARED,

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -80,7 +67,8 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
 
         (void) sd_event_source_set_description(s->event_source, "path");
 
-        /* This assumes the path was passed through path_kill_slashes()! */
+        /* This function assumes the path was passed through path_kill_slashes()! */
+        assert(!strstr(s->path, "//"));
 
         for (slash = strchr(s->path, '/'); ; slash = strchr(slash+1, '/')) {
                 char *cut = NULL;

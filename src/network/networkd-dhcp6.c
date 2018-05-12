@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright (C) 2014 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <netinet/ether.h>
@@ -202,11 +189,13 @@ static int dhcp6_pd_prefix_distribute(Link *dhcp6_link, Iterator *i,
                 if (r < 0)
                         return r;
 
+                route->family = AF_INET6;
+
                 while (n < n_prefixes) {
                         route_update(route, &prefix, pd_prefix_len, NULL, NULL,
                                      0, 0, RTN_UNREACHABLE);
 
-                        r = route_configure(route, link, NULL);
+                        r = route_configure(route, dhcp6_link, NULL);
                         if (r < 0) {
                                 route_free(route);
                                 return r;
@@ -265,7 +254,7 @@ static int dhcp6_lease_pd_prefix_acquired(sd_dhcp6_client *client, Link *link) {
 
 static int dhcp6_address_handler(sd_netlink *rtnl, sd_netlink_message *m,
                                  void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -297,7 +286,7 @@ static int dhcp6_address_change(
                 uint32_t lifetime_preferred,
                 uint32_t lifetime_valid) {
 
-        _cleanup_address_free_ Address *addr = NULL;
+        _cleanup_(address_freep) Address *addr = NULL;
         char buffer[INET6_ADDRSTRLEN];
         int r;
 

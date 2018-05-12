@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -28,11 +15,11 @@
 #include "selinux-util.h"
 #include "smack-util.h"
 
-int label_fix(const char *path, bool ignore_enoent, bool ignore_erofs) {
+int label_fix(const char *path, LabelFixFlags flags) {
         int r, q;
 
-        r = mac_selinux_fix(path, ignore_enoent, ignore_erofs);
-        q = mac_smack_fix(path, ignore_enoent, ignore_erofs);
+        r = mac_selinux_fix(path, flags);
+        q = mac_smack_fix(path, flags);
 
         if (r < 0)
                 return r;
@@ -60,7 +47,7 @@ int symlink_label(const char *old_path, const char *new_path) {
         if (r < 0)
                 return r;
 
-        return mac_smack_fix(new_path, false, false);
+        return mac_smack_fix(new_path, 0);
 }
 
 int btrfs_subvol_make_label(const char *path) {
@@ -78,5 +65,5 @@ int btrfs_subvol_make_label(const char *path) {
         if (r < 0)
                 return r;
 
-        return mac_smack_fix(path, false, false);
+        return mac_smack_fix(path, 0);
 }

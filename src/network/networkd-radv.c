@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright (C) 2017 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <netinet/icmp6.h>
@@ -126,16 +113,15 @@ int prefix_new(Prefix **ret) {
         if (sd_radv_prefix_new(&prefix->radv_prefix) < 0)
                 return -ENOMEM;
 
-        *ret = prefix;
-        prefix = NULL;
+        *ret = TAKE_PTR(prefix);
 
         return 0;
 }
 
 int prefix_new_static(Network *network, const char *filename,
                       unsigned section_line, Prefix **ret) {
-        _cleanup_network_config_section_free_ NetworkConfigSection *n = NULL;
-        _cleanup_prefix_free_ Prefix *prefix = NULL;
+        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
+        _cleanup_(prefix_freep) Prefix *prefix = NULL;
         int r;
 
         assert(network);
@@ -150,8 +136,7 @@ int prefix_new_static(Network *network, const char *filename,
                 if (section_line) {
                         prefix = hashmap_get(network->prefixes_by_section, n);
                         if (prefix) {
-                                *ret = prefix;
-                                prefix = NULL;
+                                *ret = TAKE_PTR(prefix);
 
                                 return 0;
                         }
@@ -163,8 +148,7 @@ int prefix_new_static(Network *network, const char *filename,
                 return r;
 
         if (filename) {
-                prefix->section = n;
-                n = NULL;
+                prefix->section = TAKE_PTR(n);
 
                 r = hashmap_put(network->prefixes_by_section, prefix->section,
                                 prefix);
@@ -176,8 +160,7 @@ int prefix_new_static(Network *network, const char *filename,
         LIST_APPEND(prefixes, network->static_prefixes, prefix);
         network->n_static_prefixes++;
 
-        *ret = prefix;
-        prefix = NULL;
+        *ret = TAKE_PTR(prefix);
 
         return 0;
 }
@@ -194,7 +177,7 @@ int config_parse_prefix(const char *unit,
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_prefix_free_ Prefix *p = NULL;
+        _cleanup_(prefix_freep) Prefix *p = NULL;
         uint8_t prefixlen = 64;
         union in_addr_union in6addr;
         int r;
@@ -236,7 +219,7 @@ int config_parse_prefix_flags(const char *unit,
                               void *data,
                               void *userdata) {
         Network *network = userdata;
-        _cleanup_prefix_free_ Prefix *p = NULL;
+        _cleanup_(prefix_freep) Prefix *p = NULL;
         int r, val;
 
         assert(filename);
@@ -280,7 +263,7 @@ int config_parse_prefix_lifetime(const char *unit,
                                  void *data,
                                  void *userdata) {
         Network *network = userdata;
-        _cleanup_prefix_free_ Prefix *p = NULL;
+        _cleanup_(prefix_freep) Prefix *p = NULL;
         usec_t usec;
         int r;
 
@@ -344,8 +327,7 @@ static int radv_get_ip6dns(Network *network, struct in6_addr **dns,
         }
 
         if (addresses) {
-                *dns = addresses;
-                addresses = NULL;
+                *dns = TAKE_PTR(addresses);
 
                 *n_dns = n_addresses;
         }

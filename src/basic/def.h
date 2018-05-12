@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "util.h"
@@ -67,8 +54,10 @@
 #define NOTIFY_BUFFER_MAX PIPE_BUF
 
 #if HAVE_SPLIT_USR
-#  define _CONF_PATHS_SPLIT_USR(n) "/lib/" n "\0"
+#  define _CONF_PATHS_SPLIT_USR_NULSTR(n) "/lib/" n "\0"
+#  define _CONF_PATHS_SPLIT_USR(n) , "/lib/" n
 #else
+#  define _CONF_PATHS_SPLIT_USR_NULSTR(n)
 #  define _CONF_PATHS_SPLIT_USR(n)
 #endif
 
@@ -81,6 +70,14 @@
         "/run/" n "\0"                          \
         "/usr/local/lib/" n "\0"                \
         "/usr/lib/" n "\0"                      \
-        _CONF_PATHS_SPLIT_USR(n)
+        _CONF_PATHS_SPLIT_USR_NULSTR(n)
+
+#define CONF_PATHS_STRV(n)                      \
+        STRV_MAKE(                              \
+                "/etc/" n,                      \
+                "/run/" n,                      \
+                "/usr/local/lib/" n,            \
+                "/usr/lib/" n                   \
+                _CONF_PATHS_SPLIT_USR(n))
 
 #define LONG_LINE_MAX (1U*1024U*1024U)

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <fcntl.h>
@@ -64,11 +51,11 @@ static int server_init(sd_bus **_bus) {
         sd_bus *bus = NULL;
         sd_id128_t id;
         int r;
-        const char *unique;
+        const char *unique, *desc;
 
         assert_se(_bus);
 
-        r = sd_bus_open_user(&bus);
+        r = sd_bus_open_user_with_description(&bus, "my bus!");
         if (r < 0) {
                 log_error_errno(r, "Failed to connect to user bus: %m");
                 goto fail;
@@ -85,6 +72,9 @@ static int server_init(sd_bus **_bus) {
                 log_error_errno(r, "Failed to get unique name: %m");
                 goto fail;
         }
+
+        r = sd_bus_get_description(bus, &desc);
+        assert_se(streq(desc, "my bus!"));
 
         log_info("Peer ID is " SD_ID128_FORMAT_STR ".", SD_ID128_FORMAT_VAL(id));
         log_info("Unique ID: %s", unique);

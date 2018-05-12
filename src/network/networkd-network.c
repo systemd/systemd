@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <ctype.h>
@@ -72,8 +59,7 @@ int network_config_section_new(const char *filename, unsigned line, NetworkConfi
         strcpy(cs->filename, filename);
         cs->line = line;
 
-        *s = cs;
-        cs = NULL;
+        *s = TAKE_PTR(cs);
 
         return 0;
 }
@@ -123,7 +109,7 @@ void network_apply_anonymize_if_set(Network *network) {
 }
 
 static int network_load_one(Manager *manager, const char *filename) {
-        _cleanup_network_free_ Network *network = NULL;
+        _cleanup_(network_freep) Network *network = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         char *d;
         const char *dropin_dirname;
@@ -238,9 +224,11 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->router_emit_dns = true;
         network->router_emit_domains = true;
 
-        network->use_bpdu = true;
-        network->allow_port_to_be_root = true;
-        network->unicast_flood = true;
+        network->use_bpdu = -1;
+        network->hairpin = -1;
+        network->fast_leave = -1;
+        network->allow_port_to_be_root = -1;
+        network->unicast_flood = -1;
         network->priority = LINK_BRIDGE_PORT_PRIORITY_INVALID;
 
         network->lldp_mode = LLDP_MODE_ROUTERS_ONLY;
@@ -261,6 +249,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->arp = -1;
         network->ipv6_accept_ra_use_dns = true;
         network->ipv6_accept_ra_route_table = RT_TABLE_MAIN;
+        network->ipv6_mtu = 0;
 
         dropin_dirname = strjoina(network->name, ".network.d");
 
@@ -364,7 +353,7 @@ void network_free(Network *network) {
 
         free(network->filename);
 
-        free(network->match_mac);
+        set_free_free(network->match_mac);
         strv_free(network->match_path);
         strv_free(network->match_driver);
         strv_free(network->match_type);
@@ -372,6 +361,7 @@ void network_free(Network *network) {
 
         free(network->description);
         free(network->dhcp_vendor_class_identifier);
+        strv_free(network->dhcp_user_class);
         free(network->dhcp_hostname);
 
         free(network->mac);
@@ -635,13 +625,13 @@ int config_parse_netdev(const char *unit,
         case NETDEV_KIND_VCAN:
                 r = hashmap_put(network->stacked_netdevs, netdev->ifname, netdev);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Can not add NetDev '%s' to network: %m", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Cannot add NetDev '%s' to network: %m", rvalue);
                         return 0;
                 }
 
                 break;
         default:
-                assert_not_reached("Can not parse NetDev");
+                assert_not_reached("Cannot parse NetDev");
         }
 
         netdev_ref(netdev);
@@ -859,7 +849,8 @@ int config_parse_dhcp(
 
 static const char* const dhcp_client_identifier_table[_DHCP_CLIENT_ID_MAX] = {
         [DHCP_CLIENT_ID_MAC] = "mac",
-        [DHCP_CLIENT_ID_DUID] = "duid"
+        [DHCP_CLIENT_ID_DUID] = "duid",
+        [DHCP_CLIENT_ID_DUID_ONLY] = "duid-only",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dhcp_client_identifier, DHCPClientIdentifier);
@@ -894,12 +885,12 @@ int config_parse_ipv6token(
 
         r = in_addr_is_null(AF_INET6, &buffer);
         if (r != 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "IPv6 token can not be the ANY address, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "IPv6 token cannot be the ANY address, ignoring: %s", rvalue);
                 return 0;
         }
 
         if ((buffer.in6.s6_addr32[0] | buffer.in6.s6_addr32[1]) != 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "IPv6 token can not be longer than 64 bits, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, 0, "IPv6 token cannot be longer than 64 bits, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -1072,7 +1063,7 @@ int config_parse_dhcp_server_dns(
                         continue;
                 }
 
-                m = realloc(n->dhcp_server_dns, (n->n_dhcp_server_dns + 1) * sizeof(struct in_addr));
+                m = reallocarray(n->dhcp_server_dns, n->n_dhcp_server_dns + 1, sizeof(struct in_addr));
                 if (!m)
                         return log_oom();
 
@@ -1120,7 +1111,7 @@ int config_parse_radv_dns(
                 if (in_addr_from_string(AF_INET6, w, &a) >= 0) {
                         struct in6_addr *m;
 
-                        m = realloc(n->router_dns, (n->n_router_dns + 1) * sizeof(struct in6_addr));
+                        m = reallocarray(n->router_dns, n->n_router_dns + 1, sizeof(struct in6_addr));
                         if (!m)
                                 return log_oom();
 
@@ -1223,7 +1214,7 @@ int config_parse_dhcp_server_ntp(
                         continue;
                 }
 
-                m = realloc(n->dhcp_server_ntp, (n->n_dhcp_server_ntp + 1) * sizeof(struct in_addr));
+                m = reallocarray(n->dhcp_server_ntp, n->n_dhcp_server_ntp + 1, sizeof(struct in_addr));
                 if (!m)
                         return log_oom();
 
@@ -1273,7 +1264,7 @@ int config_parse_dns(
                         continue;
                 }
 
-                m = realloc(n->dns, (n->n_dns + 1) * sizeof(struct in_addr_data));
+                m = reallocarray(n->dns, n->n_dns + 1, sizeof(struct in_addr_data));
                 if (!m)
                         return log_oom();
 
@@ -1384,6 +1375,58 @@ int config_parse_ntp(
                 r = dns_name_is_valid_or_address(w);
                 if (r <= 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "%s is not a valid domain name or IP address, ignoring.", w);
+                        continue;
+                }
+
+                r = strv_push(l, w);
+                if (r < 0)
+                        return log_oom();
+
+                w = NULL;
+        }
+
+        return 0;
+}
+
+int config_parse_dhcp_user_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***l = data;
+        int r;
+
+        assert(l);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                *l = strv_free(*l);
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&rvalue, &w, NULL, 0);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to split user classes option, ignoring: %s", rvalue);
+                        break;
+                }
+                if (r == 0)
+                        break;
+
+                if (strlen(w) > 255) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "%s length is not in the range 1-255, ignoring.", w);
                         continue;
                 }
 

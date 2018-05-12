@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <linux/veth.h>
@@ -338,7 +325,7 @@ static int create_bridge(sd_netlink *rtnl, const char *bridge_name) {
 }
 
 int setup_bridge(const char *veth_name, const char *bridge_name, bool create) {
-        _cleanup_release_lock_file_ LockFile bridge_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile bridge_lock = LOCK_FILE_INIT;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r, bridge_ifi;
         unsigned n = 0;
@@ -379,7 +366,7 @@ int setup_bridge(const char *veth_name, const char *bridge_name, bool create) {
 }
 
 int remove_bridge(const char *bridge_name) {
-        _cleanup_release_lock_file_ LockFile bridge_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile bridge_lock = LOCK_FILE_INIT;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         const char *path;
         int r;
@@ -411,7 +398,7 @@ int remove_bridge(const char *bridge_name) {
 }
 
 static int parse_interface(struct udev *udev, const char *name) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
         char ifi_str[2 + DECIMAL_STR_MAX(int)];
         int ifi;
 
@@ -433,7 +420,7 @@ static int parse_interface(struct udev *udev, const char *name) {
 }
 
 int move_network_interfaces(pid_t pid, char **ifaces) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **i;
         int r;
@@ -476,7 +463,7 @@ int move_network_interfaces(pid_t pid, char **ifaces) {
 }
 
 int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         unsigned idx = 0;
         char **i;
@@ -564,7 +551,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **ifaces) {
 }
 
 int setup_ipvlan(const char *machine_name, pid_t pid, char **ifaces) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **i;
         int r;

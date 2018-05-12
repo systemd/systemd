@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "sd-messages.h"
@@ -691,7 +678,6 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                         return 0;
 
-
                 default:
                         log_debug("Auxiliary DNSSEC RR query failed with %s", dns_transaction_state_to_string(dt->state));
                         goto fail;
@@ -1238,7 +1224,6 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
         assert(t);
         assert(t->scope);
 
-
         switch (t->scope->protocol) {
 
         case DNS_PROTOCOL_DNS:
@@ -1530,8 +1515,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         }
         DNS_PACKET_HEADER(p)->nscount = htobe16(nscount);
 
-        t->sent = p;
-        p = NULL;
+        t->sent = TAKE_PTR(p);
 
         return 0;
 }
@@ -1559,8 +1543,7 @@ static int dns_transaction_make_packet(DnsTransaction *t) {
         DNS_PACKET_HEADER(p)->qdcount = htobe16(1);
         DNS_PACKET_HEADER(p)->id = t->id;
 
-        t->sent = p;
-        p = NULL;
+        t->sent = TAKE_PTR(p);
 
         return 0;
 }
@@ -3079,8 +3062,7 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
         }
 
         dns_answer_unref(t->answer);
-        t->answer = validated;
-        validated = NULL;
+        t->answer = TAKE_PTR(validated);
 
         /* At this point the answer only contains validated
          * RRsets. Now, let's see if it actually answers the question

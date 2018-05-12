@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <alloca.h>
@@ -197,6 +184,25 @@ int get_user_creds(
         return 0;
 }
 
+static inline bool is_nologin_shell(const char *shell) {
+
+        return PATH_IN_SET(shell,
+                           /* 'nologin' is the friendliest way to disable logins for a user account. It prints a nice
+                            * message and exits. Different distributions place the binary at different places though,
+                            * hence let's list them all. */
+                           "/bin/nologin",
+                           "/sbin/nologin",
+                           "/usr/bin/nologin",
+                           "/usr/sbin/nologin",
+                           /* 'true' and 'false' work too for the same purpose, but are less friendly as they don't do
+                            * any message printing. Different distributions place the binary at various places but at
+                            * least not in the 'sbin' directory. */
+                           "/bin/false",
+                           "/usr/bin/false",
+                           "/bin/true",
+                           "/usr/bin/true");
+}
+
 int get_user_creds_clean(
                 const char **username,
                 uid_t *uid, gid_t *gid,
@@ -212,15 +218,10 @@ int get_user_creds_clean(
                 return r;
 
         if (shell &&
-            (isempty(*shell) || PATH_IN_SET(*shell,
-                                            "/bin/nologin",
-                                            "/sbin/nologin",
-                                            "/usr/bin/nologin",
-                                            "/usr/sbin/nologin")))
+            (isempty(*shell) || is_nologin_shell(*shell)))
                 *shell = NULL;
 
-        if (home &&
-            (isempty(*home) || path_equal(*home, "/")))
+        if (home && empty_or_root(*home))
                 *home = NULL;
 
         return 0;
@@ -553,18 +554,18 @@ int take_etc_passwd_lock(const char *root) {
          * awfully racy, and thus we just won't do them. */
 
         if (root)
-                path = prefix_roota(root, "/etc/.pwd.lock");
+                path = prefix_roota(root, ETC_PASSWD_LOCK_PATH);
         else
-                path = "/etc/.pwd.lock";
+                path = ETC_PASSWD_LOCK_PATH;
 
         fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
         if (fd < 0)
-                return -errno;
+                return log_debug_errno(errno, "Cannot open %s: %m", path);
 
         r = fcntl(fd, F_SETLKW, &flock);
         if (r < 0) {
                 safe_close(fd);
-                return -errno;
+                return log_debug_errno(errno, "Locking %s failed: %m", path);
         }
 
         return fd;
@@ -645,6 +646,8 @@ bool valid_gecos(const char *d) {
 }
 
 bool valid_home(const char *p) {
+        /* Note that this function is also called by valid_shell(), any
+         * changes must account for that. */
 
         if (isempty(p))
                 return false;
@@ -717,3 +720,111 @@ bool synthesize_nobody(void) {
         return cache;
 #endif
 }
+
+int putpwent_sane(const struct passwd *pw, FILE *stream) {
+        assert(pw);
+        assert(stream);
+
+        errno = 0;
+        if (putpwent(pw, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+
+int putspent_sane(const struct spwd *sp, FILE *stream) {
+        assert(sp);
+        assert(stream);
+
+        errno = 0;
+        if (putspent(sp, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+
+int putgrent_sane(const struct group *gr, FILE *stream) {
+        assert(gr);
+        assert(stream);
+
+        errno = 0;
+        if (putgrent(gr, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+
+#if ENABLE_GSHADOW
+int putsgent_sane(const struct sgrp *sg, FILE *stream) {
+        assert(sg);
+        assert(stream);
+
+        errno = 0;
+        if (putsgent(sg, stream) != 0)
+                return errno > 0 ? -errno : -EIO;
+
+        return 0;
+}
+#endif
+
+int fgetpwent_sane(FILE *stream, struct passwd **pw) {
+        struct passwd *p;
+
+        assert(pw);
+        assert(stream);
+
+        errno = 0;
+        p = fgetpwent(stream);
+        if (!p && errno != ENOENT)
+                return errno > 0 ? -errno : -EIO;
+
+        *pw = p;
+        return !!p;
+}
+
+int fgetspent_sane(FILE *stream, struct spwd **sp) {
+        struct spwd *s;
+
+        assert(sp);
+        assert(stream);
+
+        errno = 0;
+        s = fgetspent(stream);
+        if (!s && errno != ENOENT)
+                return errno > 0 ? -errno : -EIO;
+
+        *sp = s;
+        return !!s;
+}
+
+int fgetgrent_sane(FILE *stream, struct group **gr) {
+        struct group *g;
+
+        assert(gr);
+        assert(stream);
+
+        errno = 0;
+        g = fgetgrent(stream);
+        if (!g && errno != ENOENT)
+                return errno > 0 ? -errno : -EIO;
+
+        *gr = g;
+        return !!g;
+}
+
+#if ENABLE_GSHADOW
+int fgetsgent_sane(FILE *stream, struct sgrp **sg) {
+        struct sgrp *s;
+
+        assert(sg);
+        assert(stream);
+
+        errno = 0;
+        s = fgetsgent(stream);
+        if (!s && errno != ENOENT)
+                return errno > 0 ? -errno : -EIO;
+
+        *sg = s;
+        return !!s;
+}
+#endif

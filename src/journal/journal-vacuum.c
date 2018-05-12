@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <fcntl.h>
@@ -27,6 +14,7 @@
 #include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "journal-def.h"
 #include "journal-file.h"
 #include "journal-vacuum.h"
@@ -278,14 +266,15 @@ int journal_directory_vacuum(
                 if (r > 0) {
                         /* Always vacuum empty non-online files. */
 
-                        if (unlinkat(dirfd(d), p, 0) >= 0) {
+                        r = unlinkat_deallocate(dirfd(d), p, 0);
+                        if (r >= 0) {
 
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
                                          "Deleted empty archived journal %s/%s (%s).", directory, p, format_bytes(sbytes, sizeof(sbytes), size));
 
                                 freed += size;
-                        } else if (errno != ENOENT)
-                                log_warning_errno(errno, "Failed to delete empty archived journal %s/%s: %m", directory, p);
+                        } else if (r != -ENOENT)
+                                log_warning_errno(r, "Failed to delete empty archived journal %s/%s: %m", directory, p);
 
                         continue;
                 }
@@ -297,7 +286,7 @@ int journal_directory_vacuum(
                         goto finish;
                 }
 
-                list[n_list].filename = p;
+                list[n_list].filename = TAKE_PTR(p);
                 list[n_list].usage = size;
                 list[n_list].seqnum = seqnum;
                 list[n_list].realtime = realtime;
@@ -305,7 +294,6 @@ int journal_directory_vacuum(
                 list[n_list].have_seqnum = have_seqnum;
                 n_list++;
 
-                p = NULL;
                 sum += size;
         }
 
@@ -321,7 +309,8 @@ int journal_directory_vacuum(
                     (n_max_files <= 0 || left <= n_max_files))
                         break;
 
-                if (unlinkat(dirfd(d), list[i].filename, 0) >= 0) {
+                r = unlinkat_deallocate(dirfd(d), list[i].filename, 0);
+                if (r >= 0) {
                         log_full(verbose ? LOG_INFO : LOG_DEBUG, "Deleted archived journal %s/%s (%s).", directory, list[i].filename, format_bytes(sbytes, sizeof(sbytes), list[i].usage));
                         freed += list[i].usage;
 
@@ -330,8 +319,8 @@ int journal_directory_vacuum(
                         else
                                 sum = 0;
 
-                } else if (errno != ENOENT)
-                        log_warning_errno(errno, "Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
+                } else if (r != -ENOENT)
+                        log_warning_errno(r, "Failed to delete archived journal %s/%s: %m", directory, list[i].filename);
         }
 
         if (oldest_usec && i < n_list && (*oldest_usec == 0 || list[i].realtime < *oldest_usec))

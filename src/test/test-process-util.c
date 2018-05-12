@@ -4,19 +4,6 @@
 
   Copyright 2010 Lennart Poettering
   Copyright 2013 Thomas H.P. Andersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <sched.h>
@@ -100,7 +87,7 @@ static void test_get_process_comm(pid_t pid) {
         if (!detect_container())
                 assert_se(get_ctty_devnr(pid, &h) == -ENXIO || pid != 1);
 
-        getenv_for_pid(pid, "PATH", &i);
+        (void) getenv_for_pid(pid, "PATH", &i);
         log_info("PID"PID_FMT" $PATH: '%s'", pid, strna(i));
 }
 
@@ -192,6 +179,8 @@ static void test_get_process_cmdline_harder(void) {
 
         assert_se(pid == 0);
         assert_se(unshare(CLONE_NEWNS) >= 0);
+
+        assert_se(mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) >= 0);
 
         fd = mkostemp(path, O_CLOEXEC);
         assert_se(fd >= 0);
@@ -539,8 +528,33 @@ static void test_pid_to_ptr(void) {
 #endif
 }
 
-int main(int argc, char *argv[]) {
+static void test_ioprio_class_from_to_string_one(const char *val, int expected) {
+        assert_se(ioprio_class_from_string(val) == expected);
+        if (expected >= 0) {
+                _cleanup_free_ char *s = NULL;
+                unsigned ret;
 
+                assert_se(ioprio_class_to_string_alloc(expected, &s) == 0);
+                /* We sometimes get a class number and sometimes a number back */
+                assert_se(streq(s, val) ||
+                          safe_atou(val, &ret) == 0);
+        }
+}
+
+static void test_ioprio_class_from_to_string(void) {
+        test_ioprio_class_from_to_string_one("none", IOPRIO_CLASS_NONE);
+        test_ioprio_class_from_to_string_one("realtime", IOPRIO_CLASS_RT);
+        test_ioprio_class_from_to_string_one("best-effort", IOPRIO_CLASS_BE);
+        test_ioprio_class_from_to_string_one("idle", IOPRIO_CLASS_IDLE);
+        test_ioprio_class_from_to_string_one("0", 0);
+        test_ioprio_class_from_to_string_one("1", 1);
+        test_ioprio_class_from_to_string_one("7", 7);
+        test_ioprio_class_from_to_string_one("8", 8);
+        test_ioprio_class_from_to_string_one("9", -1);
+        test_ioprio_class_from_to_string_one("-1", -1);
+}
+
+int main(int argc, char *argv[]) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
         log_open();
@@ -567,6 +581,7 @@ int main(int argc, char *argv[]) {
         test_getpid_measure();
         test_safe_fork();
         test_pid_to_ptr();
+        test_ioprio_class_from_to_string();
 
         return 0;
 }

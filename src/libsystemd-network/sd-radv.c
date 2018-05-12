@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright (C) 2017 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <netinet/icmp6.h>
@@ -51,8 +38,7 @@ _public_ int sd_radv_new(sd_radv **ret) {
 
         LIST_HEAD_INIT(ra->prefixes);
 
-        *ret = ra;
-        ra = NULL;
+        *ret = TAKE_PTR(ra);
 
         return 0;
 }
@@ -670,9 +656,7 @@ _public_ int sd_radv_set_rdnss(sd_radv *ra, uint32_t lifetime,
 
         memcpy(opt_rdnss + 1, dns, n_dns * sizeof(struct in6_addr));
 
-        free(ra->rdnss);
-        ra->rdnss = opt_rdnss;
-        opt_rdnss = NULL;
+        free_and_replace(ra->rdnss, opt_rdnss);
 
         ra->n_rdnss = n_dns;
 
@@ -724,9 +708,7 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
                 len -= r;
         }
 
-        free(ra->dnssl);
-        ra->dnssl = opt_dnssl;
-        opt_dnssl = NULL;
+        free_and_replace(ra->dnssl, opt_dnssl);
 
         return 0;
 }
@@ -755,8 +737,7 @@ _public_ int sd_radv_prefix_new(sd_radv_prefix **ret) {
 
         LIST_INIT(prefix, p);
 
-        *ret = p;
-        p = NULL;
+        *ret = TAKE_PTR(p);
 
         return 0;
 }

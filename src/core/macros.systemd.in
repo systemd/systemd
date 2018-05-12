@@ -4,19 +4,6 @@
 #  This file is part of systemd.
 #
 #  Copyright 2012 Lennart Poettering
-#
-#  systemd is free software; you can redistribute it and/or modify it
-#  under the terms of the GNU Lesser General Public License as published by
-#  the Free Software Foundation; either version 2.1 of the License, or
-#  (at your option) any later version.
-#
-#  systemd is distributed in the hope that it will be useful, but
-#  WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-#  Lesser General Public License for more details.
-#
-#  You should have received a copy of the GNU Lesser General Public License
-#  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 # RPM macros for packages installing systemd unit files
 
@@ -84,28 +71,64 @@ fi \
 
 %systemd_user_postun_with_restart() %{nil}
 
-%udev_hwdb_update() \
-systemd-hwdb update >/dev/null 2>&1 || : \
-%{nil}
+%udev_hwdb_update() %{nil}
 
-%udev_rules_update() \
-udevadm control --reload >/dev/null 2>&1 || : \
-%{nil}
+%udev_rules_update() %{nil}
 
-%journal_catalog_update() \
-journalctl --update-catalog >/dev/null 2>&1 || : \
-%{nil}
+%journal_catalog_update() %{nil}
 
+# Deprecated. Use %tmpfiles_create_package instead
 %tmpfiles_create() \
 systemd-tmpfiles --create %{?*} >/dev/null 2>&1 || : \
 %{nil}
 
+# Deprecated. Use %sysusers_create_package instead
 %sysusers_create() \
 systemd-sysusers %{?*} >/dev/null 2>&1 || : \
 %{nil}
 
 %sysusers_create_inline() \
-echo %{?*} | systemd-sysusers - >/dev/null 2>&1 || : \
+systemd-sysusers - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
+%{?*} \
+SYSTEMD_INLINE_EOF \
+%{nil}
+
+# This should be used by package installation scripts which require users or
+# groups to be present before the files installed by the package are present on
+# disk (for example because some files are owned by those users or groups).
+#
+# Example:
+#   Source1: %{name}-sysusers.conf
+#   ...
+#   %install
+#   install -D %SOURCE1 %{buildroot}%{_sysusersdir}/%{name}.conf
+#   %pre
+#   %sysusers_create_package %{name} %SOURCE1
+#   %files
+#   %{_sysusersdir}/%{name}.conf
+%sysusers_create_package() \
+systemd-sysusers --replace=%_sysusersdir/%1.conf - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
+%(cat %2) \
+SYSTEMD_INLINE_EOF \
+%{nil}
+
+# This may be used by package installation scripts to create files according to
+# their tmpfiles configuration from a package installation script, even before
+# the files of that package are installed on disk.
+#
+# Example:
+#   Source1: %{name}-tmpfiles.conf
+#   ...
+#   %install
+#   install -D %SOURCE1 %{buildroot}%{_tmpfilesdir}/%{name}.conf
+#   %pre
+#   %tmpfiles_create_package %{name} %SOURCE1
+#   %files
+#   %{_tmpfilesdir}/%{name}.conf
+%tmpfiles_create_package() \
+systemd-tmpfiles --replace=%_tmpfilesdir/%1.conf --create - <<SYSTEMD_INLINE_EOF >/dev/null 2>&1 || : \
+%(cat %2) \
+SYSTEMD_INLINE_EOF \
 %{nil}
 
 %sysctl_apply() \

@@ -438,6 +438,10 @@ mouse:usb:v046dp402d:name:Logitech M560:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:402d:
  MOUSE_DPI=1000@125
 
+# Logitech M305 Wireless Optical Mouse
+mouse:usb:v046dpc52f:name:Logitech USB Receiver:
+ MOUSE_DPI=1000@170
+
 # Logitech Performance MX
 mouse:usb:v046dp101a:name:Logitech Performance MX:
  MOUSE_DPI=1000@166

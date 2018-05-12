@@ -4,19 +4,6 @@
 
   Copyright 2011 Lennart Poettering
   Copyright 2014 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -51,8 +38,7 @@ _public_ int sd_network_get_operational_state(char **state) {
         if (isempty(s))
                 return -ENODATA;
 
-        *state = s;
-        s = NULL;
+        *state = TAKE_PTR(s);
 
         return 0;
 }
@@ -79,10 +65,9 @@ static int network_get_strv(const char *key, char ***ret) {
                 return -ENOMEM;
 
         strv_uniq(a);
-        r = strv_length(a);
+        r = (int) strv_length(a);
 
-        *ret = a;
-        a = NULL;
+        *ret = TAKE_PTR(a);
 
         return r;
 }
@@ -121,8 +106,7 @@ static int network_link_get_string(int ifindex, const char *field, char **ret) {
         if (isempty(s))
                 return -ENODATA;
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return 0;
 }
@@ -152,10 +136,9 @@ static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
                 return -ENOMEM;
 
         strv_uniq(a);
-        r = strv_length(a);
+        r = (int) strv_length(a);
 
-        *ret = a;
-        a = NULL;
+        *ret = TAKE_PTR(a);
 
         return r;
 }
@@ -263,8 +246,7 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
         if (ifis)
                 ifis[c] = 0; /* Let's add a 0 ifindex to the end, to be nice */
 
-        *ret = ifis;
-        ifis = NULL;
+        *ret = TAKE_PTR(ifis);
 
         return c;
 }

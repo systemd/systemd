@@ -1,0 +1,40 @@
+timer
+#  SPDX-License-Identifier: LGPL-2.1+
+[Unit]
+Description=Daily Cleanup of Temporary Directories
+Documentation=man:tmpfiles.d(5) man:systemd-tmpfiles(8)
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=1d
+OnBootSec=1s
+OnStartupSec=234
+OnUnitActiveSec=2y
+OnUnitInactiveSec=23434
+OnCalendar=minutely
+OnCalendar=*-*-* *:*:00
+OnCalendar=hourly
+OnCalendar=*-*-* *:00:00
+OnCalendar=daily
+OnCalendar=*-*-* 00:00:00
+OnCalendar=monthly
+OnCalendar=*-*-01 00:00:00
+OnCalendar=weekly
+OnCalendar=Mon *-*-* 00:00:00
+OnCalendar=yearly
+OnCalendar=*-01-01 00:00:00
+OnCalendar=quarterly
+OnCalendar=*-01,04,07,10-01 00:00:00
+OnCalendar=semiannually
+OnCalendar=*-01,07-01 00:00:00
+OnCalendar=Fri 2012-11-23 11:12:13
+
+Persistent=true
+AccuracySec=24h
+RandomizedDelaySec=234234234
+
+Persistent=no
+Unit=foo.service
+
+WakeSystem=false
+RemainAfterElapse=true

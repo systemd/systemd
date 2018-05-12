@@ -4,19 +4,6 @@
 
   Copyright 2012 Lennart Poettering
   Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <fcntl.h>
@@ -113,8 +100,8 @@ static void test_config_parse_exec(void) {
 
         ExecCommand *c = NULL, *c1;
         const char *ccc;
-        Manager *m = NULL;
-        Unit *u = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(unit_freep) Unit *u = NULL;
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (MANAGER_SKIP_TEST(r)) {
@@ -396,7 +383,6 @@ static void test_config_parse_exec(void) {
         c1 = c1->command_next;
         check_execcommand(c1, "/bin/grep", NULL, "\\w+\\K", NULL, false);
 
-
         log_info("/* trailing backslash: \\ */");
         /* backslash is invalid */
         r = config_parse_exec(NULL, "fake", 4, "section", 1,
@@ -441,9 +427,6 @@ static void test_config_parse_exec(void) {
         assert_se(c == NULL);
 
         exec_command_free_list(c);
-
-        unit_free(u);
-        manager_free(m);
 }
 
 static void test_config_parse_log_extra_fields(void) {
@@ -461,8 +444,8 @@ static void test_config_parse_log_extra_fields(void) {
 
         int r;
 
-        Manager *m = NULL;
-        Unit *u = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(unit_freep) Unit *u = NULL;
         ExecContext c = {};
 
         r = manager_new(UNIT_FILE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
@@ -506,9 +489,6 @@ static void test_config_parse_log_extra_fields(void) {
         assert_se(c.n_log_extra_fields == 0);
 
         exec_context_free_log_extra_fields(&c);
-
-        unit_free(u);
-        manager_free(m);
 
         log_info("/* %s – bye */", __func__);
 }
@@ -682,6 +662,7 @@ static void test_install_printf(void) {
         expect(i, "%N", "name");
         expect(i, "%p", "name");
         expect(i, "%i", "");
+        expect(i, "%j", "name");
         expect(i, "%u", user);
         expect(i, "%U", uid);
 

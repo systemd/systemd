@@ -5,19 +5,6 @@
  This file is part of systemd.
 
  Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "libudev.h"
@@ -25,6 +12,7 @@
 #include "condition.h"
 #include "ethtool-util.h"
 #include "list.h"
+#include "set.h"
 
 typedef struct link_config_ctx link_config_ctx;
 typedef struct link_config link_config;
@@ -51,7 +39,7 @@ typedef enum NamePolicy {
 struct link_config {
         char *filename;
 
-        struct ether_addr *match_mac;
+        Set *match_mac;
         char **match_path;
         char **match_driver;
         char **match_type;
@@ -68,13 +56,14 @@ struct link_config {
         NamePolicy *name_policy;
         char *name;
         char *alias;
-        size_t mtu;
+        uint32_t mtu;
         size_t speed;
         Duplex duplex;
         int autonegotiation;
         WakeOnLan wol;
         NetDevPort port;
         NetDevFeature features[_NET_DEV_FEAT_MAX];
+        netdev_channels channels;
 
         LIST_FIELDS(link_config, links);
 };

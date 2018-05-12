@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -63,6 +50,7 @@ int write_string_stream_ts(
                 struct timespec *ts) {
 
         bool needs_nl;
+        int r;
 
         assert(f);
         assert(line);
@@ -87,6 +75,13 @@ int write_string_stream_ts(
                 if (fputc('\n', f) == EOF)
                         return -errno;
 
+        if (flags & WRITE_STRING_FILE_SYNC)
+                r = fflush_sync_and_check(f);
+        else
+                r = fflush_and_check(f);
+        if (r < 0)
+                return r;
+
         if (ts) {
                 struct timespec twice[2] = {*ts, *ts};
 
@@ -94,10 +89,7 @@ int write_string_stream_ts(
                         return -errno;
         }
 
-        if (flags & WRITE_STRING_FILE_SYNC)
-                return fflush_sync_and_check(f);
-        else
-                return fflush_and_check(f);
+        return 0;
 }
 
 static int write_string_file_atomic(
@@ -330,8 +322,7 @@ int read_full_stream(FILE *f, char **contents, size_t *size) {
         }
 
         buf[l] = 0;
-        *contents = buf;
-        buf = NULL; /* do not free */
+        *contents = TAKE_PTR(buf);
 
         if (size)
                 *size = l;
@@ -363,11 +354,11 @@ static int parse_env_file_internal(
                 void *userdata,
                 int *n_pushed) {
 
-        _cleanup_free_ char *contents = NULL, *key = NULL;
         size_t key_alloc = 0, n_key = 0, value_alloc = 0, n_value = 0, last_value_whitespace = (size_t) -1, last_key_whitespace = (size_t) -1;
-        char *p, *value = NULL;
-        int r;
+        _cleanup_free_ char *contents = NULL, *key = NULL, *value = NULL;
         unsigned line = 1;
+        char *p;
+        int r;
 
         enum {
                 PRE_KEY,
@@ -404,10 +395,8 @@ static int parse_env_file_internal(
                                 state = KEY;
                                 last_key_whitespace = (size_t) -1;
 
-                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2)) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2))
+                                        return -ENOMEM;
 
                                 key[n_key++] = c;
                         }
@@ -427,10 +416,8 @@ static int parse_env_file_internal(
                                 else if (last_key_whitespace == (size_t) -1)
                                          last_key_whitespace = n_key;
 
-                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2)) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                if (!GREEDY_REALLOC(key, key_alloc, n_key+2))
+                                        return -ENOMEM;
 
                                 key[n_key++] = c;
                         }
@@ -452,7 +439,7 @@ static int parse_env_file_internal(
 
                                 r = push(fname, line, key, value, userdata, n_pushed);
                                 if (r < 0)
-                                        goto fail;
+                                        return r;
 
                                 n_key = 0;
                                 value = NULL;
@@ -467,10 +454,8 @@ static int parse_env_file_internal(
                         else if (!strchr(WHITESPACE, c)) {
                                 state = VALUE;
 
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                        return  -ENOMEM;
 
                                 value[n_value++] = c;
                         }
@@ -497,7 +482,7 @@ static int parse_env_file_internal(
 
                                 r = push(fname, line, key, value, userdata, n_pushed);
                                 if (r < 0)
-                                        goto fail;
+                                        return r;
 
                                 n_key = 0;
                                 value = NULL;
@@ -512,10 +497,8 @@ static int parse_env_file_internal(
                                 else if (last_value_whitespace == (size_t) -1)
                                         last_value_whitespace = n_value;
 
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                        return -ENOMEM;
 
                                 value[n_value++] = c;
                         }
@@ -527,10 +510,8 @@ static int parse_env_file_internal(
 
                         if (!strchr(newline, c)) {
                                 /* Escaped newlines we eat up entirely */
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                        return -ENOMEM;
 
                                 value[n_value++] = c;
                         }
@@ -542,10 +523,8 @@ static int parse_env_file_internal(
                         else if (c == '\\')
                                 state = SINGLE_QUOTE_VALUE_ESCAPE;
                         else {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                        return -ENOMEM;
 
                                 value[n_value++] = c;
                         }
@@ -556,10 +535,8 @@ static int parse_env_file_internal(
                         state = SINGLE_QUOTE_VALUE;
 
                         if (!strchr(newline, c)) {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                        return -ENOMEM;
 
                                 value[n_value++] = c;
                         }
@@ -571,10 +548,8 @@ static int parse_env_file_internal(
                         else if (c == '\\')
                                 state = DOUBLE_QUOTE_VALUE_ESCAPE;
                         else {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                        return -ENOMEM;
 
                                 value[n_value++] = c;
                         }
@@ -585,10 +560,8 @@ static int parse_env_file_internal(
                         state = DOUBLE_QUOTE_VALUE;
 
                         if (!strchr(newline, c)) {
-                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2)) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                if (!GREEDY_REALLOC(value, value_alloc, n_value+2))
+                                        return -ENOMEM;
 
                                 value[n_value++] = c;
                         }
@@ -633,14 +606,12 @@ static int parse_env_file_internal(
 
                 r = push(fname, line, key, value, userdata, n_pushed);
                 if (r < 0)
-                        goto fail;
+                        return r;
+
+                value = NULL;
         }
 
         return 0;
-
-fail:
-        free(value);
-        return r;
 }
 
 static int check_utf8ness_and_warn(
@@ -1187,6 +1158,10 @@ int fflush_sync_and_check(FILE *f) {
         if (fsync(fileno(f)) < 0)
                 return -errno;
 
+        r = fsync_directory_of_file(fileno(f));
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -1448,8 +1423,7 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
         if (fd < 0)
                 return -errno;
 
-        *ret_path = tmp;
-        tmp = NULL;
+        *ret_path = TAKE_PTR(tmp);
 
         return fd;
 }
@@ -1535,8 +1509,7 @@ int read_nul_string(FILE *f, char **ret) {
                         return -ENOMEM;
         }
 
-        *ret = x;
-        x = NULL;
+        *ret = TAKE_PTR(x);
 
         return 0;
 }
@@ -1625,8 +1598,7 @@ int read_line(FILE *f, size_t limit, char **ret) {
         if (ret) {
                 buffer[n] = 0;
 
-                *ret = buffer;
-                buffer = NULL;
+                *ret = TAKE_PTR(buffer);
         }
 
         return (int) count;

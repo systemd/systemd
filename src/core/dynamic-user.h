@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2016 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 typedef struct DynamicUser DynamicUser;
@@ -48,6 +35,7 @@ int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds);
 void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds);
 void dynamic_user_vacuum(Manager *m, bool close_user);
 
+int dynamic_user_current(DynamicUser *d, uid_t *ret);
 int dynamic_user_lookup_uid(Manager *m, uid_t uid, char **ret);
 int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret);
 

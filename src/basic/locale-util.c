@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <dirent.h>
@@ -84,7 +71,7 @@ static int add_locales_from_archive(Set *locales) {
         _cleanup_close_ int fd = -1;
         size_t sz = 0;
         struct stat st;
-        unsigned i;
+        size_t i;
         int r;
 
         fd = open("/usr/lib/locale/locale-archive", O_RDONLY|O_NOCTTY|O_CLOEXEC);
@@ -196,8 +183,7 @@ int get_locales(char ***ret) {
 
         strv_sort(l);
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
 
         return 0;
 }
@@ -341,8 +327,7 @@ int get_keymaps(char ***ret) {
 
         strv_sort(l);
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
 
         return 0;
 }
@@ -369,6 +354,13 @@ bool keymap_is_valid(const char *name) {
 
 const char *special_glyph(SpecialGlyph code) {
 
+        /* A list of a number of interesting unicode glyphs we can use to decorate our output. It's probably wise to be
+         * conservative here, and primarily stick to the glyphs defined in the eurlatgr font, so that display still
+         * works reasonably well on the Linux console. For details see:
+         *
+         * http://git.altlinux.org/people/legion/packages/kbd.git?p=kbd.git;a=blob;f=data/consolefonts/README.eurlatgr
+         */
+
         static const char* const draw_table[2][_SPECIAL_GLYPH_MAX] = {
                 /* ASCII fallback */
                 [false] = {
@@ -380,10 +372,11 @@ const char *special_glyph(SpecialGlyph code) {
                         [BLACK_CIRCLE]       = "*",
                         [ARROW]              = "->",
                         [MDASH]              = "-",
+                        [ELLIPSIS]           = "..."
                 },
 
                 /* UTF-8 */
-                [ true ] = {
+                [true] = {
                         [TREE_VERTICAL]      = "\342\224\202 ",            /* │  */
                         [TREE_BRANCH]        = "\342\224\234\342\224\200", /* ├─ */
                         [TREE_RIGHT]         = "\342\224\224\342\224\200", /* └─ */
@@ -392,6 +385,7 @@ const char *special_glyph(SpecialGlyph code) {
                         [BLACK_CIRCLE]       = "\342\227\217",             /* ● */
                         [ARROW]              = "\342\206\222",             /* → */
                         [MDASH]              = "\342\200\223",             /* – */
+                        [ELLIPSIS]           = "\342\200\246",             /* … */
                 },
         };
 

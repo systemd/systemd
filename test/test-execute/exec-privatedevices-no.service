@@ -1,5 +1,5 @@
 [Unit]
-Description=Test for PrivateDev=no
+Description=Test for PrivateDevices=no
 
 [Service]
 ExecStart=/bin/sh -x -c 'test -c /dev/kmsg'

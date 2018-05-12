@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Ronny Chevalier
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <grp.h>
@@ -24,6 +11,7 @@
 #include <sys/prctl.h>
 #include <sys/types.h>
 
+#include "capability-util.h"
 #include "cpu-set-util.h"
 #include "errno-list.h"
 #include "fileio.h"
@@ -40,6 +28,7 @@
 #include "test-helper.h"
 #include "tests.h"
 #include "unit.h"
+#include "user-util.h"
 #include "util.h"
 #include "virt.h"
 
@@ -75,6 +64,51 @@ static void check(Manager *m, Unit *unit, int status_expected, int code_expected
         assert_se(service->main_exec_status.code == code_expected);
 }
 
+static bool check_nobody_user_and_group(void) {
+        static int cache = -1;
+        struct passwd *p;
+        struct group *g;
+
+        if (cache >= 0)
+                return !!cache;
+
+        if (!synthesize_nobody())
+                goto invalid;
+
+        p = getpwnam(NOBODY_USER_NAME);
+        if (!p ||
+            !streq(p->pw_name, NOBODY_USER_NAME) ||
+            p->pw_uid != UID_NOBODY ||
+            p->pw_gid != GID_NOBODY)
+                goto invalid;
+
+        p = getpwuid(UID_NOBODY);
+        if (!p ||
+            !streq(p->pw_name, NOBODY_USER_NAME) ||
+            p->pw_uid != UID_NOBODY ||
+            p->pw_gid != GID_NOBODY)
+                goto invalid;
+
+        g = getgrnam(NOBODY_GROUP_NAME);
+        if (!g ||
+            !streq(g->gr_name, NOBODY_GROUP_NAME) ||
+            g->gr_gid != GID_NOBODY)
+                goto invalid;
+
+        g = getgrgid(GID_NOBODY);
+        if (!g ||
+            !streq(g->gr_name, NOBODY_GROUP_NAME) ||
+            g->gr_gid != GID_NOBODY)
+                goto invalid;
+
+        cache = 1;
+        return true;
+
+invalid:
+        cache = 0;
+        return false;
+}
+
 static bool is_inaccessible_available(void) {
         char *p;
 
@@ -98,7 +132,7 @@ static void test(Manager *m, const char *unit_name, int status_expected, int cod
 
         assert_se(unit_name);
 
-        assert_se(manager_load_unit(m, unit_name, NULL, NULL, &unit) >= 0);
+        assert_se(manager_load_startable_unit_or_warn(m, unit_name, NULL, &unit) >= 0);
         assert_se(UNIT_VTABLE(unit)->start(unit) >= 0);
         check(m, unit, status_expected, code_expected);
 }
@@ -197,12 +231,13 @@ static void test_exec_privatedevices(Manager *m) {
 
         test(m, "exec-privatedevices-yes.service", 0, CLD_EXITED);
         test(m, "exec-privatedevices-no.service", 0, CLD_EXITED);
+        test(m, "exec-privatedevices-disabled-by-prefix.service", 0, CLD_EXITED);
 
         /* We use capsh to test if the capabilities are
          * properly set, so be sure that it exists */
         r = find_binary("capsh", NULL);
         if (r < 0) {
-                log_error_errno(r, "Could not find capsh binary, skipping remaining tests in %s: %m", __func__);
+                log_notice_errno(r, "Could not find capsh binary, skipping remaining tests in %s: %m", __func__);
                 return;
         }
 
@@ -226,7 +261,7 @@ static void test_exec_protectkernelmodules(Manager *m) {
 
         r = find_binary("capsh", NULL);
         if (r < 0) {
-                log_error_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
+                log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
                 return;
         }
 
@@ -274,6 +309,14 @@ static void test_exec_inaccessiblepaths(Manager *m) {
         }
 
         test(m, "exec-inaccessiblepaths-mount-propagation.service", 0, CLD_EXITED);
+}
+
+static void test_exec_temporaryfilesystem(Manager *m) {
+
+        test(m, "exec-temporaryfilesystem-options.service", 0, CLD_EXITED);
+        test(m, "exec-temporaryfilesystem-ro.service", 0, CLD_EXITED);
+        test(m, "exec-temporaryfilesystem-rw.service", 0, CLD_EXITED);
+        test(m, "exec-temporaryfilesystem-usr.service", 0, CLD_EXITED);
 }
 
 static void test_exec_systemcallfilter(Manager *m) {
@@ -324,33 +367,53 @@ static void test_exec_systemcallfilter_system(Manager *m) {
                 log_notice("Seccomp not available, skipping %s", __func__);
                 return;
         }
-        if (getpwnam("nobody"))
-                test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
-        else if (getpwnam("nfsnobody"))
-                test(m, "exec-systemcallfilter-system-user-nfsnobody.service", 0, CLD_EXITED);
-        else
-                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody user: %m", __func__);
+
+        test(m, "exec-systemcallfilter-system-user.service", 0, CLD_EXITED);
+
+        if (!check_nobody_user_and_group()) {
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                return;
+        }
+
+        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                return;
+        }
+
+        test(m, "exec-systemcallfilter-system-user-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
 #endif
 }
 
 static void test_exec_user(Manager *m) {
-        if (getpwnam("nobody"))
-                test(m, "exec-user.service", 0, CLD_EXITED);
-        else if (getpwnam("nfsnobody"))
-                test(m, "exec-user-nfsnobody.service", 0, CLD_EXITED);
-        else
-                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody user: %m", __func__);
+        test(m, "exec-user.service", 0, CLD_EXITED);
+
+        if (!check_nobody_user_and_group()) {
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                return;
+        }
+
+        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                return;
+        }
+
+        test(m, "exec-user-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
 }
 
 static void test_exec_group(Manager *m) {
-        if (getgrnam("nobody"))
-                test(m, "exec-group.service", 0, CLD_EXITED);
-        else if (getgrnam("nfsnobody"))
-                test(m, "exec-group-nfsnobody.service", 0, CLD_EXITED);
-        else if (getgrnam("nogroup"))
-                test(m, "exec-group-nogroup.service", 0, CLD_EXITED);
-        else
-                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody/nogroup group: %m", __func__);
+        test(m, "exec-group.service", 0, CLD_EXITED);
+
+        if (!check_nobody_user_and_group()) {
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                return;
+        }
+
+        if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
+                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
+                return;
+        }
+
+        test(m, "exec-group-" NOBODY_GROUP_NAME ".service", 0, CLD_EXITED);
 }
 
 static void test_exec_supplementarygroups(Manager *m) {
@@ -368,8 +431,14 @@ static void test_exec_dynamicuser(Manager *m) {
         test(m, "exec-dynamicuser-supplementarygroups.service", 0, CLD_EXITED);
         test(m, "exec-dynamicuser-statedir.service", 0, CLD_EXITED);
 
+        (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
+        (void) rm_rf("/var/lib/private/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
+
         test(m, "exec-dynamicuser-statedir-migrate-step1.service", 0, CLD_EXITED);
         test(m, "exec-dynamicuser-statedir-migrate-step2.service", 0, CLD_EXITED);
+
         (void) rm_rf("/var/lib/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/var/lib/test-dynamicuser-migrate2", REMOVE_ROOT|REMOVE_PHYSICAL);
         (void) rm_rf("/var/lib/private/test-dynamicuser-migrate", REMOVE_ROOT|REMOVE_PHYSICAL);
@@ -391,7 +460,9 @@ static void test_exec_environmentfile(Manager *m) {
                 "; comment2\n"
                 " ; # comment3\n"
                 "line without an equal\n"
-                "VAR3='$word 5 6'\n";
+                "VAR3='$word 5 6'\n"
+                "VAR4='new\nline'\n"
+                "VAR5=password\\with\\backslashes";
         int r;
 
         r = write_string_file("/tmp/test-exec_environmentfile.conf", e, WRITE_STRING_FILE_CREATE);
@@ -417,12 +488,16 @@ static void test_exec_passenvironment(Manager *m) {
         assert_se(setenv("VAR1", "word1 word2", 1) == 0);
         assert_se(setenv("VAR2", "word3", 1) == 0);
         assert_se(setenv("VAR3", "$word 5 6", 1) == 0);
+        assert_se(setenv("VAR4", "new\nline", 1) == 0);
+        assert_se(setenv("VAR5", "passwordwithbackslashes", 1) == 0);
         test(m, "exec-passenvironment.service", 0, CLD_EXITED);
         test(m, "exec-passenvironment-repeated.service", 0, CLD_EXITED);
         test(m, "exec-passenvironment-empty.service", 0, CLD_EXITED);
         assert_se(unsetenv("VAR1") == 0);
         assert_se(unsetenv("VAR2") == 0);
         assert_se(unsetenv("VAR3") == 0);
+        assert_se(unsetenv("VAR4") == 0);
+        assert_se(unsetenv("VAR5") == 0);
         test(m, "exec-passenvironment-absent.service", 0, CLD_EXITED);
 }
 
@@ -434,12 +509,19 @@ static void test_exec_umask(Manager *m) {
 static void test_exec_runtimedirectory(Manager *m) {
         test(m, "exec-runtimedirectory.service", 0, CLD_EXITED);
         test(m, "exec-runtimedirectory-mode.service", 0, CLD_EXITED);
-        if (getgrnam("nobody"))
-                test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
-        else if (getgrnam("nfsnobody"))
-                test(m, "exec-runtimedirectory-owner-nfsnobody.service", 0, CLD_EXITED);
-        else
-                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody group: %m", __func__);
+        test(m, "exec-runtimedirectory-owner.service", 0, CLD_EXITED);
+
+        if (!check_nobody_user_and_group()) {
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                return;
+        }
+
+        if (!STR_IN_SET(NOBODY_GROUP_NAME, "nobody", "nfsnobody", "nogroup")) {
+                log_notice("Unsupported nobody group name '%s', skipping remaining tests in %s", NOBODY_GROUP_NAME, __func__);
+                return;
+        }
+
+        test(m, "exec-runtimedirectory-owner-" NOBODY_GROUP_NAME ".service", 0, CLD_EXITED);
 }
 
 static void test_exec_capabilityboundingset(Manager *m) {
@@ -447,7 +529,14 @@ static void test_exec_capabilityboundingset(Manager *m) {
 
         r = find_binary("capsh", NULL);
         if (r < 0) {
-                log_error_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
+                log_notice_errno(r, "Skipping %s, could not find capsh binary: %m", __func__);
+                return;
+        }
+
+        if (have_effective_cap(CAP_CHOWN) <= 0 ||
+            have_effective_cap(CAP_FOWNER) <= 0 ||
+            have_effective_cap(CAP_KILL) <= 0) {
+                log_notice("Skipping %s, this process does not have enough capabilities", __func__);
                 return;
         }
 
@@ -457,7 +546,11 @@ static void test_exec_capabilityboundingset(Manager *m) {
         test(m, "exec-capabilityboundingset-invert.service", 0, CLD_EXITED);
 }
 
-static void test_exec_capabilityambientset(Manager *m) {
+static void test_exec_basic(Manager *m) {
+        test(m, "exec-basic.service", 0, CLD_EXITED);
+}
+
+static void test_exec_ambientcapabilities(Manager *m) {
         int r;
 
         /* Check if the kernel has support for ambient capabilities. Run
@@ -466,18 +559,31 @@ static void test_exec_capabilityambientset(Manager *m) {
          * in the first place for the tests. */
         r = prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0);
         if (r < 0 && IN_SET(errno, EINVAL, EOPNOTSUPP, ENOSYS)) {
-                log_error("Skipping %s, the kernel does not support ambient capabilities", __func__);
+                log_notice("Skipping %s, the kernel does not support ambient capabilities", __func__);
                 return;
         }
 
-        if (getpwnam("nobody")) {
-                test(m, "exec-capabilityambientset.service", 0, CLD_EXITED);
-                test(m, "exec-capabilityambientset-merge.service", 0, CLD_EXITED);
-        } else if (getpwnam("nfsnobody")) {
-                test(m, "exec-capabilityambientset-nfsnobody.service", 0, CLD_EXITED);
-                test(m, "exec-capabilityambientset-merge-nfsnobody.service", 0, CLD_EXITED);
-        } else
-                log_error_errno(errno, "Skipping %s, could not find nobody/nfsnobody user: %m", __func__);
+        if (have_effective_cap(CAP_CHOWN) <= 0 ||
+            have_effective_cap(CAP_NET_RAW) <= 0) {
+                log_notice("Skipping %s, this process does not have enough capabilities", __func__);
+                return;
+        }
+
+        test(m, "exec-ambientcapabilities.service", 0, CLD_EXITED);
+        test(m, "exec-ambientcapabilities-merge.service", 0, CLD_EXITED);
+
+        if (!check_nobody_user_and_group()) {
+                log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
+                return;
+        }
+
+        if (!STR_IN_SET(NOBODY_USER_NAME, "nobody", "nfsnobody")) {
+                log_notice("Unsupported nobody user name '%s', skipping remaining tests in %s", NOBODY_USER_NAME, __func__);
+                return;
+        }
+
+        test(m, "exec-ambientcapabilities-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
+        test(m, "exec-ambientcapabilities-merge-" NOBODY_USER_NAME ".service", 0, CLD_EXITED);
 }
 
 static void test_exec_privatenetwork(Manager *m) {
@@ -485,7 +591,7 @@ static void test_exec_privatenetwork(Manager *m) {
 
         r = find_binary("ip", NULL);
         if (r < 0) {
-                log_error_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
+                log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
                 return;
         }
 
@@ -521,12 +627,12 @@ static void test_exec_standardinput(Manager *m) {
 
 static int run_tests(UnitFileScope scope, const test_function_t *tests) {
         const test_function_t *test = NULL;
-        Manager *m = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
         assert_se(tests);
 
-        r = manager_new(scope, MANAGER_TEST_RUN_MINIMAL, &m);
+        r = manager_new(scope, MANAGER_TEST_RUN_BASIC, &m);
         if (MANAGER_SKIP_TEST(r)) {
                 log_notice_errno(r, "Skipping test: manager_new: %m");
                 return EXIT_TEST_SKIP;
@@ -537,15 +643,15 @@ static int run_tests(UnitFileScope scope, const test_function_t *tests) {
         for (test = tests; test && *test; test++)
                 (*test)(m);
 
-        manager_free(m);
-
         return 0;
 }
 
 int main(int argc, char *argv[]) {
+        _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         static const test_function_t user_tests[] = {
+                test_exec_basic,
+                test_exec_ambientcapabilities,
                 test_exec_bindpaths,
-                test_exec_capabilityambientset,
                 test_exec_capabilityboundingset,
                 test_exec_cpuaffinity,
                 test_exec_environment,
@@ -569,6 +675,7 @@ int main(int argc, char *argv[]) {
                 test_exec_supplementarygroups,
                 test_exec_systemcallerrornumber,
                 test_exec_systemcallfilter,
+                test_exec_temporaryfilesystem,
                 test_exec_umask,
                 test_exec_unsetenvironment,
                 test_exec_user,
@@ -589,6 +696,7 @@ int main(int argc, char *argv[]) {
 
         (void) unsetenv("USER");
         (void) unsetenv("LOGNAME");
+        (void) unsetenv("SHELL");
 
         /* It is needed otherwise cgroup creation fails */
         if (getuid() != 0) {
@@ -602,7 +710,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_TEST_SKIP;
         }
 
-        assert_se(setenv("XDG_RUNTIME_DIR", "/tmp/", 1) == 0);
+        assert_se(runtime_dir = setup_fake_runtime_dir());
         assert_se(set_unit_path(get_testdata_dir("/test-execute")) >= 0);
 
         /* Unset VAR1, VAR2 and VAR3 which are used in the PassEnvironment test

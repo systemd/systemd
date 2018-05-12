@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -162,7 +149,7 @@ static void show_cg_info(const char *controller, const char *path) {
         if (cg_all_unified() == 0 && controller && !streq(controller, SYSTEMD_CGROUP_CONTROLLER))
                 printf("Controller %s; ", controller);
 
-        printf("Control group %s:\n", isempty(path) ? "/" : path);
+        printf("Control group %s:\n", empty_to_root(path));
         fflush(stdout);
 }
 
@@ -176,11 +163,9 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 goto finish;
 
-        if (!arg_no_pager) {
-                r = pager_open(arg_no_pager, false);
-                if (r > 0 && arg_full < 0)
-                        arg_full = true;
-        }
+        r = pager_open(arg_no_pager, false);
+        if (r > 0 && arg_full < 0)
+                arg_full = true;
 
         output_flags =
                 arg_all * OUTPUT_SHOW_ALL |

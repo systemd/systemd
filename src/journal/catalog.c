@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -461,7 +448,7 @@ error:
 int catalog_update(const char* database, const char* root, const char* const* dirs) {
         _cleanup_strv_free_ char **files = NULL;
         char **f;
-        struct strbuf *sb = NULL;
+        _cleanup_(strbuf_cleanupp) struct strbuf *sb = NULL;
         _cleanup_hashmap_free_free_free_ Hashmap *h = NULL;
         _cleanup_free_ CatalogItem *items = NULL;
         ssize_t offset;
@@ -474,38 +461,29 @@ int catalog_update(const char* database, const char* root, const char* const* di
 
         h = hashmap_new(&catalog_hash_ops);
         sb = strbuf_new();
-
-        if (!h || !sb) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!h || !sb)
+                return log_oom();
 
         r = conf_files_list_strv(&files, ".catalog", root, 0, dirs);
-        if (r < 0) {
-                log_error_errno(r, "Failed to get catalog files: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get catalog files: %m");
 
         STRV_FOREACH(f, files) {
                 log_debug("Reading file '%s'", *f);
                 r = catalog_import_file(h, *f);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to import file '%s': %m", *f);
-                        goto finish;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to import file '%s': %m", *f);
         }
 
         if (hashmap_size(h) <= 0) {
                 log_info("No items in catalog.");
-                goto finish;
+                return 0;
         } else
                 log_debug("Found %u items in catalog.", hashmap_size(h));
 
         items = new(CatalogItem, hashmap_size(h));
-        if (!items) {
-                r = log_oom();
-                goto finish;
-        }
+        if (!items)
+                return log_oom();
 
         n = 0;
         HASHMAP_FOREACH_KEY(payload, i, h, j) {
@@ -514,10 +492,9 @@ int catalog_update(const char* database, const char* root, const char* const* di
                           isempty(i->language) ? "C" : i->language);
 
                 offset = strbuf_add_string(sb, payload, strlen(payload));
-                if (offset < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
+                if (offset < 0)
+                        return log_oom();
+
                 i->offset = htole64((uint64_t) offset);
                 items[n++] = *i;
         }
@@ -529,17 +506,11 @@ int catalog_update(const char* database, const char* root, const char* const* di
 
         sz = write_catalog(database, sb, items, n);
         if (sz < 0)
-                r = log_error_errno(sz, "Failed to write %s: %m", database);
-        else {
-                r = 0;
-                log_debug("%s: wrote %u items, with %zu bytes of strings, %"PRIi64" total size.",
-                          database, n, sb->len, sz);
-        }
+                return log_error_errno(sz, "Failed to write %s: %m", database);
 
-finish:
-        strbuf_cleanup(sb);
-
-        return r;
+        log_debug("%s: wrote %u items, with %zu bytes of strings, %"PRIi64" total size.",
+                  database, n, sb->len, sz);
+        return 0;
 }
 
 static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p) {
@@ -592,12 +563,9 @@ static int open_mmap(const char *database, int *_fd, struct stat *_st, void **_p
 }
 
 static const char *find_id(void *p, sd_id128_t id) {
-        CatalogItem key, *f = NULL;
+        CatalogItem *f = NULL, key = { .id = id };
         const CatalogHeader *h = p;
         const char *loc;
-
-        zero(key);
-        key.id = id;
 
         loc = setlocale(LC_MESSAGES, NULL);
         if (loc && loc[0] && !streq(loc, "C") && !streq(loc, "POSIX")) {
@@ -696,7 +664,6 @@ static void dump_catalog_entry(FILE *f, sd_id128_t id, const char *s, bool oneli
                 fprintf(f, "-- " SD_ID128_FORMAT_STR "\n%s\n",
                         SD_ID128_FORMAT_VAL(id), s);
 }
-
 
 int catalog_list(FILE *f, const char *database, bool oneline) {
         _cleanup_close_ int fd = -1;

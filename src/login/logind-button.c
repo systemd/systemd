@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -110,9 +97,13 @@ static void button_lid_switch_handle_action(Manager *manager, bool is_edge) {
 
         assert(manager);
 
-        /* If we are docked, handle the lid switch differently */
+        /* If we are docked or on external power, handle the lid switch
+         * differently */
         if (manager_is_docked_or_external_displays(manager))
                 handle_action = manager->handle_lid_switch_docked;
+        else if (manager->handle_lid_switch_ep != _HANDLE_ACTION_INVALID &&
+                 manager_is_on_external_power())
+                handle_action = manager->handle_lid_switch_ep;
         else
                 handle_action = manager->handle_lid_switch;
 

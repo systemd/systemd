@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "alloc-util.h"
@@ -30,6 +17,8 @@
 #include "resolved-link-bus.h"
 #include "user-util.h"
 #include "utf8.h"
+
+BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_resolve_support, resolve_support, ResolveSupport);
 
 static int reply_query_state(DnsQuery *q) {
 
@@ -1230,7 +1219,13 @@ int bus_dns_server_append(sd_bus_message *reply, DnsServer *s, bool with_ifindex
         int r;
 
         assert(reply);
-        assert(s);
+
+        if (!s) {
+                if (with_ifindex)
+                        return sd_bus_message_append(reply, "(iiay)", 0, AF_UNSPEC, 0);
+                else
+                        return sd_bus_message_append(reply, "(iay)", AF_UNSPEC, 0);
+        }
 
         r = sd_bus_message_open_container(reply, 'r', with_ifindex ? "iiay" : "iay");
         if (r < 0)
@@ -1302,6 +1297,25 @@ static int bus_property_get_dns_servers(
         }
 
         return sd_bus_message_close_container(reply);
+}
+
+static int bus_property_get_current_dns_server(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        DnsServer *s;
+
+        assert(reply);
+        assert(userdata);
+
+        s = *(DnsServer **) userdata;
+
+        return bus_dns_server_append(reply, s, true);
 }
 
 static int bus_property_get_domains(
@@ -1423,6 +1437,23 @@ static int bus_property_get_dnssec_supported(
         assert(m);
 
         return sd_bus_message_append(reply, "b", manager_dnssec_supported(m));
+}
+
+static int bus_property_get_dnssec_mode(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+
+        assert(reply);
+        assert(m);
+
+        return sd_bus_message_append(reply, "s", dnssec_mode_to_string(manager_get_dnssec_mode(m)));
 }
 
 static int bus_property_get_ntas(
@@ -1814,10 +1845,14 @@ static int bus_method_unregister_service(sd_bus_message *message, void *userdata
 static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
+        SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Manager, llmnr_support), 0),
+        SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Manager, mdns_support), 0),
         SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, 0),
+        SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(isb)", bus_property_get_domains, 0, 0),
         SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),
         SD_BUS_PROPERTY("CacheStatistics", "(ttt)", bus_property_get_cache_statistics, 0, 0),
+        SD_BUS_PROPERTY("DNSSEC", "s", bus_property_get_dnssec_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSECStatistics", "(tttt)", bus_property_get_dnssec_statistics, 0, 0),
         SD_BUS_PROPERTY("DNSSECSupported", "b", bus_property_get_dnssec_supported, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", bus_property_get_ntas, 0, 0),
@@ -1874,7 +1909,7 @@ int manager_connect_bus(Manager *m) {
         if (m->bus)
                 return 0;
 
-        r = bus_open_system_watch_bind(&m->bus);
+        r = bus_open_system_watch_bind_with_description(&m->bus, "bus-api-resolve");
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 

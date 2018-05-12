@@ -1,0 +1,2 @@
+user1:x:300:300::/:/sbin/nologin
+user2:x:SYSTEM_UID_MAX:300::/:/sbin/nologin

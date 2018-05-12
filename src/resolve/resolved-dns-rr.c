@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <math.h>
@@ -560,8 +547,7 @@ int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const u
         if (!rr->ptr.name)
                 return -ENOMEM;
 
-        *ret = rr;
-        rr = NULL;
+        *ret = TAKE_PTR(rr);
 
         return 0;
 }
@@ -1246,7 +1232,6 @@ ssize_t dns_resource_record_payload(DnsResourceRecord *rr, void **out) {
                 *out = rr->tlsa.data;
                 return rr->tlsa.data_size;
 
-
         case DNS_TYPE_OPENPGPKEY:
         default:
                 *out = rr->generic.data;
@@ -1734,8 +1719,7 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                 break;
         }
 
-        t = copy;
-        copy = NULL;
+        t = TAKE_PTR(copy);
 
         return t;
 }

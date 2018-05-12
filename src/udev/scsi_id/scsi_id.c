@@ -259,9 +259,8 @@ static int get_file_options(struct udev *udev,
                         if (vendor_in == NULL)
                                 break;
                 } else if (vendor_in &&
-                           strneq(vendor, vendor_in, strlen(vendor_in)) &&
-                           (!model_in ||
-                            (strneq(model, model_in, strlen(model_in))))) {
+                           startswith(vendor, vendor_in) &&
+                           (!model_in || startswith(model, model_in))) {
                                 /*
                                  * Matched vendor and optionally model.
                                  *
@@ -570,9 +569,8 @@ out:
         return retval;
 }
 
-int main(int argc, char **argv)
-{
-        _cleanup_udev_unref_ struct udev *udev;
+int main(int argc, char **argv) {
+        _cleanup_(udev_unrefp) struct udev *udev;
         int retval = 0;
         char maj_min_dev[MAX_PATH_LEN];
         int newargc;

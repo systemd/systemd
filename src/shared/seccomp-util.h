@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <seccomp.h>
@@ -81,22 +68,19 @@ int seccomp_add_syscall_filter_item(scmp_filter_ctx *ctx, const char *name, uint
 int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action);
 int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, uint32_t action);
 
-int seccomp_parse_syscall_filter_internal(
-                bool invert, const char *name, int errno_num, Hashmap *filter, bool whitelist,
-                bool warn, const char *unit, const char *filename, unsigned line);
+typedef enum SeccompParseFlags {
+        SECCOMP_PARSE_INVERT     = 1U << 0,
+        SECCOMP_PARSE_WHITELIST  = 1U << 1,
+        SECCOMP_PARSE_LOG        = 1U << 2,
+        SECCOMP_PARSE_PERMISSIVE = 1U << 3,
+} SeccompParseFlags;
 
-static inline int seccomp_parse_syscall_filter_and_warn(
-                bool invert, const char *name, int errno_num, Hashmap *filter, bool whitelist,
-                const char *unit, const char *filename, unsigned line) {
-        assert(unit);
-        assert(filename);
+int seccomp_parse_syscall_filter_full(
+                const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags,
+                const char *unit, const char *filename, unsigned line);
 
-        return seccomp_parse_syscall_filter_internal(invert, name, errno_num, filter, whitelist, true, unit, filename, line);
-}
-
-static inline int seccomp_parse_syscall_filter(
-                bool invert, const char *name, int errno_num, Hashmap *filter, bool whitelist) {
-        return seccomp_parse_syscall_filter_internal(invert, name, errno_num, filter, whitelist, false, NULL, NULL, 0);
+static inline int seccomp_parse_syscall_filter(const char *name, int errno_num, Hashmap *filter, SeccompParseFlags flags) {
+        return seccomp_parse_syscall_filter_full(name, errno_num, filter, flags, NULL, NULL, 0);
 }
 
 int seccomp_restrict_archs(Set *archs);

@@ -44,7 +44,7 @@ static void print_help(void) {
 }
 
 static int adm_control(struct udev *udev, int argc, char *argv[]) {
-        _cleanup_udev_ctrl_unref_ struct udev_ctrl *uctrl = NULL;
+        _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *uctrl = NULL;
         int timeout = 60;
         int rc = 1, c;
 
@@ -137,18 +137,17 @@ static int adm_control(struct udev *udev, int argc, char *argv[]) {
                         break;
                 }
                 case 't': {
+                        int r, seconds;
                         usec_t s;
-                        int seconds;
-                        int r;
 
                         r = parse_sec(optarg, &s);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse timeout value '%s'.", optarg);
 
-                        if (((s + USEC_PER_SEC - 1) / USEC_PER_SEC) > INT_MAX)
+                        if (DIV_ROUND_UP(s, USEC_PER_SEC) > INT_MAX)
                                 log_error("Timeout value is out of range.");
                         else {
-                                seconds = s != USEC_INFINITY ? (int) ((s + USEC_PER_SEC - 1) / USEC_PER_SEC) : INT_MAX;
+                                seconds = s != USEC_INFINITY ? (int) DIV_ROUND_UP(s, USEC_PER_SEC) : INT_MAX;
                                 timeout = seconds;
                                 rc = 0;
                         }

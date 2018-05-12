@@ -1,21 +1,8 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-shared_sources = '''
+shared_sources = files('''
         acl-util.h
         acpi-fpdt.c
         acpi-fpdt.h
@@ -82,8 +69,6 @@ shared_sources = '''
         nsflags.h
         output-mode.c
         output-mode.h
-        pager.c
-        pager.h
         path-lookup.c
         path-lookup.h
         ptyfwd.c
@@ -119,25 +104,25 @@ shared_sources = '''
         watchdog.c
         watchdog.h
         wireguard-netlink.h
-'''.split()
+'''.split())
 
 test_tables_h = files('test-tables.h')
 shared_sources += [test_tables_h]
 
 if conf.get('HAVE_ACL') == 1
-        shared_sources += ['acl-util.c']
+        shared_sources += files('acl-util.c')
 endif
 
 if conf.get('ENABLE_UTMP') == 1
-        shared_sources += ['utmp-wtmp.c']
+        shared_sources += files('utmp-wtmp.c')
 endif
 
 if conf.get('HAVE_SECCOMP') == 1
-        shared_sources += ['seccomp-util.c']
+        shared_sources += files('seccomp-util.c')
 endif
 
 if conf.get('HAVE_LIBIPTC') == 1
-        shared_sources += ['firewall-util.c']
+        shared_sources += files('firewall-util.c')
 endif
 
 libshared_name = 'systemd-shared-@0@'.format(meson.project_version())

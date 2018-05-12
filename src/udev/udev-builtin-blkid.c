@@ -35,6 +35,7 @@
 #include "efivars.h"
 #include "fd-util.h"
 #include "gpt.h"
+#include "parse-util.h"
 #include "string-util.h"
 #include "udev.h"
 
@@ -227,7 +228,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         int64_t offset = 0;
         bool noraid = false;
         _cleanup_close_ int fd = -1;
-        _cleanup_blkid_free_probe_ blkid_probe pr = NULL;
+        _cleanup_(blkid_free_probep) blkid_probe pr = NULL;
         const char *data;
         const char *name;
         int nvals;
@@ -236,7 +237,7 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         bool is_gpt = false;
 
         static const struct option options[] = {
-                { "offset", optional_argument, NULL, 'o' },
+                { "offset", required_argument, NULL, 'o' },
                 { "noraid", no_argument, NULL, 'R' },
                 {}
         };
@@ -244,13 +245,19 @@ static int builtin_blkid(struct udev_device *dev, int argc, char *argv[], bool t
         for (;;) {
                 int option;
 
-                option = getopt_long(argc, argv, "oR", options, NULL);
+                option = getopt_long(argc, argv, "o:R", options, NULL);
                 if (option == -1)
                         break;
 
                 switch (option) {
                 case 'o':
-                        offset = strtoull(optarg, NULL, 0);
+                        err = safe_atoi64(optarg, &offset);
+                        if (err < 0)
+                                goto out;
+                        if (offset < 0) {
+                                err = -ERANGE;
+                                goto out;
+                        }
                         break;
                 case 'R':
                         noraid = true;

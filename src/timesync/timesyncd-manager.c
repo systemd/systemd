@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Kay Sievers, Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -41,7 +28,6 @@
 #include "network-util.h"
 #include "ratelimit.h"
 #include "socket-util.h"
-#include "sparse-endian.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -63,58 +49,17 @@
  */
 #define NTP_MAX_ADJUST                  0.4
 
-/* NTP protocol, packet header */
-#define NTP_LEAP_PLUSSEC                1
-#define NTP_LEAP_MINUSSEC               2
-#define NTP_LEAP_NOTINSYNC              3
-#define NTP_MODE_CLIENT                 3
-#define NTP_MODE_SERVER                 4
-#define NTP_FIELD_LEAP(f)               (((f) >> 6) & 3)
-#define NTP_FIELD_VERSION(f)            (((f) >> 3) & 7)
-#define NTP_FIELD_MODE(f)               ((f) & 7)
-#define NTP_FIELD(l, v, m)              (((l) << 6) | ((v) << 3) | (m))
-
 /* Default of maximum acceptable root distance in microseconds. */
 #define NTP_MAX_ROOT_DISTANCE           (5 * USEC_PER_SEC)
 
 /* Maximum number of missed replies before selecting another source. */
 #define NTP_MAX_MISSED_REPLIES          2
 
-/*
- * "NTP timestamps are represented as a 64-bit unsigned fixed-point number,
- * in seconds relative to 0h on 1 January 1900."
- */
-#define OFFSET_1900_1970        UINT64_C(2208988800)
-
 #define RETRY_USEC (30*USEC_PER_SEC)
 #define RATELIMIT_INTERVAL_USEC (10*USEC_PER_SEC)
 #define RATELIMIT_BURST 10
 
 #define TIMEOUT_USEC (10*USEC_PER_SEC)
-
-struct ntp_ts {
-        be32_t sec;
-        be32_t frac;
-} _packed_;
-
-struct ntp_ts_short {
-        be16_t sec;
-        be16_t frac;
-} _packed_;
-
-struct ntp_msg {
-        uint8_t field;
-        uint8_t stratum;
-        int8_t poll;
-        int8_t precision;
-        struct ntp_ts_short root_delay;
-        struct ntp_ts_short root_dispersion;
-        char refid[4];
-        struct ntp_ts reference_time;
-        struct ntp_ts origin_time;
-        struct ntp_ts recv_time;
-        struct ntp_ts trans_time;
-} _packed_;
 
 static int manager_arm_timer(Manager *m, usec_t next);
 static int manager_clock_watch_setup(Manager *m);
@@ -368,19 +313,20 @@ static int manager_adjust_clock(Manager *m, double offset, int leap_sec) {
 
         /* If touch fails, there isn't much we can do. Maybe it'll work next time. */
         (void) touch("/var/lib/systemd/timesync/clock");
+        (void) touch("/run/systemd/timesync/synchronized");
 
-        m->drift_ppm = tmx.freq / 65536;
+        m->drift_freq = tmx.freq;
 
         log_debug("  status       : %04i %s\n"
                   "  time now     : %"PRI_TIME".%03"PRI_USEC"\n"
                   "  constant     : %"PRI_TIMEX"\n"
                   "  offset       : %+.3f sec\n"
-                  "  freq offset  : %+"PRI_TIMEX" (%i ppm)\n",
+                  "  freq offset  : %+"PRI_TIMEX" (%+"PRI_TIMEX" ppm)\n",
                   tmx.status, tmx.status & STA_UNSYNC ? "unsync" : "sync",
                   tmx.time.tv_sec, tmx.time.tv_usec / NSEC_PER_MSEC,
                   tmx.constant,
                   (double)tmx.offset / NSEC_PER_SEC,
-                  tmx.freq, m->drift_ppm);
+                  tmx.freq, tmx.freq / 65536);
 
         return 0;
 }
@@ -488,7 +434,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 .msg_namelen = sizeof(server_addr),
         };
         struct cmsghdr *cmsg;
-        struct timespec *recv_time;
+        struct timespec *recv_time = NULL;
         ssize_t len;
         double origin, receive, trans, dest;
         double delay, offset;
@@ -527,7 +473,6 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 return 0;
         }
 
-        recv_time = NULL;
         CMSG_FOREACH(cmsg, &msghdr) {
                 if (cmsg->cmsg_level != SOL_SOCKET)
                         continue;
@@ -665,9 +610,17 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_error_errno(r, "Failed to call clock_adjtime(): %m");
         }
 
-        log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+ippm%s",
-                  m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_ppm,
+        /* Save NTP response */
+        m->ntpmsg = ntpmsg;
+        m->origin_time = m->trans_time;
+        m->dest_time = *recv_time;
+        m->spike = spike;
+
+        log_debug("interval/delta/delay/jitter/drift " USEC_FMT "s/%+.3fs/%.3fs/%.3fs/%+"PRI_TIMEX"ppm%s",
+                  m->poll_interval_usec / USEC_PER_SEC, offset, delay, m->samples_jitter, m->drift_freq / 65536,
                   spike ? " (ignored)" : "");
+
+        (void) sd_bus_emit_properties_changed(m->bus, "/org/freedesktop/timesync1", "org.freedesktop.timesync1.Manager", "NTPMessage", NULL);
 
         if (!m->good) {
                 _cleanup_free_ char *pretty = NULL;
@@ -999,6 +952,8 @@ void manager_free(Manager *m) {
         sd_resolve_unref(m->resolve);
         sd_event_unref(m->event);
 
+        sd_bus_unref(m->bus);
+
         free(m);
 }
 
@@ -1006,6 +961,7 @@ static int manager_network_read_link_servers(Manager *m) {
         _cleanup_strv_free_ char **ntp = NULL;
         ServerName *n, *nx;
         char **i;
+        bool changed = false;
         int r;
 
         assert(m);
@@ -1031,42 +987,52 @@ static int manager_network_read_link_servers(Manager *m) {
                         r = server_name_new(m, NULL, SERVER_LINK, *i);
                         if (r < 0)
                                 goto clear;
+
+                        changed = true;
                 }
         }
 
         LIST_FOREACH_SAFE(names, n, nx, m->link_servers)
-                if (n->marked)
+                if (n->marked) {
                         server_name_free(n);
+                        changed = true;
+                }
 
-        return 0;
+        return changed;
 
 clear:
         manager_flush_server_names(m, SERVER_LINK);
         return r;
 }
 
+static bool manager_is_connected(Manager *m) {
+        /* Return true when the manager is sending a request, resolving a server name, or
+         * in a poll interval. */
+        return m->server_socket >= 0 || m->resolve_query || m->event_timer;
+}
+
 static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *m = userdata;
-        bool connected, online;
+        bool changed, connected, online;
         int r;
 
         assert(m);
 
         sd_network_monitor_flush(m->network_monitor);
 
-        manager_network_read_link_servers(m);
+        changed = !!manager_network_read_link_servers(m);
 
         /* check if the machine is online */
         online = network_is_online();
 
         /* check if the client is currently connected */
-        connected = m->server_socket >= 0 || m->resolve_query || m->exhausted_servers;
+        connected = manager_is_connected(m);
 
         if (connected && !online) {
                 log_info("No network connectivity, watching for changes.");
                 manager_disconnect(m);
 
-        } else if (!connected && online) {
+        } else if ((!connected || changed) && online) {
                 log_info("Network configuration changed, trying to establish connection.");
 
                 if (m->current_server_address)
@@ -1149,8 +1115,7 @@ int manager_new(Manager **ret) {
 
         manager_network_read_link_servers(m);
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <net/if.h>
@@ -238,7 +225,7 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_netlink_message_h
         assert(link);
         assert(callback);
 
-        if (link->flags & IFF_UP) {
+        if (link->flags & IFF_UP && netdev->kind == NETDEV_KIND_BOND) {
                 log_netdev_debug(netdev, "Link '%s' was up when attempting to enslave it. Bringing link down.", link->ifname);
                 r = link_down(link);
                 if (r < 0)
@@ -298,7 +285,7 @@ static int netdev_enter_ready(NetDev *netdev) {
 
 /* callback for netdev's created without a backing Link */
 static int netdev_create_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_netdev_unref_ NetDev *netdev = userdata;
+        _cleanup_(netdev_unrefp) NetDev *netdev = userdata;
         int r;
 
         assert(netdev->state != _NETDEV_STATE_INVALID);
@@ -488,8 +475,7 @@ int netdev_get_mac(const char *ifname, struct ether_addr **ret) {
         mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
         mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
 
-        *ret = mac;
-        mac = NULL;
+        *ret = TAKE_PTR(mac);
 
         return 0;
 }
@@ -613,7 +599,7 @@ int netdev_join(NetDev *netdev, Link *link, sd_netlink_message_handler_t callbac
 }
 
 static int netdev_load_one(Manager *manager, const char *filename) {
-        _cleanup_netdev_unref_ NetDev *netdev_raw = NULL, *netdev = NULL;
+        _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         const char *dropin_dirname;
         bool independent = false;

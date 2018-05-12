@@ -1,19 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 awkscript = 'test-hashmap-ordered.awk'
 test_hashmap_ordered_c = custom_target(
@@ -188,6 +175,10 @@ tests += [
          []],
 
         [['src/test/test-random-util.c'],
+         [],
+         []],
+
+        [['src/test/test-format-table.c'],
          [],
          []],
 
@@ -515,7 +506,6 @@ tests += [
          [],
          '', 'manual'],
 
-
         [['src/test/test-cgroup-mask.c',
           'src/test/test-helper.c'],
          [libcore,
@@ -567,7 +557,8 @@ tests += [
           libseccomp,
           libselinux,
           libmount,
-          libblkid]],
+          libblkid],
+         '', 'timeout=360'],
 
         [['src/test/test-siphash24.c'],
          [],
@@ -644,10 +635,23 @@ tests += [
          [],
          []],
 
+        [['src/test/test-gcrypt-util.c'],
+         [],
+         [],
+         'HAVE_GCRYPT'],
+
         [['src/test/test-nss.c'],
          [],
          [libdl],
          '', 'manual'],
+
+        [['src/test/test-umount.c',
+          'src/core/mount-setup.c',
+          'src/core/mount-setup.h',
+          'src/core/umount.c',
+          'src/core/umount.h'],
+         [],
+         [libmount]],
 ]
 
 ############################################################
@@ -712,6 +716,13 @@ tests += [
          [threads,
           libxz,
           liblz4]],
+
+        [['src/journal/test-journal-config.c'],
+         [libjournal_core,
+          libshared],
+         [libxz,
+          liblz4,
+          libselinux]],
 
         [['src/journal/test-journal-verify.c'],
          [libjournal_core,

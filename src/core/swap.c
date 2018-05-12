@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -85,7 +72,7 @@ static int swap_set_devnode(Swap *s, const char *devnode) {
 
         assert(s);
 
-        r = hashmap_ensure_allocated(&UNIT(s)->manager->swaps_by_devnode, &string_hash_ops);
+        r = hashmap_ensure_allocated(&UNIT(s)->manager->swaps_by_devnode, &path_hash_ops);
         if (r < 0)
                 return r;
 
@@ -157,7 +144,7 @@ static void swap_done(Unit *u) {
         s->parameters_fragment.what = mfree(s->parameters_fragment.what);
         s->parameters_fragment.options = mfree(s->parameters_fragment.options);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, false);
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -264,7 +251,7 @@ static int swap_verify(Swap *s) {
 }
 
 static int swap_load_devnode(Swap *s) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
         struct stat st;
         const char *p;
 
@@ -438,7 +425,7 @@ fail:
 }
 
 static int swap_process_new(Manager *m, const char *device, int prio, bool set_flags) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         const char *dn;
         struct stat st;
@@ -549,14 +536,17 @@ static int swap_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED))
+        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED)) {
                 (void) unit_setup_dynamic_creds(u);
+                (void) unit_setup_exec_runtime(u);
+        }
 
         swap_set_state(s, new_state);
         return 0;
 }
 
 static void swap_dump(Unit *u, FILE *f, const char *prefix) {
+        char buf[FORMAT_TIMESPAN_MAX];
         Swap *s = SWAP(u);
         SwapParameters *p;
 
@@ -592,6 +582,10 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
                         prefix, p->priority,
                         prefix, strempty(p->options));
 
+        fprintf(f,
+                "%sTimeoutSec: %s\n",
+                prefix, format_timespan(buf, sizeof(buf), s->timeout_usec, USEC_PER_SEC));
+
         if (s->control_pid > 0)
                 fprintf(f,
                         "%sControl PID: "PID_FMT"\n",
@@ -625,7 +619,6 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 goto fail;
 
-        manager_set_exec_params(UNIT(s)->manager, &exec_params);
         unit_set_exec_params(UNIT(s), &exec_params);
 
         r = exec_spawn(UNIT(s),
@@ -664,8 +657,7 @@ static void swap_enter_dead(Swap *s, SwapResult f) {
 
         swap_set_state(s, s->result != SWAP_SUCCESS ? SWAP_FAILED : SWAP_DEAD);
 
-        exec_runtime_destroy(s->exec_runtime);
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
 
         exec_context_destroy_runtime_directory(&s->exec_context, UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
@@ -973,12 +965,15 @@ _pure_ static const char *swap_sub_state_to_string(Unit *u) {
         return swap_state_to_string(SWAP(u)->state);
 }
 
-_pure_ static bool swap_check_gc(Unit *u) {
+_pure_ static bool swap_may_gc(Unit *u) {
         Swap *s = SWAP(u);
 
         assert(s);
 
-        return s->from_proc_swaps;
+        if (s->from_proc_swaps)
+                return false;
+
+        return true;
 }
 
 static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
@@ -1500,7 +1495,7 @@ const UnitVTable swap_vtable = {
         .active_state = swap_active_state,
         .sub_state_to_string = swap_sub_state_to_string,
 
-        .check_gc = swap_check_gc,
+        .may_gc = swap_may_gc,
 
         .sigchld_event = swap_sigchld_event,
 

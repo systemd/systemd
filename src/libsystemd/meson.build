@@ -1,20 +1,15 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
+id128_sources = files('''
+        sd-id128/id128-util.c
+        sd-id128/id128-util.h
+        sd-id128/sd-id128.c
+'''.split())
+
+sd_daemon_c = files('sd-daemon/sd-daemon.c')
+sd_event_c = files('sd-event/sd-event.c')
 sd_login_c = files('sd-login/sd-login.c')
 
 libsystemd_sources = files('''
@@ -57,7 +52,6 @@ libsystemd_sources = files('''
         sd-bus/bus-type.c
         sd-bus/bus-type.h
         sd-bus/sd-bus.c
-        sd-daemon/sd-daemon.c
         sd-device/device-enumerator-private.h
         sd-device/device-enumerator.c
         sd-device/device-internal.h
@@ -65,13 +59,9 @@ libsystemd_sources = files('''
         sd-device/device-private.h
         sd-device/device-util.h
         sd-device/sd-device.c
-        sd-event/sd-event.c
         sd-hwdb/hwdb-internal.h
         sd-hwdb/hwdb-util.h
         sd-hwdb/sd-hwdb.c
-        sd-id128/id128-util.c
-        sd-id128/id128-util.h
-        sd-id128/sd-id128.c
         sd-netlink/generic-netlink.c
         sd-netlink/local-addresses.c
         sd-netlink/local-addresses.h
@@ -90,17 +80,19 @@ libsystemd_sources = files('''
         sd-path/sd-path.c
         sd-resolve/sd-resolve.c
         sd-utf8/sd-utf8.c
-'''.split()) + sd_login_c
+'''.split()) + id128_sources + sd_daemon_c + sd_event_c + sd_login_c
+
+libsystemd_c_args = ['-fvisibility=default']
 
 libsystemd_static = static_library(
-        'systemd',
+        'systemd_static',
         libsystemd_sources,
         install : false,
         include_directories : includes,
         link_with : libbasic,
         dependencies : [threads,
                         librt],
-        c_args : ['-fvisibility=default'])
+        c_args : libsystemd_c_args)
 
 libsystemd_sym = 'src/libsystemd/libsystemd.sym'
 

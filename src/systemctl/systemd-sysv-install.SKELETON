@@ -11,6 +11,8 @@ usage() {
     exit 1
 }
 
+unset ROOT
+
 # parse options
 eval set -- "$(getopt -o r: --long root: -- "$@")"
 while true; do

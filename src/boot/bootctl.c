@@ -4,19 +4,6 @@
 
   Copyright 2013-2015 Kay Sievers
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <blkid.h>
@@ -410,7 +397,7 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
                                 return r;
 
                         if (lseek(fd_from, 0, SEEK_SET) == (off_t) -1)
-                                return log_error_errno(errno, "Failed to seek in \%s\": %m", from);
+                                return log_error_errno(errno, "Failed to seek in \"%s\": %m", from);
 
                         fd_to = safe_close(fd_to);
                 }
@@ -434,14 +421,14 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
 
         (void) copy_times(fd_from, fd_to);
 
-        r = fsync(fd_to);
-        if (r < 0) {
+        if (fsync(fd_to) < 0) {
                 (void) unlink_noerrno(t);
                 return log_error_errno(errno, "Failed to copy data from \"%s\" to \"%s\": %m", from, t);
         }
 
-        r = renameat(AT_FDCWD, t, AT_FDCWD, to);
-        if (r < 0) {
+        (void) fsync_directory_of_file(fd_to);
+
+        if (renameat(AT_FDCWD, t, AT_FDCWD, to) < 0) {
                 (void) unlink_noerrno(t);
                 return log_error_errno(errno, "Failed to rename \"%s\" to \"%s\": %m", t, to);
         }
@@ -826,6 +813,7 @@ static int install_loader_config(const char *esp_path) {
         }
 
         fprintf(f, "#timeout 3\n");
+        fprintf(f, "#console-mode keep\n");
         fprintf(f, "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
 
         r = fflush_sync_and_check(f);

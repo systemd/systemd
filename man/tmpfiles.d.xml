@@ -6,19 +6,6 @@
   This file is part of systemd.
 
   Copyright 2010 Brandon Philips
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 <refentry id="tmpfiles.d">
 
@@ -579,6 +566,13 @@ r! /tmp/.X[0-9]*-lock</programlisting>
       <literal>~</literal>, the clean-up is only applied to files and
       directories one level inside the directory specified, but not
       the files and directories immediately inside it.</para>
+
+      <para>The age of a file system entry is determined from its last
+      modification timestamp (mtime), its last access timestamp (atime),
+      and (except for directories) its last status change timestamp
+      (ctime). Any of these three (or two) values will prevent cleanup
+      if it is more recent than the current time minus the age
+      field.</para>
     </refsect2>
 
     <refsect2>

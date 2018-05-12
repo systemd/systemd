@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <stddef.h>
@@ -343,20 +330,15 @@ void server_process_native_file(
         sealed = memfd_get_sealed(fd) > 0;
 
         if (!sealed && (!ucred || ucred->uid != 0)) {
-                _cleanup_free_ char *sl = NULL, *k = NULL;
+                _cleanup_free_ char *k = NULL;
                 const char *e;
 
                 /* If this is not a sealed memfd, and the peer is unknown or
                  * unprivileged, then verify the path. */
 
-                if (asprintf(&sl, "/proc/self/fd/%i", fd) < 0) {
-                        log_oom();
-                        return;
-                }
-
-                r = readlink_malloc(sl, &k);
+                r = fd_get_path(fd, &k);
                 if (r < 0) {
-                        log_error_errno(r, "readlink(%s) failed: %m", sl);
+                        log_error_errno(r, "readlink(/proc/self/fd/%i) failed: %m", fd);
                         return;
                 }
 

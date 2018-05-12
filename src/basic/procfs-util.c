@@ -3,6 +3,8 @@
 #include <errno.h>
 
 #include "alloc-util.h"
+#include "def.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "parse-util.h"
 #include "process-util.h"
@@ -135,4 +137,131 @@ int procfs_tasks_get_current(uint64_t *ret) {
         nr = strndupa(p, n);
 
         return safe_atou64(nr, ret);
+}
+
+static uint64_t calc_gcd64(uint64_t a, uint64_t b) {
+
+        while (b > 0) {
+                uint64_t t;
+
+                t = a % b;
+
+                a = b;
+                b = t;
+        }
+
+        return a;
+}
+
+int procfs_cpu_get_usage(nsec_t *ret) {
+        _cleanup_free_ char *first_line = NULL;
+        unsigned long user_ticks, nice_ticks, system_ticks, irq_ticks, softirq_ticks,
+                guest_ticks = 0, guest_nice_ticks = 0;
+        long ticks_per_second;
+        uint64_t sum, gcd, a, b;
+        const char *p;
+        int r;
+
+        assert(ret);
+
+        r = read_one_line_file("/proc/stat", &first_line);
+        if (r < 0)
+                return r;
+
+        p = first_word(first_line, "cpu");
+        if (!p)
+                return -EINVAL;
+
+        if (sscanf(p, "%lu %lu %lu %*u %*u %lu %lu %*u %lu %lu",
+                   &user_ticks,
+                   &nice_ticks,
+                   &system_ticks,
+                   &irq_ticks,
+                   &softirq_ticks,
+                   &guest_ticks,
+                   &guest_nice_ticks) < 5) /* we only insist on the first five fields */
+                return -EINVAL;
+
+        ticks_per_second = sysconf(_SC_CLK_TCK);
+        if (ticks_per_second  < 0)
+                return -errno;
+        assert(ticks_per_second > 0);
+
+        sum = (uint64_t) user_ticks + (uint64_t) nice_ticks + (uint64_t) system_ticks +
+                (uint64_t) irq_ticks + (uint64_t) softirq_ticks +
+                (uint64_t) guest_ticks + (uint64_t) guest_nice_ticks;
+
+        /* Let's reduce this fraction before we apply it to avoid overflows when converting this to µsec */
+        gcd = calc_gcd64(NSEC_PER_SEC, ticks_per_second);
+
+        a = (uint64_t) NSEC_PER_SEC / gcd;
+        b = (uint64_t) ticks_per_second / gcd;
+
+        *ret = DIV_ROUND_UP((nsec_t) sum * (nsec_t) a, (nsec_t) b);
+        return 0;
+}
+
+int procfs_memory_get_current(uint64_t *ret) {
+        uint64_t mem_total = UINT64_MAX, mem_free = UINT64_MAX;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(ret);
+
+        f = fopen("/proc/meminfo", "re");
+        if (!f)
+                return -errno;
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                uint64_t *v;
+                char *p, *e;
+                size_t n;
+
+                r = read_line(f, LONG_LINE_MAX, &line);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EINVAL; /* EOF: Couldn't find one or both fields? */
+
+                p = first_word(line, "MemTotal:");
+                if (p)
+                        v = &mem_total;
+                else {
+                        p = first_word(line, "MemFree:");
+                        if (p)
+                                v = &mem_free;
+                        else
+                                continue;
+                }
+
+                /* Determine length of numeric value */
+                n = strspn(p, DIGITS);
+                if (n == 0)
+                        return -EINVAL;
+                e = p + n;
+
+                /* Ensure the line ends in " kB" */
+                n = strspn(e, WHITESPACE);
+                if (n == 0)
+                        return -EINVAL;
+                if (!streq(e + n, "kB"))
+                        return -EINVAL;
+
+                *e = 0;
+                r = safe_atou64(p, v);
+                if (r < 0)
+                        return r;
+                if (*v == UINT64_MAX)
+                        return -EINVAL;
+
+                if (mem_total != UINT64_MAX && mem_free != UINT64_MAX)
+                        break;
+        }
+
+        if (mem_free > mem_total)
+                return -EINVAL;
+
+        *ret = (mem_total - mem_free) * 1024U;
+        return 0;
 }

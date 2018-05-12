@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -163,9 +150,6 @@ static int scope_load_init_scope(Unit *u) {
          * synthesize it here, instead of relying on the unit file on disk. */
 
         u->default_dependencies = false;
-        u->ignore_on_isolate = true;
-
-        SCOPE(u)->kill_context.kill_signal = SIGRTMIN+14;
 
         /* Prettify things, if we can. */
         if (!u->description)
@@ -346,7 +330,7 @@ static int scope_start(Unit *u) {
 
         unit_export_state_files(UNIT(s));
 
-        r = unit_attach_pids_to_cgroup(u);
+        r = unit_attach_pids_to_cgroup(u, UNIT(s)->pids, NULL);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to add PIDs to scope's control group: %m");
                 scope_enter_dead(s, SCOPE_FAILURE_RESOURCES);
@@ -602,6 +586,8 @@ const UnitVTable scope_vtable = {
         .private_section = "Scope",
 
         .can_transient = true,
+        .can_delegate = true,
+        .once_only = true,
 
         .init = scope_init,
         .load = scope_load,

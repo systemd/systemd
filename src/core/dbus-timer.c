@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "alloc-util.h"
@@ -116,26 +103,6 @@ static int property_get_calendar_timers(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_unit(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata, *trigger;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        trigger = UNIT_TRIGGER(u);
-
-        return sd_bus_message_append(reply, "s", trigger ? trigger->id : "");
-}
-
 static int property_get_next_elapse_monotonic(
                 sd_bus *bus,
                 const char *path,
@@ -158,7 +125,7 @@ static int property_get_next_elapse_monotonic(
 
 const sd_bus_vtable bus_timer_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("Unit", "s", property_get_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Unit", "s", bus_property_get_triggered_unit, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("TimersMonotonic", "a(stt)", property_get_monotonic_timers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("TimersCalendar", "a(sst)", property_get_calendar_timers, 0, SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         SD_BUS_PROPERTY("NextElapseUSecRealtime", "t", bus_property_get_usec, offsetof(Timer, next_elapse_realtime), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -290,8 +257,7 @@ static int bus_timer_set_transient_property(
                                         return -ENOMEM;
 
                                 v->base = b;
-                                v->calendar_spec = c;
-                                c = NULL;
+                                v->calendar_spec = TAKE_PTR(c);
 
                                 LIST_PREPEND(value, t->values, v);
                         }
@@ -377,8 +343,7 @@ static int bus_timer_set_transient_property(
                                 return -ENOMEM;
 
                         v->base = TIMER_CALENDAR;
-                        v->calendar_spec = c;
-                        c = NULL;
+                        v->calendar_spec = TAKE_PTR(c);
 
                         LIST_PREPEND(value, t->values, v);
                 }

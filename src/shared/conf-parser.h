@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -121,44 +108,54 @@ int config_parse_many(
                 void *userdata);
 
 /* Generic parsers */
-int config_parse_int(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_unsigned(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_long(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_uint8(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_uint16(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_uint32(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_uint64(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_double(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line,  const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_iec_size(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_si_size(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_iec_uint64(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bool(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_tristate(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_string(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_path(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_strv(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_sec(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_nsec(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_log_facility(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_log_level(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_signal(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_personality(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_ifname(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_ip_port(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+#define GENERIC_PARSER_ARGS \
+                const char *unit,                                       \
+                const char *filename,                                   \
+                unsigned line,                                          \
+                const char *section,                                    \
+                unsigned section_line,                                  \
+                const char *lvalue,                                     \
+                int ltype,                                              \
+                const char *rvalue,                                     \
+                void *data,                                             \
+                void *userdata
+int config_parse_int(GENERIC_PARSER_ARGS);
+int config_parse_unsigned(GENERIC_PARSER_ARGS);
+int config_parse_long(GENERIC_PARSER_ARGS);
+int config_parse_uint8(GENERIC_PARSER_ARGS);
+int config_parse_uint16(GENERIC_PARSER_ARGS);
+int config_parse_uint32(GENERIC_PARSER_ARGS);
+int config_parse_uint64(GENERIC_PARSER_ARGS);
+int config_parse_double(GENERIC_PARSER_ARGS);
+int config_parse_iec_size(GENERIC_PARSER_ARGS);
+int config_parse_si_size(GENERIC_PARSER_ARGS);
+int config_parse_iec_uint64(GENERIC_PARSER_ARGS);
+int config_parse_bool(GENERIC_PARSER_ARGS);
+int config_parse_tristate(GENERIC_PARSER_ARGS);
+int config_parse_string(GENERIC_PARSER_ARGS);
+int config_parse_path(GENERIC_PARSER_ARGS);
+int config_parse_strv(GENERIC_PARSER_ARGS);
+int config_parse_sec(GENERIC_PARSER_ARGS);
+int config_parse_nsec(GENERIC_PARSER_ARGS);
+int config_parse_mode(GENERIC_PARSER_ARGS);
+int config_parse_warn_compat(GENERIC_PARSER_ARGS);
+int config_parse_log_facility(GENERIC_PARSER_ARGS);
+int config_parse_log_level(GENERIC_PARSER_ARGS);
+int config_parse_signal(GENERIC_PARSER_ARGS);
+int config_parse_personality(GENERIC_PARSER_ARGS);
+int config_parse_ifname(GENERIC_PARSER_ARGS);
+int config_parse_ip_port(GENERIC_PARSER_ARGS);
+int config_parse_join_controllers(GENERIC_PARSER_ARGS);
+int config_parse_mtu(GENERIC_PARSER_ARGS);
+
+typedef enum Disabled {
+        DISABLED_CONFIGURATION,
+        DISABLED_LEGACY,
+        DISABLED_EXPERIMENTAL,
+} Disabled;
 
 #define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
-        int function(const char *unit,                                  \
-                     const char *filename,                              \
-                     unsigned line,                                     \
-                     const char *section,                               \
-                     unsigned section_line,                             \
-                     const char *lvalue,                                \
-                     int ltype,                                         \
-                     const char *rvalue,                                \
-                     void *data,                                        \
-                     void *userdata) {                                  \
-                                                                        \
+        int function(GENERIC_PARSER_ARGS) {                             \
                 type *i = data, x;                                      \
                                                                         \
                 assert(filename);                                       \
@@ -177,17 +174,7 @@ int config_parse_ip_port(const char *unit, const char *filename, unsigned line, 
         }
 
 #define DEFINE_CONFIG_PARSE_ENUMV(function,name,type,invalid,msg)              \
-        int function(const char *unit,                                         \
-                     const char *filename,                                     \
-                     unsigned line,                                            \
-                     const char *section,                                      \
-                     unsigned section_line,                                    \
-                     const char *lvalue,                                       \
-                     int ltype,                                                \
-                     const char *rvalue,                                       \
-                     void *data,                                               \
-                     void *userdata) {                                         \
-                                                                               \
+        int function(GENERIC_PARSER_ARGS) {                                    \
                 type **enums = data, x, *ys;                                   \
                 _cleanup_free_ type *xs = NULL;                                \
                 const char *word, *state;                                      \

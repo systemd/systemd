@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
 #include <resolv.h>
@@ -68,6 +55,7 @@ int manager_read_resolv_conf(Manager *m) {
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
         char line[LINE_MAX];
+        unsigned n = 0;
         int r;
 
         assert(m);
@@ -118,8 +106,10 @@ int manager_read_resolv_conf(Manager *m) {
                 const char *a;
                 char *l;
 
+                n++;
+
                 l = strstrip(line);
-                if (IN_SET(*l, '#', ';'))
+                if (IN_SET(*l, '#', ';', 0))
                         continue;
 
                 a = first_word(l, "nameserver");
@@ -139,6 +129,8 @@ int manager_read_resolv_conf(Manager *m) {
                         if (r < 0)
                                 log_warning_errno(r, "Failed to parse search domain string '%s', ignoring.", a);
                 }
+
+                log_syntax(NULL, LOG_DEBUG, "/etc/resolv.conf", n, 0, "Ignoring resolv.conf line: %s", l);
         }
 
         m->resolv_conf_mtime = timespec_load(&st.st_mtim);
@@ -276,7 +268,7 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
                        "# internal DNS stub resolver of systemd-resolved. This file lists all\n"
                        "# configured search domains.\n"
                        "#\n"
-                       "# Run \"systemd-resolve --status\" to see details about the uplink DNS servers\n"
+                       "# Run \"resolvectl status\" to see details about the uplink DNS servers\n"
                        "# currently in use.\n"
                        "#\n"
                        "# Third party programs must not access this file directly, but only through the\n"

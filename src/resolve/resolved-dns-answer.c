@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "alloc-util.h"
@@ -24,7 +11,7 @@
 #include "resolved-dns-dnssec.h"
 #include "string-util.h"
 
-DnsAnswer *dns_answer_new(unsigned n) {
+DnsAnswer *dns_answer_new(size_t n) {
         DnsAnswer *a;
 
         a = malloc0(offsetof(DnsAnswer, items) + sizeof(DnsAnswerItem) * n);
@@ -106,7 +93,7 @@ static int dns_answer_add_raw_all(DnsAnswer *a, DnsAnswer *source) {
 }
 
 int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags) {
-        unsigned i;
+        size_t i;
         int r;
 
         assert(rr);
@@ -442,8 +429,7 @@ int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret) {
         if (r < 0)
                 return r;
 
-        *ret = k;
-        k = NULL;
+        *ret = TAKE_PTR(k);
 
         return 0;
 }
@@ -467,7 +453,7 @@ int dns_answer_extend(DnsAnswer **a, DnsAnswer *b) {
 int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
         bool found = false, other = false;
         DnsResourceRecord *rr;
-        unsigned i;
+        size_t i;
         int r;
 
         assert(a);
@@ -518,8 +504,7 @@ int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
                 }
 
                 dns_answer_unref(*a);
-                *a = copy;
-                copy = NULL;
+                *a = TAKE_PTR(copy);
 
                 return 1;
         }
@@ -553,7 +538,7 @@ int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
 int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rm) {
         bool found = false, other = false;
         DnsResourceRecord *rr;
-        unsigned i;
+        size_t i;
         int r;
 
         assert(a);
@@ -604,8 +589,7 @@ int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rm) {
                 }
 
                 dns_answer_unref(*a);
-                *a = copy;
-                copy = NULL;
+                *a = TAKE_PTR(copy);
 
                 return 1;
         }
@@ -683,7 +667,7 @@ int dns_answer_move_by_key(DnsAnswer **to, DnsAnswer **from, const DnsResourceKe
 
 void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
         DnsAnswerItem *items;
-        unsigned i, start, end;
+        size_t i, start, end;
 
         if (!a)
                 return;
@@ -714,7 +698,7 @@ void dns_answer_order_by_scope(DnsAnswer *a, bool prefer_link_local) {
         memcpy(a->items, items, sizeof(DnsAnswerItem) * a->n_rrs);
 }
 
-int dns_answer_reserve(DnsAnswer **a, unsigned n_free) {
+int dns_answer_reserve(DnsAnswer **a, size_t n_free) {
         DnsAnswer *n;
 
         assert(a);
@@ -723,7 +707,7 @@ int dns_answer_reserve(DnsAnswer **a, unsigned n_free) {
                 return 0;
 
         if (*a) {
-                unsigned ns;
+                size_t ns;
 
                 if ((*a)->n_ref > 1)
                         return -EBUSY;
@@ -751,7 +735,7 @@ int dns_answer_reserve(DnsAnswer **a, unsigned n_free) {
         return 0;
 }
 
-int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free) {
+int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *n = NULL;
         int r;
 
@@ -778,8 +762,7 @@ int dns_answer_reserve_or_clone(DnsAnswer **a, unsigned n_free) {
                 return r;
 
         dns_answer_unref(*a);
-        *a = n;
-        n = NULL;
+        *a = TAKE_PTR(n);
 
         return 0;
 }

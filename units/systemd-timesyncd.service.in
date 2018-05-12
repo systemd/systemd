@@ -37,6 +37,7 @@ MemoryDenyWriteExecute=yes
 RestrictRealtime=yes
 RestrictNamespaces=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RuntimeDirectory=systemd/timesync
 SystemCallFilter=~@cpu-emulation @debug @keyring @module @mount @obsolete @raw-io @reboot @swap
 SystemCallArchitectures=native
 LockPersonality=yes
@@ -44,3 +45,4 @@ StateDirectory=systemd/timesync
 
 [Install]
 WantedBy=sysinit.target
+Alias=dbus-org.freedesktop.timesync1.service

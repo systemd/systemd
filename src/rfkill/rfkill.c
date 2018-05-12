@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <linux/rfkill.h>
@@ -49,12 +36,12 @@ typedef struct write_queue_item {
         int state;
 } write_queue_item;
 
-static void write_queue_item_free(struct write_queue_item *item)
-{
-        assert(item);
+static struct write_queue_item* write_queue_item_free(struct write_queue_item *item) {
+        if (!item)
+                return NULL;
 
         free(item->file);
-        free(item);
+        return mfree(item);
 }
 
 static const char* const rfkill_type_table[NUM_RFKILL_TYPES] = {
@@ -89,8 +76,8 @@ static int find_device(
 
         device = udev_device_new_from_subsystem_sysname(udev, "rfkill", sysname);
         if (!device)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to open device %s: %m", sysname);
+                return log_full_errno(IN_SET(errno, ENOENT, ENXIO, ENODEV) ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to open device '%s': %m", sysname);
 
         name = udev_device_get_sysattr_value(device, "name");
         if (!name) {
@@ -110,7 +97,7 @@ static int wait_for_initialized(
                 struct udev_device *device,
                 struct udev_device **ret) {
 
-        _cleanup_udev_monitor_unref_ struct udev_monitor *monitor = NULL;
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *monitor = NULL;
         struct udev_device *d;
         const char *sysname;
         int watch_fd, r;
@@ -148,8 +135,8 @@ static int wait_for_initialized(
         /* Check again, maybe things changed */
         d = udev_device_new_from_subsystem_sysname(udev, "rfkill", sysname);
         if (!d)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to open device %s: %m", sysname);
+                return log_full_errno(IN_SET(errno, ENOENT, ENXIO, ENODEV) ? LOG_DEBUG : LOG_ERR, errno,
+                                      "Failed to open device '%s': %m", sysname);
 
         if (udev_device_get_is_initialized(d) != 0) {
                 *ret = d;
@@ -157,7 +144,7 @@ static int wait_for_initialized(
         }
 
         for (;;) {
-                _cleanup_udev_device_unref_ struct udev_device *t = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *t = NULL;
 
                 r = fd_wait_for_event(watch_fd, POLLIN, EXIT_USEC);
                 if (r == -EINTR)
@@ -185,8 +172,8 @@ static int determine_state_file(
                 const struct rfkill_event *event,
                 char **ret) {
 
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         const char *path_id, *type;
         char *state_file;
         int r;
@@ -313,16 +300,16 @@ static int save_state_queue(
         r = determine_state_file(udev, event, &state_file);
         if (r < 0)
                 return r;
+
         save_state_queue_remove(write_queue, event->idx, state_file);
 
         item = new0(struct write_queue_item, 1);
         if (!item)
                 return -ENOMEM;
 
-        item->file = state_file;
+        item->file = TAKE_PTR(state_file);
         item->rfkill_idx = event->idx;
         item->state = event->soft;
-        state_file = NULL;
 
         LIST_APPEND(queue, *write_queue, item);
 
@@ -376,7 +363,7 @@ static int save_state_write(struct write_queue_item **write_queue) {
 
 int main(int argc, char *argv[]) {
         LIST_HEAD(write_queue_item, write_queue);
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_close_ int rfkill_fd = -1;
         bool ready = false;
         int r, n;

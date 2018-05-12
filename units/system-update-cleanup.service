@@ -1,0 +1,35 @@
+#  SPDX-License-Identifier: LGPL-2.1+
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Remove the Offline System Updates symlink
+Documentation=man:systemd.special(5) man:systemd.offline-updates(7)
+After=system-update.target
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+SuccessAction=reboot
+
+# system-update-generator uses laccess("/system-update"), while a plain
+# ConditionPathExists=/system-update uses access("/system-update"), so
+# we need an alternate condition to cover the case of a dangling symlink.
+#
+# This service is only invoked if /system-update exists, i.e. if the
+# condition tested by system-update-generator remains true and the system
+# would be diverted into system-update.target again after reboot. This way
+# we guard against being diverted into system-update.target again, which
+# works as a safety measure, but we will not step on the toes of the
+# update script if it successfully removed the symlink and scheduled a
+# reboot or some other action on its own.
+ConditionPathExists=|/system-update
+ConditionPathIsSymbolicLink=|/system-update
+
+[Service]
+Type=oneshot
+ExecStart=/bin/rm -fv /system-update

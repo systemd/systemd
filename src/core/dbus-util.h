@@ -5,23 +5,12 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "sd-bus.h"
 #include "unit.h"
+
+int bus_property_get_triggered_unit(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
 
 #define BUS_DEFINE_SET_TRANSIENT(function, bus_type, type, cast_type, fmt) \
         int bus_set_transient_##function(                               \
@@ -48,8 +37,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_IS_VALID(function, bus_type, type, cast_type, fmt, check) \
         int bus_set_transient_##function(                               \
@@ -80,8 +68,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_TO_STRING(function, bus_type, type, cast_type, fmt, to_string) \
         int bus_set_transient_##function(                               \
@@ -114,8 +101,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(function, bus_type, type, cast_type, fmt, to_string) \
         int bus_set_transient_##function(                               \
@@ -150,8 +136,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_PARSE(function, type, parse)           \
         int bus_set_transient_##function(                               \
@@ -184,8 +169,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(function, type, parse)       \
         int bus_set_transient_##function(                               \
@@ -218,8 +202,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 #define BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(function, check)     \
         int bus_set_transient_##function(                               \
@@ -253,88 +236,7 @@
                 }                                                       \
                                                                         \
                 return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
-
-#define BUS_DEFINE_SET_CGROUP_WEIGHT(function, mask, check, val, str)   \
-        int bus_cgroup_set_##function(                                  \
-                        Unit *u,                                        \
-                        const char *name,                               \
-                        uint64_t *p,                                    \
-                        sd_bus_message *message,                        \
-                        UnitWriteFlags flags,                           \
-                        sd_bus_error *error) {                          \
-                                                                        \
-                uint64_t v;                                             \
-                int r;                                                  \
-                                                                        \
-                assert(p);                                              \
-                                                                        \
-                r = sd_bus_message_read(message, "t", &v);              \
-                if (r < 0)                                              \
-                        return r;                                       \
-                                                                        \
-                if (!check(v))                                          \
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, \
-                                                 "Value specified in %s is out of range", name); \
-                                                                        \
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
-                        *p = v;                                         \
-                        unit_invalidate_cgroup(u, (mask));              \
-                                                                        \
-                        if (v == (val))                                 \
-                                unit_write_settingf(u, flags, name,     \
-                                                    "%s=" str, name);   \
-                        else                                            \
-                                unit_write_settingf(u, flags, name,     \
-                                                    "%s=%" PRIu64, name, v); \
-                }                                                       \
-                                                                        \
-                return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
-
-#define BUS_DEFINE_SET_CGROUP_SCALE(function, mask, scale)              \
-        int bus_cgroup_set_##function##_scale(                          \
-                        Unit *u,                                        \
-                        const char *name,                               \
-                        uint64_t *p,                                    \
-                        sd_bus_message *message,                        \
-                        UnitWriteFlags flags,                           \
-                        sd_bus_error *error) {                          \
-                                                                        \
-                uint64_t v;                                             \
-                uint32_t raw;                                           \
-                int r;                                                  \
-                                                                        \
-                assert(p);                                              \
-                                                                        \
-                r = sd_bus_message_read(message, "u", &raw);            \
-                if (r < 0)                                              \
-                        return r;                                       \
-                                                                        \
-                v = scale(raw, UINT32_MAX);                             \
-                if (v <= 0 || v >= UINT64_MAX)                          \
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, \
-                                                 "Value specified in %s is out of range", name); \
-                                                                        \
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {                    \
-                        const char *e;                                  \
-                                                                        \
-                        *p = v;                                         \
-                        unit_invalidate_cgroup(u, (mask));              \
-                                                                        \
-                        /* Chop off suffix */                           \
-                        assert_se(e = endswith(name, "Scale"));         \
-                        name = strndupa(name, e - name);                \
-                                                                        \
-                        unit_write_settingf(u, flags, name, "%s=%" PRIu32 "%%", name, \
-                                            (uint32_t) (DIV_ROUND_UP((uint64_t) raw * 100U, (uint64_t) UINT32_MAX))); \
-                }                                                       \
-                                                                        \
-                return 1;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 int bus_set_transient_mode_t(Unit *u, const char *name, mode_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 int bus_set_transient_unsigned(Unit *u, const char *name, unsigned *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);

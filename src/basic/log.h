@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <stdarg.h>
@@ -94,11 +81,6 @@ int log_open(void);
 void log_close(void);
 void log_forget_fds(void);
 
-void log_close_syslog(void);
-void log_close_journal(void);
-void log_close_kmsg(void);
-void log_close_console(void);
-
 void log_parse_environment_realm(LogRealm realm);
 #define log_parse_environment() \
         log_parse_environment_realm(LOG_REALM)
@@ -149,19 +131,6 @@ int log_object_internal(
                 const char *extra,
                 const char *format, ...) _printf_(10,11);
 
-int log_object_internalv(
-                int level,
-                int error,
-                const char *file,
-                int line,
-                const char *func,
-                const char *object_field,
-                const char *object,
-                const char *extra_field,
-                const char *extra,
-                const char *format,
-                va_list ap) _printf_(10,0);
-
 int log_struct_internal(
                 int level,
                 int error,
@@ -204,7 +173,7 @@ int log_dump_internal(
                 char *buffer);
 
 /* Logging for various assertions */
-noreturn void log_assert_failed_realm(
+_noreturn_ void log_assert_failed_realm(
                 LogRealm realm,
                 const char *text,
                 const char *file,
@@ -213,7 +182,7 @@ noreturn void log_assert_failed_realm(
 #define log_assert_failed(text, ...) \
         log_assert_failed_realm(LOG_REALM, (text), __VA_ARGS__)
 
-noreturn void log_assert_failed_unreachable_realm(
+_noreturn_ void log_assert_failed_unreachable_realm(
                 LogRealm realm,
                 const char *text,
                 const char *file,

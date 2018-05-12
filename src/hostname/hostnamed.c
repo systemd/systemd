@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -52,6 +39,7 @@ enum {
         PROP_KERNEL_VERSION,
         PROP_OS_PRETTY_NAME,
         PROP_OS_CPE_NAME,
+        PROP_HOME_URL,
         _PROP_MAX
 };
 
@@ -113,11 +101,13 @@ static int context_read_data(Context *c) {
         r = parse_env_file("/etc/os-release", NEWLINE,
                            "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
                            "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
+                           "HOME_URL", &c->data[PROP_HOME_URL],
                            NULL);
         if (r == -ENOENT)
                 r = parse_env_file("/usr/lib/os-release", NEWLINE,
                                    "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
                                    "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
+                                   "HOME_URL", &c->data[PROP_HOME_URL],
                                    NULL);
 
         if (r < 0 && r != -ENOENT)
@@ -261,7 +251,6 @@ static char* context_fallback_icon_name(Context *c) {
         return strdup("computer");
 }
 
-
 static bool hostname_is_useful(const char *hn) {
         return !isempty(hn) && !is_localhost(hn);
 }
@@ -349,8 +338,7 @@ static int context_write_data_machine_info(Context *c) {
                 if (!u)
                         return -ENOMEM;
 
-                strv_free(l);
-                l = u;
+                strv_free_and_replace(l, u);
         }
 
         if (strv_isempty(l)) {
@@ -654,6 +642,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("KernelVersion", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_KERNEL_VERSION, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemPrettyName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_PRETTY_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("OperatingSystemCPEName", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_OS_CPE_NAME, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("HomeURL", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_HOME_URL, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_METHOD("SetHostname", "sb", NULL, method_set_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetStaticHostname", "sb", NULL, method_set_static_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetPrettyHostname", "sb", NULL, method_set_pretty_hostname, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -688,8 +677,7 @@ static int connect_bus(Context *c, sd_event *event, sd_bus **_bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        *_bus = bus;
-        bus = NULL;
+        *_bus = TAKE_PTR(bus);
 
         return 0;
 }

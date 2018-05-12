@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #if HAVE_VALGRIND_MEMCHECK_H
@@ -431,14 +418,11 @@ _public_ int sd_bus_list_names(sd_bus *bus, char ***acquired, char ***activatabl
                 if (r < 0)
                         return r;
 
-                *activatable = y;
-                y = NULL;
+                *activatable = TAKE_PTR(y);
         }
 
-        if (acquired) {
-                *acquired = x;
-                x = NULL;
-        }
+        if (acquired)
+                *acquired = TAKE_PTR(x);
 
         return 0;
 }
@@ -734,10 +718,8 @@ _public_ int sd_bus_get_name_creds(
                         return r;
         }
 
-        if (creds) {
-                *creds = c;
-                c = NULL;
-        }
+        if (creds)
+                *creds = TAKE_PTR(c);
 
         return 0;
 }
@@ -810,8 +792,8 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
         if (r < 0)
                 return r;
 
-        *ret = c;
-        c = NULL;
+        *ret = TAKE_PTR(c);
+
         return 0;
 }
 

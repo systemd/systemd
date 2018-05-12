@@ -2,28 +2,23 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
-option('split-usr', type : 'boolean', value : false,
-       description : '''assume that /bin, /sbin aren't symlinks into /usr''')
+option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : '''/bin, /sbin aren't symlinks into /usr''')
+option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : '''sbin is not a symlink to bin''')
 option('rootlibdir', type : 'string',
        description : '''[/usr]/lib/x86_64-linux-gnu or such''')
 option('rootprefix', type : 'string',
        description : '''override the root prefix''')
 option('link-udev-shared', type : 'boolean',
        description : 'link systemd-udev and its helpers to libsystemd-shared.so')
+option('static-libsystemd', type : 'combo',
+       choices : ['false', 'true', 'pic', 'no-pic'],
+       description : '''install a static library for libsystemd''')
+option('static-libudev', type : 'combo',
+       choices : ['false', 'true', 'pic', 'no-pic'],
+       description : '''install a static library for libudev''')
 
 option('sysvinit-path', type : 'string', value : '/etc/init.d',
        description : 'the directory where the SysV init scripts are located')
@@ -53,6 +48,8 @@ option('debug-tty', type : 'string', value : '/dev/tty9',
        description : 'specify the tty device for debug shell')
 option('debug', type : 'string',
        description : 'enable extra debugging (hashmap,mmap-cache)')
+option('memory-accounting-default', type : 'boolean',
+       description : 'enable MemoryAccounting= by default')
 
 option('utmp', type : 'boolean',
        description : 'support for utmp/wtmp log handling')
@@ -134,6 +131,8 @@ option('pamlibdir', type : 'string',
        description : 'directory for PAM modules')
 option('pamconfdir', type : 'string',
        description : 'directory for PAM configuration ["no" disables]')
+option('docdir', type : 'string',
+       description : 'documentation directory')
 
 option('fallback-hostname', type : 'string', value : 'localhost',
        description : 'the hostname used if none configured')
@@ -260,6 +259,8 @@ option('lz4', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'lz4 compression support')
 option('xkbcommon', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'xkbcommon keymap support')
+option('pcre2', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'regexp matching support using pcre2')
 option('glib', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libglib support (for tests only)')
 option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
@@ -291,6 +292,14 @@ option('slow-tests', type : 'boolean', value : 'false',
        description : 'run the slow tests by default')
 option('install-tests', type : 'boolean', value : 'false',
        description : 'install test executables')
+
+option('ok-color', type: 'combo',
+       choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
+                  'white', 'highlight-black', 'highlight-red', 'highlight-green',
+                  'highlight-yellow', 'highlight-blue', 'highlight-magenta',
+                  'highlight-cyan', 'highlight-white'],
+       value : 'green',
+       description: 'color of the "OK" status message')
 
 option('oss-fuzz', type : 'boolean', value : 'false',
        description : 'build against oss-fuzz')

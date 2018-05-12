@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <alloca.h>
@@ -42,6 +29,12 @@
 #define BITS_WEEKDAYS 127
 #define MIN_YEAR 1970
 #define MAX_YEAR 2199
+
+/* An arbitrary limit on the length of the chains of components. We don't want to
+ * build a very long linked list, which would be slow to iterate over and might cause
+ * our stack to overflow. It's unlikely that legitimate uses require more than a few
+ * linked compenents anyway. */
+#define CALENDARSPEC_COMPONENTS_MAX 240
 
 static void free_chain(CalendarComponent *c) {
         CalendarComponent *n;
@@ -91,8 +84,8 @@ static int component_compare(const void *_a, const void *_b) {
 }
 
 static void normalize_chain(CalendarComponent **c) {
-        unsigned n = 0, k;
         CalendarComponent **b, *i, **j, *next;
+        size_t n = 0, k;
 
         assert(c);
 
@@ -111,7 +104,7 @@ static void normalize_chain(CalendarComponent **c) {
         if (n <= 1)
                 return;
 
-        j = b = alloca(sizeof(CalendarComponent*) * n);
+        j = b = newa(CalendarComponent*, n);
         for (i = *c; i; i = i->next)
                 *(j++) = i;
 
@@ -181,6 +174,8 @@ int calendar_spec_normalize(CalendarSpec *c) {
 }
 
 _pure_ static bool chain_valid(CalendarComponent *c, int from, int to, bool end_of_month) {
+        assert(to >= from);
+
         if (!c)
                 return true;
 
@@ -189,6 +184,10 @@ _pure_ static bool chain_valid(CalendarComponent *c, int from, int to, bool end_
                 to -= 3;
 
         if (c->start < from || c->start > to)
+                return false;
+
+        /* Avoid overly large values that could cause overflow */
+        if (c->repeat > to - from)
                 return false;
 
         /*
@@ -421,7 +420,7 @@ static int parse_weekdays(const char **p, CalendarSpec *c) {
         assert(c);
 
         for (;;) {
-                unsigned i;
+                size_t i;
 
                 for (i = 0; i < ELEMENTSOF(day_nr); i++) {
                         size_t skip;
@@ -581,7 +580,8 @@ static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
         CalendarComponent *year = NULL, *month = NULL, *day = NULL, *hour = NULL, *minute = NULL, *us = NULL;
         int r;
 
-        assert_se(gmtime_r(&time, &tm));
+        if (!gmtime_r(&time, &tm))
+                return -ERANGE;
 
         r = const_chain(tm.tm_year + 1900, &year);
         if (r < 0)
@@ -617,15 +617,16 @@ static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
         return 0;
 }
 
-static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
+static int prepend_component(const char **p, bool usec, unsigned nesting, CalendarComponent **c) {
         int r, start, stop = -1, repeat = 0;
         CalendarComponent *cc;
-        const char *e;
+        const char *e = *p;
 
         assert(p);
         assert(c);
 
-        e = *p;
+        if (nesting > CALENDARSPEC_COMPONENTS_MAX)
+                return -ENOBUFS;
 
         r = parse_component_decimal(&e, usec, &start);
         if (r < 0)
@@ -667,7 +668,7 @@ static int prepend_component(const char **p, bool usec, CalendarComponent **c) {
 
         if (*e ==',') {
                 *p += 1;
-                return prepend_component(p, usec, c);
+                return prepend_component(p, usec, nesting + 1, c);
         }
 
         return 0;
@@ -696,7 +697,7 @@ static int parse_chain(const char **p, bool usec, CalendarComponent **c) {
                 return 0;
         }
 
-        r = prepend_component(&t, usec, &cc);
+        r = prepend_component(&t, usec, 0, &cc);
         if (r < 0) {
                 free_chain(cc);
                 return r;
@@ -890,7 +891,7 @@ fail:
 
 int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
         const char *utc;
-        CalendarSpec *c;
+        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
         int r;
 
         assert(p);
@@ -938,58 +939,54 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
                         last_space = strrchr(p, ' ');
                         if (last_space != NULL && timezone_is_valid(last_space + 1)) {
                                 c->timezone = strdup(last_space + 1);
-                                if (!c->timezone) {
-                                        r = -ENOMEM;
-                                        goto fail;
-                                }
+                                if (!c->timezone)
+                                        return -ENOMEM;
 
                                 p = strndupa(p, last_space - p);
                         }
                 }
         }
 
-        if (isempty(p)) {
-                r = -EINVAL;
-                goto fail;
-        }
+        if (isempty(p))
+                return -EINVAL;
 
         if (strcaseeq(p, "minutely")) {
                 r = const_chain(0, &c->microsecond);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
         } else if (strcaseeq(p, "hourly")) {
                 r = const_chain(0, &c->minute);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->microsecond);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
         } else if (strcaseeq(p, "daily")) {
                 r = const_chain(0, &c->hour);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->minute);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->microsecond);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
         } else if (strcaseeq(p, "monthly")) {
                 r = const_chain(1, &c->day);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->hour);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->minute);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->microsecond);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
         } else if (strcaseeq(p, "annually") ||
                    strcaseeq(p, "yearly") ||
@@ -997,19 +994,19 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
 
                 r = const_chain(1, &c->month);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(1, &c->day);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->hour);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->minute);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->microsecond);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
         } else if (strcaseeq(p, "weekly")) {
 
@@ -1017,40 +1014,40 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
 
                 r = const_chain(0, &c->hour);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->minute);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->microsecond);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
         } else if (strcaseeq(p, "quarterly")) {
 
                 r = const_chain(1, &c->month);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(4, &c->month);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(7, &c->month);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(10, &c->month);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(1, &c->day);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->hour);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->minute);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->microsecond);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
         } else if (strcaseeq(p, "biannually") ||
                    strcaseeq(p, "bi-annually") ||
@@ -1059,59 +1056,51 @@ int calendar_spec_from_string(const char *p, CalendarSpec **spec) {
 
                 r = const_chain(1, &c->month);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(7, &c->month);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(1, &c->day);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->hour);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->minute);
                 if (r < 0)
-                        goto fail;
+                        return r;
                 r = const_chain(0, &c->microsecond);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
         } else {
                 r = parse_weekdays(&p, c);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 r = parse_date(&p, c);
                 if (r < 0)
-                        goto fail;
+                        return r;
 
                 if (r == 0) {
                         r = parse_calendar_time(&p, c);
                         if (r < 0)
-                                goto fail;
+                                return r;
                 }
 
-                if (*p != 0) {
-                        r = -EINVAL;
-                        goto fail;
-                }
+                if (*p != 0)
+                        return -EINVAL;
         }
 
         r = calendar_spec_normalize(c);
         if (r < 0)
-                goto fail;
+                return r;
 
-        if (!calendar_spec_valid(c)) {
-                r = -EINVAL;
-                goto fail;
-        }
+        if (!calendar_spec_valid(c))
+                return -EINVAL;
 
-        *spec = c;
+        *spec = TAKE_PTR(c);
         return 0;
-
-fail:
-        calendar_spec_free(c);
-        return r;
 }
 
 static int find_end_of_month(struct tm *tm, bool utc, int day) {
@@ -1161,7 +1150,7 @@ static int find_matching_component(const CalendarSpec *spec, const CalendarCompo
                 } else if (c->repeat > 0) {
                         int k;
 
-                        k = start + c->repeat * ((*val - start + c->repeat - 1) / c->repeat);
+                        k = start + c->repeat * DIV_ROUND_UP(*val - start, c->repeat);
 
                         if ((!d_set || k < d) && (stop < 0 || k <= stop)) {
                                 d = k;

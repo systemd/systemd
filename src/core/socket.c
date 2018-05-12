@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <arpa/inet.h>
@@ -164,7 +151,7 @@ static void socket_done(Unit *u) {
 
         s->peers_by_address = set_free(s->peers_by_address);
 
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, false);
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -250,7 +237,7 @@ int socket_instantiate_service(Socket *s) {
         if (r < 0)
                 return r;
 
-        unit_ref_set(&s->service, u);
+        unit_ref_set(&s->service, UNIT(s), u);
 
         return unit_add_two_dependencies(UNIT(s), UNIT_BEFORE, UNIT_TRIGGERS, u, false, UNIT_DEPENDENCY_IMPLICIT);
 }
@@ -377,7 +364,7 @@ static int socket_add_extras(Socket *s) {
                         if (r < 0)
                                 return r;
 
-                        unit_ref_set(&s->service, x);
+                        unit_ref_set(&s->service, u, x);
                 }
 
                 r = unit_add_two_dependencies(u, UNIT_BEFORE, UNIT_TRIGGERS, UNIT_DEREF(s->service), true, UNIT_DEPENDENCY_IMPLICIT);
@@ -629,8 +616,7 @@ int socket_acquire_peer(Socket *s, int fd, SocketPeer **p) {
 
         remote->socket = s;
 
-        *p = remote;
-        remote = NULL;
+        *p = TAKE_PTR(remote);
 
         return 1;
 }
@@ -1238,10 +1224,7 @@ static int fifo_address_create(
                 goto fail;
         }
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 
 fail:
         mac_selinux_create_file_clear();
@@ -1251,7 +1234,6 @@ fail:
 static int special_address_create(const char *path, bool writable) {
         _cleanup_close_ int fd = -1;
         struct stat st;
-        int r;
 
         assert(path);
 
@@ -1266,16 +1248,12 @@ static int special_address_create(const char *path, bool writable) {
         if (!S_ISREG(st.st_mode) && !S_ISCHR(st.st_mode))
                 return -EEXIST;
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 }
 
 static int usbffs_address_create(const char *path) {
         _cleanup_close_ int fd = -1;
         struct stat st;
-        int r;
 
         assert(path);
 
@@ -1290,10 +1268,7 @@ static int usbffs_address_create(const char *path) {
         if (!S_ISREG(st.st_mode))
                 return -EEXIST;
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 }
 
 static int mq_address_create(
@@ -1306,7 +1281,6 @@ static int mq_address_create(
         struct stat st;
         mode_t old_mask;
         struct mq_attr _attr, *attr = NULL;
-        int r;
 
         assert(path);
 
@@ -1338,10 +1312,7 @@ static int mq_address_create(
             st.st_gid != getgid())
                 return -EEXIST;
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 }
 
 static int socket_symlink(Socket *s) {
@@ -1395,13 +1366,14 @@ static int usbffs_select_ep(const struct dirent *d) {
 
 static int usbffs_dispatch_eps(SocketPort *p) {
         _cleanup_free_ struct dirent **ent = NULL;
-        int r, i, n, k;
+        size_t n, k, i;
+        int r;
 
         r = scandir(p->path, &ent, usbffs_select_ep, alphasort);
         if (r < 0)
                 return -errno;
 
-        n = r;
+        n = (size_t) r;
         p->auxiliary_fds = new(int, n);
         if (!p->auxiliary_fds)
                 return -ENOMEM;
@@ -1422,9 +1394,7 @@ static int usbffs_dispatch_eps(SocketPort *p) {
                 if (r < 0)
                         goto fail;
 
-                p->auxiliary_fds[k] = r;
-
-                ++k;
+                p->auxiliary_fds[k++] = r;
                 free(ent[i]);
         }
 
@@ -1439,7 +1409,9 @@ fail:
 }
 
 static int socket_determine_selinux_label(Socket *s, char **ret) {
+        Service *service;
         ExecCommand *c;
+        _cleanup_free_ char *path = NULL;
         int r;
 
         assert(s);
@@ -1461,11 +1433,16 @@ static int socket_determine_selinux_label(Socket *s, char **ret) {
                 if (!UNIT_ISSET(s->service))
                         goto no_label;
 
-                c = SERVICE(UNIT_DEREF(s->service))->exec_command[SERVICE_EXEC_START];
+                service = SERVICE(UNIT_DEREF(s->service));
+                c = service->exec_command[SERVICE_EXEC_START];
                 if (!c)
                         goto no_label;
 
-                r = mac_selinux_get_create_label_from_exe(c->path, ret);
+                r = chase_symlinks(c->path, service->exec_context.root_directory, CHASE_PREFIX_ROOT, &path);
+                if (r < 0)
+                        goto no_label;
+
+                r = mac_selinux_get_create_label_from_exe(path, ret);
                 if (IN_SET(r, -EPERM, -EOPNOTSUPP))
                         goto no_label;
         }
@@ -1521,7 +1498,7 @@ static int socket_address_listen_in_cgroup(
         r = bpf_firewall_supported();
         if (r < 0)
                 return r;
-        if (r == 0) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
+        if (r == BPF_FIREWALL_UNSUPPORTED) /* If BPF firewalling isn't supported anyway — there's no point in this forking complexity */
                 goto shortcut;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
@@ -1878,8 +1855,10 @@ static int socket_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(s->deserialized_state, SOCKET_DEAD, SOCKET_FAILED))
+        if (!IN_SET(s->deserialized_state, SOCKET_DEAD, SOCKET_FAILED)) {
                 (void) unit_setup_dynamic_creds(u);
+                (void) unit_setup_exec_runtime(u);
+        }
 
         socket_set_state(s, s->deserialized_state);
         return 0;
@@ -1908,7 +1887,6 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         if (r < 0)
                 return r;
 
-        manager_set_exec_params(UNIT(s)->manager, &exec_params);
         unit_set_exec_params(UNIT(s), &exec_params);
 
         exec_params.argv = c->argv;
@@ -2017,8 +1995,7 @@ static void socket_enter_dead(Socket *s, SocketResult f) {
 
         socket_set_state(s, s->result != SOCKET_SUCCESS ? SOCKET_FAILED : SOCKET_DEAD);
 
-        exec_runtime_destroy(s->exec_runtime);
-        s->exec_runtime = exec_runtime_unref(s->exec_runtime);
+        s->exec_runtime = exec_runtime_unref(s->exec_runtime, true);
 
         exec_context_destroy_runtime_directory(&s->exec_context, UNIT(s)->manager->prefix[EXEC_DIRECTORY_RUNTIME]);
 
@@ -2373,8 +2350,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 cfd = -1; /* We passed ownership of the fd to the service now. Forget it here. */
                 s->n_connections++;
 
-                service->peer = p; /* Pass ownership of the peer reference */
-                p = NULL;
+                service->peer = TAKE_PTR(p); /* Pass ownership of the peer reference */
 
                 r = manager_add_job(UNIT(s)->manager, JOB_START, UNIT(service), JOB_REPLACE, &error, NULL);
                 if (r < 0) {
@@ -2818,12 +2794,12 @@ SocketType socket_port_type_from_string(const char *s) {
                 return _SOCKET_TYPE_INVALID;
 }
 
-_pure_ static bool socket_check_gc(Unit *u) {
+_pure_ static bool socket_may_gc(Unit *u) {
         Socket *s = SOCKET(u);
 
         assert(u);
 
-        return s->n_connections > 0;
+        return s->n_connections == 0;
 }
 
 static int socket_accept_do(Socket *s, int fd) {
@@ -2865,7 +2841,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         r = bpf_firewall_supported();
         if (r < 0)
                 return r;
-        if (r == 0)
+        if (r == BPF_FIREWALL_UNSUPPORTED)
                 goto shortcut;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
@@ -3120,8 +3096,9 @@ static int socket_dispatch_timer(sd_event_source *source, usec_t usec, void *use
 }
 
 int socket_collect_fds(Socket *s, int **fds) {
-        int *rfds, k = 0, n = 0;
+        size_t k = 0, n = 0;
         SocketPort *p;
+        int *rfds;
 
         assert(s);
         assert(fds);
@@ -3144,7 +3121,7 @@ int socket_collect_fds(Socket *s, int **fds) {
                 return -ENOMEM;
 
         LIST_FOREACH(port, p, s->ports) {
-                int i;
+                size_t i;
 
                 if (p->fd >= 0)
                         rfds[k++] = p->fd;
@@ -3155,7 +3132,7 @@ int socket_collect_fds(Socket *s, int **fds) {
         assert(k == n);
 
         *fds = rfds;
-        return n;
+        return (int) n;
 }
 
 static void socket_reset_failed(Unit *u) {
@@ -3323,7 +3300,7 @@ const UnitVTable socket_vtable = {
         .active_state = socket_active_state,
         .sub_state_to_string = socket_sub_state_to_string,
 
-        .check_gc = socket_check_gc,
+        .may_gc = socket_may_gc,
 
         .sigchld_event = socket_sigchld_event,
 

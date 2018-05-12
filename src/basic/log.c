@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -83,35 +70,39 @@ static bool prohibit_ipc = false;
  * use here. */
 static char *log_abort_msg = NULL;
 
-void log_close_console(void) {
+/* An assert to use in logging functions that does not call recursively
+ * into our logging functions (since that might lead to a loop). */
+#define assert_raw(expr)                                                \
+        do {                                                            \
+                if (_unlikely_(!(expr))) {                              \
+                        fputs(#expr "\n", stderr);                      \
+                        abort();                                        \
+                }                                                       \
+        } while (false)
 
-        if (console_fd < 0)
-                return;
-
-        if (getpid_cached() == 1) {
-                if (console_fd >= 3)
-                        safe_close(console_fd);
-
-                console_fd = -1;
-        }
+static void log_close_console(void) {
+        console_fd = safe_close_above_stdio(console_fd);
 }
 
 static int log_open_console(void) {
 
-        if (console_fd >= 0)
+        if (!always_reopen_console) {
+                console_fd = STDERR_FILENO;
                 return 0;
+        }
 
-        if (always_reopen_console) {
+        if (console_fd < 3) {
                 console_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
                 if (console_fd < 0)
                         return console_fd;
-        } else
-                console_fd = STDERR_FILENO;
+
+                console_fd = fd_move_above_stdio(console_fd);
+        }
 
         return 0;
 }
 
-void log_close_kmsg(void) {
+static void log_close_kmsg(void) {
         kmsg_fd = safe_close(kmsg_fd);
 }
 
@@ -124,10 +115,11 @@ static int log_open_kmsg(void) {
         if (kmsg_fd < 0)
                 return -errno;
 
+        kmsg_fd = fd_move_above_stdio(kmsg_fd);
         return 0;
 }
 
-void log_close_syslog(void) {
+static void log_close_syslog(void) {
         syslog_fd = safe_close(syslog_fd);
 }
 
@@ -139,11 +131,11 @@ static int create_log_socket(int type) {
         if (fd < 0)
                 return -errno;
 
+        fd = fd_move_above_stdio(fd);
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
-        /* We need a blocking fd here since we'd otherwise lose
-        messages way too early. However, let's not hang forever in the
-        unlikely case of a deadlock. */
+        /* We need a blocking fd here since we'd otherwise lose messages way too early. However, let's not hang forever
+         * in the unlikely case of a deadlock. */
         if (getpid_cached() == 1)
                 timeval_store(&tv, 10 * USEC_PER_MSEC);
         else
@@ -199,7 +191,7 @@ fail:
         return r;
 }
 
-void log_close_journal(void) {
+static void log_close_journal(void) {
         journal_fd = safe_close(journal_fd);
 }
 
@@ -241,7 +233,8 @@ int log_open(void) {
         /* If we don't use the console we close it here, to not get
          * killed by SAK. If we don't use syslog we close it here so
          * that we are not confused by somebody deleting the socket in
-         * the fs. If we don't use /dev/kmsg we still keep it open,
+         * the fs, and to make sure we don't use it if prohibit_ipc is
+         * set. If we don't use /dev/kmsg we still keep it open,
          * because there is no reason to close it. */
 
         if (log_target == LOG_TARGET_NULL) {
@@ -348,8 +341,8 @@ static int write_to_console(
 
         char location[256], prefix[1 + DECIMAL_STR_MAX(int) + 2];
         struct iovec iovec[6] = {};
-        unsigned n = 0;
         bool highlight;
+        size_t n = 0;
 
         if (console_fd < 0)
                 return 0;
@@ -362,7 +355,7 @@ static int write_to_console(
         highlight = LOG_PRI(level) <= LOG_ERR && show_color;
 
         if (show_location) {
-                xsprintf(location, "(%s:%i) ", file, line);
+                (void) snprintf(location, sizeof location, "(%s:%i) ", file, line);
                 iovec[n++] = IOVEC_MAKE_STRING(location);
         }
 
@@ -495,38 +488,40 @@ static int log_do_header(
                 const char *file, int line, const char *func,
                 const char *object_field, const char *object,
                 const char *extra_field, const char *extra) {
+        int r;
 
-        snprintf(header, size,
-                 "PRIORITY=%i\n"
-                 "SYSLOG_FACILITY=%i\n"
-                 "%s%s%s"
-                 "%s%.*i%s"
-                 "%s%s%s"
-                 "%s%.*i%s"
-                 "%s%s%s"
-                 "%s%s%s"
-                 "SYSLOG_IDENTIFIER=%s\n",
-                 LOG_PRI(level),
-                 LOG_FAC(level),
-                 isempty(file) ? "" : "CODE_FILE=",
-                 isempty(file) ? "" : file,
-                 isempty(file) ? "" : "\n",
-                 line ? "CODE_LINE=" : "",
-                 line ? 1 : 0, line, /* %.0d means no output too, special case for 0 */
-                 line ? "\n" : "",
-                 isempty(func) ? "" : "CODE_FUNC=",
-                 isempty(func) ? "" : func,
-                 isempty(func) ? "" : "\n",
-                 error ? "ERRNO=" : "",
-                 error ? 1 : 0, error,
-                 error ? "\n" : "",
-                 isempty(object) ? "" : object_field,
-                 isempty(object) ? "" : object,
-                 isempty(object) ? "" : "\n",
-                 isempty(extra) ? "" : extra_field,
-                 isempty(extra) ? "" : extra,
-                 isempty(extra) ? "" : "\n",
-                 program_invocation_short_name);
+        r = snprintf(header, size,
+                     "PRIORITY=%i\n"
+                     "SYSLOG_FACILITY=%i\n"
+                     "%s%.256s%s"        /* CODE_FILE */
+                     "%s%.*i%s"          /* CODE_LINE */
+                     "%s%.256s%s"        /* CODE_FUNC */
+                     "%s%.*i%s"          /* ERRNO */
+                     "%s%.256s%s"        /* object */
+                     "%s%.256s%s"        /* extra */
+                     "SYSLOG_IDENTIFIER=%.256s\n",
+                     LOG_PRI(level),
+                     LOG_FAC(level),
+                     isempty(file) ? "" : "CODE_FILE=",
+                     isempty(file) ? "" : file,
+                     isempty(file) ? "" : "\n",
+                     line ? "CODE_LINE=" : "",
+                     line ? 1 : 0, line, /* %.0d means no output too, special case for 0 */
+                     line ? "\n" : "",
+                     isempty(func) ? "" : "CODE_FUNC=",
+                     isempty(func) ? "" : func,
+                     isempty(func) ? "" : "\n",
+                     error ? "ERRNO=" : "",
+                     error ? 1 : 0, error,
+                     error ? "\n" : "",
+                     isempty(object) ? "" : object_field,
+                     isempty(object) ? "" : object,
+                     isempty(object) ? "" : "\n",
+                     isempty(extra) ? "" : extra_field,
+                     isempty(extra) ? "" : extra,
+                     isempty(extra) ? "" : "\n",
+                     program_invocation_short_name);
+        assert_raw((size_t) r < size);
 
         return 0;
 }
@@ -574,11 +569,11 @@ int log_dispatch_internal(
                 const char *func,
                 const char *object_field,
                 const char *object,
-                const char *extra,
                 const char *extra_field,
+                const char *extra,
                 char *buffer) {
 
-        assert(buffer);
+        assert_raw(buffer);
 
         if (error < 0)
                 error = -error;
@@ -610,22 +605,16 @@ int log_dispatch_internal(
                                        LOG_TARGET_JOURNAL)) {
 
                         k = write_to_journal(level, error, file, line, func, object_field, object, extra_field, extra, buffer);
-                        if (k < 0) {
-                                if (k != -EAGAIN)
-                                        log_close_journal();
-                                log_open_kmsg();
-                        }
+                        if (k < 0 && k != -EAGAIN)
+                                log_close_journal();
                 }
 
                 if (IN_SET(log_target, LOG_TARGET_SYSLOG_OR_KMSG,
                                        LOG_TARGET_SYSLOG)) {
 
                         k = write_to_syslog(level, error, file, line, func, buffer);
-                        if (k < 0) {
-                                if (k != -EAGAIN)
-                                        log_close_syslog();
-                                log_open_kmsg();
-                        }
+                        if (k < 0 && k != -EAGAIN)
+                                log_close_syslog();
                 }
 
                 if (k <= 0 &&
@@ -633,6 +622,9 @@ int log_dispatch_internal(
                                        LOG_TARGET_SYSLOG_OR_KMSG,
                                        LOG_TARGET_JOURNAL_OR_KMSG,
                                        LOG_TARGET_KMSG)) {
+
+                        if (k < 0)
+                                log_open_kmsg();
 
                         k = write_to_kmsg(level, error, file, line, func, buffer);
                         if (k < 0) {
@@ -694,11 +686,10 @@ int log_internalv_realm(
         if (_likely_(LOG_PRI(level) > log_max_level[realm]))
                 return -error;
 
-        /* Make sure that %m maps to the specified error */
-        if (error != 0)
-                errno = error;
+        /* Make sure that %m maps to the specified error (or "Success"). */
+        errno = error;
 
-        vsnprintf(buffer, sizeof(buffer), format, ap);
+        (void) vsnprintf(buffer, sizeof buffer, format, ap);
 
         return log_dispatch_internal(level, error, file, line, func, NULL, NULL, NULL, NULL, buffer);
 }
@@ -721,7 +712,8 @@ int log_internal_realm(
         return r;
 }
 
-int log_object_internalv(
+_printf_(10,0)
+static int log_object_internalv(
                 int level,
                 int error,
                 const char *file,
@@ -743,9 +735,8 @@ int log_object_internalv(
         if (_likely_(LOG_PRI(level) > log_max_level[LOG_REALM_SYSTEMD]))
                 return -error;
 
-        /* Make sure that %m maps to the specified error */
-        if (error != 0)
-                errno = error;
+        /* Make sure that %m maps to the specified error (or "Success"). */
+        errno = error;
 
         /* Prepend the object name before the message */
         if (object) {
@@ -757,7 +748,7 @@ int log_object_internalv(
         } else
                 b = buffer = newa(char, LINE_MAX);
 
-        vsnprintf(b, LINE_MAX, format, ap);
+        (void) vsnprintf(b, LINE_MAX, format, ap);
 
         return log_dispatch_internal(level, error, file, line, func,
                                      object_field, object, extra_field, extra, buffer);
@@ -800,7 +791,7 @@ static void log_assert(
                 return;
 
         DISABLE_WARNING_FORMAT_NONLITERAL;
-        xsprintf(buffer, format, text, file, line, func);
+        (void) snprintf(buffer, sizeof buffer, format, text, file, line, func);
         REENABLE_WARNING;
 
         log_abort_msg = buffer;
@@ -808,7 +799,7 @@ static void log_assert(
         log_dispatch_internal(level, 0, file, line, func, NULL, NULL, NULL, NULL, buffer);
 }
 
-noreturn void log_assert_failed_realm(
+_noreturn_ void log_assert_failed_realm(
                 LogRealm realm,
                 const char *text,
                 const char *file,
@@ -820,7 +811,7 @@ noreturn void log_assert_failed_realm(
         abort();
 }
 
-noreturn void log_assert_failed_unreachable_realm(
+_noreturn_ void log_assert_failed_unreachable_realm(
                 LogRealm realm,
                 const char *text,
                 const char *file,
@@ -868,8 +859,7 @@ int log_format_iovec(
                  * since vasprintf() leaves it afterwards at
                  * an undefined location */
 
-                if (error != 0)
-                        errno = error;
+                errno = error;
 
                 va_copy(aq, ap);
                 r = vasprintf(&m, format, aq);
@@ -970,11 +960,10 @@ int log_struct_internal(
         while (format) {
                 va_list aq;
 
-                if (error != 0)
-                        errno = error;
+                errno = error;
 
                 va_copy(aq, ap);
-                vsnprintf(buf, sizeof(buf), format, aq);
+                (void) vsnprintf(buf, sizeof buf, format, aq);
                 va_end(aq);
 
                 if (startswith(buf, "MESSAGE=")) {
@@ -1269,11 +1258,10 @@ int log_syntax_internal(
         if (log_target == LOG_TARGET_NULL)
                 return -error;
 
-        if (error != 0)
-                errno = error;
+        errno = error;
 
         va_start(ap, format);
-        vsnprintf(buffer, sizeof(buffer), format, ap);
+        (void) vsnprintf(buffer, sizeof buffer, format, ap);
         va_end(ap);
 
         if (unit)

@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <pthread.h>
@@ -278,7 +265,7 @@ struct sd_bus {
         uint64_t creds_mask;
 
         int *fds;
-        unsigned n_fds;
+        size_t n_fds;
 
         char *exec_path;
         char **exec_argv;
@@ -296,6 +283,7 @@ struct sd_bus {
         unsigned n_memfd_cache;
 
         pid_t original_pid;
+        pid_t busexec_pid;
 
         sd_event_source *input_io_event_source;
         sd_event_source *output_io_event_source;
@@ -337,7 +325,7 @@ struct sd_bus {
 #define BUS_WQUEUE_MAX (192*1024)
 #define BUS_RQUEUE_MAX (192*1024)
 
-#define BUS_MESSAGE_SIZE_MAX (64*1024*1024)
+#define BUS_MESSAGE_SIZE_MAX (128*1024*1024)
 #define BUS_AUTH_SIZE_MAX (64*1024)
 
 #define BUS_CONTAINER_DEPTH 128

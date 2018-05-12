@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "sd-netlink.h"
@@ -104,7 +91,7 @@ typedef struct NetDev {
         char *description;
         char *ifname;
         struct ether_addr *mac;
-        size_t mtu;
+        uint32_t mtu;
         int ifindex;
 
         LIST_HEAD(netdev_join_callback, callbacks);
@@ -169,7 +156,6 @@ NetDev *netdev_unref(NetDev *netdev);
 NetDev *netdev_ref(NetDev *netdev);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
-#define _cleanup_netdev_unref_ _cleanup_(netdev_unrefp)
 
 int netdev_get(Manager *manager, const char *name, NetDev **ret);
 int netdev_set_ifindex(NetDev *netdev, sd_netlink_message *newlink);

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <endian.h>
@@ -713,6 +700,8 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                 b->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
                 if (b->inotify_fd < 0)
                         return -errno;
+
+                b->inotify_fd = fd_move_above_stdio(b->inotify_fd);
         }
 
         /* Make sure the path is NUL terminated */
@@ -788,7 +777,7 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                         if (IN_SET(errno, ENOENT, ELOOP))
                                 break; /* This component doesn't exist yet, or the path contains a cyclic symlink right now */
 
-                        r = log_debug_errno(errno, "Failed to add inotify watch on %s: %m", isempty(prefix) ? "/" : prefix);
+                        r = log_debug_errno(errno, "Failed to add inotify watch on %s: %m", empty_to_root(prefix));
                         goto fail;
                 } else
                         new_watches[n++] = wd;
@@ -879,6 +868,8 @@ int bus_socket_connect(sd_bus *b) {
                 if (b->input_fd < 0)
                         return -errno;
 
+                b->input_fd = fd_move_above_stdio(b->input_fd);
+
                 b->output_fd = b->input_fd;
                 bus_socket_setup(b);
 
@@ -937,18 +928,18 @@ int bus_socket_connect(sd_bus *b) {
 
 int bus_socket_exec(sd_bus *b) {
         int s[2], r;
-        pid_t pid;
 
         assert(b);
         assert(b->input_fd < 0);
         assert(b->output_fd < 0);
         assert(b->exec_path);
+        assert(b->busexec_pid == 0);
 
         r = socketpair(AF_UNIX, SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0, s);
         if (r < 0)
                 return -errno;
 
-        r = safe_fork_full("(sd-busexec)", s+1, 1, FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &pid);
+        r = safe_fork_full("(sd-busexec)", s+1, 1, FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS, &b->busexec_pid);
         if (r < 0) {
                 safe_close_pair(s);
                 return r;
@@ -956,16 +947,8 @@ int bus_socket_exec(sd_bus *b) {
         if (r == 0) {
                 /* Child */
 
-                assert_se(dup3(s[1], STDIN_FILENO, 0) == STDIN_FILENO);
-                assert_se(dup3(s[1], STDOUT_FILENO, 0) == STDOUT_FILENO);
-
-                if (!IN_SET(s[1], STDIN_FILENO, STDOUT_FILENO))
-                        safe_close(s[1]);
-
-                (void) fd_cloexec(STDIN_FILENO, false);
-                (void) fd_cloexec(STDOUT_FILENO, false);
-                (void) fd_nonblock(STDIN_FILENO, false);
-                (void) fd_nonblock(STDOUT_FILENO, false);
+                if (rearrange_stdio(s[1], s[1], STDERR_FILENO) < 0)
+                        _exit(EXIT_FAILURE);
 
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);
@@ -978,7 +961,7 @@ int bus_socket_exec(sd_bus *b) {
         }
 
         safe_close(s[1]);
-        b->output_fd = b->input_fd = s[0];
+        b->output_fd = b->input_fd = fd_move_above_stdio(s[0]);
 
         bus_socket_setup(b);
 
@@ -1206,7 +1189,7 @@ int bus_socket_read_message(sd_bus *bus) {
                 CMSG_FOREACH(cmsg, &mh)
                         if (cmsg->cmsg_level == SOL_SOCKET &&
                             cmsg->cmsg_type == SCM_RIGHTS) {
-                                int n, *f;
+                                int n, *f, i;
 
                                 n = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 
@@ -1219,15 +1202,15 @@ int bus_socket_read_message(sd_bus *bus) {
                                         return -EIO;
                                 }
 
-                                f = realloc(bus->fds, sizeof(int) * (bus->n_fds + n));
+                                f = reallocarray(bus->fds, bus->n_fds + n, sizeof(int));
                                 if (!f) {
                                         close_many((int*) CMSG_DATA(cmsg), n);
                                         return -ENOMEM;
                                 }
 
-                                memcpy_safe(f + bus->n_fds, CMSG_DATA(cmsg), n * sizeof(int));
+                                for (i = 0; i < n; i++)
+                                        f[bus->n_fds++] = fd_move_above_stdio(((int*) CMSG_DATA(cmsg))[i]);
                                 bus->fds = f;
-                                bus->n_fds += n;
                         } else
                                 log_debug("Got unexpected auxiliary data with level=%d and type=%d",
                                           cmsg->cmsg_level, cmsg->cmsg_type);

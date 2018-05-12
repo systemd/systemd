@@ -29,9 +29,12 @@ STATEFILE="$STATEDIR/.testdir"
 TESTLOG="$STATEDIR/test.log"
 
 function find_qemu_bin() {
-    # SUSE and Red Hat call the binary qemu-kvm
-    # Debian and Gentoo call it kvm
-    [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a kvm qemu-kvm 2>/dev/null | grep '^/' -m1)
+    # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
+    # Either way, only use this version if we aren't running in KVM, because
+    # nested KVM is flaky still.
+    if [ `systemd-detect-virt -v` != kvm ] ; then
+        [ "$QEMU_BIN" ] || QEMU_BIN=$(which -a kvm qemu-kvm 2>/dev/null | grep '^/' -m1)
+    fi
 
     [ "$ARCH" ] || ARCH=$(uname -m)
     case $ARCH in
@@ -137,7 +140,8 @@ $KERNEL_APPEND \
         QEMU_OPTIONS="$QEMU_OPTIONS -initrd $INITRD"
     fi
 
-    if [ -c /dev/kvm ]; then
+    # Let's use KVM if it is available, but let's avoid using nested KVM as that is still flaky
+    if [ -c /dev/kvm -a `systemd-detect-virt -v` != kvm ]; then
         QEMU_OPTIONS="$QEMU_OPTIONS -machine accel=kvm -enable-kvm -cpu host"
     fi
 
@@ -313,8 +317,9 @@ install_dmevent() {
     inst_libdir_file "libdevmapper-event.so*"
     if [[ "$LOOKS_LIKE_DEBIAN" ]]; then
         # dmsetup installs 55-dm and 60-persistent-storage-dm on Debian/Ubuntu
-        # see https://anonscm.debian.org/cgit/pkg-lvm/lvm2.git/tree/debian/patches/0007-udev.patch
-        inst_rules 55-dm.rules 60-persistent-storage-dm.rules
+        # and since buster/bionic 95-dm-notify.rules
+        # see https://gitlab.com/debian-lvm/lvm2/blob/master/debian/patches/udev.patch
+        inst_rules 55-dm.rules 60-persistent-storage-dm.rules 95-dm-notify.rules
     else
         inst_rules 10-dm.rules 13-dm-disk.rules 95-dm-notify.rules
     fi
@@ -363,6 +368,8 @@ create_empty_image() {
 ,390M
 ,
 EOF
+
+    udevadm settle
 
     local _label="-L systemd"
     # mkfs.reiserfs doesn't know -L. so, use --label instead
@@ -1057,6 +1064,7 @@ inst_rules() {
             fi
         done
         [[ $_found ]] || dinfo "Skipping udev rule: $_rule"
+        _found=
     done
 }
 
@@ -1381,8 +1389,8 @@ inst_libdir_file() {
 }
 
 setup_suse() {
-    ln -s ../usr/bin/systemctl $initdir/bin/systemctl
-    ln -s ../usr/lib/systemd $initdir/lib/systemd
+    ln -fs ../usr/bin/systemctl $initdir/bin/
+    ln -fs ../usr/lib/systemd $initdir/lib/
     inst_simple "/usr/lib/systemd/system/haveged.service"
 }
 

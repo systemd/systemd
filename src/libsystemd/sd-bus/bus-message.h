@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <byteswap.h>
@@ -195,7 +182,7 @@ int bus_message_from_header(
                 size_t footer_accessible,
                 size_t message_size,
                 int *fds,
-                unsigned n_fds,
+                size_t n_fds,
                 const char *label,
                 size_t extra,
                 sd_bus_message **ret);
@@ -205,7 +192,7 @@ int bus_message_from_malloc(
                 void *buffer,
                 size_t length,
                 int *fds,
-                unsigned n_fds,
+                size_t n_fds,
                 const char *label,
                 sd_bus_message **ret);
 

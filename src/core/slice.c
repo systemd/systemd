@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -76,7 +63,7 @@ static int slice_add_parent_slice(Slice *s) {
         if (r < 0)
                 return r;
 
-        unit_ref_set(&u->slice, parent);
+        unit_ref_set(&u->slice, u, parent);
         return 0;
 }
 
@@ -137,10 +124,32 @@ static int slice_load_root_slice(Unit *u) {
          * special semantics we synthesize it here, instead of relying on the unit file on disk. */
 
         u->default_dependencies = false;
-        u->ignore_on_isolate = true;
 
         if (!u->description)
                 u->description = strdup("Root Slice");
+        if (!u->documentation)
+                u->documentation = strv_new("man:systemd.special(7)", NULL);
+
+        return 1;
+}
+
+static int slice_load_system_slice(Unit *u) {
+        assert(u);
+
+        if (!MANAGER_IS_SYSTEM(u->manager))
+                return 0;
+        if (!unit_has_name(u, SPECIAL_SYSTEM_SLICE))
+                return 0;
+
+        u->perpetual = true;
+
+        /* The system slice is a bit special. For example it is always running and cannot be terminated. Because of its
+         * special semantics we synthesize it here, instead of relying on the unit file on disk. */
+
+        u->default_dependencies = false;
+
+        if (!u->description)
+                u->description = strdup("System Slice");
         if (!u->documentation)
                 u->documentation = strv_new("man:systemd.special(7)", NULL);
 
@@ -157,6 +166,10 @@ static int slice_load(Unit *u) {
         r = slice_load_root_slice(u);
         if (r < 0)
                 return r;
+        r = slice_load_system_slice(u);
+        if (r < 0)
+                return r;
+
         r = unit_load_fragment_and_dropin_optional(u);
         if (r < 0)
                 return r;
@@ -287,19 +300,18 @@ _pure_ static const char *slice_sub_state_to_string(Unit *u) {
         return slice_state_to_string(SLICE(u)->state);
 }
 
-static void slice_enumerate(Manager *m) {
+static int slice_make_perpetual(Manager *m, const char *name, Unit **ret) {
         Unit *u;
         int r;
 
         assert(m);
+        assert(name);
 
-        u = manager_get_unit(m, SPECIAL_ROOT_SLICE);
+        u = manager_get_unit(m, name);
         if (!u) {
-                r = unit_new_for_name(m, sizeof(Slice), SPECIAL_ROOT_SLICE, &u);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to allocate the special " SPECIAL_ROOT_SLICE " unit: %m");
-                        return;
-                }
+                r = unit_new_for_name(m, sizeof(Slice), name, &u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate the special %s unit: %m", name);
         }
 
         u->perpetual = true;
@@ -307,6 +319,34 @@ static void slice_enumerate(Manager *m) {
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);
+
+        if (ret)
+                *ret = u;
+
+        return 0;
+}
+
+static void slice_enumerate(Manager *m) {
+        Unit *u;
+        int r;
+
+        assert(m);
+
+        r = slice_make_perpetual(m, SPECIAL_ROOT_SLICE, &u);
+        if (r >= 0 && manager_owns_root_cgroup(m)) {
+                Slice *s = SLICE(u);
+
+                /* If we are managing the root cgroup then this means our root slice covers the whole system, which
+                 * means the kernel will track CPU/tasks/memory for us anyway, and it is all available in /proc. Let's
+                 * hence turn accounting on here, so that our APIs to query this data are available. */
+
+                s->cgroup_context.cpu_accounting = true;
+                s->cgroup_context.tasks_accounting = true;
+                s->cgroup_context.memory_accounting = true;
+        }
+
+        if (MANAGER_IS_SYSTEM(m))
+                (void) slice_make_perpetual(m, SPECIAL_SYSTEM_SLICE, NULL);
 }
 
 const UnitVTable slice_vtable = {

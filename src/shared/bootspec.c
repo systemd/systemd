@@ -2,19 +2,6 @@
   This file is part of systemd.
 
   Copyright 2017 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <stdio.h>
@@ -79,8 +66,8 @@ int boot_entry_load(const char *path, BootEntry *entry) {
                 return log_error_errno(errno, "Failed to open \"%s\": %m", path);
 
         for (;;) {
-                _cleanup_free_ char *buf = NULL;
-                char *p;
+                _cleanup_free_ char *buf = NULL, *field = NULL;
+                const char *p;
 
                 r = read_line(f, LONG_LINE_MAX, &buf);
                 if (r == 0)
@@ -95,34 +82,37 @@ int boot_entry_load(const char *path, BootEntry *entry) {
                 if (IN_SET(*strstrip(buf), '#', '\0'))
                         continue;
 
-                p = strchr(buf, ' ');
-                if (!p) {
+                p = buf;
+                r = extract_first_word(&p, &field, " \t", 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse config file %s line %u: %m", path, line);
+                        continue;
+                }
+                if (r == 0) {
                         log_warning("%s:%u: Bad syntax", path, line);
                         continue;
                 }
-                *p = '\0';
-                p = strstrip(p + 1);
 
-                if (streq(buf, "title"))
+                if (streq(field, "title"))
                         r = free_and_strdup(&tmp.title, p);
-                else if (streq(buf, "version"))
+                else if (streq(field, "version"))
                         r = free_and_strdup(&tmp.version, p);
-                else if (streq(buf, "machine-id"))
+                else if (streq(field, "machine-id"))
                         r = free_and_strdup(&tmp.machine_id, p);
-                else if (streq(buf, "architecture"))
+                else if (streq(field, "architecture"))
                         r = free_and_strdup(&tmp.architecture, p);
-                else if (streq(buf, "options"))
+                else if (streq(field, "options"))
                         r = strv_extend(&tmp.options, p);
-                else if (streq(buf, "linux"))
+                else if (streq(field, "linux"))
                         r = free_and_strdup(&tmp.kernel, p);
-                else if (streq(buf, "efi"))
+                else if (streq(field, "efi"))
                         r = free_and_strdup(&tmp.efi, p);
-                else if (streq(buf, "initrd"))
+                else if (streq(field, "initrd"))
                         r = strv_extend(&tmp.initrd, p);
-                else if (streq(buf, "devicetree"))
+                else if (streq(field, "devicetree"))
                         r = free_and_strdup(&tmp.device_tree, p);
                 else {
-                        log_notice("%s:%u: Unknown line \"%s\"", path, line, buf);
+                        log_notice("%s:%u: Unknown line \"%s\"", path, line, field);
                         continue;
                 }
                 if (r < 0)
@@ -135,13 +125,15 @@ int boot_entry_load(const char *path, BootEntry *entry) {
 }
 
 void boot_config_free(BootConfig *config) {
-        unsigned i;
+        size_t i;
 
         assert(config);
 
         free(config->default_pattern);
         free(config->timeout);
         free(config->editor);
+        free(config->auto_entries);
+        free(config->auto_firmware);
 
         free(config->entry_oneshot);
         free(config->entry_default);
@@ -164,8 +156,8 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
                 return log_error_errno(errno, "Failed to open \"%s\": %m", path);
 
         for (;;) {
-                _cleanup_free_ char *buf = NULL;
-                char *p;
+                _cleanup_free_ char *buf = NULL, *field = NULL;
+                const char *p;
 
                 r = read_line(f, LONG_LINE_MAX, &buf);
                 if (r == 0)
@@ -180,22 +172,31 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
                 if (IN_SET(*strstrip(buf), '#', '\0'))
                         continue;
 
-                p = strchr(buf, ' ');
-                if (!p) {
+                p = buf;
+                r = extract_first_word(&p, &field, " \t", 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to parse config file %s line %u: %m", path, line);
+                        continue;
+                }
+                if (r == 0) {
                         log_warning("%s:%u: Bad syntax", path, line);
                         continue;
                 }
-                *p = '\0';
-                p = strstrip(p + 1);
 
-                if (streq(buf, "default"))
+                if (streq(field, "default"))
                         r = free_and_strdup(&config->default_pattern, p);
-                else if (streq(buf, "timeout"))
+                else if (streq(field, "timeout"))
                         r = free_and_strdup(&config->timeout, p);
-                else if (streq(buf, "editor"))
+                else if (streq(field, "editor"))
                         r = free_and_strdup(&config->editor, p);
+                else if (streq(field, "auto-entries"))
+                        r = free_and_strdup(&config->auto_entries, p);
+                else if (streq(field, "auto-firmware"))
+                        r = free_and_strdup(&config->auto_firmware, p);
+                else if (streq(field, "console-mode"))
+                        r = free_and_strdup(&config->console_mode, p);
                 else {
-                        log_notice("%s:%u: Unknown line \"%s\"", path, line, buf);
+                        log_notice("%s:%u: Unknown line \"%s\"", path, line, field);
                         continue;
                 }
                 if (r < 0)
@@ -246,7 +247,7 @@ int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_en
 }
 
 static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
-        unsigned i, j;
+        size_t i, j;
         bool non_unique = false;
 
         assert(entries || n_entries == 0);
@@ -266,7 +267,7 @@ static bool find_nonunique(BootEntry *entries, size_t n_entries, bool *arr) {
 
 static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
         char *s;
-        unsigned i;
+        size_t i;
         int r;
         bool arr[n_entries];
 
@@ -396,7 +397,7 @@ static int verify_esp(
                 uint64_t *ret_psize,
                 sd_id128_t *ret_uuid) {
 #if HAVE_BLKID
-        _cleanup_blkid_free_probe_ blkid_probe b = NULL;
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         char t[DEV_NUM_PATH_MAX];
         const char *v;
 #endif

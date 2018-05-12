@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <endian.h>
@@ -101,7 +88,7 @@ typedef struct Link {
         sd_dhcp_client *dhcp_client;
         sd_dhcp_lease *dhcp_lease;
         char *lease_file;
-        uint16_t original_mtu;
+        uint32_t original_mtu;
         unsigned dhcp4_messages;
         bool dhcp4_configured;
         bool dhcp6_configured;
@@ -192,7 +179,6 @@ int link_object_find(sd_bus *bus, const char *path, const char *interface, void 
 int link_send_changed(Link *link, const char *property, ...) _sentinel_;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_unref);
-#define _cleanup_link_unref_ _cleanup_(link_unrefp)
 
 /* Macros which append INTERFACE= to the message */
 

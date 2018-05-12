@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright (C) 2014 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <netinet/icmp6.h>
@@ -82,8 +69,7 @@ _public_ int sd_ndisc_router_from_raw(sd_ndisc_router **ret, const void *raw, si
         if (r < 0)
                 return r;
 
-        *ret = rt;
-        rt = NULL;
+        *ret = TAKE_PTR(rt);
 
         return r;
 }
@@ -765,8 +751,7 @@ _public_ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret)
                 return 0;
         }
 
-        *ret = l;
-        l = NULL;
+        *ret = TAKE_PTR(l);
 
         return k;
 }

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright (C) 2014 Intel Corporation. All rights reserved.
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <net/ethernet.h>
@@ -583,7 +570,6 @@ static int test_client_verify_request(DHCP6Message *request, size_t len) {
                 case SD_DHCP6_OPTION_IA_NA:
                         assert_se(!found_iana);
                         found_iana = true;
-
 
                         assert_se(optlen == 40);
                         assert_se(!memcmp(optval, &test_iaid, sizeof(test_iaid)));

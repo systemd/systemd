@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <sched.h>
@@ -87,7 +74,6 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                int null_fd;
                 uint64_t retain =
                         (1ULL << CAP_CHOWN) |
                         (1ULL << CAP_FOWNER) |
@@ -100,25 +86,11 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
 
                 pipefd[1] = safe_close(pipefd[1]);
 
-                r = move_fd(pipefd[0], STDIN_FILENO, false);
+                r = rearrange_stdio(pipefd[0], -1, STDERR_FILENO);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to move fd: %m");
+                        log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
-
-                null_fd = open("/dev/null", O_WRONLY|O_NOCTTY);
-                if (null_fd < 0) {
-                        log_error_errno(errno, "Failed to open /dev/null: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = move_fd(null_fd, STDOUT_FILENO, false);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to move fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                stdio_unset_cloexec();
 
                 if (unshare(CLONE_NEWNET) < 0)
                         log_error_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
@@ -132,13 +104,9 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
                 _exit(EXIT_FAILURE);
         }
 
-        pipefd[0] = safe_close(pipefd[0]);
-        r = pipefd[1];
-        pipefd[1] = -1;
-
         *ret = pid;
 
-        return r;
+        return TAKE_FD(pipefd[1]);
 }
 
 int import_fork_tar_c(const char *path, pid_t *ret) {
@@ -156,32 +124,17 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                int null_fd;
                 uint64_t retain = (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
 
                 pipefd[0] = safe_close(pipefd[0]);
 
-                r = move_fd(pipefd[1], STDOUT_FILENO, false);
+                r = rearrange_stdio(-1, pipefd[1], STDERR_FILENO);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to move fd: %m");
+                        log_error_errno(r, "Failed to rearrange stdin/stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
-
-                null_fd = open("/dev/null", O_RDONLY|O_NOCTTY);
-                if (null_fd < 0) {
-                        log_error_errno(errno, "Failed to open /dev/null: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = move_fd(null_fd, STDIN_FILENO, false);
-                if (r < 0) {
-                        log_error_errno(errno, "Failed to move fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                stdio_unset_cloexec();
 
                 if (unshare(CLONE_NEWNET) < 0)
                         log_error_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
@@ -195,11 +148,7 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
                 _exit(EXIT_FAILURE);
         }
 
-        pipefd[1] = safe_close(pipefd[1]);
-        r = pipefd[0];
-        pipefd[0] = -1;
-
         *ret = pid;
 
-        return r;
+        return TAKE_FD(pipefd[0]);
 }

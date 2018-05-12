@@ -5,21 +5,11 @@
   This file is part of systemd.
 
   Copyright 2014 Kay Sievers, Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <sys/timex.h>
+
+#include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-network.h"
 #include "sd-resolve.h"
@@ -27,6 +17,7 @@
 #include "list.h"
 #include "ratelimit.h"
 #include "time-util.h"
+#include "timesyncd-ntp-message.h"
 
 typedef struct Manager Manager;
 
@@ -40,6 +31,7 @@ typedef struct Manager Manager;
 #define NTP_POLL_INTERVAL_MAX_USEC      (2048 * USEC_PER_SEC)
 
 struct Manager {
+        sd_bus *bus;
         sd_event *event;
         sd_resolve *resolve;
 
@@ -92,7 +84,7 @@ struct Manager {
         /* last change */
         bool jumped;
         bool sync;
-        int drift_ppm;
+        long drift_freq;
 
         /* watch for time changes */
         sd_event_source *event_clock_watch;
@@ -103,6 +95,11 @@ struct Manager {
 
         /* RTC runs in local time, leave it alone */
         bool rtc_local_time;
+
+        /* NTP response */
+        struct ntp_msg ntpmsg;
+        struct timespec origin_time, dest_time;
+        bool spike;
 };
 
 int manager_new(Manager **ret);

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <fcntl.h>
@@ -28,6 +15,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
+#include "conf-parser.h"
 #include "fd-util.h"
 #include "logind.h"
 #include "parse-util.h"
@@ -36,6 +24,50 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "user-util.h"
+
+void manager_reset_config(Manager *m) {
+        assert(m);
+
+        m->n_autovts = 6;
+        m->reserve_vt = 6;
+        m->remove_ipc = true;
+        m->inhibit_delay_max = 5 * USEC_PER_SEC;
+        m->handle_power_key = HANDLE_POWEROFF;
+        m->handle_suspend_key = HANDLE_SUSPEND;
+        m->handle_hibernate_key = HANDLE_HIBERNATE;
+        m->handle_lid_switch = HANDLE_SUSPEND;
+        m->handle_lid_switch_ep = _HANDLE_ACTION_INVALID;
+        m->handle_lid_switch_docked = HANDLE_IGNORE;
+        m->power_key_ignore_inhibited = false;
+        m->suspend_key_ignore_inhibited = false;
+        m->hibernate_key_ignore_inhibited = false;
+        m->lid_switch_ignore_inhibited = true;
+
+        m->holdoff_timeout_usec = 30 * USEC_PER_SEC;
+
+        m->idle_action_usec = 30 * USEC_PER_MINUTE;
+        m->idle_action = HANDLE_IGNORE;
+
+        m->runtime_dir_size = physical_memory_scale(10U, 100U); /* 10% */
+        m->user_tasks_max = system_tasks_max_scale(DEFAULT_USER_TASKS_MAX_PERCENTAGE, 100U); /* 33% */
+        m->sessions_max = 8192;
+        m->inhibitors_max = 8192;
+
+        m->kill_user_processes = KILL_USER_PROCESSES;
+
+        m->kill_only_users = strv_free(m->kill_only_users);
+        m->kill_exclude_users = strv_free(m->kill_exclude_users);
+}
+
+int manager_parse_config_file(Manager *m) {
+        assert(m);
+
+        return config_parse_many_nulstr(PKGSYSCONFDIR "/logind.conf",
+                                        CONF_PATHS_NULSTR("systemd/logind.conf.d"),
+                                        "Login\0",
+                                        config_item_perf_lookup, logind_gperf_lookup,
+                                        CONFIG_PARSE_WARN, m);
+}
 
 int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_device) {
         Device *d;
@@ -282,7 +314,7 @@ int manager_process_button_device(Manager *m, struct udev_device *d) {
         return 0;
 }
 
-int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
+int manager_get_session_by_pid(Manager *m, pid_t pid, Session **ret) {
         _cleanup_free_ char *unit = NULL;
         Session *s;
         int r;
@@ -294,38 +326,51 @@ int manager_get_session_by_pid(Manager *m, pid_t pid, Session **session) {
 
         r = cg_pid_get_unit(pid, &unit);
         if (r < 0)
-                return 0;
+                goto not_found;
 
         s = hashmap_get(m->session_units, unit);
         if (!s)
-                return 0;
+                goto not_found;
 
-        if (session)
-                *session = s;
+        if (ret)
+                *ret = s;
+
         return 1;
+
+not_found:
+        if (ret)
+                *ret = NULL;
+        return 0;
 }
 
-int manager_get_user_by_pid(Manager *m, pid_t pid, User **user) {
+int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret) {
         _cleanup_free_ char *unit = NULL;
         User *u;
         int r;
 
         assert(m);
-        assert(user);
 
         if (!pid_is_valid(pid))
                 return -EINVAL;
 
         r = cg_pid_get_slice(pid, &unit);
         if (r < 0)
-                return 0;
+                goto not_found;
 
         u = hashmap_get(m->user_units, unit);
         if (!u)
-                return 0;
+                goto not_found;
 
-        *user = u;
+        if (ret)
+                *ret = u;
+
         return 1;
+
+not_found:
+        if (ret)
+                *ret = NULL;
+
+        return 0;
 }
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t) {
@@ -499,7 +544,7 @@ static bool manager_is_docked(Manager *m) {
 }
 
 static int manager_count_external_displays(Manager *m) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         int r;
         int n = 0;
@@ -518,7 +563,7 @@ static int manager_count_external_displays(Manager *m) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
                 struct udev_device *p;
                 const char *status, *enabled, *dash, *nn, *i;
                 bool external = false;
@@ -601,4 +646,38 @@ bool manager_is_docked_or_external_displays(Manager *m) {
         }
 
         return false;
+}
+
+bool manager_is_on_external_power(void) {
+        int r;
+
+        /* For now we only check for AC power, but 'external power' can apply
+         * to anything that isn't an internal battery */
+        r = on_ac_power();
+        if (r < 0)
+                log_warning_errno(r, "Failed to read AC power status: %m");
+        else if (r > 0)
+                return true;
+
+        return false;
+}
+
+bool manager_all_buttons_ignored(Manager *m) {
+        assert(m);
+
+        if (m->handle_power_key != HANDLE_IGNORE)
+                return false;
+        if (m->handle_suspend_key != HANDLE_IGNORE)
+                return false;
+        if (m->handle_hibernate_key != HANDLE_IGNORE)
+                return false;
+        if (m->handle_lid_switch != HANDLE_IGNORE)
+                return false;
+        if (m->handle_lid_switch_ep != _HANDLE_ACTION_INVALID &&
+            m->handle_lid_switch_ep != HANDLE_IGNORE)
+                return false;
+        if (m->handle_lid_switch_docked != HANDLE_IGNORE)
+                return false;
+
+        return true;
 }

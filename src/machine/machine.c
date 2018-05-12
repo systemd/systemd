@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -131,7 +118,7 @@ int machine_save(Machine *m) {
         if (!m->started)
                 return 0;
 
-        r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0, false);
+        r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 goto fail;
 
@@ -249,7 +236,6 @@ static void machine_unlink(Machine *m) {
         assert(m);
 
         if (m->unit) {
-
                 char *sl;
 
                 sl = strjoina("/run/systemd/machines/unit:", m->unit);
@@ -486,22 +472,22 @@ int machine_finalize(Machine *m) {
         return 0;
 }
 
-bool machine_check_gc(Machine *m, bool drop_not_started) {
+bool machine_may_gc(Machine *m, bool drop_not_started) {
         assert(m);
 
         if (m->class == MACHINE_HOST)
-                return true;
-
-        if (drop_not_started && !m->started)
                 return false;
 
-        if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
+        if (drop_not_started && !m->started)
                 return true;
+
+        if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
+                return false;
 
         if (m->unit && manager_unit_is_active(m->manager, m->unit))
-                return true;
+                return false;
 
-        return false;
+        return true;
 }
 
 void machine_add_to_gc_queue(Machine *m) {

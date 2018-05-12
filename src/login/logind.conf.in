@@ -22,6 +22,7 @@
 #HandleSuspendKey=suspend
 #HandleHibernateKey=hibernate
 #HandleLidSwitch=suspend
+#HandleLidSwitchExternalPower=suspend
 #HandleLidSwitchDocked=ignore
 #PowerKeyIgnoreInhibited=no
 #SuspendKeyIgnoreInhibited=no
@@ -34,4 +35,3 @@
 #RemoveIPC=yes
 #InhibitorsMax=8192
 #SessionsMax=8192
-#UserTasksMax=33%

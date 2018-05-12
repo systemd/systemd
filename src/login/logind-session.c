@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -180,7 +167,7 @@ int session_save(Session *s) {
         if (!s->started)
                 return 0;
 
-        r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0, false);
+        r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
                 goto fail;
 
@@ -266,7 +253,6 @@ int session_save(Session *s) {
 
         if (s->desktop) {
                 _cleanup_free_ char *escaped;
-
 
                 escaped = cescape(s->desktop);
                 if (!escaped) {
@@ -558,7 +544,7 @@ int session_activate(Session *s) {
         return 0;
 }
 
-static int session_start_scope(Session *s) {
+static int session_start_scope(Session *s, sd_bus_message *properties) {
         int r;
 
         assert(s);
@@ -583,7 +569,7 @@ static int session_start_scope(Session *s) {
                                 description,
                                 "systemd-logind.service",
                                 "systemd-user-sessions.service",
-                                (uint64_t) -1, /* disable TasksMax= for the scope, rely on the slice setting for it */
+                                properties,
                                 &error,
                                 &job);
                 if (r < 0) {
@@ -604,7 +590,7 @@ static int session_start_scope(Session *s) {
         return 0;
 }
 
-int session_start(Session *s) {
+int session_start(Session *s, sd_bus_message *properties) {
         int r;
 
         assert(s);
@@ -620,7 +606,7 @@ int session_start(Session *s) {
                 return r;
 
         /* Create cgroup */
-        r = session_start_scope(s);
+        r = session_start_scope(s, properties);
         if (r < 0)
                 return r;
 
@@ -949,7 +935,7 @@ int session_create_fifo(Session *s) {
 
         /* Create FIFO */
         if (!s->fifo_path) {
-                r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0, false);
+                r = mkdir_safe_label("/run/systemd/sessions", 0755, 0, 0, MKDIR_WARN_MODE);
                 if (r < 0)
                         return r;
 
@@ -1000,27 +986,27 @@ static void session_remove_fifo(Session *s) {
         }
 }
 
-bool session_check_gc(Session *s, bool drop_not_started) {
+bool session_may_gc(Session *s, bool drop_not_started) {
         assert(s);
 
         if (drop_not_started && !s->started)
-                return false;
+                return true;
 
         if (!s->user)
-                return false;
+                return true;
 
         if (s->fifo_fd >= 0) {
                 if (pipe_eof(s->fifo_fd) <= 0)
-                        return true;
+                        return false;
         }
 
         if (s->scope_job && manager_job_is_active(s->manager, s->scope_job))
-                return true;
+                return false;
 
         if (s->scope && manager_unit_is_active(s->manager, s->scope))
-                return true;
+                return false;
 
-        return false;
+        return true;
 }
 
 void session_add_to_gc_queue(Session *s) {
@@ -1145,8 +1131,7 @@ void session_restore_vt(Session *s) {
          * little dance to avoid having the terminal be available
          * for reuse before we've cleaned it up.
          */
-        old_fd = s->vtfd;
-        s->vtfd = -1;
+        old_fd = TAKE_FD(s->vtfd);
 
         vt = session_open_vt(s);
         safe_close(old_fd);
@@ -1271,8 +1256,7 @@ int session_set_controller(Session *s, const char *sender, bool force, bool prep
         }
 
         session_release_controller(s, true);
-        s->controller = name;
-        name = NULL;
+        s->controller = TAKE_PTR(name);
         session_save(s);
 
         return 0;

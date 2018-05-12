@@ -8,19 +8,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.service">
@@ -56,7 +43,7 @@
     <title>Description</title>
 
     <para>A unit configuration file whose name ends in
-    <filename>.service</filename> encodes information about a process
+    <literal>.service</literal> encodes information about a process
     controlled and supervised by systemd.</para>
 
     <para>This man page lists the configuration options specific to
@@ -91,55 +78,73 @@
   </refsect1>
 
   <refsect1>
-    <title>Implicit Dependencies</title>
+    <title>Service Templates</title>
 
-    <para>The following dependencies are implicitly added:</para>
-
-    <itemizedlist>
-      <listitem><para>Services with <varname>Type=dbus</varname> set automatically
-      acquire dependencies of type <varname>Requires=</varname> and
-      <varname>After=</varname> on
-      <filename>dbus.socket</filename>.</para></listitem>
-
-      <listitem><para>Socket activated services are automatically ordered after
-      their activating <filename>.socket</filename> units via an
-      automatic <varname>After=</varname> dependency.
-      Services also pull in all <filename>.socket</filename> units
-      listed in <varname>Sockets=</varname> via automatic
-      <varname>Wants=</varname> and <varname>After=</varname> dependencies.</para></listitem>
-    </itemizedlist>
-
-    <para>Additional implicit dependencies may be added as result of
-    execution and resource control parameters as documented in
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    and
-    <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <para>It is possible for <command>systemd</command> services to take a single argument via the
+    <literal><replaceable>service</replaceable>@<replaceable>argument</replaceable>.service</literal>
+    syntax. Such services are called "instantiated" services, while the unit definition without the
+    <replaceable>argument</replaceable> parameter is called a "template". An example could be a
+    <filename>dhcpcd@.service</filename> service template which takes a network interface as a
+    parameter to form an instantiated service. Within the service file, this parameter or "instance
+    name" can be accessed with %-specifiers. See
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    for details.</para>
   </refsect1>
 
   <refsect1>
-    <title>Default Dependencies</title>
+    <title>Automatic Dependencies</title>
 
-    <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+    <refsect2>
+      <title>Implicit Dependencies</title>
 
-    <itemizedlist>
-      <listitem><para>Service units will have dependencies of type <varname>Requires=</varname> and
-      <varname>After=</varname> on <filename>sysinit.target</filename>, a dependency of type <varname>After=</varname> on
-      <filename>basic.target</filename> as well as dependencies of type <varname>Conflicts=</varname> and
-      <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure that normal service units pull in
-      basic system initialization, and are terminated cleanly prior to system shutdown. Only services involved with early
-      boot or late system shutdown should disable this option.</para></listitem>
+      <para>The following dependencies are implicitly added:</para>
 
-      <listitem><para>Instanced service units (i.e. service units with an <literal>@</literal> in their name) are assigned by
-      default a per-template slice unit (see
-      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>), named after the
-      template unit, containing all instances of the specific template. This slice is normally stopped at shutdown,
-      together with all template instances. If that is not desired, set <varname>DefaultDependencies=no</varname> in the
-      template unit, and either define your own per-template slice unit file that also sets
-      <varname>DefaultDependencies=no</varname>, or set <varname>Slice=system.slice</varname> (or another suitable slice)
-      in the template unit. Also see
-      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      </para></listitem>
-    </itemizedlist>
+      <itemizedlist>
+        <listitem><para>Services with <varname>Type=dbus</varname> set automatically
+        acquire dependencies of type <varname>Requires=</varname> and
+        <varname>After=</varname> on
+        <filename>dbus.socket</filename>.</para></listitem>
+
+        <listitem><para>Socket activated services are automatically ordered after
+        their activating <filename>.socket</filename> units via an
+        automatic <varname>After=</varname> dependency.
+        Services also pull in all <filename>.socket</filename> units
+        listed in <varname>Sockets=</varname> via automatic
+        <varname>Wants=</varname> and <varname>After=</varname> dependencies.</para></listitem>
+      </itemizedlist>
+
+      <para>Additional implicit dependencies may be added as result of
+      execution and resource control parameters as documented in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      and
+      <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Default Dependencies</title>
+
+      <para>The following dependencies are added unless <varname>DefaultDependencies=no</varname> is set:</para>
+
+      <itemizedlist>
+        <listitem><para>Service units will have dependencies of type <varname>Requires=</varname> and
+        <varname>After=</varname> on <filename>sysinit.target</filename>, a dependency of type <varname>After=</varname> on
+        <filename>basic.target</filename> as well as dependencies of type <varname>Conflicts=</varname> and
+        <varname>Before=</varname> on <filename>shutdown.target</filename>. These ensure that normal service units pull in
+        basic system initialization, and are terminated cleanly prior to system shutdown. Only services involved with early
+        boot or late system shutdown should disable this option.</para></listitem>
+
+        <listitem><para>Instanced service units (i.e. service units with an <literal>@</literal> in their name) are assigned by
+        default a per-template slice unit (see
+        <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>), named after the
+        template unit, containing all instances of the specific template. This slice is normally stopped at shutdown,
+        together with all template instances. If that is not desired, set <varname>DefaultDependencies=no</varname> in the
+        template unit, and either define your own per-template slice unit file that also sets
+        <varname>DefaultDependencies=no</varname>, or set <varname>Slice=system.slice</varname> (or another suitable slice)
+        in the template unit. Also see
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para></listitem>
+      </itemizedlist>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -301,8 +306,9 @@
         <varname>ExecStop=</varname> line set. (Services lacking both <varname>ExecStart=</varname> and
         <varname>ExecStop=</varname> are not valid.)</para>
 
-        <para>For each of the specified commands, the first argument must be an absolute path to an
-        executable. Optionally, this filename may be prefixed with a number of special characters:</para>
+        <para>For each of the specified commands, the first argument must be either an absolute path to an executable
+        or a simple file name without any slashes. Optionally, this filename may be prefixed with a number of special
+        characters:</para>
 
         <table>
           <title>Special executable prefixes</title>
@@ -1004,14 +1010,10 @@
     <literal>&amp;</literal>, and <emphasis>other elements of shell
     syntax are not supported</emphasis>.</para>
 
-    <para>The command to execute must be an absolute path name. It may
-    contain spaces, but control characters are not allowed.</para>
+    <para>The command to execute may contain spaces, but control characters are not allowed.</para>
 
-    <para>The command line accepts <literal>%</literal> specifiers as
-    described in
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    Note that the first argument of the command line (i.e. the program
-    to execute) may not include specifiers.</para>
+    <para>The command line accepts <literal>%</literal> specifiers as described in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Basic environment variable substitution is supported. Use
     <literal>${FOO}</literal> as part of a word, or as a word of its
@@ -1024,10 +1026,21 @@
     For this type of expansion, quotes are respected when splitting
     into words, and afterwards removed.</para>
 
+    <para>If the command is not a full (absolute) path, it will be resolved to a full path using a
+    fixed search path determinted at compilation time. Searched directories include
+    <filename>/usr/local/bin/</filename>, <filename>/usr/bin/</filename>, <filename>/bin/</filename>
+    on systems using split <filename>/usr/bin/</filename> and <filename>/bin/</filename>
+    directories, and their <filename>sbin/</filename> counterparts on systems using split
+    <filename>bin/</filename> and <filename>sbin/</filename>. It is thus safe to use just the
+    executable name in case of executables located in any of the "standard" directories, and an
+    absolute path must be used in other cases. Using an absolute path is recommended to avoid
+    ambiguity. Hint: this search path may be queried using
+    <command>systemd-path search-binaries-default</command>.</para>
+
     <para>Example:</para>
 
     <programlisting>Environment="ONE=one" 'TWO=two two'
-ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
+ExecStart=echo $ONE $TWO ${TWO}</programlisting>
 
     <para>This will execute <command>/bin/echo</command> with four
     arguments: <literal>one</literal>, <literal>two</literal>,
@@ -1037,7 +1050,7 @@ ExecStart=/bin/echo $ONE $TWO ${TWO}</programlisting>
     <programlisting>Environment=ONE='one' "TWO='two two' too" THREE=
 ExecStart=/bin/echo ${ONE} ${TWO} ${THREE}
 ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
-    <para>This results in <filename>echo</filename> being
+    <para>This results in <filename>/bin/echo</filename> being
     called twice, the first time with arguments
     <literal>'one'</literal>,
     <literal>'two two' too</literal>, <literal></literal>,
@@ -1063,27 +1076,27 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     <para>Note that shell command lines are not directly supported. If
     shell command lines are to be used, they need to be passed
     explicitly to a shell implementation of some kind. Example:</para>
-    <programlisting>ExecStart=/bin/sh -c 'dmesg | tac'</programlisting>
+    <programlisting>ExecStart=sh -c 'dmesg | tac'</programlisting>
 
     <para>Example:</para>
 
-    <programlisting>ExecStart=/bin/echo one ; /bin/echo "two two"</programlisting>
+    <programlisting>ExecStart=echo one ; echo "two two"</programlisting>
 
-    <para>This will execute <command>/bin/echo</command> two times,
+    <para>This will execute <command>echo</command> two times,
     each time with one argument: <literal>one</literal> and
     <literal>two two</literal>, respectively. Because two commands are
     specified, <varname>Type=oneshot</varname> must be used.</para>
 
     <para>Example:</para>
 
-    <programlisting>ExecStart=/bin/echo / &gt;/dev/null &amp; \; \
-/bin/ls</programlisting>
+    <programlisting>ExecStart=echo / &gt;/dev/null &amp; \; \
+ls</programlisting>
 
-    <para>This will execute <command>/bin/echo</command>
+    <para>This will execute <command>echo</command>
     with five arguments: <literal>/</literal>,
     <literal>&gt;/dev/null</literal>,
     <literal>&amp;</literal>, <literal>;</literal>, and
-    <literal>/bin/ls</literal>.</para>
+    <literal>ls</literal>.</para>
 
     <table>
       <title>C escapes supported in command lines and environment variables</title>

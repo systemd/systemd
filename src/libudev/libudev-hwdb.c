@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "sd-hwdb.h"
@@ -73,8 +60,7 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
         }
 
         hwdb->refcount = 1;
-        hwdb->hwdb = hwdb_internal;
-        hwdb_internal = NULL;
+        hwdb->hwdb = TAKE_PTR(hwdb_internal);
 
         udev_list_init(udev, &hwdb->properties_list, true);
 

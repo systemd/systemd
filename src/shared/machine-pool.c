@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -89,11 +76,8 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
          * /var/lib/machines. */
 
         fd = open("/var/lib/machines.raw", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (fd >= 0) {
-                r = fd;
-                fd = -1;
-                return r;
-        }
+        if (fd >= 0)
+                return TAKE_FD(fd);
 
         if (errno != ENOENT)
                 return sd_bus_error_set_errnof(error, errno, "Failed to open /var/lib/machines.raw: %m");
@@ -162,10 +146,7 @@ static int setup_machine_raw(uint64_t size, sd_bus_error *error) {
                 goto fail;
         }
 
-        r = fd;
-        fd = -1;
-
-        return r;
+        return TAKE_FD(fd);
 
 fail:
         unlink_noerrno(tmp);
@@ -177,7 +158,7 @@ fail:
 }
 
 int setup_machine_directory(uint64_t size, sd_bus_error *error) {
-        _cleanup_release_lock_file_ LockFile lock_file = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile lock_file = LOCK_FILE_INIT;
         struct loop_info64 info = {
                 .lo_flags = LO_FLAGS_AUTOCLEAR,
         };

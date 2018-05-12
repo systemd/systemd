@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -325,8 +312,7 @@ _public_ int sd_uid_get_display(uid_t uid, char **session) {
         if (isempty(s))
                 return -ENODATA;
 
-        *session = s;
-        s = NULL;
+        *session = TAKE_PTR(s);
 
         return 0;
 }
@@ -355,8 +341,7 @@ static int file_of_seat(const char *seat, char **_p) {
         if (!p)
                 return -ENOMEM;
 
-        *_p = p;
-        p = NULL;
+        *_p = TAKE_PTR(p);
         return 0;
 }
 
@@ -417,7 +402,7 @@ static int uid_get_array(uid_t uid, const char *variable, char ***array) {
                 return -ENOMEM;
 
         strv_uniq(a);
-        r = strv_length(a);
+        r = (int) strv_length(a);
 
         if (array)
                 *array = a;
@@ -529,8 +514,7 @@ _public_ int sd_session_get_state(const char *session, char **state) {
         if (isempty(s))
                 return -EIO;
 
-        *state = s;
-        s = NULL;
+        *state = TAKE_PTR(s);
 
         return 0;
 }
@@ -575,8 +559,7 @@ static int session_get_string(const char *session, const char *field, char **val
         if (isempty(s))
                 return -ENODATA;
 
-        *value = s;
-        s = NULL;
+        *value = TAKE_PTR(s);
         return 0;
 }
 
@@ -681,10 +664,8 @@ _public_ int sd_seat_get_active(const char *seat, char **session, uid_t *uid) {
                         return r;
         }
 
-        if (session && s) {
-                *session = s;
-                s = NULL;
-        }
+        if (session && s)
+                *session = TAKE_PTR(s);
 
         return 0;
 }
@@ -745,17 +726,13 @@ _public_ int sd_seat_get_sessions(const char *seat, char ***sessions, uid_t **ui
                 }
         }
 
-        r = strv_length(a);
+        r = (int) strv_length(a);
 
-        if (sessions) {
-                *sessions = a;
-                a = NULL;
-        }
+        if (sessions)
+                *sessions = TAKE_PTR(a);
 
-        if (uids) {
-                *uids = b;
-                b = NULL;
-        }
+        if (uids)
+                *uids = TAKE_PTR(b);
 
         if (n_uids)
                 *n_uids = n;
@@ -870,10 +847,8 @@ _public_ int sd_get_uids(uid_t **users) {
                         r++;
         }
 
-        if (users) {
-                *users = l;
-                l = NULL;
-        }
+        if (users)
+                *users = TAKE_PTR(l);
 
         return r;
 }
@@ -909,10 +884,9 @@ _public_ int sd_get_machine_names(char ***machines) {
                 *b = NULL;
         }
 
-        if (machines) {
-                *machines = l;
-                l = NULL;
-        }
+        if (machines)
+                *machines = TAKE_PTR(l);
+
         return r;
 }
 
@@ -933,8 +907,7 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
         if (!c)
                 return -EIO;
 
-        *class = c;
-        c = NULL;
+        *class = TAKE_PTR(c);
 
         return 0;
 }
@@ -990,8 +963,9 @@ static inline sd_login_monitor* FD_TO_MONITOR(int fd) {
 }
 
 _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
-        int fd, k;
+        _cleanup_close_ int fd = -1;
         bool good = false;
+        int k;
 
         assert_return(m, -EINVAL);
 
@@ -1001,50 +975,42 @@ _public_ int sd_login_monitor_new(const char *category, sd_login_monitor **m) {
 
         if (!category || streq(category, "seat")) {
                 k = inotify_add_watch(fd, "/run/systemd/seats/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0) {
-                        safe_close(fd);
+                if (k < 0)
                         return -errno;
-                }
 
                 good = true;
         }
 
         if (!category || streq(category, "session")) {
                 k = inotify_add_watch(fd, "/run/systemd/sessions/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0) {
-                        safe_close(fd);
+                if (k < 0)
                         return -errno;
-                }
 
                 good = true;
         }
 
         if (!category || streq(category, "uid")) {
                 k = inotify_add_watch(fd, "/run/systemd/users/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0) {
-                        safe_close(fd);
+                if (k < 0)
                         return -errno;
-                }
 
                 good = true;
         }
 
         if (!category || streq(category, "machine")) {
                 k = inotify_add_watch(fd, "/run/systemd/machines/", IN_MOVED_TO|IN_DELETE);
-                if (k < 0) {
-                        safe_close(fd);
+                if (k < 0)
                         return -errno;
-                }
 
                 good = true;
         }
 
-        if (!good) {
-                close_nointr(fd);
+        if (!good)
                 return -EINVAL;
-        }
 
         *m = FD_TO_MONITOR(fd);
+        fd = -1;
+
         return 0;
 }
 

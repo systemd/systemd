@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <stdlib.h>
@@ -244,7 +231,6 @@ static int verify_unit(Unit *u, bool check_man) {
 }
 
 int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
-        _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *var = NULL;
         Manager *m = NULL;
         FILE *serial = NULL;
@@ -254,7 +240,8 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         Unit *units[strv_length(filenames)];
         int i, count = 0;
-        const uint8_t flags = MANAGER_TEST_RUN_ENV_GENERATORS |
+        const uint8_t flags = MANAGER_TEST_RUN_BASIC |
+                              MANAGER_TEST_RUN_ENV_GENERATORS |
                               run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         if (strv_isempty(filenames))
@@ -296,12 +283,10 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                         continue;
                 }
 
-                k = manager_load_unit(m, NULL, prepared, &err, &units[count]);
-                if (k < 0) {
-                        log_error_errno(k, "Failed to load %s: %m", *filename);
-                        if (r == 0)
-                                r = k;
-                } else
+                k = manager_load_startable_unit_or_warn(m, NULL, prepared, &units[count]);
+                if (k < 0 && r == 0)
+                        r = k;
+                else
                         count++;
         }
 

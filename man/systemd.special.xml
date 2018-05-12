@@ -8,19 +8,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.special">
@@ -65,6 +52,7 @@
     <filename>halt.target</filename>,
     <filename>hibernate.target</filename>,
     <filename>hybrid-sleep.target</filename>,
+    <filename>suspend-then-hibernate.target</filename>,
     <filename>initrd-fs.target</filename>,
     <filename>initrd-root-device.target</filename>,
     <filename>initrd-root-fs.target</filename>,
@@ -308,6 +296,15 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><filename>suspend-then-hibernate.target</filename></term>
+        <listitem>
+          <para>A special target unit for suspending the system for a period
+          of time, waking it and putting it into hibernate. This pulls in
+          <filename>sleep.target</filename>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><filename>halt.target</filename></term>
         <listitem>
           <para>A special target unit for shutting down and halting
@@ -458,6 +455,10 @@
           functionality to other hosts generally do not need to pull
           this in.</para>
 
+          <para>systemd automatically adds dependencies of type <varname>Wants=</varname> and <varname>After=</varname>
+          for this target unit to all SysV init script service units with an LSB header referring to the
+          <literal>$network</literal> facility.</para>
+
           <para>Note that this unit is only useful during the original system start-up logic. After the system has
           completed booting up, it will not track the online state of the system anymore. Due to this it cannot be used
           as a network connection monitor concept, it is purely a one-time system start-up concept.</para>
@@ -483,7 +484,7 @@
           <para>A special target unit for shutting down and powering
           off the system.</para>
 
-          <para>Applications wanting to reboot the system should not start this unit
+          <para>Applications wanting to power off the system should not start this unit
           directly, but should instead execute <command>systemctl poweroff</command>
           (possibly with the <option>--no-block</option> option) or call
           <citerefentry><refentrytitle>systemd-logind</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
@@ -849,11 +850,6 @@
           information. Also see
           <filename>network-online.target</filename> described
           above.</para>
-
-          <para>systemd automatically adds dependencies of type
-          <varname>After=</varname> for this target unit to all SysV
-          init script service units with an LSB header referring to
-          the <literal>$network</literal> facility.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -869,31 +865,24 @@
       <varlistentry>
         <term><filename>nss-lookup.target</filename></term>
         <listitem>
-          <para>A target that should be used as synchronization point
-          for all host/network name service lookups. Note that this is
-          independent of user/group name lookups for which
-          <filename>nss-user-lookup.target</filename> should be used.
-          All services for which the availability of full host/network
-          name resolution is essential should be ordered after this
-          target, but not pull it in. systemd automatically adds
-          dependencies of type <varname>After=</varname> for this
-          target unit to all SysV init script service units with an
-          LSB header referring to the <literal>$named</literal>
-          facility.</para>
+          <para>A target that should be used as synchronization point for all host/network name service lookups. Note
+          that this is independent of UNIX user/group name lookups for which <filename>nss-user-lookup.target</filename>
+          should be used.  All services for which the availability of full host/network name resolution is essential
+          should be ordered after this target, but not pull it in. systemd automatically adds dependencies of type
+          <varname>After=</varname> for this target unit to all SysV init script service units with an LSB header
+          referring to the <literal>$named</literal> facility.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><filename>nss-user-lookup.target</filename></term>
         <listitem>
-          <para>A target that should be used as synchronization point
-          for all user/group name service lookups. Note that this is
-          independent of host/network name lookups for which
-          <filename>nss-lookup.target</filename> should be used. All
-          services for which the availability of the full user/group
-          database is essential should be ordered after this target,
-          but not pull it in. Note that system users are always
-          resolvable, and hence do not require any special ordering
-          against this target.</para>
+          <para>A target that should be used as synchronization point for all regular UNIX user/group name service
+          lookups. Note that this is independent of host/network name lookups for which
+          <filename>nss-lookup.target</filename> should be used. All services for which the availability of the full
+          user/group database is essential should be ordered after this target, but not pull it in. All services which
+          provide parts of the user/group database should be ordered before this target, and pull it in. Note that this
+          unit is only relevant for regular users and groups — system users and groups are required to be resolvable
+          during earliest boot already, and hence do not need any special ordering against this target.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
 #if HAVE_LIBIDN2
@@ -295,8 +282,7 @@ int dns_label_escape_new(const char *p, size_t l, char **ret) {
         if (r < 0)
                 return r;
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return r;
 }
@@ -409,10 +395,9 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
 
         if (a)
                 p = a;
-        else if (b) {
-                p = b;
-                b = NULL;
-        } else
+        else if (b)
+                p = TAKE_PTR(b);
+        else
                 goto finish;
 
         for (;;) {
@@ -427,8 +412,7 @@ int dns_name_concat(const char *a, const char *b, char **_ret) {
 
                         if (b) {
                                 /* Now continue with the second string, if there is one */
-                                p = b;
-                                b = NULL;
+                                p = TAKE_PTR(b);
                                 continue;
                         }
 
@@ -478,8 +462,7 @@ finish:
                 }
 
                 ret[n] = 0;
-                *_ret = ret;
-                ret = NULL;
+                *_ret = TAKE_PTR(ret);
         }
 
         return 0;
@@ -601,8 +584,7 @@ int dns_name_endswith(const char *name, const char *suffix) {
 
                         /* Not the same, let's jump back, and try with the next label again */
                         s = suffix;
-                        n = saved_n;
-                        saved_n = NULL;
+                        n = TAKE_PTR(saved_n);
                 }
         }
 }
@@ -677,8 +659,8 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
 
                         /* Not the same, let's jump back, and try with the next label again */
                         s = old_suffix;
-                        n = saved_after;
-                        saved_after = saved_before = NULL;
+                        n = TAKE_PTR(saved_after);
+                        saved_before = NULL;
                 }
         }
 
@@ -1113,20 +1095,14 @@ finish:
         if (r < 0)
                 return r;
 
-        if (_domain) {
-                *_domain = domain;
-                domain = NULL;
-        }
+        if (_domain)
+                *_domain = TAKE_PTR(domain);
 
-        if (_type) {
-                *_type = type;
-                type = NULL;
-        }
+        if (_type)
+                *_type = TAKE_PTR(type);
 
-        if (_name) {
-                *_name = name;
-                name = NULL;
-        }
+        if (_name)
+                *_name = TAKE_PTR(name);
 
         return 0;
 }
@@ -1309,8 +1285,8 @@ int dns_name_apply_idna(const char *name, char **ret) {
                         }
                 }
 
-                *ret = t;
-                t = NULL;
+                *ret = TAKE_PTR(t);
+
                 return 1; /* *ret has been written */
         }
 
@@ -1367,8 +1343,7 @@ int dns_name_apply_idna(const char *name, char **ret) {
                 return -ENOMEM;
 
         buf[n] = 0;
-        *ret = buf;
-        buf = NULL;
+        *ret = TAKE_PTR(buf);
 
         return 1;
 #else

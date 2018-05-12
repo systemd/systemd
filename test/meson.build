@@ -1,19 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 test_data_files = '''
         a.service
@@ -45,11 +32,14 @@ test_data_files = '''
         sockets.target
         son.service
         sysinit.target
+        test-execute/exec-basic.service
+        test-execute/exec-ambientcapabilities-merge-nfsnobody.service
+        test-execute/exec-ambientcapabilities-merge-nobody.service
+        test-execute/exec-ambientcapabilities-merge.service
+        test-execute/exec-ambientcapabilities-nfsnobody.service
+        test-execute/exec-ambientcapabilities-nobody.service
+        test-execute/exec-ambientcapabilities.service
         test-execute/exec-bindpaths.service
-        test-execute/exec-capabilityambientset-merge-nfsnobody.service
-        test-execute/exec-capabilityambientset-merge.service
-        test-execute/exec-capabilityambientset-nfsnobody.service
-        test-execute/exec-capabilityambientset.service
         test-execute/exec-capabilityboundingset-invert.service
         test-execute/exec-capabilityboundingset-merge.service
         test-execute/exec-capabilityboundingset-reset.service
@@ -68,6 +58,7 @@ test_data_files = '''
         test-execute/exec-environment.service
         test-execute/exec-environmentfile.service
         test-execute/exec-group-nfsnobody.service
+        test-execute/exec-group-nobody.service
         test-execute/exec-group-nogroup.service
         test-execute/exec-group.service
         test-execute/exec-ignoresigpipe-no.service
@@ -90,6 +81,7 @@ test_data_files = '''
         test-execute/exec-personality-s390.service
         test-execute/exec-personality-x86-64.service
         test-execute/exec-personality-x86.service
+        test-execute/exec-privatedevices-disabled-by-prefix.service
         test-execute/exec-privatedevices-no-capability-mknod.service
         test-execute/exec-privatedevices-no-capability-sys-rawio.service
         test-execute/exec-privatedevices-no.service
@@ -113,6 +105,8 @@ test_data_files = '''
         test-execute/exec-restrictnamespaces-yes.service
         test-execute/exec-runtimedirectory-mode.service
         test-execute/exec-runtimedirectory-owner-nfsnobody.service
+        test-execute/exec-runtimedirectory-owner-nobody.service
+        test-execute/exec-runtimedirectory-owner-nogroup.service
         test-execute/exec-runtimedirectory-owner.service
         test-execute/exec-runtimedirectory.service
         test-execute/exec-specifier-interpolation.service
@@ -133,13 +127,19 @@ test_data_files = '''
         test-execute/exec-systemcallfilter-not-failing.service
         test-execute/exec-systemcallfilter-not-failing2.service
         test-execute/exec-systemcallfilter-system-user-nfsnobody.service
+        test-execute/exec-systemcallfilter-system-user-nobody.service
         test-execute/exec-systemcallfilter-system-user.service
         test-execute/exec-systemcallfilter-with-errno-name.service
         test-execute/exec-systemcallfilter-with-errno-number.service
+        test-execute/exec-temporaryfilesystem-options.service
+        test-execute/exec-temporaryfilesystem-ro.service
+        test-execute/exec-temporaryfilesystem-rw.service
+        test-execute/exec-temporaryfilesystem-usr.service
         test-execute/exec-umask-0177.service
         test-execute/exec-umask-default.service
         test-execute/exec-unsetenvironment.service
         test-execute/exec-user-nfsnobody.service
+        test-execute/exec-user-nobody.service
         test-execute/exec-user.service
         test-execute/exec-workingdirectory.service
         test-path/basic.target
@@ -160,8 +160,17 @@ test_data_files = '''
         test-path/path-unit.path
         test-path/paths.target
         test-path/sysinit.target
+        test-umount/empty.mountinfo
+        test-umount/example.swaps
+        test-umount/garbled.mountinfo
+        test-umount/rhbug-1554943.mountinfo
         testsuite.target
         timers.target
+        unit-with-.service.d/20-override.conf
+        unit-with-multiple-.service.d/20-override.conf
+        unit-with-multiple-.service.d/30-override.conf
+        unit-with-multiple-dashes.service
+        unit-with-multiple-dashes.service.d/10-override.conf
         unstoppable.service
 '''.split()
 
@@ -218,9 +227,13 @@ custom_target(
         output : 'sys',
         build_by_default : true)
 
-udev_test_pl = find_program('udev-test.pl')
-test('udev-test',
-     udev_test_pl)
+if perl.found()
+        udev_test_pl = find_program('udev-test.pl')
+        test('udev-test',
+             udev_test_pl)
+else
+        message('Skipping udev-test because perl is not available')
+endif
 
 if conf.get('ENABLE_HWDB') == 1
         hwdb_test_sh = find_program('hwdb-test.sh')
@@ -228,3 +241,5 @@ if conf.get('ENABLE_HWDB') == 1
              hwdb_test_sh,
              timeout : 90)
 endif
+
+subdir('fuzz-regressions')

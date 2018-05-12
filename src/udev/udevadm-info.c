@@ -173,7 +173,7 @@ static int stat_device(const char *name, bool export, const char *prefix) {
 }
 
 static int export_devices(struct udev *udev) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *udev_enumerate;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *udev_enumerate;
         struct udev_list_entry *list_entry;
 
         udev_enumerate = udev_enumerate_new(udev);
@@ -182,7 +182,7 @@ static int export_devices(struct udev *udev) {
 
         udev_enumerate_scan_devices(udev_enumerate);
         udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(udev_enumerate)) {
-                _cleanup_udev_device_unref_ struct udev_device *device;
+                _cleanup_(udev_device_unrefp) struct udev_device *device;
 
                 device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
                 if (device != NULL)
@@ -272,7 +272,7 @@ static void help(void) {
 }
 
 static int uinfo(struct udev *udev, int argc, char *argv[]) {
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         bool root = 0;
         bool export = 0;
         const char *export_prefix = NULL;

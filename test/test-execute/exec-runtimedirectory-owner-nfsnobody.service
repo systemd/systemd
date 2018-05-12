@@ -2,7 +2,7 @@
 Description=Test for RuntimeDirectory owner (must not be the default group of the user if Group is set)
 
 [Service]
-ExecStart=/bin/sh -x -c 'group=$$(stat -c %%G /tmp/test-exec_runtimedirectory-owner); test "$$group" = "nfsnobody"'
+ExecStart=/bin/sh -x -c 'group=$$(stat -c %%G %t/test-exec_runtimedirectory-owner); test "$$group" = "nfsnobody"'
 Type=oneshot
 Group=nfsnobody
 User=root

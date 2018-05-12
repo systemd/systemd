@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -67,6 +54,7 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_USER_TEMPLATES] = "user-templates",
         [SD_PATH_USER_DESKTOP] = "user-desktop",
         [SD_PATH_SEARCH_BINARIES] = "search-binaries",
+        [SD_PATH_SEARCH_BINARIES_DEFAULT] = "search-binaries-default",
         [SD_PATH_SEARCH_LIBRARY_PRIVATE] = "search-library-private",
         [SD_PATH_SEARCH_LIBRARY_ARCH] = "search-library-arch",
         [SD_PATH_SEARCH_SHARED] = "search-shared",
@@ -192,7 +180,6 @@ int main(int argc, char* argv[]) {
                 }
         } else
                 r = list_homes();
-
 
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;

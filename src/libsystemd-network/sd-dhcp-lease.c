@@ -4,19 +4,6 @@
 
   Copyright (C) 2013 Intel Corporation. All rights reserved.
   Copyright (C) 2014 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <arpa/inet.h>
@@ -234,7 +221,7 @@ int sd_dhcp_lease_get_routes(sd_dhcp_lease *lease, sd_dhcp_route ***routes) {
 }
 
 int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains) {
-        unsigned r;
+        size_t r;
 
         assert_return(lease, -EINVAL);
         assert_return(domains, -EINVAL);
@@ -807,8 +794,7 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
                       pos = next_chunk;
         }
 
-        *domains = names;
-        names = NULL;
+        *domains = TAKE_PTR(names);
 
         return cnt;
 }
@@ -1207,13 +1193,13 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         if (client_id_hex) {
-                r = deserialize_dhcp_option(&lease->client_id, &lease->client_id_len, client_id_hex);
+                r = unhexmem(client_id_hex, (size_t) -1, &lease->client_id, &lease->client_id_len);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse client ID %s, ignoring: %m", client_id_hex);
         }
 
         if (vendor_specific_hex) {
-                r = deserialize_dhcp_option(&lease->vendor_specific, &lease->vendor_specific_len, vendor_specific_hex);
+                r = unhexmem(vendor_specific_hex, (size_t) -1, &lease->vendor_specific, &lease->vendor_specific_len);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse vendor specific data %s, ignoring: %m", vendor_specific_hex);
         }
@@ -1225,7 +1211,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 if (!options[i])
                         continue;
 
-                r = deserialize_dhcp_option(&data, &len, options[i]);
+                r = unhexmem(options[i], (size_t) -1, &data, &len);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to parse private DHCP option %s, ignoring: %m", options[i]);
                         continue;
@@ -1236,8 +1222,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         return r;
         }
 
-        *ret = lease;
-        lease = NULL;
+        *ret = TAKE_PTR(lease);
 
         return 0;
 }

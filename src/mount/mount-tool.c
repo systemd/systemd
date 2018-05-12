@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2016 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <getopt.h>
@@ -766,16 +753,14 @@ static int find_mount_points(const char *what, char ***list) {
                 if (!GREEDY_REALLOC(l, bufsize, n + 2))
                         return log_oom();
 
-                l[n++] = where;
-                where = NULL;
+                l[n++] = TAKE_PTR(where);
         }
 
         if (!GREEDY_REALLOC(l, bufsize, n + 1))
                 return log_oom();
 
         l[n] = NULL;
-        *list = l;
-        l = NULL; /* avoid freeing */
+        *list = TAKE_PTR(l);
 
         return n;
 }
@@ -827,8 +812,7 @@ static int find_loop_device(const char *backing_file, char **loop_dev) {
         if (!l)
                 return -ENXIO;
 
-        *loop_dev = l;
-        l = NULL; /* avoid freeing */
+        *loop_dev = TAKE_PTR(l);
 
         return 0;
 }
@@ -931,8 +915,8 @@ static int stop_mounts(
 }
 
 static int umount_by_device(sd_bus *bus, const char *what) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_strv_free_ char **list = NULL;
         struct stat st;
         const char *v;
@@ -1253,8 +1237,8 @@ static int acquire_removable(struct udev_device *d) {
 }
 
 static int discover_loop_backing_file(void) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_free_ char *loop_dev = NULL;
         struct stat st;
         const char *v;
@@ -1328,8 +1312,8 @@ static int discover_loop_backing_file(void) {
 }
 
 static int discover_device(void) {
-        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         struct stat st;
         const char *v;
         int r;
@@ -1422,8 +1406,8 @@ static int list_devices(void) {
                 [COLUMN_UUID] = "UUID"
         };
 
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         size_t n_allocated = 0, n = 0, i;
         size_t column_width[_COLUMN_MAX];
@@ -1456,7 +1440,7 @@ static int list_devices(void) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *d;
+                _cleanup_(udev_device_unrefp) struct udev_device *d;
                 struct item *j;
 
                 d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
@@ -1529,7 +1513,7 @@ static int list_devices(void) {
 
         qsort_safe(items, n, sizeof(struct item), compare_item);
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         fputs(ansi_underline(), stdout);
         for (c = 0; c < _COLUMN_MAX; c++) {

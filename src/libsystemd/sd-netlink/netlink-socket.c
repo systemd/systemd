@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <netinet/in.h>
@@ -25,6 +12,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "missing.h"
 #include "netlink-internal.h"
@@ -41,7 +29,7 @@ int socket_open(int family) {
         if (fd < 0)
                 return -errno;
 
-        return fd;
+        return fd_move_above_stdio(fd);
 }
 
 static int broadcast_groups_get(sd_netlink *nl) {
@@ -432,8 +420,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 /* push the message onto the multi-part message stack */
                 if (first)
                         m->next = first;
-                first = m;
-                m = NULL;
+                first = TAKE_PTR(m);
         }
 
         if (len > 0)
@@ -448,8 +435,7 @@ int socket_read_message(sd_netlink *rtnl) {
                 if (r < 0)
                         return r;
 
-                rtnl->rqueue[rtnl->rqueue_size++] = first;
-                first = NULL;
+                rtnl->rqueue[rtnl->rqueue_size++] = TAKE_PTR(first);
 
                 if (multi_part && (i < rtnl->rqueue_partial_size)) {
                         /* remove the message form the partial read queue */
@@ -463,15 +449,14 @@ int socket_read_message(sd_netlink *rtnl) {
                 /* we only got a partial multi-part message, push it on the
                    partial read queue */
                 if (i < rtnl->rqueue_partial_size)
-                        rtnl->rqueue_partial[i] = first;
+                        rtnl->rqueue_partial[i] = TAKE_PTR(first);
                 else {
                         r = rtnl_rqueue_partial_make_room(rtnl);
                         if (r < 0)
                                 return r;
 
-                        rtnl->rqueue_partial[rtnl->rqueue_partial_size++] = first;
+                        rtnl->rqueue_partial[rtnl->rqueue_partial_size++] = TAKE_PTR(first);
                 }
-                first = NULL;
 
                 return 0;
         }

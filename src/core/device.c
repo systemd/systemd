@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -77,7 +64,7 @@ static int device_set_sysfs(Device *d, const char *sysfs) {
         if (streq_ptr(d->sysfs, sysfs))
                 return 0;
 
-        r = hashmap_ensure_allocated(&UNIT(d)->manager->devices_by_sysfs, &string_hash_ops);
+        r = hashmap_ensure_allocated(&UNIT(d)->manager->devices_by_sysfs, &path_hash_ops);
         if (r < 0)
                 return r;
 
@@ -145,6 +132,13 @@ static int device_coldplug(Unit *u) {
         assert(d);
         assert(d->state == DEVICE_DEAD);
 
+        /* This should happen only when we reexecute PID1 from an old version
+         * which didn't serialize d->found. In this case simply assume that the
+         * device was in plugged state right before we started reexecuting which
+         * might be a wrong assumption. */
+        if (d->found == DEVICE_FOUND_UDEV_DB)
+                d->found = DEVICE_FOUND_UDEV;
+
         if (d->found & DEVICE_FOUND_UDEV)
                 /* If udev says the device is around, it's around */
                 device_set_state(d, DEVICE_PLUGGED);
@@ -157,7 +151,71 @@ static int device_coldplug(Unit *u) {
         return 0;
 }
 
+static const struct {
+        DeviceFound flag;
+        const char *name;
+} device_found_map[] = {
+        { DEVICE_FOUND_UDEV,    "found-udev"    },
+        { DEVICE_FOUND_UDEV_DB, "found-udev-db" },
+        { DEVICE_FOUND_MOUNT,   "found-mount"   },
+        { DEVICE_FOUND_SWAP,    "found-swap"    },
+        {}
+};
+
+static int device_found_to_string_many(DeviceFound flags, char **ret) {
+        _cleanup_free_ char *s = NULL;
+        unsigned i;
+
+        assert(ret);
+
+        for (i = 0; device_found_map[i].name; i++) {
+                if ((flags & device_found_map[i].flag) != device_found_map[i].flag)
+                        continue;
+
+                if (!strextend_with_separator(&s, ",", device_found_map[i].name, NULL))
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(s);
+
+        return 0;
+}
+
+static int device_found_from_string_many(const char *name, DeviceFound *ret) {
+        DeviceFound flags = 0;
+        int r;
+
+        assert(ret);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                DeviceFound f = 0;
+                unsigned i;
+
+                r = extract_first_word(&name, &word, ",", 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                for (i = 0; device_found_map[i].name; i++)
+                        if (streq(word, device_found_map[i].name)) {
+                                f = device_found_map[i].flag;
+                                break;
+                        }
+
+                if (f == 0)
+                        return -EINVAL;
+
+                flags |= f;
+        }
+
+        *ret = flags;
+        return 0;
+}
+
 static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
+        _cleanup_free_ char *s = NULL;
         Device *d = DEVICE(u);
 
         assert(u);
@@ -166,16 +224,32 @@ static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         unit_serialize_item(u, f, "state", device_state_to_string(d->state));
 
+        (void) device_found_to_string_many(d->found, &s);
+        unit_serialize_item(u, f, "found", s);
+
         return 0;
 }
 
 static int device_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Device *d = DEVICE(u);
+        int r;
 
         assert(u);
         assert(key);
         assert(value);
         assert(fds);
+
+        /* The device was known at the time units were serialized but it's not
+         * anymore at the time units are deserialized. This happens when PID1 is
+         * re-executed after having switched to the new rootfs: devices were
+         * enumerated but udevd wasn't running yet thus the list of devices
+         * (handled by systemd) to initialize was empty. In such case we wait
+         * for the device events to be re-triggered by udev so device units are
+         * properly re-initialized. */
+        if (d->found == DEVICE_NOT_FOUND) {
+                assert(d->sysfs == NULL);
+                return 0;
+        }
 
         if (streq(key, "state")) {
                 DeviceState state;
@@ -185,6 +259,12 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "Failed to parse state value: %s", value);
                 else
                         d->deserialized_state = state;
+
+        } else if (streq(key, "found")) {
+                r = device_found_from_string_many(value, &d->found);
+                if (r < 0)
+                        log_unit_debug(u, "Failed to parse found value: %s", value);
+
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
@@ -193,14 +273,19 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
 
 static void device_dump(Unit *u, FILE *f, const char *prefix) {
         Device *d = DEVICE(u);
+        _cleanup_free_ char *s = NULL;
 
         assert(d);
 
+        (void) device_found_to_string_many(d->found, &s);
+
         fprintf(f,
                 "%sDevice State: %s\n"
-                "%sSysfs Path: %s\n",
+                "%sSysfs Path: %s\n"
+                "%sFound: %s\n",
                 prefix, device_state_to_string(d->state),
-                prefix, strna(d->sysfs));
+                prefix, strna(d->sysfs),
+                prefix, strna(s));
 }
 
 _pure_ static UnitActiveState device_active_state(Unit *u) {
@@ -296,7 +381,7 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
                 } else {
                         /* If this is not a template, then let's mangle it so, that it becomes a valid unit name. */
 
-                        r = unit_name_mangle(word, UNIT_NAME_NOGLOB, &k);
+                        r = unit_name_mangle(word, UNIT_NAME_MANGLE_WARN, &k);
                         if (r < 0)
                                 return log_unit_error_errno(u, r, "Failed to mangle unit name \"%s\": %m", word);
                 }
@@ -658,17 +743,12 @@ static void device_shutdown(Manager *m) {
         assert(m);
 
         m->udev_event_source = sd_event_source_unref(m->udev_event_source);
-
-        if (m->udev_monitor) {
-                udev_monitor_unref(m->udev_monitor);
-                m->udev_monitor = NULL;
-        }
-
+        m->udev_monitor = udev_monitor_unref(m->udev_monitor);
         m->devices_by_sysfs = hashmap_free(m->devices_by_sysfs);
 }
 
 static void device_enumerate(Manager *m) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         int r;
 
@@ -733,7 +813,7 @@ static void device_enumerate(Manager *m) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
                 const char *sysfs;
 
                 sysfs = udev_list_entry_get_name(item);
@@ -749,7 +829,7 @@ static void device_enumerate(Manager *m) {
 
                 (void) device_process_new(m, dev);
 
-                device_update_found_by_sysfs(m, sysfs, true, DEVICE_FOUND_UDEV, false);
+                device_update_found_by_sysfs(m, sysfs, true, DEVICE_FOUND_UDEV_DB, false);
         }
 
         return;
@@ -759,7 +839,7 @@ fail:
 }
 
 static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         Manager *m = userdata;
         const char *action, *sysfs;
         int r;
@@ -769,8 +849,8 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         if (revents != EPOLLIN) {
                 static RATELIMIT_DEFINE(limit, 10*USEC_PER_SEC, 5);
 
-                if (!ratelimit_test(&limit))
-                        log_error_errno(errno, "Failed to get udev event: %m");
+                if (ratelimit_test(&limit))
+                        log_warning("Failed to get udev event");
                 if (!(revents & EPOLLIN))
                         return 0;
         }
@@ -860,7 +940,7 @@ static bool device_supported(void) {
 }
 
 int device_found_node(Manager *m, const char *node, bool add, DeviceFound found, bool now) {
-        _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         struct stat st;
 
         assert(m);

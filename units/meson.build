@@ -1,19 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 units = [
         ['basic.target',                        ''],
@@ -36,6 +23,7 @@ units = [
         ['halt.target',                         ''],
         ['hibernate.target',                    'ENABLE_HIBERNATE'],
         ['hybrid-sleep.target',                 'ENABLE_HIBERNATE'],
+        ['suspend-then-hibernate.target',         'ENABLE_HIBERNATE'],
         ['initrd-fs.target',                    ''],
         ['initrd-root-device.target',           ''],
         ['initrd-root-fs.target',               ''],
@@ -91,7 +79,7 @@ units = [
         ['sysinit.target',                      ''],
         ['syslog.socket',                       ''],
         ['system-update.target',                ''],
-        ['system.slice',                        ''],
+        ['system-update-cleanup.service',       ''],
         ['systemd-ask-password-console.path',   '',
          'sysinit.target.wants/'],
         ['systemd-ask-password-wall.path',      '',
@@ -140,7 +128,6 @@ in_units = [
         ['quotaon.service',                      'ENABLE_QUOTACHECK'],
         ['rc-local.service',                     'HAVE_SYSV_COMPAT'],
         ['rescue.service',                       ''],
-        ['system-update-cleanup.service',        ''],
         ['systemd-ask-password-console.service', ''],
         ['systemd-ask-password-wall.service',    ''],
         ['systemd-backlight@.service',           'ENABLE_BACKLIGHT'],
@@ -156,6 +143,7 @@ in_units = [
         ['systemd-hibernate-resume@.service',    'ENABLE_HIBERNATE'],
         ['systemd-hibernate.service',            'ENABLE_HIBERNATE'],
         ['systemd-hybrid-sleep.service',         'ENABLE_HIBERNATE'],
+        ['systemd-suspend-then-hibernate.service', 'ENABLE_HIBERNATE'],
         ['systemd-hostnamed.service',            'ENABLE_HOSTNAMED',
          'dbus-org.freedesktop.hostname1.service'],
         ['systemd-hwdb-update.service',          'ENABLE_HWDB',
@@ -209,6 +197,7 @@ in_units = [
          'dbus-org.freedesktop.timedate1.service'],
         ['systemd-timesyncd.service',            'ENABLE_TIMESYNCD',
          join_paths(pkgsysconfdir, 'system/sysinit.target.wants/')],
+        ['systemd-time-wait-sync.service',       'ENABLE_TIMESYNCD'],
         ['systemd-tmpfiles-clean.service',       'ENABLE_TMPFILES'],
         ['systemd-tmpfiles-setup-dev.service',   'ENABLE_TMPFILES',
          'sysinit.target.wants/'],
@@ -229,31 +218,18 @@ in_units = [
          'multi-user.target.wants/'],
         ['systemd-vconsole-setup.service',       'ENABLE_VCONSOLE'],
         ['systemd-volatile-root.service',        ''],
+        ['user-runtime-dir@.service',            ''],
         ['user@.service',                        ''],
 ]
 
 m4_units = [
+        ['console-getty.service',              ''],
+        ['container-getty@.service',           ''],
         ['getty@.service',                     '',
          'autovt@.service ' +
          join_paths(pkgsysconfdir, 'system/getty.target.wants/getty@tty1.service')],
         ['serial-getty@.service',              ''],
 ]
-
-m4_in_units = [
-        ['console-getty.service',              ''],
-        ['container-getty@.service',           ''],
-]
-
-foreach tuple : m4_in_units
-        file = tuple[0]
-
-        gen = configure_file(
-                input : file + '.m4.in',
-                output : file + '.m4',
-                configuration : substs)
-
-        m4_units += [[file, tuple.get(1, ''), tuple.get(2, ''), gen]]
-endforeach
 
 foreach tuple : in_units
         file = tuple[0]
@@ -296,7 +272,7 @@ foreach tuple : m4_units
                 file,
                 input : input,
                 output: file,
-                command : [m4, '-P'] + m4_defines + ['@INPUT@'],
+                command : [meson_apply_m4, config_h, '@INPUT@'],
                 capture : true,
                 install : install,
                 install_dir : systemunitdir)
@@ -328,6 +304,9 @@ foreach tuple : units
                 endif
         endif
 endforeach
+
+install_data('user-.slice.d/10-defaults.conf',
+             install_dir : systemunitdir + '/user-.slice.d')
 
 ############################################################
 

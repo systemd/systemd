@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 ProFUSION embedded systems
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -42,6 +29,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "reboot-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "switch-root.h"
@@ -50,8 +38,6 @@
 #include "util.h"
 #include "virt.h"
 #include "watchdog.h"
-
-#define FINALIZE_ATTEMPTS 50
 
 #define SYNC_PROGRESS_ATTEMPTS 3
 #define SYNC_TIMEOUT_USEC (10*USEC_PER_SEC)
@@ -93,14 +79,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LOG_LEVEL:
                         r = log_set_max_level_from_string(optarg);
                         if (r < 0)
-                                log_error("Failed to parse log level %s, ignoring.", optarg);
+                                log_error_errno(r, "Failed to parse log level %s, ignoring.", optarg);
 
                         break;
 
                 case ARG_LOG_TARGET:
                         r = log_set_target_from_string(optarg);
                         if (r < 0)
-                                log_error("Failed to parse log target %s, ignoring", optarg);
+                                log_error_errno(r, "Failed to parse log target %s, ignoring", optarg);
 
                         break;
 
@@ -109,7 +95,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = log_show_color_from_string(optarg);
                                 if (r < 0)
-                                        log_error("Failed to parse log color setting %s, ignoring", optarg);
+                                        log_error_errno(r, "Failed to parse log color setting %s, ignoring", optarg);
                         } else
                                 log_show_color(true);
 
@@ -119,7 +105,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = log_show_location_from_string(optarg);
                                 if (r < 0)
-                                        log_error("Failed to parse log location setting %s, ignoring", optarg);
+                                        log_error_errno(r, "Failed to parse log location setting %s, ignoring", optarg);
                         } else
                                 log_show_location(true);
 
@@ -128,14 +114,14 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_EXIT_CODE:
                         r = safe_atou8(optarg, &arg_exit_code);
                         if (r < 0)
-                                log_error("Failed to parse exit code %s, ignoring", optarg);
+                                log_error_errno(r, "Failed to parse exit code %s, ignoring", optarg);
 
                         break;
 
                 case ARG_TIMEOUT:
                         r = parse_sec(optarg, &arg_timeout);
                         if (r < 0)
-                                log_error("Failed to parse shutdown timeout %s, ignoring", optarg);
+                                log_error_errno(r, "Failed to parse shutdown timeout %s, ignoring", optarg);
 
                         break;
 
@@ -268,23 +254,25 @@ static void sync_with_progress(void) {
 
 int main(int argc, char *argv[]) {
         bool need_umount, need_swapoff, need_loop_detach, need_dm_detach;
-        bool in_container, use_watchdog = false;
+        bool in_container, use_watchdog = false, can_initrd;
         _cleanup_free_ char *cgroup = NULL;
         char *arguments[3];
-        unsigned retries;
-        int cmd, r;
+        int cmd, r, umount_log_level = LOG_INFO;
         static const char* const dirs[] = {SYSTEM_SHUTDOWN_PATH, NULL};
         char *watchdog_device;
 
+        /* The log target defaults to console, but the original systemd process will pass its log target in through a
+         * command line argument, which will override this default. Also, ensure we'll never log to the journal or
+         * syslog, as these logging daemons are either already dead or will die very soon. */
+
+        log_set_target(LOG_TARGET_CONSOLE);
+        log_set_prohibit_ipc(true);
         log_parse_environment();
+
         r = parse_argv(argc, argv);
         if (r < 0)
                 goto error;
 
-        /* journald will die if not gone yet. The log target defaults
-         * to console, but may have been changed by command line options. */
-
-        log_close_console(); /* force reopen of /dev/console */
         log_open();
 
         umask(0022);
@@ -306,8 +294,8 @@ int main(int argc, char *argv[]) {
         else if (streq(arg_verb, "exit"))
                 cmd = 0; /* ignored, just checking that arg_verb is valid */
         else {
-                r = -EINVAL;
                 log_error("Unknown action '%s'.", arg_verb);
+                r = -EINVAL;
                 goto error;
         }
 
@@ -324,7 +312,7 @@ int main(int argc, char *argv[]) {
         }
 
         /* Lock us into memory */
-        mlockall(MCL_CURRENT|MCL_FUTURE);
+        (void) mlockall(MCL_CURRENT|MCL_FUTURE);
 
         /* Synchronize everything that is not written to disk yet at this point already. This is a good idea so that
          * slow IO is processed here already and the final process killing spree is not impacted by processes
@@ -345,9 +333,10 @@ int main(int argc, char *argv[]) {
         need_swapoff = !in_container;
         need_loop_detach = !in_container;
         need_dm_detach = !in_container;
+        can_initrd = !in_container && !in_initrd() && access("/run/initramfs/shutdown", X_OK) == 0;
 
         /* Unmount all mountpoints, swaps, and loopback devices */
-        for (retries = 0; retries < FINALIZE_ATTEMPTS; retries++) {
+        for (;;) {
                 bool changed = false;
 
                 if (use_watchdog)
@@ -362,7 +351,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_umount) {
                         log_info("Unmounting file systems.");
-                        r = umount_all(&changed);
+                        r = umount_all(&changed, umount_log_level);
                         if (r == 0) {
                                 need_umount = false;
                                 log_info("All filesystems unmounted.");
@@ -386,7 +375,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_loop_detach) {
                         log_info("Detaching loop devices.");
-                        r = loopback_detach_all(&changed);
+                        r = loopback_detach_all(&changed, umount_log_level);
                         if (r == 0) {
                                 need_loop_detach = false;
                                 log_info("All loop devices detached.");
@@ -398,7 +387,7 @@ int main(int argc, char *argv[]) {
 
                 if (need_dm_detach) {
                         log_info("Detaching DM devices.");
-                        r = dm_detach_all(&changed);
+                        r = dm_detach_all(&changed, umount_log_level);
                         if (r == 0) {
                                 need_dm_detach = false;
                                 log_info("All DM devices detached.");
@@ -409,10 +398,19 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (!need_umount && !need_swapoff && !need_loop_detach && !need_dm_detach) {
-                        if (retries > 0)
-                                log_info("All filesystems, swaps, loop devices, DM devices detached.");
+                        log_info("All filesystems, swaps, loop devices and DM devices detached.");
                         /* Yay, done */
-                        goto initrd_jump;
+                        break;
+                }
+
+                if (!changed && umount_log_level == LOG_INFO && !can_initrd) {
+                        /* There are things we cannot get rid of. Loop one more time
+                         * with LOG_ERR to inform the user. Note that we don't need
+                         * to do this if there is a initrd to switch to, because that
+                         * one is likely to get rid of the remounting mounts. If not,
+                         * it will log about them. */
+                        umount_log_level = LOG_ERR;
+                        continue;
                 }
 
                 /* If in this iteration we didn't manage to
@@ -423,20 +421,15 @@ int main(int argc, char *argv[]) {
                                  need_swapoff ? " swap devices," : "",
                                  need_loop_detach ? " loop devices," : "",
                                  need_dm_detach ? " DM devices," : "");
-                        goto initrd_jump;
+                        break;
                 }
 
-                log_debug("After %u retries, couldn't finalize remaining %s%s%s%s trying again.",
-                          retries + 1,
+                log_debug("Couldn't finalize remaining %s%s%s%s trying again.",
                           need_umount ? " file systems," : "",
                           need_swapoff ? " swap devices," : "",
                           need_loop_detach ? " loop devices," : "",
                           need_dm_detach ? " DM devices," : "");
         }
-
-        log_error("Too many iterations, giving up.");
-
- initrd_jump:
 
         /* We're done with the watchdog. */
         watchdog_free_device();
@@ -446,8 +439,7 @@ int main(int argc, char *argv[]) {
         arguments[2] = NULL;
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments);
 
-        if (!in_container && !in_initrd() &&
-            access("/run/initramfs/shutdown", X_OK) == 0) {
+        if (can_initrd) {
                 r = switch_root_initramfs();
                 if (r >= 0) {
                         argv[0] = (char*) "/shutdown";
@@ -481,12 +473,9 @@ int main(int argc, char *argv[]) {
 
         if (streq(arg_verb, "exit")) {
                 if (in_container)
-                        exit(arg_exit_code);
-                else {
-                        /* We cannot exit() on the host, fallback on another
-                         * method. */
-                        cmd = RB_POWER_OFF;
-                }
+                        return arg_exit_code;
+
+                cmd = RB_POWER_OFF; /* We cannot exit() on the host, fallback on another method. */
         }
 
         switch (cmd) {
@@ -514,22 +503,9 @@ int main(int argc, char *argv[]) {
 
                 cmd = RB_AUTOBOOT;
                 _fallthrough_;
+
         case RB_AUTOBOOT:
-
-                if (!in_container) {
-                        _cleanup_free_ char *param = NULL;
-
-                        r = read_one_line_file("/run/systemd/reboot-param", &param);
-                        if (r < 0 && r != -ENOENT)
-                                log_warning_errno(r, "Failed to read reboot parameter file: %m");
-
-                        if (!isempty(param)) {
-                                log_info("Rebooting with argument '%s'.", param);
-                                syscall(SYS_reboot, LINUX_REBOOT_MAGIC1, LINUX_REBOOT_MAGIC2, LINUX_REBOOT_CMD_RESTART2, param);
-                                log_warning_errno(errno, "Failed to reboot with parameter, retrying without: %m");
-                        }
-                }
-
+                (void) reboot_with_parameter(REBOOT_LOG);
                 log_info("Rebooting.");
                 break;
 
@@ -545,13 +521,13 @@ int main(int argc, char *argv[]) {
                 assert_not_reached("Unknown magic");
         }
 
-        reboot(cmd);
+        (void) reboot(cmd);
         if (errno == EPERM && in_container) {
                 /* If we are in a container, and we lacked
                  * CAP_SYS_BOOT just exit, this will kill our
                  * container for good. */
                 log_info("Exiting container.");
-                exit(EXIT_SUCCESS);
+                return EXIT_SUCCESS;
         }
 
         r = log_error_errno(errno, "Failed to invoke reboot(): %m");

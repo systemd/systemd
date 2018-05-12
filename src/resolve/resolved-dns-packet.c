@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
 #if HAVE_GCRYPT
@@ -1472,8 +1459,7 @@ int dns_packet_read_name(
         if (after_rindex != 0)
                 p->rindex= after_rindex;
 
-        *_ret = ret;
-        ret = NULL;
+        *_ret = TAKE_PTR(ret);
 
         if (start)
                 *start = rewinder.saved_rindex;
@@ -2084,8 +2070,7 @@ int dns_packet_read_rr(DnsPacket *p, DnsResourceRecord **ret, bool *ret_cache_fl
         if (p->rindex != offset + rdlength)
                 return -EBADMSG;
 
-        *ret = rr;
-        rr = NULL;
+        *ret = TAKE_PTR(rr);
 
         if (ret_cache_flush)
                 *ret_cache_flush = cache_flush;
@@ -2171,8 +2156,8 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                 }
         }
 
-        *ret_question = question;
-        question = NULL;
+        *ret_question = TAKE_PTR(question);
+
         return 0;
 }
 
@@ -2287,8 +2272,8 @@ static int dns_packet_extract_answer(DnsPacket *p, DnsAnswer **ret_answer) {
         if (bad_opt)
                 p->opt = dns_resource_record_unref(p->opt);
 
-        *ret_answer = answer;
-        answer = NULL;
+        *ret_answer = TAKE_PTR(answer);
+
         return 0;
 }
 
@@ -2312,11 +2297,8 @@ int dns_packet_extract(DnsPacket *p) {
         if (r < 0)
                 return r;
 
-        p->question = question;
-        question = NULL;
-
-        p->answer = answer;
-        answer = NULL;
+        p->question = TAKE_PTR(question);
+        p->answer = TAKE_PTR(answer);
 
         p->extracted = true;
 

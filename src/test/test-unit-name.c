@@ -5,19 +5,6 @@
   Copyright 2012 Lennart Poettering
   Copyright 2013 Zbigniew Jędrzejewski-Szmek
   Copyright 2014 Ronny Chevalier
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <pwd.h>
@@ -44,29 +31,39 @@
 #include "util.h"
 
 static void test_unit_name_is_valid(void) {
-        assert_se(unit_name_is_valid("foo.service", UNIT_NAME_ANY));
-        assert_se(unit_name_is_valid("foo.service", UNIT_NAME_PLAIN));
+        assert_se( unit_name_is_valid("foo.service", UNIT_NAME_ANY));
+        assert_se( unit_name_is_valid("foo.service", UNIT_NAME_PLAIN));
         assert_se(!unit_name_is_valid("foo.service", UNIT_NAME_INSTANCE));
         assert_se(!unit_name_is_valid("foo.service", UNIT_NAME_TEMPLATE));
         assert_se(!unit_name_is_valid("foo.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
 
-        assert_se(unit_name_is_valid("foo@bar.service", UNIT_NAME_ANY));
+        assert_se( unit_name_is_valid("foo@bar.service", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("foo@bar.service", UNIT_NAME_PLAIN));
-        assert_se(unit_name_is_valid("foo@bar.service", UNIT_NAME_INSTANCE));
+        assert_se( unit_name_is_valid("foo@bar.service", UNIT_NAME_INSTANCE));
         assert_se(!unit_name_is_valid("foo@bar.service", UNIT_NAME_TEMPLATE));
-        assert_se(unit_name_is_valid("foo@bar.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
+        assert_se( unit_name_is_valid("foo@bar.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
 
-        assert_se(unit_name_is_valid("foo@.service", UNIT_NAME_ANY));
+        assert_se( unit_name_is_valid("foo@bar@bar.service", UNIT_NAME_ANY));
+        assert_se(!unit_name_is_valid("foo@bar@bar.service", UNIT_NAME_PLAIN));
+        assert_se( unit_name_is_valid("foo@bar@bar.service", UNIT_NAME_INSTANCE));
+        assert_se(!unit_name_is_valid("foo@bar@bar.service", UNIT_NAME_TEMPLATE));
+        assert_se( unit_name_is_valid("foo@bar@bar.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
+
+        assert_se( unit_name_is_valid("foo@.service", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("foo@.service", UNIT_NAME_PLAIN));
         assert_se(!unit_name_is_valid("foo@.service", UNIT_NAME_INSTANCE));
-        assert_se(unit_name_is_valid("foo@.service", UNIT_NAME_TEMPLATE));
-        assert_se(unit_name_is_valid("foo@.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
+        assert_se( unit_name_is_valid("foo@.service", UNIT_NAME_TEMPLATE));
+        assert_se( unit_name_is_valid("foo@.service", UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE));
 
         assert_se(!unit_name_is_valid(".service", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("foo.waldo", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("@.service", UNIT_NAME_ANY));
         assert_se(!unit_name_is_valid("@piep.service", UNIT_NAME_ANY));
+
+        assert_se( unit_name_is_valid("user@1000.slice", UNIT_NAME_ANY));
+        assert_se( unit_name_is_valid("user@1000.slice", UNIT_NAME_INSTANCE));
+        assert_se(!unit_name_is_valid("user@1000.slice", UNIT_NAME_TEMPLATE));
 }
 
 static void test_unit_name_replace_instance_one(const char *pattern, const char *repl, const char *expected, int ret) {
@@ -99,7 +96,7 @@ static void test_unit_name_from_path_one(const char *path, const char *suffix, c
                 _cleanup_free_ char *k = NULL;
                 assert_se(unit_name_to_path(t, &k) == 0);
                 puts(strna(k));
-                assert_se(path_equal(k, isempty(path) ? "/" : path));
+                assert_se(path_equal(k, empty_to_root(path)));
         }
 }
 
@@ -127,7 +124,7 @@ static void test_unit_name_from_path_instance_one(const char *pattern, const cha
 
                 assert_se(unit_name_to_instance(t, &k) > 0);
                 assert_se(unit_name_path_unescape(k, &v) == 0);
-                assert_se(path_equal(v, isempty(path) ? "/" : path));
+                assert_se(path_equal(v, empty_to_root(path)));
         }
 }
 
@@ -162,10 +159,10 @@ static void test_unit_name_to_path(void) {
         test_unit_name_to_path_one("home/foo", NULL, -EINVAL);
 }
 
-static void test_unit_name_mangle_one(UnitNameMangle allow_globs, const char *pattern, const char *expect, int ret) {
+static void test_unit_name_mangle_one(bool allow_globs, const char *pattern, const char *expect, int ret) {
         _cleanup_free_ char *t = NULL;
 
-        assert_se(unit_name_mangle(pattern, allow_globs, &t) == ret);
+        assert_se(unit_name_mangle(pattern, (allow_globs * UNIT_NAME_MANGLE_GLOB) | UNIT_NAME_MANGLE_WARN, &t) == ret);
         puts(strna(t));
         assert_se(streq_ptr(t, expect));
 
@@ -173,37 +170,36 @@ static void test_unit_name_mangle_one(UnitNameMangle allow_globs, const char *pa
                 _cleanup_free_ char *k = NULL;
 
                 assert_se(unit_name_is_valid(t, UNIT_NAME_ANY) ||
-                          (allow_globs == UNIT_NAME_GLOB && string_is_glob(t)));
+                          (allow_globs && string_is_glob(t)));
 
-                assert_se(unit_name_mangle(t, allow_globs, &k) == 0);
+                assert_se(unit_name_mangle(t, (allow_globs * UNIT_NAME_MANGLE_GLOB) | UNIT_NAME_MANGLE_WARN, &k) == 0);
                 assert_se(streq_ptr(t, k));
         }
 }
 
 static void test_unit_name_mangle(void) {
         puts("-------------------------------------------------");
-        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "foo.service", "foo.service", 0);
-        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "/home", "home.mount", 1);
-        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "/dev/sda", "dev-sda.device", 1);
-        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "üxknürz.service", "\\xc3\\xbcxkn\\xc3\\xbcrz.service", 1);
-        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "foobar-meh...waldi.service", "foobar-meh...waldi.service", 0);
-        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "_____####----.....service", "_____\\x23\\x23\\x23\\x23----.....service", 1);
-        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "_____##@;;;,,,##----.....service", "_____\\x23\\x23@\\x3b\\x3b\\x3b\\x2c\\x2c\\x2c\\x23\\x23----.....service", 1);
-        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "xxx@@@@/////\\\\\\\\\\yyy.service", "xxx@@@@-----\\\\\\\\\\yyy.service", 1);
-        test_unit_name_mangle_one(UNIT_NAME_NOGLOB, "", NULL, -EINVAL);
+        test_unit_name_mangle_one(false, "foo.service", "foo.service", 0);
+        test_unit_name_mangle_one(false, "/home", "home.mount", 1);
+        test_unit_name_mangle_one(false, "/dev/sda", "dev-sda.device", 1);
+        test_unit_name_mangle_one(false, "üxknürz.service", "\\xc3\\xbcxkn\\xc3\\xbcrz.service", 1);
+        test_unit_name_mangle_one(false, "foobar-meh...waldi.service", "foobar-meh...waldi.service", 0);
+        test_unit_name_mangle_one(false, "_____####----.....service", "_____\\x23\\x23\\x23\\x23----.....service", 1);
+        test_unit_name_mangle_one(false, "_____##@;;;,,,##----.....service", "_____\\x23\\x23@\\x3b\\x3b\\x3b\\x2c\\x2c\\x2c\\x23\\x23----.....service", 1);
+        test_unit_name_mangle_one(false, "xxx@@@@/////\\\\\\\\\\yyy.service", "xxx@@@@-----\\\\\\\\\\yyy.service", 1);
+        test_unit_name_mangle_one(false, "", NULL, -EINVAL);
 
-        test_unit_name_mangle_one(UNIT_NAME_GLOB, "foo.service", "foo.service", 0);
-        test_unit_name_mangle_one(UNIT_NAME_GLOB, "foo", "foo.service", 1);
-        test_unit_name_mangle_one(UNIT_NAME_GLOB, "foo*", "foo*", 0);
-        test_unit_name_mangle_one(UNIT_NAME_GLOB, "ü*", "\\xc3\\xbc*", 1);
+        test_unit_name_mangle_one(true, "foo.service", "foo.service", 0);
+        test_unit_name_mangle_one(true, "foo", "foo.service", 1);
+        test_unit_name_mangle_one(true, "foo*", "foo*", 0);
+        test_unit_name_mangle_one(true, "ü*", "\\xc3\\xbc*", 1);
 }
 
 static int test_unit_printf(void) {
-        Manager *m = NULL;
-        Unit *u, *u2;
-        int r;
-
         _cleanup_free_ char *mid = NULL, *bid = NULL, *host = NULL, *uid = NULL, *user = NULL, *shell = NULL, *home = NULL;
+        _cleanup_(manager_freep) Manager *m = NULL;
+        Unit *u;
+        int r;
 
         assert_se(specifier_machine_id('m', NULL, NULL, &mid) >= 0 && mid);
         assert_se(specifier_boot_id('b', NULL, NULL, &bid) >= 0 && bid);
@@ -249,6 +245,9 @@ static int test_unit_printf(void) {
         expect(u, "%p", "blah");
         expect(u, "%P", "blah");
         expect(u, "%i", "");
+        expect(u, "%I", "");
+        expect(u, "%j", "blah");
+        expect(u, "%J", "blah");
         expect(u, "%u", user);
         expect(u, "%U", uid);
         expect(u, "%h", home);
@@ -258,26 +257,41 @@ static int test_unit_printf(void) {
         expect(u, "%t", "/run/user/*");
 
         /* templated */
-        assert_se(u2 = unit_new(m, sizeof(Service)));
-        assert_se(unit_add_name(u2, "blah@foo-foo.service") == 0);
-        assert_se(unit_add_name(u2, "blah@foo-foo.service") == 0);
+        assert_se(u = unit_new(m, sizeof(Service)));
+        assert_se(unit_add_name(u, "blah@foo-foo.service") == 0);
+        assert_se(unit_add_name(u, "blah@foo-foo.service") == 0);
 
-        expect(u2, "%n", "blah@foo-foo.service");
-        expect(u2, "%N", "blah@foo-foo");
-        expect(u2, "%f", "/foo/foo");
-        expect(u2, "%p", "blah");
-        expect(u2, "%P", "blah");
-        expect(u2, "%i", "foo-foo");
-        expect(u2, "%I", "foo/foo");
-        expect(u2, "%u", user);
-        expect(u2, "%U", uid);
-        expect(u2, "%h", home);
-        expect(u2, "%m", mid);
-        expect(u2, "%b", bid);
-        expect(u2, "%H", host);
-        expect(u2, "%t", "/run/user/*");
+        expect(u, "%n", "blah@foo-foo.service");
+        expect(u, "%N", "blah@foo-foo");
+        expect(u, "%f", "/foo/foo");
+        expect(u, "%p", "blah");
+        expect(u, "%P", "blah");
+        expect(u, "%i", "foo-foo");
+        expect(u, "%I", "foo/foo");
+        expect(u, "%j", "blah");
+        expect(u, "%J", "blah");
+        expect(u, "%u", user);
+        expect(u, "%U", uid);
+        expect(u, "%h", home);
+        expect(u, "%m", mid);
+        expect(u, "%b", bid);
+        expect(u, "%H", host);
+        expect(u, "%t", "/run/user/*");
 
-        manager_free(m);
+        /* templated with components */
+        assert_se(u = unit_new(m, sizeof(Slice)));
+        assert_se(unit_add_name(u, "blah-blah\\x2d.slice") == 0);
+
+        expect(u, "%n", "blah-blah\\x2d.slice");
+        expect(u, "%N", "blah-blah\\x2d");
+        expect(u, "%f", "/blah/blah-");
+        expect(u, "%p", "blah-blah\\x2d");
+        expect(u, "%P", "blah/blah-");
+        expect(u, "%i", "");
+        expect(u, "%I", "");
+        expect(u, "%j", "blah\\x2d");
+        expect(u, "%J", "blah-");
+
 #undef expect
 
         return 0;
@@ -339,10 +353,10 @@ static void test_unit_name_build(void) {
 }
 
 static void test_slice_name_is_valid(void) {
-        assert_se(slice_name_is_valid(SPECIAL_ROOT_SLICE));
-        assert_se(slice_name_is_valid("foo.slice"));
-        assert_se(slice_name_is_valid("foo-bar.slice"));
-        assert_se(slice_name_is_valid("foo-bar-baz.slice"));
+        assert_se( slice_name_is_valid(SPECIAL_ROOT_SLICE));
+        assert_se( slice_name_is_valid("foo.slice"));
+        assert_se( slice_name_is_valid("foo-bar.slice"));
+        assert_se( slice_name_is_valid("foo-bar-baz.slice"));
         assert_se(!slice_name_is_valid("-foo-bar-baz.slice"));
         assert_se(!slice_name_is_valid("foo-bar-baz-.slice"));
         assert_se(!slice_name_is_valid("-foo-bar-baz-.slice"));
@@ -351,6 +365,20 @@ static void test_slice_name_is_valid(void) {
         assert_se(!slice_name_is_valid(".slice"));
         assert_se(!slice_name_is_valid(""));
         assert_se(!slice_name_is_valid("foo.service"));
+
+        assert_se(!slice_name_is_valid("foo@.slice"));
+        assert_se(!slice_name_is_valid("foo@bar.slice"));
+        assert_se(!slice_name_is_valid("foo-bar@baz.slice"));
+        assert_se(!slice_name_is_valid("foo@bar@baz.slice"));
+        assert_se(!slice_name_is_valid("foo@bar-baz.slice"));
+        assert_se(!slice_name_is_valid("-foo-bar-baz@.slice"));
+        assert_se(!slice_name_is_valid("foo-bar-baz@-.slice"));
+        assert_se(!slice_name_is_valid("foo-bar-baz@a--b.slice"));
+        assert_se(!slice_name_is_valid("-foo-bar-baz@-.slice"));
+        assert_se(!slice_name_is_valid("foo-bar--baz@.slice"));
+        assert_se(!slice_name_is_valid("foo--bar--baz@.slice"));
+        assert_se(!slice_name_is_valid("@.slice"));
+        assert_se(!slice_name_is_valid("foo@bar.service"));
 }
 
 static void test_build_subslice(void) {
@@ -388,6 +416,13 @@ static void test_build_parent_slice(void) {
         test_build_parent_slice_one("foo-bar-.slice", NULL, -EINVAL);
         test_build_parent_slice_one("foo-bar.service", NULL, -EINVAL);
         test_build_parent_slice_one(".slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo@bar.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo-bar@baz.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo-bar--@baz.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("-foo-bar@bar.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo-bar@-.slice", NULL, -EINVAL);
+        test_build_parent_slice_one("foo@bar.service", NULL, -EINVAL);
+        test_build_parent_slice_one("@.slice", NULL, -EINVAL);
 }
 
 static void test_unit_name_to_instance(void) {
@@ -428,7 +463,6 @@ static void test_unit_name_escape(void) {
         assert_se(streq(r, "ab\\x2b\\x2dc.a-bc\\x40foo.service"));
 }
 
-
 static void test_u_n_t_one(const char *name, const char *expected, int ret) {
         _cleanup_free_ char *f = NULL;
 
@@ -465,6 +499,26 @@ static void test_unit_name_path_unescape(void) {
         test_unit_name_path_unescape_one("", NULL, -EINVAL);
 }
 
+static void test_unit_name_to_prefix_one(const char *input, int ret, const char *output) {
+        _cleanup_free_ char *k = NULL;
+
+        assert_se(unit_name_to_prefix(input, &k) == ret);
+        assert_se(streq_ptr(k, output));
+}
+
+static void test_unit_name_to_prefix(void) {
+        test_unit_name_to_prefix_one("foobar.service", 0, "foobar");
+        test_unit_name_to_prefix_one("", -EINVAL, NULL);
+        test_unit_name_to_prefix_one("foobar", -EINVAL, NULL);
+        test_unit_name_to_prefix_one(".service", -EINVAL, NULL);
+        test_unit_name_to_prefix_one("quux.quux", -EINVAL, NULL);
+        test_unit_name_to_prefix_one("quux.mount", 0, "quux");
+        test_unit_name_to_prefix_one("quux-quux.mount", 0, "quux-quux");
+        test_unit_name_to_prefix_one("quux@bar.mount", 0, "quux");
+        test_unit_name_to_prefix_one("quux-@.mount", 0, "quux-");
+        test_unit_name_to_prefix_one("@.mount", -EINVAL, NULL);
+}
+
 int main(int argc, char* argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         int r, rc = 0;
@@ -498,6 +552,7 @@ int main(int argc, char* argv[]) {
         test_unit_name_escape();
         test_unit_name_template();
         test_unit_name_path_unescape();
+        test_unit_name_to_prefix();
 
         return rc;
 }

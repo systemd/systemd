@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "libudev.h"
@@ -103,7 +90,7 @@ static bool same_device(struct udev_device *a, struct udev_device *b) {
 }
 
 static bool validate_device(struct udev *udev, struct udev_device *device) {
-        _cleanup_udev_enumerate_unref_ struct udev_enumerate *enumerate = NULL;
+        _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *enumerate = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
         struct udev_device *parent;
         const char *v, *subsystem;
@@ -156,7 +143,7 @@ static bool validate_device(struct udev *udev, struct udev_device *device) {
 
         first = udev_enumerate_get_list_entry(enumerate);
         udev_list_entry_foreach(item, first) {
-                _cleanup_udev_device_unref_ struct udev_device *other;
+                _cleanup_(udev_device_unrefp) struct udev_device *other;
                 struct udev_device *other_parent;
                 const char *other_subsystem;
 
@@ -234,9 +221,9 @@ static unsigned get_max_brightness(struct udev_device *device) {
  * an unreadably dim screen, which would otherwise force the user to
  * disable state restoration. */
 static void clamp_brightness(struct udev_device *device, char **value, unsigned max_brightness) {
-        int r;
         unsigned brightness, new_brightness, min_brightness;
         const char *subsystem;
+        int r;
 
         r = safe_atou(*value, &brightness);
         if (r < 0) {
@@ -269,11 +256,30 @@ static void clamp_brightness(struct udev_device *device, char **value, unsigned 
         }
 }
 
+static bool shall_clamp(struct udev_device *d) {
+        const char *s;
+        int r;
+
+        assert(d);
+
+        s = udev_device_get_property_value(d, "ID_BACKLIGHT_CLAMP");
+        if (!s)
+                return true;
+
+        r = parse_boolean(s);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse ID_BACKLIGHT_CLAMP property, ignoring: %m");
+                return true;
+        }
+
+        return r;
+}
+
 int main(int argc, char *argv[]) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *device = NULL;
-        _cleanup_free_ char *saved = NULL, *ss = NULL, *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
-        const char *sysname, *path_id;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
+        _cleanup_free_ char *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
+        const char *sysname, *path_id, *ss, *saved;
         unsigned max_brightness;
         int r;
 
@@ -306,15 +312,11 @@ int main(int argc, char *argv[]) {
                 return EXIT_FAILURE;
         }
 
-        ss = strndup(argv[2], sysname - argv[2]);
-        if (!ss) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
+        ss = strndupa(argv[2], sysname - argv[2]);
 
         sysname++;
 
-        if (!streq(ss, "backlight") && !streq(ss, "leds")) {
+        if (!STR_IN_SET(ss, "backlight", "leds")) {
                 log_error("Not a backlight or LED device: '%s:%s'", ss, sysname);
                 return EXIT_FAILURE;
         }
@@ -358,14 +360,9 @@ int main(int argc, char *argv[]) {
                         return EXIT_FAILURE;
                 }
 
-                saved = strjoin("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname);
+                saved = strjoina("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname);
         } else
-                saved = strjoin("/var/lib/systemd/backlight/", escaped_ss, ":", escaped_sysname);
-
-        if (!saved) {
-                log_oom();
-                return EXIT_FAILURE;
-        }
+                saved = strjoina("/var/lib/systemd/backlight/", escaped_ss, ":", escaped_sysname);
 
         /* If there are multiple conflicting backlight devices, then
          * their probing at boot-time might happen in any order. This
@@ -378,7 +375,7 @@ int main(int argc, char *argv[]) {
 
         if (streq(argv[1], "load")) {
                 _cleanup_free_ char *value = NULL;
-                const char *clamp;
+                bool clamp;
 
                 if (shall_restore_state() == 0)
                         return EXIT_SUCCESS;
@@ -386,18 +383,34 @@ int main(int argc, char *argv[]) {
                 if (!validate_device(udev, device))
                         return EXIT_SUCCESS;
 
-                r = read_one_line_file(saved, &value);
-                if (r < 0) {
+                clamp = shall_clamp(device);
 
-                        if (r == -ENOENT)
+                r = read_one_line_file(saved, &value);
+                if (r == -ENOENT) {
+                        const char *curval;
+
+                        /* Fallback to clamping current brightness or exit early if
+                         * clamping is not supported/enabled. */
+                        if (!clamp)
                                 return EXIT_SUCCESS;
 
+                        curval = udev_device_get_sysattr_value(device, "brightness");
+                        if (!curval) {
+                                log_warning("Failed to read 'brightness' attribute.");
+                                return EXIT_FAILURE;
+                        }
+
+                        value = strdup(curval);
+                        if (!value) {
+                                log_oom();
+                                return EXIT_FAILURE;
+                        }
+                } else if (r < 0) {
                         log_error_errno(r, "Failed to read %s: %m", saved);
                         return EXIT_FAILURE;
                 }
 
-                clamp = udev_device_get_property_value(device, "ID_BACKLIGHT_CLAMP");
-                if (!clamp || parse_boolean(clamp) != 0) /* default to clamping */
+                if (clamp)
                         clamp_brightness(device, &value, max_brightness);
 
                 r = udev_device_set_sysattr_value(device, "brightness", value);

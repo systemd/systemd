@@ -4,19 +4,6 @@
 
   Copyright 2012 Lennart Poettering
   Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -90,11 +77,11 @@ static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
         int r;
 
-        r = chase_symlinks(a, NULL, 0, &x);
+        r = chase_symlinks(a, NULL, CHASE_TRAIL_SLASH, &x);
         if (r < 0)
                 return r;
 
-        r = chase_symlinks(b, NULL, 0, &y);
+        r = chase_symlinks(b, NULL, CHASE_TRAIL_SLASH, &y);
         if (r < 0)
                 return r;
 
@@ -191,6 +178,7 @@ static int found_override(const char *top, const char *bottom) {
                 return r;
         if (r == 0) {
                 execlp("diff", "diff", "-us", "--", bottom, top, NULL);
+                log_open();
                 log_error_errno(errno, "Failed to execute diff: %m");
                 _exit(EXIT_FAILURE);
         }
@@ -661,7 +649,7 @@ int main(int argc, char *argv[]) {
         else if (arg_diff)
                 arg_flags |= SHOW_OVERRIDDEN;
 
-        pager_open(arg_no_pager, false);
+        (void) pager_open(arg_no_pager, false);
 
         if (optind < argc) {
                 int i;

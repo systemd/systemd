@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <fcntl.h>
@@ -98,15 +85,17 @@ void server_forward_kmsg(
                 log_debug_errno(errno, "Failed to write to /dev/kmsg for logging: %m");
 }
 
-static bool is_us(const char *pid) {
-        pid_t t;
+static bool is_us(const char *identifier, const char *pid) {
+        pid_t pid_num;
 
-        assert(pid);
-
-        if (parse_pid(pid, &t) < 0)
+        if (!identifier || !pid)
                 return false;
 
-        return t == getpid_cached();
+        if (parse_pid(pid, &pid_num) < 0)
+                return false;
+
+        return pid_num == getpid_cached() &&
+               streq(identifier, program_invocation_short_name);
 }
 
 static void dev_kmsg_record(Server *s, const char *p, size_t l) {
@@ -136,7 +125,7 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
         if (r < 0 || priority < 0 || priority > 999)
                 return;
 
-        if (s->forward_to_kmsg && (priority & LOG_FACMASK) != LOG_KERN)
+        if (s->forward_to_kmsg && LOG_FAC(priority) != LOG_KERN)
                 return;
 
         l -= (e - p) + 1;
@@ -285,14 +274,14 @@ static void dev_kmsg_record(Server *s, const char *p, size_t l) {
         if (asprintf(&syslog_facility, "SYSLOG_FACILITY=%i", LOG_FAC(priority)) >= 0)
                 iovec[n++] = IOVEC_MAKE_STRING(syslog_facility);
 
-        if ((priority & LOG_FACMASK) == LOG_KERN)
+        if (LOG_FAC(priority) == LOG_KERN)
                 iovec[n++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=kernel");
         else {
                 pl -= syslog_parse_identifier((const char**) &p, &identifier, &pid);
 
                 /* Avoid any messages we generated ourselves via
                  * log_info() and friends. */
-                if (pid && is_us(pid))
+                if (is_us(identifier, pid))
                         goto finish;
 
                 if (identifier) {

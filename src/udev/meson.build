@@ -1,19 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 udevadm_sources = files('''
         udevadm.c
@@ -63,7 +50,7 @@ endif
 
 if conf.get('HAVE_ACL') == 1
         libudev_core_sources += ['udev-builtin-uaccess.c',
-	                         logind_acl_c,
+                                 logind_acl_c,
                                  sd_login_c]
 endif
 
@@ -124,11 +111,28 @@ libudev_basic = static_library(
         c_args : ['-fvisibility=default'])
 
 libudev_static = static_library(
-        'udev',
+        'udev_static',
         'udev.h',
         include_directories : includes,
         link_with : udev_link_with,
         link_whole : libudev_basic)
+
+static_libudev = get_option('static-libudev')
+static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
+install_libudev_static = static_library(
+        'udev',
+        basic_sources,
+        shared_sources,
+        libsystemd_sources,
+        libudev_sources,
+        include_directories : includes,
+        build_by_default : static_libudev != 'false',
+        install : static_libudev != 'false',
+        install_dir : rootlibdir,
+        link_depends : libudev_sym,
+        dependencies : libshared_deps + [libmount],
+        c_args : static_libudev_pic ? [] : ['-fno-PIC'],
+        pic : static_libudev_pic)
 
 libudev = shared_library(
         'udev',

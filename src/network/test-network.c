@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <sys/param.h>
@@ -146,7 +133,7 @@ static void test_network_get(Manager *manager, struct udev_device *loopback) {
 }
 
 static void test_address_equality(void) {
-        _cleanup_address_free_ Address *a1 = NULL, *a2 = NULL;
+        _cleanup_(address_freep) Address *a1 = NULL, *a2 = NULL;
 
         assert_se(address_new(&a1) >= 0);
         assert_se(address_new(&a2) >= 0);
@@ -236,10 +223,10 @@ static void test_dhcp_hostname_shorten_overlong(void) {
 }
 
 int main(void) {
-        _cleanup_manager_free_ Manager *manager = NULL;
+        _cleanup_(manager_freep) Manager *manager = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_udev_unref_ struct udev *udev = NULL;
-        _cleanup_udev_device_unref_ struct udev_device *loopback = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *loopback = NULL;
         int r;
 
         test_deserialize_in_addr();

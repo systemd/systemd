@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -46,7 +33,7 @@
 #define POSSIBLE_SPECIFIERS ALPHANUMERICAL "%"
 
 int specifier_printf(const char *text, const Specifier table[], void *userdata, char **_ret) {
-        size_t l;
+        size_t l, allocated = 0;
         _cleanup_free_ char *ret = NULL;
         char *t;
         const char *f;
@@ -57,14 +44,11 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
         assert(table);
 
         l = strlen(text);
-        ret = new(char, l+1);
-        if (!ret)
+        if (!GREEDY_REALLOC(ret, allocated, l + 1))
                 return -ENOMEM;
-
         t = ret;
 
-        for (f = text; *f; f++, l--) {
-
+        for (f = text; *f; f++, l--)
                 if (percent) {
                         if (*f == '%')
                                 *(t++) = '%';
@@ -77,7 +61,6 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
 
                                 if (i->lookup) {
                                         _cleanup_free_ char *w = NULL;
-                                        char *n;
                                         size_t k, j;
 
                                         r = i->lookup(i->specifier, i->data, userdata, &w);
@@ -87,14 +70,9 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
                                         j = t - ret;
                                         k = strlen(w);
 
-                                        n = new(char, j + k + l + 1);
-                                        if (!n)
+                                        if (!GREEDY_REALLOC(ret, allocated, j + k + l + 1))
                                                 return -ENOMEM;
-
-                                        memcpy(n, ret, j);
-                                        memcpy(n + j, w, k);
-
-                                        free_and_replace(ret, n);
+                                        memcpy(ret + j, w, k);
                                         t = ret + j + k;
                                 } else if (strchr(POSSIBLE_SPECIFIERS, *f))
                                         /* Oops, an unknown specifier. */
@@ -110,15 +88,20 @@ int specifier_printf(const char *text, const Specifier table[], void *userdata, 
                         percent = true;
                 else
                         *(t++) = *f;
-        }
 
-        /* if string ended with a stray %, also end with % */
+        /* If string ended with a stray %, also end with % */
         if (percent)
                 *(t++) = '%';
+        *(t++) = 0;
 
-        *t = 0;
-        *_ret = ret;
-        ret = NULL;
+        /* Try to deallocate unused bytes, but don't sweat it too much */
+        if ((size_t)(t - ret) < allocated) {
+                t = realloc(ret, t - ret);
+                if (t)
+                        ret = t;
+        }
+
+        *_ret = TAKE_PTR(ret);
         return 0;
 }
 

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2012 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -96,23 +83,20 @@ static int spawn_child(const char* child, char** argv) {
 
         /* In the child */
         if (r == 0) {
+                safe_close(fd[0]);
 
-                r = dup2(fd[1], STDOUT_FILENO);
+                r = rearrange_stdio(STDIN_FILENO, fd[1], STDERR_FILENO);
                 if (r < 0) {
-                        log_error_errno(errno, "Failed to dup pipe to stdout: %m");
+                        log_error_errno(r, "Failed to dup pipe to stdout: %m");
                         _exit(EXIT_FAILURE);
                 }
-
-                safe_close_pair(fd);
 
                 execvp(child, argv);
                 log_error_errno(errno, "Failed to exec child %s: %m", child);
                 _exit(EXIT_FAILURE);
         }
 
-        r = close(fd[1]);
-        if (r < 0)
-                log_warning_errno(errno, "Failed to close write end of pipe: %m");
+        safe_close(fd[1]);
 
         r = fd_nonblock(fd[0], true);
         if (r < 0)
@@ -188,7 +172,7 @@ static int open_output(Writer *w, const char* host) {
 
         r = journal_file_open_reliably(output,
                                        O_RDWR|O_CREAT, 0640,
-                                       arg_compress, arg_seal,
+                                       arg_compress, (uint64_t) -1, arg_seal,
                                        &w->metrics,
                                        w->mmap, NULL,
                                        NULL, &w->journal);
@@ -219,10 +203,9 @@ static int init_writer_hashmap(RemoteServer *s) {
         return 0;
 }
 
-static int get_writer(RemoteServer *s, const char *host,
-                      Writer **writer) {
+static int get_writer(RemoteServer *s, const char *host, Writer **writer) {
+        _cleanup_(writer_unrefp) Writer *w = NULL;
         const void *key;
-        _cleanup_writer_unref_ Writer *w = NULL;
         int r;
 
         switch(arg_split_mode) {
@@ -262,8 +245,8 @@ static int get_writer(RemoteServer *s, const char *host,
                         return r;
         }
 
-        *writer = w;
-        w = NULL;
+        *writer = TAKE_PTR(w);
+
         return 0;
 }
 
@@ -702,7 +685,6 @@ static int setup_microhttpd_server(RemoteServer *s,
         log_debug("Started MHD %s daemon on fd:%d (wrapper @ %p)",
                   key ? "HTTPS" : "HTTP", fd, d);
 
-
         info = MHD_get_daemon_info(d->daemon, MHD_DAEMON_INFO_EPOLL_FD_LINUX_ONLY);
         if (!info) {
                 log_error("µhttp returned NULL daemon info");
@@ -732,7 +714,7 @@ static int setup_microhttpd_server(RemoteServer *s,
         }
 
         r = sd_event_add_time(s->events, &d->timer_event,
-                              CLOCK_MONOTONIC, UINT64_MAX, 0,
+                              CLOCK_MONOTONIC, (uint64_t) -1, 0,
                               null_timer_event_handler, d);
         if (r < 0) {
                 log_error_errno(r, "Failed to add timer_event: %m");
@@ -1592,7 +1574,6 @@ int main(int argc, char **argv) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-
 
         if (arg_listen_http || arg_listen_https) {
                 r = setup_gnutls_logger(arg_gnutls_log);

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2017 Susant Sahani
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <net/if.h>
@@ -251,7 +238,7 @@ static int routing_policy_rule_add_internal(Manager *m,
                                             char *oif,
                                             RoutingPolicyRule **ret) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *rule = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
         int r;
 
         assert_return(rules, -EINVAL);
@@ -320,7 +307,7 @@ int routing_policy_rule_add_foreign(Manager *m,
 }
 
 static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(m);
@@ -392,8 +379,8 @@ int routing_policy_rule_remove(RoutingPolicyRule *routing_policy_rule, Link *lin
 }
 
 static int routing_policy_rule_new_static(Network *network, const char *filename, unsigned section_line, RoutingPolicyRule **ret) {
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *rule = NULL;
-        _cleanup_network_config_section_free_ NetworkConfigSection *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
+        _cleanup_(network_config_section_freep) NetworkConfigSection *n = NULL;
         int r;
 
         assert(network);
@@ -406,8 +393,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
 
         rule = hashmap_get(network->rules_by_section, n);
         if (rule) {
-                *ret = rule;
-                rule = NULL;
+                *ret = TAKE_PTR(rule);
 
                 return 0;
         }
@@ -427,14 +413,13 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
         LIST_APPEND(rules, network->rules, rule);
         network->n_rules++;
 
-        *ret = rule;
-        rule = NULL;
+        *ret = TAKE_PTR(rule);
 
         return 0;
 }
 
 int link_routing_policy_rule_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(rtnl);
@@ -607,7 +592,7 @@ int config_parse_routing_policy_rule_tos(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -644,7 +629,7 @@ int config_parse_routing_policy_rule_priority(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -681,7 +666,7 @@ int config_parse_routing_policy_rule_table(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -718,7 +703,7 @@ int config_parse_routing_policy_rule_fwmark_mask(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -755,7 +740,7 @@ int config_parse_routing_policy_rule_prefix(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         union in_addr_union buffer;
         uint8_t prefixlen;
@@ -808,7 +793,7 @@ int config_parse_routing_policy_rule_device(
                 void *data,
                 void *userdata) {
 
-        _cleanup_routing_policy_rule_free_ RoutingPolicyRule *n = NULL;
+        _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -857,8 +842,7 @@ static int routing_policy_rule_read_full_file(const char *state_file, char **ret
         if (size <= 0)
                 return -ENODATA;
 
-        *ret = s;
-        s = NULL;
+        *ret = TAKE_PTR(s);
 
         return size;
 }
@@ -956,7 +940,7 @@ int routing_policy_load_rules(const char *state_file, Set **rules) {
                 return r;
 
         STRV_FOREACH(i, l) {
-                _cleanup_routing_policy_rule_free_ RoutingPolicyRule *rule = NULL;
+                _cleanup_(routing_policy_rule_freep) RoutingPolicyRule *rule = NULL;
 
                 p = startswith(*i, "RULE=");
                 if (!p)

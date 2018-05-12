@@ -8,19 +8,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.netdev" conditional='ENABLE_NETWORKD'>
@@ -544,7 +531,7 @@
       <varlistentry>
         <term><varname>Remote=</varname></term>
         <listitem>
-          <para>Configures destination multicast group IP address.</para>
+          <para>Configures destination IP address.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1025,7 +1012,10 @@
           <para>The Base64 encoded private key for the interface. It can be
             generated using the <command>wg genkey</command> command
             (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
-            This option is mandatory to use wireguard.</para>
+            This option is mandatory to use WireGuard.
+            Note that because this information is secret, you may want to set
+            the permissions of the .netdev file to be owned by <literal>root:systemd-networkd</literal>
+            with a <literal>0640</literal> file mode.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -1040,7 +1030,7 @@
       <varlistentry>
         <term><varname>FwMark=</varname></term>
         <listitem>
-          <para>Sets a firewall mark on outgoing wireguard packets from this interface.</para>
+          <para>Sets a firewall mark on outgoing WireGuard packets from this interface.</para>
         </listitem>
       </varlistentry>
     </variablelist>
@@ -1070,7 +1060,10 @@
             by the <command>wg genpsk</command> command. This option adds an
             additional layer of symmetric-key cryptography to be mixed into the
             already existing public-key cryptography, for post-quantum
-            resistance.</para>
+            resistance.
+            Note that because this information is secret, you may want to set
+            the permissions of the .netdev file to be owned by <literal>root:systemd-networkd</literal>
+            with a <literal>0640</literal> file mode.</para>
         </listitem>
       </varlistentry>
       <varlistentry>

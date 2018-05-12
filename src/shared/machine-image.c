@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <dirent.h>
@@ -80,7 +67,6 @@ Image *image_unref(Image *i) {
 
 static char **image_settings_path(Image *image) {
         _cleanup_strv_free_ char **l = NULL;
-        char **ret;
         const char *fn, *s;
         unsigned i = 0;
 
@@ -104,10 +90,7 @@ static char **image_settings_path(Image *image) {
         if (!l[i])
                 return NULL;
 
-        ret = l;
-        l = NULL;
-
-        return ret;
+        return TAKE_PTR(l);
 }
 
 static char *image_roothash_path(Image *image) {
@@ -163,8 +146,7 @@ static int image_new(
 
         path_kill_slashes(i->path);
 
-        *ret = i;
-        i = NULL;
+        *ret = TAKE_PTR(i);
 
         return 0;
 }
@@ -458,7 +440,7 @@ int image_discover(Hashmap *h) {
 }
 
 int image_remove(Image *i) {
-        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
         _cleanup_free_ char *roothash = NULL;
         char **j;
@@ -549,7 +531,7 @@ static int rename_auxiliary_file(const char *path, const char *new_name, const c
 }
 
 int image_rename(Image *i, const char *new_name) {
-        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
         _cleanup_free_ char *new_path = NULL, *nn = NULL, *roothash = NULL;
         _cleanup_strv_free_ char **settings = NULL;
         unsigned file_attr = 0;
@@ -670,7 +652,7 @@ static int clone_auxiliary_file(const char *path, const char *new_name, const ch
 }
 
 int image_clone(Image *i, const char *new_name, bool read_only) {
-        _cleanup_release_lock_file_ LockFile name_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile name_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
         _cleanup_free_ char *roothash = NULL;
         const char *new_path;
@@ -753,7 +735,7 @@ int image_clone(Image *i, const char *new_name, bool read_only) {
 }
 
 int image_read_only(Image *i, bool b) {
-        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;
 
         assert(i);
@@ -881,8 +863,12 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
          * block devices are device local anyway. */
         if (!path_startswith(path, "/dev")) {
                 r = make_lock_file_for(path, operation, &t);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        if ((operation & LOCK_SH) && r == -EROFS)
+                                log_debug_errno(r, "Failed to create shared lock for '%s', ignoring: %m", path);
+                        else
+                                return r;
+                }
         }
 
         if (p) {
@@ -920,7 +906,7 @@ int image_set_limit(Image *i, uint64_t referenced_max) {
 }
 
 int image_read_metadata(Image *i) {
-        _cleanup_release_lock_file_ LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         int r;
 
         assert(i);
@@ -938,7 +924,7 @@ int image_read_metadata(Image *i) {
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
 
-                r = chase_symlinks("/etc/hostname", i->path, CHASE_PREFIX_ROOT, &path);
+                r = chase_symlinks("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/hostname in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -949,7 +935,7 @@ int image_read_metadata(Image *i) {
 
                 path = mfree(path);
 
-                r = chase_symlinks("/etc/machine-id", i->path, CHASE_PREFIX_ROOT, &path);
+                r = chase_symlinks("/etc/machine-id", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-id in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -967,7 +953,7 @@ int image_read_metadata(Image *i) {
 
                 path = mfree(path);
 
-                r = chase_symlinks("/etc/machine-info", i->path, CHASE_PREFIX_ROOT, &path);
+                r = chase_symlinks("/etc/machine-info", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase /etc/machine-info in image %s: %m", i->name);
                 else if (r >= 0) {
@@ -978,9 +964,9 @@ int image_read_metadata(Image *i) {
 
                 path = mfree(path);
 
-                r = chase_symlinks("/etc/os-release", i->path, CHASE_PREFIX_ROOT, &path);
+                r = chase_symlinks("/etc/os-release", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r == -ENOENT)
-                        r = chase_symlinks("/usr/lib/os-release", i->path, CHASE_PREFIX_ROOT, &path);
+                        r = chase_symlinks("/usr/lib/os-release", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r < 0 && r != -ENOENT)
                         log_debug_errno(r, "Failed to chase os-release in image: %m");
                 else if (r >= 0) {

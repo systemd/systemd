@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <stddef.h>
@@ -778,7 +765,9 @@ int server_restore_streams(Server *s, FDSet *fds) {
                 if (!found) {
                         /* No file descriptor? Then let's delete the state file */
                         log_debug("Cannot restore stream file %s", de->d_name);
-                        unlinkat(dirfd(d), de->d_name, 0);
+                        if (unlinkat(dirfd(d), de->d_name, 0) < 0)
+                                log_warning("Failed to remove /run/systemd/journal/streams/%s: %m",
+                                            de->d_name);
                         continue;
                 }
 

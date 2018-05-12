@@ -5,22 +5,8 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <libmount.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -33,6 +19,8 @@
 #include "ip-address-access.h"
 #include "list.h"
 #include "ratelimit.h"
+
+struct libmnt_monitor;
 
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
@@ -96,10 +84,11 @@ typedef enum ManagerTimestamp {
 
 enum {
         /* 0 = run normally */
-        MANAGER_TEST_RUN_MINIMAL = 1,        /* run test w/o generators */
-        MANAGER_TEST_RUN_ENV_GENERATORS = 2, /* also run env generators  */
-        MANAGER_TEST_RUN_GENERATORS = 4,     /* also run unit generators */
-        MANAGER_TEST_FULL = MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
+        MANAGER_TEST_RUN_MINIMAL        = 1 << 1,  /* create basic data structures */
+        MANAGER_TEST_RUN_BASIC          = 1 << 2,  /* interact with the environment */
+        MANAGER_TEST_RUN_ENV_GENERATORS = 1 << 3,  /* also run env generators  */
+        MANAGER_TEST_RUN_GENERATORS     = 1 << 4,  /* also run unit generators */
+        MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
 };
 assert_cc((MANAGER_TEST_FULL & UINT8_MAX) == MANAGER_TEST_FULL);
 
@@ -143,6 +132,9 @@ struct Manager {
         /* Units whose cgroup ran empty */
         LIST_HEAD(Unit, cgroup_empty_queue);
 
+        /* Target units whose default target dependencies haven't been set yet */
+        LIST_HEAD(Unit, target_deps_queue);
+
         sd_event *event;
 
         /* This maps PIDs we care about to units that are interested in. We allow multiple units to he interested in
@@ -181,6 +173,8 @@ struct Manager {
 
         int user_lookup_fds[2];
         sd_event_source *user_lookup_event_source;
+
+        sd_event_source *sync_bus_names_event_source;
 
         UnitFileScope unit_file_scope;
         LookupPaths lookup_paths;
@@ -341,6 +335,9 @@ struct Manager {
         Hashmap *uid_refs;
         Hashmap *gid_refs;
 
+        /* ExecRuntime, indexed by their owner unit id */
+        Hashmap *exec_runtime_by_id;
+
         /* When the user hits C-A-D more than 7 times per 2s, do something immediately... */
         RateLimit ctrl_alt_del_ratelimit;
         EmergencyAction cad_burst_action;
@@ -374,8 +371,8 @@ struct Manager {
 
 int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **m);
 Manager* manager_free(Manager *m);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 
-void manager_enumerate(Manager *m);
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds);
 
 Job *manager_get_job(Manager *m, uint32_t id);
@@ -385,6 +382,7 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
 int manager_load_unit_prepare(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
 int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **_ret);
+int manager_load_startable_unit_or_warn(Manager *m, const char *name, const char *path, Unit **ret);
 int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e, Unit **_u);
 
 int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, sd_bus_error *e, Job **_ret);
@@ -422,6 +420,7 @@ bool manager_unit_inactive_or_pending(Manager *m, const char *name);
 
 void manager_check_finished(Manager *m);
 
+void manager_recheck_dbus(Manager *m);
 void manager_recheck_journal(Manager *m);
 
 void manager_set_show_status(Manager *m, ShowStatus mode);
@@ -431,8 +430,6 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
 void manager_flip_auto_status(Manager *m, bool enable);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
-
-void manager_set_exec_params(Manager *m, ExecParameters *p);
 
 ManagerState manager_state(Manager *m);
 

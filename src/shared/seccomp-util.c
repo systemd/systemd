@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -935,7 +922,7 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
                                 /* If the system call is not known on this architecture, then that's fine, let's ignore it */
                                 _cleanup_free_ char *n = NULL;
 
-                                n = seccomp_syscall_resolve_num_arch(arch, PTR_TO_INT(id) - 1);
+                                n = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
                                 log_debug_errno(r, "Failed to add rule for system call %s() / %d, ignoring: %m", strna(n), PTR_TO_INT(id) - 1);
                         }
                 }
@@ -950,13 +937,11 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, u
         return 0;
 }
 
-int seccomp_parse_syscall_filter_internal(
-                bool invert,
+int seccomp_parse_syscall_filter_full(
                 const char *name,
                 int errno_num,
                 Hashmap *filter,
-                bool whitelist,
-                bool warn,
+                SeccompParseFlags flags,
                 const char *unit,
                 const char *filename,
                 unsigned line) {
@@ -972,15 +957,20 @@ int seccomp_parse_syscall_filter_internal(
 
                 set = syscall_filter_set_find(name);
                 if (!set) {
-                        if (warn) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Unknown system call group, ignoring: %s", name);
-                                return 0;
-                        } else
+                        if (!(flags & SECCOMP_PARSE_PERMISSIVE))
                                 return -EINVAL;
+
+                        log_syntax(unit, flags & SECCOMP_PARSE_LOG ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
+                                   "Unknown system call group, ignoring: %s", name);
+                        return 0;
                 }
 
                 NULSTR_FOREACH(i, set->value) {
-                        r = seccomp_parse_syscall_filter_internal(invert, i, errno_num, filter, whitelist, warn, unit, filename, line);
+                        /* Call ourselves again, for the group to parse. Note that we downgrade logging here (i.e. take
+                         * away the SECCOMP_PARSE_LOG flag) since any issues in the group table are our own problem,
+                         * not a problem in user configuration data and we shouldn't pretend otherwise by complaining
+                         * about them. */
+                        r = seccomp_parse_syscall_filter_full(i, errno_num, filter, flags &~ SECCOMP_PARSE_LOG, unit, filename, line);
                         if (r < 0)
                                 return r;
                 }
@@ -989,19 +979,20 @@ int seccomp_parse_syscall_filter_internal(
 
                 id = seccomp_syscall_resolve_name(name);
                 if (id == __NR_SCMP_ERROR) {
-                        if (warn) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Failed to parse system call, ignoring: %s", name);
-                                return 0;
-                        } else
+                        if (!(flags & SECCOMP_PARSE_PERMISSIVE))
                                 return -EINVAL;
+
+                        log_syntax(unit, flags & SECCOMP_PARSE_LOG ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
+                                   "Failed to parse system call, ignoring: %s", name);
+                        return 0;
                 }
 
                 /* If we previously wanted to forbid a syscall and now
                  * we want to allow it, then remove it from the list. */
-                if (!invert == whitelist) {
+                if (!(flags & SECCOMP_PARSE_INVERT) == !!(flags & SECCOMP_PARSE_WHITELIST)) {
                         r = hashmap_put(filter, INT_TO_PTR(id + 1), INT_TO_PTR(errno_num));
                         if (r < 0)
-                                return warn ? log_oom() : -ENOMEM;
+                                return flags & SECCOMP_PARSE_LOG ? log_oom() : -ENOMEM;
                 } else
                         (void) hashmap_remove(filter, INT_TO_PTR(id + 1));
         }
@@ -1178,16 +1169,22 @@ int seccomp_restrict_address_families(Set *address_families, bool whitelist) {
                 case SCMP_ARCH_X32:
                 case SCMP_ARCH_ARM:
                 case SCMP_ARCH_AARCH64:
+                case SCMP_ARCH_PPC:
                 case SCMP_ARCH_PPC64:
                 case SCMP_ARCH_PPC64LE:
+                case SCMP_ARCH_MIPSEL64N32:
+                case SCMP_ARCH_MIPS64N32:
+                case SCMP_ARCH_MIPSEL64:
+                case SCMP_ARCH_MIPS64:
                         /* These we know we support (i.e. are the ones that do not use socketcall()) */
                         supported = true;
                         break;
 
                 case SCMP_ARCH_S390:
                 case SCMP_ARCH_S390X:
-                case SCMP_ARCH_PPC:
                 case SCMP_ARCH_X86:
+                case SCMP_ARCH_MIPSEL:
+                case SCMP_ARCH_MIPS:
                 default:
                         /* These we either know we don't support (i.e. are the ones that do use socketcall()), or we
                          * don't know */
@@ -1534,17 +1531,35 @@ int seccomp_restrict_archs(Set *archs) {
         int r;
 
         /* This installs a filter with no rules, but that restricts the system call architectures to the specified
-         * list. */
+         * list.
+         *
+         * There are some qualifications. However the most important use is to stop processes from bypassing
+         * system call restrictions, in case they used a broader (multiplexing) syscall which is only available
+         * in a non-native architecture. There are no holes in this use case, at least so far. */
 
+        /* Note libseccomp includes our "native" (current) architecture in the filter by default.
+         * We do not remove it. For example, our callers expect to be able to call execve() afterwards
+         * to run a program with the restrictions applied. */
         seccomp = seccomp_init(SCMP_ACT_ALLOW);
         if (!seccomp)
                 return -ENOMEM;
 
         SET_FOREACH(id, archs, i) {
                 r = seccomp_arch_add(seccomp, PTR_TO_UINT32(id) - 1);
-                if (r == -EEXIST)
-                        continue;
-                if (r < 0)
+                if (r < 0 && r != -EEXIST)
+                        return r;
+        }
+
+        /* The vdso for x32 assumes that x86-64 syscalls are available.  Let's allow them, since x32
+         * x32 syscalls should basically match x86-64 for everything except the pointer type.
+         * The important thing is that you can block the old 32-bit x86 syscalls.
+         * https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=850047 */
+
+        if (seccomp_arch_native() == SCMP_ARCH_X32 ||
+            set_contains(archs, UINT32_TO_PTR(SCMP_ARCH_X32 + 1))) {
+
+                r = seccomp_arch_add(seccomp, SCMP_ARCH_X86_64);
+                if (r < 0 && r != -EEXIST)
                         return r;
         }
 
@@ -1585,8 +1600,7 @@ int parse_syscall_archs(char **l, Set **archs) {
                         return -ENOMEM;
         }
 
-        *archs = _archs;
-        _archs = NULL;
+        *archs = TAKE_PTR(_archs);
 
         return 0;
 }

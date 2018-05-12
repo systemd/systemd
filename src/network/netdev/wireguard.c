@@ -1,21 +1,9 @@
+/* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-    This file is part of systemd.
+  This file is part of systemd.
 
-    Copyright 2016-2017 Jörg Thalheim <joerg@thalheim.io>
-    Copyright 2015-2017 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
-
-    systemd is free software; you can redistribute it and/or modify it
-    under the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 2.1 of the License, or
-    (at your option) any later version.
-
-    systemd is distributed in the hope that it will be useful, but
-    WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-    Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License
-    along with systemd; If not, see <http://www.gnu.org/licenses/>.
+  Copyright 2016-2017 Jörg Thalheim <joerg@thalheim.io>
+  Copyright 2015-2017 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
 ***/
 
 #include <sys/ioctl.h>
@@ -228,8 +216,7 @@ static int on_resolve_retry(sd_event_source *s, usec_t usec, void *userdata) {
 
         w->resolve_retry_event_source = sd_event_source_unref(w->resolve_retry_event_source);
 
-        w->unresolved_endpoints = w->failed_endpoints;
-        w->failed_endpoints = NULL;
+        w->unresolved_endpoints = TAKE_PTR(w->failed_endpoints);
 
         resolve_endpoints(netdev);
 
@@ -327,7 +314,6 @@ static void resolve_endpoints(NetDev *netdev) {
                         log_netdev_error_errno(netdev, r, "Failed create resolver: %m");
         }
 }
-
 
 static int netdev_wireguard_post_create(NetDev *netdev, Link *link, sd_netlink_message *m) {
         Wireguard *w;
@@ -467,7 +453,6 @@ int config_parse_wireguard_preshared_key(const char *unit,
                                    data,
                                    peer->preshared_key);
 }
-
 
 int config_parse_wireguard_public_key(const char *unit,
                                       const char *filename,
@@ -627,15 +612,11 @@ int config_parse_wireguard_endpoint(const char *unit,
         if (!port)
                 return log_oom();
 
-        endpoint->peer = peer;
-        endpoint->host = host;
-        endpoint->port = port;
+        endpoint->peer = TAKE_PTR(peer);
+        endpoint->host = TAKE_PTR(host);
+        endpoint->port = TAKE_PTR(port);
         endpoint->netdev = netdev_ref(data);
         LIST_PREPEND(endpoints, w->unresolved_endpoints, endpoint);
-
-        peer = NULL;
-        host = NULL;
-        port = NULL;
         endpoint = NULL;
 
         return 0;

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010-2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -290,8 +277,7 @@ char **path_strv_resolve(char **l, const char *root) {
                 r = chase_symlinks(t, root, 0, &u);
                 if (r == -ENOENT) {
                         if (root) {
-                                u = orig;
-                                orig = NULL;
+                                u = TAKE_PTR(orig);
                                 free(t);
                         } else
                                 u = t;
@@ -654,7 +640,7 @@ char *prefix_root(const char *root, const char *path) {
         while (path[0] == '/' && path[1] == '/')
                 path++;
 
-        if (isempty(root) || path_equal(root, "/"))
+        if (empty_or_root(root))
                 return strdup(path);
 
         l = strlen(root) + 1 + strlen(path) + 1;
@@ -729,16 +715,23 @@ char* dirname_malloc(const char *path) {
 }
 
 const char *last_path_component(const char *path) {
-        /* Finds the last component of the path, preserving the
-         * optional trailing slash that signifies a directory.
+
+        /* Finds the last component of the path, preserving the optional trailing slash that signifies a directory.
+         *
          *    a/b/c → c
          *    a/b/c/ → c/
+         *    x → x
+         *    x/ → x/
+         *    /y → y
+         *    /y/ → y/
          *    / → /
          *    // → /
          *    /foo/a → a
          *    /foo/a/ → a/
-         * This is different than basename, which returns "" when
-         * a trailing slash is present.
+         *
+         *    Also, the empty string is mapped to itself.
+         *
+         * This is different than basename(), which returns "" when a trailing slash is present.
          */
 
         unsigned l, k;
@@ -971,4 +964,15 @@ bool dot_or_dot_dot(const char *path) {
                 return false;
 
         return path[2] == 0;
+}
+
+bool empty_or_root(const char *root) {
+
+        /* For operations relative to some root directory, returns true if the specified root directory is redundant,
+         * i.e. either / or NULL or the empty string or any equivalent. */
+
+        if (!root)
+                return true;
+
+        return root[strspn(root, "/")] == 0;
 }

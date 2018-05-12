@@ -3,14 +3,23 @@
 #include <errno.h>
 
 #include "log.h"
+#include "parse-util.h"
 #include "procfs-util.h"
 
 int main(int argc, char *argv[]) {
+        char buf[CONST_MAX(FORMAT_TIMESPAN_MAX, FORMAT_BYTES_MAX)];
+        nsec_t nsec;
         uint64_t v;
         int r;
 
         log_parse_environment();
         log_open();
+
+        assert_se(procfs_cpu_get_usage(&nsec) >= 0);
+        log_info("Current sytem CPU time: %s", format_timespan(buf, sizeof(buf), nsec/NSEC_PER_USEC, 1));
+
+        assert_se(procfs_memory_get_current(&v) >= 0);
+        log_info("Current memory usage: %s", format_bytes(buf, sizeof(buf), v));
 
         assert_se(procfs_tasks_get_current(&v) >= 0);
         log_info("Current number of tasks: %" PRIu64, v);

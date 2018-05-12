@@ -8,19 +8,6 @@
   This file is part of systemd.
 
   Copyright 2014 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd-resolved.service" conditional='ENABLE_RESOLVE'>
@@ -229,7 +216,7 @@
         <command>systemd-resolved</command> will flush all caches it maintains. Note that it should normally not be
         necessary to request this explicitly – except for debugging purposes – as <command>systemd-resolved</command>
         flushes the caches automatically anyway any time the host's network configuration changes. Sending this signal
-        to <command>systemd-resolved</command> is equivalent to the <command>systemd-resolve --flush-caches</command>
+        to <command>systemd-resolved</command> is equivalent to the <command>resolvectl --flush-caches</command>
         command, however the latter is recommended since it operates in a synchronous way.</para></listitem>
       </varlistentry>
 
@@ -243,7 +230,7 @@
         should normally not be necessary to request this explicitly – except for debugging purposes – as
         <command>systemd-resolved</command> automatically forgets learnt information any time the DNS server
         configuration changes. Sending this signal to <command>systemd-resolved</command> is equivalent to the
-        <command>systemd-resolve --reset-server-features</command> command, however the latter is recommended since it
+        <command>resolvectl --reset-server-features</command> command, however the latter is recommended since it
         operates in a synchronous way.</para></listitem>
       </varlistentry>
     </variablelist>
@@ -257,7 +244,7 @@
       <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>nss-resolve</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-resolve</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>resolvectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>hosts</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,

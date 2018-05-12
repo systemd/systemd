@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <stdbool.h>
@@ -51,6 +38,11 @@ typedef enum SplitMode {
         _SPLIT_MAX,
         _SPLIT_INVALID = -1
 } SplitMode;
+
+typedef struct JournalCompressOptions {
+        bool enabled;
+        uint64_t threshold_bytes;
+} JournalCompressOptions;
 
 typedef struct JournalStorageSpace {
         usec_t   timestamp;
@@ -113,7 +105,7 @@ struct Server {
         JournalStorage runtime_storage;
         JournalStorage system_storage;
 
-        bool compress;
+        JournalCompressOptions compress;
         bool seal;
         bool read_kmsg;
 
@@ -205,6 +197,7 @@ const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TY
 
 int config_parse_storage(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_line_max(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_compress(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 
 const char *storage_to_string(Storage s) _const_;
 Storage storage_from_string(const char *s) _pure_;

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -165,7 +152,7 @@ static int next_assignment(
         return 0;
 }
 
-/* Parse a variable assignment line */
+/* Parse a single logical line */
 static int parse_line(
                 const char* unit,
                 const char *filename,
@@ -180,7 +167,7 @@ static int parse_line(
                 char *l,
                 void *userdata) {
 
-        char *e;
+        char *e, *include;
 
         assert(filename);
         assert(line > 0);
@@ -194,7 +181,8 @@ static int parse_line(
         if (strchr(COMMENTS "\n", *l))
                 return 0;
 
-        if (startswith(l, ".include ")) {
+        include = first_word(l, ".include");
+        if (include) {
                 _cleanup_free_ char *fn = NULL;
 
                 /* .includes are a bad idea, we only support them here
@@ -211,7 +199,11 @@ static int parse_line(
                         return 0;
                 }
 
-                fn = file_in_same_dir(filename, strstrip(l+9));
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           ".include directives are deprecated, and support for them will be removed in a future version of systemd. "
+                           "Please use drop-in files instead.");
+
+                fn = file_in_same_dir(filename, strstrip(include));
                 if (!fn)
                         return -ENOMEM;
 
@@ -409,6 +401,27 @@ int config_parse(const char *unit,
                 continuation = mfree(continuation);
         }
 
+        if (continuation) {
+                r = parse_line(unit,
+                               filename,
+                               ++line,
+                               sections,
+                               lookup,
+                               table,
+                               flags,
+                               &section,
+                               &section_line,
+                               &section_ignored,
+                               continuation,
+                               userdata);
+                if (r < 0) {
+                        if (flags & CONFIG_PARSE_WARN)
+                                log_warning_errno(r, "%s:%u: Failed to parse file: %m", filename, line);
+                        return r;
+
+                }
+        }
+
         return 0;
 }
 
@@ -515,8 +528,7 @@ int config_parse_many(
                                    #type, rvalue);                      \
                                                                         \
                 return 0;                                               \
-        }                                                               \
-        struct __useless_struct_to_allow_trailing_semicolon__
+        }
 
 DEFINE_PARSER(int, int, safe_atoi);
 DEFINE_PARSER(long, long, safe_atoli);
@@ -823,6 +835,37 @@ int config_parse_strv(
         return 0;
 }
 
+int config_parse_warn_compat(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Disabled reason = ltype;
+
+        switch(reason) {
+        case DISABLED_CONFIGURATION:
+                log_syntax(unit, LOG_DEBUG, filename, line, 0,
+                           "Support for option %s= has been disabled at compile time and it is ignored", lvalue);
+                break;
+        case DISABLED_LEGACY:
+                log_syntax(unit, LOG_INFO, filename, line, 0,
+                           "Support for option %s= has been removed and it is ignored", lvalue);
+                break;
+        case DISABLED_EXPERIMENTAL:
+                log_syntax(unit, LOG_INFO, filename, line, 0,
+                           "Support for option %s= has not yet been enabled and it is ignored", lvalue);
+                break;
+        };
+
+        return 0;
+}
+
 int config_parse_log_facility(
                 const char *unit,
                 const char *filename,
@@ -905,7 +948,7 @@ int config_parse_signal(
         assert(rvalue);
         assert(sig);
 
-        r = signal_from_string_try_harder(rvalue);
+        r = signal_from_string(rvalue);
         if (r <= 0) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse signal name, ignoring: %s", rvalue);
                 return 0;
@@ -1018,6 +1061,156 @@ int config_parse_ip_port(
         }
 
         *s = port;
+
+        return 0;
+}
+
+int config_parse_join_controllers(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ****ret = data;
+        const char *whole_rvalue = rvalue;
+        unsigned n = 0;
+        _cleanup_(strv_free_freep) char ***controllers = NULL;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(ret);
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                char **l;
+                int r;
+
+                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_QUOTES);
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
+                        return r;
+                }
+                if (r == 0)
+                        break;
+
+                l = strv_split(word, ",");
+                if (!l)
+                        return log_oom();
+                strv_uniq(l);
+
+                if (strv_length(l) <= 1) {
+                        strv_free(l);
+                        continue;
+                }
+
+                if (!controllers) {
+                        controllers = new(char**, 2);
+                        if (!controllers) {
+                                strv_free(l);
+                                return log_oom();
+                        }
+
+                        controllers[0] = l;
+                        controllers[1] = NULL;
+
+                        n = 1;
+                } else {
+                        char ***a;
+                        char ***t;
+
+                        t = new0(char**, n+2);
+                        if (!t) {
+                                strv_free(l);
+                                return log_oom();
+                        }
+
+                        n = 0;
+
+                        for (a = controllers; *a; a++)
+                                if (strv_overlap(*a, l)) {
+                                        if (strv_extend_strv(&l, *a, false) < 0) {
+                                                strv_free(l);
+                                                strv_free_free(t);
+                                                return log_oom();
+                                        }
+
+                                } else {
+                                        char **c;
+
+                                        c = strv_copy(*a);
+                                        if (!c) {
+                                                strv_free(l);
+                                                strv_free_free(t);
+                                                return log_oom();
+                                        }
+
+                                        t[n++] = c;
+                                }
+
+                        t[n++] = strv_uniq(l);
+
+                        strv_free_free(controllers);
+                        controllers = t;
+                }
+        }
+        if (!isempty(rvalue))
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
+
+        /* As a special case, return a single empty strv, to override the default */
+        if (!controllers) {
+                controllers = new(char**, 2);
+                if (!controllers)
+                        return log_oom();
+                controllers[0] = strv_new(NULL, NULL);
+                if (!controllers[0])
+                        return log_oom();
+                controllers[1] = NULL;
+        }
+
+        strv_free_free(*ret);
+        *ret = TAKE_PTR(controllers);
+
+        return 0;
+}
+
+int config_parse_mtu(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        uint32_t *mtu = data;
+        int r;
+
+        assert(rvalue);
+        assert(mtu);
+
+        r = parse_mtu(ltype, rvalue, mtu);
+        if (r == -ERANGE) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Maximum transfer unit (MTU) value out of range. Permitted range is %" PRIu32 "…%" PRIu32 ", ignoring: %s",
+                           (uint32_t) (ltype == AF_INET6 ? IPV6_MIN_MTU : IPV4_MIN_MTU), (uint32_t) UINT32_MAX,
+                           rvalue);
+                return 0;
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse MTU value '%s', ignoring: %m", rvalue);
+                return 0;
+        }
 
         return 0;
 }

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Kay Sievers, Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "sd-daemon.h"
@@ -29,6 +16,7 @@
 #include "network-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "timesyncd-bus.h"
 #include "timesyncd-conf.h"
 #include "timesyncd-manager.h"
 #include "user-util.h"
@@ -71,7 +59,8 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 }
 
         } else {
-                r = mkdir_safe_label("/var/lib/systemd/timesync", 0755, uid, gid, true);
+                r = mkdir_safe_label("/var/lib/systemd/timesync", 0755, uid, gid,
+                                     MKDIR_FOLLOW_SYMLINK | MKDIR_WARN_MODE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create state directory: %m");
 
@@ -145,9 +134,15 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        r = manager_connect_bus(m);
+        if (r < 0) {
+                log_error_errno(r, "Could not connect to bus: %m");
+                goto finish;
+        }
+
         if (clock_is_localtime(NULL) > 0) {
                 log_info("The system is configured to read the RTC time in the local time zone. "
-                         "This mode can not be fully supported. All system time to RTC updates are disabled.");
+                         "This mode cannot be fully supported. All system time to RTC updates are disabled.");
                 m->rtc_local_time = true;
         }
 

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -254,10 +241,29 @@ int unit_name_change_suffix(const char *n, const char *suffix, char **ret) {
 }
 
 int unit_name_build(const char *prefix, const char *instance, const char *suffix, char **ret) {
-        char *s;
+        UnitType type;
 
         assert(prefix);
         assert(suffix);
+        assert(ret);
+
+        if (suffix[0] != '.')
+                return -EINVAL;
+
+        type = unit_type_from_string(suffix + 1);
+        if (type < 0)
+                return -EINVAL;
+
+        return unit_name_build_from_type(prefix, instance, type, ret);
+}
+
+int unit_name_build_from_type(const char *prefix, const char *instance, UnitType type, char **ret) {
+        const char *ut;
+        char *s;
+
+        assert(prefix);
+        assert(type >= 0);
+        assert(type < _UNIT_TYPE_MAX);
         assert(ret);
 
         if (!unit_prefix_is_valid(prefix))
@@ -266,13 +272,12 @@ int unit_name_build(const char *prefix, const char *instance, const char *suffix
         if (instance && !unit_instance_is_valid(instance))
                 return -EINVAL;
 
-        if (!unit_suffix_is_valid(suffix))
-                return -EINVAL;
+        ut = unit_type_to_string(type);
 
         if (!instance)
-                s = strappend(prefix, suffix);
+                s = strjoin(prefix, ".", ut);
         else
-                s = strjoin(prefix, "@", instance, suffix);
+                s = strjoin(prefix, "@", instance, ".", ut);
         if (!s)
                 return -ENOMEM;
 
@@ -363,8 +368,7 @@ int unit_name_unescape(const char *f, char **ret) {
 
         *t = 0;
 
-        *ret = r;
-        r = NULL;
+        *ret = TAKE_PTR(r);
 
         return 0;
 }
@@ -381,7 +385,7 @@ int unit_name_path_escape(const char *f, char **ret) {
 
         path_kill_slashes(p);
 
-        if (STR_IN_SET(p, "/", ""))
+        if (empty_or_root(p))
                 s = strdup("-");
         else {
                 if (!path_is_normalized(p))
@@ -569,28 +573,32 @@ int unit_name_to_path(const char *name, char **ret) {
         return unit_name_path_unescape(prefix, ret);
 }
 
-static char *do_escape_mangle(const char *f, UnitNameMangle allow_globs, char *t) {
+static bool do_escape_mangle(const char *f, bool allow_globs, char *t) {
         const char *valid_chars;
+        bool mangled = false;
 
         assert(f);
-        assert(IN_SET(allow_globs, UNIT_NAME_GLOB, UNIT_NAME_NOGLOB));
         assert(t);
 
-        /* We'll only escape the obvious characters here, to play
-         * safe. */
+        /* We'll only escape the obvious characters here, to play safe.
+         *
+         * Returns true if any characters were mangled, false otherwise.
+         */
 
-        valid_chars = allow_globs == UNIT_NAME_GLOB ? VALID_CHARS_GLOB : VALID_CHARS_WITH_AT;
+        valid_chars = allow_globs ? VALID_CHARS_GLOB : VALID_CHARS_WITH_AT;
 
-        for (; *f; f++) {
-                if (*f == '/')
+        for (; *f; f++)
+                if (*f == '/') {
                         *(t++) = '-';
-                else if (!strchr(valid_chars, *f))
+                        mangled = true;
+                } else if (!strchr(valid_chars, *f)) {
                         t = do_escape_char(*f, t);
-                else
+                        mangled = true;
+                } else
                         *(t++) = *f;
-        }
+        *t = 0;
 
-        return t;
+        return mangled;
 }
 
 /**
@@ -600,9 +608,10 @@ static char *do_escape_mangle(const char *f, UnitNameMangle allow_globs, char *t
  *
  *  If @allow_globs, globs characters are preserved. Otherwise, they are escaped.
  */
-int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, const char *suffix, char **ret) {
-        char *s, *t;
+int unit_name_mangle_with_suffix(const char *name, UnitNameMangle flags, const char *suffix, char **ret) {
+        char *s;
         int r;
+        bool mangled;
 
         assert(name);
         assert(suffix);
@@ -619,7 +628,7 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, c
                 goto good;
 
         /* Already a fully valid globbing expression? If so, no mangling is necessary either... */
-        if (allow_globs == UNIT_NAME_GLOB &&
+        if ((flags & UNIT_NAME_MANGLE_GLOB) &&
             string_is_glob(name) &&
             in_charset(name, VALID_CHARS_GLOB))
                 goto good;
@@ -644,13 +653,16 @@ int unit_name_mangle_with_suffix(const char *name, UnitNameMangle allow_globs, c
         if (!s)
                 return -ENOMEM;
 
-        t = do_escape_mangle(name, allow_globs, s);
-        *t = 0;
+        mangled = do_escape_mangle(name, flags & UNIT_NAME_MANGLE_GLOB, s);
+        if (mangled)
+                log_full(flags & UNIT_NAME_MANGLE_WARN ? LOG_NOTICE : LOG_DEBUG,
+                         "Invalid unit name \"%s\" was escaped as \"%s\" (maybe you should use systemd-escape?)",
+                         name, s);
 
         /* Append a suffix if it doesn't have any, but only if this is not a glob, so that we can allow "foo.*" as a
          * valid glob. */
-        if ((allow_globs != UNIT_NAME_GLOB || !string_is_glob(s)) && unit_name_to_type(s) < 0)
-                strcpy(t, suffix);
+        if ((!(flags & UNIT_NAME_MANGLE_GLOB) || !string_is_glob(s)) && unit_name_to_type(s) < 0)
+                strcat(s, suffix);
 
         *ret = s;
         return 1;
@@ -698,7 +710,7 @@ int slice_build_parent_slice(const char *slice, char **ret) {
         return 1;
 }
 
-int slice_build_subslice(const char *slice, const char*name, char **ret) {
+int slice_build_subslice(const char *slice, const char *name, char **ret) {
         char *subslice;
 
         assert(slice);

@@ -62,10 +62,8 @@ static void path_prepend(char **path, const char *fmt, ...) {
                 }
 
                 free_and_replace(*path, new);
-        } else {
-                *path = pre;
-                pre = NULL;
-        }
+        } else
+                *path = TAKE_PTR(pre);
 }
 
 /*
@@ -106,7 +104,7 @@ static struct udev_device *skip_subsystem(struct udev_device *dev, const char *s
 static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent, char **path) {
         struct udev *udev;
         struct udev_device *targetdev;
-        _cleanup_udev_device_unref_ struct udev_device *fcdev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *fcdev = NULL;
         const char *port;
         _cleanup_free_ char *lun = NULL;
 
@@ -135,7 +133,7 @@ static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent,
 static struct udev_device *handle_scsi_sas_wide_port(struct udev_device *parent, char **path) {
         struct udev *udev;
         struct udev_device *targetdev, *target_parent;
-        _cleanup_udev_device_unref_ struct udev_device *sasdev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *sasdev = NULL;
         const char *sas_address;
         _cleanup_free_ char *lun = NULL;
 
@@ -170,7 +168,7 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
 {
         struct udev *udev;
         struct udev_device *targetdev, *target_parent, *port, *expander;
-        _cleanup_udev_device_unref_ struct udev_device
+        _cleanup_(udev_device_unrefp) struct udev_device
                 *target_sasdev = NULL, *expander_sasdev = NULL, *port_sasdev = NULL;
         const char *sas_address = NULL;
         const char *phy_id;
@@ -246,7 +244,7 @@ static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **pa
 static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **path) {
         struct udev *udev;
         struct udev_device *transportdev;
-        _cleanup_udev_device_unref_ struct udev_device
+        _cleanup_(udev_device_unrefp) struct udev_device
                 *sessiondev = NULL, *conndev = NULL;
         const char *target, *connname, *addr, *port;
         _cleanup_free_ char *lun = NULL;
@@ -293,7 +291,7 @@ static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **
 static struct udev_device *handle_scsi_ata(struct udev_device *parent, char **path) {
         struct udev *udev;
         struct udev_device *targetdev, *target_parent;
-        _cleanup_udev_device_unref_ struct udev_device *atadev = NULL;
+        _cleanup_(udev_device_unrefp) struct udev_device *atadev = NULL;
         const char *port_no;
 
         assert(parent);
@@ -397,16 +395,17 @@ static struct udev_device *handle_scsi_default(struct udev_device *parent, char 
         return hostdev;
 }
 
-static struct udev_device *handle_scsi_hyperv(struct udev_device *parent, char **path) {
+static struct udev_device *handle_scsi_hyperv(struct udev_device *parent, char **path, size_t guid_str_len) {
         struct udev_device *hostdev;
         struct udev_device *vmbusdev;
         const char *guid_str;
         _cleanup_free_ char *lun = NULL;
-        char guid[38];
+        char guid[39];
         size_t i, k;
 
         assert(parent);
         assert(path);
+        assert(guid_str_len < sizeof(guid));
 
         hostdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host");
         if (!hostdev)
@@ -420,10 +419,10 @@ static struct udev_device *handle_scsi_hyperv(struct udev_device *parent, char *
         if (!guid_str)
                 return NULL;
 
-        if (strlen(guid_str) < 37 || guid_str[0] != '{' || guid_str[36] != '}')
+        if (strlen(guid_str) < guid_str_len || guid_str[0] != '{' || guid_str[guid_str_len-1] != '}')
                 return NULL;
 
-        for (i = 1, k = 0; i < 36; i++) {
+        for (i = 1, k = 0; i < guid_str_len-1; i++) {
                 if (guid_str[i] == '-')
                         continue;
                 guid[k++] = guid_str[i];
@@ -472,7 +471,9 @@ static struct udev_device *handle_scsi(struct udev_device *parent, char **path, 
                 return handle_scsi_ata(parent, path);
 
         if (strstr(name, "/vmbus_"))
-                return handle_scsi_hyperv(parent, path);
+                return handle_scsi_hyperv(parent, path, 37);
+        else if (strstr(name, "/VMBUS"))
+                return handle_scsi_hyperv(parent, path, 38);
 
         return handle_scsi_default(parent, path);
 }

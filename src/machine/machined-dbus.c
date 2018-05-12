@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -1327,7 +1314,7 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
                 xsprintf(p, "/proc/" UID_FMT "/uid_map", machine->leader);
                 f = fopen(p, "re");
                 if (!f) {
-                        log_warning_errno(errno, "Failed top open %s, ignoring,", p);
+                        log_warning_errno(errno, "Failed to open %s, ignoring,", p);
                         continue;
                 }
 
@@ -1445,7 +1432,7 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
                 xsprintf(p, "/proc/" GID_FMT "/gid_map", machine->leader);
                 f = fopen(p, "re");
                 if (!f) {
-                        log_warning_errno(errno, "Failed top open %s, ignoring,", p);
+                        log_warning_errno(errno, "Failed to open %s, ignoring,", p);
                         continue;
                 }
 

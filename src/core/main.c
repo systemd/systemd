@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -127,6 +114,7 @@ static char *arg_watchdog_device = NULL;
 static char **arg_default_environment = NULL;
 static struct rlimit *arg_default_rlimit[_RLIMIT_MAX] = {};
 static uint64_t arg_capability_bounding_set = CAP_ALL;
+static bool arg_no_new_privs = false;
 static nsec_t arg_timer_slack_nsec = NSEC_INFINITY;
 static usec_t arg_default_timer_accuracy_usec = 1 * USEC_PER_MINUTE;
 static Set* arg_syscall_archs = NULL;
@@ -135,13 +123,13 @@ static bool arg_default_cpu_accounting = false;
 static bool arg_default_io_accounting = false;
 static bool arg_default_ip_accounting = false;
 static bool arg_default_blockio_accounting = false;
-static bool arg_default_memory_accounting = false;
+static bool arg_default_memory_accounting = MEMORY_ACCOUNTING_DEFAULT;
 static bool arg_default_tasks_accounting = true;
 static uint64_t arg_default_tasks_max = UINT64_MAX;
 static sd_id128_t arg_machine_id = {};
 static EmergencyAction arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
 
-noreturn static void freeze_or_reboot(void) {
+_noreturn_ static void freeze_or_reboot(void) {
 
         if (arg_crash_reboot) {
                 log_notice("Rebooting in 10s...");
@@ -156,7 +144,7 @@ noreturn static void freeze_or_reboot(void) {
         freeze();
 }
 
-noreturn static void crash(int sig) {
+_noreturn_ static void crash(int sig) {
         struct sigaction sa;
         pid_t pid;
 
@@ -652,107 +640,6 @@ static int config_parse_crash_chvt(
         return 0;
 }
 
-static int config_parse_join_controllers(const char *unit,
-                                         const char *filename,
-                                         unsigned line,
-                                         const char *section,
-                                         unsigned section_line,
-                                         const char *lvalue,
-                                         int ltype,
-                                         const char *rvalue,
-                                         void *data,
-                                         void *userdata) {
-
-        const char *whole_rvalue = rvalue;
-        unsigned n = 0;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        arg_join_controllers = strv_free_free(arg_join_controllers);
-
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                char **l;
-                int r;
-
-                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_QUOTES);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Invalid value for %s: %s", lvalue, whole_rvalue);
-                        return r;
-                }
-                if (r == 0)
-                        break;
-
-                l = strv_split(word, ",");
-                if (!l)
-                        return log_oom();
-                strv_uniq(l);
-
-                if (strv_length(l) <= 1) {
-                        strv_free(l);
-                        continue;
-                }
-
-                if (!arg_join_controllers) {
-                        arg_join_controllers = new(char**, 2);
-                        if (!arg_join_controllers) {
-                                strv_free(l);
-                                return log_oom();
-                        }
-
-                        arg_join_controllers[0] = l;
-                        arg_join_controllers[1] = NULL;
-
-                        n = 1;
-                } else {
-                        char ***a;
-                        char ***t;
-
-                        t = new0(char**, n+2);
-                        if (!t) {
-                                strv_free(l);
-                                return log_oom();
-                        }
-
-                        n = 0;
-
-                        for (a = arg_join_controllers; *a; a++) {
-
-                                if (strv_overlap(*a, l)) {
-                                        if (strv_extend_strv(&l, *a, false) < 0) {
-                                                strv_free(l);
-                                                strv_free_free(t);
-                                                return log_oom();
-                                        }
-
-                                } else {
-                                        char **c;
-
-                                        c = strv_copy(*a);
-                                        if (!c) {
-                                                strv_free(l);
-                                                strv_free_free(t);
-                                                return log_oom();
-                                        }
-
-                                        t[n++] = c;
-                                }
-                        }
-
-                        t[n++] = strv_uniq(l);
-
-                        strv_free_free(arg_join_controllers);
-                        arg_join_controllers = t;
-                }
-        }
-        if (!isempty(rvalue))
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Trailing garbage, ignoring.");
-
-        return 0;
-}
-
 static int parse_config_file(void) {
 
         const ConfigTableItem items[] = {
@@ -772,6 +659,7 @@ static int parse_config_file(void) {
                 { "Manager", "ShutdownWatchdogSec",       config_parse_sec,              0, &arg_shutdown_watchdog                 },
                 { "Manager", "WatchdogDevice",            config_parse_path,             0, &arg_watchdog_device                   },
                 { "Manager", "CapabilityBoundingSet",     config_parse_capability_set,   0, &arg_capability_bounding_set           },
+                { "Manager", "NoNewPrivileges",           config_parse_bool,             0, &arg_no_new_privs                      },
 #if HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",   config_parse_syscall_archs,    0, &arg_syscall_archs                     },
 #endif
@@ -873,7 +761,6 @@ static void set_manager_settings(Manager *m) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_LOG_LEVEL = 0x100,
                 ARG_LOG_TARGET,
@@ -1231,11 +1118,8 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
         if (r < 0)
                 return log_error_errno(r, "Failed to disable O_CLOEXEC for serialization fds: %m");
 
-        *_f = f;
-        *_fds = fds;
-
-        f = NULL;
-        fds = NULL;
+        *_f = TAKE_PTR(f);
+        *_fds = TAKE_PTR(fds);
 
         return 0;
 }
@@ -1312,32 +1196,6 @@ static void test_usr(void) {
         log_warning("/usr appears to be on its own filesystem and is not already mounted. This is not a supported setup. "
                     "Some things will probably break (sometimes even silently) in mysterious ways. "
                     "Consult http://freedesktop.org/wiki/Software/systemd/separate-usr-is-broken for more information.");
-}
-
-static int initialize_join_controllers(void) {
-        /* By default, mount "cpu" + "cpuacct" together, and "net_cls"
-         * + "net_prio". We'd like to add "cpuset" to the mix, but
-         * "cpuset" doesn't really work for groups with no initialized
-         * attributes. */
-
-        arg_join_controllers = new(char**, 3);
-        if (!arg_join_controllers)
-                return -ENOMEM;
-
-        arg_join_controllers[0] = strv_new("cpu", "cpuacct", NULL);
-        if (!arg_join_controllers[0])
-                goto oom;
-
-        arg_join_controllers[1] = strv_new("net_cls", "net_prio", NULL);
-        if (!arg_join_controllers[1])
-                goto oom;
-
-        arg_join_controllers[2] = NULL;
-        return 0;
-
-oom:
-        arg_join_controllers = strv_free_free(arg_join_controllers);
-        return -ENOMEM;
 }
 
 static int enforce_syscall_archs(Set *archs) {
@@ -1992,6 +1850,13 @@ static int initialize_runtime(
                 }
         }
 
+        if (arg_system && arg_no_new_privs) {
+                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0) {
+                        *ret_error_message = "Failed to disable new privileges";
+                        return log_emergency_errno(errno, "Failed to disable new privileges: %m");
+                }
+        }
+
         if (arg_syscall_archs) {
                 r = enforce_syscall_archs(arg_syscall_archs);
                 if (r < 0) {
@@ -2025,28 +1890,15 @@ static int do_queue_default_job(
 
         log_debug("Activating default unit: %s", arg_default_unit);
 
-        r = manager_load_unit(m, arg_default_unit, NULL, &error, &target);
-        if (r < 0)
-                log_error("Failed to load default target: %s", bus_error_message(&error, r));
-        else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND))
-                log_error_errno(target->load_error, "Failed to load default target: %m");
-        else if (target->load_state == UNIT_MASKED)
-                log_error("Default target masked.");
+        r = manager_load_startable_unit_or_warn(m, arg_default_unit, NULL, &target);
+        if (r < 0) {
+                log_info("Falling back to rescue target: " SPECIAL_RESCUE_TARGET);
 
-        if (!target || target->load_state != UNIT_LOADED) {
-                log_info("Trying to load rescue target...");
-
-                r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, NULL, &error, &target);
+                r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);
                 if (r < 0) {
-                        *ret_error_message = "Failed to load rescue target";
-                        return log_emergency_errno(r, "Failed to load rescue target: %s", bus_error_message(&error, r));
-                } else if (IN_SET(target->load_state, UNIT_ERROR, UNIT_NOT_FOUND)) {
-                        *ret_error_message = "Failed to load rescue target";
-                        return log_emergency_errno(target->load_error, "Failed to load rescue target: %m");
-                } else if (target->load_state == UNIT_MASKED) {
-                        *ret_error_message = "Rescue target masked";
-                        log_emergency("Rescue target masked.");
-                        return -ERFKILL;
+                        *ret_error_message = r == -ERFKILL ? "Rescue target masked"
+                                                           : "Failed to load rescue target";
+                        return r;
                 }
         }
 
@@ -2093,12 +1945,6 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
         int r;
 
         assert(ret_error_message);
-
-        r = initialize_join_controllers();
-        if (r < 0) {
-                *ret_error_message = "Failed to initialize cgroup controller joining table";
-                return r;
-        }
 
         arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
 
@@ -2392,7 +2238,6 @@ int main(int argc, char *argv[]) {
                 /* Running inside a container, as PID 1 */
                 arg_system = true;
                 log_set_target(LOG_TARGET_CONSOLE);
-                log_close_console(); /* force reopen of /dev/console */
                 log_open();
 
                 /* For later on, see above... */
@@ -2460,7 +2305,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS))
-                pager_open(arg_no_pager, false);
+                (void) pager_open(arg_no_pager, false);
 
         if (arg_action != ACTION_RUN)
                 skip_setup = true;
@@ -2603,7 +2448,7 @@ finish:
                  * in become_shutdown() so normally we cannot free them yet. */
                 watchdog_free_device();
                 arg_watchdog_device = mfree(arg_watchdog_device);
-                return 0;
+                return retval;
         }
 #endif
 

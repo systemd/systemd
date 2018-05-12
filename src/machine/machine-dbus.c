@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -522,8 +509,7 @@ static int container_bus_new(Machine *m, sd_bus_error *error, sd_bus **ret) {
                 if (r < 0)
                         return r;
 
-                *ret = bus;
-                bus = NULL;
+                *ret = TAKE_PTR(bus);
                 break;
         }
 
@@ -647,8 +633,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         } else {
                 if (!path_is_absolute(path))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified path '%s' is not absolute", path);
-                args = args_wire;
-                args_wire = NULL;
+                args = TAKE_PTR(args_wire);
                 if (strv_isempty(args)) {
                         args = strv_free(args);
 
@@ -907,7 +892,7 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
         if (laccess(p, F_OK) < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Container does not allow propagation of mount points.");
 
-        r = chase_symlinks(src, NULL, 0, &chased_src);
+        r = chase_symlinks(src, NULL, CHASE_TRAIL_SLASH, &chased_src);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to resolve source path: %m");
 
@@ -1204,7 +1189,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 
                 containerfd = open(container_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
                 if (containerfd < 0) {
-                        r = log_error_errno(errno, "Failed top open destination directory: %m");
+                        r = log_error_errno(errno, "Failed to open destination directory: %m");
                         goto child_fail;
                 }
 
@@ -1475,8 +1460,7 @@ int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char 
                         return r;
         }
 
-        *nodes = l;
-        l = NULL;
+        *nodes = TAKE_PTR(l);
 
         return 1;
 }
@@ -1507,8 +1491,7 @@ int machine_send_create_reply(Machine *m, sd_bus_error *error) {
         if (!m->create_message)
                 return 0;
 
-        c = m->create_message;
-        m->create_message = NULL;
+        c = TAKE_PTR(m->create_message);
 
         if (error)
                 return sd_bus_reply_method_error(c, error);

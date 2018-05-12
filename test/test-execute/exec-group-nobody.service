@@ -1,0 +1,7 @@
+[Unit]
+Description=Test for Group
+
+[Service]
+ExecStart=/bin/sh -x -c 'test "$$(id -n -g)" = "nobody"'
+Type=oneshot
+Group=nobody

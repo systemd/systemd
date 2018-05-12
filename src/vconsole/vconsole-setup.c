@@ -4,19 +4,6 @@
 
   Copyright 2010 Kay Sievers
   Copyright 2016 Michal Soltys <soltys@ziu.info>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -49,35 +36,42 @@
 #include "virt.h"
 
 static int verify_vc_device(int fd) {
-        unsigned char data[1];
+        unsigned char data[] = {
+                TIOCL_GETFGCONSOLE,
+        };
+
         int r;
 
-        data[0] = TIOCL_GETFGCONSOLE;
         r = ioctl(fd, TIOCLINUX, data);
-        return r < 0 ? -errno : r;
+        if (r < 0)
+                return -errno;
+
+        return r;
 }
 
 static int verify_vc_allocation(unsigned idx) {
         char vcname[sizeof("/dev/vcs") + DECIMAL_STR_MAX(unsigned) - 2];
-        int r;
 
         xsprintf(vcname, "/dev/vcs%u", idx);
-        r = access(vcname, F_OK);
-        return r < 0 ? -errno : r;
+
+        if (access(vcname, F_OK) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static int verify_vc_allocation_byfd(int fd) {
         struct vt_stat vcs = {};
-        int r;
 
-        r = ioctl(fd, VT_GETSTATE, &vcs);
-        return r < 0 ? -errno : verify_vc_allocation(vcs.v_active);
+        if (ioctl(fd, VT_GETSTATE, &vcs) < 0)
+                return -errno;
+
+        return verify_vc_allocation(vcs.v_active);
 }
 
 static int verify_vc_kbmode(int fd) {
-        int r, curr_mode;
+        int curr_mode;
 
-        r = ioctl(fd, KDGKBMODE, &curr_mode);
         /*
          * Make sure we only adjust consoles in K_XLATE or K_UNICODE mode.
          * Otherwise we would (likely) interfere with X11's processing of the
@@ -85,7 +79,8 @@ static int verify_vc_kbmode(int fd) {
          *
          * http://lists.freedesktop.org/archives/systemd-devel/2013-February/008573.html
          */
-        if (r < 0)
+
+        if (ioctl(fd, KDGKBMODE, &curr_mode) < 0)
                 return -errno;
 
         return IN_SET(curr_mode, K_XLATE, K_UNICODE) ? 0 : -EBUSY;
@@ -129,7 +124,6 @@ static int toggle_utf8_sysfs(bool utf8) {
 }
 
 static int keyboard_load_and_wait(const char *vc, const char *map, const char *map_toggle, bool utf8) {
-        _cleanup_free_ char *cmd = NULL;
         const char *args[8];
         unsigned i = 0;
         pid_t pid;
@@ -150,8 +144,12 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
                 args[i++] = map_toggle;
         args[i++] = NULL;
 
-        log_debug("Executing \"%s\"...",
-                  strnull((cmd = strv_join((char**) args, " "))));
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *cmd;
+
+                cmd = strv_join((char**) args, " ");
+                log_debug("Executing \"%s\"...", strnull(cmd));
+        }
 
         r = safe_fork("(loadkeys)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
         if (r < 0)
@@ -165,7 +163,6 @@ static int keyboard_load_and_wait(const char *vc, const char *map, const char *m
 }
 
 static int font_load_and_wait(const char *vc, const char *font, const char *map, const char *unimap) {
-        _cleanup_free_ char *cmd = NULL;
         const char *args[9];
         unsigned i = 0;
         pid_t pid;
@@ -190,8 +187,12 @@ static int font_load_and_wait(const char *vc, const char *font, const char *map,
                 args[i++] = font;
         args[i++] = NULL;
 
-        log_debug("Executing \"%s\"...",
-                  strnull((cmd = strv_join((char**) args, " "))));
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *cmd;
+
+                cmd = strv_join((char**) args, " ");
+                log_debug("Executing \"%s\"...", strnull(cmd));
+        }
 
         r = safe_fork("(setfont)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG, &pid);
         if (r < 0)
@@ -248,7 +249,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                          * requries 32 per glyph, regardless of the actual height - see the comment above #define
                          * max_font_size 65536 in drivers/tty/vt/vt.c for more details.
                          */
-                        fontbuf = malloc((cfo.width + 7) / 8 * 32 * cfo.charcount);
+                        fontbuf = malloc_multiply((cfo.width + 7) / 8 * 32, cfo.charcount);
                         if (!fontbuf) {
                                 log_oom();
                                 return;
@@ -325,8 +326,8 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
 
 static int find_source_vc(char **ret_path, unsigned *ret_idx) {
         _cleanup_free_ char *path = NULL;
+        int r, err = 0;
         unsigned i;
-        int ret_fd, r, err = 0;
 
         path = new(char, sizeof("/dev/tty63"));
         if (!path)
@@ -358,20 +359,17 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 
                 /* all checks passed, return this one as a source console */
                 *ret_idx = i;
-                *ret_path = path;
-                path = NULL;
-                ret_fd = fd;
-                fd = -1;
-                return ret_fd;
+                *ret_path = TAKE_PTR(path);
+                return TAKE_FD(fd);
         }
 
         return log_error_errno(err, "No usable source console found: %m");
 }
 
 static int verify_source_vc(char **ret_path, const char *src_vc) {
-        char *path;
         _cleanup_close_ int fd = -1;
-        int ret_fd, r;
+        char *path;
+        int r;
 
         fd = open_terminal(src_vc, O_RDWR|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
@@ -394,9 +392,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
                 return log_oom();
 
         *ret_path = path;
-        ret_fd = fd;
-        fd = -1;
-        return ret_fd;
+        return TAKE_FD(fd);
 }
 
 int main(int argc, char **argv) {
@@ -419,7 +415,6 @@ int main(int argc, char **argv) {
                 fd = verify_source_vc(&vc, argv[1]);
         else
                 fd = find_source_vc(&vc, &idx);
-
         if (fd < 0)
                 return EXIT_FAILURE;
 

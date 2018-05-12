@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2010-2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <stdbool.h>
@@ -61,8 +48,13 @@ int fd_is_fs_type(int fd, statfs_f_type_t magic_value);
 int path_is_fs_type(const char *path, statfs_f_type_t magic_value);
 
 bool is_temporary_fs(const struct statfs *s) _pure_;
+bool is_network_fs(const struct statfs *s) _pure_;
+
 int fd_is_temporary_fs(int fd);
+int fd_is_network_fs(int fd);
+
 int fd_is_network_ns(int fd);
+
 int path_is_temporary_fs(const char *path);
 
 /* Because statfs.t_type can be int on some architectures, we have to cast
@@ -70,3 +62,6 @@ int path_is_temporary_fs(const char *path);
  * signed/unsigned comparison, because the magic can be 32 bit unsigned.
  */
 #define F_TYPE_EQUAL(a, b) (a == (typeof(a)) b)
+
+int stat_verify_regular(const struct stat *st);
+int fd_verify_regular(int fd);

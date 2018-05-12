@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "sd-bus.h"
@@ -24,6 +11,7 @@
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "nspawn-register.h"
+#include "special.h"
 #include "stat-util.h"
 #include "strv.h"
 #include "util.h"
@@ -293,7 +281,7 @@ int allocate_scope(
         if (r < 0)
                 return log_error_errno(r, "Could not watch job: %m");
 
-        r = unit_name_mangle_with_suffix(machine_name, UNIT_NAME_NOGLOB, ".scope", &scope);
+        r = unit_name_mangle_with_suffix(machine_name, 0, ".scope", &scope);
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle scope name: %m");
 
@@ -322,7 +310,7 @@ int allocate_scope(
                                   "PIDs", "au", 1, pid,
                                   "Description", "s", description,
                                   "Delegate", "b", 1,
-                                  "Slice", "s", isempty(slice) ? "machine.slice" : slice);
+                                  "Slice", "s", isempty(slice) ? SPECIAL_MACHINE_SLICE : slice);
         if (r < 0)
                 return bus_log_create_error(r);
 

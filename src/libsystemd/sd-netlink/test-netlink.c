@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <net/if.h>
@@ -53,7 +40,7 @@ static void test_link_configure(sd_netlink *rtnl, int ifindex) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         const char *mac = "98:fe:94:3f:c6:18", *name = "test";
         char buffer[ETHER_ADDR_TO_STRING_MAX];
-        unsigned int mtu = 1450, mtu_out;
+        uint32_t mtu = 1450, mtu_out;
         const char *name_out;
         struct ether_addr mac_out;
 
@@ -79,7 +66,7 @@ static void test_link_configure(sd_netlink *rtnl, int ifindex) {
 static void test_link_get(sd_netlink *rtnl, int ifindex) {
         sd_netlink_message *m;
         sd_netlink_message *r;
-        unsigned int mtu = 1500;
+        uint32_t mtu = 1500;
         const char *str_data;
         uint8_t u8_data;
         uint32_t u32_data;
@@ -119,7 +106,6 @@ static void test_link_get(sd_netlink *rtnl, int ifindex) {
         assert_se((m = sd_netlink_message_unref(m)) == NULL);
         assert_se((r = sd_netlink_message_unref(r)) == NULL);
 }
-
 
 static void test_address_get(sd_netlink *rtnl, int ifindex) {
         sd_netlink_message *m;

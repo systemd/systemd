@@ -1,19 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # Copyright 2017 Zbigniew Jędrzejewski-Szmek
-#
-# systemd is free software; you can redistribute it and/or modify it
-# under the terms of the GNU Lesser General Public License as published by
-# the Free Software Foundation; either version 2.1 of the License, or
-# (at your option) any later version.
-#
-# systemd is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with systemd; If not, see <http://www.gnu.org/licenses/>.
 
 basic_sources = files('''
         MurmurHash2.c
@@ -90,6 +77,8 @@ basic_sources = files('''
         fileio-label.h
         fileio.c
         fileio.h
+        format-table.c
+        format-table.h
         format-util.h
         fs-util.c
         fs-util.h
@@ -140,6 +129,8 @@ basic_sources = files('''
         nss-util.h
         ordered-set.c
         ordered-set.h
+        pager.c
+        pager.h
         parse-util.c
         parse-util.h
         path-util.c
@@ -157,6 +148,9 @@ basic_sources = files('''
         ratelimit.c
         ratelimit.h
         raw-clone.h
+        raw-reboot.h
+        reboot-util.c
+        reboot-util.h
         refcnt.h
         replace-var.c
         replace-var.h
@@ -169,7 +163,6 @@ basic_sources = files('''
         securebits.h
         selinux-util.c
         selinux-util.h
-        set.c
         set.h
         sigbus.c
         sigbus.h
@@ -309,6 +302,9 @@ foreach item : [['af',     af_list_txt,     'af',         ''],
 endforeach
 
 basic_sources += [missing_h] + generated_gperf_headers
+basic_gcrypt_sources = files(
+        'gcrypt-util.c',
+        'gcrypt-util.h')
 
 libbasic = static_library(
         'basic',
@@ -317,6 +313,7 @@ libbasic = static_library(
         dependencies : [threads,
                         libcap,
                         libblkid,
+                        libmount,
                         libselinux],
         c_args : ['-fvisibility=default'],
         install : false)
@@ -325,8 +322,7 @@ libbasic = static_library(
 # unnecessary linking to libgcrypt.
 libbasic_gcrypt = static_library(
         'basic-gcrypt',
-        'gcrypt-util.c',
-        'gcrypt-util.h',
+        basic_gcrypt_sources,
         include_directories : includes,
         dependencies : [libgcrypt],
         c_args : ['-fvisibility=default'])

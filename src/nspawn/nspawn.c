@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #if HAVE_BLKID
@@ -178,7 +165,7 @@ static uint64_t arg_caps_retain =
         (1ULL << CAP_SYS_RESOURCE) |
         (1ULL << CAP_SYS_TTY_CONFIG);
 static CustomMount *arg_custom_mounts = NULL;
-static unsigned arg_n_custom_mounts = 0;
+static size_t arg_n_custom_mounts = 0;
 static char **arg_setenv = NULL;
 static bool arg_quiet = false;
 static bool arg_register = true;
@@ -304,7 +291,7 @@ static void help(void) {
 }
 
 static int custom_mount_check_all(void) {
-        unsigned i;
+        size_t i;
 
         for (i = 0; i < arg_n_custom_mounts; i++) {
                 CustomMount *m = &arg_custom_mounts[i];
@@ -831,9 +818,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!n)
                                 return log_oom();
 
-                        strv_free(arg_setenv);
-                        arg_setenv = n;
-
+                        strv_free_and_replace(arg_setenv, n);
                         arg_settings_mask |= SETTING_ENVIRONMENT;
                         break;
                 }
@@ -985,7 +970,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KILL_SIGNAL:
-                        arg_kill_signal = signal_from_string_try_harder(optarg);
+                        arg_kill_signal = signal_from_string(optarg);
                         if (arg_kill_signal < 0) {
                                 log_error("Cannot parse signal: %s", optarg);
                                 return -EINVAL;
@@ -1175,8 +1160,7 @@ static int parse_argv(int argc, char *argv[]) {
                  * accept this here, and silently make "--ephemeral --template=" equivalent to "--ephemeral
                  * --directory=". */
 
-                arg_directory = arg_template;
-                arg_template = NULL;
+                arg_directory = TAKE_PTR(arg_template);
         }
 
         if (arg_template && !(arg_directory || arg_machine)) {
@@ -1483,32 +1467,36 @@ static int setup_resolv_conf(const char *dest) {
         return 0;
 }
 
-static int setup_boot_id(const char *dest) {
+static int setup_boot_id(void) {
+        _cleanup_(unlink_and_freep) char *from = NULL;
+        _cleanup_free_ char *path = NULL;
         sd_id128_t rnd = SD_ID128_NULL;
-        const char *from, *to;
+        const char *to;
         int r;
 
         /* Generate a new randomized boot ID, so that each boot-up of
          * the container gets a new one */
 
-        from = prefix_roota(dest, "/run/proc-sys-kernel-random-boot-id");
-        to = prefix_roota(dest, "/proc/sys/kernel/random/boot_id");
+        r = tempfn_random_child(NULL, "proc-sys-kernel-random-boot-id", &path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate random boot ID path: %m");
 
         r = sd_id128_randomize(&rnd);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate random boot id: %m");
 
-        r = id128_write(from, ID128_UUID, rnd, false);
+        r = id128_write(path, ID128_UUID, rnd, false);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
-        r = mount_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
-        if (r >= 0)
-                r = mount_verbose(LOG_ERR, NULL, to, NULL,
-                                  MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+        from = TAKE_PTR(path);
+        to = "/proc/sys/kernel/random/boot_id";
 
-        (void) unlink(from);
-        return r;
+        r = mount_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
+
+        return mount_verbose(LOG_ERR, NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
 }
 
 static int copy_devnodes(const char *dest) {
@@ -1675,27 +1663,33 @@ static int setup_keyring(void) {
         return 0;
 }
 
-static int setup_kmsg(const char *dest, int kmsg_socket) {
-        const char *from, *to;
+static int setup_kmsg(int kmsg_socket) {
+        _cleanup_(unlink_and_freep) char *from = NULL;
+        _cleanup_free_ char *fifo = NULL;
+        _cleanup_close_ int fd = -1;
         _cleanup_umask_ mode_t u;
-        int fd, r;
+        const char *to;
+        int r;
 
         assert(kmsg_socket >= 0);
 
         u = umask(0000);
 
-        /* We create the kmsg FIFO as /run/kmsg, but immediately
-         * delete it after bind mounting it to /proc/kmsg. While FIFOs
-         * on the reading side behave very similar to /proc/kmsg,
-         * their writing side behaves differently from /dev/kmsg in
-         * that writing blocks when nothing is reading. In order to
-         * avoid any problems with containers deadlocking due to this
-         * we simply make /dev/kmsg unavailable to the container. */
-        from = prefix_roota(dest, "/run/kmsg");
-        to = prefix_roota(dest, "/proc/kmsg");
+        /* We create the kmsg FIFO as as temporary file in /tmp, but immediately delete it after bind mounting it to
+         * /proc/kmsg. While FIFOs on the reading side behave very similar to /proc/kmsg, their writing side behaves
+         * differently from /dev/kmsg in that writing blocks when nothing is reading. In order to avoid any problems
+         * with containers deadlocking due to this we simply make /dev/kmsg unavailable to the container. */
 
-        if (mkfifo(from, 0600) < 0)
+        r = tempfn_random_child(NULL, "proc-kmsg", &fifo);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate kmsg path: %m");
+
+        if (mkfifo(fifo, 0600) < 0)
                 return log_error_errno(errno, "mkfifo() for /run/kmsg failed: %m");
+
+        from = TAKE_PTR(fifo);
+        to = "/proc/kmsg";
+
         r = mount_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
@@ -1704,16 +1698,10 @@ static int setup_kmsg(const char *dest, int kmsg_socket) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open fifo: %m");
 
-        /* Store away the fd in the socket, so that it stays open as
-         * long as we run the child */
+        /* Store away the fd in the socket, so that it stays open as long as we run the child */
         r = send_one_fd(kmsg_socket, fd, 0);
-        safe_close(fd);
-
         if (r < 0)
                 return log_error_errno(r, "Failed to send FIFO fd: %m");
-
-        /* And now make the FIFO unavailable as /run/kmsg... */
-        (void) unlink(from);
 
         return 0;
 }
@@ -1910,7 +1898,6 @@ static int reset_audit_loginuid(void) {
 
         return 0;
 }
-
 
 static int setup_propagate(const char *root) {
         const char *p, *q;
@@ -2233,10 +2220,8 @@ static int chase_symlinks_and_update(char **p, unsigned flags) {
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve path %s: %m", *p);
 
-        free(*p);
-        *p = chased;
-
-        return 0;
+        free_and_replace(*p, chased);
+        return r; /* r might be an fd here in case we ever use CHASE_OPEN in flags */
 }
 
 static int determine_uid_shift(const char *directory) {
@@ -2282,9 +2267,9 @@ static int inner_child(
 
         _cleanup_free_ char *home = NULL;
         char as_uuid[37];
-        unsigned n_env = 1;
+        size_t n_env = 1;
         const char *envp[] = {
-                "PATH=" DEFAULT_PATH_SPLIT_USR,
+                "PATH=" DEFAULT_PATH_COMPAT,
                 NULL, /* container */
                 NULL, /* TERM */
                 NULL, /* HOME */
@@ -2325,9 +2310,17 @@ static int inner_child(
                       arg_uid_shift,
                       arg_uid_range,
                       arg_selinux_apifs_context);
-
         if (r < 0)
                 return r;
+
+        if (!arg_network_namespace_path && arg_private_network) {
+                r = unshare(CLONE_NEWNET);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to unshare network namespace: %m");
+
+                /* Tell the parent that it can setup network interfaces. */
+                (void) barrier_place(barrier); /* #3 */
+        }
 
         r = mount_sysfs(NULL, arg_mount_settings);
         if (r < 0)
@@ -2335,7 +2328,7 @@ static int inner_child(
 
         /* Wait until we are cgroup-ified, so that we
          * can mount the right cgroup path writable */
-        if (!barrier_place_and_sync(barrier)) { /* #3 */
+        if (!barrier_place_and_sync(barrier)) { /* #4 */
                 log_error("Parent died too early");
                 return -ESRCH;
         }
@@ -2343,7 +2336,7 @@ static int inner_child(
         if (arg_use_cgns && cg_ns_supported()) {
                 r = unshare(CLONE_NEWCGROUP);
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to unshare cgroup namespace");
+                        return log_error_errno(errno, "Failed to unshare cgroup namespace: %m");
                 r = mount_cgroups(
                                 "",
                                 arg_unified_cgroup_hierarchy,
@@ -2360,11 +2353,11 @@ static int inner_child(
                         return r;
         }
 
-        r = setup_boot_id(NULL);
+        r = setup_boot_id();
         if (r < 0)
                 return r;
 
-        r = setup_kmsg(NULL, kmsg_socket);
+        r = setup_kmsg(kmsg_socket);
         if (r < 0)
                 return r;
         kmsg_socket = safe_close(kmsg_socket);
@@ -2446,7 +2439,7 @@ static int inner_child(
         /* Let the parent know that we are ready and
          * wait until the parent is ready with the
          * setup, too... */
-        if (!barrier_place_and_sync(barrier)) { /* #4 */
+        if (!barrier_place_and_sync(barrier)) { /* #5 */
                 log_error("Parent died too early");
                 return -ESRCH;
         }
@@ -2570,7 +2563,6 @@ static int outer_child(
         ssize_t l;
         int r;
         _cleanup_close_ int fd = -1;
-        bool create_netns;
 
         assert(barrier);
         assert(directory);
@@ -2584,23 +2576,15 @@ static int outer_child(
                 return log_error_errno(errno, "PR_SET_PDEATHSIG failed: %m");
 
         if (interactive) {
-                close_nointr(STDIN_FILENO);
-                close_nointr(STDOUT_FILENO);
-                close_nointr(STDERR_FILENO);
+                int terminal;
 
-                r = open_terminal(console, O_RDWR);
-                if (r != STDIN_FILENO) {
-                        if (r >= 0) {
-                                safe_close(r);
-                                r = -EINVAL;
-                        }
+                terminal = open_terminal(console, O_RDWR);
+                if (terminal < 0)
+                        return log_error_errno(terminal, "Failed to open console: %m");
 
-                        return log_error_errno(r, "Failed to open console: %m");
-                }
-
-                if (dup2(STDIN_FILENO, STDOUT_FILENO) != STDOUT_FILENO ||
-                    dup2(STDIN_FILENO, STDERR_FILENO) != STDERR_FILENO)
-                        return log_error_errno(errno, "Failed to duplicate console: %m");
+                r = rearrange_stdio(terminal, terminal, terminal); /* invalidates 'terminal' on success and failure */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to move console to stdin/stdout/stderr: %m");
         }
 
         r = reset_audit_loginuid();
@@ -2821,11 +2805,8 @@ static int outer_child(
         if (fd < 0)
                 return fd;
 
-        create_netns = !arg_network_namespace_path && arg_private_network;
-
         pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         arg_clone_ns_flags |
-                        (create_netns ? CLONE_NEWNET : 0) |
                         (arg_userns_mode != USER_NAMESPACE_NO ? CLONE_NEWUSER : 0));
         if (pid < 0)
                 return log_error_errno(errno, "Failed to fork inner child: %m");
@@ -2899,7 +2880,7 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
 
         for (;;) {
                 char lock_path[STRLEN("/run/systemd/nspawn-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
-                _cleanup_release_lock_file_ LockFile lf = LOCK_FILE_INIT;
+                _cleanup_(release_lock_file) LockFile lf = LOCK_FILE_INIT;
 
                 if (--n_tries <= 0)
                         return -EBUSY;
@@ -3084,8 +3065,7 @@ static int load_settings(void) {
 
                 f = fopen(j, "re");
                 if (f) {
-                        p = j;
-                        j = NULL;
+                        p = TAKE_PTR(j);
 
                         /* By default, we trust configuration from /etc and /run */
                         if (arg_settings_trusted < 0)
@@ -3138,10 +3118,7 @@ static int load_settings(void) {
         if ((arg_settings_mask & SETTING_START_MODE) == 0 &&
             settings->start_mode >= 0) {
                 arg_start_mode = settings->start_mode;
-
-                strv_free(arg_parameters);
-                arg_parameters = settings->parameters;
-                settings->parameters = NULL;
+                strv_free_and_replace(arg_parameters, settings->parameters);
         }
 
         if ((arg_settings_mask & SETTING_PIVOT_ROOT) == 0 &&
@@ -3151,25 +3128,16 @@ static int load_settings(void) {
         }
 
         if ((arg_settings_mask & SETTING_WORKING_DIRECTORY) == 0 &&
-            settings->working_directory) {
-                free(arg_chdir);
-                arg_chdir = settings->working_directory;
-                settings->working_directory = NULL;
-        }
+            settings->working_directory)
+                free_and_replace(arg_chdir, settings->working_directory);
 
         if ((arg_settings_mask & SETTING_ENVIRONMENT) == 0 &&
-            settings->environment) {
-                strv_free(arg_setenv);
-                arg_setenv = settings->environment;
-                settings->environment = NULL;
-        }
+            settings->environment)
+                strv_free_and_replace(arg_setenv, settings->environment);
 
         if ((arg_settings_mask & SETTING_USER) == 0 &&
-            settings->user) {
-                free(arg_user);
-                arg_user = settings->user;
-                settings->user = NULL;
-        }
+            settings->user)
+                free_and_replace(arg_user, settings->user);
 
         if ((arg_settings_mask & SETTING_CAPABILITY) == 0) {
                 uint64_t plus;
@@ -3219,10 +3187,8 @@ static int load_settings(void) {
                         log_warning("Ignoring TemporaryFileSystem=, Bind= and BindReadOnly= settings, file %s is not trusted.", p);
                 else {
                         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
-                        arg_custom_mounts = settings->custom_mounts;
+                        arg_custom_mounts = TAKE_PTR(settings->custom_mounts);
                         arg_n_custom_mounts = settings->n_custom_mounts;
-
-                        settings->custom_mounts = NULL;
                         settings->n_custom_mounts = 0;
                 }
         }
@@ -3243,29 +3209,13 @@ static int load_settings(void) {
                         arg_network_veth = settings_network_veth(settings);
                         arg_private_network = settings_private_network(settings);
 
-                        strv_free(arg_network_interfaces);
-                        arg_network_interfaces = settings->network_interfaces;
-                        settings->network_interfaces = NULL;
+                        strv_free_and_replace(arg_network_interfaces, settings->network_interfaces);
+                        strv_free_and_replace(arg_network_macvlan, settings->network_macvlan);
+                        strv_free_and_replace(arg_network_ipvlan, settings->network_ipvlan);
+                        strv_free_and_replace(arg_network_veth_extra, settings->network_veth_extra);
 
-                        strv_free(arg_network_macvlan);
-                        arg_network_macvlan = settings->network_macvlan;
-                        settings->network_macvlan = NULL;
-
-                        strv_free(arg_network_ipvlan);
-                        arg_network_ipvlan = settings->network_ipvlan;
-                        settings->network_ipvlan = NULL;
-
-                        strv_free(arg_network_veth_extra);
-                        arg_network_veth_extra = settings->network_veth_extra;
-                        settings->network_veth_extra = NULL;
-
-                        free(arg_network_bridge);
-                        arg_network_bridge = settings->network_bridge;
-                        settings->network_bridge = NULL;
-
-                        free(arg_network_zone);
-                        arg_network_zone = settings->network_zone;
-                        settings->network_zone = NULL;
+                        free_and_replace(arg_network_bridge, settings->network_bridge);
+                        free_and_replace(arg_network_zone, settings->network_zone);
                 }
         }
 
@@ -3276,8 +3226,7 @@ static int load_settings(void) {
                         log_warning("Ignoring Port= setting, file %s is not trusted.", p);
                 else {
                         expose_port_free_all(arg_expose_ports);
-                        arg_expose_ports = settings->expose_ports;
-                        settings->expose_ports = NULL;
+                        arg_expose_ports = TAKE_PTR(settings->expose_ports);
                 }
         }
 
@@ -3302,13 +3251,8 @@ static int load_settings(void) {
                 if (!arg_settings_trusted && !strv_isempty(arg_syscall_whitelist))
                         log_warning("Ignoring SystemCallFilter= settings, file %s is not trusted.", p);
                 else {
-                        strv_free(arg_syscall_whitelist);
-                        strv_free(arg_syscall_blacklist);
-
-                        arg_syscall_whitelist = settings->syscall_whitelist;
-                        arg_syscall_blacklist = settings->syscall_blacklist;
-
-                        settings->syscall_whitelist = settings->syscall_blacklist = NULL;
+                        strv_free_and_replace(arg_syscall_whitelist, settings->syscall_whitelist);
+                        strv_free_and_replace(arg_syscall_blacklist, settings->syscall_blacklist);
                 }
         }
 
@@ -3330,7 +3274,7 @@ static int run(int master,
                 .sa_flags = SA_NOCLDSTOP|SA_RESTART,
         };
 
-        _cleanup_release_lock_file_ LockFile uid_shift_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile uid_shift_lock = LOCK_FILE_INIT;
         _cleanup_close_ int etc_passwd_lock = -1;
         _cleanup_close_pair_ int
                 kmsg_socket_pair[2] = { -1, -1 },
@@ -3566,6 +3510,14 @@ static int run(int master,
 
         if (arg_private_network) {
 
+                if (!arg_network_namespace_path) {
+                        /* Wait until the child has unshared its network namespace. */
+                        if (!barrier_place_and_sync(&barrier)) { /* #3 */
+                                log_error("Child died too early");
+                                return -ESRCH;
+                        }
+                }
+
                 r = move_network_interfaces(*pid, arg_network_interfaces);
                 if (r < 0)
                         return r;
@@ -3675,11 +3627,9 @@ static int run(int master,
         if (r < 0)
                 return r;
 
-        if (arg_keep_unit) {
-                r = create_subcgroup(*pid, arg_unified_cgroup_hierarchy);
-                if (r < 0)
-                        return r;
-        }
+        r = create_subcgroup(*pid, arg_keep_unit, arg_unified_cgroup_hierarchy);
+        if (r < 0)
+                return r;
 
         r = chown_cgroup(*pid, arg_unified_cgroup_hierarchy, arg_uid_shift);
         if (r < 0)
@@ -3689,7 +3639,7 @@ static int run(int master,
          * its setup (including cgroup-ification), and that
          * the child can now hand over control to the code to
          * run inside the container. */
-        (void) barrier_place(&barrier); /* #3 */
+        (void) barrier_place(&barrier); /* #4 */
 
         /* Block SIGCHLD here, before notifying child.
          * process_pty() will handle it with the other signals. */
@@ -3717,7 +3667,7 @@ static int run(int master,
                 return r;
 
         /* Let the child know that we are ready and wait that the child is completely ready now. */
-        if (!barrier_place_and_sync(&barrier)) { /* #4 */
+        if (!barrier_place_and_sync(&barrier)) { /* #5 */
                 log_error("Child died too early.");
                 return -ESRCH;
         }
@@ -3827,7 +3777,7 @@ int main(int argc, char *argv[]) {
         bool secondary = false, remove_directory = false, remove_image = false;
         pid_t pid = 0;
         union in_addr_union exposed = {};
-        _cleanup_release_lock_file_ LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
+        _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         bool interactive, veth_created = false, remove_tmprootdir = false;
         char tmprootdir[] = "/tmp/nspawn-root-XXXXXX";
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
@@ -3927,9 +3877,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        free(arg_directory);
-                        arg_directory = np;
-                        np = NULL;
+                        free_and_replace(arg_directory, np);
 
                         remove_directory = true;
 
@@ -4019,9 +3967,7 @@ int main(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        free(arg_image);
-                        arg_image = np;
-                        np = NULL;
+                        free_and_replace(arg_image, np);
 
                         remove_image = true;
                 } else {
@@ -4063,14 +4009,14 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                r = dissect_image(
+                r = dissect_image_and_warn(
                                 loop->fd,
+                                arg_image,
                                 arg_root_hash, arg_root_hash_size,
                                 DISSECT_IMAGE_REQUIRE_ROOT,
                                 &dissected_image);
                 if (r == -ENOPKG) {
-                        log_error_errno(r, "Could not find a suitable file system or partition table in image: %s", arg_image);
-
+                        /* dissected_image_and_warn() already printed a brief error message. Extend on that with more details */
                         log_notice("Note that the disk image needs to\n"
                                    "    a) either contain only a single MBR partition of type 0x83 that is marked bootable\n"
                                    "    b) or contain a single GPT partition of type 0FC63DAF-8483-4772-8E79-3D69D8477DE4\n"
@@ -4079,22 +4025,8 @@ int main(int argc, char *argv[]) {
                                    "in order to be bootable with systemd-nspawn.");
                         goto finish;
                 }
-                if (r == -EADDRNOTAVAIL) {
-                        log_error_errno(r, "No root partition for specified root hash found.");
+                if (r < 0)
                         goto finish;
-                }
-                if (r == -EOPNOTSUPP) {
-                        log_error_errno(r, "--image= is not supported, compiled without blkid support.");
-                        goto finish;
-                }
-                if (r == -EPROTONOSUPPORT) {
-                        log_error_errno(r, "Device is loopback block device with partition scanning turned off, please turn it on.");
-                        goto finish;
-                }
-                if (r < 0) {
-                        log_error_errno(r, "Failed to dissect image: %m");
-                        goto finish;
-                }
 
                 if (!arg_root_hash && dissected_image->can_verity)
                         log_notice("Note: image %s contains verity information, but no root hash specified! Proceeding without integrity checking.", arg_image);

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2015 Daniel Mack
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
 #include <resolv.h>
@@ -146,7 +133,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
         assert(ret_rrs);
         assert_return(DNS_PACKET_NSCOUNT(p) > 0, -EINVAL);
 
-        for (unsigned i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
+        for (size_t i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
                 r = dns_resource_key_match_rr(key, p->answer->items[i].rr, NULL);
                 if (r < 0)
                         return r;
@@ -161,7 +148,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
         if (!list)
                 return -ENOMEM;
 
-        for (unsigned i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
+        for (size_t i = DNS_PACKET_ANCOUNT(p); i < (DNS_PACKET_ANCOUNT(p) + DNS_PACKET_NSCOUNT(p)); i++) {
                 r = dns_resource_key_match_rr(key, p->answer->items[i].rr, NULL);
                 if (r < 0)
                         return r;
@@ -171,8 +158,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
         assert(n == size);
         qsort_safe(list, size, sizeof(DnsResourceRecord*), mdns_rr_compare);
 
-        *ret_rrs = list;
-        list = NULL;
+        *ret_rrs = TAKE_PTR(list);
 
         return size;
 }
@@ -180,8 +166,7 @@ static int mdns_packet_extract_matching_rrs(DnsPacket *p, DnsResourceKey *key, D
 static int mdns_do_tiebreak(DnsResourceKey *key, DnsAnswer *answer, DnsPacket *p) {
         _cleanup_free_ DnsResourceRecord **our = NULL, **remote = NULL;
         DnsResourceRecord *rr;
-        unsigned i = 0;
-        unsigned size;
+        size_t i = 0, size;
         int r;
 
         size = dns_answer_size(answer);

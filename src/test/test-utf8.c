@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Dave Reisner
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "alloc-util.h"
@@ -106,6 +93,24 @@ static void test_utf16_to_utf8(void) {
         free(a);
 }
 
+static void test_utf8_n_codepoints(void) {
+        assert_se(utf8_n_codepoints("abc") == 3);
+        assert_se(utf8_n_codepoints("zażółcić gęślą jaźń") == 19);
+        assert_se(utf8_n_codepoints("串") == 1);
+        assert_se(utf8_n_codepoints("") == 0);
+        assert_se(utf8_n_codepoints("…👊🔪💐…") == 5);
+        assert_se(utf8_n_codepoints("\xF1") == (size_t) -1);
+}
+
+static void test_utf8_console_width(void) {
+        assert_se(utf8_console_width("abc") == 3);
+        assert_se(utf8_console_width("zażółcić gęślą jaźń") == 19);
+        assert_se(utf8_console_width("串") == 2);
+        assert_se(utf8_console_width("") == 0);
+        assert_se(utf8_console_width("…👊🔪💐…") == 8);
+        assert_se(utf8_console_width("\xF1") == (size_t) -1);
+}
+
 int main(int argc, char *argv[]) {
         test_utf8_is_valid();
         test_utf8_is_printable();
@@ -114,6 +119,8 @@ int main(int argc, char *argv[]) {
         test_utf8_escaping();
         test_utf8_escaping_printable();
         test_utf16_to_utf8();
+        test_utf8_n_codepoints();
+        test_utf8_console_width();
 
         return 0;
 }

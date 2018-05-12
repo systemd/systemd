@@ -1,6 +1,171 @@
 systemd System and Service Manager
 
-CHANGES WITH 237 in spe:
+CHANGES WITH 239 in spe:
+
+        * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"
+          builtin may name network interfaces differently than in previous
+          versions.  SR-IOV virtual functions and NPAR partitions with PCI
+          function numbers of 8 and above will be named more predictably,
+          and udev may generate names based on PCI slot number in some cases
+          where it previously did not.
+
+CHANGES WITH 238:
+
+        * The MemoryAccounting= unit property now defaults to on. After
+          discussions with the upstream control group maintainers we learnt
+          that the negative impact of cgroup memory accounting on current
+          kernels is finally relatively minimal, so that it should be safe to
+          enable this by default without affecting system performance. Besides
+          memory accounting only task accounting is turned on by default, all
+          other forms of resource accounting (CPU, IO, IP) remain off for now,
+          because it's not clear yet that their impact is small enough to move
+          from opt-in to opt-out. We recommend downstreams to leave memory
+          accounting on by default if kernel 4.14 or higher is primarily
+          used. On very resource constrained systems or when support for old
+          kernels is a necessity, -Dmemory-accounting-default=false can be used
+          to revert this change.
+
+        * rpm scriptlets to update the udev hwdb and rules (%udev_hwdb_update,
+          %udev_rules_update) and the journal catalog (%journal_catalog_update)
+          from the upgrade scriptlets of individual packages now do nothing.
+          Transfiletriggers have been added which will perform those updates
+          once at the end of the transaction.
+
+          Similar transfiletriggers have been added to execute any sysctl.d
+          and binfmt.d rules. Thus, it should be unnecessary to provide any
+          scriptlets to execute this configuration from package installation
+          scripts.
+
+        * systemd-sysusers gained a mode where the configuration to execute is
+          specified on the command line, but this configuration is not executed
+          directly, but instead it is merged with the configuration on disk,
+          and the result is executed. This is useful for package installation
+          scripts which want to create the user before installing any files on
+          disk (in case some of those files are owned by that user), while
+          still allowing local admin overrides.
+
+          This functionality is exposed to rpm scriptlets through a new
+          %sysusers_create_package macro. Old %sysusers_create and
+          %sysusers_create_inline macros are deprecated.
+
+          A transfiletrigger for sysusers.d configuration is now installed,
+          which means that it should be unnecessary to call systemd-sysusers from
+          package installation scripts, unless the package installs any files
+          owned by those newly-created users, in which case
+          %sysusers_create_package should be used.
+
+        * Analogous change has been done for systemd-tmpfiles: it gained a mode
+          where the command-line configuration is merged with the configuration
+          on disk. This is exposed as the new %tmpfiles_create_package macro,
+          and %tmpfiles_create is deprecated. A transfiletrigger is installed
+          for tmpfiles.d, hence it should be unnecessary to call systemd-tmpfiles
+          from package installation scripts.
+
+        * sysusers.d configuration for a user may now also specify the group
+          number, in addition to the user number ("u username 123:456"), or
+          without the user number ("u username -:456").
+
+        * Configution items for systemd-sysusers can now be specified as
+          positional arguments when the new --inline switch is used.
+
+        * The login shell of users created through sysusers.d may now be
+          specified (previously, it was always /bin/sh for root and
+          /sbin/nologin for other users).
+
+        * systemd-analyze gained a new --global switch to look at global user
+          configuration. It also gained a unit-paths verb to list the unit load
+          paths that are compiled into systemd (which can be used with
+          --systemd, --user, or --global).
+
+        * udevadm trigger gained a new --settle/-w option to wait for any
+          triggered events to finish (but just those, and not any other events
+          which are triggered meanwhile).
+
+        * The action that systemd-logind takes when the lid is closed and the
+          machine is connected to external power can now be configured using
+          HandleLidSwitchExternalPower= in logind.conf. Previously, this action
+          was determined by HandleLidSwitch=, and, for backwards compatibility,
+          is still is, if HandleLidSwitchExternalPower= is not explicitly set.
+
+        * journalctl will periodically call sd_journal_process() to make it
+          resilient against inotify queue overruns when journal files are
+          rotated very quickly.
+
+        * Two new functions in libsystemd — sd_bus_get_n_queued_read and
+          sd_bus_get_n_queued_write — may be used to check the number of
+          pending bus messages.
+
+        * systemd gained a new
+          org.freedesktop.systemd1.Manager.AttachProcessesToUnit dbus call
+          which can be used to migrate foreign processes to scope and service
+          units. The primary user for this new API is systemd itself: the
+          systemd --user instance uses this call of the systemd --system
+          instance to migrate processes if it itself gets the request to
+          migrate processes and the kernel refuses this due to access
+          restrictions.  Thanks to this "systemd-run --scope --user …" works
+          again in pure cgroups v2 environments when invoked from the user
+          session scope.
+
+        * A new TemporaryFileSystem= setting can be used to mask out part of
+          the real file system tree with tmpfs mounts. This may be combined
+          with BindPaths= and BindReadOnlyPaths= to hide files or directories
+          not relevant to the unit, while still allowing some paths lower in
+          the tree to be accessed.
+
+          ProtectHome=tmpfs may now be used to hide user home and runtime
+          directories from units, in a way that is mostly equivalent to
+          "TemporaryFileSystem=/home /run/user /root".
+
+        * Non-service units are now started with KeyringMode=shared by default.
+          This means that mount and swapon and other mount tools have access
+          to keys in the main keyring.
+
+        * /sys/fs/bpf is now mounted automatically.
+
+        * QNX virtualization is now detected by systemd-detect-virt and may
+          be used in ConditionVirtualization=.
+
+        * IPAccounting= may now be enabled also for slice units.
+
+        * A new -Dsplit-bin= build configuration switch may be used to specify
+          whether bin and sbin directories are merged, or if they should be
+          included separately in $PATH and various listings of executable
+          directories. The build configuration scripts will try to autodetect
+          the proper values of -Dsplit-usr= and -Dsplit-bin= based on build
+          system, but distributions are encouraged to configure this
+          explicitly.
+
+        * A new -Dok-color= build configuration switch may be used to change
+          the colour of "OK" status messages.
+
+        * UPGRADE ISSUE: serialization of units using JoinsNamespaceOf= with
+          PrivateNetwork=yes was buggy in previous versions of systemd. This
+          means that after the upgrade and daemon-reexec, any such units must
+          be restarted.
+
+        * INCOMPATIBILITY: as announced in the NEWS for 237, systemd-tmpfiles
+          will not exclude read-only files owned by root from cleanup.
+
+        Contributions from: Alan Jenkins, Alexander F Rødseth, Alexis Jeandet,
+        Andika Triwidada, Andrei Gherzan, Ansgar Burchardt, antizealot1337,
+        Batuhan Osman Taşkaya, Beniamino Galvani, Bill Yodlowsky, Caio Marcelo
+        de Oliveira Filho, CuBiC, Daniele Medri, Daniel Mouritzen, Daniel
+        Rusek, Davide Cavalca, Dimitri John Ledkov, Douglas Christman, Evgeny
+        Vereshchagin, Faalagorn, Filipe Brandenburger, Franck Bui, futpib,
+        Giacomo Longo, Gunnar Hjalmarsson, Hans de Goede, Hermann Gausterer,
+        Iago López Galeiras, Jakub Filak, Jan Synacek, Jason A. Donenfeld,
+        Javier Martinez Canillas, Jérémy Rosen, Lennart Poettering, Lucas
+        Werkmeister, Mao Huang, Marco Gulino, Michael Biebl, Michael Vogt,
+        MilhouseVH, Neal Gompa (ニール・ゴンパ), Oleander Reis, Olof Mogren,
+        Patrick Uiterwijk, Peter Hutterer, Peter Portante, Piotr Drąg, Robert
+        Antoni Buj Gelonch, Sergey Ptashnick, Shawn Landden, Shuang Liu, Simon
+        Fowler, SjonHortensius, snorreflorre, Susant Sahani, Sylvain
+        Plantefève, Thomas Blume, Thomas Haller, Vito Caputo, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek, Марко М. Костић (Marko M. Kostić)
+
+        — Warsaw, 2018-03-05
+
+CHANGES WITH 237:
 
         * Some keyboards come with a zoom see-saw or rocker which until now got
           mapped to the Linux "zoomin/out" keys in hwdb. However, these
@@ -19,6 +184,17 @@ CHANGES WITH 237 in spe:
           don't exist yet, and only then the argument string is written to the
           file.
 
+        * FUTURE INCOMPATIBILITY: In systemd v238 we intend to slightly change
+          systemd-tmpfiles behaviour: previously, read-only files owned by root
+          were always excluded from the file "aging" algorithm (i.e. the
+          automatic clean-up of directories like /tmp based on
+          atime/mtime/ctime). We intend to drop this restriction, and age files
+          by default even when owned by root and read-only. This behaviour was
+          inherited from older tools, but there have been requests to remove
+          it, and it's not obvious why this restriction was made in the first
+          place. Please speak up now, if you are aware of software that reqires
+          this behaviour, otherwise we'll remove the restriction in v238.
+
         * A new environment variable $SYSTEMD_OFFLINE is now understood by
           systemctl. It takes a boolean argument. If on, systemctl assumes it
           operates on an "offline" OS tree, and will not attempt to talk to the
@@ -26,13 +202,13 @@ CHANGES WITH 237 in spe:
           chroot() environment was detected, and this new environment variable
           now provides explicit control.
 
-        * .path and .socket units may now be created transiently,
-          too. Previously only service, mount, automount and timer units were
+        * .path and .socket units may now be created transiently, too.
+          Previously only service, mount, automount and timer units were
           supported as transient units. The systemd-run tool has been updated
           to expose this new functionality, you may hence use it now to bind
           arbitrary commands to path or socket activation on-the-fly from the
-          command line. Moreover, for the unit types already supporting
-          transient operation most properties are now hooked up.
+          command line. Moreover, almost all properties are now exposed for the
+          unit types that already supported transient operation.
 
         * The systemd-mount command gained support for a new --owner= parameter
           which takes a user name, which is then resolved and included in uid=
@@ -75,7 +251,7 @@ CHANGES WITH 237 in spe:
           described above. Synthesizing of this message has to be requested
           explicitly through the new API call sd_bus_set_connected_signal(). In
           addition a new call sd_bus_is_ready() has been added that checks
-          wether a connection is fully set up (i.e. between the "Connected" and
+          whether a connection is fully set up (i.e. between the "Connected" and
           "Disconnected" signals).
 
         * sd-bus gained two new calls sd_bus_request_name_async() and
@@ -131,32 +307,53 @@ CHANGES WITH 237 in spe:
           user/UID to use for notification messages sent to the service
           manager.
 
-        * There's now a "systemd-analyze service-watchdogs" command for turning
-          on or off the per-service watchdogs system-wide (i.e. the concept you
-          configure in WatchdogSec=), for debugging purposes. There's also a
-          kernel command line option systemd.service_watchdogs= for controlling
-          the same.
+        * journalctl gained a new --grep= option to list only entries in which
+          the message matches a certain pattern. By default matching is case
+          insensitive if the pattern is lowercase, and case sensitive
+          otherwise. Option --case-sensitive=yes|no can be used to override
+          this an specify case sensitivity or case insensitivity.
+
+        * There's now a "systemd-analyze service-watchdogs" command for printing
+          the current state of the service runtime watchdog, and optionally
+          enabling or disabling the per-service watchdogs system-wide if given a
+          boolean argument (i.e. the concept you configure in WatchdogSec=), for
+          debugging purposes. There's also a kernel command line option
+          systemd.service_watchdogs= for controlling the same.
+
+        * Two new "log-level" and "log-target" options for systemd-analyze were
+          addded that merge the now deprecated get-log-level, set-log-level and
+          get-log-target, set-log-target pairs. The deprecated options are still
+          understood for backwards compatibility. The two new options print the
+          current value when no arguments are given, and set them when a
+          level/target is given as an argument.
+
+        * sysusers.d's "u" lines now optionally accept both a UID and a GID
+          specification, separated by a ":" character, in order to create users
+          where UID and GID do not match.
 
         Contributions from: Adam Duskett, Alan Jenkins, Alexander Kuleshov,
-        Alexis Deruelle, Armin Widegreen, bleep_blop, Bruce A. Johnson, Chris
-        Down, Colin Walters, Dimitri John Ledkov, Dmitry Rozhkov, Ewout van
-        Mansom, Felipe Sateler, Franck Bui, Frantisek Sumsal, George Gaydarov,
-        Gianluca Boiano, Hans-Christian Noren Egtvedt, Hans de Goede, Henrik
-        Grindal Bakken, Jan Alexander Steffens, Jan Klötzke, jdkbx, Jérémy
-        Rosen, Jerónimo Borque, John Lin, John Paul Herold, Jonathan Rudenberg,
-        Jörg Thalheim, Ken (Bitsko) MacLeod, Larry Bernstone, Lennart
-        Poettering, Lucas Werkmeister, Maciej S. Szmigiero, Marek Čermák,
-        Martin Pitt, Mathieu Malaterre, Matthew Thode, Matthias-Christian Ott,
-        Max Harmathy, Michael Biebl, Michal Koutný, Michal Sekletar, Michał
-        Szczepański, Mike Gilbert, Nathaniel McCallum, Olaf Hering, Olivier
-        Schwander, Patrik Flykt, Paul Cercueil, Peter Hutterer, Piotr Drąg,
-        Reverend Homer, Robert Kolchmeyer, Samuel Dionne-Riel, Sergey
-        Ptashnick, Shawn Landden, Susant Sahani, Sylvain Plantefève, Thomas
-        Huth, Tomasz Bachorski, Vladislav Vishnyakov, Wieland Hoffmann, Yu
-        Watanabe, Zachary Winnerman, Zbigniew Jędrzejewski-Szmek, Дамјан
-        Георгиевски, Дилян Палаузов
+        Alexis Deruelle, Andrew Jeddeloh, Armin Widegreen, Batuhan Osman
+        Taşkaya, Björn Esser, bleep_blop, Bruce A. Johnson, Chris Down, Clinton
+        Roy, Colin Walters, Daniel Rusek, Dimitri John Ledkov, Dmitry Rozhkov,
+        Evgeny Vereshchagin, Ewout van Mansom, Felipe Sateler, Franck Bui,
+        Frantisek Sumsal, George Gaydarov, Gianluca Boiano, Hans-Christian
+        Noren Egtvedt, Hans de Goede, Henrik Grindal Bakken, Jan Alexander
+        Steffens, Jan Klötzke, Jason A. Donenfeld, jdkbx, Jérémy Rosen,
+        Jerónimo Borque, John Lin, John Paul Herold, Jonathan Rudenberg, Jörg
+        Thalheim, Ken (Bitsko) MacLeod, Larry Bernstone, Lennart Poettering,
+        Lucas Werkmeister, Maciej S. Szmigiero, Marek Čermák, Martin Pitt,
+        Mathieu Malaterre, Matthew Thode, Matthias-Christian Ott, Max Harmathy,
+        Michael Biebl, Michael Vogt, Michal Koutný, Michal Sekletar, Michał
+        Szczepański, Mike Gilbert, Nathaniel McCallum, Nicolas Chauvet, Olaf
+        Hering, Olivier Schwander, Patrik Flykt, Paul Cercueil, Peter Hutterer,
+        Piotr Drąg, Raphael Vogelgsang, Reverend Homer, Robert Kolchmeyer,
+        Samuel Dionne-Riel, Sergey Ptashnick, Shawn Landden, Susant Sahani,
+        Sylvain Plantefève, Thomas H. P. Andersen, Thomas Huth, Tomasz
+        Bachorski, Vladislav Vishnyakov, Wieland Hoffmann, Yu Watanabe, Zachary
+        Winnerman, Zbigniew Jędrzejewski-Szmek, Дамјан Георгиевски, Дилян
+        Палаузов
 
-        — Berlin, 2018-XX-XX
+        — Brno, 2018-01-28
 
 CHANGES WITH 236:
 
@@ -325,8 +522,8 @@ CHANGES WITH 236:
           store again, ahead of POLLHUP or POLLERR when they are removed
           anyway.
 
-        * A new document UIDS-GIDS.md has been added to the source tree, that
-          documents the UID/GID range and assignment assumptions and
+        * A new document doc/UIDS-GIDS.md has been added to the source tree,
+          that documents the UID/GID range and assignment assumptions and
           requirements of systemd.
 
         * The watchdog device PID 1 will ping may now be configured through the
@@ -1058,7 +1255,7 @@ CHANGES WITH 233:
         * Documentation has been added that lists all of systemd's low-level
           environment variables:
 
-          https://github.com/systemd/systemd/blob/master/ENVIRONMENT.md
+          https://github.com/systemd/systemd/blob/master/doc/ENVIRONMENT.md
 
         * sd-daemon gained a new API sd_is_socket_sockaddr() for determining
           whether a specific socket file descriptor matches a specified socket
@@ -1769,7 +1966,7 @@ CHANGES WITH 231:
           booted up with "systemd-nspawn -b -i", qemu-kvm or on any physical
           UEFI PC. This functionality is particularly useful to easily test
           local changes made to systemd in a pristine, defined environment. See
-          HACKING for details.
+          doc/HACKING for details.
 
         * configure learned the --with-support-url= option to specify the
           distribution's bugtracker.

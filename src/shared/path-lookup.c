@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -169,6 +156,8 @@ int xdg_user_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
 static char** user_dirs(
                 const char *persistent_config,
                 const char *runtime_config,
+                const char *global_persistent_config,
+                const char *global_runtime_config,
                 const char *generator,
                 const char *generator_early,
                 const char *generator_late,
@@ -179,7 +168,6 @@ static char** user_dirs(
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
         _cleanup_free_ char *data_home = NULL;
         _cleanup_strv_free_ char **res = NULL;
-        char **tmp;
         int r;
 
         r = xdg_user_dirs(&config_dirs, &data_dirs);
@@ -209,10 +197,17 @@ static char** user_dirs(
         if (strv_extend(&res, persistent_config) < 0)
                 return NULL;
 
+        /* global config has lower priority than the user config of the same type */
+        if (strv_extend(&res, global_persistent_config) < 0)
+                return NULL;
+
         if (strv_extend_strv(&res, (char**) user_config_unit_paths, false) < 0)
                 return NULL;
 
         if (strv_extend(&res, runtime_config) < 0)
+                return NULL;
+
+        if (strv_extend(&res, global_runtime_config) < 0)
                 return NULL;
 
         if (strv_extend(&res, generator) < 0)
@@ -233,10 +228,7 @@ static char** user_dirs(
         if (path_strv_make_absolute_cwd(res) < 0)
                 return NULL;
 
-        tmp = res;
-        res = NULL;
-
-        return tmp;
+        return TAKE_PTR(res);
 }
 
 bool path_is_user_data_dir(const char *path) {
@@ -297,11 +289,10 @@ static int acquire_generator_dirs(
         if (!z)
                 return -ENOMEM;
 
-        *generator = x;
-        *generator_early = y;
-        *generator_late = z;
+        *generator = TAKE_PTR(x);
+        *generator_early = TAKE_PTR(y);
+        *generator_late = TAKE_PTR(z);
 
-        x = y = z = NULL;
         return 0;
 }
 
@@ -365,8 +356,7 @@ static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **ru
                         *runtime = NULL;
                 }
 
-                *persistent = a;
-                a = NULL;
+                *persistent = TAKE_PTR(a);
 
                 return 0;
 
@@ -377,9 +367,8 @@ static int acquire_config_dirs(UnitFileScope scope, char **persistent, char **ru
         if (!a || !b)
                 return -ENOMEM;
 
-        *persistent = a;
-        *runtime = b;
-        a = b = NULL;
+        *persistent = TAKE_PTR(a);
+        *runtime = TAKE_PTR(b);
 
         return 0;
 }
@@ -404,18 +393,17 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
                 if (!b)
                         return -ENOMEM;
 
-                *runtime = b;
-                b = NULL;
+                *runtime = TAKE_PTR(b);
 
                 break;
         }
 
         case UNIT_FILE_USER:
-                r = xdg_user_config_dir(&a, "/systemd/system.control");
+                r = xdg_user_config_dir(&a, "/systemd/user.control");
                 if (r < 0 && r != -ENXIO)
                         return r;
 
-                r = xdg_user_runtime_dir(runtime, "/systemd/system.control");
+                r = xdg_user_runtime_dir(runtime, "/systemd/user.control");
                 if (r < 0) {
                         if (r != -ENXIO)
                                 return r;
@@ -434,8 +422,7 @@ static int acquire_control_dirs(UnitFileScope scope, char **persistent, char **r
                 assert_not_reached("Hmm, unexpected scope value.");
         }
 
-        *persistent = a;
-        a = NULL;
+        *persistent = TAKE_PTR(a);
 
         return 0;
 }
@@ -484,6 +471,7 @@ int lookup_paths_init(
         _cleanup_free_ char
                 *root = NULL,
                 *persistent_config = NULL, *runtime_config = NULL,
+                *global_persistent_config = NULL, *global_runtime_config = NULL,
                 *generator = NULL, *generator_early = NULL, *generator_late = NULL,
                 *transient = NULL,
                 *persistent_control = NULL, *runtime_control = NULL;
@@ -496,7 +484,7 @@ int lookup_paths_init(
         assert(scope >= 0);
         assert(scope < _UNIT_FILE_SCOPE_MAX);
 
-        if (!isempty(root_dir) && !path_equal(root_dir, "/")) {
+        if (!empty_or_root(root_dir)) {
                 if (scope == UNIT_FILE_USER)
                         return -EINVAL;
 
@@ -521,6 +509,12 @@ int lookup_paths_init(
         r = acquire_config_dirs(scope, &persistent_config, &runtime_config);
         if (r < 0)
                 return r;
+
+        if (scope == UNIT_FILE_USER) {
+                r = acquire_config_dirs(UNIT_FILE_GLOBAL, &global_persistent_config, &global_runtime_config);
+                if (r < 0)
+                        return r;
+        }
 
         if ((flags & LOOKUP_PATHS_EXCLUDE_GENERATED) == 0) {
                 /* Note: if XDG_RUNTIME_DIR is not set, this will fail completely with ENXIO */
@@ -610,20 +604,21 @@ int lookup_paths_init(
                                         runtime_config,
                                         "/run/systemd/user",
                                         STRV_IFNOTNULL(generator),
-                                        "/usr/local/lib/systemd/user",
                                         "/usr/local/share/systemd/user",
+                                        "/usr/share/systemd/user",
+                                        "/usr/local/lib/systemd/user",
                                         USER_DATA_UNIT_PATH,
                                         "/usr/lib/systemd/user",
-                                        "/usr/share/systemd/user",
                                         STRV_IFNOTNULL(generator_late),
                                         NULL);
                         break;
 
                 case UNIT_FILE_USER:
                         add = user_dirs(persistent_config, runtime_config,
+                                        global_persistent_config, global_runtime_config,
                                         generator, generator_early, generator_late,
                                         transient,
-                                        persistent_config, runtime_control);
+                                        persistent_control, runtime_control);
                         break;
 
                 default:
@@ -637,12 +632,10 @@ int lookup_paths_init(
                         r = strv_extend_strv(&paths, add, true);
                         if (r < 0)
                                 return r;
-                } else {
+                } else
                         /* Small optimization: if paths is NULL (and it usually is), we can simply assign 'add' to it,
                          * and don't have to copy anything */
-                        paths = add;
-                        add = NULL;
-                }
+                        paths = TAKE_PTR(add);
         }
 
         r = patch_root_prefix(&persistent_config, root);
@@ -681,27 +674,20 @@ int lookup_paths_init(
         p->search_path = strv_uniq(paths);
         paths = NULL;
 
-        p->persistent_config = persistent_config;
-        p->runtime_config = runtime_config;
-        persistent_config = runtime_config = NULL;
+        p->persistent_config = TAKE_PTR(persistent_config);
+        p->runtime_config = TAKE_PTR(runtime_config);
 
-        p->generator = generator;
-        p->generator_early = generator_early;
-        p->generator_late = generator_late;
-        generator = generator_early = generator_late = NULL;
+        p->generator = TAKE_PTR(generator);
+        p->generator_early = TAKE_PTR(generator_early);
+        p->generator_late = TAKE_PTR(generator_late);
 
-        p->transient = transient;
-        transient = NULL;
+        p->transient = TAKE_PTR(transient);
 
-        p->persistent_control = persistent_control;
-        p->runtime_control = runtime_control;
-        persistent_control = runtime_control = NULL;
+        p->persistent_control = TAKE_PTR(persistent_control);
+        p->runtime_control = TAKE_PTR(runtime_control);
 
-        p->root_dir = root;
-        root = NULL;
-
-        p->temporary_dir = tempdir;
-        tempdir = NULL;
+        p->root_dir = TAKE_PTR(root);
+        p->temporary_dir = TAKE_PTR(tempdir);
 
         return 0;
 }
@@ -731,22 +717,20 @@ void lookup_paths_free(LookupPaths *p) {
 int lookup_paths_reduce(LookupPaths *p) {
         _cleanup_free_ struct stat *stats = NULL;
         size_t n_stats = 0, allocated = 0;
-        unsigned c = 0;
+        size_t c = 0;
         int r;
 
         assert(p);
 
         /* Drop duplicates and non-existing directories from the search path. We figure out whether two directories are
-         * the same by comparing their device and inode numbers. Note one special tweak: when we have a root path set,
-         * we do not follow symlinks when retrieving them, because the kernel wouldn't take the root prefix into
-         * account when following symlinks. When we have no root path set this restriction does not apply however. */
+         * the same by comparing their device and inode numbers. */
 
         if (!p->search_path)
                 return 0;
 
         while (p->search_path[c]) {
                 struct stat st;
-                unsigned k;
+                size_t k;
 
                 /* Never strip the transient and control directories from the path */
                 if (path_equal_ptr(p->search_path[c], p->transient) ||
@@ -756,25 +740,20 @@ int lookup_paths_reduce(LookupPaths *p) {
                         continue;
                 }
 
-                if (p->root_dir)
-                        r = lstat(p->search_path[c], &st);
-                else
-                        r = stat(p->search_path[c], &st);
+                r = chase_symlinks_and_stat(p->search_path[c], p->root_dir, 0, NULL, &st);
+                if (r == -ENOENT)
+                        goto remove_item;
                 if (r < 0) {
-                        if (errno == ENOENT)
-                                goto remove_item;
-
                         /* If something we don't grok happened, let's better leave it in. */
-                        log_debug_errno(errno, "Failed to stat %s: %m", p->search_path[c]);
+                        log_debug_errno(r, "Failed to chase and stat %s: %m", p->search_path[c]);
                         c++;
                         continue;
                 }
 
-                for (k = 0; k < n_stats; k++) {
+                for (k = 0; k < n_stats; k++)
                         if (stats[k].st_dev == st.st_dev &&
                             stats[k].st_ino == st.st_ino)
                                 break;
-                }
 
                 if (k < n_stats) /* Is there already an entry with the same device/inode? */
                         goto remove_item;

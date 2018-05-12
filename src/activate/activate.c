@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Zbigniew Jędrzejewski-Szmek
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <getopt.h>
@@ -48,16 +35,14 @@ static bool arg_inetd = false;
 
 static int add_epoll(int epoll_fd, int fd) {
         struct epoll_event ev = {
-                .events = EPOLLIN
+                .events = EPOLLIN,
+                .data.fd = fd,
         };
-        int r;
 
         assert(epoll_fd >= 0);
         assert(fd >= 0);
 
-        ev.data.fd = fd;
-        r = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev);
-        if (r < 0)
+        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
                 return log_error_errno(errno, "Failed to add event on epoll fd:%d for fd:%d: %m", epoll_fd, fd);
 
         return 0;
@@ -131,11 +116,11 @@ static int open_sockets(int *epoll_fd, bool accept) {
         return count;
 }
 
-static int exec_process(const char* name, char **argv, char **env, int start_fd, int n_fds) {
+static int exec_process(const char* name, char **argv, char **env, int start_fd, size_t n_fds) {
 
         _cleanup_strv_free_ char **envp = NULL;
         _cleanup_free_ char *joined = NULL;
-        unsigned n_env = 0, length;
+        size_t n_env = 0, length;
         const char *tocopy;
         char **s;
         int r;
@@ -199,28 +184,22 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
         if (arg_inetd) {
                 assert(n_fds == 1);
 
-                r = dup2(start_fd, STDIN_FILENO);
+                r = rearrange_stdio(start_fd, start_fd, STDERR_FILENO); /* invalidates start_fd on success + error */
                 if (r < 0)
-                        return log_error_errno(errno, "Failed to dup connection to stdin: %m");
+                        return log_error_errno(r, "Failed to move fd to stdin+stdout: %m");
 
-                r = dup2(start_fd, STDOUT_FILENO);
-                if (r < 0)
-                        return log_error_errno(errno, "Failed to dup connection to stdout: %m");
-
-                start_fd = safe_close(start_fd);
         } else {
                 if (start_fd != SD_LISTEN_FDS_START) {
                         assert(n_fds == 1);
 
-                        r = dup2(start_fd, SD_LISTEN_FDS_START);
-                        if (r < 0)
+                        if (dup2(start_fd, SD_LISTEN_FDS_START) < 0)
                                 return log_error_errno(errno, "Failed to dup connection: %m");
 
                         safe_close(start_fd);
                         start_fd = SD_LISTEN_FDS_START;
                 }
 
-                if (asprintf((char**)(envp + n_env++), "LISTEN_FDS=%i", n_fds) < 0)
+                if (asprintf((char**)(envp + n_env++), "LISTEN_FDS=%zu", n_fds) < 0)
                         return log_oom();
 
                 if (asprintf((char**)(envp + n_env++), "LISTEN_PID=" PID_FMT, getpid_cached()) < 0)
@@ -230,18 +209,18 @@ static int exec_process(const char* name, char **argv, char **env, int start_fd,
                         _cleanup_free_ char *names = NULL;
                         size_t len;
                         char *e;
-                        int i;
 
                         len = strv_length(arg_fdnames);
-                        if (len == 1)
+                        if (len == 1) {
+                                size_t i;
+
                                 for (i = 1; i < n_fds; i++) {
                                         r = strv_extend(&arg_fdnames, arg_fdnames[0]);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to extend strv: %m");
                                 }
-                        else if (len != (unsigned) n_fds)
-                                log_warning("The number of fd names is different than number of fds: %zu vs %d",
-                                            len, n_fds);
+                        } else if (len != n_fds)
+                                log_warning("The number of fd names is different than number of fds: %zu vs %zu", len, n_fds);
 
                         names = strv_join(arg_fdnames, ":");
                         if (!names)
@@ -330,10 +309,7 @@ static int install_chld_handler(void) {
                 .sa_handler = sigchld_hdl,
         };
 
-        int r;
-
-        r = sigaction(SIGCHLD, &act, 0);
-        if (r < 0)
+        if (sigaction(SIGCHLD, &act, 0) < 0)
                 return log_error_errno(errno, "Failed to install SIGCHLD handler: %m");
 
         return 0;
@@ -508,8 +484,7 @@ int main(int argc, char **argv, char **envp) {
         for (;;) {
                 struct epoll_event event;
 
-                r = epoll_wait(epoll_fd, &event, 1, -1);
-                if (r < 0) {
+                if (epoll_wait(epoll_fd, &event, 1, -1) < 0) {
                         if (errno == EINTR)
                                 continue;
 
@@ -526,7 +501,7 @@ int main(int argc, char **argv, char **envp) {
                         break;
         }
 
-        exec_process(argv[optind], argv + optind, envp, SD_LISTEN_FDS_START, n);
+        exec_process(argv[optind], argv + optind, envp, SD_LISTEN_FDS_START, (size_t) n);
 
         return EXIT_SUCCESS;
 }

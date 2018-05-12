@@ -3,19 +3,6 @@
  This file is part of systemd.
 
  Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <netinet/ether.h>
@@ -70,7 +57,7 @@ static void link_config_free(link_config *link) {
 
         free(link->filename);
 
-        free(link->match_mac);
+        set_free_free(link->match_mac);
         strv_free(link->match_path);
         strv_free(link->match_driver);
         strv_free(link->match_type);
@@ -135,8 +122,7 @@ int link_config_ctx_new(link_config_ctx **ret) {
 
         ctx->enable_name_policy = true;
 
-        *ret = ctx;
-        ctx = NULL;
+        *ret = TAKE_PTR(ctx);
 
         return 0;
 }
@@ -183,7 +169,7 @@ static int load_link(link_config_ctx *ctx, const char *filename) {
         else
                 log_debug("Parsed configuration file %s", filename);
 
-        if (link->mtu > UINT_MAX || link->speed > UINT_MAX)
+        if (link->speed > UINT_MAX)
                 return -ERANGE;
 
         link->filename = strdup(filename);
@@ -407,6 +393,12 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
         if (r < 0)
                 log_warning_errno(r, "Could not set offload features of %s: %m", old_name);
 
+        if (config->channels.rx_count_set || config->channels.tx_count_set || config->channels.other_count_set || config->channels.combined_count_set) {
+                r = ethtool_set_channels(&ctx->ethtool_fd, old_name, &config->channels);
+                if (r < 0)
+                        log_warning_errno(r, "Could not set channels of %s: %m", old_name);
+        }
+
         ifindex = udev_device_get_ifindex(device);
         if (ifindex <= 0) {
                 log_warning("Could not find ifindex");
@@ -480,7 +472,7 @@ int link_config_apply(link_config_ctx *ctx, link_config *config,
 
         r = rtnl_set_link_properties(&ctx->rtnl, ifindex, config->alias, mac, config->mtu);
         if (r < 0)
-                return log_warning_errno(r, "Could not set Alias, MACAddress or MTU on %s: %m", old_name);
+                return log_warning_errno(r, "Could not set Alias=, MACAddress= or MTU= on %s: %m", old_name);
 
         *name = new_name;
 

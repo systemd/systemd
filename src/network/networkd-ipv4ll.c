@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013-2014 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <netinet/ether.h>
@@ -27,8 +14,8 @@
 #include "networkd-link.h"
 
 static int ipv4ll_address_lost(Link *link) {
-        _cleanup_address_free_ Address *address = NULL;
-        _cleanup_route_free_ Route *route = NULL;
+        _cleanup_(address_freep) Address *address = NULL;
+        _cleanup_(route_freep) Route *route = NULL;
         struct in_addr addr;
         int r;
 
@@ -74,7 +61,7 @@ static int ipv4ll_address_lost(Link *link) {
 }
 
 static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -95,7 +82,7 @@ static int ipv4ll_route_handler(sd_netlink *rtnl, sd_netlink_message *m, void *u
 }
 
 static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
-        _cleanup_link_unref_ Link *link = userdata;
+        _cleanup_(link_unrefp) Link *link = userdata;
         int r;
 
         assert(link);
@@ -117,8 +104,8 @@ static int ipv4ll_address_handler(sd_netlink *rtnl, sd_netlink_message *m, void 
 }
 
 static int ipv4ll_address_claimed(sd_ipv4ll *ll, Link *link) {
-        _cleanup_address_free_ Address *ll_addr = NULL;
-        _cleanup_route_free_ Route *route = NULL;
+        _cleanup_(address_freep) Address *ll_addr = NULL;
+        _cleanup_(route_freep) Route *route = NULL;
         struct in_addr address;
         int r;
 

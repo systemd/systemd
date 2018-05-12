@@ -4,9 +4,9 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #endif
 #include <stddef.h>
 #include "conf-parser.h"
+#include "network-internal.h"
 #include "networkd-conf.h"
 #include "networkd-network.h"
-#include "network-internal.h"
 #include "vlan-util.h"
 %}
 struct ConfigPerfItem;
@@ -20,7 +20,7 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Match.MACAddress,                       config_parse_hwaddr,                            0,                             offsetof(Network, match_mac)
+Match.MACAddress,                       config_parse_hwaddrs,                           0,                             offsetof(Network, match_mac)
 Match.Path,                             config_parse_strv,                              0,                             offsetof(Network, match_path)
 Match.Driver,                           config_parse_strv,                              0,                             offsetof(Network, match_driver)
 Match.Type,                             config_parse_strv,                              0,                             offsetof(Network, match_type)
@@ -31,7 +31,7 @@ Match.KernelCommandLine,                config_parse_net_condition,             
 Match.KernelVersion,                    config_parse_net_condition,                     CONDITION_KERNEL_VERSION,      offsetof(Network, match_kernel_version)
 Match.Architecture,                     config_parse_net_condition,                     CONDITION_ARCHITECTURE,        offsetof(Network, match_arch)
 Link.MACAddress,                        config_parse_hwaddr,                            0,                             offsetof(Network, mac)
-Link.MTUBytes,                          config_parse_iec_size,                          0,                             offsetof(Network, mtu)
+Link.MTUBytes,                          config_parse_mtu,                               AF_UNSPEC,                     offsetof(Network, mtu)
 Link.ARP,                               config_parse_tristate,                          0,                             offsetof(Network, arp)
 Link.Unmanaged,                         config_parse_bool,                              0,                             offsetof(Network, unmanaged)
 Link.RequiredForOnline,                 config_parse_bool,                              0,                             offsetof(Network, required_for_online)
@@ -69,6 +69,7 @@ Network.IPv6AcceptRouterAdvertisements, config_parse_tristate,                  
 Network.IPv6DuplicateAddressDetection,  config_parse_int,                               0,                             offsetof(Network, ipv6_dad_transmits)
 Network.IPv6HopLimit,                   config_parse_int,                               0,                             offsetof(Network, ipv6_hop_limit)
 Network.IPv6ProxyNDP,                   config_parse_tristate,                          0,                             offsetof(Network, ipv6_proxy_ndp)
+Network.IPv6MTUBytes,                   config_parse_mtu,                               AF_INET6,                      0
 Network.ActiveSlave,                    config_parse_bool,                              0,                             offsetof(Network, active_slave)
 Network.PrimarySlave,                   config_parse_bool,                              0,                             offsetof(Network, primary_slave)
 Network.IPv4ProxyARP,                   config_parse_tristate,                          0,                             offsetof(Network, proxy_arp)
@@ -124,6 +125,7 @@ DHCP.Hostname,                          config_parse_hostname,                  
 DHCP.RequestBroadcast,                  config_parse_bool,                              0,                             offsetof(Network, dhcp_broadcast)
 DHCP.CriticalConnection,                config_parse_bool,                              0,                             offsetof(Network, dhcp_critical)
 DHCP.VendorClassIdentifier,             config_parse_string,                            0,                             offsetof(Network, dhcp_vendor_class_identifier)
+DHCP.UserClass,                         config_parse_dhcp_user_class,                   0,                             offsetof(Network, dhcp_user_class)
 DHCP.DUIDType,                          config_parse_duid_type,                         0,                             offsetof(Network, duid.type)
 DHCP.DUIDRawData,                       config_parse_duid_rawdata,                      0,                             offsetof(Network, duid)
 DHCP.RouteMetric,                       config_parse_unsigned,                          0,                             offsetof(Network, dhcp_route_metric)
@@ -147,11 +149,11 @@ DHCPServer.Timezone,                    config_parse_timezone,                  
 DHCPServer.PoolOffset,                  config_parse_uint32,                            0,                             offsetof(Network, dhcp_server_pool_offset)
 DHCPServer.PoolSize,                    config_parse_uint32,                            0,                             offsetof(Network, dhcp_server_pool_size)
 Bridge.Cost,                            config_parse_uint32,                            0,                             offsetof(Network, cost)
-Bridge.UseBPDU,                         config_parse_bool,                              0,                             offsetof(Network, use_bpdu)
-Bridge.HairPin,                         config_parse_bool,                              0,                             offsetof(Network, hairpin)
-Bridge.FastLeave,                       config_parse_bool,                              0,                             offsetof(Network, fast_leave)
-Bridge.AllowPortToBeRoot,               config_parse_bool,                              0,                             offsetof(Network, allow_port_to_be_root)
-Bridge.UnicastFlood,                    config_parse_bool,                              0,                             offsetof(Network, unicast_flood)
+Bridge.UseBPDU,                         config_parse_tristate,                          0,                             offsetof(Network, use_bpdu)
+Bridge.HairPin,                         config_parse_tristate,                          0,                             offsetof(Network, hairpin)
+Bridge.FastLeave,                       config_parse_tristate,                          0,                             offsetof(Network, fast_leave)
+Bridge.AllowPortToBeRoot,               config_parse_tristate,                          0,                             offsetof(Network, allow_port_to_be_root)
+Bridge.UnicastFlood,                    config_parse_tristate,                          0,                             offsetof(Network, unicast_flood)
 Bridge.Priority,                        config_parse_bridge_port_priority,              0,                             offsetof(Network, priority)
 BridgeFDB.MACAddress,                   config_parse_fdb_hwaddr,                        0,                             0
 BridgeFDB.VLANId,                       config_parse_fdb_vlan_id,                       0,                             0

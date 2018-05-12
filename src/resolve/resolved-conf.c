@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2014 Tom Gundersen <teg@jklm.no>
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
 
 #include "alloc-util.h"
@@ -337,10 +324,8 @@ int config_parse_dnssd_txt(const char *unit, const char *filename, unsigned line
                 r = split_pair(word, "=", &key, &value);
                 if (r == -ENOMEM)
                         return log_oom();
-                if (r == -EINVAL) {
-                        key = word;
-                        word = NULL;
-                }
+                if (r == -EINVAL)
+                        key = TAKE_PTR(word);
 
                 if (!ascii_is_valid(key)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid syntax, ignoring: %s", key);

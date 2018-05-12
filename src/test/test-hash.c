@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2016 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -35,12 +22,15 @@ int main(int argc, char *argv[]) {
 
         assert_se(khash_new(&h, NULL) == -EINVAL);
         assert_se(khash_new(&h, "") == -EINVAL);
-        r = khash_new(&h, "foobar");
-        if (r == -EAFNOSUPPORT) {
+
+        r = khash_supported();
+        assert_se(r >= 0);
+        if (r == 0) {
                 puts("khash not supported on this kernel, skipping");
                 return EXIT_TEST_SKIP;
         }
-        assert_se(r == -EOPNOTSUPP);
+
+        assert_se(khash_new(&h, "foobar") == -EOPNOTSUPP); /* undefined hash function */
 
         assert_se(khash_new(&h, "sha256") >= 0);
         assert_se(khash_get_size(h) == 32);

@@ -8,19 +8,6 @@
   This file is part of systemd.
 
   Copyright 2013 Tom Gundersen
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.network" conditional='ENABLE_NETWORKD'>
@@ -116,8 +103,12 @@
         <varlistentry>
           <term><varname>MACAddress=</varname></term>
           <listitem>
-            <para>The hardware address of the interface (use full colon-delimited hexadecimal, e.g.,
-            01:23:45:67:89:ab).</para>
+            <para>A whitespace-separated list of hardware addresses. Use full colon-, hyphen- or dot-delimited hexadecimal. See the example below.
+            This option may appear more than one, in which case the lists are merged. If the empty string is assigned to this option, the list
+            of hardware addresses defined prior to this is reset.</para>
+
+            <para>Example:
+            <programlisting>MACAddress=01:23:45:67:89:ab 00-11-22-33-44-55 AABB.CCDD.EEFF</programlisting></para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -680,6 +671,12 @@
           </para></listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPv6MTUBytes=</varname></term>
+          <listitem><para>Configures IPv6 maximum transmission unit (MTU).
+          An integer greater than or equal to 1280 bytes. Defaults to unset.
+          </para></listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Bridge=</varname></term>
           <listitem>
             <para>The name of the bridge to add the link to. See
@@ -1236,8 +1233,11 @@
         <varlistentry>
           <term><varname>ClientIdentifier=</varname></term>
           <listitem>
-            <para>The DHCPv4 client identifier to use. Either <literal>mac</literal> to use the MAC address of the link
-            or <literal>duid</literal> (the default, see below) to use an RFC4361-compliant Client ID.</para>
+            <para>The DHCPv4 client identifier to use. Takes one of <literal>mac</literal>, <literal>duid</literal> or <literal>duid-only</literal>.
+            If set to <literal>mac</literal>, the MAC address of the link is used.
+            If set to <literal>duid</literal>, an RFC4361-compliant Client ID, which is the combination of IAID and DUID (see below), is used.
+            If set to <literal>duid-only</literal>, only DUID is used, this may not be RFC compliant, but some setups may require to use this.
+            Defaults to <literal>duid</literal>.</para>
           </listitem>
         </varlistentry>
 
@@ -1246,6 +1246,16 @@
           <listitem>
             <para>The vendor class identifier used to identify vendor
             type and configuration.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>UserClass=</varname></term>
+          <listitem>
+            <para>A DHCPv4 client can use UserClass option to identify the type or category of user or applications
+            it represents. The information contained in this option is a string that represents the user class of which
+            the client is a member. Each class sets an identifying string of information to be used by the DHCP
+            service to classify clients. Takes a whitespace-separated list of strings.</para>
           </listitem>
         </varlistentry>
 
@@ -1378,7 +1388,6 @@
         </varlistentry>
       </variablelist>
   </refsect1>
-
 
   <refsect1>
     <title>[DHCPServer] Section Options</title>
@@ -1639,7 +1648,7 @@
           <listitem>
             <para>A boolean. Controls whether the bridge should flood
             traffic for which an FDB entry is missing and the destination
-            is unknown through this port. Defaults to on.
+            is unknown through this port. Defaults to unset.
             </para>
           </listitem>
         </varlistentry>
@@ -1647,7 +1656,7 @@
           <term><varname>HairPin=</varname></term>
           <listitem>
             <para>A boolean. Configures whether traffic may be sent back
-            out of the port on which it was received. By default, this
+            out of the port on which it was received. Defaults to unset. When this
             flag is false, and the bridge will not forward traffic back
             out of the receiving port.</para>
           </listitem>
@@ -1656,7 +1665,7 @@
           <term><varname>UseBPDU=</varname></term>
           <listitem>
             <para>A boolean. Configures whether STP Bridge Protocol Data Units will be
-            processed by the bridge port. Defaults to yes.</para>
+            processed by the bridge port. Defaults to unset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1664,7 +1673,7 @@
           <listitem>
             <para>A boolean. This flag allows the bridge to immediately stop multicast
             traffic on a port that receives an IGMP Leave message. It is only used with
-            IGMP snooping if enabled on the bridge. Defaults to off.</para>
+            IGMP snooping if enabled on the bridge. Defaults to unset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1672,7 +1681,7 @@
           <listitem>
             <para>A boolean. Configures whether a given port is allowed to
             become a root port. Only used when STP is enabled on the bridge.
-            Defaults to on.</para>
+            Defaults to unset.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

@@ -4,19 +4,6 @@
 
   Copyright (C) 2014 Tom Gundersen
   Copyright (C) 2014 Susant Sahani
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <arpa/inet.h>
@@ -402,8 +389,7 @@ _public_ int sd_lldp_new(sd_lldp **ret) {
         if (r < 0)
                 return r;
 
-        *ret = lldp;
-        lldp = NULL;
+        *ret = TAKE_PTR(lldp);
 
         return 0;
 }
@@ -416,15 +402,15 @@ static int neighbor_compare_func(const void *a, const void *b) {
 
 static int on_timer_event(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_lldp *lldp = userdata;
-        int r, q;
+        int r;
 
         r = lldp_make_space(lldp, 0);
         if (r < 0)
                 return log_lldp_errno(r, "Failed to make space: %m");
 
-        q = lldp_start_timer(lldp, NULL);
-        if (q < 0)
-                return log_lldp_errno(q, "Failed to restart timer: %m");
+        r = lldp_start_timer(lldp, NULL);
+        if (r < 0)
+                return log_lldp_errno(r, "Failed to restart timer: %m");
 
         return 0;
 }

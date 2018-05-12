@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <alloca.h>
@@ -181,11 +168,13 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
         const void *p;
         int comparison;
 
+        assert(!size_multiply_overflow(nmemb, size));
+
         l = 0;
         u = nmemb;
         while (l < u) {
                 idx = (l + u) / 2;
-                p = (const char *) base + idx * size;
+                p = (const uint8_t*) base + idx * size;
                 comparison = compar(key, p, arg);
                 if (comparison < 0)
                         u = idx;
@@ -516,29 +505,6 @@ uint64_t system_tasks_max_scale(uint64_t v, uint64_t max) {
                 return UINT64_MAX;
 
         return m / max;
-}
-
-int update_reboot_parameter_and_warn(const char *param) {
-        int r;
-
-        if (isempty(param)) {
-                if (unlink("/run/systemd/reboot-param") < 0) {
-                        if (errno == ENOENT)
-                                return 0;
-
-                        return log_warning_errno(errno, "Failed to unlink reboot parameter file: %m");
-                }
-
-                return 0;
-        }
-
-        RUN_WITH_UMASK(0022) {
-                r = write_string_file("/run/systemd/reboot-param", param, WRITE_STRING_FILE_CREATE);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to write reboot parameter file: %m");
-        }
-
-        return 0;
 }
 
 int version(void) {

@@ -58,8 +58,7 @@ static int genl_message_new(sd_netlink *nl, sd_genl_family family, uint16_t nlms
         genl->cmd = cmd;
         genl->version = genl_families[family].version;
 
-        *ret = m;
-        m = NULL;
+        *ret = TAKE_PTR(m);
 
         return 0;
 }

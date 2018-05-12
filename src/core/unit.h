@@ -5,19 +5,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <stdbool.h>
@@ -123,8 +110,8 @@ struct UnitRef {
          * that we can merge two units if necessary and correct all
          * references to them */
 
-        Unit* unit;
-        LIST_FIELDS(UnitRef, refs);
+        Unit *source, *target;
+        LIST_FIELDS(UnitRef, refs_by_target);
 };
 
 typedef enum UnitCGroupBPFState {
@@ -187,7 +174,7 @@ struct Unit {
         char *job_timeout_reboot_arg;
 
         /* References to this */
-        LIST_HEAD(UnitRef, refs);
+        LIST_HEAD(UnitRef, refs_by_target);
 
         /* Conditions to check */
         LIST_HEAD(Condition, conditions);
@@ -230,6 +217,9 @@ struct Unit {
 
         /* cgroup empty queue */
         LIST_FIELDS(Unit, cgroup_empty_queue);
+
+        /* Target dependencies queue */
+        LIST_FIELDS(Unit, target_deps_queue);
 
         /* PIDs we keep an eye on. Note that a unit might have many
          * more, but these are the ones we care enough about to
@@ -287,8 +277,8 @@ struct Unit {
         int ipv4_deny_map_fd;
         int ipv6_deny_map_fd;
 
-        BPFProgram *ip_bpf_ingress;
-        BPFProgram *ip_bpf_egress;
+        BPFProgram *ip_bpf_ingress, *ip_bpf_ingress_installed;
+        BPFProgram *ip_bpf_egress, *ip_bpf_egress_installed;
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
@@ -336,6 +326,7 @@ struct Unit {
         bool in_gc_queue:1;
         bool in_cgroup_realize_queue:1;
         bool in_cgroup_empty_queue:1;
+        bool in_target_deps_queue:1;
 
         bool sent_dbus_new_signal:1;
 
@@ -490,10 +481,9 @@ struct UnitVTable {
         /* Additionally to UnitActiveState determine whether unit is to be restarted. */
         bool (*will_restart)(Unit *u);
 
-        /* Return true when there is reason to keep this entry around
-         * even nothing references it and it isn't active in any
-         * way */
-        bool (*check_gc)(Unit *u);
+        /* Return false when there is a reason to prevent this unit from being gc'ed
+         * even though nothing references it and it isn't active in any way. */
+        bool (*may_gc)(Unit *u);
 
         /* When the unit is not running and no job for it queued we shall release its runtime resources */
         void (*release_resources)(Unit *u);
@@ -568,6 +558,12 @@ struct UnitVTable {
         /* True if transient units of this type are OK */
         bool can_transient:1;
 
+        /* True if cgroup delegation is permissible */
+        bool can_delegate:1;
+
+        /* True if units of this type shall be startable only once and then never again */
+        bool once_only:1;
+
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
         bool gc_jobs:1;
 };
@@ -608,6 +604,7 @@ DEFINE_CAST(SCOPE, Scope);
 
 Unit *unit_new(Manager *m, size_t size);
 void unit_free(Unit *u);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Unit *, unit_free);
 
 int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret);
 int unit_add_name(Unit *u, const char *name);
@@ -623,12 +620,13 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c);
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
 
-bool unit_check_gc(Unit *u);
+bool unit_may_gc(Unit *u);
 
 void unit_add_to_load_queue(Unit *u);
 void unit_add_to_dbus_queue(Unit *u);
 void unit_add_to_cleanup_queue(Unit *u);
 void unit_add_to_gc_queue(Unit *u);
+void unit_add_to_target_deps_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);
@@ -725,11 +723,11 @@ void unit_trigger_notify(Unit *u);
 UnitFileState unit_get_unit_file_state(Unit *u);
 int unit_get_unit_file_preset(Unit *u);
 
-Unit* unit_ref_set(UnitRef *ref, Unit *u);
+Unit* unit_ref_set(UnitRef *ref, Unit *source, Unit *target);
 void unit_ref_unset(UnitRef *ref);
 
-#define UNIT_DEREF(ref) ((ref).unit)
-#define UNIT_ISSET(ref) (!!(ref).unit)
+#define UNIT_DEREF(ref) ((ref).target)
+#define UNIT_ISSET(ref) (!!(ref).target)
 
 int unit_patch_contexts(Unit *u);
 
@@ -800,6 +798,10 @@ int unit_prepare_exec(Unit *u);
 void unit_warn_leftover_processes(Unit *u);
 
 bool unit_needs_console(Unit *u);
+
+const char *unit_label_path(Unit *u);
+
+int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

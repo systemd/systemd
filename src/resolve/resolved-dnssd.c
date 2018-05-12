@@ -2,19 +2,6 @@
   This file is part of systemd.
 
   Copyright 2017 Dmitry Rozhkov
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "conf-files.h"
@@ -198,8 +185,7 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
                 return -EINVAL;
         }
 
-        *ret_name = name;
-        name = NULL;
+        *ret_name = TAKE_PTR(name);
 
         return 0;
 }
@@ -319,8 +305,7 @@ int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtIte
         }
         i->length = length;
 
-        *ret_item = i;
-        i = NULL;
+        *ret_item = TAKE_PTR(i);
 
         return 0;
 }
@@ -345,8 +330,7 @@ int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t
         }
         i->length = length;
 
-        *ret_item = i;
-        i = NULL;
+        *ret_item = TAKE_PTR(i);
 
         return 0;
 }

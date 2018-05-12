@@ -233,8 +233,7 @@ static int worker_new(struct worker **ret, Manager *manager, struct udev_monitor
         if (r < 0)
                 return r;
 
-        *ret = worker;
-        worker = NULL;
+        *ret = TAKE_PTR(worker);
 
         return 0;
 }
@@ -327,7 +326,7 @@ static int worker_send_message(int fd) {
 
 static void worker_spawn(Manager *manager, struct event *event) {
         struct udev *udev = event->udev;
-        _cleanup_udev_monitor_unref_ struct udev_monitor *worker_monitor = NULL;
+        _cleanup_(udev_monitor_unrefp) struct udev_monitor *worker_monitor = NULL;
         pid_t pid;
         int r = 0;
 
@@ -353,8 +352,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                 sigset_t mask;
 
                 /* take initial device from queue */
-                dev = event->dev;
-                event->dev = NULL;
+                dev = TAKE_PTR(event->dev);
 
                 unsetenv("NOTIFY_SOCKET");
 
@@ -648,7 +646,7 @@ static bool is_devpath_busy(Manager *manager, struct event *event) {
 
         /* check if queue contains events we depend on */
         LIST_FOREACH(event, loop_event, manager->events) {
-                /* we already found a later event, earlier can not block us, no need to check again */
+                /* we already found a later event, earlier cannot block us, no need to check again */
                 if (loop_event->seqnum < event->delaying_seqnum)
                         continue;
 
@@ -923,8 +921,8 @@ static int on_uevent(sd_event_source *s, int fd, uint32_t revents, void *userdat
 /* receive the udevd message from userspace */
 static int on_ctrl_msg(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Manager *manager = userdata;
-        _cleanup_udev_ctrl_connection_unref_ struct udev_ctrl_connection *ctrl_conn = NULL;
-        _cleanup_udev_ctrl_msg_unref_ struct udev_ctrl_msg *ctrl_msg = NULL;
+        _cleanup_(udev_ctrl_connection_unrefp) struct udev_ctrl_connection *ctrl_conn = NULL;
+        _cleanup_(udev_ctrl_msg_unrefp) struct udev_ctrl_msg *ctrl_msg = NULL;
         const char *str;
         int i;
 
@@ -1021,7 +1019,7 @@ static int synthesize_change(struct udev_device *dev) {
                 bool has_partitions = false;
                 int fd;
                 struct udev *udev = udev_device_get_udev(dev);
-                _cleanup_udev_enumerate_unref_ struct udev_enumerate *e = NULL;
+                _cleanup_(udev_enumerate_unrefp) struct udev_enumerate *e = NULL;
                 struct udev_list_entry *item;
 
                 /*
@@ -1059,7 +1057,7 @@ static int synthesize_change(struct udev_device *dev) {
                         return r;
 
                 udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
-                        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
 
                         d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
                         if (!d)
@@ -1089,7 +1087,7 @@ static int synthesize_change(struct udev_device *dev) {
                 write_string_file(filename, "change", WRITE_STRING_FILE_CREATE);
 
                 udev_list_entry_foreach(item, udev_enumerate_get_list_entry(e)) {
-                        _cleanup_udev_device_unref_ struct udev_device *d = NULL;
+                        _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
 
                         d = udev_device_new_from_syspath(udev, udev_list_entry_get_name(item));
                         if (!d)
@@ -1131,7 +1129,7 @@ static int on_inotify(sd_event_source *s, int fd, uint32_t revents, void *userda
         }
 
         FOREACH_INOTIFY_EVENT(e, buffer, l) {
-                _cleanup_udev_device_unref_ struct udev_device *dev = NULL;
+                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
 
                 dev = udev_watch_lookup(manager->udev, e->wd);
                 if (!dev)
@@ -1258,7 +1256,7 @@ static int on_post(sd_event_source *s, void *userdata) {
 }
 
 static int listen_fds(int *rctrl, int *rnetlink) {
-        _cleanup_udev_unref_ struct udev *udev = NULL;
+        _cleanup_(udev_unrefp) struct udev *udev = NULL;
         int ctrl_fd = -1, netlink_fd = -1;
         int fd, n, r;
 
@@ -1288,7 +1286,7 @@ static int listen_fds(int *rctrl, int *rnetlink) {
         }
 
         if (ctrl_fd < 0) {
-                _cleanup_udev_ctrl_unref_ struct udev_ctrl *ctrl = NULL;
+                _cleanup_(udev_ctrl_unrefp) struct udev_ctrl *ctrl = NULL;
 
                 udev = udev_new();
                 if (!udev)
@@ -1312,7 +1310,7 @@ static int listen_fds(int *rctrl, int *rnetlink) {
         }
 
         if (netlink_fd < 0) {
-                _cleanup_udev_monitor_unref_ struct udev_monitor *monitor = NULL;
+                _cleanup_(udev_monitor_unrefp) struct udev_monitor *monitor = NULL;
 
                 if (!udev) {
                         udev = udev_new();
@@ -1606,8 +1604,7 @@ static int manager_new(Manager **ret, int fd_ctrl, int fd_uevent, const char *cg
         if (r < 0)
                 return log_error_errno(r, "error creating post event source: %m");
 
-        *ret = manager;
-        manager = NULL;
+        *ret = TAKE_PTR(manager);
 
         return 0;
 }
@@ -1676,11 +1673,15 @@ int main(int argc, char *argv[]) {
 
         if (arg_children_max == 0) {
                 cpu_set_t cpu_set;
+                unsigned long mem_limit;
 
                 arg_children_max = 8;
 
                 if (sched_getaffinity(0, sizeof(cpu_set), &cpu_set) == 0)
                         arg_children_max += CPU_COUNT(&cpu_set) * 2;
+
+                mem_limit = physical_memory() / (128LU*1024*1024);
+                arg_children_max = MAX(10U, MIN(arg_children_max, mem_limit));
 
                 log_debug("set children_max to %u", arg_children_max);
         }
@@ -1738,8 +1739,6 @@ int main(int argc, char *argv[]) {
                         if (r < 0)
                                 log_warning_errno(r, "Failed to redirect standard streams to /dev/null: %m");
                 }
-
-
 
                 pid = fork();
                 switch (pid) {

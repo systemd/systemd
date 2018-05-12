@@ -10,7 +10,8 @@
 [Unit]
 Description=Set Up Additional Binary Formats
 Documentation=man:systemd-binfmt.service(8) man:binfmt.d(5)
-Documentation=https://www.kernel.org/doc/Documentation/binfmt_misc.txt
+Documentation=https://www.kernel.org/doc/html/latest/admin-guide/binfmt-misc.html
+Documentation=https://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
 DefaultDependencies=no
 Conflicts=shutdown.target
 After=proc-sys-fs-binfmt_misc.automount

@@ -8,19 +8,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 -->
 
 <refentry id="systemd.exec">
@@ -175,7 +162,9 @@
         source path, destination path and option string, where the latter two are optional. If only a source path is
         specified the source and destination is taken to be the same. The option string may be either
         <literal>rbind</literal> or <literal>norbind</literal> for configuring a recursive or non-recursive bind
-        mount. If the destination path is omitted, the option string must be omitted too.</para>
+        mount. If the destination path is omitted, the option string must be omitted too.
+        Each bind mount definition may be prefixed with <literal>-</literal>, in which case it will be ignored
+        when its source path does not exist.</para>
 
         <para><varname>BindPaths=</varname> creates regular writable bind mounts (unless the source file system mount
         is already marked read-only), while <varname>BindReadOnlyPaths=</varname> creates read-only bind mounts. These
@@ -363,7 +352,6 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
     </variablelist>
   </refsect1>
-
 
   <refsect1>
     <title>Security</title>
@@ -631,8 +619,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         processes. In this modes multiple units running processes under the same user ID may share key material. Unless
         <option>inherit</option> is selected the unique invocation ID for the unit (see below) is added as a protected
         key by the name <literal>invocation_id</literal> to the newly created session keyring. Defaults to
-        <option>private</option> for the system service manager and to <option>inherit</option> for the user service
-        manager.</para></listitem>
+        <option>private</option> for services of the system service manager and to <option>inherit</option> for
+        non-service units and for services of the user service manager.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -757,7 +745,6 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
     </variablelist>
   </refsect1>
 
-
   <refsect1>
     <title>Sandboxing</title>
 
@@ -786,14 +773,24 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>ProtectHome=</varname></term>
 
-        <listitem><para>Takes a boolean argument or <literal>read-only</literal>. If true, the directories
-        <filename>/home</filename>, <filename>/root</filename> and <filename>/run/user</filename> are made inaccessible
-        and empty for processes invoked by this unit. If set to <literal>read-only</literal>, the three directories are
-        made read-only instead. It is recommended to enable this setting for all long-running services (in particular
-        network-facing ones), to ensure they cannot get access to private user data, unless the services actually
-        require access to the user's private data. This setting is implied if <varname>DynamicUser=</varname> is
-        set. For this setting the same restrictions regarding mount propagation and privileges apply as for
-        <varname>ReadOnlyPaths=</varname> and related calls, see below.</para></listitem>
+        <listitem><para>Takes a boolean argument or the special values <literal>read-only</literal> or
+        <literal>tmpfs</literal>. If true, the directories <filename>/home</filename>, <filename>/root</filename> and
+        <filename>/run/user</filename> are made inaccessible and empty for processes invoked by this unit. If set to
+        <literal>read-only</literal>, the three directories are made read-only instead. If set to <literal>tmpfs</literal>,
+        temporary file systems are mounted on the three directories in read-only mode. The value <literal>tmpfs</literal>
+        is useful to hide home directories not relevant to the processes invoked by the unit, while necessary directories
+        are still visible by combining with <varname>BindPaths=</varname> or <varname>BindReadOnlyPaths=</varname>.</para>
+
+        <para>Setting this to <literal>yes</literal> is mostly equivalent to set the three directories in
+        <varname>InaccessiblePaths=</varname>. Similary, <literal>read-only</literal> is mostly equivalent to
+        <varname>ReadOnlyPaths=</varname>, and <literal>tmpfs</literal> is mostly equivalent to
+        <varname>TemporaryFileSystem=</varname>.</para>
+
+        <para> It is recommended to enable this setting for all long-running services (in particular network-facing ones),
+        to ensure they cannot get access to private user data, unless the services actually require access to the user's
+        private data. This setting is implied if <varname>DynamicUser=</varname> is set. For this setting the same
+        restrictions regarding mount propagation and privileges apply as for <varname>ReadOnlyPaths=</varname> and related
+        calls, see below.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -904,9 +901,13 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         reading only, writing will be refused even if the usual file access controls would permit this. Nest
         <varname>ReadWritePaths=</varname> inside of <varname>ReadOnlyPaths=</varname> in order to provide writable
         subdirectories within read-only directories. Use <varname>ReadWritePaths=</varname> in order to whitelist
-        specific paths for write access if <varname>ProtectSystem=strict</varname> is used. Paths listed in
-        <varname>InaccessiblePaths=</varname> will be made inaccessible for processes inside the namespace (along with
-        everything below them in the file system hierarchy).</para>
+        specific paths for write access if <varname>ProtectSystem=strict</varname> is used.</para>
+
+        <para>Paths listed in <varname>InaccessiblePaths=</varname> will be made inaccessible for processes inside
+        the namespace along with everything below them in the file system hierarchy. This may be more restrictive than
+        desired, because it is not possible to nest <varname>ReadWritePaths=</varname>, <varname>ReadOnlyPaths=</varname>,
+        <varname>BindPaths=</varname>, or <varname>BindReadOnlyPaths=</varname> inside it. For a more flexible option,
+        see <varname>TemporaryFileSystem=</varname>.</para>
 
         <para>Note that restricting access with these options does not extend to submounts of a directory that are
         created later on.  Non-directory paths may be specified as well. These options may be specified more than once,
@@ -928,6 +929,29 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         unit it is thus recommended to combine these settings with either
         <varname>CapabilityBoundingSet=~CAP_SYS_ADMIN</varname> or
         <varname>SystemCallFilter=~@mount</varname>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TemporaryFileSystem=</varname></term>
+
+        <listitem><para>Takes a space-separated list of mount points for temporary file systems (tmpfs). If set, a new file
+        system namespace is set up for executed processes, and a temporary file system is mounted on each mount point.
+        This option may be specified more than once, in which case temporary file systems are mounted on all listed mount
+        points. If the empty string is assigned to this option, the list is reset, and all prior assignments have no effect.
+        Each mount point may optionally be suffixed with a colon (<literal>:</literal>) and mount options such as
+        <literal>size=10%</literal> or <literal>ro</literal>. By default, each temporary file system is mounted
+        with <literal>nodev,strictatime,mode=0755</literal>. These can be disabled by explicitly specifying the corresponding
+        mount options, e.g., <literal>dev</literal> or <literal>nostrictatime</literal>.</para>
+
+        <para>This is useful to hide files or directories not relevant to the processes invoked by the unit, while necessary
+        files or directories can be still accessed by combining with <varname>BindPaths=</varname> or
+        <varname>BindReadOnlyPaths=</varname>. See the example below.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>TemporaryFileSystem=/var:ro
+BindReadOnlyPaths=/var/lib/systemd</programlisting>
+        then the invoked processes by the unit cannot see any files or directories under <filename>/var</filename> except for
+        <filename>/var/lib/systemd</filename> or its contents.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1429,17 +1453,19 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         filter. The known architecture identifiers are the same as for <varname>ConditionArchitecture=</varname>
         described in <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         as well as <constant>x32</constant>, <constant>mips64-n32</constant>, <constant>mips64-le-n32</constant>, and
-        the special identifier <constant>native</constant>. Only system calls of the specified architectures will be
-        permitted to processes of this unit. This is an effective way to disable compatibility with non-native
-        architectures for processes, for example to prohibit execution of 32-bit x86 binaries on 64-bit x86-64
-        systems. The special <constant>native</constant> identifier implicitly maps to the native architecture of the
-        system (or more strictly: to the architecture the system manager is compiled for). If running in user mode, or
-        in system mode, but without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting
-        <varname>User=nobody</varname>), <varname>NoNewPrivileges=yes</varname> is implied. Note that setting this
-        option to a non-empty list implies that <constant>native</constant> is included too. By default, this option is
-        set to the empty list, i.e. no system call architecture filtering is applied.</para>
+        the special identifier <constant>native</constant>.  The special identifier <constant>native</constant>
+        implicitly maps to the native architecture of the system (or more precisely: to the architecture the system
+        manager is compiled for). If running in user mode, or in system mode, but without the
+        <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=nobody</varname>),
+        <varname>NoNewPrivileges=yes</varname> is implied. By default, this option is set to the empty list, i.e. no
+        system call architecture filtering is applied.</para>
 
-        <para>Note that system call filtering is not equally effective on all architectures. For example, on x86
+        <para>If this setting is used, processes of this unit will only be permitted to call native system calls, and
+        system calls of the specified architectures. For the purposes of this option, the x32 architecture is treated
+        as including x86-64 system calls. However, this setting still fulfills its purpose, as explained below, on
+        x32.</para>
+
+        <para>System call filtering is not equally effective on all architectures. For example, on x86
         filtering of network socket-related calls is not possible, due to ABI limitations — a limitation that x86-64
         does not have, however. On systems supporting multiple ABIs at the same time — such as x86/x86-64 — it is hence
         recommended to limit the set of permitted system call architectures so that secondary ABIs may not be used to
@@ -1946,7 +1972,9 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
 
       <listitem><para>Variables read from files specified via <varname>EnvironmentFile=</varname> in the unit file</para></listitem>
 
-      <listitem><para>Variables set by any PAM modules in case <varname>PAMName=</varname> is in effect, cf. <citerefentry project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem>
+      <listitem><para>Variables set by any PAM modules in case <varname>PAMName=</varname> is in effect,
+      cf. <citerefentry
+      project='man-pages'><refentrytitle>pam_env</refentrytitle><manvolnum>8</manvolnum></citerefentry></para></listitem>
     </itemizedlist>
 
     <para>If the same environment variables are set by multiple of these sources, the later source — according to the
@@ -1954,7 +1982,8 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
     <varname>UnsetEnvironment=</varname> are removed again from the compiled environment variable list, immediately
     before it is passed to the executed process.</para>
 
-    <para>The following select environment variables are set by the service manager itself for each invoked process:</para>
+    <para>The following select environment variables are set or propagated by the service manager for each invoked
+    process:</para>
 
     <variablelist class='environment-variables'>
       <varlistentry>
@@ -2005,24 +2034,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
       <varlistentry>
         <term><varname>$XDG_RUNTIME_DIR</varname></term>
 
-        <listitem><para>The directory for volatile state. Set for the
-        user <command>systemd</command> instance, and also in user
-        sessions. See
-        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-        </para></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><varname>$XDG_SESSION_ID</varname></term>
-        <term><varname>$XDG_SEAT</varname></term>
-        <term><varname>$XDG_VTNR</varname></term>
-
-        <listitem><para>The identifier of the session, the seat name,
-        and virtual terminal of the session. Set by
-        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for login sessions. <varname>$XDG_SEAT</varname> and
-        <varname>$XDG_VTNR</varname> will only be set when attached to
-        a seat and a tty.</para></listitem>
+        <listitem><para>The directory to use for runtime objects (such as IPC objects) and volatile state. Set for all
+        services run by the user <command>systemd</command> instance, as well as any system services that use
+        <varname>PAMName=</varname> with a PAM stack that includes <command>pam_systemd</command>. See below and
+        <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
+        information.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2276,6 +2292,11 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </listitem>
       </varlistentry>
     </variablelist>
+
+    <para>For system services, when <varname>PAMName=</varname> is enabled and <command>pam_systemd</command> is part
+    of the selected PAM stack, additional environment variables defined by systemd may be set for
+    services. Specifically, these are <varname>$XDG_SEAT</varname>, <varname>$XDG_VTNR</varname>, see
+    <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry> for details.</para>
   </refsect1>
 
   <refsect1>
@@ -2586,6 +2607,98 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         </tbody>
       </tgroup>
     </table>
+
+    <para>Finally, the BSD operating systems define a set of exit codes, typically defined on Linux systems too:</para>
+
+    <table>
+      <title>BSD exit codes</title>
+      <tgroup cols='3'>
+        <thead>
+          <row>
+            <entry>Exit Code</entry>
+            <entry>Symbolic Name</entry>
+            <entry>Description</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>64</entry>
+            <entry><constant>EX_USAGE</constant></entry>
+            <entry>Command line usage error</entry>
+          </row>
+          <row>
+            <entry>65</entry>
+            <entry><constant>EX_DATAERR</constant></entry>
+            <entry>Data format error</entry>
+          </row>
+          <row>
+            <entry>66</entry>
+            <entry><constant>EX_NOINPUT</constant></entry>
+            <entry>Cannot open input</entry>
+          </row>
+          <row>
+            <entry>67</entry>
+            <entry><constant>EX_NOUSER</constant></entry>
+            <entry>Addressee unknown</entry>
+          </row>
+          <row>
+            <entry>68</entry>
+            <entry><constant>EX_NOHOST</constant></entry>
+            <entry>Host name unknown</entry>
+          </row>
+          <row>
+            <entry>69</entry>
+            <entry><constant>EX_UNAVAILABLE</constant></entry>
+            <entry>Service unavailable</entry>
+          </row>
+          <row>
+            <entry>70</entry>
+            <entry><constant>EX_SOFTWARE</constant></entry>
+            <entry>internal software error</entry>
+          </row>
+          <row>
+            <entry>71</entry>
+            <entry><constant>EX_OSERR</constant></entry>
+            <entry>System error (e.g., can't fork)</entry>
+          </row>
+          <row>
+            <entry>72</entry>
+            <entry><constant>EX_OSFILE</constant></entry>
+            <entry>Critical OS file missing</entry>
+          </row>
+          <row>
+            <entry>73</entry>
+            <entry><constant>EX_CANTCREAT</constant></entry>
+            <entry>Can't create (user) output file</entry>
+          </row>
+          <row>
+            <entry>74</entry>
+            <entry><constant>EX_IOERR</constant></entry>
+            <entry>Input/output error</entry>
+          </row>
+          <row>
+            <entry>75</entry>
+            <entry><constant>EX_TEMPFAIL</constant></entry>
+            <entry>Temporary failure; user is invited to retry</entry>
+          </row>
+          <row>
+            <entry>76</entry>
+            <entry><constant>EX_PROTOCOL</constant></entry>
+            <entry>Remote error in protocol</entry>
+          </row>
+          <row>
+            <entry>77</entry>
+            <entry><constant>EX_NOPERM</constant></entry>
+            <entry>Permission denied</entry>
+          </row>
+          <row>
+            <entry>78</entry>
+            <entry><constant>EX_CONFIG</constant></entry>
+            <entry>Configuration error</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
   </refsect1>
 
   <refsect1>
@@ -2608,6 +2721,5 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         <citerefentry project='man-pages'><refentrytitle>exec</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       </para>
   </refsect1>
-
 
 </refentry>

@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2013 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <fcntl.h>
@@ -406,7 +393,7 @@ static void test_capeff(void) {
 
 static void test_write_string_stream(void) {
         char fn[] = "/tmp/test-write_string_stream-XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
+        FILE *f = NULL;
         int fd;
         char buf[64];
 
@@ -416,8 +403,9 @@ static void test_write_string_stream(void) {
         f = fdopen(fd, "r");
         assert_se(f);
         assert_se(write_string_stream(f, "boohoo", 0) < 0);
+        f = safe_fclose(f);
 
-        f = freopen(fn, "r+", f);
+        f = fopen(fn, "r+");
         assert_se(f);
 
         assert_se(write_string_stream(f, "boohoo", 0) == 0);
@@ -425,8 +413,9 @@ static void test_write_string_stream(void) {
 
         assert_se(fgets(buf, sizeof(buf), f));
         assert_se(streq(buf, "boohoo\n"));
+        f = safe_fclose(f);
 
-        f = freopen(fn, "w+", f);
+        f = fopen(fn, "w+");
         assert_se(f);
 
         assert_se(write_string_stream(f, "boohoo", WRITE_STRING_FILE_AVOID_NEWLINE) == 0);
@@ -435,6 +424,7 @@ static void test_write_string_stream(void) {
         assert_se(fgets(buf, sizeof(buf), f));
         printf(">%s<", buf);
         assert_se(streq(buf, "boohoo"));
+        f = safe_fclose(f);
 
         unlink(fn);
 }
@@ -571,7 +561,6 @@ static void test_search_and_fopen(void) {
         assert_se(r < 0);
 }
 
-
 static void test_search_and_fopen_nulstr(void) {
         const char dirs[] = "/tmp/foo/bar\0/tmp\0";
         char name[] = "/tmp/test-search_and_fopen.XXXXXX";
@@ -607,7 +596,8 @@ static void test_writing_tmpfile(void) {
         char name[] = "/tmp/test-systemd_writing_tmpfile.XXXXXX";
         _cleanup_free_ char *contents = NULL;
         size_t size;
-        int fd, r;
+        int r;
+        _cleanup_close_ int fd = -1;
         struct iovec iov[3];
 
         iov[0] = IOVEC_MAKE_STRING("abc\n");

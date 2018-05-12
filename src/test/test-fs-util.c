@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <unistd.h>
@@ -270,23 +257,62 @@ static void test_chase_symlinks(void) {
 
         pfd = chase_symlinks(p, NULL, CHASE_OPEN, NULL);
         if (pfd != -ENOENT) {
-                char procfs[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(pfd) + 1];
                 _cleanup_close_ int fd = -1;
                 sd_id128_t a, b;
 
                 assert_se(pfd >= 0);
 
-                xsprintf(procfs, "/proc/self/fd/%i", pfd);
-
-                fd = open(procfs, O_RDONLY|O_CLOEXEC);
+                fd = fd_reopen(pfd, O_RDONLY|O_CLOEXEC);
                 assert_se(fd >= 0);
-
                 safe_close(pfd);
 
                 assert_se(id128_read_fd(fd, ID128_PLAIN, &a) >= 0);
                 assert_se(sd_id128_get_machine(&b) >= 0);
                 assert_se(sd_id128_equal(a, b));
         }
+
+        /* Test CHASE_ONE */
+
+        p = strjoina(temp, "/start");
+        r = chase_symlinks(p, NULL, CHASE_STEP, &result);
+        assert_se(r == 0);
+        p = strjoina(temp, "/top/dot/dotdota");
+        assert_se(streq(p, result));
+        result = mfree(result);
+
+        r = chase_symlinks(p, NULL, CHASE_STEP, &result);
+        assert_se(r == 0);
+        p = strjoina(temp, "/top/./dotdota");
+        assert_se(streq(p, result));
+        result = mfree(result);
+
+        r = chase_symlinks(p, NULL, CHASE_STEP, &result);
+        assert_se(r == 0);
+        p = strjoina(temp, "/top/../a");
+        assert_se(streq(p, result));
+        result = mfree(result);
+
+        r = chase_symlinks(p, NULL, CHASE_STEP, &result);
+        assert_se(r == 0);
+        p = strjoina(temp, "/a");
+        assert_se(streq(p, result));
+        result = mfree(result);
+
+        r = chase_symlinks(p, NULL, CHASE_STEP, &result);
+        assert_se(r == 0);
+        p = strjoina(temp, "/b");
+        assert_se(streq(p, result));
+        result = mfree(result);
+
+        r = chase_symlinks(p, NULL, CHASE_STEP, &result);
+        assert_se(r == 0);
+        assert_se(streq("/usr", result));
+        result = mfree(result);
+
+        r = chase_symlinks("/usr", NULL, CHASE_STEP, &result);
+        assert_se(r > 0);
+        assert_se(streq("/usr", result));
+        result = mfree(result);
 
         assert_se(rm_rf(temp, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
 }
@@ -317,7 +343,7 @@ static void test_readlink_and_make_absolute(void) {
         char *r = NULL;
         _cleanup_free_ char *pwd = NULL;
 
-        assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid(), false) >= 0);
+        assert_se(mkdir_safe(tempdir, 0755, getuid(), getgid(), MKDIR_WARN_MODE) >= 0);
         assert_se(touch(name) >= 0);
 
         assert_se(symlink(name, name_alias) >= 0);
@@ -527,6 +553,40 @@ static void test_touch_file(void) {
         assert_se(timespec_load(&st.st_mtim) == test_mtime);
 }
 
+static void test_unlinkat_deallocate(void) {
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
+        struct stat st;
+
+        assert_se(tempfn_random_child(NULL, "unlink-deallocation", &p) >= 0);
+
+        fd = open(p, O_WRONLY|O_CLOEXEC|O_CREAT|O_EXCL, 0600);
+        assert_se(fd >= 0);
+
+        assert_se(write(fd, "hallo\n", 6) == 6);
+
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se(st.st_size == 6);
+        assert_se(st.st_blocks > 0);
+        assert_se(st.st_nlink == 1);
+
+        assert_se(unlinkat_deallocate(AT_FDCWD, p, 0) >= 0);
+
+        assert_se(fstat(fd, &st) >= 0);
+        assert_se(IN_SET(st.st_size, 0, 6)); /* depending on whether hole punching worked the size will be 6 (it worked) or 0 (we had to resort to truncation) */
+        assert_se(st.st_blocks == 0);
+        assert_se(st.st_nlink == 0);
+}
+
+static void test_fsync_directory_of_file(void) {
+        _cleanup_close_ int fd = -1;
+
+        fd = open_tmpfile_unlinkable(NULL, O_RDWR);
+        assert_se(fd >= 0);
+
+        assert_se(fsync_directory_of_file(fd) >= 0);
+}
+
 int main(int argc, char *argv[]) {
         test_unlink_noerrno();
         test_get_files_in_directory();
@@ -536,6 +596,8 @@ int main(int argc, char *argv[]) {
         test_dot_or_dot_dot();
         test_access_fd();
         test_touch_file();
+        test_unlinkat_deallocate();
+        test_fsync_directory_of_file();
 
         return 0;
 }

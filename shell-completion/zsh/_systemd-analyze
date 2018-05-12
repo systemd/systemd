@@ -1,13 +1,13 @@
 #compdef systemd-analyze
 # SPDX-License-Identifier: LGPL-2.1+
 
-_systemd_analyze_set-log-level() {
+_systemd_analyze_log-level() {
     local -a _levels
     _levels=(debug info notice warning err crit alert emerg)
     _describe -t level 'logging level' _levels || compadd "$@"
 }
 
-_systemd_analyze_set-log-target() {
+_systemd_analyze_log-target() {
     local -a _targets
     _targets=(console journal kmsg journal-or-kmsg null)
     _describe -t target 'logging target' _targets || compadd "$@"
@@ -15,6 +15,12 @@ _systemd_analyze_set-log-target() {
 
 _systemd_analyze_verify() {
     _sd_unit_files
+}
+
+_systemd_analyze_service-watchdogs() {
+    local -a _states
+    _states=(on off)
+    _describe -t state 'state' _states || compadd "$@"
 }
 
 _systemd_analyze_command(){
@@ -27,12 +33,13 @@ _systemd_analyze_command(){
         'plot:Output SVG graphic showing service initialization'
         'dot:Dump dependency graph (in dot(1) format)'
         'dump:Dump server status'
-        'set-log-level:Set systemd log threshold'
-        'set-log-target:Set systemd log target'
-        'get-log-level:Get systemd log threshold'
-        'get-log-target:Get systemd log target'
+        'unit-paths:List unit load paths'
+        'log-level:Get/set systemd log threshold'
+        'log-target:Get/set systemd log target'
+        'service-watchdogs:Get/set service watchdog status'
         'syscall-filter:List syscalls in seccomp filter'
         'verify:Check unit files for correctness'
+        'calendar:Validate repetitive calendar time events'
     )
 
     if (( CURRENT == 1 )); then
@@ -57,6 +64,7 @@ _arguments \
     '--version[Show package version]' \
     '--system[Operate on system systemd instance]' \
     '--user[Operate on user systemd instance]' \
+    '--global[Show global user instance config]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--man=[Do (not) check for existence of man pages]:boolean:(1 0)' \
     '--order[When generating graph for dot, show only order]' \

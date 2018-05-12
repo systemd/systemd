@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -65,7 +52,6 @@ static int print_catalog(FILE *f, sd_journal *j) {
         int r;
         _cleanup_free_ char *t = NULL, *z = NULL;
 
-
         r = sd_journal_get_catalog(j, &t);
         if (r < 0)
                 return r;
@@ -96,7 +82,6 @@ static int parse_field(const void *data, size_t length, const char *field, size_
                 return 0;
 
         nl = length - field_len;
-
 
         buf = newdup_suffix0(char, (const char*) data + field_len, nl);
         if (!buf)
@@ -166,8 +151,17 @@ static bool shall_print(const char *p, size_t l, OutputFlags flags) {
         return true;
 }
 
-static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, OutputFlags flags, int priority, const char* message, size_t message_len) {
-        const char *color_on = "", *color_off = "";
+static bool print_multiline(
+                FILE *f,
+                unsigned prefix,
+                unsigned n_columns,
+                OutputFlags flags,
+                int priority,
+                const char* message,
+                size_t message_len,
+                size_t highlight[2]) {
+
+        const char *color_on = "", *color_off = "", *highlight_on = "";
         const char *pos, *end;
         bool ellipsized = false;
         int line = 0;
@@ -176,9 +170,11 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
                 if (priority <= LOG_ERR) {
                         color_on = ANSI_HIGHLIGHT_RED;
                         color_off = ANSI_NORMAL;
+                        highlight_on = ANSI_HIGHLIGHT;
                 } else if (priority <= LOG_NOTICE) {
                         color_on = ANSI_HIGHLIGHT;
                         color_off = ANSI_NORMAL;
+                        highlight_on = ANSI_HIGHLIGHT_RED;
                 }
         }
 
@@ -209,9 +205,28 @@ static bool print_multiline(FILE *f, unsigned prefix, unsigned n_columns, Output
 
                 if (flags & (OUTPUT_FULL_WIDTH | OUTPUT_SHOW_ALL) ||
                     (prefix + len + 1 < n_columns && !tail_line)) {
-                        fprintf(f, "%*s%s%.*s%s\n",
-                                continuation * prefix, "",
-                                color_on, len, pos, color_off);
+                        if (highlight &&
+                            (size_t) (pos - message) <= highlight[0] &&
+                            highlight[0] < (size_t) len) {
+
+                                fprintf(f, "%*s%s%.*s",
+                                        continuation * prefix, "",
+                                        color_on, (int) highlight[0], pos);
+                                fprintf(f, "%s%.*s",
+                                        highlight_on,
+                                        (int) (MIN((size_t) len, highlight[1]) - highlight[0]),
+                                        pos + highlight[0]);
+                                if ((size_t) len > highlight[1])
+                                        fprintf(f, "%s%.*s",
+                                                color_on,
+                                                (int) (len - highlight[1]),
+                                                pos + highlight[1]);
+                                fprintf(f, "%s\n", color_off);
+
+                        } else
+                                fprintf(f, "%*s%s%.*s%s\n",
+                                        continuation * prefix, "",
+                                        color_on, len, pos, color_off);
                         continue;
                 }
 
@@ -369,7 +384,8 @@ static int output_short(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) {
+                Set *output_fields,
+                size_t highlight[2]) {
 
         int r;
         const void *data;
@@ -390,6 +406,7 @@ static int output_short(
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=", &realtime, &realtime_len),
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len),
         };
+        size_t highlight_shifted[] = {highlight ? highlight[0] : 0, highlight ? highlight[1] : 0};
 
         assert(f);
         assert(j);
@@ -421,7 +438,7 @@ static int output_short(
         }
 
         if (!(flags & OUTPUT_SHOW_ALL))
-                strip_tab_ansi(&message, &message_len);
+                strip_tab_ansi(&message, &message_len, highlight_shifted);
 
         if (priority_len == 1 && *priority >= '0' && *priority <= '7')
                 p = *priority - '0';
@@ -468,7 +485,9 @@ static int output_short(
         } else {
                 fputs(": ", f);
                 ellipsized |=
-                        print_multiline(f, n + 2, n_columns, flags, p, message, message_len);
+                        print_multiline(f, n + 2, n_columns, flags, p,
+                                        message, message_len,
+                                        highlight_shifted);
         }
 
         if (flags & OUTPUT_CATALOG)
@@ -483,7 +502,8 @@ static int output_verbose(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) {
+                Set *output_fields,
+                size_t highlight[2]) {
 
         const void *data;
         size_t length;
@@ -561,7 +581,7 @@ static int output_verbose(
                     (((length < PRINT_CHAR_THRESHOLD) || flags & OUTPUT_FULL_WIDTH)
                      && utf8_is_printable(data, length))) {
                         fprintf(f, "    %s%.*s=", on, fieldlen, (const char*)data);
-                        print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, c + 1, length - fieldlen - 1);
+                        print_multiline(f, 4 + fieldlen + 1, 0, OUTPUT_FULL_WIDTH, 0, c + 1, length - fieldlen - 1, NULL);
                         fputs(off, f);
                 } else {
                         char bytes[FORMAT_BYTES_MAX];
@@ -590,7 +610,8 @@ static int output_export(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) {
+                Set *output_fields,
+                size_t highlight[2]) {
 
         sd_id128_t boot_id;
         char sid[33];
@@ -732,7 +753,8 @@ static int output_json(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) {
+                Set *output_fields,
+                size_t highlight[2]) {
 
         uint64_t realtime, monotonic;
         _cleanup_free_ char *cursor = NULL;
@@ -961,14 +983,21 @@ static int output_cat(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) {
+                Set *output_fields,
+                size_t highlight[2]) {
 
         const void *data;
         size_t l;
         int r;
+        const char *highlight_on = "", *highlight_off = "";
 
         assert(j);
         assert(f);
+
+        if (flags & OUTPUT_COLOR) {
+                highlight_on = ANSI_HIGHLIGHT_RED;
+                highlight_off = ANSI_NORMAL;
+        }
 
         sd_journal_set_data_threshold(j, 0);
 
@@ -987,7 +1016,17 @@ static int output_cat(
 
         assert(l >= 8);
 
-        fwrite((const char*) data + 8, 1, l - 8, f);
+        if (highlight && (flags & OUTPUT_COLOR)) {
+                assert(highlight[0] <= highlight[1]);
+                assert(highlight[1] <= l - 8);
+
+                fwrite((const char*) data + 8, 1, highlight[0], f);
+                fwrite(highlight_on, 1, strlen(highlight_on), f);
+                fwrite((const char*) data + 8 + highlight[0], 1, highlight[1] - highlight[0], f);
+                fwrite(highlight_off, 1, strlen(highlight_off), f);
+                fwrite((const char*) data + 8 + highlight[1], 1, l - 8 - highlight[1], f);
+        } else
+                fwrite((const char*) data + 8, 1, l - 8, f);
         fputc('\n', f);
 
         return 0;
@@ -999,7 +1038,8 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
                 OutputMode mode,
                 unsigned n_columns,
                 OutputFlags flags,
-                Set *output_fields) = {
+                Set *output_fields,
+                size_t highlight[2]) = {
 
         [OUTPUT_SHORT] = output_short,
         [OUTPUT_SHORT_ISO] = output_short,
@@ -1023,6 +1063,7 @@ int output_journal(
                 unsigned n_columns,
                 OutputFlags flags,
                 char **output_fields,
+                size_t highlight[2],
                 bool *ellipsized) {
 
         int ret;
@@ -1043,7 +1084,7 @@ int output_journal(
                         return ret;
         }
 
-        ret = output_funcs[mode](f, j, mode, n_columns, flags, fields);
+        ret = output_funcs[mode](f, j, mode, n_columns, flags, fields, highlight);
 
         if (ellipsized && ret > 0)
                 *ellipsized = true;
@@ -1125,7 +1166,7 @@ static int show_journal(FILE *f,
                         line++;
                         maybe_print_begin_newline(f, &flags);
 
-                        r = output_journal(f, j, mode, n_columns, flags, NULL, ellipsized);
+                        r = output_journal(f, j, mode, n_columns, flags, NULL, NULL, ellipsized);
                         if (r < 0)
                                 return r;
                 }

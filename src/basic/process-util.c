@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2010 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <ctype.h>
@@ -398,37 +385,61 @@ use_saved_argv:
 }
 
 int is_kernel_thread(pid_t pid) {
+        _cleanup_free_ char *line = NULL;
+        unsigned long long flags;
+        size_t l, i;
         const char *p;
-        size_t count;
-        char c;
-        bool eof;
-        FILE *f;
+        char *q;
+        int r;
 
         if (IN_SET(pid, 0, 1) || pid == getpid_cached()) /* pid 1, and we ourselves certainly aren't a kernel thread */
                 return 0;
+        if (!pid_is_valid(pid))
+                return -EINVAL;
 
-        assert(pid > 1);
+        p = procfs_file_alloca(pid, "stat");
+        r = read_one_line_file(p, &line);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
 
-        p = procfs_file_alloca(pid, "cmdline");
-        f = fopen(p, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return -ESRCH;
-                return -errno;
+        /* Skip past the comm field */
+        q = strrchr(line, ')');
+        if (!q)
+                return -EINVAL;
+        q++;
+
+        /* Skip 6 fields to reach the flags field */
+        for (i = 0; i < 6; i++) {
+                l = strspn(q, WHITESPACE);
+                if (l < 1)
+                        return -EINVAL;
+                q += l;
+
+                l = strcspn(q, WHITESPACE);
+                if (l < 1)
+                        return -EINVAL;
+                q += l;
         }
 
-        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        /* Skip preceeding whitespace */
+        l = strspn(q, WHITESPACE);
+        if (l < 1)
+                return -EINVAL;
+        q += l;
 
-        count = fread(&c, 1, 1, f);
-        eof = feof(f);
-        fclose(f);
+        /* Truncate the rest */
+        l = strcspn(q, WHITESPACE);
+        if (l < 1)
+                return -EINVAL;
+        q[l] = 0;
 
-        /* Kernel threads have an empty cmdline */
+        r = safe_atollu(q, &flags);
+        if (r < 0)
+                return r;
 
-        if (count <= 0)
-                return eof ? 1 : -errno;
-
-        return 0;
+        return !!(flags & PF_KTHREAD);
 }
 
 int get_process_capeff(pid_t pid, char **capeff) {
@@ -599,8 +610,7 @@ int get_process_environ(pid_t pid, char **env) {
         } else
                 outcome[sz] = '\0';
 
-        *env = outcome;
-        outcome = NULL;
+        *env = TAKE_PTR(outcome);
 
         return 0;
 }
@@ -806,6 +816,13 @@ void sigkill_waitp(pid_t *pid) {
         sigkill_wait(*pid);
 }
 
+void sigterm_wait(pid_t pid) {
+        assert(pid > 1);
+
+        if (kill_and_sigcont(pid, SIGTERM) > 0)
+                (void) wait_for_terminate(pid, NULL);
+}
+
 int kill_and_sigcont(pid_t pid, int sig) {
         int r;
 
@@ -819,17 +836,33 @@ int kill_and_sigcont(pid_t pid, int sig) {
         return r;
 }
 
-int getenv_for_pid(pid_t pid, const char *field, char **_value) {
+int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         char *value = NULL;
-        int r;
         bool done = false;
-        size_t l;
         const char *path;
+        size_t l;
 
         assert(pid >= 0);
         assert(field);
-        assert(_value);
+        assert(ret);
+
+        if (pid == 0 || pid == getpid_cached()) {
+                const char *e;
+
+                e = getenv(field);
+                if (!e) {
+                        *ret = NULL;
+                        return 0;
+                }
+
+                value = strdup(e);
+                if (!value)
+                        return -ENOMEM;
+
+                *ret = value;
+                return 1;
+        }
 
         path = procfs_file_alloca(pid, "environ");
 
@@ -837,17 +870,17 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
         if (!f) {
                 if (errno == ENOENT)
                         return -ESRCH;
+
                 return -errno;
         }
 
         (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
 
         l = strlen(field);
-        r = 0;
 
         do {
                 char line[LINE_MAX];
-                unsigned i;
+                size_t i;
 
                 for (i = 0; i < sizeof(line)-1; i++) {
                         int c;
@@ -868,14 +901,14 @@ int getenv_for_pid(pid_t pid, const char *field, char **_value) {
                         if (!value)
                                 return -ENOMEM;
 
-                        r = 1;
-                        break;
+                        *ret = value;
+                        return 1;
                 }
 
         } while (!done);
 
-        *_value = value;
-        return r;
+        *ret = NULL;
+        return 0;
 }
 
 bool pid_is_unwaited(pid_t pid) {
@@ -940,7 +973,7 @@ bool is_main_thread(void) {
         return cached > 0;
 }
 
-noreturn void freeze(void) {
+_noreturn_ void freeze(void) {
 
         log_close();
 
@@ -1119,6 +1152,7 @@ extern int __register_atfork(void (*prepare) (void), void (*parent) (void), void
 extern void* __dso_handle __attribute__ ((__weak__));
 
 pid_t getpid_cached(void) {
+        static bool installed = false;
         pid_t current_value;
 
         /* getpid_cached() is much like getpid(), but caches the value in local memory, to avoid having to invoke a
@@ -1137,12 +1171,20 @@ pid_t getpid_cached(void) {
         case CACHED_PID_UNSET: { /* Not initialized yet, then do so now */
                 pid_t new_pid;
 
-                new_pid = getpid();
+                new_pid = raw_getpid();
 
-                if (__register_atfork(NULL, NULL, reset_cached_pid, __dso_handle) != 0) {
-                        /* OOM? Let's try again later */
-                        cached_pid = CACHED_PID_UNSET;
-                        return new_pid;
+                if (!installed) {
+                        /* __register_atfork() either returns 0 or -ENOMEM, in its glibc implementation. Since it's
+                         * only half-documented (glibc doesn't document it but LSB does — though only superficially)
+                         * we'll check for errors only in the most generic fashion possible. */
+
+                        if (__register_atfork(NULL, NULL, reset_cached_pid, __dso_handle) != 0) {
+                                /* OOM? Let's try again later */
+                                cached_pid = CACHED_PID_UNSET;
+                                return new_pid;
+                        }
+
+                        installed = true;
                 }
 
                 cached_pid = new_pid;
@@ -1150,7 +1192,7 @@ pid_t getpid_cached(void) {
         }
 
         case CACHED_PID_BUSY: /* Somebody else is currently initializing */
-                return getpid();
+                return raw_getpid();
 
         default: /* Properly initialized */
                 return current_value;
@@ -1333,9 +1375,9 @@ int safe_fork_full(
         return 0;
 }
 
-int fork_agent(const char *name, const int except[], unsigned n_except, pid_t *ret_pid, const char *path, ...) {
+int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret_pid, const char *path, ...) {
         bool stdout_is_tty, stderr_is_tty;
-        unsigned n, i;
+        size_t n, i;
         va_list ap;
         char **l;
         int r;
@@ -1381,8 +1423,7 @@ int fork_agent(const char *name, const int except[], unsigned n_except, pid_t *r
                         _exit(EXIT_FAILURE);
                 }
 
-                if (fd > STDERR_FILENO)
-                        close(fd);
+                safe_close_above_stdio(fd);
         }
 
         /* Count arguments */
@@ -1392,7 +1433,7 @@ int fork_agent(const char *name, const int except[], unsigned n_except, pid_t *r
         va_end(ap);
 
         /* Allocate strv */
-        l = alloca(sizeof(char *) * (n + 1));
+        l = newa(char*, n + 1);
 
         /* Fill in arguments */
         va_start(ap, path);
@@ -1411,7 +1452,7 @@ static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_IDLE] = "idle"
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, INT_MAX);
+DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(ioprio_class, int, IOPRIO_N_CLASSES);
 
 static const char *const sigchld_code_table[] = {
         [CLD_EXITED] = "exited",

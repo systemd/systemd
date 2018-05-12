@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2011 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include "alloc-util.h"
@@ -30,7 +17,7 @@ static void test_basic_mask_and_enable(const char *root) {
         const char *p;
         UnitFileState state;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
 
         log_set_max_level(LOG_DEBUG);
 
@@ -171,7 +158,7 @@ static void test_linked_units(const char *root) {
         const char *p, *q;
         UnitFileState state;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0, i;
+        size_t n_changes = 0, i;
 
         /*
          * We'll test three cases here:
@@ -316,7 +303,7 @@ static void test_linked_units(const char *root) {
 static void test_default(const char *root) {
         _cleanup_free_ char *def = NULL;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         const char *p;
 
         p = strjoina(root, "/usr/lib/systemd/system/test-default-real.target");
@@ -351,7 +338,7 @@ static void test_default(const char *root) {
 
 static void test_add_dependency(const char *root) {
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         const char *p;
 
         p = strjoina(root, "/usr/lib/systemd/system/real-add-dependency-test-target.target");
@@ -378,7 +365,7 @@ static void test_add_dependency(const char *root) {
 
 static void test_template_enable(const char *root) {
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         UnitFileState state;
         const char *p;
 
@@ -492,7 +479,7 @@ static void test_template_enable(const char *root) {
 
 static void test_indirect(const char *root) {
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         UnitFileState state;
         const char *p;
 
@@ -541,7 +528,7 @@ static void test_indirect(const char *root) {
 
 static void test_preset_and_list(const char *root) {
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0, i;
+        size_t n_changes = 0, i;
         const char *p, *q;
         UnitFileState state;
         bool got_yes = false, got_no = false;
@@ -651,7 +638,7 @@ static void test_revert(const char *root) {
         const char *p;
         UnitFileState state;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
 
         assert(root);
 
@@ -700,7 +687,7 @@ static void test_revert(const char *root) {
 
 static void test_preset_order(const char *root) {
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
         const char *p;
         UnitFileState state;
 
@@ -771,7 +758,7 @@ static void test_with_dropin(const char *root) {
         const char *p;
         UnitFileState state;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-1.service", &state) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-2.service", &state) == -ENOENT);
@@ -904,7 +891,7 @@ static void test_with_dropin_template(const char *root) {
         const char *p;
         UnitFileState state;
         UnitFileChange *changes = NULL;
-        unsigned n_changes = 0;
+        size_t n_changes = 0;
 
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-1@.service", &state) == -ENOENT);
         assert_se(unit_file_get_state(UNIT_FILE_SYSTEM, root, "with-dropin-2@.service", &state) == -ENOENT);

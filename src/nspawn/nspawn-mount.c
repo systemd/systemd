@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2015 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <sys/mount.h>
@@ -40,7 +27,7 @@
 #include "user-util.h"
 #include "util.h"
 
-CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t) {
+CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
         CustomMount *c, *ret;
 
         assert(l);
@@ -48,7 +35,7 @@ CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t) {
         assert(t >= 0);
         assert(t < _CUSTOM_MOUNT_TYPE_MAX);
 
-        c = realloc_multiply(*l, (*n + 1), sizeof(CustomMount));
+        c = reallocarray(*l, *n + 1, sizeof(CustomMount));
         if (!c)
                 return NULL;
 
@@ -61,8 +48,8 @@ CustomMount* custom_mount_add(CustomMount **l, unsigned *n, CustomMountType t) {
         return ret;
 }
 
-void custom_mount_free_all(CustomMount *l, unsigned n) {
-        unsigned i;
+void custom_mount_free_all(CustomMount *l, size_t n) {
+        size_t i;
 
         for (i = 0; i < n; i++) {
                 CustomMount *m = l + i;
@@ -123,8 +110,8 @@ static char *resolve_source_path(const char *dest, const char *source) {
         return strdup(source);
 }
 
-int custom_mount_prepare_all(const char *dest, CustomMount *l, unsigned n) {
-        unsigned i;
+int custom_mount_prepare_all(const char *dest, CustomMount *l, size_t n) {
+        size_t i;
         int r;
 
         /* Prepare all custom mounts. This will make source we know all temporary directories. This is called in the
@@ -146,8 +133,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, unsigned n) {
                         if (!s)
                                 return log_oom();
 
-                        free(m->source);
-                        m->source = s;
+                        free_and_replace(m->source, s);
                 } else {
                         /* No source specified? In that case, use a throw-away temporary directory in /var/tmp */
 
@@ -178,8 +164,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, unsigned n) {
                                 if (!s)
                                         return log_oom();
 
-                                free(*j);
-                                *j = s;
+                                free_and_replace(*j, s);
                         }
 
                         if (m->work_dir) {
@@ -189,8 +174,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, unsigned n) {
                                 if (!s)
                                         return log_oom();
 
-                                free(m->work_dir);
-                                m->work_dir = s;
+                                free_and_replace(m->work_dir, s);
                         } else {
                                 assert(m->source);
 
@@ -206,7 +190,7 @@ int custom_mount_prepare_all(const char *dest, CustomMount *l, unsigned n) {
         return 0;
 }
 
-int bind_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only) {
+int bind_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) {
         _cleanup_free_ char *source = NULL, *destination = NULL, *opts = NULL;
         const char *p = s;
         CustomMount *m;
@@ -252,7 +236,7 @@ int bind_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only
         return 0;
 }
 
-int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s) {
+int tmpfs_mount_parse(CustomMount **l, size_t *n, const char *s) {
         _cleanup_free_ char *path = NULL, *opts = NULL;
         const char *p = s;
         CustomMount *m;
@@ -282,14 +266,13 @@ int tmpfs_mount_parse(CustomMount **l, unsigned *n, const char *s) {
         if (!m)
                 return -ENOMEM;
 
-        m->destination = path;
-        m->options = opts;
+        m->destination = TAKE_PTR(path);
+        m->options = TAKE_PTR(opts);
 
-        path = opts = NULL;
         return 0;
 }
 
-int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_only) {
+int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) {
         _cleanup_free_ char *upper = NULL, *destination = NULL;
         _cleanup_strv_free_ char **lower = NULL;
         CustomMount *m;
@@ -308,8 +291,7 @@ int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_o
                     !source_path_is_valid(lower[1]))
                         return -EINVAL;
 
-                upper = lower[1];
-                lower[1] = NULL;
+                upper = TAKE_PTR(lower[1]);
 
                 destination = strdup(upper[0] == '+' ? upper+1 : upper); /* take the destination without "+" prefix */
                 if (!destination)
@@ -321,8 +303,7 @@ int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_o
                  * the "upper", and all before that the "lower" directories. */
 
                 destination = lower[k - 1];
-                upper = lower[k - 2];
-                lower[k - 2] = NULL;
+                upper = TAKE_PTR(lower[k - 2]);
 
                 STRV_FOREACH(i, lower)
                         if (!source_path_is_valid(*i))
@@ -343,13 +324,10 @@ int overlay_mount_parse(CustomMount **l, unsigned *n, const char *s, bool read_o
         if (!m)
                 return -ENOMEM;
 
-        m->destination = destination;
-        m->source = upper;
-        m->lower = lower;
+        m->destination = TAKE_PTR(destination);
+        m->source = TAKE_PTR(upper);
+        m->lower = TAKE_PTR(lower);
         m->read_only = read_only;
-
-        upper = destination = NULL;
-        lower = NULL;
 
         return 0;
 }
@@ -530,6 +508,18 @@ int mount_all(const char *dest,
               uid_t uid_shift, uid_t uid_range,
               const char *selinux_apifs_context) {
 
+#define PROC_INACCESSIBLE(path)                                         \
+        { NULL, (path), NULL, NULL, MS_BIND,                            \
+          MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO|MOUNT_INACCESSIBLE_REG }, /* Bind mount first ... */ \
+        { NULL, (path), NULL, NULL, MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, \
+          MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO } /* Then, make it r/o */
+
+#define PROC_READ_ONLY(path)                                            \
+        { (path), (path), NULL, NULL, MS_BIND,                          \
+          MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO }, /* Bind mount first ... */ \
+        { NULL,   (path), NULL, NULL, MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, \
+          MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO } /* Then, make it r/o */
+
         typedef struct MountPoint {
                 const char *what;
                 const char *where;
@@ -540,39 +530,72 @@ int mount_all(const char *dest,
         } MountPoint;
 
         static const MountPoint mount_table[] = {
-                /* inner child mounts */
-                { "proc",                "/proc",               "proc",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,                              MOUNT_FATAL|MOUNT_IN_USERNS },
-                { "/proc/sys",           "/proc/sys",           NULL,    NULL,        MS_BIND,                                                   MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ... */
-                { "/proc/sys/net",       "/proc/sys/net",       NULL,    NULL,        MS_BIND,                                                   MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO|MOUNT_APPLY_APIVFS_NETNS }, /* (except for this) */
-                { NULL,                  "/proc/sys",           NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* ... then, make it r/o */
-                { "/proc/sysrq-trigger", "/proc/sysrq-trigger", NULL,    NULL,        MS_BIND,                                                               MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ... */
-                { NULL,                  "/proc/sysrq-trigger", NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,             MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* ... then, make it r/o */
+                /* First we list inner child mounts (i.e. mounts applied *after* entering user namespacing) */
+                { "proc",            "/proc",           "proc",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                  MOUNT_FATAL|MOUNT_IN_USERNS },
 
-                /* outer child mounts */
-                { "tmpfs",               "/tmp",                "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                                            MOUNT_FATAL },
-                { "tmpfs",               "/sys",                "tmpfs", "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV,                              MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS },
-                { "sysfs",               "/sys",                "sysfs", NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,                    MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO },    /* skipped if above was mounted */
-                { "sysfs",               "/sys",                "sysfs", NULL,                  MS_NOSUID|MS_NOEXEC|MS_NODEV,                    MOUNT_FATAL },                          /* skipped if above was mounted */
+                { "/proc/sys",       "/proc/sys",       NULL,    NULL,        MS_BIND,
+                  MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* Bind mount first ... */
 
-                { "tmpfs",               "/dev",                "tmpfs", "mode=755",  MS_NOSUID|MS_STRICTATIME,                                  MOUNT_FATAL },
-                { "tmpfs",               "/dev/shm",            "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         MOUNT_FATAL },
-                { "tmpfs",               "/run",                "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,                         MOUNT_FATAL },
+                { "/proc/sys/net",   "/proc/sys/net",   NULL,    NULL,        MS_BIND,
+                  MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO|MOUNT_APPLY_APIVFS_NETNS }, /* (except for this) */
+
+                { NULL,              "/proc/sys",       NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                  MOUNT_FATAL|MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO },                          /* ... then, make it r/o */
+
+                /* Make these files inaccessible to container payloads: they potentially leak information about kernel
+                 * internals or the host's execution environment to the container */
+                PROC_INACCESSIBLE("/proc/kallsyms"),
+                PROC_INACCESSIBLE("/proc/kcore"),
+                PROC_INACCESSIBLE("/proc/keys"),
+                PROC_INACCESSIBLE("/proc/sysrq-trigger"),
+                PROC_INACCESSIBLE("/proc/timer_list"),
+
+                /* Make these directories read-only to container payloads: they show hardware information, and in some
+                 * cases contain tunables the container really shouldn't have access to. */
+                PROC_READ_ONLY("/proc/acpi"),
+                PROC_READ_ONLY("/proc/apm"),
+                PROC_READ_ONLY("/proc/asound"),
+                PROC_READ_ONLY("/proc/bus"),
+                PROC_READ_ONLY("/proc/fs"),
+                PROC_READ_ONLY("/proc/irq"),
+                PROC_READ_ONLY("/proc/scsi"),
+
+                /* Then we list outer child mounts (i.e. mounts applied *before* entering user namespacing) */
+                { "tmpfs",           "/tmp",            "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                  MOUNT_FATAL },
+                { "tmpfs",           "/sys",            "tmpfs", "mode=755",  MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_NETNS },
+                { "sysfs",           "/sys",            "sysfs", NULL,        MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                  MOUNT_FATAL|MOUNT_APPLY_APIVFS_RO },    /* skipped if above was mounted */
+                { "sysfs",           "/sys",            "sysfs", NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                  MOUNT_FATAL },                          /* skipped if above was mounted */
+                { "tmpfs",           "/dev",            "tmpfs", "mode=755",  MS_NOSUID|MS_STRICTATIME,
+                  MOUNT_FATAL },
+                { "tmpfs",           "/dev/shm",        "tmpfs", "mode=1777", MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                  MOUNT_FATAL },
+                { "tmpfs",           "/run",            "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                  MOUNT_FATAL },
+
 #if HAVE_SELINUX
-                { "/sys/fs/selinux",     "/sys/fs/selinux",     NULL,     NULL,       MS_BIND,                                                   0 },  /* Bind mount first */
-                { NULL,                  "/sys/fs/selinux",     NULL,     NULL,       MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, 0 },  /* Then, make it r/o */
+                { "/sys/fs/selinux", "/sys/fs/selinux", NULL,    NULL,        MS_BIND,
+                  0 },  /* Bind mount first */
+                { NULL,              "/sys/fs/selinux", NULL,    NULL,        MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                  0 },  /* Then, make it r/o */
 #endif
         };
 
-        unsigned k;
-        int r;
+        _cleanup_(unlink_and_freep) char *inaccessible = NULL;
         bool use_userns = (mount_settings & MOUNT_USE_USERNS);
         bool netns = (mount_settings & MOUNT_APPLY_APIVFS_NETNS);
         bool ro = (mount_settings & MOUNT_APPLY_APIVFS_RO);
         bool in_userns = (mount_settings & MOUNT_IN_USERNS);
+        size_t k;
+        int r;
 
         for (k = 0; k < ELEMENTSOF(mount_table); k++) {
                 _cleanup_free_ char *where = NULL, *options = NULL;
-                const char *o;
+                const char *o, *what;
                 bool fatal = (mount_table[k].mount_settings & MOUNT_FATAL);
 
                 if (in_userns != (bool)(mount_table[k].mount_settings & MOUNT_IN_USERNS))
@@ -588,12 +611,32 @@ int mount_all(const char *dest,
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve %s/%s: %m", dest, mount_table[k].where);
 
+                if (mount_table[k].mount_settings & MOUNT_INACCESSIBLE_REG) {
+
+                        if (!inaccessible) {
+                                _cleanup_free_ char *np = NULL;
+
+                                r = tempfn_random_child(NULL, "inaccessible", &np);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to generate inaccessible file node path: %m");
+
+                                r = touch_file(np, false, USEC_INFINITY, UID_INVALID, GID_INVALID, 0000);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create inaccessible file node '%s': %m", np);
+
+                                inaccessible = TAKE_PTR(np);
+                        }
+
+                        what = inaccessible;
+                } else
+                        what = mount_table[k].what;
+
                 r = path_is_mount_point(where, NULL, 0);
                 if (r < 0 && r != -ENOENT)
                         return log_error_errno(r, "Failed to detect whether %s is a mount point: %m", where);
 
                 /* Skip this entry if it is not a remount. */
-                if (mount_table[k].what && r > 0)
+                if (what && r > 0)
                         continue;
 
                 r = mkdir_userns_p(dest, where, 0755, mount_settings, uid_shift);
@@ -622,7 +665,7 @@ int mount_all(const char *dest,
                 }
 
                 r = mount_verbose(fatal ? LOG_ERR : LOG_DEBUG,
-                                  mount_table[k].what,
+                                  what,
                                   where,
                                   mount_table[k].type,
                                   mount_table[k].flags,
@@ -634,55 +677,14 @@ int mount_all(const char *dest,
         return 0;
 }
 
-static int parse_mount_bind_options(const char *options, unsigned long *mount_flags, char **mount_opts) {
-        const char *p = options;
-        unsigned long flags = *mount_flags;
-        char *opts = NULL;
-        int r;
-
-        assert(options);
-
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-
-                r = extract_first_word(&p, &word, ",", 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract mount option: %m");
-                if (r == 0)
-                        break;
-
-                if (streq(word, "rbind"))
-                        flags |= MS_REC;
-                else if (streq(word, "norbind"))
-                        flags &= ~MS_REC;
-                else {
-                        log_error("Invalid bind mount option: %s", word);
-                        return -EINVAL;
-                }
-        }
-
-        *mount_flags = flags;
-        /* in the future mount_opts will hold string options for mount(2) */
-        *mount_opts = opts;
-
-        return 0;
-}
-
 static int mount_bind(const char *dest, CustomMount *m) {
 
-        _cleanup_free_ char *mount_opts = NULL, *where = NULL;
-        unsigned long mount_flags = MS_BIND | MS_REC;
+        _cleanup_free_ char *where = NULL;
         struct stat source_st, dest_st;
         int r;
 
         assert(dest);
         assert(m);
-
-        if (m->options) {
-                r = parse_mount_bind_options(m->options, &mount_flags, &mount_opts);
-                if (r < 0)
-                        return r;
-        }
 
         if (stat(m->source, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
@@ -723,7 +725,7 @@ static int mount_bind(const char *dest, CustomMount *m) {
 
         }
 
-        r = mount_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
+        r = mount_verbose(LOG_ERR, m->source, where, NULL, MS_BIND | MS_REC, m->options);
         if (r < 0)
                 return r;
 
@@ -826,11 +828,11 @@ static int mount_overlay(const char *dest, CustomMount *m) {
 
 int mount_custom(
                 const char *dest,
-                CustomMount *mounts, unsigned n,
+                CustomMount *mounts, size_t n,
                 bool userns, uid_t uid_shift, uid_t uid_range,
                 const char *selinux_apifs_context) {
 
-        unsigned i;
+        size_t i;
         int r;
 
         assert(dest);
@@ -910,8 +912,7 @@ static int get_process_controllers(Set **ret) {
                         return r;
         }
 
-        *ret = controllers;
-        controllers = NULL;
+        *ret = TAKE_PTR(controllers);
 
         return 0;
 }

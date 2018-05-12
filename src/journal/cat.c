@@ -3,19 +3,6 @@
   This file is part of systemd.
 
   Copyright 2012 Lennart Poettering
-
-  systemd is free software; you can redistribute it and/or modify it
-  under the terms of the GNU Lesser General Public License as published by
-  the Free Software Foundation; either version 2.1 of the License, or
-  (at your option) any later version.
-
-  systemd is distributed in the hope that it will be useful, but
-  WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  Lesser General Public License for more details.
-
-  You should have received a copy of the GNU Lesser General Public License
-  along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
 #include <errno.h>
@@ -135,15 +122,12 @@ int main(int argc, char *argv[]) {
 
         saved_stderr = fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 3);
 
-        if (dup3(fd, STDOUT_FILENO, 0) < 0 ||
-            dup3(fd, STDERR_FILENO, 0) < 0) {
-                r = log_error_errno(errno, "Failed to duplicate fd: %m");
+        r = rearrange_stdio(STDIN_FILENO, fd, fd); /* Invalidates fd on succcess + error! */
+        fd = -1;
+        if (r < 0) {
+                log_error_errno(r, "Failed to rearrange stdout/stderr: %m");
                 goto finish;
         }
-
-        if (fd >= 3)
-                safe_close(fd);
-        fd = -1;
 
         if (argc <= optind)
                 (void) execl("/bin/cat", "/bin/cat", NULL);

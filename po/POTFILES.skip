@@ -12,9 +12,9 @@ src/core/dbus-target.c
 src/core/dbus-timer.c
 src/core/dbus-unit.c
 src/core/dbus-scope.c
+src/core/org.freedesktop.systemd1.policy
 src/hostname/hostnamed.c
 src/locale/localed.c
-src/core/org.freedesktop.systemd1.policy.in
 src/timedate/timedated.c
 units/user@.service.in
 units/debug-shell.service.in
