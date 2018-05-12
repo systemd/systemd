@@ -868,6 +868,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SHARE_SYSTEM:
                         /* We don't officially support this anymore, except for compat reasons. People should use the
                          * $SYSTEMD_NSPAWN_SHARE_* environment variables instead. */
+                        log_warning("Please do not use --share-system anymore, use $SYSTEMD_NSPAWN_SHARE_* instead.");
                         arg_clone_ns_flags = 0;
                         break;
 
