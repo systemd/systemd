@@ -1258,7 +1258,6 @@ static int bus_property_get_dns_servers(
                 sd_bus_error *error) {
 
         Manager *m = userdata;
-        unsigned c = 0;
         DnsServer *s;
         Iterator i;
         Link *l;
@@ -1275,8 +1274,6 @@ static int bus_property_get_dns_servers(
                 r = bus_dns_server_append(reply, s, true);
                 if (r < 0)
                         return r;
-
-                c++;
         }
 
         HASHMAP_FOREACH(l, m->links, i) {
@@ -1284,16 +1281,35 @@ static int bus_property_get_dns_servers(
                         r = bus_dns_server_append(reply, s, true);
                         if (r < 0)
                                 return r;
-                        c++;
                 }
         }
 
-        if (c == 0) {
-                LIST_FOREACH(servers, s, m->fallback_dns_servers) {
-                        r = bus_dns_server_append(reply, s, true);
-                        if (r < 0)
-                                return r;
-                }
+        return sd_bus_message_close_container(reply);
+}
+
+static int bus_property_get_fallback_dns_servers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        DnsServer *s, **f = userdata;
+        int r;
+
+        assert(reply);
+        assert(f);
+
+        r = sd_bus_message_open_container(reply, 'a', "(iiay)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(servers, s, *f) {
+                r = bus_dns_server_append(reply, s, true);
+                if (r < 0)
+                        return r;
         }
 
         return sd_bus_message_close_container(reply);
@@ -1848,6 +1864,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Manager, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Manager, mdns_support), 0),
         SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, 0),
+        SD_BUS_PROPERTY("FallbackDNS", "a(iiay)", bus_property_get_fallback_dns_servers, offsetof(Manager, fallback_dns_servers), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(isb)", bus_property_get_domains, 0, 0),
         SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),

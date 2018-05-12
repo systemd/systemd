@@ -1457,13 +1457,14 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         printf("       LLMNR setting: %s\n"
                "MulticastDNS setting: %s\n"
                "      DNSSEC setting: %s\n"
-               "    DNSSEC supported: %s\n"
-               "  Current DNS Server: %s\n",
+               "    DNSSEC supported: %s\n",
                strna(link_info.llmnr),
                strna(link_info.mdns),
                strna(link_info.dnssec),
-               yes_no(link_info.dnssec_supported),
-               strna(link_info.current_dns));
+               yes_no(link_info.dnssec_supported));
+
+        if (link_info.current_dns)
+                printf("  Current DNS Server: %s\n", link_info.current_dns);
 
         STRV_FOREACH(i, link_info.dns) {
                 printf("         %s %s\n",
@@ -1595,6 +1596,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         struct global_info {
                 char *current_dns;
                 char **dns;
+                char **fallback_dns;
                 char **domains;
                 char **ntas;
                 const char *llmnr;
@@ -1605,6 +1607,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         static const struct bus_properties_map property_map[] = {
                 { "DNS",                        "a(iiay)", map_global_dns_servers,        offsetof(struct global_info, dns)              },
+                { "FallbackDNS",                "a(iiay)", map_global_dns_servers,        offsetof(struct global_info, fallback_dns)     },
                 { "CurrentDNSServer",           "(iiay)",  map_global_current_dns_server, offsetof(struct global_info, current_dns)      },
                 { "Domains",                    "a(isb)",  map_global_domains,            offsetof(struct global_info, domains)          },
                 { "DNSSECNegativeTrustAnchors", "as",      NULL,                          offsetof(struct global_info, ntas)             },
@@ -1682,17 +1685,24 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         printf("       LLMNR setting: %s\n"
                "MulticastDNS setting: %s\n"
                "      DNSSEC setting: %s\n"
-               "    DNSSEC supported: %s\n"
-               "  Current DNS Server: %s\n",
+               "    DNSSEC supported: %s\n",
                strna(global_info.llmnr),
                strna(global_info.mdns),
                strna(global_info.dnssec),
-               yes_no(global_info.dnssec_supported),
-               strna(global_info.current_dns));
+               yes_no(global_info.dnssec_supported));
+
+        if (global_info.current_dns)
+                printf("  Current DNS Server: %s\n", global_info.current_dns);
 
         STRV_FOREACH(i, global_info.dns) {
                 printf("         %s %s\n",
                        i == global_info.dns ? "DNS Servers:" : "            ",
+                       *i);
+        }
+
+        STRV_FOREACH(i, global_info.fallback_dns) {
+                printf("%s %s\n",
+                       i == global_info.fallback_dns ? "Fallback DNS Servers:" : "                     ",
                        *i);
         }
 
@@ -1716,6 +1726,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 finish:
         free(global_info.current_dns);
         strv_free(global_info.dns);
+        strv_free(global_info.fallback_dns);
         strv_free(global_info.domains);
         strv_free(global_info.ntas);
 
