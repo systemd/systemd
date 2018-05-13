@@ -228,7 +228,7 @@
       legitimate, and vice versa, that the client is trusted.</para>
 
       <para>A suitable set of certificates can be generated with
-      <command>openssl</command>. Note, 2048 bits of key length 
+      <command>openssl</command>. Note, 2048 bits of key length
       is minimally recommended to use for security reasons:</para>
 
       <programlisting>openssl req -newkey rsa:2048 -days 3650 -x509 -nodes \
