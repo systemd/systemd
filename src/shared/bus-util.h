@@ -122,6 +122,44 @@ assert_cc(sizeof(mode_t) == sizeof(uint32_t));
 int bus_log_parse_error(int r);
 int bus_log_create_error(int r);
 
+#define BUS_DEFINE_PROPERTY_GET_GLOBAL(function, bus_type, val)         \
+        int function(sd_bus *bus,                                       \
+                     const char *path,                                  \
+                     const char *interface,                             \
+                     const char *property,                              \
+                     sd_bus_message *reply,                             \
+                     void *userdata,                                    \
+                     sd_bus_error *error) {                             \
+                                                                        \
+                assert(bus);                                            \
+                assert(reply);                                          \
+                                                                        \
+                return sd_bus_message_append(reply, bus_type, val);     \
+        }
+
+#define BUS_DEFINE_PROPERTY_GET2(function, bus_type, data_type, get1, get2) \
+        int function(sd_bus *bus,                                       \
+                     const char *path,                                  \
+                     const char *interface,                             \
+                     const char *property,                              \
+                     sd_bus_message *reply,                             \
+                     void *userdata,                                    \
+                     sd_bus_error *error) {                             \
+                                                                        \
+                data_type *data = userdata;                             \
+                                                                        \
+                assert(bus);                                            \
+                assert(reply);                                          \
+                assert(data);                                           \
+                                                                        \
+                return sd_bus_message_append(reply, bus_type,           \
+                                             get2(get1(data)));         \
+        }
+
+#define ident(x) (x)
+#define BUS_DEFINE_PROPERTY_GET(function, bus_type, data_type, get1)    \
+        BUS_DEFINE_PROPERTY_GET2(function, bus_type, data_type, get1, ident)
+
 #define BUS_DEFINE_PROPERTY_GET_ENUM(function, name, type)              \
         int function(sd_bus *bus,                                       \
                      const char *path,                                  \
