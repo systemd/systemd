@@ -30,6 +30,6 @@ static struct mempool pool_name = { \
 }
 
 
-#ifdef VALGRIND
+#if VALGRIND
 void mempool_drop(struct mempool *mp);
 #endif
