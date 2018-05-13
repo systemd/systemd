@@ -229,7 +229,6 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
         path = sd_bus_message_get_path(message);
 
         if (object_path_startswith("/org/freedesktop/systemd1", path)) {
-
                 r = mac_selinux_access_check(message, verb, error);
                 if (r < 0)
                         return r;
@@ -257,7 +256,6 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
                 else
                         manager_load_unit_from_dbus_path(m, path, NULL, &u);
         }
-
         if (!u)
                 return 0;
 
