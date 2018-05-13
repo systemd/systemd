@@ -542,7 +542,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        if (!timezone_is_valid(z))
+        if (!timezone_is_valid(z, LOG_DEBUG))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid time zone '%s'", z);
 
         r = free_and_strdup(&c->zone, z);

@@ -1069,7 +1069,7 @@ int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz) {
         int r;
 
         assert_return(server, -EINVAL);
-        assert_return(timezone_is_valid(tz), -EINVAL);
+        assert_return(timezone_is_valid(tz, LOG_DEBUG), -EINVAL);
 
         if (streq_ptr(tz, server->timezone))
                 return 0;

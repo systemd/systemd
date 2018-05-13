@@ -21,11 +21,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -875,7 +877,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
         int r;
 
         last_space = strrchr(t, ' ');
-        if (last_space != NULL && timezone_is_valid(last_space + 1))
+        if (last_space != NULL && timezone_is_valid(last_space + 1, LOG_DEBUG))
                 tz = last_space + 1;
 
         if (!tz || endswith_no_case(t, " UTC"))
@@ -1273,10 +1275,12 @@ int get_timezones(char ***ret) {
         return 0;
 }
 
-bool timezone_is_valid(const char *name) {
+bool timezone_is_valid(const char *name, int log_level) {
         bool slash = false;
         const char *p, *t;
-        struct stat st;
+        _cleanup_close_ int fd = -1;
+        char buf[4];
+        int r;
 
         if (isempty(name))
                 return false;
@@ -1305,11 +1309,30 @@ bool timezone_is_valid(const char *name) {
                 return false;
 
         t = strjoina("/usr/share/zoneinfo/", name);
-        if (stat(t, &st) < 0)
-                return false;
 
-        if (!S_ISREG(st.st_mode))
+        fd = open(t, O_RDONLY|O_CLOEXEC);
+        if (fd < 0) {
+                log_full_errno(log_level, errno, "Failed to open timezone file '%s': %m", t);
                 return false;
+        }
+
+        r = fd_verify_regular(fd);
+        if (r < 0) {
+                log_full_errno(log_level, r, "Timezone file '%s' is not  a regular file: %m", t);
+                return false;
+        }
+
+        r = loop_read_exact(fd, buf, 4, false);
+        if (r < 0) {
+                log_full_errno(log_level, r, "Failed to read from timezone file '%s': %m", t);
+                return false;
+        }
+
+        /* Magic from tzfile(5) */
+        if (memcmp(buf, "TZif", 4) != 0) {
+                log_full(log_level, "Timezone file '%s' has wrong magic bytes", t);
+                return false;
+        }
 
         return true;
 }
@@ -1380,7 +1403,7 @@ int get_timezone(char **tz) {
         if (!e)
                 return -EINVAL;
 
-        if (!timezone_is_valid(e))
+        if (!timezone_is_valid(e, LOG_DEBUG))
                 return -EINVAL;
 
         z = strdup(e);

@@ -1012,7 +1012,7 @@ int config_parse_timezone(
         if (r < 0)
                 return r;
 
-        if (!timezone_is_valid(tz)) {
+        if (!timezone_is_valid(tz, LOG_ERR)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Timezone is not valid, ignoring assignment: %s", rvalue);
                 free(tz);
                 return 0;
