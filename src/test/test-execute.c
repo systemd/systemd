@@ -627,7 +627,16 @@ static void test_exec_standardinput(Manager *m) {
 }
 
 static void test_exec_standardoutput(Manager *m) {
+        static const char e[] =
+                "123\n"
+                "extra file content\n";
+        int r;
+
         test(m, "exec-standardoutput-file.service", 0, CLD_EXITED);
+
+        r = write_string_file("/tmp/exec-standardoutput-file-truncate.service.actual", e, WRITE_STRING_FILE_CREATE);
+        assert_se(r == 0);
+        test(m, "exec-standardoutput-file-truncate.service", 0, CLD_EXITED);
 }
 
 static int run_tests(UnitFileScope scope, const test_function_t *tests) {
