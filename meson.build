@@ -774,6 +774,8 @@ endforeach
 conf.set10('ENABLE_DEBUG_HASHMAP', enable_debug_hashmap)
 conf.set10('ENABLE_DEBUG_MMAP_CACHE', enable_debug_mmap_cache)
 
+conf.set10('VALGRIND', get_option('valgrind'))
+
 #####################################################################
 
 threads = dependency('threads')
@@ -2925,6 +2927,7 @@ foreach tuple : [
         ['gshadow'],
         ['debug hashmap'],
         ['debug mmap cache'],
+        ['valgrind',         conf.get('VALGRIND') == 1],
 ]
 
         if tuple.length() >= 2
