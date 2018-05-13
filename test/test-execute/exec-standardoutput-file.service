@@ -1,0 +1,10 @@
+[Unit]
+Description=Test for StandardOutput=file:
+
+[Service]
+ExecStart=cat /usr/bin/cmp
+ExecStartPost=cmp /usr/bin/cmp /tmp/exec-standardoutput-file.service.actual
+ExecStartPost=-rm -f /tmp/exec-standardoutput-file.service.actual
+Type=oneshot
+StandardOutput=file:/tmp/exec-standardoutput-file.service.actual
+StandardError=null
