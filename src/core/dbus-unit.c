@@ -33,6 +33,12 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, Col
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_emergency_action, emergency_action, EmergencyAction);
+static BUS_DEFINE_PROPERTY_GET(property_get_description, "s", Unit, unit_description);
+static BUS_DEFINE_PROPERTY_GET2(property_get_active_state, "s", Unit, unit_active_state, unit_active_state_to_string);
+static BUS_DEFINE_PROPERTY_GET(property_get_sub_state, "s", Unit, unit_sub_state_to_string);
+static BUS_DEFINE_PROPERTY_GET2(property_get_unit_file_state, "s", Unit, unit_get_unit_file_state, unit_file_state_to_string);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_reload, "b", Unit, unit_can_reload);
+static BUS_DEFINE_PROPERTY_GET(property_get_need_daemon_reload, "b", Unit, unit_need_daemon_reload);
 
 static int property_get_names(
                 sd_bus *bus,
@@ -93,7 +99,7 @@ static int property_get_dependencies(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Hashmap *h = *(Hashmap**) userdata;
+        Hashmap **h = userdata;
         Iterator j;
         Unit *u;
         void *v;
@@ -101,12 +107,13 @@ static int property_get_dependencies(
 
         assert(bus);
         assert(reply);
+        assert(h);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH_KEY(v, u, h, j) {
+        HASHMAP_FOREACH_KEY(v, u, *h, j) {
                 r = sd_bus_message_append(reply, "s", u->id);
                 if (r < 0)
                         return r;
@@ -140,7 +147,7 @@ static int property_get_requires_mounts_for(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Hashmap *h = *(Hashmap**) userdata;
+        Hashmap **h = userdata;
         const char *p;
         Iterator j;
         void *v;
@@ -148,72 +155,19 @@ static int property_get_requires_mounts_for(
 
         assert(bus);
         assert(reply);
+        assert(h);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH_KEY(v, p, h, j) {
+        HASHMAP_FOREACH_KEY(v, p, *h, j) {
                 r = sd_bus_message_append(reply, "s", p);
                 if (r < 0)
                         return r;
         }
 
         return sd_bus_message_close_container(reply);
-}
-
-static int property_get_description(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "s", unit_description(u));
-}
-
-static int property_get_active_state(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "s", unit_active_state_to_string(unit_active_state(u)));
-}
-
-static int property_get_sub_state(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "s", unit_sub_state_to_string(u));
 }
 
 static int property_get_unit_file_preset(
@@ -237,24 +191,6 @@ static int property_get_unit_file_preset(
         return sd_bus_message_append(reply, "s",
                                      r < 0 ? NULL:
                                      r > 0 ? "enabled" : "disabled");
-}
-
-static int property_get_unit_file_state(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "s", unit_file_state_to_string(unit_get_unit_file_state(u)));
 }
 
 static int property_get_can_start(
@@ -291,24 +227,6 @@ static int property_get_can_stop(
         assert(u);
 
         return sd_bus_message_append(reply, "b", unit_can_stop(u) && !u->refuse_manual_stop);
-}
-
-static int property_get_can_reload(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "b", unit_can_reload(u));
 }
 
 static int property_get_can_isolate(
@@ -353,24 +271,6 @@ static int property_get_job(
                 return -ENOMEM;
 
         return sd_bus_message_append(reply, "(uo)", u->job->id, p);
-}
-
-static int property_get_need_daemon_reload(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "b", unit_need_daemon_reload(u));
 }
 
 static int property_get_conditions(

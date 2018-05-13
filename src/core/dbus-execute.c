@@ -57,6 +57,9 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_keyring_mode, exec_keyring
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_home, protect_home, ProtectHome);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_system, protect_system, ProtectSystem);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_personality, personality, unsigned long);
+static BUS_DEFINE_PROPERTY_GET(property_get_ioprio, "i", ExecContext, exec_context_get_effective_ioprio);
+static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_class, "i", ExecContext, exec_context_get_effective_ioprio, IOPRIO_PRIO_CLASS);
+static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_priority, "i", ExecContext, exec_context_get_effective_ioprio, IOPRIO_PRIO_DATA);
 
 static int property_get_environment_files(
                 sd_bus *bus,
@@ -145,60 +148,6 @@ static int property_get_nice(
         }
 
         return sd_bus_message_append(reply, "i", n);
-}
-
-static int property_get_ioprio(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(c);
-
-        return sd_bus_message_append(reply, "i", exec_context_get_effective_ioprio(c));
-}
-
-static int property_get_ioprio_class(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(c);
-
-        return sd_bus_message_append(reply, "i", IOPRIO_PRIO_CLASS(exec_context_get_effective_ioprio(c)));
-}
-
-static int property_get_ioprio_priority(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(c);
-
-        return sd_bus_message_append(reply, "i", IOPRIO_PRIO_DATA(exec_context_get_effective_ioprio(c)));
 }
 
 static int property_get_cpu_sched_policy(
