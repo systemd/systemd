@@ -1,0 +1,12 @@
+[Unit]
+Description=Test for StandardOutput=file: truncating the file \
+ (the test harness should already have written something to /tmp/exec-standardoutput-file-truncate.service.actual)
+
+[Service]
+ExecStartPre=sh -c 'echo 123 > /tmp/exec-standardoutput-file-truncate.service.expected'
+ExecStart=echo 123
+ExecStartPost=cmp /tmp/exec-standardoutput-file-truncate.service.expected /tmp/exec-standardoutput-file-truncate.service.actual
+ExecStartPost=-rm -f /tmp/exec-standardoutput-file-truncate.service.expected /tmp/exec-standardoutput-file-truncate.service.actual
+Type=oneshot
+StandardOutput=file:/tmp/exec-standardoutput-file-truncate.service.actual
+StandardError=null
