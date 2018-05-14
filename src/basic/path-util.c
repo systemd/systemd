@@ -918,7 +918,7 @@ int systemd_installation_has_version(const char *root, unsigned minimal_version)
                 if (r < 0)
                         return r;
 
-                assert_se((c = endswith(path, "*.so")));
+                assert_se(c = endswith(path, "*.so"));
                 *c = '\0'; /* truncate the glob part */
 
                 STRV_FOREACH(name, names) {

@@ -68,7 +68,8 @@ static void *server(void *p) {
 
                 if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "Exit")) {
 
-                        assert_se((sd_bus_can_send(bus, 'h') >= 1) == (c->server_negotiate_unix_fds && c->client_negotiate_unix_fds));
+                        assert_se((sd_bus_can_send(bus, 'h') >= 1) ==
+                                  (c->server_negotiate_unix_fds && c->client_negotiate_unix_fds));
 
                         r = sd_bus_message_new_method_return(m, &reply);
                         if (r < 0) {

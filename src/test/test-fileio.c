@@ -467,7 +467,7 @@ static void test_write_string_file_verify(void) {
         int r;
 
         assert_se(read_one_line_file("/proc/cmdline", &buf) >= 0);
-        assert_se((buf2 = strjoin(buf, "\n")));
+        assert_se(buf2 = strjoin(buf, "\n"));
 
         r = write_string_file("/proc/cmdline", buf, 0);
         assert_se(IN_SET(r, -EACCES, -EIO));
