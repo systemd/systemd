@@ -638,6 +638,9 @@ static void test_exec_standardoutput(Manager *m) {
 
         assert_se(write_string_file("/tmp/exec-standardoutput-file-truncate.service.actual", e, WRITE_STRING_FILE_CREATE) == 0);
         test(m, "exec-standardoutput-file-truncate.service", 0, CLD_EXITED);
+
+        assert_se(write_string_file("/tmp/exec-standardinput-standardoutput-file.service.file", "Linux\n", WRITE_STRING_FILE_CREATE) == 0);
+        test(m, "exec-standardinput-standardoutput-file.service", 0, CLD_EXITED);
 }
 
 static int run_tests(UnitFileScope scope, const test_function_t *tests) {

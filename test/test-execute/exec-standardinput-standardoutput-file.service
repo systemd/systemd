@@ -1,0 +1,10 @@
+[Unit]
+Description=Test for StandardInput=file: and StandardOutput=file: with the same file
+
+[Service]
+ExecStart=cmp /proc/sys/kernel/ostype
+ExecStartPost=-rm -f /tmp/exec-standardinput-standardoutput-file.service.file
+Type=oneshot
+StandardInput=file:/tmp/exec-standardinput-standardoutput-file.service.file
+StandardOutput=file:/tmp/exec-standardinput-standardoutput-file.service.file
+StandardError=null
