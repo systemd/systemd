@@ -117,8 +117,8 @@ static void test_copy_tree(void) {
         assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE) == 0);
 
         STRV_FOREACH(p, files) {
-                _cleanup_free_ char *buf = NULL, *f;
-                size_t sz = 0;
+                _cleanup_free_ char *buf, *f;
+                size_t sz;
 
                 assert_se(f = strappend(copy_dir, *p));
 
@@ -128,7 +128,7 @@ static void test_copy_tree(void) {
         }
 
         STRV_FOREACH_PAIR(link, p, links) {
-                _cleanup_free_ char *target = NULL, *f, *l;
+                _cleanup_free_ char *target, *f, *l;
 
                 assert_se(f = strjoin(original_dir, *p));
                 assert_se(l = strjoin(copy_dir, *link));
