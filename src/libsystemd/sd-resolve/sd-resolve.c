@@ -321,8 +321,8 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
 
         req = &packet->rheader;
 
-        assert(length >= sizeof(RHeader));
-        assert(length == req->length);
+        assert_return(length >= sizeof(RHeader), -EIO);
+        assert_return(length == req->length, -EIO);
 
         switch (req->type) {
 
@@ -332,8 +332,8 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
                const char *node, *service;
                int ret;
 
-               assert(length >= sizeof(AddrInfoRequest));
-               assert(length == sizeof(AddrInfoRequest) + ai_req->node_len + ai_req->service_len);
+               assert_return(length >= sizeof(AddrInfoRequest), -EBADMSG);
+               assert_return(length == sizeof(AddrInfoRequest) + ai_req->node_len + ai_req->service_len, -EBADMSG);
 
                hints.ai_flags = ai_req->ai_flags;
                hints.ai_family = ai_req->ai_family;
@@ -358,9 +358,9 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
                union sockaddr_union sa;
                int ret;
 
-               assert(length >= sizeof(NameInfoRequest));
-               assert(length == sizeof(NameInfoRequest) + ni_req->sockaddr_len);
-               assert(sizeof(sa) >= ni_req->sockaddr_len);
+               assert_return(length >= sizeof(NameInfoRequest), -EBADMSG);
+               assert_return(length == sizeof(NameInfoRequest) + ni_req->sockaddr_len, -EBADMSG);
+               assert_return(ni_req->sockaddr_len <= sizeof(sa), -EBADMSG);
 
                memcpy(&sa, (const uint8_t *) ni_req + sizeof(NameInfoRequest), ni_req->sockaddr_len);
 
@@ -754,11 +754,11 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
         int r;
 
         assert(resolve);
+        assert(packet);
 
         resp = &packet->rheader;
-        assert(resp);
-        assert(length >= sizeof(RHeader));
-        assert(length == resp->length);
+        assert_return(length >= sizeof(RHeader), -EIO);
+        assert_return(length == resp->length, -EIO);
 
         if (resp->type == RESPONSE_DIED) {
                 resolve->dead = true;
@@ -780,8 +780,8 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
                 size_t l;
                 struct addrinfo *prev = NULL;
 
-                assert(length >= sizeof(AddrInfoResponse));
-                assert(q->type == REQUEST_ADDRINFO);
+                assert_return(length >= sizeof(AddrInfoResponse), -EBADMSG);
+                assert_return(q->type == REQUEST_ADDRINFO, -EBADMSG);
 
                 ASSIGN_ERRNO(q, ai_resp->ret, ai_resp->_errno, ai_resp->_h_errno);
 
@@ -813,8 +813,8 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
         case RESPONSE_NAMEINFO: {
                 const NameInfoResponse *ni_resp = &packet->nameinfo_response;
 
-                assert(length >= sizeof(NameInfoResponse));
-                assert(q->type == REQUEST_NAMEINFO);
+                assert_return(length >= sizeof(NameInfoResponse), -EBADMSG);
+                assert_return(q->type == REQUEST_NAMEINFO, -EBADMSG);
 
                 if (ni_resp->hostlen > DNS_HOSTNAME_MAX ||
                     ni_resp->servlen > DNS_HOSTNAME_MAX ||
