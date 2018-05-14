@@ -18,6 +18,10 @@
 #include "user-util.h"
 #include "util.h"
 
+static BUS_DEFINE_PROPERTY_GET(property_get_can_multi_session, "b", Seat, seat_can_multi_session);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_tty, "b", Seat, seat_can_tty);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_graphical, "b", Seat, seat_can_graphical);
+
 static int property_get_active_session(
                 sd_bus *bus,
                 const char *path,
@@ -39,60 +43,6 @@ static int property_get_active_session(
                 return -ENOMEM;
 
         return sd_bus_message_append(reply, "(so)", s->active ? s->active->id : "", p);
-}
-
-static int property_get_can_multi_session(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Seat *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "b", seat_can_multi_session(s));
-}
-
-static int property_get_can_tty(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Seat *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "b", seat_can_tty(s));
-}
-
-static int property_get_can_graphical(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Seat *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "b", seat_can_graphical(s));
 }
 
 static int property_get_sessions(

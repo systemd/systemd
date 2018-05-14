@@ -86,42 +86,8 @@ static int property_get_seat(
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, session_type, SessionType);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, session_class, SessionClass);
-
-static int property_get_active(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Session *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "b", session_is_active(s));
-}
-
-static int property_get_state(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Session *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "s", session_state_to_string(session_get_state(s)));
-}
+static BUS_DEFINE_PROPERTY_GET(property_get_active, "b", Session, session_is_active);
+static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", Session, session_get_state, session_state_to_string);
 
 static int property_get_idle_hint(
                 sd_bus *bus,
