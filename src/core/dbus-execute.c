@@ -60,6 +60,9 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_personality, personality, unsig
 static BUS_DEFINE_PROPERTY_GET(property_get_ioprio, "i", ExecContext, exec_context_get_effective_ioprio);
 static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_class, "i", ExecContext, exec_context_get_effective_ioprio, IOPRIO_PRIO_CLASS);
 static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_priority, "i", ExecContext, exec_context_get_effective_ioprio, IOPRIO_PRIO_DATA);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_string, "s", NULL);
+static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_level, "i", int, LOG_PRI);
+static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_facility, "i", int, LOG_FAC);
 
 static int property_get_environment_files(
                 sd_bus *bus,
@@ -247,21 +250,6 @@ static int property_get_timer_slack_nsec(
                 u = (uint64_t) prctl(PR_GET_TIMERSLACK);
 
         return sd_bus_message_append(reply, "t", u);
-}
-
-static int property_get_empty_string(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", NULL);
 }
 
 static int property_get_syscall_filter(
@@ -506,42 +494,6 @@ static int property_get_working_directory(
                 wd = strjoina("!", wd);
 
         return sd_bus_message_append(reply, "s", wd);
-}
-
-static int property_get_syslog_level(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        int *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "i", LOG_PRI(*s));
-}
-
-static int property_get_syslog_facility(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        int *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "i", LOG_FAC(*s));
 }
 
 static int property_get_stdio_fdname(

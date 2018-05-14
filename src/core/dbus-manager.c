@@ -52,6 +52,8 @@ static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_architecture, "s", architectu
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_log_target, "s", log_target_to_string(log_get_target()));
 static BUS_DEFINE_PROPERTY_GET2(property_get_system_state, "s", Manager, manager_state, manager_state_to_string);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_timer_slack_nsec, "t", (uint64_t) prctl(PR_GET_TIMERSLACK));
+static BUS_DEFINE_PROPERTY_GET_REF(property_get_hashmap_size, "u", Hashmap *, hashmap_size);
+static BUS_DEFINE_PROPERTY_GET_REF(property_get_set_size, "u", Set *, set_size);
 
 static int property_get_virtualization(
                 sd_bus *bus,
@@ -169,42 +171,6 @@ static int property_set_log_level(
         if (r == 0)
                 log_info("Setting log level to %s.", t);
         return r;
-}
-
-static int property_get_hashmap_size(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Hashmap **h = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(h);
-
-        return sd_bus_message_append(reply, "u", (uint32_t) hashmap_size(*h));
-}
-
-static int property_get_set_size(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Set **s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "u", (uint32_t) set_size(*s));
 }
 
 static int property_get_progress(
