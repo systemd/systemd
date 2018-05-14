@@ -802,7 +802,7 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
 
                 if (ni_resp->hostlen > DNS_HOSTNAME_MAX ||
                     ni_resp->servlen > DNS_HOSTNAME_MAX ||
-                    sizeof(NameInfoResponse) + ni_resp->hostlen + ni_resp->servlen > length + 2)
+                    sizeof(NameInfoResponse) + ni_resp->hostlen + ni_resp->servlen > length)
                         ASSIGN_ERRNO(q, EAI_SYSTEM, EIO, 0);
 
                 else {
