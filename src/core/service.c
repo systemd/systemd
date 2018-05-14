@@ -715,10 +715,9 @@ static int service_add_extras(Service *s) {
         if (r < 0)
                 return r;
 
-        if (s->type == SERVICE_NOTIFY && s->notify_access == NOTIFY_NONE)
-                s->notify_access = NOTIFY_MAIN;
-
-        if (s->watchdog_usec > 0 && s->notify_access == NOTIFY_NONE)
+        /* If the service needs the notify socket, let's enable it automatically. */
+        if (s->notify_access == NOTIFY_NONE &&
+            (s->type == SERVICE_NOTIFY || s->watchdog_usec > 0 || s->n_fd_store_max > 0))
                 s->notify_access = NOTIFY_MAIN;
 
         r = service_add_default_dependencies(s);
