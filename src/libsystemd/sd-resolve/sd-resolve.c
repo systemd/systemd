@@ -343,10 +343,9 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
                node = ai_req->node_len ? (const char*) ai_req + sizeof(AddrInfoRequest) : NULL;
                service = ai_req->service_len ? (const char*) ai_req + sizeof(AddrInfoRequest) + ai_req->node_len : NULL;
 
-               ret = getaddrinfo(
-                               node, service,
-                               ai_req->hints_valid ? &hints : NULL,
-                               &result);
+               ret = getaddrinfo(node, service,
+                                 ai_req->hints_valid ? &hints : NULL,
+                                 &result);
 
                /* send_addrinfo_reply() frees result */
                return send_addrinfo_reply(out_fd, req->id, ret, result, errno, h_errno);
@@ -365,14 +364,14 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
                memcpy(&sa, (const uint8_t *) ni_req + sizeof(NameInfoRequest), ni_req->sockaddr_len);
 
                ret = getnameinfo(&sa.sa, ni_req->sockaddr_len,
-                               ni_req->gethost ? hostbuf : NULL, ni_req->gethost ? sizeof(hostbuf) : 0,
-                               ni_req->getserv ? servbuf : NULL, ni_req->getserv ? sizeof(servbuf) : 0,
-                               ni_req->flags);
+                                 ni_req->gethost ? hostbuf : NULL, ni_req->gethost ? sizeof(hostbuf) : 0,
+                                 ni_req->getserv ? servbuf : NULL, ni_req->getserv ? sizeof(servbuf) : 0,
+                                 ni_req->flags);
 
                return send_nameinfo_reply(out_fd, req->id, ret,
-                               ret == 0 && ni_req->gethost ? hostbuf : NULL,
-                               ret == 0 && ni_req->getserv ? servbuf : NULL,
-                               errno, h_errno);
+                                          ret == 0 && ni_req->gethost ? hostbuf : NULL,
+                                          ret == 0 && ni_req->getserv ? servbuf : NULL,
+                                          errno, h_errno);
         }
 
         case REQUEST_TERMINATE:
@@ -399,7 +398,7 @@ static void* thread_worker(void *p) {
                 } buf;
                 ssize_t length;
 
-                length = recv(resolve->fds[REQUEST_RECV_FD], &buf, sizeof(buf), 0);
+                length = recv(resolve->fds[REQUEST_RECV_FD], &buf, sizeof buf, 0);
                 if (length < 0) {
                         if (errno == EINTR)
                                 continue;
@@ -439,7 +438,6 @@ static int start_threads(sd_resolve *resolve, unsigned extra) {
         n = CLAMP(n, WORKERS_MIN, WORKERS_MAX);
 
         while (resolve->n_valid_workers < n) {
-
                 r = pthread_create(&resolve->workers[resolve->n_valid_workers], NULL, thread_worker, resolve);
                 if (r > 0) {
                         r = -r;
@@ -580,7 +578,7 @@ static void resolve_free(sd_resolve *resolve) {
 
                 RHeader req = {
                         .type = REQUEST_TERMINATE,
-                        .length = sizeof(req)
+                        .length = sizeof req,
                 };
 
                 /* Send one termination packet for each worker */
@@ -608,7 +606,6 @@ _public_ sd_resolve* sd_resolve_ref(sd_resolve *resolve) {
 }
 
 _public_ sd_resolve* sd_resolve_unref(sd_resolve *resolve) {
-
         if (!resolve)
                 return NULL;
 
@@ -863,7 +860,7 @@ _public_ int sd_resolve_process(sd_resolve *resolve) {
         /* We don't allow recursively invoking sd_resolve_process(). */
         assert_return(!resolve->current, -EBUSY);
 
-        l = recv(resolve->fds[RESPONSE_RECV_FD], &buf, sizeof(buf), 0);
+        l = recv(resolve->fds[RESPONSE_RECV_FD], &buf, sizeof buf, 0);
         if (l < 0) {
                 if (errno == EAGAIN)
                         return 0;
