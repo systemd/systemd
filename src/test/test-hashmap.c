@@ -125,7 +125,7 @@ static void test_iterated_cache(void) {
 }
 
 static void test_path_hashmap(void) {
-        _cleanup_(hashmap_freep) Hashmap *h = NULL;
+        _cleanup_hashmap_free_ Hashmap *h = NULL;
 
         assert_se(h = hashmap_new(&path_hash_ops));
 

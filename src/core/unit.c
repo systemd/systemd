@@ -3815,7 +3815,7 @@ int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error) {
 }
 
 static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
-        _cleanup_(set_freep) Set *pid_set = NULL;
+        _cleanup_set_free_ Set *pid_set = NULL;
         int r;
 
         pid_set = set_new(NULL);

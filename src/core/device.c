@@ -704,7 +704,7 @@ static Unit *device_following(Unit *u) {
 
 static int device_following_set(Unit *u, Set **_set) {
         Device *d = DEVICE(u), *other;
-        _cleanup_(set_freep) Set *set = NULL;
+        _cleanup_set_free_ Set *set = NULL;
         int r;
 
         assert(d);
