@@ -233,12 +233,12 @@ static int send_addrinfo_reply(
                 ._h_errno = _h_errno,
         };
 
-        struct msghdr mh = {};
-        struct iovec iov[2];
         union {
                 AddrInfoSerialization ais;
                 uint8_t space[BUFSIZE];
         } buffer;
+        struct iovec iov[2];
+        struct msghdr mh;
 
         assert(out_fd >= 0);
 
@@ -261,8 +261,7 @@ static int send_addrinfo_reply(
         iov[0] = (struct iovec) { .iov_base = &resp, .iov_len = sizeof(AddrInfoResponse) };
         iov[1] = (struct iovec) { .iov_base = &buffer, .iov_len = resp.header.length - sizeof(AddrInfoResponse) };
 
-        mh.msg_iov = iov;
-        mh.msg_iovlen = ELEMENTSOF(iov);
+        mh = (struct msghdr) { .msg_iov = iov, .msg_iovlen = ELEMENTSOF(iov) };
 
         if (sendmsg(out_fd, &mh, MSG_NOSIGNAL) < 0)
                 return -errno;
@@ -287,8 +286,8 @@ static int send_nameinfo_reply(
                 ._h_errno = _h_errno,
         };
 
-        struct msghdr mh = {};
         struct iovec iov[3];
+        struct msghdr mh;
         size_t hl, sl;
 
         assert(out_fd >= 0);
@@ -304,8 +303,7 @@ static int send_nameinfo_reply(
         iov[1] = (struct iovec) { .iov_base = (void*) host, .iov_len = hl };
         iov[2] = (struct iovec) { .iov_base = (void*) serv, .iov_len = sl };
 
-        mh.msg_iov = iov;
-        mh.msg_iovlen = ELEMENTSOF(iov);
+        mh = (struct msghdr) { .msg_iov = iov, .msg_iovlen = ELEMENTSOF(iov) };
 
         if (sendmsg(out_fd, &mh, MSG_NOSIGNAL) < 0)
                 return -errno;
@@ -328,17 +326,19 @@ static int handle_request(int out_fd, const Packet *packet, size_t length) {
 
         case REQUEST_ADDRINFO: {
                const AddrInfoRequest *ai_req = &packet->addrinfo_request;
-               struct addrinfo hints = {}, *result = NULL;
+               struct addrinfo hints, *result = NULL;
                const char *node, *service;
                int ret;
 
                assert_return(length >= sizeof(AddrInfoRequest), -EBADMSG);
                assert_return(length == sizeof(AddrInfoRequest) + ai_req->node_len + ai_req->service_len, -EBADMSG);
 
-               hints.ai_flags = ai_req->ai_flags;
-               hints.ai_family = ai_req->ai_family;
-               hints.ai_socktype = ai_req->ai_socktype;
-               hints.ai_protocol = ai_req->ai_protocol;
+               hints = (struct addrinfo) {
+                       .ai_flags = ai_req->ai_flags,
+                       .ai_family = ai_req->ai_family,
+                       .ai_socktype = ai_req->ai_socktype,
+                       .ai_protocol = ai_req->ai_protocol,
+               };
 
                node = ai_req->node_len ? (const char*) ai_req + sizeof(AddrInfoRequest) : NULL;
                service = ai_req->service_len ? (const char*) ai_req + sizeof(AddrInfoRequest) + ai_req->node_len : NULL;
@@ -408,9 +408,6 @@ static void* thread_worker(void *p) {
                 if (length == 0)
                         break;
 
-                if (resolve->dead)
-                        break;
-
                 if (handle_request(resolve->fds[RESPONSE_SEND_FD], &buf.packet, (size_t) length) < 0)
                         break;
         }
@@ -467,8 +464,8 @@ static bool resolve_pid_changed(sd_resolve *r) {
 }
 
 _public_ int sd_resolve_new(sd_resolve **ret) {
-        sd_resolve *resolve = NULL;
-        int i, r;
+        _cleanup_(sd_resolve_unrefp) sd_resolve *resolve = NULL;
+        int i;
 
         assert_return(ret, -EINVAL);
 
@@ -482,17 +479,11 @@ _public_ int sd_resolve_new(sd_resolve **ret) {
         for (i = 0; i < _FD_MAX; i++)
                 resolve->fds[i] = -1;
 
-        r = socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolve->fds + REQUEST_RECV_FD);
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolve->fds + REQUEST_RECV_FD) < 0)
+                return -errno;
 
-        r = socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolve->fds + RESPONSE_RECV_FD);
-        if (r < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (socketpair(PF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, resolve->fds + RESPONSE_RECV_FD) < 0)
+                return -errno;
 
         for (i = 0; i < _FD_MAX; i++)
                 resolve->fds[i] = fd_move_above_stdio(resolve->fds[i]);
@@ -504,12 +495,8 @@ _public_ int sd_resolve_new(sd_resolve **ret) {
 
         (void) fd_nonblock(resolve->fds[RESPONSE_RECV_FD], true);
 
-        *ret = resolve;
+        *ret = TAKE_PTR(resolve);
         return 0;
-
-fail:
-        sd_resolve_unref(resolve);
-        return r;
 }
 
 _public_ int sd_resolve_default(sd_resolve **ret) {
@@ -941,11 +928,12 @@ _public_ int sd_resolve_getaddrinfo(
                 const struct addrinfo *hints,
                 sd_resolve_getaddrinfo_handler_t callback, void *userdata) {
 
-        AddrInfoRequest req = {};
-        struct msghdr mh = {};
+        _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q = NULL;
+        AddrInfoRequest req;
         struct iovec iov[3];
-        sd_resolve_query *q;
+        struct msghdr mh = {};
         int r;
+        size_t node_len, service_len;
 
         assert_return(resolve, -EINVAL);
         assert_return(node || service, -EINVAL);
@@ -960,20 +948,23 @@ _public_ int sd_resolve_getaddrinfo(
         q->getaddrinfo_handler = callback;
         q->userdata = userdata;
 
-        req.node_len = node ? strlen(node)+1 : 0;
-        req.service_len = service ? strlen(service)+1 : 0;
+        node_len = node ? strlen(node) + 1 : 0;
+        service_len = service ? strlen(service) + 1 : 0;
 
-        req.header.id = q->id;
-        req.header.type = REQUEST_ADDRINFO;
-        req.header.length = sizeof(AddrInfoRequest) + req.node_len + req.service_len;
+        req = (AddrInfoRequest) {
+                .node_len = node_len,
+                .service_len = service_len,
 
-        if (hints) {
-                req.hints_valid = true;
-                req.ai_flags = hints->ai_flags;
-                req.ai_family = hints->ai_family;
-                req.ai_socktype = hints->ai_socktype;
-                req.ai_protocol = hints->ai_protocol;
-        }
+                .header.id = q->id,
+                .header.type = REQUEST_ADDRINFO,
+                .header.length = sizeof(AddrInfoRequest) + node_len + service_len,
+
+                .hints_valid = hints,
+                .ai_flags = hints ? hints->ai_flags : 0,
+                .ai_family = hints ? hints->ai_family : 0,
+                .ai_socktype = hints ? hints->ai_socktype : 0,
+                .ai_protocol = hints ? hints->ai_protocol : 0,
+        };
 
         iov[mh.msg_iovlen++] = (struct iovec) { .iov_base = &req, .iov_len = sizeof(AddrInfoRequest) };
         if (node)
@@ -982,15 +973,14 @@ _public_ int sd_resolve_getaddrinfo(
                 iov[mh.msg_iovlen++] = (struct iovec) { .iov_base = (void*) service, .iov_len = req.service_len };
         mh.msg_iov = iov;
 
-        if (sendmsg(resolve->fds[REQUEST_SEND_FD], &mh, MSG_NOSIGNAL) < 0) {
-                sd_resolve_query_unref(q);
+        if (sendmsg(resolve->fds[REQUEST_SEND_FD], &mh, MSG_NOSIGNAL) < 0)
                 return -errno;
-        }
 
         resolve->n_outstanding++;
 
         if (_q)
                 *_q = q;
+        TAKE_PTR(q);
 
         return 0;
 }
@@ -1015,10 +1005,10 @@ _public_ int sd_resolve_getnameinfo(
                 sd_resolve_getnameinfo_handler_t callback,
                 void *userdata) {
 
-        NameInfoRequest req = {};
-        struct msghdr mh = {};
+        _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q = NULL;
+        NameInfoRequest req;
         struct iovec iov[2];
-        sd_resolve_query *q;
+        struct msghdr mh;
         int r;
 
         assert_return(resolve, -EINVAL);
@@ -1037,30 +1027,30 @@ _public_ int sd_resolve_getnameinfo(
         q->getnameinfo_handler = callback;
         q->userdata = userdata;
 
-        req.header.id = q->id;
-        req.header.type = REQUEST_NAMEINFO;
-        req.header.length = sizeof(NameInfoRequest) + salen;
+        req = (NameInfoRequest) {
+                .header.id = q->id,
+                .header.type = REQUEST_NAMEINFO,
+                .header.length = sizeof(NameInfoRequest) + salen,
 
-        req.flags = flags;
-        req.sockaddr_len = salen;
-        req.gethost = !!(get & SD_RESOLVE_GET_HOST);
-        req.getserv = !!(get & SD_RESOLVE_GET_SERVICE);
+                .flags = flags,
+                .sockaddr_len = salen,
+                .gethost = !!(get & SD_RESOLVE_GET_HOST),
+                .getserv = !!(get & SD_RESOLVE_GET_SERVICE),
+        };
 
         iov[0] = (struct iovec) { .iov_base = &req, .iov_len = sizeof(NameInfoRequest) };
         iov[1] = (struct iovec) { .iov_base = (void*) sa, .iov_len = salen };
 
-        mh.msg_iov = iov;
-        mh.msg_iovlen = 2;
+        mh = (struct msghdr) { .msg_iov = iov, .msg_iovlen = ELEMENTSOF(iov) };
 
-        if (sendmsg(resolve->fds[REQUEST_SEND_FD], &mh, MSG_NOSIGNAL) < 0) {
-                sd_resolve_query_unref(q);
+        if (sendmsg(resolve->fds[REQUEST_SEND_FD], &mh, MSG_NOSIGNAL) < 0)
                 return -errno;
-        }
-
-        resolve->n_outstanding++;
 
         if (_q)
                 *_q = q;
+
+        resolve->n_outstanding++;
+        TAKE_PTR(q);
 
         return 0;
 }
