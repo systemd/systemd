@@ -29,6 +29,18 @@
 #include "user-util.h"
 #include "web-util.h"
 
+static bool unit_can_start_refuse_manual(Unit *u) {
+        return unit_can_start(u) && !u->refuse_manual_start;
+}
+
+static bool unit_can_stop_refuse_manual(Unit *u) {
+        return unit_can_stop(u) && !u->refuse_manual_stop;
+}
+
+static bool unit_can_isolate_refuse_manual(Unit *u) {
+        return unit_can_isolate(u) && !u->refuse_manual_start;
+}
+
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
@@ -38,6 +50,9 @@ static BUS_DEFINE_PROPERTY_GET2(property_get_active_state, "s", Unit, unit_activ
 static BUS_DEFINE_PROPERTY_GET(property_get_sub_state, "s", Unit, unit_sub_state_to_string);
 static BUS_DEFINE_PROPERTY_GET2(property_get_unit_file_state, "s", Unit, unit_get_unit_file_state, unit_file_state_to_string);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_reload, "b", Unit, unit_can_reload);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_start, "b", Unit, unit_can_start_refuse_manual);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_stop, "b", Unit, unit_can_stop_refuse_manual);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_isolate, "b", Unit, unit_can_isolate_refuse_manual);
 static BUS_DEFINE_PROPERTY_GET(property_get_need_daemon_reload, "b", Unit, unit_need_daemon_reload);
 static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_strv, "as", 0);
 
@@ -176,60 +191,6 @@ static int property_get_unit_file_preset(
         return sd_bus_message_append(reply, "s",
                                      r < 0 ? NULL:
                                      r > 0 ? "enabled" : "disabled");
-}
-
-static int property_get_can_start(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "b", unit_can_start(u) && !u->refuse_manual_start);
-}
-
-static int property_get_can_stop(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "b", unit_can_stop(u) && !u->refuse_manual_stop);
-}
-
-static int property_get_can_isolate(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "b", unit_can_isolate(u) && !u->refuse_manual_start);
 }
 
 static int property_get_job(
