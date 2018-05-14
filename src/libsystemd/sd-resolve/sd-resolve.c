@@ -168,8 +168,10 @@ static void resolve_query_disconnect(sd_resolve_query *q);
 #define RESOLVE_DONT_DESTROY(resolve) \
         _cleanup_(sd_resolve_unrefp) _unused_ sd_resolve *_dont_destroy_##resolve = sd_resolve_ref(resolve)
 
-static int send_died(int out_fd) {
+#define ASSIGN_ERRNO(q, val, error, h_error) \
+        ({ (q)->ret = (val); (q)->_errno = (error); (q)->_h_errno = (h_error); })
 
+static int send_died(int out_fd) {
         RHeader rh = {
                 .type = RESPONSE_DIED,
                 .length = sizeof(RHeader),
@@ -781,9 +783,7 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
                 assert(length >= sizeof(AddrInfoResponse));
                 assert(q->type == REQUEST_ADDRINFO);
 
-                q->ret = ai_resp->ret;
-                q->_errno = ai_resp->_errno;
-                q->_h_errno = ai_resp->_h_errno;
+                ASSIGN_ERRNO(q, ai_resp->ret, ai_resp->_errno, ai_resp->_h_errno);
 
                 l = length - sizeof(AddrInfoResponse);
                 p = (const uint8_t*) resp + sizeof(AddrInfoResponse);
@@ -793,9 +793,7 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
 
                         r = unserialize_addrinfo(&p, &l, &ai);
                         if (r < 0) {
-                                q->ret = EAI_SYSTEM;
-                                q->_errno = -r;
-                                q->_h_errno = 0;
+                                ASSIGN_ERRNO(q, EAI_SYSTEM, -r, 0);
                                 freeaddrinfo(q->addrinfo);
                                 q->addrinfo = NULL;
                                 break;
@@ -820,34 +818,24 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
 
                 if (ni_resp->hostlen > DNS_HOSTNAME_MAX ||
                     ni_resp->servlen > DNS_HOSTNAME_MAX ||
-                    sizeof(NameInfoResponse) + ni_resp->hostlen + ni_resp->servlen > length + 2) {
-                        q->ret = EAI_SYSTEM;
-                        q->_errno = -EIO;
-                        q->_h_errno = 0;
+                    sizeof(NameInfoResponse) + ni_resp->hostlen + ni_resp->servlen > length + 2)
+                        ASSIGN_ERRNO(q, EAI_SYSTEM, EIO, 0);
 
-                } else {
-                        q->ret = ni_resp->ret;
-                        q->_errno = ni_resp->_errno;
-                        q->_h_errno = ni_resp->_h_errno;
+                else {
+                        ASSIGN_ERRNO(q, ni_resp->ret, ni_resp->_errno, ni_resp->_h_errno);
 
                         if (ni_resp->hostlen > 0) {
                                 q->host = strndup((const char*) ni_resp + sizeof(NameInfoResponse),
                                                   ni_resp->hostlen-1);
-                                if (!q->host) {
-                                        q->ret = EAI_MEMORY;
-                                        q->_errno = ENOMEM;
-                                        q->_h_errno = 0;
-                                }
+                                if (!q->host)
+                                        ASSIGN_ERRNO(q, EAI_MEMORY, ENOMEM, 0);
                         }
 
                         if (ni_resp->servlen > 0) {
                                 q->serv = strndup((const char*) ni_resp + sizeof(NameInfoResponse) + ni_resp->hostlen,
                                                   ni_resp->servlen-1);
-                                if (!q->serv) {
-                                        q->ret = EAI_MEMORY;
-                                        q->_errno = ENOMEM;
-                                        q->_h_errno = 0;
-                                }
+                                if (!q->serv)
+                                        ASSIGN_ERRNO(q, EAI_MEMORY, ENOMEM, 0);
                         }
                 }
 
@@ -1087,7 +1075,7 @@ static int getnameinfo_done(sd_resolve_query *q) {
         assert(q->getnameinfo_handler);
 
         errno = q->_errno;
-        h_errno= q->_h_errno;
+        h_errno = q->_h_errno;
 
         return q->getnameinfo_handler(q, q->ret, q->host, q->serv, q->userdata);
 }
