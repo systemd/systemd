@@ -9,6 +9,7 @@
 ***/
 
 #include "libudev.h"
+#include "unit.h"
 
 typedef struct Swap Swap;
 
@@ -95,3 +96,5 @@ SwapExecCommand swap_exec_command_from_string(const char *s) _pure_;
 
 const char* swap_result_to_string(SwapResult i) _const_;
 SwapResult swap_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(SWAP, Swap);

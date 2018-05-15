@@ -24,6 +24,7 @@
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+#include "service.h"
 #include "stat-util.h"
 #include "test-helper.h"
 #include "tests.h"

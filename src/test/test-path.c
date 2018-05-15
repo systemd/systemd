@@ -11,6 +11,7 @@
 #include <sys/types.h>
 
 #include "alloc-util.h"
+#include "all-units.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"

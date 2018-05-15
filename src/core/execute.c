@@ -86,6 +86,7 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
+#include "socket-util.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-table.h"

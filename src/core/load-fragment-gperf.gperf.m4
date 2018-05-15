@@ -6,6 +6,8 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "conf-parser.h"
 #include "load-fragment.h"
 #include "missing.h"
+
+#include "all-units.h"
 %}
 struct ConfigPerfItem;
 %null_strings

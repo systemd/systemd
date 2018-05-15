@@ -10,6 +10,7 @@
 typedef struct Timer Timer;
 
 #include "calendarspec.h"
+#include "unit.h"
 
 typedef enum TimerBase {
         TIMER_ACTIVE,
@@ -77,3 +78,5 @@ TimerBase timer_base_from_string(const char *s) _pure_;
 
 const char* timer_result_to_string(TimerResult i) _const_;
 TimerResult timer_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(TIMER, Timer);

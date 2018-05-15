@@ -17,6 +17,7 @@
 #include "io-util.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "socket-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "user-util.h"

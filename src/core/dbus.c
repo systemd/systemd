@@ -30,6 +30,7 @@
 #include "mkdir.h"
 #include "process-util.h"
 #include "selinux-access.h"
+#include "service.h"
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"

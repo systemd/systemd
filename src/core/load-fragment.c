@@ -20,6 +20,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "all-units.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"
@@ -57,7 +58,6 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "unit-printf.h"
-#include "unit.h"
 #include "user-util.h"
 #include "utf8.h"
 #include "web-util.h"

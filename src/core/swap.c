@@ -14,6 +14,7 @@
 
 #include "alloc-util.h"
 #include "dbus-swap.h"
+#include "device.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"

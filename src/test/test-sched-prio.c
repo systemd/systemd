@@ -7,6 +7,7 @@
 
 #include <sched.h>
 
+#include "all-units.h"
 #include "macro.h"
 #include "manager.h"
 #include "rm-rf.h"

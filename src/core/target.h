@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "unit.h"
+
 /***
   This file is part of systemd.
 
@@ -16,3 +18,5 @@ struct Target {
 };
 
 extern const UnitVTable target_vtable;
+
+DEFINE_CAST(TARGET, Target);
