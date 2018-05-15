@@ -127,7 +127,8 @@ typedef enum CGroupIPAccountingMetric {
         _CGROUP_IP_ACCOUNTING_METRIC_INVALID = -1,
 } CGroupIPAccountingMetric;
 
-#include "unit.h"
+typedef struct Unit Unit;
+typedef struct Manager Manager;
 
 void cgroup_context_init(CGroupContext *c);
 void cgroup_context_done(CGroupContext *c);
