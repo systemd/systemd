@@ -1746,7 +1746,6 @@ static void free_database(Hashmap *by_name, Hashmap *by_id) {
 
 static int cat_config(void) {
         _cleanup_strv_free_ char **files = NULL;
-        _cleanup_free_ char *replace_file = NULL;
         int r;
 
         r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, NULL);
