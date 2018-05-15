@@ -1266,12 +1266,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         }
 
         if (c->private_tmp) {
-
-                /* FIXME: for now we make a special case for /tmp and add a weak dependency on
-                 * tmp.mount so /tmp being masked is supported. However there's no reason to treat
-                 * /tmp specifically and masking other mount units should be handled more
-                 * gracefully too, see PR#16894. */
-                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "tmp.mount", true, UNIT_DEPENDENCY_FILE);
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, "tmp.mount", true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
 
