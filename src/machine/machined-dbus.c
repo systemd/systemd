@@ -33,20 +33,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-static int property_get_pool_path(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", "/var/lib/machines");
-}
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_pool_path, "s", "/var/lib/machines");
 
 static int property_get_pool_usage(
                 sd_bus *bus,
