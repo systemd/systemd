@@ -13,6 +13,7 @@ typedef struct SocketPeer SocketPeer;
 #include "mount.h"
 #include "service.h"
 #include "socket-util.h"
+#include "unit.h"
 
 typedef enum SocketExecCommand {
         SOCKET_EXEC_START_PRE,
@@ -182,3 +183,5 @@ SocketResult socket_result_from_string(const char *s) _pure_;
 
 const char* socket_port_type_to_string(SocketPort *p) _pure_;
 SocketType socket_port_type_from_string(const char *p) _pure_;
+
+DEFINE_CAST(SOCKET, Socket);

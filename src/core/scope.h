@@ -46,3 +46,5 @@ int scope_abandon(Scope *s);
 
 const char* scope_result_to_string(ScopeResult i) _const_;
 ScopeResult scope_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(SCOPE, Scope);

@@ -40,6 +40,7 @@
 #include "def.h"
 #include "emergency-action.h"
 #include "env-util.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"

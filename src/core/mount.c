@@ -16,6 +16,7 @@
 
 #include "alloc-util.h"
 #include "dbus-mount.h"
+#include "device.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "format-util.h"

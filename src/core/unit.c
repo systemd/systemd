@@ -16,6 +16,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "all-units.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-util.h"

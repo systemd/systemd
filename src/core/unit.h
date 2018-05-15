@@ -11,11 +11,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-typedef struct Unit Unit;
-typedef struct UnitVTable UnitVTable;
-typedef struct UnitRef UnitRef;
-typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
-
 #include "bpf-program.h"
 #include "condition.h"
 #include "emergency-action.h"
@@ -23,6 +18,8 @@ typedef struct UnitStatusMessageFormats UnitStatusMessageFormats;
 #include "list.h"
 #include "unit-name.h"
 #include "cgroup.h"
+
+typedef struct UnitRef UnitRef;
 
 typedef enum KillOperation {
         KILL_TERMINATE,
@@ -120,7 +117,7 @@ typedef enum UnitCGroupBPFState {
         UNIT_CGROUP_BPF_INVALIDATED = -1,
 } UnitCGroupBPFState;
 
-struct Unit {
+typedef struct Unit {
         Manager *manager;
 
         UnitType type;
@@ -358,13 +355,13 @@ struct Unit {
         /* When writing transient unit files, stores which section we stored last. If < 0, we didn't write any yet. If
          * == 0 we are in the [Unit] section, if > 0 we are in the unit type-specific section. */
         int last_section_private:2;
-};
+} Unit;
 
-struct UnitStatusMessageFormats {
+typedef struct UnitStatusMessageFormats {
         const char *starting_stopping[2];
         const char *finished_start_job[_JOB_RESULT_MAX];
         const char *finished_stop_job[_JOB_RESULT_MAX];
-};
+} UnitStatusMessageFormats;
 
 /* Flags used when writing drop-in files or transient unit files */
 typedef enum UnitWriteFlags {
@@ -387,17 +384,9 @@ typedef enum UnitWriteFlags {
 /* Returns true if neither persistent, nor runtime storage is requested, i.e. this is a check invocation only */
 #define UNIT_WRITE_FLAGS_NOOP(flags) (((flags) & (UNIT_RUNTIME|UNIT_PERSISTENT)) == 0)
 
-#include "automount.h"
-#include "device.h"
-#include "path.h"
-#include "scope.h"
-#include "slice.h"
-#include "socket.h"
-#include "swap.h"
-#include "target.h"
-#include "timer.h"
+#include "kill.h"
 
-struct UnitVTable {
+typedef struct UnitVTable {
         /* How much memory does an object of this unit type need */
         size_t object_size;
 
@@ -566,7 +555,7 @@ struct UnitVTable {
 
         /* True if queued jobs of this type should be GC'ed if no other job needs them anymore */
         bool gc_jobs:1;
-};
+} UnitVTable;
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 
@@ -589,18 +578,6 @@ extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];
 #define UNIT_HAS_KILL_CONTEXT(u) (UNIT_VTABLE(u)->kill_context_offset > 0)
 
 #define UNIT_TRIGGER(u) ((Unit*) hashmap_first_key((u)->dependencies[UNIT_TRIGGERS]))
-
-DEFINE_CAST(SERVICE, Service);
-DEFINE_CAST(SOCKET, Socket);
-DEFINE_CAST(TARGET, Target);
-DEFINE_CAST(DEVICE, Device);
-DEFINE_CAST(MOUNT, Mount);
-DEFINE_CAST(AUTOMOUNT, Automount);
-DEFINE_CAST(SWAP, Swap);
-DEFINE_CAST(TIMER, Timer);
-DEFINE_CAST(PATH, Path);
-DEFINE_CAST(SLICE, Slice);
-DEFINE_CAST(SCOPE, Scope);
 
 Unit *unit_new(Manager *m, size_t size);
 void unit_free(Unit *u);

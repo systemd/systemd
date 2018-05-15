@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "all-units.h"
 #include "capability-util.h"
 #include "fd-util.h"
 #include "fileio.h"

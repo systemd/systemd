@@ -28,6 +28,7 @@
 #include "sd-path.h"
 
 #include "alloc-util.h"
+#include "all-units.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
 #include "bus-common-errors.h"
@@ -65,6 +66,7 @@
 #include "ratelimit.h"
 #include "rm-rf.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-table.h"

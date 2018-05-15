@@ -14,6 +14,8 @@ typedef struct ServiceFDStore ServiceFDStore;
 #include "kill.h"
 #include "path.h"
 #include "ratelimit.h"
+#include "socket.h"
+#include "unit.h"
 
 typedef enum ServiceRestart {
         SERVICE_RESTART_NO,
@@ -204,3 +206,5 @@ NotifyState notify_state_from_string(const char *s) _pure_;
 
 const char* service_result_to_string(ServiceResult i) _const_;
 ServiceResult service_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(SERVICE, Service);

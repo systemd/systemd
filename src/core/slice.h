@@ -7,6 +7,8 @@
   Copyright 2013 Lennart Poettering
 ***/
 
+#include "unit.h"
+
 typedef struct Slice Slice;
 
 struct Slice {
@@ -18,3 +20,5 @@ struct Slice {
 };
 
 extern const UnitVTable slice_vtable;
+
+DEFINE_CAST(SLICE, Slice);
