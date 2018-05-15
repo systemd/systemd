@@ -982,13 +982,13 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 return 0;
 
         if (c->private_tmp) {
-                const char *p;
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, "tmp.mount", NULL, true, UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
 
-                FOREACH_STRING(p, "/tmp", "/var/tmp") {
-                        r = unit_require_mounts_for(u, p, UNIT_DEPENDENCY_FILE);
-                        if (r < 0)
-                                return r;
-                }
+                r = unit_require_mounts_for(u, "/var/tmp", UNIT_DEPENDENCY_FILE);
+                if (r < 0)
+                        return r;
 
                 r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, NULL, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
