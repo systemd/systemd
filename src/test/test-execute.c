@@ -464,10 +464,8 @@ static void test_exec_environmentfile(Manager *m) {
                 "VAR3='$word 5 6'\n"
                 "VAR4='new\nline'\n"
                 "VAR5=password\\with\\backslashes";
-        int r;
 
-        r = write_string_file("/tmp/test-exec_environmentfile.conf", e, WRITE_STRING_FILE_CREATE);
-        assert_se(r == 0);
+        assert_se(write_string_file("/tmp/test-exec_environmentfile.conf", e, WRITE_STRING_FILE_CREATE) == 0);
 
         test(m, "exec-environmentfile.service", 0, CLD_EXITED);
 
@@ -630,7 +628,6 @@ static void test_exec_standardoutput(Manager *m) {
         static const char e[] =
                 "123\n"
                 "extra file content\n";
-        int r;
 
         /* The logs from the manager disturb the tests below, as
          * test-execute logs to standard output or error instead of journal.
@@ -639,12 +636,10 @@ static void test_exec_standardoutput(Manager *m) {
 
         test(m, "exec-standardoutput-file.service", 0, CLD_EXITED);
 
-        r = write_string_file("/tmp/exec-standardoutput-file-truncate.service.actual", e, WRITE_STRING_FILE_CREATE);
-        assert_se(r == 0);
+        assert_se(write_string_file("/tmp/exec-standardoutput-file-truncate.service.actual", e, WRITE_STRING_FILE_CREATE) == 0);
         test(m, "exec-standardoutput-file-truncate.service", 0, CLD_EXITED);
 
-        r = write_string_file("/tmp/exec-standardinput-standardoutput-file.service.file", "Linux\n", WRITE_STRING_FILE_CREATE);
-        assert_se(r == 0);
+        assert_se(write_string_file("/tmp/exec-standardinput-standardoutput-file.service.file", "Linux\n", WRITE_STRING_FILE_CREATE) == 0);
         test(m, "exec-standardinput-standardoutput-file.service", 0, CLD_EXITED);
 
         log_set_max_level(LOG_DEBUG);
