@@ -453,7 +453,10 @@ static int journal_file_refresh_header(JournalFile *f) {
         assert(f->header);
 
         r = sd_id128_get_machine(&f->header->machine_id);
-        if (r < 0)
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
+                /* We don't have a machine-id, let's continue without */
+                zero(f->header->machine_id);
+        else if (r < 0)
                 return r;
 
         r = sd_id128_get_boot(&boot_id);
