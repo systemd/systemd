@@ -8,15 +8,26 @@ systemd_journal_upload_sources = files('''
         journal-upload-journal.c
 '''.split())
 
+libsystemd_journal_remote = static_library(
+        'systemd-journal-remote',
+        'journal-remote-parse.h',
+        'journal-remote-parse.c',
+        'journal-remote-write.h',
+        'journal-remote-write.c',
+        'journal-remote.h',
+        'journal-remote.c',
+        'microhttpd-util.h',
+        'microhttpd-util.c',
+        include_directories : includes,
+        dependencies : [threads,
+                        libmicrohttpd,
+                        libgnutls,
+                        libxz,
+                        liblz4],
+        install : false)
+
 systemd_journal_remote_sources = files('''
-        journal-remote-parse.h
-        journal-remote-parse.c
-        journal-remote-write.h
-        journal-remote-write.c
-        journal-remote.h
-        journal-remote.c
-        microhttpd-util.h
-        microhttpd-util.c
+        journal-remote-main.c
 '''.split())
 
 systemd_journal_gatewayd_sources = files('''
