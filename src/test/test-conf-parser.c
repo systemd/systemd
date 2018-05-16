@@ -8,6 +8,7 @@
 #include "conf-parser.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "log.h"
 #include "macro.h"
 #include "string-util.h"
@@ -313,7 +314,7 @@ static const char* const config_file[] = {
 };
 
 static void test_config_parse(unsigned i, const char *s) {
-        char name[] = "/tmp/test-conf-parser.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-conf-parser.XXXXXX";
         int fd, r;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *setting1 = NULL;

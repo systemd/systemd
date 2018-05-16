@@ -19,6 +19,7 @@
 #include "conf-parser.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "install-printf.h"
@@ -532,7 +533,7 @@ static void test_load_env_file_1(void) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
-        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
         fd = mkostemp_safe(name);
@@ -548,14 +549,13 @@ static void test_load_env_file_1(void) {
         assert_se(streq(data[4], "h=h"));
         assert_se(streq(data[5], "i=i"));
         assert_se(data[6] == NULL);
-        unlink(name);
 }
 
 static void test_load_env_file_2(void) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
-        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
         fd = mkostemp_safe(name);
@@ -566,14 +566,13 @@ static void test_load_env_file_2(void) {
         assert_se(r == 0);
         assert_se(streq(data[0], "a=a"));
         assert_se(data[1] == NULL);
-        unlink(name);
 }
 
 static void test_load_env_file_3(void) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
-        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
         fd = mkostemp_safe(name);
@@ -583,12 +582,11 @@ static void test_load_env_file_3(void) {
         r = load_env_file(NULL, name, NULL, &data);
         assert_se(r == 0);
         assert_se(data == NULL);
-        unlink(name);
 }
 
 static void test_load_env_file_4(void) {
         _cleanup_strv_free_ char **data = NULL;
-        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
         int r;
 
@@ -602,14 +600,13 @@ static void test_load_env_file_4(void) {
         assert_se(streq(data[1], "MODULE_0=coretemp"));
         assert_se(streq(data[2], "MODULE_1=f71882fg"));
         assert_se(data[3] == NULL);
-        unlink(name);
 }
 
 static void test_load_env_file_5(void) {
         _cleanup_strv_free_ char **data = NULL;
         int r;
 
-        char name[] = "/tmp/test-load-env-file.XXXXXX";
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         _cleanup_close_ int fd;
 
         fd = mkostemp_safe(name);
@@ -621,7 +618,6 @@ static void test_load_env_file_5(void) {
         assert_se(streq(data[0], "a="));
         assert_se(streq(data[1], "b="));
         assert_se(data[2] == NULL);
-        unlink(name);
 }
 
 static void test_install_printf(void) {
