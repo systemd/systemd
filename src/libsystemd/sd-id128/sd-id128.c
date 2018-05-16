@@ -98,7 +98,7 @@ _public_ int sd_id128_get_machine(sd_id128_t *ret) {
                         return r;
 
                 if (sd_id128_is_null(saved_machine_id))
-                        return -EINVAL;
+                        return -ENOMEDIUM;
         }
 
         *ret = saved_machine_id;
