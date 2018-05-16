@@ -342,17 +342,21 @@ int journal_remote_server_init(
         return 0;
 }
 
+#if HAVE_MICROHTTPD
 static void MHDDaemonWrapper_free(MHDDaemonWrapper *d) {
         MHD_stop_daemon(d->daemon);
         sd_event_source_unref(d->io_event);
         sd_event_source_unref(d->timer_event);
         free(d);
 }
+#endif
 
 RemoteServer* journal_remote_server_destroy(RemoteServer *s) {
         size_t i;
 
+#if HAVE_MICROHTTPD
         hashmap_free_with_destructor(s->daemons, MHDDaemonWrapper_free);
+#endif
 
         assert(s->sources_size == 0 || s->sources);
         for (i = 0; i < s->sources_size; i++)

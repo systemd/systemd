@@ -12,6 +12,8 @@
 #include "hashmap.h"
 #include "journal-remote-parse.h"
 #include "journal-remote-write.h"
+
+#if HAVE_MICROHTTPD
 #include "microhttpd-util.h"
 
 typedef struct MHDDaemonWrapper MHDDaemonWrapper;
@@ -23,6 +25,7 @@ struct MHDDaemonWrapper {
         sd_event_source *io_event;
         sd_event_source *timer_event;
 };
+#endif
 
 struct RemoteServer {
         RemoteSource **sources;
@@ -36,8 +39,9 @@ struct RemoteServer {
         Writer *_single_writer;
         uint64_t event_count;
 
+#if HAVE_MICROHTTPD
         Hashmap *daemons;
-
+#endif
         const char *output;                    /* either the output file or directory */
 
         JournalWriteSplitMode split_mode;

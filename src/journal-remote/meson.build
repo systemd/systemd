@@ -8,16 +8,25 @@ systemd_journal_upload_sources = files('''
         journal-upload-journal.c
 '''.split())
 
+libsystemd_journal_remote_sources = files('''
+        journal-remote-parse.h
+        journal-remote-parse.c
+        journal-remote-write.h
+        journal-remote-write.c
+        journal-remote.h
+        journal-remote.c
+'''.split())
+
+if conf.get('HAVE_MICROHTTPD') == 1
+        libsystemd_journal_remote_sources += files('''
+                microhttpd-util.h
+                microhttpd-util.c
+'''.split())
+endif
+
 libsystemd_journal_remote = static_library(
         'systemd-journal-remote',
-        'journal-remote-parse.h',
-        'journal-remote-parse.c',
-        'journal-remote-write.h',
-        'journal-remote-write.c',
-        'journal-remote.h',
-        'journal-remote.c',
-        'microhttpd-util.h',
-        'microhttpd-util.c',
+        libsystemd_journal_remote_sources,
         include_directories : includes,
         dependencies : [threads,
                         libmicrohttpd,
