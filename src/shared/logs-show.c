@@ -1119,14 +1119,15 @@ static int maybe_print_begin_newline(FILE *f, OutputFlags *flags) {
         return 0;
 }
 
-static int show_journal(FILE *f,
-                        sd_journal *j,
-                        OutputMode mode,
-                        unsigned n_columns,
-                        usec_t not_before,
-                        unsigned how_many,
-                        OutputFlags flags,
-                        bool *ellipsized) {
+int show_journal(
+                FILE *f,
+                sd_journal *j,
+                OutputMode mode,
+                unsigned n_columns,
+                usec_t not_before,
+                unsigned how_many,
+                OutputFlags flags,
+                bool *ellipsized) {
 
         int r;
         unsigned line = 0;
@@ -1137,14 +1138,18 @@ static int show_journal(FILE *f,
         assert(mode >= 0);
         assert(mode < _OUTPUT_MODE_MAX);
 
-        /* Seek to end */
-        r = sd_journal_seek_tail(j);
-        if (r < 0)
-                return log_error_errno(r, "Failed to seek to tail: %m");
+        if (how_many == (unsigned) -1)
+                need_seek = true;
+        else {
+                /* Seek to end */
+                r = sd_journal_seek_tail(j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to tail: %m");
 
-        r = sd_journal_previous_skip(j, how_many);
-        if (r < 0)
-                return log_error_errno(r, "Failed to skip previous: %m");
+                r = sd_journal_previous_skip(j, how_many);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to skip previous: %m");
+        }
 
         for (;;) {
                 for (;;) {

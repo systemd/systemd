@@ -28,6 +28,15 @@ int show_journal_entry(
                 char **output_fields,
                 size_t highlight[2],
                 bool *ellipsized);
+int show_journal(
+                FILE *f,
+                sd_journal *j,
+                OutputMode mode,
+                unsigned n_columns,
+                usec_t not_before,
+                unsigned how_many,
+                OutputFlags flags,
+                bool *ellipsized);
 
 int add_match_this_boot(sd_journal *j, const char *machine);
 
