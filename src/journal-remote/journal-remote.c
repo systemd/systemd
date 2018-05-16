@@ -378,10 +378,11 @@ RemoteServer* journal_remote_server_destroy(RemoteServer *s) {
  **********************************************************************
  **********************************************************************/
 
-static int handle_raw_source(sd_event_source *event,
-                             int fd,
-                             uint32_t revents,
-                             RemoteServer *s) {
+int journal_remote_handle_raw_source(
+                sd_event_source *event,
+                int fd,
+                uint32_t revents,
+                RemoteServer *s) {
 
         RemoteSource *source;
         int r;
@@ -428,7 +429,7 @@ static int dispatch_raw_source_until_block(sd_event_source *event,
         /* Make sure event stays around even if source is destroyed */
         sd_event_source_ref(event);
 
-        r = handle_raw_source(event, source->importer.fd, EPOLLIN, journal_remote_server_global);
+        r = journal_remote_handle_raw_source(event, source->importer.fd, EPOLLIN, journal_remote_server_global);
         if (r != 1)
                 /* No more data for now */
                 sd_event_source_set_enabled(event, SD_EVENT_OFF);
@@ -448,7 +449,7 @@ static int dispatch_raw_source_event(sd_event_source *event,
         assert(source->event);
         assert(source->buffer_event);
 
-        r = handle_raw_source(event, fd, EPOLLIN, journal_remote_server_global);
+        r = journal_remote_handle_raw_source(event, fd, EPOLLIN, journal_remote_server_global);
         if (r == 1)
                 /* Might have more data. We need to rerun the handler
                  * until we are sure the buffer is exhausted. */
@@ -461,7 +462,7 @@ static int dispatch_blocking_source_event(sd_event_source *event,
                                           void *userdata) {
         RemoteSource *source = userdata;
 
-        return handle_raw_source(event, source->importer.fd, EPOLLIN, journal_remote_server_global);
+        return journal_remote_handle_raw_source(event, source->importer.fd, EPOLLIN, journal_remote_server_global);
 }
 
 static int accept_connection(const char* type, int fd,

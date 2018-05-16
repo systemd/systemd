@@ -58,5 +58,10 @@ int journal_remote_get_writer(RemoteServer *s, const char *host, Writer **writer
 
 int journal_remote_add_source(RemoteServer *s, int fd, char* name, bool own_name);
 int journal_remote_add_raw_socket(RemoteServer *s, int fd);
+int journal_remote_handle_raw_source(
+                sd_event_source *event,
+                int fd,
+                uint32_t revents,
+                RemoteServer *s);
 
 RemoteServer* journal_remote_server_destroy(RemoteServer *s);
