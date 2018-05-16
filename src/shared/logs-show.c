@@ -1068,7 +1068,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
         [OUTPUT_WITH_UNIT] = output_short,
 };
 
-int output_journal(
+int show_journal_entry(
                 FILE *f,
                 sd_journal *j,
                 OutputMode mode,
@@ -1178,7 +1178,7 @@ static int show_journal(FILE *f,
                         line++;
                         maybe_print_begin_newline(f, &flags);
 
-                        r = output_journal(f, j, mode, n_columns, flags, NULL, NULL, ellipsized);
+                        r = show_journal_entry(f, j, mode, n_columns, flags, NULL, NULL, ellipsized);
                         if (r < 0)
                                 return r;
                 }

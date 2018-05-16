@@ -19,7 +19,7 @@
 #include "time-util.h"
 #include "util.h"
 
-int output_journal(
+int show_journal_entry(
                 FILE *f,
                 sd_journal *j,
                 OutputMode mode,

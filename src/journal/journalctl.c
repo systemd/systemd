@@ -2619,8 +2619,8 @@ int main(int argc, char *argv[]) {
                                 arg_utc * OUTPUT_UTC |
                                 arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
-                        r = output_journal(stdout, j, arg_output, 0, flags,
-                                           arg_output_fields, highlight, &ellipsized);
+                        r = show_journal_entry(stdout, j, arg_output, 0, flags,
+                                               arg_output_fields, highlight, &ellipsized);
                         need_seek = true;
                         if (r == -EADDRNOTAVAIL)
                                 break;
