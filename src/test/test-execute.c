@@ -632,6 +632,11 @@ static void test_exec_standardoutput(Manager *m) {
                 "extra file content\n";
         int r;
 
+        /* The logs from the manager disturb the tests below, as
+         * test-execute logs to standard output or error instead of journal.
+         * So, let's suppress the logs from the manager here. */
+        log_set_max_level(LOG_INFO);
+
         test(m, "exec-standardoutput-file.service", 0, CLD_EXITED);
 
         r = write_string_file("/tmp/exec-standardoutput-file-truncate.service.actual", e, WRITE_STRING_FILE_CREATE);
@@ -641,6 +646,8 @@ static void test_exec_standardoutput(Manager *m) {
         r = write_string_file("/tmp/exec-standardinput-standardoutput-file.service.file", "Linux\n", WRITE_STRING_FILE_CREATE);
         assert_se(r == 0);
         test(m, "exec-standardinput-standardoutput-file.service", 0, CLD_EXITED);
+
+        log_set_max_level(LOG_DEBUG);
 }
 
 static int run_tests(UnitFileScope scope, const test_function_t *tests) {
