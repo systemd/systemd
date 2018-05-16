@@ -2640,7 +2640,7 @@ static int unit_is_masked(sd_bus *bus, const char *name) {
         return streq(load_state, "masked");
 }
 
-static int check_triggering_units(sd_bus *bus, const char *name) {
+static int check_triggering_units(sd_bus *bus, const char *name, bool disable) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *n = NULL, *path = NULL;
         _cleanup_strv_free_ char **triggered_by = NULL;
@@ -2681,7 +2681,7 @@ static int check_triggering_units(sd_bus *bus, const char *name) {
                         continue;
 
                 if (print_warning_label) {
-                        log_warning("Warning: Stopping %s, but it can still be activated by:", n);
+                        log_warning("Warning: %s %s, but it can still be activated by:", disable ? "Disabling" : "Stopping", n);
                         print_warning_label = false;
                 }
 
@@ -3131,7 +3131,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                  * another active unit (socket, path, timer) */
                 if (!arg_quiet && streq(method, "StopUnit"))
                         STRV_FOREACH(name, names)
-                                check_triggering_units(bus, *name);
+                                check_triggering_units(bus, *name, false);
         }
 
         if (r >= 0 && arg_wait) {
@@ -6296,6 +6296,43 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
 
                         r = start_unit(len + 1, new_args, userdata);
                 }
+        }
+
+        if (!arg_quiet && !arg_no_block && streq(verb, "disable") && !install_client_side()) {
+                _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+                const char* extra_args[4] = {};
+                int q, arg_count = 0;
+                sd_bus *bus;
+                char **name;
+
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
+
+                r = bus_wait_for_jobs_new(bus, &w);
+                if (r < 0)
+                        return log_error_errno(r, "Could not watch jobs: %m");
+
+                if (arg_scope != UNIT_FILE_SYSTEM)
+                        extra_args[arg_count++] = "--user";
+
+                assert(IN_SET(arg_transport, BUS_TRANSPORT_LOCAL, BUS_TRANSPORT_REMOTE, BUS_TRANSPORT_MACHINE));
+                if (arg_transport == BUS_TRANSPORT_REMOTE) {
+                        extra_args[arg_count++] = "-H";
+                        extra_args[arg_count++] = arg_host;
+                } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
+                        extra_args[arg_count++] = "-M";
+                        extra_args[arg_count++] = arg_host;
+                }
+
+                q = bus_wait_for_jobs(w, arg_quiet, extra_args);
+                if (q < 0)
+                        return q;
+
+                /* When disabling units, warn if they can still be triggered by
+                 * another active unit (socket, path, timer) */
+                STRV_FOREACH(name, names)
+                        check_triggering_units(bus, *name, true);
         }
 
 finish:
