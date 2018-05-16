@@ -9,6 +9,8 @@ CHANGES WITH 239 in spe:
           and udev may generate names based on PCI slot number in some cases
           where it previously did not.
 
+        * INCOMPATIBILITY: StandardOutput=file: now truncates the output file.
+
 CHANGES WITH 238:
 
         * The MemoryAccounting= unit property now defaults to on. After

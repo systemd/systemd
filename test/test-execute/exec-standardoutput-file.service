@@ -1,0 +1,9 @@
+[Unit]
+Description=Test for StandardOutput=file:
+
+[Service]
+ExecStart=cat /usr/bin/cmp
+ExecStartPost=cmp /usr/bin/cmp /tmp/cmp
+Type=oneshot
+StandardOutput=file:/tmp/cmp
+PrivateTmp=yes
