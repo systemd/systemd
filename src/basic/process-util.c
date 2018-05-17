@@ -740,14 +740,17 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
 
 /*
  * Return values:
- * < 0 : wait_for_terminate_with_timeout() failed to get the state of the
- *       process, the process timed out, the process was terminated by a
- *       signal, or failed for an unknown reason.
+ *
+ * < 0 : wait_for_terminate_with_timeout() failed to get the state of the process, the process timed out, the process
+ *       was terminated by a signal, or failed for an unknown reason.
+ *
  * >=0 : The process terminated normally with no failures.
  *
- * Success is indicated by a return value of zero, a timeout is indicated
- * by ETIMEDOUT, and all other child failure states are indicated by error
- * is indicated by a non-zero value.
+ * Success is indicated by a return value of zero, a timeout is indicated by ETIMEDOUT, and all other child failure
+ * states are indicated by error is indicated by a non-zero value.
+ *
+ * This call assumes SIGCHLD has been blocked already, in particular before the child to wait for has been forked off
+ * to remain entirely race-free.
  */
 int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
         sigset_t mask;
