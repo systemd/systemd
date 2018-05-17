@@ -493,6 +493,7 @@ uint64_t system_tasks_max(void) {
 
         uint64_t a = TASKS_MAX, b = TASKS_MAX;
         _cleanup_free_ char *root = NULL;
+        int r;
 
         /* Determine the maximum number of tasks that may run on this system. We check three sources to determine this
          * limit:
@@ -503,13 +504,24 @@ uint64_t system_tasks_max(void) {
          *
          * And then pick the smallest of the three */
 
-        (void) procfs_tasks_get_limit(&a);
+        r = procfs_tasks_get_limit(&a);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read maximum number of tasks from /proc, ignoring: %m");
 
-        if (cg_get_root_path(&root) >= 0) {
+        r = cg_get_root_path(&root);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine cgroup root path, ignoring: %m");
+        else {
                 _cleanup_free_ char *value = NULL;
 
-                if (cg_get_attribute("pids", root, "pids.max", &value) >= 0)
-                        (void) safe_atou64(value, &b);
+                r = cg_get_attribute("pids", root, "pids.max", &value);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read pids.max attribute of cgroup root, ignoring: %m");
+                else if (!streq(value, "max")) {
+                        r = safe_atou64(value, &b);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to parse pids.max attribute of cgroup root, ignoring: %m");
+                }
         }
 
         return MIN3(TASKS_MAX,
