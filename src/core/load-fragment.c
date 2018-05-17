@@ -3988,9 +3988,21 @@ int config_parse_exec_directories(
                         continue;
                 }
 
-                if (!path_is_normalized(k) || path_is_absolute(k)) {
+                if (!path_is_normalized(k)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "%s= path is not valid, ignoring assignment: %s", lvalue, rvalue);
+                                   "%s= path is not normalized, ignoring assignment: %s", lvalue, rvalue);
+                        continue;
+                }
+
+                if (path_is_absolute(k)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "%s= path is absolute, ignoring assignment: %s", lvalue, rvalue);
+                        continue;
+                }
+
+                if (path_startswith(k, "private")) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "%s= path can't be 'private', ingoring assignment: %s", lvalue, rvalue);
                         continue;
                 }
 
