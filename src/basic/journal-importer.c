@@ -247,6 +247,7 @@ static int get_data_newline(JournalImporter *imp) {
 
 static int process_dunder(JournalImporter *imp, char *line, size_t n) {
         const char *timestamp;
+        char buf[CELLESCAPE_DEFAULT_LENGTH];
         int r;
 
         assert(line);
@@ -264,10 +265,12 @@ static int process_dunder(JournalImporter *imp, char *line, size_t n) {
         timestamp = startswith(line, "__REALTIME_TIMESTAMP=");
         if (timestamp) {
                 uint64_t x;
+
                 line[n-1] = '\0';
                 r = safe_atou64(timestamp, &x);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to parse __REALTIME_TIMESTAMP '%s': %m", timestamp);
+                        return log_warning_errno(r, "Failed to parse __REALTIME_TIMESTAMP '%s': %m",
+                                                 cellescape(buf, sizeof buf, timestamp));
                 else if (!VALID_REALTIME(x)) {
                         log_warning("__REALTIME_TIMESTAMP out of range, ignoring: %"PRIu64, x);
                         return -ERANGE;
@@ -280,10 +283,12 @@ static int process_dunder(JournalImporter *imp, char *line, size_t n) {
         timestamp = startswith(line, "__MONOTONIC_TIMESTAMP=");
         if (timestamp) {
                 uint64_t x;
+
                 line[n-1] = '\0';
                 r = safe_atou64(timestamp, &x);
                 if (r < 0)
-                        return log_warning_errno(r, "Failed to parse __MONOTONIC_TIMESTAMP '%s': %m", timestamp);
+                        return log_warning_errno(r, "Failed to parse __MONOTONIC_TIMESTAMP '%s': %m",
+                                                 cellescape(buf, sizeof buf, timestamp));
                 else if (!VALID_MONOTONIC(x)) {
                         log_warning("__MONOTONIC_TIMESTAMP out of range, ignoring: %"PRIu64, x);
                         return -ERANGE;
@@ -295,7 +300,7 @@ static int process_dunder(JournalImporter *imp, char *line, size_t n) {
 
         timestamp = startswith(line, "__");
         if (timestamp) {
-                log_notice("Unknown dunder line %s, ignoring.", line);
+                log_notice("Unknown dunder line __%s, ignoring.", cellescape(buf, sizeof buf, timestamp));
                 return 1;
         }
 
