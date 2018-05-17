@@ -141,7 +141,12 @@ static int parse_config(void) {
 }
 
 static inline uint64_t storage_size_max(void) {
-        return arg_storage == COREDUMP_STORAGE_EXTERNAL ? arg_external_size_max : arg_journal_size_max;
+        if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
+                return arg_external_size_max;
+        if (arg_storage == COREDUMP_STORAGE_JOURNAL)
+                return arg_journal_size_max;
+        assert(arg_storage == COREDUMP_STORAGE_NONE);
+        return 0;
 }
 
 static int fix_acl(int fd, uid_t uid) {
@@ -323,7 +328,7 @@ static int save_external_coredump(
 
         _cleanup_free_ char *fn = NULL, *tmp = NULL;
         _cleanup_close_ int fd = -1;
-        uint64_t rlimit, max_size;
+        uint64_t rlimit, process_limit, max_size;
         struct stat st;
         uid_t uid;
         int r;
@@ -350,8 +355,14 @@ static int save_external_coredump(
                 return -EBADSLT;
         }
 
+        process_limit = MAX(arg_process_size_max, storage_size_max());
+        if (process_limit == 0) {
+                log_debug("Limits for coredump processing and storage are both 0, not dumping core.");
+                return -EBADSLT;
+        }
+
         /* Never store more than the process configured, or than we actually shall keep or process */
-        max_size = MIN(rlimit, MAX(arg_process_size_max, storage_size_max()));
+        max_size = MIN(rlimit, process_limit);
 
         r = make_filename(context, &fn);
         if (r < 0)
