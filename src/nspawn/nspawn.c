@@ -206,6 +206,7 @@ static bool arg_oom_score_adjust_set = false;
 static cpu_set_t *arg_cpuset = NULL;
 static unsigned arg_cpuset_ncpus = 0;
 static ResolvConfMode arg_resolv_conf = RESOLV_CONF_AUTO;
+static TimezoneMode arg_timezone = TIMEZONE_AUTO;
 
 static void help(void) {
 
@@ -283,6 +284,7 @@ static void help(void) {
                "                            host, try-guest, try-host\n"
                "  -j                        Equivalent to --link-journal=try-guest\n"
                "     --resolv-conf=MODE     Select mode of /etc/resolv.conf initialization\n"
+               "     --timezone=MODE        Select mode of /etc/localtime initialization\n"
                "     --read-only            Mount the root directory read-only\n"
                "     --bind=PATH[:PATH[:OPTIONS]]\n"
                "                            Bind mount a file or directory from the host into\n"
@@ -460,6 +462,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OOM_SCORE_ADJUST,
                 ARG_CPU_AFFINITY,
                 ARG_RESOLV_CONF,
+                ARG_TIMEZONE,
         };
 
         static const struct option options[] = {
@@ -519,6 +522,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "oom-score-adjust",       required_argument, NULL, ARG_OOM_SCORE_ADJUST       },
                 { "cpu-affinity",           required_argument, NULL, ARG_CPU_AFFINITY           },
                 { "resolv-conf",            required_argument, NULL, ARG_RESOLV_CONF            },
+                { "timezone",               required_argument, NULL, ARG_TIMEZONE               },
                 {}
         };
 
@@ -1221,6 +1225,21 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_RESOLV_CONF;
                         break;
 
+                case ARG_TIMEZONE:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(timezone_mode, TimezoneMode, _TIMEZONE_MODE_MAX);
+                                return 0;
+                        }
+
+                        arg_timezone = timezone_mode_from_string(optarg);
+                        if (arg_timezone < 0) {
+                                log_error("Failed to parse /etc/localtime mode: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        arg_settings_mask |= SETTING_TIMEZONE;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1436,72 +1455,147 @@ static int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t u
         return userns_lchown(q, uid, gid);
 }
 
+static const char *timezone_from_path(const char *path) {
+        const char *z;
+
+        z = path_startswith(path, "../usr/share/zoneinfo/");
+        if (z)
+                return z;
+
+        z = path_startswith(path, "/usr/share/zoneinfo/");
+        if (z)
+                return z;
+
+        return NULL;
+}
+
 static int setup_timezone(const char *dest) {
-        _cleanup_free_ char *p = NULL, *q = NULL;
-        const char *where, *check, *what;
-        char *z, *y;
+        _cleanup_free_ char *p = NULL, *etc = NULL;
+        const char *where, *check;
+        TimezoneMode m;
         int r;
 
         assert(dest);
 
-        /* Fix the timezone, if possible */
-        r = readlink_malloc("/etc/localtime", &p);
-        if (r < 0) {
-                log_warning("host's /etc/localtime is not a symlink, not updating container timezone.");
-                /* to handle warning, delete /etc/localtime and replace it
-                 * with a symbolic link to a time zone data file.
-                 *
-                 * Example:
-                 * ln -s /usr/share/zoneinfo/UTC /etc/localtime
-                 */
-                return 0;
-        }
+        if (IN_SET(arg_timezone, TIMEZONE_AUTO, TIMEZONE_SYMLINK)) {
 
-        z = path_startswith(p, "../usr/share/zoneinfo/");
-        if (!z)
-                z = path_startswith(p, "/usr/share/zoneinfo/");
-        if (!z) {
-                log_warning("/etc/localtime does not point into /usr/share/zoneinfo/, not updating container timezone.");
-                return 0;
-        }
-
-        where = prefix_roota(dest, "/etc/localtime");
-        r = readlink_malloc(where, &q);
-        if (r >= 0) {
-                y = path_startswith(q, "../usr/share/zoneinfo/");
-                if (!y)
-                        y = path_startswith(q, "/usr/share/zoneinfo/");
-
-                /* Already pointing to the right place? Then do nothing .. */
-                if (y && streq(y, z))
+                r = readlink_malloc("/etc/localtime", &p);
+                if (r == -ENOENT && arg_timezone == TIMEZONE_AUTO)
+                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_OFF : TIMEZONE_DELETE;
+                else if (r == -EINVAL && arg_timezone == TIMEZONE_AUTO) /* regular file? */
+                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_BIND : TIMEZONE_COPY;
+                else if (r < 0) {
+                        log_warning_errno(r, "Failed to read host's /etc/localtime symlink, not updating container timezone: %m");
+                        /* To handle warning, delete /etc/localtime and replace it with a symbolic link to a time zone data
+                         * file.
+                         *
+                         * Example:
+                         * ln -s /usr/share/zoneinfo/UTC /etc/localtime
+                         */
                         return 0;
-        }
+                } else if (arg_timezone == TIMEZONE_AUTO)
+                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_BIND : TIMEZONE_SYMLINK;
+                else
+                        m = arg_timezone;
+        } else
+                m = arg_timezone;
 
-        check = strjoina("/usr/share/zoneinfo/", z);
-        check = prefix_roota(dest, check);
-        if (laccess(check, F_OK) < 0) {
-                log_warning("Timezone %s does not exist in container, not updating container timezone.", z);
+        if (m == TIMEZONE_OFF)
+                return 0;
+
+        r = chase_symlinks("/etc", dest, CHASE_PREFIX_ROOT, &etc);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to resolve /etc path in container, ignoring: %m");
                 return 0;
         }
 
-        if (unlink(where) < 0 && errno != ENOENT) {
-                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING, /* Don't complain on read-only images */
-                               errno,
-                               "Failed to remove existing timezone info %s in container, ignoring: %m", where);
+        where = strjoina(etc, "/localtime");
+
+        switch (m) {
+
+        case TIMEZONE_DELETE:
+                if (unlink(where) < 0)
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno, "Failed to remove '%s', ignoring: %m", where);
+
                 return 0;
+
+        case TIMEZONE_SYMLINK: {
+                _cleanup_free_ char *q = NULL;
+                const char *z, *what;
+
+                z = timezone_from_path(p);
+                if (!z) {
+                        log_warning("/etc/localtime does not point into /usr/share/zoneinfo/, not updating container timezone.");
+                        return 0;
+                }
+
+                r = readlink_malloc(where, &q);
+                if (r >= 0 && streq_ptr(timezone_from_path(q), z))
+                        return 0; /* Already pointing to the right place? Then do nothing .. */
+
+                check = strjoina(dest, "/usr/share/zoneinfo/", z);
+                r = chase_symlinks(check, dest, 0, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Timezone %s does not exist (or is not accessible) in container, not creating symlink: %m", z);
+                else {
+                        if (unlink(where) < 0 && errno != ENOENT) {
+                                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING, /* Don't complain on read-only images */
+                                               errno, "Failed to remove existing timezone info %s in container, ignoring: %m", where);
+                                return 0;
+                        }
+
+                        what = strjoina("../usr/share/zoneinfo/", z);
+                        if (symlink(what, where) < 0) {
+                                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING,
+                                               errno, "Failed to correct timezone of container, ignoring: %m");
+                                return 0;
+                        }
+
+                        break;
+                }
+
+                _fallthrough_;
         }
 
-        what = strjoina("../usr/share/zoneinfo/", z);
-        if (symlink(what, where) < 0) {
-                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING,
-                               errno,
-                               "Failed to correct timezone of container, ignoring: %m");
-                return 0;
+        case TIMEZONE_BIND: {
+                _cleanup_free_ char *resolved = NULL;
+                int found;
+
+                found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved);
+                if (found < 0) {
+                        log_warning_errno(found, "Failed to resolve /etc/localtime path in container, ignoring: %m");
+                        return 0;
+                }
+
+                if (found == 0) /* missing? */
+                        (void) touch(resolved);
+
+                r = mount_verbose(LOG_WARNING, "/etc/localtime", resolved, NULL, MS_BIND, NULL);
+                if (r >= 0)
+                        return mount_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+
+                _fallthrough_;
         }
 
+        case TIMEZONE_COPY:
+                /* If mounting failed, try to copy */
+                r = copy_file_atomic("/etc/localtime", where, 0644, 0, COPY_REFLINK|COPY_REPLACE);
+                if (r < 0) {
+                        log_full_errno(IN_SET(r, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to copy /etc/localtime to %s, ignoring: %m", where);
+                        return 0;
+                }
+
+                break;
+
+        default:
+                assert_not_reached("unexpected mode");
+        }
+
+        /* Fix permissions of the symlink or file copy we just created */
         r = userns_lchown(where, 0, 0);
         if (r < 0)
-                return log_warning_errno(r, "Failed to chown /etc/localtime: %m");
+                log_warning_errno(r, "Failed to chown /etc/localtime, ignoring: %m");
 
         return 0;
 }
@@ -3440,6 +3534,10 @@ static int merge_settings(Settings *settings, const char *path) {
                         arg_link_journal_try = settings->link_journal_try;
                 }
         }
+
+        if ((arg_settings_mask & SETTING_TIMEZONE) == 0 &&
+            settings->timezone != _TIMEZONE_MODE_INVALID)
+                arg_timezone = settings->timezone;
 
         return 0;
 }

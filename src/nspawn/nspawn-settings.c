@@ -38,6 +38,7 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         s->userns_mode = _USER_NAMESPACE_MODE_INVALID;
         s->resolv_conf = _RESOLV_CONF_MODE_INVALID;
         s->link_journal = _LINK_JOURNAL_INVALID;
+        s->timezone = _TIMEZONE_MODE_INVALID;
         s->uid_shift = UID_INVALID;
         s->uid_range = UID_INVALID;
         s->no_new_privileges = -1;
@@ -797,3 +798,16 @@ int config_parse_link_journal(
 
         return 0;
 }
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_timezone, timezone_mode, TimezoneMode, "Failed to parse timezone mode");
+
+static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
+        [TIMEZONE_OFF] = "off",
+        [TIMEZONE_COPY] = "copy",
+        [TIMEZONE_BIND] = "bind",
+        [TIMEZONE_SYMLINK] = "symlink",
+        [TIMEZONE_DELETE] = "delete",
+        [TIMEZONE_AUTO] = "auto",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);
