@@ -131,6 +131,7 @@
         acquiring one.</para></listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
@@ -154,6 +155,8 @@
     and inhibits system sleeping, shutdown and idle while
     doing so.</para>
   </refsect1>
+
+  <xi:include href="less-variables.xml" />
 
   <refsect1>
     <title>See Also</title>
