@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
+#include "journal-file.h"
 #include "journal-importer.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -257,31 +258,39 @@ static int process_dunder(JournalImporter *imp, char *line, size_t n) {
 
         timestamp = startswith(line, "__REALTIME_TIMESTAMP=");
         if (timestamp) {
-                long long unsigned x;
+                uint64_t x;
                 line[n-1] = '\0';
-                r = safe_atollu(timestamp, &x);
+                r = safe_atou64(timestamp, &x);
                 if (r < 0)
-                        log_warning("Failed to parse __REALTIME_TIMESTAMP: '%s'", timestamp);
-                else
-                        imp->ts.realtime = x;
-                return r < 0 ? r : 1;
+                        return log_warning_errno(r, "Failed to parse __REALTIME_TIMESTAMP '%s': %m", timestamp);
+                else if (!VALID_REALTIME(x)) {
+                        log_warning("__REALTIME_TIMESTAMP out of range, ignoring: %"PRIu64, x);
+                        return -ERANGE;
+                }
+
+                imp->ts.realtime = x;
+                return 1;
         }
 
         timestamp = startswith(line, "__MONOTONIC_TIMESTAMP=");
         if (timestamp) {
-                long long unsigned x;
+                uint64_t x;
                 line[n-1] = '\0';
-                r = safe_atollu(timestamp, &x);
+                r = safe_atou64(timestamp, &x);
                 if (r < 0)
-                        log_warning("Failed to parse __MONOTONIC_TIMESTAMP: '%s'", timestamp);
-                else
-                        imp->ts.monotonic = x;
-                return r < 0 ? r : 1;
+                        return log_warning_errno(r, "Failed to parse __MONOTONIC_TIMESTAMP '%s': %m", timestamp);
+                else if (!VALID_MONOTONIC(x)) {
+                        log_warning("__MONOTONIC_TIMESTAMP out of range, ignoring: %"PRIu64, x);
+                        return -ERANGE;
+                }
+
+                imp->ts.monotonic = x;
+                return 1;
         }
 
         timestamp = startswith(line, "__");
         if (timestamp) {
-                log_notice("Unknown dunder line %s", line);
+                log_notice("Unknown dunder line %s, ignoring.", line);
                 return 1;
         }
 
