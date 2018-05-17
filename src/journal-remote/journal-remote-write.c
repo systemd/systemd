@@ -97,8 +97,9 @@ int writer_write(Writer *w,
         if (r >= 0) {
                 if (w->server)
                         w->server->event_count += 1;
-                return 1;
-        }
+                return 0;
+        } else if (r == -EBADMSG)
+                return r;
 
         log_debug_errno(r, "%s: Write failed, rotating: %m", w->journal->path);
         r = do_rotate(&w->journal, compress, seal);
@@ -115,5 +116,5 @@ int writer_write(Writer *w,
 
         if (w->server)
                 w->server->event_count += 1;
-        return 1;
+        return 0;
 }
