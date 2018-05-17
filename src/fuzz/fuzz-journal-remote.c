@@ -21,6 +21,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         int fdin; /* will be closed by journal_remote handler after EOF */
         _cleanup_close_ int fdout = -1;
         sd_journal *j;
+        OutputMode mode;
         int r;
 
         if (size <= 2)
@@ -52,8 +53,13 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         r = sd_journal_open_files(&j, (const char**) STRV_MAKE(name), 0);
         assert_se(r >= 0);
 
-        r = show_journal(stdout, j, OUTPUT_VERBOSE, 0, 0, -1, 0, NULL);
-        assert_se(r >= 0);
+        for (mode = 0; mode < _OUTPUT_MODE_MAX; mode++) {
+                r = show_journal(stdout, j, mode, 0, 0, -1, 0, NULL);
+                assert_se(r >= 0);
+
+                r = sd_journal_seek_head(j);
+                assert_se(r >= 0);
+        }
 
         sd_journal_close(j);
         unlink(name);
