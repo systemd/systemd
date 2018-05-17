@@ -2115,6 +2115,43 @@ static int specifier_expansion_from_arg(Item *i) {
         return 0;
 }
 
+static int patch_var_run(const char *fname, unsigned line, char **path) {
+        const char *k;
+        char *n;
+
+        assert(path);
+        assert(*path);
+
+        /* Optionally rewrites lines referencing /var/run/, to use /run/ instead. Why bother? tmpfiles merges lines in
+         * some cases and detects conflicts in others. If files/directories are specified through two equivalent lines
+         * this is problematic as neither case will be detected. Ideally we'd detect these cases by resolving symlinks
+         * early, but that's precisely not what we can do here as this code very likely is running very early on, at a
+         * time where the paths in question are not available yet, or even more importantly, our own tmpfiles rules
+         * might create the paths that are intermediary to the listed paths. We can't really cover the generic case,
+         * but the least we can do is cover the specific case of /var/run vs. /run, as /var/run is a legacy name for
+         * /run only, and we explicitly document that and require that on systemd systems the former is a symlink to
+         * the latter. Moreover files below this path are by far the primary usecase for tmpfiles.d/. */
+
+        k = path_startswith(*path, "/var/run/");
+        if (isempty(k)) /* Don't complain about other paths than /var/run, and not about /var/run itself either. */
+                return 0;
+
+        n = strjoin("/run/", k);
+        if (!n)
+                return log_oom();
+
+        /* Also log about this briefly. We do so at LOG_NOTICE level, as we fixed up the situation automatically, hence
+         * there's no immediate need for action by the user. However, in the interest of making things less confusing
+         * to the user, let's still inform the user that these snippets should really be updated. */
+
+        log_notice("[%s:%u] Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.", fname, line, *path, n);
+
+        free(*path);
+        *path = n;
+
+        return 0;
+}
+
 static int parse_line(const char *fname, unsigned line, const char *buffer, bool *invalid_config) {
 
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
@@ -2192,6 +2229,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         *invalid_config = true;
                 return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, path);
         }
+
+        r = patch_var_run(fname, line, &i.path);
+        if (r < 0)
+                return r;
 
         switch (i.type) {
 
