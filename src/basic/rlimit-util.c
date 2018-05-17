@@ -273,13 +273,13 @@ int rlimit_format(const struct rlimit *rl, char **ret) {
         if (rl->rlim_cur >= RLIM_INFINITY && rl->rlim_max >= RLIM_INFINITY)
                 s = strdup("infinity");
         else if (rl->rlim_cur >= RLIM_INFINITY)
-                (void) asprintf(&s, "infinity:" RLIM_FMT, rl->rlim_max);
+                (void) asprintf(&s, "infinity:%ju", (uintmax_t)rl->rlim_max);
         else if (rl->rlim_max >= RLIM_INFINITY)
-                (void) asprintf(&s, RLIM_FMT ":infinity", rl->rlim_cur);
+                (void) asprintf(&s, "%ju:infinity", (uintmax_t)rl->rlim_cur);
         else if (rl->rlim_cur == rl->rlim_max)
-                (void) asprintf(&s, RLIM_FMT, rl->rlim_cur);
+                (void) asprintf(&s, "%ju", (uintmax_t)rl->rlim_cur);
         else
-                (void) asprintf(&s, RLIM_FMT ":" RLIM_FMT, rl->rlim_cur, rl->rlim_max);
+                (void) asprintf(&s, "%ju:%ju", (uintmax_t)rl->rlim_cur, (uintmax_t)rl->rlim_max);
 
         if (!s)
                 return -ENOMEM;
