@@ -74,7 +74,7 @@
 
         <listitem><para>Controls where to store cores. One of <literal>none</literal>,
         <literal>external</literal>, and <literal>journal</literal>. When
-        <literal>none</literal>, the core dumps will be logged (including the backtrace if
+        <literal>none</literal>, the core dumps may be logged (including the backtrace if
         possible), but not stored permanently. When <literal>external</literal> (the
         default), cores will be stored in <filename>/var/lib/systemd/coredump/</filename>.
         When <literal>journal</literal>, cores will be stored in the journal and rotated
@@ -101,8 +101,12 @@
 
         <listitem><para>The maximum size in bytes of a core
         which will be processed. Core dumps exceeding this size
-        will be logged, but the backtrace will not be generated
-        and the core will not be stored.</para></listitem>
+        may be stored, but the backtrace will not be generated.
+        </para>
+
+        <para>Setting <varname>Storage=none</varname> and <varname>ProcessSizeMax=0</varname>
+        disables all coredump handling except for a log entry.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
