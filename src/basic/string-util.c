@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "alloc-util.h"
+#include "escape.h"
 #include "gunicode.h"
 #include "locale-util.h"
 #include "macro.h"
@@ -453,6 +454,20 @@ bool string_has_cc(const char *p, const char *ok) {
         return false;
 }
 
+static int write_ellipsis(char *buf, bool unicode) {
+        if (unicode || is_locale_utf8()) {
+                buf[0] = 0xe2; /* tri-dot ellipsis: … */
+                buf[1] = 0x80;
+                buf[2] = 0xa6;
+        } else {
+                buf[0] = '.';
+                buf[1] = '.';
+                buf[2] = '.';
+        }
+
+        return 3;
+}
+
 static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
         size_t x, need_space;
         char *r;
@@ -501,17 +516,7 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         assert(x <= new_length - need_space);
 
         memcpy(r, s, x);
-
-        if (is_locale_utf8()) {
-                r[x+0] = 0xe2; /* tri-dot ellipsis: … */
-                r[x+1] = 0x80;
-                r[x+2] = 0xa6;
-        } else {
-                r[x+0] = '.';
-                r[x+1] = '.';
-                r[x+2] = '.';
-        }
-
+        write_ellipsis(r + x, false);
         memcpy(r + x + 3,
                s + old_length - (new_length - x - need_space),
                new_length - x - need_space + 1);
@@ -596,21 +601,54 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         */
 
         memcpy(e, s, len);
-        e[len + 0] = 0xe2; /* tri-dot ellipsis: … */
-        e[len + 1] = 0x80;
-        e[len + 2] = 0xa6;
-
+        write_ellipsis(e + len, true);
         memcpy(e + len + 3, j, len2 + 1);
 
         return e;
 }
 
 char *ellipsize(const char *s, size_t length, unsigned percent) {
-
         if (length == (size_t) -1)
                 return strdup(s);
 
         return ellipsize_mem(s, strlen(s), length, percent);
+}
+
+char *cellescape(char *buf, size_t len, const char *s) {
+        /* Escape and ellipsize s into buffer buf of size len. Only non-control ASCII
+         * characters are copied as they are, everything else is escaped. The result
+         * is different then if escaping and ellipsization was performed in two
+         * separate steps, because each sequence is either stored in full or skipped.
+         *
+         * This function should be used for logging about strings which expected to
+         * be plain ASCII in a safe way.
+         *
+         * An ellipsis will be used if s is too long. It was always placed at the
+         * very end.
+         */
+
+        size_t i;
+        const char *t = s;
+
+        assert(len > 4 + 4 + 1); /* two chars and the terminator */
+
+        for (i = 0; i < len - 9; t++) {
+                if (!*t)
+                        goto done;
+                i += cescape_char(*t, buf + i);
+        }
+
+        /* We have space for one more char and terminating nul at this point */
+        if (*t) {
+                if (*(t+1))
+                        i += write_ellipsis(buf + i, false);
+                else
+                        i += cescape_char(*t, buf + i);
+        }
+
+ done:
+        buf[i] = '\0';
+        return buf;
 }
 
 bool nulstr_contains(const char *nulstr, const char *needle) {
