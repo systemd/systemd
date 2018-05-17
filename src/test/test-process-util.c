@@ -91,6 +91,38 @@ static void test_get_process_comm(pid_t pid) {
         log_info("PID"PID_FMT" $PATH: '%s'", pid, strna(i));
 }
 
+static void test_get_process_comm_escape_one(const char *input, const char *output) {
+        _cleanup_free_ char *n = NULL;
+
+        log_info("input: <%s> — output: <%s>", input, output);
+
+        assert_se(prctl(PR_SET_NAME, input) >= 0);
+        assert_se(get_process_comm(0, &n) >= 0);
+
+        log_info("got: <%s>", n);
+
+        assert_se(streq_ptr(n, output));
+}
+
+static void test_get_process_comm_escape(void) {
+        _cleanup_free_ char *saved = NULL;
+
+        assert_se(get_process_comm(0, &saved) >= 0);
+
+        test_get_process_comm_escape_one("", "");
+        test_get_process_comm_escape_one("foo", "foo");
+        test_get_process_comm_escape_one("012345678901234", "012345678901234");
+        test_get_process_comm_escape_one("0123456789012345", "012345678901234");
+        test_get_process_comm_escape_one("äöüß", "\\303\\244\\303…");
+        test_get_process_comm_escape_one("xäöüß", "x\\303\\244…");
+        test_get_process_comm_escape_one("xxäöüß", "xx\\303\\244…");
+        test_get_process_comm_escape_one("xxxäöüß", "xxx\\303\\244…");
+        test_get_process_comm_escape_one("xxxxäöüß", "xxxx\\303\\244…");
+        test_get_process_comm_escape_one("xxxxxäöüß", "xxxxx\\303…");
+
+        assert_se(prctl(PR_SET_NAME, saved) >= 0);
+}
+
 static void test_pid_is_unwaited(void) {
         pid_t pid;
 
@@ -572,6 +604,7 @@ int main(int argc, char *argv[]) {
                 test_get_process_comm(getpid());
         }
 
+        test_get_process_comm_escape();
         test_pid_is_unwaited();
         test_pid_is_alive();
         test_personality();

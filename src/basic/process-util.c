@@ -76,20 +76,31 @@ int get_process_state(pid_t pid) {
         return (unsigned char) state;
 }
 
-int get_process_comm(pid_t pid, char **name) {
+int get_process_comm(pid_t pid, char **ret) {
+        _cleanup_free_ char *escaped = NULL, *comm = NULL;
         const char *p;
         int r;
 
-        assert(name);
+        assert(ret);
         assert(pid >= 0);
+
+        escaped = new(char, TASK_COMM_LEN);
+        if (!escaped)
+                return -ENOMEM;
 
         p = procfs_file_alloca(pid, "comm");
 
-        r = read_one_line_file(p, name);
+        r = read_one_line_file(p, &comm);
         if (r == -ENOENT)
                 return -ESRCH;
+        if (r < 0)
+                return r;
 
-        return r;
+        /* Escape unprintable characters, just in case, but don't grow the string beyond the underlying size */
+        cellescape(escaped, TASK_COMM_LEN, comm);
+
+        *ret = TAKE_PTR(escaped);
+        return 0;
 }
 
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
