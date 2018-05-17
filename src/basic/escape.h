@@ -45,7 +45,7 @@ typedef enum EscapeStyle {
 
 char *cescape(const char *s);
 char *cescape_length(const char *s, size_t n);
-size_t cescape_char(char c, char *buf);
+int cescape_char(char c, char *buf);
 
 int cunescape(const char *s, UnescapeFlags flags, char **ret);
 int cunescape_length(const char *s, size_t length, UnescapeFlags flags, char **ret);

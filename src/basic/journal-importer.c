@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "journal-file.h"
@@ -233,7 +234,11 @@ static int get_data_newline(JournalImporter *imp) {
 
         assert(data);
         if (*data != '\n') {
-                log_error("expected newline, got '%c'", *data);
+                char buf[4];
+                int l;
+
+                l = cescape_char(*data, buf);
+                log_error("Expected newline, got '%.*s'", l, buf);
                 return -EINVAL;
         }
 
