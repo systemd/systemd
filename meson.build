@@ -2735,9 +2735,8 @@ if git.found()
                 'tags',
                 output : 'tags',
                 command : [env, 'etags', '-o', '@0@/TAGS'.format(meson.current_source_dir())] + all_files)
-        custom_target(
+        run_target(
                 'ctags',
-                output : 'ctags',
                 command : [env, 'ctags', '-o', '@0@/tags'.format(meson.current_source_dir())] + all_files)
 endif
 
