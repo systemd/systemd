@@ -1072,7 +1072,7 @@ void unlink_tempfilep(char (*p)[]) {
          * successfully created. We ignore both the rare case where the
          * original suffix is used and unlink failures. */
         if (!endswith(*p, ".XXXXXX"))
-                (void) unlink(*p);
+                (void) unlink_noerrno(*p);
 }
 
 int unlinkat_deallocate(int fd, const char *name, int flags) {
