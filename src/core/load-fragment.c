@@ -812,8 +812,7 @@ int config_parse_socket_bindtodevice(
         } else
                 n = NULL;
 
-        free(s->bind_to_device);
-        s->bind_to_device = n;
+        free_and_replace(s->bind_to_device, n);
 
         return 0;
 }
