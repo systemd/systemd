@@ -365,7 +365,7 @@ int config_parse_socket_listen(const char *unit,
                 p->type = SOCKET_SOCKET;
                 r = unit_full_printf(UNIT(s), rvalue, &k);
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r,"Failed to resolve unit specifiers on %s, ignoring: %m", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers on %s, ignoring: %m", rvalue);
                         return 0;
                 }
 
@@ -816,8 +816,7 @@ int config_parse_socket_bindtodevice(
         } else
                 n = NULL;
 
-        free(s->bind_to_device);
-        s->bind_to_device = n;
+        free_and_replace(s->bind_to_device, n);
 
         return 0;
 }
