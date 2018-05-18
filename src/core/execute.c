@@ -2727,7 +2727,7 @@ static int exec_child(
 #endif
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
-        int i, r, ngids = 0;
+        int r, ngids = 0;
         size_t n_fds;
         ExecDirectoryType dt;
         int secure_bits;
@@ -2916,15 +2916,9 @@ static int exec_child(
         }
 
         if (context->oom_score_adjust_set) {
-                char t[DECIMAL_STR_MAX(context->oom_score_adjust)];
-
-                /* When we can't make this change due to EPERM, then
-                 * let's silently skip over it. User namespaces
-                 * prohibit write access to this file, and we
-                 * shouldn't trip up over that. */
-
-                sprintf(t, "%i", context->oom_score_adjust);
-                r = write_string_file("/proc/self/oom_score_adj", t, 0);
+                /* When we can't make this change due to EPERM, then let's silently skip over it. User namespaces
+                 * prohibit write access to this file, and we shouldn't trip up over that. */
+                r = set_oom_score_adjust(context->oom_score_adjust);
                 if (IN_SET(r, -EPERM, -EACCES))
                         log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
                 else if (r < 0) {
@@ -3167,17 +3161,12 @@ static int exec_child(
 
         if (needs_sandboxing) {
                 uint64_t bset;
+                int which_failed;
 
-                for (i = 0; i < _RLIMIT_MAX; i++) {
-
-                        if (!context->rlimit[i])
-                                continue;
-
-                        r = setrlimit_closest(i, context->rlimit[i]);
-                        if (r < 0) {
-                                *exit_status = EXIT_LIMITS;
-                                return log_unit_error_errno(unit, r, "Failed to adjust resource limit %s: %m", rlimit_to_string(i));
-                        }
+                r = setrlimit_closest_all((const struct rlimit* const *) context->rlimit, &which_failed);
+                if (r < 0) {
+                        *exit_status = EXIT_LIMITS;
+                        return log_unit_error_errno(unit, r, "Failed to adjust resource limit RLIMIT_%s: %m", rlimit_to_string(which_failed));
                 }
 
                 /* Set the RTPRIO resource limit to 0, but only if nothing else was explicitly requested. */
@@ -3574,8 +3563,7 @@ void exec_context_done(ExecContext *c) {
         c->pass_environment = strv_free(c->pass_environment);
         c->unset_environment = strv_free(c->unset_environment);
 
-        for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
-                c->rlimit[l] = mfree(c->rlimit[l]);
+        rlimit_free_all(c->rlimit);
 
         for (l = 0; l < 3; l++) {
                 c->stdio_fdname[l] = mfree(c->stdio_fdname[l]);
@@ -3975,9 +3963,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         for (i = 0; i < RLIM_NLIMITS; i++)
                 if (c->rlimit[i]) {
-                        fprintf(f, "%s%s: " RLIM_FMT "\n",
+                        fprintf(f, "Limit%s%s: " RLIM_FMT "\n",
                                 prefix, rlimit_to_string(i), c->rlimit[i]->rlim_max);
-                        fprintf(f, "%s%sSoft: " RLIM_FMT "\n",
+                        fprintf(f, "Limit%s%sSoft: " RLIM_FMT "\n",
                                 prefix, rlimit_to_string(i), c->rlimit[i]->rlim_cur);
                 }
 

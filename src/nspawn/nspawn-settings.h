@@ -7,6 +7,7 @@
   Copyright 2015 Lennart Poettering
 ***/
 
+#include <sched.h>
 #include <stdio.h>
 
 #include "sd-id128.h"
@@ -32,24 +33,30 @@ typedef enum UserNamespaceMode {
 } UserNamespaceMode;
 
 typedef enum SettingsMask {
-        SETTING_START_MODE        = 1 << 0,
-        SETTING_ENVIRONMENT       = 1 << 1,
-        SETTING_USER              = 1 << 2,
-        SETTING_CAPABILITY        = 1 << 3,
-        SETTING_KILL_SIGNAL       = 1 << 4,
-        SETTING_PERSONALITY       = 1 << 5,
-        SETTING_MACHINE_ID        = 1 << 6,
-        SETTING_NETWORK           = 1 << 7,
-        SETTING_EXPOSE_PORTS      = 1 << 8,
-        SETTING_READ_ONLY         = 1 << 9,
-        SETTING_VOLATILE_MODE     = 1 << 10,
-        SETTING_CUSTOM_MOUNTS     = 1 << 11,
-        SETTING_WORKING_DIRECTORY = 1 << 12,
-        SETTING_USERNS            = 1 << 13,
-        SETTING_NOTIFY_READY      = 1 << 14,
-        SETTING_PIVOT_ROOT        = 1 << 15,
-        SETTING_SYSCALL_FILTER    = 1 << 16,
-        _SETTINGS_MASK_ALL        = (1 << 17) -1
+        SETTING_START_MODE        = UINT64_C(1) << 0,
+        SETTING_ENVIRONMENT       = UINT64_C(1) << 1,
+        SETTING_USER              = UINT64_C(1) << 2,
+        SETTING_CAPABILITY        = UINT64_C(1) << 3,
+        SETTING_KILL_SIGNAL       = UINT64_C(1) << 4,
+        SETTING_PERSONALITY       = UINT64_C(1) << 5,
+        SETTING_MACHINE_ID        = UINT64_C(1) << 6,
+        SETTING_NETWORK           = UINT64_C(1) << 7,
+        SETTING_EXPOSE_PORTS      = UINT64_C(1) << 8,
+        SETTING_READ_ONLY         = UINT64_C(1) << 9,
+        SETTING_VOLATILE_MODE     = UINT64_C(1) << 10,
+        SETTING_CUSTOM_MOUNTS     = UINT64_C(1) << 11,
+        SETTING_WORKING_DIRECTORY = UINT64_C(1) << 12,
+        SETTING_USERNS            = UINT64_C(1) << 13,
+        SETTING_NOTIFY_READY      = UINT64_C(1) << 14,
+        SETTING_PIVOT_ROOT        = UINT64_C(1) << 15,
+        SETTING_SYSCALL_FILTER    = UINT64_C(1) << 16,
+        SETTING_HOSTNAME          = UINT64_C(1) << 17,
+        SETTING_NO_NEW_PRIVILEGES = UINT64_C(1) << 18,
+        SETTING_OOM_SCORE_ADJUST  = UINT64_C(1) << 19,
+        SETTING_CPU_AFFINITY      = UINT64_C(1) << 20,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 21, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (21 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (21 + _RLIMIT_MAX)) - 1
 } SettingsMask;
 
 typedef struct Settings {
@@ -71,6 +78,13 @@ typedef struct Settings {
         bool notify_ready;
         char **syscall_whitelist;
         char **syscall_blacklist;
+        struct rlimit *rlimit[_RLIMIT_MAX];
+        char *hostname;
+        int no_new_privileges;
+        int oom_score_adjust;
+        bool oom_score_adjust_set;
+        cpu_set_t *cpuset;
+        unsigned cpuset_ncpus;
 
         /* [Image] */
         int read_only;
@@ -115,3 +129,6 @@ int config_parse_boot(const char *unit, const char *filename, unsigned line, con
 int config_parse_pid2(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_private_users(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
 int config_parse_syscall_filter(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_hostname(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_oom_score_adjust(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+int config_parse_cpu_affinity(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);

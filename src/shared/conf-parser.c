@@ -33,6 +33,7 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "utf8.h"
+#include "rlimit-util.h"
 
 int config_item_table_lookup(
                 const void *table,
@@ -707,7 +708,7 @@ int config_parse_string(
                 void *data,
                 void *userdata) {
 
-        char **s = data, *n;
+        char **s = data;
 
         assert(filename);
         assert(lvalue);
@@ -719,16 +720,8 @@ int config_parse_string(
                 return 0;
         }
 
-        if (isempty(rvalue))
-                n = NULL;
-        else {
-                n = strdup(rvalue);
-                if (!n)
-                        return log_oom();
-        }
-
-        free(*s);
-        *s = n;
+        if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
+                return log_oom();
 
         return 0;
 }
@@ -1210,6 +1203,45 @@ int config_parse_mtu(
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Failed to parse MTU value '%s', ignoring: %m", rvalue);
                 return 0;
+        }
+
+        return 0;
+}
+
+int config_parse_rlimit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct rlimit **rl = data, d = {};
+        int r;
+
+        assert(rvalue);
+        assert(rl);
+
+        r = rlimit_parse(ltype, rvalue, &d);
+        if (r == -EILSEQ) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Soft resource limit chosen higher than hard limit, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (rl[ltype])
+                *rl[ltype] = d;
+        else {
+                rl[ltype] = newdup(struct rlimit, &d, 1);
+                if (!rl[ltype])
+                        return log_oom();
         }
 
         return 0;

@@ -685,11 +685,12 @@ int parse_path_argument_and_warn(const char *path, bool suppress_root, char **ar
                 return log_error_errno(r, "Failed to parse path \"%s\" and make it absolute: %m", path);
 
         path_kill_slashes(p);
-        if (suppress_root && path_equal(p, "/"))
+        if (suppress_root && empty_or_root(p))
                 p = mfree(p);
 
         free(*arg);
         *arg = p;
+
         return 0;
 }
 

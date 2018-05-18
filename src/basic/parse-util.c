@@ -676,3 +676,20 @@ int parse_dev(const char *s, dev_t *ret) {
         *ret = d;
         return 0;
 }
+
+int parse_oom_score_adjust(const char *s, int *ret) {
+        int r, v;
+
+        assert(s);
+        assert(ret);
+
+        r = safe_atoi(s, &v);
+        if (r < 0)
+                return r;
+
+        if (v < OOM_SCORE_ADJ_MIN || v > OOM_SCORE_ADJ_MAX)
+                return -ERANGE;
+
+        *ret = v;
+        return 0;
+}

@@ -64,6 +64,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "ratelimit.h"
+#include "rlimit-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -1174,7 +1175,6 @@ static void manager_clear_jobs_and_units(Manager *m) {
 
 Manager* manager_free(Manager *m) {
         UnitType c;
-        int i;
         ExecDirectoryType dt;
 
         if (!m)
@@ -1242,8 +1242,7 @@ Manager* manager_free(Manager *m) {
         free(m->switch_root);
         free(m->switch_root_init);
 
-        for (i = 0; i < _RLIMIT_MAX; i++)
-                m->rlimit[i] = mfree(m->rlimit[i]);
+        rlimit_free_all(m->rlimit);
 
         assert(hashmap_isempty(m->units_requiring_mounts_for));
         hashmap_free(m->units_requiring_mounts_for);

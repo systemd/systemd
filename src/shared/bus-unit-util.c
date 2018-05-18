@@ -684,7 +684,8 @@ static int bus_append_automount_property(sd_bus_message *m, const char *field, c
 }
 
 static int bus_append_execute_property(sd_bus_message *m, const char *field, const char *eq) {
-        int r, rl;
+        const char *suffix;
+        int r;
 
         if (STR_IN_SET(field,
                        "User", "Group",
@@ -863,25 +864,29 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return bus_append_byte_array(m, field, decoded, sz);
         }
 
-        rl = rlimit_from_string(field);
-        if (rl >= 0) {
-                const char *sn;
-                struct rlimit l;
+        if ((suffix = startswith(field, "Limit"))) {
+                int rl;
 
-                r = rlimit_parse(rl, eq, &l);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse resource limit: %s", eq);
+                rl = rlimit_from_string(suffix);
+                if (rl >= 0) {
+                        const char *sn;
+                        struct rlimit l;
 
-                r = sd_bus_message_append(m, "(sv)", field, "t", l.rlim_max);
-                if (r < 0)
-                        return bus_log_create_error(r);
+                        r = rlimit_parse(rl, eq, &l);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse resource limit: %s", eq);
 
-                sn = strjoina(field, "Soft");
-                r = sd_bus_message_append(m, "(sv)", sn, "t", l.rlim_cur);
-                if (r < 0)
-                        return bus_log_create_error(r);
+                        r = sd_bus_message_append(m, "(sv)", field, "t", l.rlim_max);
+                        if (r < 0)
+                                return bus_log_create_error(r);
 
-                return 1;
+                        sn = strjoina(field, "Soft");
+                        r = sd_bus_message_append(m, "(sv)", sn, "t", l.rlim_cur);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        return 1;
+                }
         }
 
         if (STR_IN_SET(field, "AppArmorProfile", "SmackProcessLabel")) {

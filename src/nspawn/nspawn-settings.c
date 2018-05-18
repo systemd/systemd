@@ -8,10 +8,13 @@
 #include "alloc-util.h"
 #include "cap-list.h"
 #include "conf-parser.h"
+#include "cpu-set-util.h"
+#include "hostname-util.h"
 #include "nspawn-network.h"
 #include "nspawn-settings.h"
 #include "parse-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -34,6 +37,7 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         s->userns_mode = _USER_NAMESPACE_MODE_INVALID;
         s->uid_shift = UID_INVALID;
         s->uid_range = UID_INVALID;
+        s->no_new_privileges = -1;
 
         s->read_only = -1;
         s->volatile_mode = _VOLATILE_MODE_INVALID;
@@ -80,6 +84,9 @@ Settings* settings_free(Settings *s) {
         free(s->working_directory);
         strv_free(s->syscall_whitelist);
         strv_free(s->syscall_blacklist);
+        rlimit_free_all(s->rlimit);
+        free(s->hostname);
+        s->cpuset = cpu_set_mfree(s->cpuset);
 
         strv_free(s->network_interfaces);
         strv_free(s->network_macvlan);
@@ -598,6 +605,122 @@ int config_parse_syscall_filter(
                 if (r < 0)
                         return log_oom();
         }
+
+        return 0;
+}
+
+int config_parse_hostname(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char **s = data;
+
+        assert(rvalue);
+        assert(s);
+
+        if (!hostname_is_valid(rvalue, false)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid hostname, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
+                return log_oom();
+
+        return 0;
+}
+
+int config_parse_oom_score_adjust(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        int oa, r;
+
+        assert(rvalue);
+        assert(settings);
+
+        if (isempty(rvalue)) {
+                settings->oom_score_adjust_set = false;
+                return 0;
+        }
+
+        r = parse_oom_score_adjust(rvalue, &oa);
+        if (r == -ERANGE) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "OOM score adjust value out of range, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        settings->oom_score_adjust = oa;
+        settings->oom_score_adjust_set = true;
+
+        return 0;
+}
+
+int config_parse_cpu_affinity(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
+        Settings *settings = data;
+        int ncpus;
+
+        assert(rvalue);
+        assert(settings);
+
+        ncpus = parse_cpu_set_and_warn(rvalue, &cpuset, unit, filename, line, lvalue);
+        if (ncpus < 0)
+                return ncpus;
+
+        if (ncpus == 0) {
+                /* An empty assignment resets the CPU list */
+                settings->cpuset = cpu_set_mfree(settings->cpuset);
+                settings->cpuset_ncpus = 0;
+                return 0;
+        }
+
+        if (!settings->cpuset) {
+                settings->cpuset = TAKE_PTR(cpuset);
+                settings->cpuset_ncpus = (unsigned) ncpus;
+                return 0;
+        }
+
+        if (settings->cpuset_ncpus < (unsigned) ncpus) {
+                CPU_OR_S(CPU_ALLOC_SIZE(settings->cpuset_ncpus), cpuset, settings->cpuset, cpuset);
+                CPU_FREE(settings->cpuset);
+                settings->cpuset = TAKE_PTR(cpuset);
+                settings->cpuset_ncpus = (unsigned) ncpus;
+                return 0;
+        }
+
+        CPU_OR_S(CPU_ALLOC_SIZE((unsigned) ncpus), settings->cpuset, settings->cpuset, cpuset);
 
         return 0;
 }

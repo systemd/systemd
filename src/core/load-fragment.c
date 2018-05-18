@@ -45,7 +45,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "rlimit-util.h"
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
@@ -507,16 +506,17 @@ int config_parse_exec_nice(
         return 0;
 }
 
-int config_parse_exec_oom_score_adjust(const char* unit,
-                                       const char *filename,
-                                       unsigned line,
-                                       const char *section,
-                                       unsigned section_line,
-                                       const char *lvalue,
-                                       int ltype,
-                                       const char *rvalue,
-                                       void *data,
-                                       void *userdata) {
+int config_parse_exec_oom_score_adjust(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
         ExecContext *c = data;
         int oa, r;
@@ -526,14 +526,18 @@ int config_parse_exec_oom_score_adjust(const char* unit,
         assert(rvalue);
         assert(data);
 
-        r = safe_atoi(rvalue, &oa);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
+        if (isempty(rvalue)) {
+                c->oom_score_adjust_set = false;
                 return 0;
         }
 
-        if (oa < OOM_SCORE_ADJ_MIN || oa > OOM_SCORE_ADJ_MAX) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "OOM score adjust value out of range, ignoring: %s", rvalue);
+        r = parse_oom_score_adjust(rvalue, &oa);
+        if (r == -ERANGE) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "OOM score adjust value out of range, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse the OOM score adjust value, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -1365,47 +1369,6 @@ int config_parse_capability_set(
                         *capability_set &= ~sum;
                 else
                         *capability_set |= sum;
-        }
-
-        return 0;
-}
-
-int config_parse_limit(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        struct rlimit **rl = data, d = {};
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = rlimit_parse(ltype, rvalue, &d);
-        if (r == -EILSEQ) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Soft resource limit chosen higher than hard limit, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        if (rl[ltype])
-                *rl[ltype] = d;
-        else {
-                rl[ltype] = newdup(struct rlimit, &d, 1);
-                if (!rl[ltype])
-                        return log_oom();
         }
 
         return 0;
@@ -4926,7 +4889,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_log_level,             "LEVEL" },
                 { config_parse_exec_secure_bits,      "SECUREBITS" },
                 { config_parse_capability_set,        "BOUNDINGSET" },
-                { config_parse_limit,                 "LIMIT" },
+                { config_parse_rlimit,                "LIMIT" },
                 { config_parse_unit_deps,             "UNIT [...]" },
                 { config_parse_exec,                  "PATH [ARGUMENT [...]]" },
                 { config_parse_service_type,          "SERVICETYPE" },

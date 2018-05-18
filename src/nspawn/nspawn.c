@@ -43,6 +43,7 @@
 #include "capability-util.h"
 #include "cgroup-util.h"
 #include "copy.h"
+#include "cpu-set-util.h"
 #include "dev-setup.h"
 #include "dissect-image.h"
 #include "env-util.h"
@@ -75,12 +76,14 @@
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
+#include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "raw-clone.h"
+#include "rlimit-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
@@ -127,7 +130,8 @@ static char *arg_pivot_root_new = NULL;
 static char *arg_pivot_root_old = NULL;
 static char *arg_user = NULL;
 static sd_id128_t arg_uuid = {};
-static char *arg_machine = NULL;
+static char *arg_machine = NULL;     /* The name used by the host to refer to this */
+static char *arg_hostname = NULL;    /* The name the payload sees by default */
 static const char *arg_selinux_context = NULL;
 static const char *arg_selinux_apifs_context = NULL;
 static const char *arg_slice = NULL;
@@ -200,8 +204,17 @@ static void *arg_root_hash = NULL;
 static size_t arg_root_hash_size = 0;
 static char **arg_syscall_whitelist = NULL;
 static char **arg_syscall_blacklist = NULL;
+static struct rlimit *arg_rlimit[_RLIMIT_MAX] = {};
+static bool arg_no_new_privileges = false;
+static int arg_oom_score_adjust = 0;
+static bool arg_oom_score_adjust_set = false;
+static cpu_set_t *arg_cpuset = NULL;
+static unsigned arg_cpuset_ncpus = 0;
 
 static void help(void) {
+
+        (void) pager_open(false, false);
+
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
                "Spawn a minimal namespace container for debugging, testing and building.\n\n"
                "  -h --help                 Show this help\n"
@@ -221,6 +234,7 @@ static void help(void) {
                "                            Pivot root to given directory in the container\n"
                "  -u --user=USER            Run the command under specified user or uid\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
+               "     --hostname=NAME        Override the hostname for the container\n"
                "     --uuid=UUID            Set a specific machine UUID for the container\n"
                "  -S --slice=SLICE          Place the container in the specified slice\n"
                "     --property=NAME=VALUE  Set scope unit property\n"
@@ -264,6 +278,10 @@ static void help(void) {
                "     --drop-capability=CAP  Drop the specified capability from the default set\n"
                "     --system-call-filter=LIST|~LIST\n"
                "                            Permit/prohibit specific system calls\n"
+               "     --rlimit=NAME=LIMIT    Set a resource limit for the payload\n"
+               "     --oom-score-adjust=VALUE\n"
+               "                            Adjust the OOM score value for the payload\n"
+               "     --cpu-affinity=CPUS    Adjust the CPU affinity of the container\n"
                "     --kill-signal=SIGNAL   Select signal to use for shutting down PID 1\n"
                "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, \n"
                "                            host, try-guest, try-host\n"
@@ -439,6 +457,11 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NOTIFY_READY,
                 ARG_ROOT_HASH,
                 ARG_SYSTEM_CALL_FILTER,
+                ARG_RLIMIT,
+                ARG_HOSTNAME,
+                ARG_NO_NEW_PRIVILEGES,
+                ARG_OOM_SCORE_ADJUST,
+                ARG_CPU_AFFINITY,
         };
 
         static const struct option options[] = {
@@ -455,6 +478,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "read-only",              no_argument,       NULL, ARG_READ_ONLY              },
                 { "capability",             required_argument, NULL, ARG_CAPABILITY             },
                 { "drop-capability",        required_argument, NULL, ARG_DROP_CAPABILITY        },
+                { "no-new-privileges",      required_argument, NULL, ARG_NO_NEW_PRIVILEGES      },
                 { "link-journal",           required_argument, NULL, ARG_LINK_JOURNAL           },
                 { "bind",                   required_argument, NULL, ARG_BIND                   },
                 { "bind-ro",                required_argument, NULL, ARG_BIND_RO                },
@@ -462,6 +486,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "overlay",                required_argument, NULL, ARG_OVERLAY                },
                 { "overlay-ro",             required_argument, NULL, ARG_OVERLAY_RO             },
                 { "machine",                required_argument, NULL, 'M'                        },
+                { "hostname",               required_argument, NULL, ARG_HOSTNAME               },
                 { "slice",                  required_argument, NULL, 'S'                        },
                 { "setenv",                 required_argument, NULL, 'E'                        },
                 { "selinux-context",        required_argument, NULL, 'Z'                        },
@@ -492,6 +517,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "notify-ready",           required_argument, NULL, ARG_NOTIFY_READY           },
                 { "root-hash",              required_argument, NULL, ARG_ROOT_HASH              },
                 { "system-call-filter",     required_argument, NULL, ARG_SYSTEM_CALL_FILTER     },
+                { "rlimit",                 required_argument, NULL, ARG_RLIMIT                 },
+                { "oom-score-adjust",       required_argument, NULL, ARG_OOM_SCORE_ADJUST       },
+                { "cpu-affinity",           required_argument, NULL, ARG_CPU_AFFINITY           },
                 {}
         };
 
@@ -696,6 +724,23 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
+                case ARG_HOSTNAME:
+                        if (isempty(optarg))
+                                arg_hostname = mfree(arg_hostname);
+                        else {
+                                if (!hostname_is_valid(optarg, false)) {
+                                        log_error("Invalid hostname: %s", optarg);
+                                        return -EINVAL;
+                                }
+
+                                r = free_and_strdup(&arg_hostname, optarg);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        arg_settings_mask |= SETTING_HOSTNAME;
+                        break;
+
                 case 'Z':
                         arg_selinux_context = optarg;
                         break;
@@ -746,6 +791,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_CAPABILITY;
                         break;
                 }
+
+                case ARG_NO_NEW_PRIVILEGES:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --no-new-privileges= argument: %s", optarg);
+
+                        arg_no_new_privileges = r;
+                        arg_settings_mask |= SETTING_NO_NEW_PRIVILEGES;
+                        break;
 
                 case 'j':
                         arg_link_journal = LINK_GUEST;
@@ -1091,6 +1145,66 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_settings_mask |= SETTING_SYSCALL_FILTER;
+                        break;
+                }
+
+                case ARG_RLIMIT: {
+                        const char *eq;
+                        char *name;
+                        int rl;
+
+                        eq = strchr(optarg, '=');
+                        if (!eq) {
+                                log_error("--rlimit= expects an '=' assignment.");
+                                return -EINVAL;
+                        }
+
+                        name = strndup(optarg, eq - optarg);
+                        if (!name)
+                                return log_oom();
+
+                        rl = rlimit_from_string_harder(name);
+                        if (rl < 0) {
+                                log_error("Unknown resource limit: %s", name);
+                                return -EINVAL;
+                        }
+
+                        if (!arg_rlimit[rl]) {
+                                arg_rlimit[rl] = new0(struct rlimit, 1);
+                                if (!arg_rlimit[rl])
+                                        return log_oom();
+                        }
+
+                        r = rlimit_parse(rl, eq + 1, arg_rlimit[rl]);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse resource limit: %s", eq + 1);
+
+                        arg_settings_mask |= SETTING_RLIMIT_FIRST << rl;
+                        break;
+                }
+
+                case ARG_OOM_SCORE_ADJUST:
+                        r = parse_oom_score_adjust(optarg, &arg_oom_score_adjust);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --oom-score-adjust= parameter: %s", optarg);
+
+                        arg_oom_score_adjust_set = true;
+                        arg_settings_mask |= SETTING_OOM_SCORE_ADJUST;
+                        break;
+
+                case ARG_CPU_AFFINITY: {
+                        _cleanup_cpu_free_ cpu_set_t *cpuset = NULL;
+
+                        r = parse_cpu_set(optarg, &cpuset);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse CPU affinity mask: %s", optarg);
+
+                        if (arg_cpuset)
+                                CPU_FREE(arg_cpuset);
+
+                        arg_cpuset = TAKE_PTR(cpuset);
+                        arg_cpuset_ncpus = r;
+                        arg_settings_mask |= SETTING_CPU_AFFINITY;
                         break;
                 }
 
@@ -1718,12 +1832,14 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *m, void *user
 }
 
 static int setup_hostname(void) {
+        int r;
 
         if ((arg_clone_ns_flags & CLONE_NEWUTS) == 0)
                 return 0;
 
-        if (sethostname_idempotent(arg_machine) < 0)
-                return -errno;
+        r = sethostname_idempotent(arg_hostname ?: arg_machine);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set hostname: %m");
 
         return 0;
 }
@@ -2282,7 +2398,6 @@ static int inner_child(
                 NULL
         };
         const char *exec_target;
-
         _cleanup_strv_free_ char **env_use = NULL;
         int r;
 
@@ -2377,11 +2492,21 @@ static int inner_child(
                 rtnl_socket = safe_close(rtnl_socket);
         }
 
+        if (arg_oom_score_adjust_set) {
+                r = set_oom_score_adjust(arg_oom_score_adjust);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to adjust OOM score: %m");
+        }
+
+        if (arg_cpuset)
+                if (sched_setaffinity(0, CPU_ALLOC_SIZE(arg_cpuset_ncpus), arg_cpuset) < 0)
+                        return log_error_errno(errno, "Failed to set CPU affinity: %m");
+
         r = drop_capabilities();
         if (r < 0)
                 return log_error_errno(r, "drop_capabilities() failed: %m");
 
-        setup_hostname();
+        (void) setup_hostname();
 
         if (arg_personality != PERSONALITY_INVALID) {
                 r = safe_personality(arg_personality);
@@ -2402,6 +2527,10 @@ static int inner_child(
         r = change_uid_gid(arg_user, &home);
         if (r < 0)
                 return r;
+
+        if (arg_no_new_privileges)
+                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
+                        return log_error_errno(errno, "Failed to disable new privileges: %m");
 
         /* LXC sets container=lxc, so follow the scheme here */
         envp[n_env++] = strjoina("container=", arg_container_service_name);
@@ -2559,10 +2688,10 @@ static int outer_child(
                 FDSet *fds,
                 int netns_fd) {
 
+        _cleanup_close_ int fd = -1;
+        int r, which_failed;
         pid_t pid;
         ssize_t l;
-        int r;
-        _cleanup_close_ int fd = -1;
 
         assert(barrier);
         assert(directory);
@@ -2805,6 +2934,10 @@ static int outer_child(
         if (fd < 0)
                 return fd;
 
+        r = setrlimit_closest_all((const struct rlimit *const*) arg_rlimit, &which_failed);
+        if (r < 0)
+                return log_error_errno(r, "Failed to apply resource limit RLIMIT_%s: %m", rlimit_to_string(which_failed));
+
         pid = raw_clone(SIGCHLD|CLONE_NEWNS|
                         arg_clone_ns_flags |
                         (arg_userns_mode != USER_NAMESPACE_NO ? CLONE_NEWUSER : 0));
@@ -3041,6 +3174,206 @@ static int setup_sd_notify_parent(sd_event *event, int fd, pid_t *inner_child_pi
         return 0;
 }
 
+static int merge_settings(Settings *settings, const char *path) {
+        int rl;
+
+        assert(settings);
+        assert(path);
+
+        /* Copy over bits from the settings, unless they have been explicitly masked by command line switches. Note
+         * that this steals the fields of the Settings* structure, and hence modifies it. */
+
+        if ((arg_settings_mask & SETTING_START_MODE) == 0 &&
+            settings->start_mode >= 0) {
+                arg_start_mode = settings->start_mode;
+                strv_free_and_replace(arg_parameters, settings->parameters);
+        }
+
+        if ((arg_settings_mask & SETTING_PIVOT_ROOT) == 0 &&
+            settings->pivot_root_new) {
+                free_and_replace(arg_pivot_root_new, settings->pivot_root_new);
+                free_and_replace(arg_pivot_root_old, settings->pivot_root_old);
+        }
+
+        if ((arg_settings_mask & SETTING_WORKING_DIRECTORY) == 0 &&
+            settings->working_directory)
+                free_and_replace(arg_chdir, settings->working_directory);
+
+        if ((arg_settings_mask & SETTING_ENVIRONMENT) == 0 &&
+            settings->environment)
+                strv_free_and_replace(arg_setenv, settings->environment);
+
+        if ((arg_settings_mask & SETTING_USER) == 0 &&
+            settings->user)
+                free_and_replace(arg_user, settings->user);
+
+        if ((arg_settings_mask & SETTING_CAPABILITY) == 0) {
+                uint64_t plus;
+
+                plus = settings->capability;
+                if (settings_private_network(settings))
+                        plus |= (1ULL << CAP_NET_ADMIN);
+
+                if (!arg_settings_trusted && plus != 0) {
+                        if (settings->capability != 0)
+                                log_warning("Ignoring Capability= setting, file %s is not trusted.", path);
+                } else
+                        arg_caps_retain |= plus;
+
+                arg_caps_retain &= ~settings->drop_capability;
+        }
+
+        if ((arg_settings_mask & SETTING_KILL_SIGNAL) == 0 &&
+            settings->kill_signal > 0)
+                arg_kill_signal = settings->kill_signal;
+
+        if ((arg_settings_mask & SETTING_PERSONALITY) == 0 &&
+            settings->personality != PERSONALITY_INVALID)
+                arg_personality = settings->personality;
+
+        if ((arg_settings_mask & SETTING_MACHINE_ID) == 0 &&
+            !sd_id128_is_null(settings->machine_id)) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring MachineID= setting, file %s is not trusted.", path);
+                else
+                        arg_uuid = settings->machine_id;
+        }
+
+        if ((arg_settings_mask & SETTING_READ_ONLY) == 0 &&
+            settings->read_only >= 0)
+                arg_read_only = settings->read_only;
+
+        if ((arg_settings_mask & SETTING_VOLATILE_MODE) == 0 &&
+            settings->volatile_mode != _VOLATILE_MODE_INVALID)
+                arg_volatile_mode = settings->volatile_mode;
+
+        if ((arg_settings_mask & SETTING_CUSTOM_MOUNTS) == 0 &&
+            settings->n_custom_mounts > 0) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring TemporaryFileSystem=, Bind= and BindReadOnly= settings, file %s is not trusted.", path);
+                else {
+                        custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
+                        arg_custom_mounts = TAKE_PTR(settings->custom_mounts);
+                        arg_n_custom_mounts = settings->n_custom_mounts;
+                        settings->n_custom_mounts = 0;
+                }
+        }
+
+        if ((arg_settings_mask & SETTING_NETWORK) == 0 &&
+            (settings->private_network >= 0 ||
+             settings->network_veth >= 0 ||
+             settings->network_bridge ||
+             settings->network_zone ||
+             settings->network_interfaces ||
+             settings->network_macvlan ||
+             settings->network_ipvlan ||
+             settings->network_veth_extra)) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring network settings, file %s is not trusted.", path);
+                else {
+                        arg_network_veth = settings_network_veth(settings);
+                        arg_private_network = settings_private_network(settings);
+
+                        strv_free_and_replace(arg_network_interfaces, settings->network_interfaces);
+                        strv_free_and_replace(arg_network_macvlan, settings->network_macvlan);
+                        strv_free_and_replace(arg_network_ipvlan, settings->network_ipvlan);
+                        strv_free_and_replace(arg_network_veth_extra, settings->network_veth_extra);
+
+                        free_and_replace(arg_network_bridge, settings->network_bridge);
+                        free_and_replace(arg_network_zone, settings->network_zone);
+                }
+        }
+
+        if ((arg_settings_mask & SETTING_EXPOSE_PORTS) == 0 &&
+            settings->expose_ports) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring Port= setting, file %s is not trusted.", path);
+                else {
+                        expose_port_free_all(arg_expose_ports);
+                        arg_expose_ports = TAKE_PTR(settings->expose_ports);
+                }
+        }
+
+        if ((arg_settings_mask & SETTING_USERNS) == 0 &&
+            settings->userns_mode != _USER_NAMESPACE_MODE_INVALID) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring PrivateUsers= and PrivateUsersChown= settings, file %s is not trusted.", path);
+                else {
+                        arg_userns_mode = settings->userns_mode;
+                        arg_uid_shift = settings->uid_shift;
+                        arg_uid_range = settings->uid_range;
+                        arg_userns_chown = settings->userns_chown;
+                }
+        }
+
+        if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0)
+                arg_notify_ready = settings->notify_ready;
+
+        if ((arg_settings_mask & SETTING_SYSCALL_FILTER) == 0) {
+
+                if (!arg_settings_trusted && !strv_isempty(arg_syscall_whitelist))
+                        log_warning("Ignoring SystemCallFilter= settings, file %s is not trusted.", path);
+                else {
+                        strv_free_and_replace(arg_syscall_whitelist, settings->syscall_whitelist);
+                        strv_free_and_replace(arg_syscall_blacklist, settings->syscall_blacklist);
+                }
+        }
+
+        for (rl = 0; rl < _RLIMIT_MAX; rl ++) {
+                if ((arg_settings_mask & (SETTING_RLIMIT_FIRST << rl)))
+                        continue;
+
+                if (!settings->rlimit[rl])
+                        continue;
+
+                if (!arg_settings_trusted) {
+                        log_warning("Ignoring Limit%s= setting, file '%s' is not trusted.", rlimit_to_string(rl), path);
+                        continue;
+                }
+
+                free_and_replace(arg_rlimit[rl], settings->rlimit[rl]);
+        }
+
+        if ((arg_settings_mask & SETTING_HOSTNAME) == 0 &&
+            settings->hostname)
+                free_and_replace(arg_hostname, settings->hostname);
+
+        if ((arg_settings_mask & SETTING_NO_NEW_PRIVILEGES) == 0 &&
+            settings->no_new_privileges >= 0)
+                arg_no_new_privileges = settings->no_new_privileges;
+
+        if ((arg_settings_mask & SETTING_OOM_SCORE_ADJUST) == 0 &&
+            settings->oom_score_adjust_set) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring OOMScoreAdjust= setting, file '%s' is not trusted.", path);
+                else {
+                        arg_oom_score_adjust = settings->oom_score_adjust;
+                        arg_oom_score_adjust_set = true;
+                }
+        }
+
+        if ((arg_settings_mask & SETTING_CPU_AFFINITY) == 0 &&
+            settings->cpuset) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring CPUAffinity= setting, file '%s' is not trusted.", path);
+                else {
+                        if (arg_cpuset)
+                                CPU_FREE(arg_cpuset);
+                        arg_cpuset = TAKE_PTR(settings->cpuset);
+                        arg_cpuset_ncpus = settings->cpuset_ncpus;
+                }
+        }
+
+        return 0;
+}
+
 static int load_settings(void) {
         _cleanup_(settings_freep) Settings *settings = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -3112,151 +3445,7 @@ static int load_settings(void) {
         if (r < 0)
                 return r;
 
-        /* Copy over bits from the settings, unless they have been
-         * explicitly masked by command line switches. */
-
-        if ((arg_settings_mask & SETTING_START_MODE) == 0 &&
-            settings->start_mode >= 0) {
-                arg_start_mode = settings->start_mode;
-                strv_free_and_replace(arg_parameters, settings->parameters);
-        }
-
-        if ((arg_settings_mask & SETTING_PIVOT_ROOT) == 0 &&
-            settings->pivot_root_new) {
-                free_and_replace(arg_pivot_root_new, settings->pivot_root_new);
-                free_and_replace(arg_pivot_root_old, settings->pivot_root_old);
-        }
-
-        if ((arg_settings_mask & SETTING_WORKING_DIRECTORY) == 0 &&
-            settings->working_directory)
-                free_and_replace(arg_chdir, settings->working_directory);
-
-        if ((arg_settings_mask & SETTING_ENVIRONMENT) == 0 &&
-            settings->environment)
-                strv_free_and_replace(arg_setenv, settings->environment);
-
-        if ((arg_settings_mask & SETTING_USER) == 0 &&
-            settings->user)
-                free_and_replace(arg_user, settings->user);
-
-        if ((arg_settings_mask & SETTING_CAPABILITY) == 0) {
-                uint64_t plus;
-
-                plus = settings->capability;
-                if (settings_private_network(settings))
-                        plus |= (1ULL << CAP_NET_ADMIN);
-
-                if (!arg_settings_trusted && plus != 0) {
-                        if (settings->capability != 0)
-                                log_warning("Ignoring Capability= setting, file %s is not trusted.", p);
-                } else
-                        arg_caps_retain |= plus;
-
-                arg_caps_retain &= ~settings->drop_capability;
-        }
-
-        if ((arg_settings_mask & SETTING_KILL_SIGNAL) == 0 &&
-            settings->kill_signal > 0)
-                arg_kill_signal = settings->kill_signal;
-
-        if ((arg_settings_mask & SETTING_PERSONALITY) == 0 &&
-            settings->personality != PERSONALITY_INVALID)
-                arg_personality = settings->personality;
-
-        if ((arg_settings_mask & SETTING_MACHINE_ID) == 0 &&
-            !sd_id128_is_null(settings->machine_id)) {
-
-                if (!arg_settings_trusted)
-                        log_warning("Ignoring MachineID= setting, file %s is not trusted.", p);
-                else
-                        arg_uuid = settings->machine_id;
-        }
-
-        if ((arg_settings_mask & SETTING_READ_ONLY) == 0 &&
-            settings->read_only >= 0)
-                arg_read_only = settings->read_only;
-
-        if ((arg_settings_mask & SETTING_VOLATILE_MODE) == 0 &&
-            settings->volatile_mode != _VOLATILE_MODE_INVALID)
-                arg_volatile_mode = settings->volatile_mode;
-
-        if ((arg_settings_mask & SETTING_CUSTOM_MOUNTS) == 0 &&
-            settings->n_custom_mounts > 0) {
-
-                if (!arg_settings_trusted)
-                        log_warning("Ignoring TemporaryFileSystem=, Bind= and BindReadOnly= settings, file %s is not trusted.", p);
-                else {
-                        custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
-                        arg_custom_mounts = TAKE_PTR(settings->custom_mounts);
-                        arg_n_custom_mounts = settings->n_custom_mounts;
-                        settings->n_custom_mounts = 0;
-                }
-        }
-
-        if ((arg_settings_mask & SETTING_NETWORK) == 0 &&
-            (settings->private_network >= 0 ||
-             settings->network_veth >= 0 ||
-             settings->network_bridge ||
-             settings->network_zone ||
-             settings->network_interfaces ||
-             settings->network_macvlan ||
-             settings->network_ipvlan ||
-             settings->network_veth_extra)) {
-
-                if (!arg_settings_trusted)
-                        log_warning("Ignoring network settings, file %s is not trusted.", p);
-                else {
-                        arg_network_veth = settings_network_veth(settings);
-                        arg_private_network = settings_private_network(settings);
-
-                        strv_free_and_replace(arg_network_interfaces, settings->network_interfaces);
-                        strv_free_and_replace(arg_network_macvlan, settings->network_macvlan);
-                        strv_free_and_replace(arg_network_ipvlan, settings->network_ipvlan);
-                        strv_free_and_replace(arg_network_veth_extra, settings->network_veth_extra);
-
-                        free_and_replace(arg_network_bridge, settings->network_bridge);
-                        free_and_replace(arg_network_zone, settings->network_zone);
-                }
-        }
-
-        if ((arg_settings_mask & SETTING_EXPOSE_PORTS) == 0 &&
-            settings->expose_ports) {
-
-                if (!arg_settings_trusted)
-                        log_warning("Ignoring Port= setting, file %s is not trusted.", p);
-                else {
-                        expose_port_free_all(arg_expose_ports);
-                        arg_expose_ports = TAKE_PTR(settings->expose_ports);
-                }
-        }
-
-        if ((arg_settings_mask & SETTING_USERNS) == 0 &&
-            settings->userns_mode != _USER_NAMESPACE_MODE_INVALID) {
-
-                if (!arg_settings_trusted)
-                        log_warning("Ignoring PrivateUsers= and PrivateUsersChown= settings, file %s is not trusted.", p);
-                else {
-                        arg_userns_mode = settings->userns_mode;
-                        arg_uid_shift = settings->uid_shift;
-                        arg_uid_range = settings->uid_range;
-                        arg_userns_chown = settings->userns_chown;
-                }
-        }
-
-        if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0)
-                arg_notify_ready = settings->notify_ready;
-
-        if ((arg_settings_mask & SETTING_SYSCALL_FILTER) == 0) {
-
-                if (!arg_settings_trusted && !strv_isempty(arg_syscall_whitelist))
-                        log_warning("Ignoring SystemCallFilter= settings, file %s is not trusted.", p);
-                else {
-                        strv_free_and_replace(arg_syscall_whitelist, settings->syscall_whitelist);
-                        strv_free_and_replace(arg_syscall_blacklist, settings->syscall_blacklist);
-                }
-        }
-
-        return 0;
+        return merge_settings(settings, p);
 }
 
 static int run(int master,
@@ -3680,20 +3869,20 @@ static int run(int master,
                    "STATUS=Container running.\n"
                    "X_NSPAWN_LEADER_PID=" PID_FMT, *pid);
         if (!arg_notify_ready)
-                sd_notify(false, "READY=1\n");
+                (void) sd_notify(false, "READY=1\n");
 
         if (arg_kill_signal > 0) {
                 /* Try to kill the init system on SIGINT or SIGTERM */
-                sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(*pid));
-                sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, PID_TO_PTR(*pid));
+                (void) sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(*pid));
+                (void) sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, PID_TO_PTR(*pid));
         } else {
                 /* Immediately exit */
-                sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-                sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+                (void) sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+                (void) sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
         }
 
         /* Exit when the child exits */
-        sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, PID_TO_PTR(*pid));
+        (void) sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, PID_TO_PTR(*pid));
 
         if (arg_expose_ports) {
                 r = expose_port_watch_rtnl(event, rtnl_socket_pair[0], on_address_change, exposed, &rtnl);
@@ -3767,6 +3956,71 @@ static int run(int master,
         return 1; /* loop again */
 }
 
+static int initialize_rlimits(void) {
+
+        /* The default resource limits the kernel passes to PID 1, as per kernel 4.16. Let's pass our container payload
+         * the same values as the kernel originally passed to PID 1, in order to minimize differences between host and
+         * container execution environments. */
+
+        static const struct rlimit kernel_defaults[_RLIMIT_MAX] = {
+                [RLIMIT_AS]       = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_CORE]     = { 0,             RLIM_INFINITY },
+                [RLIMIT_CPU]      = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_DATA]     = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_FSIZE]    = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_LOCKS]    = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_MEMLOCK]  = { 65536,         65536         },
+                [RLIMIT_MSGQUEUE] = { 819200,        819200        },
+                [RLIMIT_NICE]     = { 0,             0             },
+                [RLIMIT_NOFILE]   = { 1024,          4096          },
+                [RLIMIT_RSS]      = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_RTPRIO]   = { 0,             0             },
+                [RLIMIT_RTTIME]   = { RLIM_INFINITY, RLIM_INFINITY },
+                [RLIMIT_STACK]    = { 8388608,       RLIM_INFINITY },
+
+                /* The kernel scales the default for RLIMIT_NPROC and RLIMIT_SIGPENDING based on the system's amount of
+                 * RAM. To provide best compatibility we'll read these limits off PID 1 instead of hardcoding them
+                 * here. This is safe as we know that PID 1 doesn't change these two limits and thus the original
+                 * kernel's initialization should still be valid during runtime — at least if PID 1 is systemd. Note
+                 * that PID 1 changes a number of other resource limits during early initialization which is why we
+                 * don't read the other limits from PID 1 but prefer the static table above. */
+        };
+
+        int rl;
+
+        for (rl = 0; rl < _RLIMIT_MAX; rl++) {
+
+                /* Let's only fill in what the user hasn't explicitly configured anyway */
+                if ((arg_settings_mask & (SETTING_RLIMIT_FIRST << rl)) == 0) {
+                        const struct rlimit *v;
+                        struct rlimit buffer;
+
+                        if (IN_SET(rl, RLIMIT_NPROC, RLIMIT_SIGPENDING)) {
+                                /* For these two let's read the limits off PID 1. See above for an explanation. */
+
+                                if (prlimit(1, rl, NULL, &buffer) < 0)
+                                        return log_error_errno(errno, "Failed to read resource limit RLIMIT_%s of PID 1: %m", rlimit_to_string(rl));
+
+                                v = &buffer;
+                        } else
+                                v = kernel_defaults + rl;
+
+                        arg_rlimit[rl] = newdup(struct rlimit, v, 1);
+                        if (!arg_rlimit[rl])
+                                return log_oom();
+                }
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *k = NULL;
+
+                        (void) rlimit_format(arg_rlimit[rl], &k);
+                        log_debug("Setting RLIMIT_%s to %s.", rlimit_to_string(rl), k);
+                }
+        }
+
+        return 0;
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_free_ char *console = NULL;
@@ -3796,6 +4050,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
 
         r = must_be_root();
+        if (r < 0)
+                goto finish;
+
+        r = initialize_rlimits();
         if (r < 0)
                 goto finish;
 
@@ -4077,7 +4335,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, -1) >= 0);
 
-        if (prctl(PR_SET_CHILD_SUBREAPER, 1) < 0) {
+        if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) < 0) {
                 r = log_error_errno(errno, "Failed to become subreaper: %m");
                 goto finish;
         }
@@ -4111,6 +4369,8 @@ finish:
 
         if (pid > 0)
                 (void) wait_for_terminate(pid, NULL);
+
+        pager_close();
 
         if (remove_directory && arg_directory) {
                 int k;
@@ -4147,6 +4407,7 @@ finish:
         free(arg_template);
         free(arg_image);
         free(arg_machine);
+        free(arg_hostname);
         free(arg_user);
         free(arg_pivot_root_new);
         free(arg_pivot_root_old);
@@ -4161,6 +4422,8 @@ finish:
         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
         expose_port_free_all(arg_expose_ports);
         free(arg_root_hash);
+        rlimit_free_all(arg_rlimit);
+        arg_cpuset = cpu_set_mfree(arg_cpuset);
 
         return r < 0 ? EXIT_FAILURE : ret;
 }
