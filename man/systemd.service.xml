@@ -581,7 +581,7 @@
         must occur before <varname>RuntimeMaxSec=</varname> is exceeded, and once the runtime has exended beyond
         <varname>RuntimeMaxSec=</varname>, the service manager will allow the service to continue to run, provided
         the service repeats <literal>EXTEND_TIMEOUT_USEC=…</literal> within the interval specified until the service
-        shutdown is acheived by <literal>STOPPING=1</literal> (or termination). (see
+        shutdown is achieved by <literal>STOPPING=1</literal> (or termination). (see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
         </para></listitem>
       </varlistentry>
