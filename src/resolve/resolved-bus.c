@@ -1438,40 +1438,6 @@ static int bus_property_get_dnssec_statistics(
                                      (uint64_t) m->n_dnssec_verdict[DNSSEC_INDETERMINATE]);
 }
 
-static int bus_property_get_dnssec_supported(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = userdata;
-
-        assert(reply);
-        assert(m);
-
-        return sd_bus_message_append(reply, "b", manager_dnssec_supported(m));
-}
-
-static int bus_property_get_dnssec_mode(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = userdata;
-
-        assert(reply);
-        assert(m);
-
-        return sd_bus_message_append(reply, "s", dnssec_mode_to_string(manager_get_dnssec_mode(m)));
-}
-
 static int bus_property_get_ntas(
                 sd_bus *bus,
                 const char *path,
@@ -1503,6 +1469,8 @@ static int bus_property_get_ntas(
 }
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
+static BUS_DEFINE_PROPERTY_GET(bus_property_get_dnssec_supported, "b", Manager, manager_dnssec_supported);
+static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dnssec_mode, "s", Manager, manager_get_dnssec_mode, dnssec_mode_to_string);
 
 static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;

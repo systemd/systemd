@@ -56,7 +56,7 @@ static int property_get_current_server_name(
         assert(bus);
         assert(reply);
 
-        return sd_bus_message_append(reply, "s", *s ? (*s)->string : "");
+        return sd_bus_message_append(reply, "s", *s ? (*s)->string : NULL);
 }
 
 static int property_get_current_server_address(

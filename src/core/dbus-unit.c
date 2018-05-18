@@ -29,6 +29,18 @@
 #include "user-util.h"
 #include "web-util.h"
 
+static bool unit_can_start_refuse_manual(Unit *u) {
+        return unit_can_start(u) && !u->refuse_manual_start;
+}
+
+static bool unit_can_stop_refuse_manual(Unit *u) {
+        return unit_can_stop(u) && !u->refuse_manual_stop;
+}
+
+static bool unit_can_isolate_refuse_manual(Unit *u) {
+        return unit_can_isolate(u) && !u->refuse_manual_start;
+}
+
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
@@ -38,7 +50,11 @@ static BUS_DEFINE_PROPERTY_GET2(property_get_active_state, "s", Unit, unit_activ
 static BUS_DEFINE_PROPERTY_GET(property_get_sub_state, "s", Unit, unit_sub_state_to_string);
 static BUS_DEFINE_PROPERTY_GET2(property_get_unit_file_state, "s", Unit, unit_get_unit_file_state, unit_file_state_to_string);
 static BUS_DEFINE_PROPERTY_GET(property_get_can_reload, "b", Unit, unit_can_reload);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_start, "b", Unit, unit_can_start_refuse_manual);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_stop, "b", Unit, unit_can_stop_refuse_manual);
+static BUS_DEFINE_PROPERTY_GET(property_get_can_isolate, "b", Unit, unit_can_isolate_refuse_manual);
 static BUS_DEFINE_PROPERTY_GET(property_get_need_daemon_reload, "b", Unit, unit_need_daemon_reload);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_strv, "as", 0);
 
 static int property_get_names(
                 sd_bus *bus,
@@ -49,20 +65,20 @@ static int property_get_names(
                 void *userdata,
                 sd_bus_error *error) {
 
-        Unit *u = userdata;
+        Set **s = userdata;
         Iterator i;
         const char *t;
         int r;
 
         assert(bus);
         assert(reply);
-        assert(u);
+        assert(s);
 
         r = sd_bus_message_open_container(reply, 'a', "s");
         if (r < 0)
                 return r;
 
-        SET_FOREACH(t, u->names, i) {
+        SET_FOREACH(t, *s, i) {
                 r = sd_bus_message_append(reply, "s", t);
                 if (r < 0)
                         return r;
@@ -122,22 +138,6 @@ static int property_get_dependencies(
         return sd_bus_message_close_container(reply);
 }
 
-static int property_get_obsolete_dependencies(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        /* For dependency types we don't support anymore always return an empty array */
-        return sd_bus_message_append(reply, "as", 0);
-}
-
 static int property_get_requires_mounts_for(
                 sd_bus *bus,
                 const char *path,
@@ -193,60 +193,6 @@ static int property_get_unit_file_preset(
                                      r > 0 ? "enabled" : "disabled");
 }
 
-static int property_get_can_start(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "b", unit_can_start(u) && !u->refuse_manual_start);
-}
-
-static int property_get_can_stop(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "b", unit_can_stop(u) && !u->refuse_manual_stop);
-}
-
-static int property_get_can_isolate(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Unit *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "b", unit_can_isolate(u) && !u->refuse_manual_start);
-}
-
 static int property_get_job(
                 sd_bus *bus,
                 const char *path,
@@ -257,20 +203,20 @@ static int property_get_job(
                 sd_bus_error *error) {
 
         _cleanup_free_ char *p = NULL;
-        Unit *u = userdata;
+        Job **j = userdata;
 
         assert(bus);
         assert(reply);
-        assert(u);
+        assert(j);
 
-        if (!u->job)
+        if (!*j)
                 return sd_bus_message_append(reply, "(uo)", 0, "/");
 
-        p = job_dbus_path(u->job);
+        p = job_dbus_path(*j);
         if (!p)
                 return -ENOMEM;
 
-        return sd_bus_message_append(reply, "(uo)", u->job->id, p);
+        return sd_bus_message_append(reply, "(uo)", (*j)->id, p);
 }
 
 static int property_get_conditions(
@@ -325,14 +271,14 @@ static int property_get_load_error(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
-        Unit *u = userdata;
+        int *n = userdata;
 
         assert(bus);
         assert(reply);
-        assert(u);
+        assert(n);
 
-        if (u->load_error != 0)
-                sd_bus_error_set_errno(&e, u->load_error);
+        if (*n != 0)
+                sd_bus_error_set_errno(&e, *n);
 
         return sd_bus_message_append(reply, "(ss)", e.name, e.message);
 }
@@ -622,7 +568,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("Id", "s", NULL, offsetof(Unit, id), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Names", "as", property_get_names, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Names", "as", property_get_names, offsetof(Unit, names), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Following", "s", property_get_following, 0, 0),
         SD_BUS_PROPERTY("Requires", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUIRES]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Requisite", "as", property_get_dependencies, offsetof(Unit, dependencies[UNIT_REQUISITE]), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -664,7 +610,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("CanStop", "b", property_get_can_stop, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanReload", "b", property_get_can_reload, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CanIsolate", "b", property_get_can_isolate, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Job", "(uo)", property_get_job, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Job", "(uo)", property_get_job, offsetof(Unit, job), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("StopWhenUnneeded", "b", bus_property_get_bool, offsetof(Unit, stop_when_unneeded), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RefuseManualStart", "b", bus_property_get_bool, offsetof(Unit, refuse_manual_start), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RefuseManualStop", "b", bus_property_get_bool, offsetof(Unit, refuse_manual_stop), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -683,7 +629,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("AssertTimestamp", offsetof(Unit, assert_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Conditions", "a(sbbsi)", property_get_conditions, offsetof(Unit, conditions), 0),
         SD_BUS_PROPERTY("Asserts", "a(sbbsi)", property_get_conditions, offsetof(Unit, asserts), 0),
-        SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, offsetof(Unit, load_error), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Transient", "b", bus_property_get_bool, offsetof(Unit, transient), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Perpetual", "b", bus_property_get_bool, offsetof(Unit, perpetual), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -708,11 +654,12 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_METHOD("Ref", NULL, NULL, bus_unit_method_ref, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("Unref", NULL, NULL, bus_unit_method_unref, SD_BUS_VTABLE_UNPRIVILEGED),
 
-        /* Obsolete properties or obsolete alias names */
-        SD_BUS_PROPERTY("RequiresOverridable", "as", property_get_obsolete_dependencies, 0, SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("RequisiteOverridable", "as", property_get_obsolete_dependencies, 0, SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("RequiredByOverridable", "as", property_get_obsolete_dependencies, 0, SD_BUS_VTABLE_HIDDEN),
-        SD_BUS_PROPERTY("RequisiteOfOverridable", "as", property_get_obsolete_dependencies, 0, SD_BUS_VTABLE_HIDDEN),
+        /* For dependency types we don't support anymore always return an empty array */
+        SD_BUS_PROPERTY("RequiresOverridable", "as", property_get_empty_strv, 0, SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("RequisiteOverridable", "as", property_get_empty_strv, 0, SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("RequiredByOverridable", "as", property_get_empty_strv, 0, SD_BUS_VTABLE_HIDDEN),
+        SD_BUS_PROPERTY("RequisiteOfOverridable", "as", property_get_empty_strv, 0, SD_BUS_VTABLE_HIDDEN),
+        /* Obsolete alias names */
         SD_BUS_PROPERTY("StartLimitInterval", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_PROPERTY("StartLimitIntervalSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
         SD_BUS_VTABLE_END

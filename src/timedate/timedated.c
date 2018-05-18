@@ -427,6 +427,9 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
         return 0;
 }
 
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_time, "t", now(CLOCK_REALTIME));
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_ntp_sync, "b", ntp_synced());
+
 static int property_get_rtc_time(
                 sd_bus *bus,
                 const char *path,
@@ -454,30 +457,6 @@ static int property_get_rtc_time(
                 t = (usec_t) timegm(&tm) * USEC_PER_SEC;
 
         return sd_bus_message_append(reply, "t", t);
-}
-
-static int property_get_time(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        return sd_bus_message_append(reply, "t", now(CLOCK_REALTIME));
-}
-
-static int property_get_ntp_sync(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        return sd_bus_message_append(reply, "b", ntp_synced());
 }
 
 static int property_get_can_ntp(

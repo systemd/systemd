@@ -15,22 +15,8 @@
 #include "resolved-resolv-conf.h"
 #include "strv.h"
 
-static int property_get_dnssec_mode(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Link *l = userdata;
-
-        assert(reply);
-        assert(l);
-
-        return sd_bus_message_append(reply, "s", dnssec_mode_to_string(link_get_dnssec_mode(l)));
-}
+static BUS_DEFINE_PROPERTY_GET(property_get_dnssec_supported, "b", Link, link_dnssec_supported);
+static BUS_DEFINE_PROPERTY_GET2(property_get_dnssec_mode, "s", Link, link_get_dnssec_mode, dnssec_mode_to_string);
 
 static int property_get_dns(
                 sd_bus *bus,
@@ -161,23 +147,6 @@ static int property_get_ntas(
         }
 
         return sd_bus_message_close_container(reply);
-}
-
-static int property_get_dnssec_supported(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Link *l = userdata;
-
-        assert(reply);
-        assert(l);
-
-        return sd_bus_message_append(reply, "b", link_dnssec_supported(l));
 }
 
 static int verify_unmanaged_link(Link *l, sd_bus_error *error) {

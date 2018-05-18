@@ -157,34 +157,15 @@ int bus_log_create_error(int r);
         }
 
 #define ident(x) (x)
-#define BUS_DEFINE_PROPERTY_GET(function, bus_type, data_type, get1)    \
+#define BUS_DEFINE_PROPERTY_GET(function, bus_type, data_type, get1) \
         BUS_DEFINE_PROPERTY_GET2(function, bus_type, data_type, get1, ident)
 
+#define ref(x) (*(x))
+#define BUS_DEFINE_PROPERTY_GET_REF(function, bus_type, data_type, get) \
+        BUS_DEFINE_PROPERTY_GET2(function, bus_type, data_type, ref, get)
+
 #define BUS_DEFINE_PROPERTY_GET_ENUM(function, name, type)              \
-        int function(sd_bus *bus,                                       \
-                     const char *path,                                  \
-                     const char *interface,                             \
-                     const char *property,                              \
-                     sd_bus_message *reply,                             \
-                     void *userdata,                                    \
-                     sd_bus_error *error) {                             \
-                                                                        \
-                const char *value;                                      \
-                type *field = userdata;                                 \
-                int r;                                                  \
-                                                                        \
-                assert(bus);                                            \
-                assert(reply);                                          \
-                assert(field);                                          \
-                                                                        \
-                value = strempty(name##_to_string(*field));             \
-                                                                        \
-                r = sd_bus_message_append_basic(reply, 's', value);     \
-                if (r < 0)                                              \
-                        return r;                                       \
-                                                                        \
-                return 1;                                               \
-        }
+        BUS_DEFINE_PROPERTY_GET_REF(function, "s", type, name##_to_string)
 
 #define BUS_PROPERTY_DUAL_TIMESTAMP(name, offset, flags) \
         SD_BUS_PROPERTY(name, "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, realtime), (flags)), \
