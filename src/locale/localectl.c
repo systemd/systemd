@@ -128,7 +128,6 @@ static int show_status(int argc, char **argv, void *userdata) {
         _cleanup_(status_info_clear) StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
                 { "VConsoleKeymap",       "s",  NULL, offsetof(StatusInfo, vconsole_keymap) },
-                { "VConsoleKeymap",       "s",  NULL, offsetof(StatusInfo, vconsole_keymap) },
                 { "VConsoleKeymapToggle", "s",  NULL, offsetof(StatusInfo, vconsole_keymap_toggle) },
                 { "X11Layout",            "s",  NULL, offsetof(StatusInfo, x11_layout) },
                 { "X11Model",             "s",  NULL, offsetof(StatusInfo, x11_model) },
