@@ -95,7 +95,7 @@ static void test_copy_tree(void) {
         STRV_FOREACH(p, files) {
                 _cleanup_free_ char *f;
 
-                assert_se((f = strappend(original_dir, *p)));
+                assert_se(f = strappend(original_dir, *p));
 
                 assert_se(mkdir_parents(f, 0755) >= 0);
                 assert_se(write_string_file(f, "file", WRITE_STRING_FILE_CREATE) == 0);
@@ -104,8 +104,8 @@ static void test_copy_tree(void) {
         STRV_FOREACH_PAIR(link, p, links) {
                 _cleanup_free_ char *f, *l;
 
-                assert_se((f = strappend(original_dir, *p)));
-                assert_se((l = strappend(original_dir, *link)));
+                assert_se(f = strappend(original_dir, *p));
+                assert_se(l = strappend(original_dir, *link));
 
                 assert_se(mkdir_parents(l, 0755) >= 0);
                 assert_se(symlink(f, l) == 0);
@@ -117,10 +117,10 @@ static void test_copy_tree(void) {
         assert_se(copy_tree(original_dir, copy_dir, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE) == 0);
 
         STRV_FOREACH(p, files) {
-                _cleanup_free_ char *buf = NULL, *f;
-                size_t sz = 0;
+                _cleanup_free_ char *buf, *f;
+                size_t sz;
 
-                assert_se((f = strappend(copy_dir, *p)));
+                assert_se(f = strappend(copy_dir, *p));
 
                 assert_se(access(f, F_OK) == 0);
                 assert_se(read_full_file(f, &buf, &sz) == 0);
@@ -128,10 +128,10 @@ static void test_copy_tree(void) {
         }
 
         STRV_FOREACH_PAIR(link, p, links) {
-                _cleanup_free_ char *target = NULL, *f, *l;
+                _cleanup_free_ char *target, *f, *l;
 
-                assert_se((f = strjoin(original_dir, *p)));
-                assert_se((l = strjoin(copy_dir, *link)));
+                assert_se(f = strjoin(original_dir, *p));
+                assert_se(l = strjoin(copy_dir, *link));
 
                 assert_se(chase_symlinks(l, NULL, 0, &target) == 1);
                 assert_se(path_equal(f, target));

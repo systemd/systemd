@@ -103,7 +103,6 @@ int main(int argc, char *argv[]) {
 
                         log_notice_errno(r, "sd_resolve_wait() timed out, but that's OK");
                         exit(EXIT_SUCCESS);
-                        break;
                 }
                 if (r < 0) {
                         log_error_errno(r, "sd_resolve_wait(): %m");

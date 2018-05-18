@@ -317,7 +317,7 @@ int mount_cgroup_controllers(char ***join_controllers) {
                 if (r < 0)
                         return r;
 
-                if (r > 0 && k && *k) {
+                if (r > 0 && *k) {
                         char **i;
 
                         for (i = *k; *i; i++) {
