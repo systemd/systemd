@@ -1307,7 +1307,7 @@ static int item_do(Item *i, int fd, const struct stat *st, fdaction_t action) {
         r = action(i, fd, st);
 
         if (S_ISDIR(st->st_mode)) {
-                char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+                char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
                 _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 

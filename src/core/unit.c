@@ -1696,7 +1696,7 @@ void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
 int unit_start_limit_test(Unit *u) {
         assert(u);
 
-        if (ratelimit_test(&u->start_limit)) {
+        if (ratelimit_below(&u->start_limit)) {
                 u->start_limit_hit = false;
                 return 0;
         }
@@ -1989,7 +1989,7 @@ static void unit_check_unneeded(Unit *u) {
         /* If stopping a unit fails continuously we might enter a stop
          * loop here, hence stop acting on the service being
          * unnecessary after a while. */
-        if (!ratelimit_test(&u->auto_stop_ratelimit)) {
+        if (!ratelimit_below(&u->auto_stop_ratelimit)) {
                 log_unit_warning(u, "Unit not needed anymore, but not stopping since we tried this too often recently.");
                 return;
         }
@@ -2039,7 +2039,7 @@ static void unit_check_binds_to(Unit *u) {
         /* If stopping a unit fails continuously we might enter a stop
          * loop here, hence stop acting on the service being
          * unnecessary after a while. */
-        if (!ratelimit_test(&u->auto_stop_ratelimit)) {
+        if (!ratelimit_below(&u->auto_stop_ratelimit)) {
                 log_unit_warning(u, "Unit is bound to inactive unit %s, but not stopping since we tried this too often recently.", other->id);
                 return;
         }

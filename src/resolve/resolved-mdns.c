@@ -251,7 +251,7 @@ static int mdns_scope_process_query(DnsScope *s, DnsPacket *p) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to build reply packet: %m");
 
-        if (!ratelimit_test(&s->ratelimit))
+        if (!ratelimit_below(&s->ratelimit))
                 return 0;
 
         r = dns_scope_emit_udp(s, -1, reply);

@@ -242,7 +242,7 @@ int fchmod_umask(int fd, mode_t m) {
 }
 
 int fchmod_opath(int fd, mode_t m) {
-        char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+        char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
 
         /* This function operates also on fd that might have been opened with
          * O_PATH. Indeed fchmodat() doesn't have the AT_EMPTY_PATH flag like
