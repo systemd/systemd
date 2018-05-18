@@ -168,8 +168,13 @@ static void resolve_query_disconnect(sd_resolve_query *q);
 #define RESOLVE_DONT_DESTROY(resolve) \
         _cleanup_(sd_resolve_unrefp) _unused_ sd_resolve *_dont_destroy_##resolve = sd_resolve_ref(resolve)
 
-#define ASSIGN_ERRNO(q, val, error, h_error) \
-        ({ (q)->ret = (val); (q)->_errno = (error); (q)->_h_errno = (h_error); })
+static void query_assign_errno(sd_resolve_query *q, int ret, int error, int h_error) {
+        assert(q);
+
+        q->ret = ret;
+        q->_errno = abs(error);
+        q->_h_errno = h_error;
+}
 
 static int send_died(int out_fd) {
         RHeader rh = {
@@ -767,7 +772,7 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
                 assert_return(length >= sizeof(AddrInfoResponse), -EBADMSG);
                 assert_return(q->type == REQUEST_ADDRINFO, -EBADMSG);
 
-                ASSIGN_ERRNO(q, ai_resp->ret, ai_resp->_errno, ai_resp->_h_errno);
+                query_assign_errno(q, ai_resp->ret, ai_resp->_errno, ai_resp->_h_errno);
 
                 l = length - sizeof(AddrInfoResponse);
                 p = (const uint8_t*) resp + sizeof(AddrInfoResponse);
@@ -777,7 +782,7 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
 
                         r = unserialize_addrinfo(&p, &l, &ai);
                         if (r < 0) {
-                                ASSIGN_ERRNO(q, EAI_SYSTEM, -r, 0);
+                                query_assign_errno(q, EAI_SYSTEM, r, 0);
                                 freeaddrinfo(q->addrinfo);
                                 q->addrinfo = NULL;
                                 break;
@@ -803,23 +808,22 @@ static int handle_response(sd_resolve *resolve, const Packet *packet, size_t len
                 if (ni_resp->hostlen > DNS_HOSTNAME_MAX ||
                     ni_resp->servlen > DNS_HOSTNAME_MAX ||
                     sizeof(NameInfoResponse) + ni_resp->hostlen + ni_resp->servlen > length)
-                        ASSIGN_ERRNO(q, EAI_SYSTEM, EIO, 0);
-
+                        query_assign_errno(q, EAI_SYSTEM, EIO, 0);
                 else {
-                        ASSIGN_ERRNO(q, ni_resp->ret, ni_resp->_errno, ni_resp->_h_errno);
+                        query_assign_errno(q, ni_resp->ret, ni_resp->_errno, ni_resp->_h_errno);
 
                         if (ni_resp->hostlen > 0) {
                                 q->host = strndup((const char*) ni_resp + sizeof(NameInfoResponse),
                                                   ni_resp->hostlen-1);
                                 if (!q->host)
-                                        ASSIGN_ERRNO(q, EAI_MEMORY, ENOMEM, 0);
+                                        query_assign_errno(q, EAI_MEMORY, ENOMEM, 0);
                         }
 
                         if (ni_resp->servlen > 0) {
                                 q->serv = strndup((const char*) ni_resp + sizeof(NameInfoResponse) + ni_resp->hostlen,
                                                   ni_resp->servlen-1);
                                 if (!q->serv)
-                                        ASSIGN_ERRNO(q, EAI_MEMORY, ENOMEM, 0);
+                                        query_assign_errno(q, EAI_MEMORY, ENOMEM, 0);
                         }
                 }
 
