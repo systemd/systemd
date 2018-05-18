@@ -1473,7 +1473,7 @@ static void initialize_clock(void) {
 }
 
 static void initialize_coredump(bool skip_setup) {
-
+#if ENABLE_COREDUMP
         if (getpid_cached() != 1)
                 return;
 
@@ -1486,6 +1486,7 @@ static void initialize_coredump(bool skip_setup) {
          * until the systemd-coredump tool is enabled via sysctl. */
         if (!skip_setup)
                 disable_coredumps();
+#endif
 }
 
 static void do_reexecute(
