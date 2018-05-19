@@ -3092,7 +3092,7 @@ int config_parse_address_families(
                 af = af_from_name(word);
                 if (af <= 0)  {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Failed to parse address family \"%s\", ignoring: %m", word);
+                                   "Failed to parse address family, ignoring: %s", word);
                         continue;
                 }
 
