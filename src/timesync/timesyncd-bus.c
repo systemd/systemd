@@ -169,100 +169,6 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_END
 };
 
-static int reload_dbus_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        const sd_bus_error *e;
-        int r;
-
-        assert(m);
-
-        e = sd_bus_message_get_error(m);
-        if (e) {
-                log_error_errno(sd_bus_error_get_errno(e), "Failed to reload DBus configuration: %s", e->message);
-                return 1;
-        }
-
-        /* Here, use the default request name handler to avoid an infinite loop of reloading and requesting. */
-        r = sd_bus_request_name_async(sd_bus_message_get_bus(m), NULL, "org.freedesktop.timesync1", 0, NULL, NULL);
-        if (r < 0)
-                log_error_errno(r, "Failed to request name: %m");
-
-        return 1;
-}
-
-static int request_name_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        uint32_t ret;
-        int r;
-
-        assert(m);
-
-        if (sd_bus_message_is_method_error(m, NULL)) {
-                const sd_bus_error *e = sd_bus_message_get_error(m);
-
-                if (!sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED)) {
-                        log_debug_errno(sd_bus_error_get_errno(e),
-                                        "Unable to request name, failing connection: %s",
-                                        e->message);
-
-                        bus_enter_closing(sd_bus_message_get_bus(m));
-                        return 1;
-                }
-
-                log_debug_errno(sd_bus_error_get_errno(e),
-                                "Unable to request name, retry after reloading DBus configuration: %s",
-                                e->message);
-
-                /* If systemd-timesyncd.service enables DynamicUser= and dbus.service
-                 * started before the dynamic user is realized, then the DBus policy
-                 * about timesyncd has not been enabled yet. So, let's try to reload
-                 * DBus configuration, and after that request name again. Note that it
-                 * seems that no privileges are necessary to call the following method. */
-
-                r = sd_bus_call_method_async(
-                                sd_bus_message_get_bus(m),
-                                NULL,
-                                "org.freedesktop.DBus",
-                                "/org/freedesktop/DBus",
-                                "org.freedesktop.DBus",
-                                "ReloadConfig",
-                                reload_dbus_handler,
-                                NULL, NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to reload DBus configuration: %m");
-                        bus_enter_closing(sd_bus_message_get_bus(m));
-                }
-
-                return 1;
-        }
-
-        r = sd_bus_message_read(m, "u", &ret);
-        if (r < 0)
-                return r;
-
-        switch (ret) {
-
-        case BUS_NAME_ALREADY_OWNER:
-                log_debug("Already owner of requested service name, ignoring.");
-                return 1;
-
-        case BUS_NAME_IN_QUEUE:
-                log_debug("In queue for requested service name.");
-                return 1;
-
-        case BUS_NAME_PRIMARY_OWNER:
-                log_debug("Successfully acquired requested service name.");
-                return 1;
-
-        case BUS_NAME_EXISTS:
-                log_debug("Requested service name already owned, failing connection.");
-                bus_enter_closing(sd_bus_message_get_bus(m));
-                return 1;
-        }
-
-        log_debug("Unexpected response from RequestName(), failing connection.");
-        bus_enter_closing(sd_bus_message_get_bus(m));
-        return 1;
-}
-
 int manager_connect_bus(Manager *m) {
         int r;
 
@@ -279,7 +185,7 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add manager object vtable: %m");
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.timesync1", 0, request_name_handler, NULL);
+        r = bus_request_name_async_may_reload_dbus(m->bus, NULL, "org.freedesktop.timesync1", 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
