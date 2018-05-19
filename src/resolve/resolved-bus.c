@@ -1918,7 +1918,7 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register dnssd enumerator: %m");
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.resolve1", 0, NULL, NULL);
+        r = bus_request_name_async_may_reload_dbus(m->bus, NULL, "org.freedesktop.resolve1", 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
