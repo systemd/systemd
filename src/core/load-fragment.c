@@ -3421,11 +3421,10 @@ int config_parse_device_allow(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *path = NULL, *t = NULL;
+        _cleanup_free_ char *path = NULL, *resolved = NULL;
         CGroupContext *c = data;
         CGroupDeviceAllow *a;
-        const char *m = NULL;
-        size_t n;
+        const char *p = rvalue;
         int r;
 
         if (isempty(rvalue)) {
@@ -3435,32 +3434,35 @@ int config_parse_device_allow(
                 return 0;
         }
 
-        r = unit_full_printf(userdata, rvalue, &t);
+        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        if (r == -ENOMEM)
+                return log_oom();
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to resolve specifiers in %s, ignoring: %m",
-                           rvalue);
+                           "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r == 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to extract device path and rights from '%s', ignoring.", rvalue);
                 return 0;
         }
 
-        n = strcspn(t, WHITESPACE);
-
-        path = strndup(t, n);
-        if (!path)
-                return log_oom();
-
-        if (!is_deviceallow_pattern(path) &&
-            !path_startswith(path, "/run/systemd/inaccessible/")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
+        r = unit_full_printf(userdata, path, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
                 return 0;
         }
 
-        m = t + n + strspn(t + n, WHITESPACE);
-        if (isempty(m))
-                m = "rwm";
+        if (!is_deviceallow_pattern(resolved) &&
+            !path_startswith(resolved, "/run/systemd/inaccessible/")) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s', ignoring.", resolved);
+                return 0;
+        }
 
-        if (!in_charset(m, "rwm")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device rights '%s'. Ignoring.", m);
+        if (!isempty(p) && !in_charset(p, "rwm")) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device rights '%s', ignoring.", p);
                 return 0;
         }
 
@@ -3468,10 +3470,10 @@ int config_parse_device_allow(
         if (!a)
                 return log_oom();
 
-        a->path = TAKE_PTR(path);
-        a->r = !!strchr(m, 'r');
-        a->w = !!strchr(m, 'w');
-        a->m = !!strchr(m, 'm');
+        a->path = TAKE_PTR(resolved);
+        a->r = isempty(p) || !!strchr(p, 'r');
+        a->w = isempty(p) || !!strchr(p, 'w');
+        a->m = isempty(p) || !!strchr(p, 'm');
 
         LIST_PREPEND(device_allow, c->device_allow, a);
         return 0;
@@ -3517,12 +3519,11 @@ int config_parse_io_device_weight(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *path = NULL, *resolved = NULL;
         CGroupIODeviceWeight *w;
         CGroupContext *c = data;
-        const char *weight;
+        const char *p = rvalue;
         uint64_t u;
-        size_t n;
         int r;
 
         assert(filename);
@@ -3536,28 +3537,36 @@ int config_parse_io_device_weight(
                 return 0;
         }
 
-        n = strcspn(rvalue, WHITESPACE);
-        weight = rvalue + n;
-        weight += strspn(weight, WHITESPACE);
-
-        if (isempty(weight)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Expected block device and device weight. Ignoring.");
-                return 0;
-        }
-
-        path = strndup(rvalue, n);
-        if (!path)
+        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        if (r == -ENOMEM)
                 return log_oom();
-
-        if (!path_startswith(path, "/dev") &&
-            !path_startswith(path, "/run/systemd/inaccessible/")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to extract device path and weight from '%s', ignoring.", rvalue);
                 return 0;
         }
 
-        r = cg_weight_parse(weight, &u);
+        r = unit_full_printf(userdata, path, &resolved);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "IO weight '%s' invalid. Ignoring.", weight);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
+                return 0;
+        }
+
+        if (!path_startswith(resolved, "/dev") &&
+            !path_startswith(resolved, "/run/systemd/inaccessible/")) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s', ignoring.", resolved);
+                return 0;
+        }
+
+        r = cg_weight_parse(p, &u);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "IO weight '%s' invalid, ignoring: %m", p);
                 return 0;
         }
 
@@ -3567,8 +3576,7 @@ int config_parse_io_device_weight(
         if (!w)
                 return log_oom();
 
-        w->path = TAKE_PTR(path);
-
+        w->path = TAKE_PTR(resolved);
         w->weight = u;
 
         LIST_PREPEND(device_weights, c->io_device_weights, w);
@@ -3587,13 +3595,12 @@ int config_parse_io_limit(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *path = NULL, *resolved = NULL;
         CGroupIODeviceLimit *l = NULL, *t;
         CGroupContext *c = data;
         CGroupIOLimitType type;
-        const char *limit;
+        const char *p = rvalue;
         uint64_t num;
-        size_t n;
         int r;
 
         assert(filename);
@@ -3609,37 +3616,45 @@ int config_parse_io_limit(
                 return 0;
         }
 
-        n = strcspn(rvalue, WHITESPACE);
-        limit = rvalue + n;
-        limit += strspn(limit, WHITESPACE);
-
-        if (!*limit) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Expected space separated pair of device node and bandwidth. Ignoring.");
-                return 0;
-        }
-
-        path = strndup(rvalue, n);
-        if (!path)
+        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        if (r == -ENOMEM)
                 return log_oom();
-
-        if (!path_startswith(path, "/dev") &&
-            !path_startswith(path, "/run/systemd/inaccessible/")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to extract device node and bandwidth from '%s', ignoring.", rvalue);
                 return 0;
         }
 
-        if (streq("infinity", limit)) {
+        r = unit_full_printf(userdata, path, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
+                return 0;
+        }
+
+        if (!path_startswith(resolved, "/dev") &&
+            !path_startswith(resolved, "/run/systemd/inaccessible/")) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s', ignoring.", resolved);
+                return 0;
+        }
+
+        if (streq("infinity", p)) {
                 num = CGROUP_LIMIT_MAX;
         } else {
-                r = parse_size(limit, 1000, &num);
+                r = parse_size(p, 1000, &num);
                 if (r < 0 || num <= 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "IO Limit '%s' invalid. Ignoring.", rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid IO limit '%s', ignoring.", p);
                         return 0;
                 }
         }
 
         LIST_FOREACH(device_limits, t, c->io_device_limits) {
-                if (path_equal(path, t->path)) {
+                if (path_equal(resolved, t->path)) {
                         l = t;
                         break;
                 }
@@ -3652,7 +3667,7 @@ int config_parse_io_limit(
                 if (!l)
                         return log_oom();
 
-                l->path = TAKE_PTR(path);
+                l->path = TAKE_PTR(resolved);
                 for (ttype = 0; ttype < _CGROUP_IO_LIMIT_TYPE_MAX; ttype++)
                         l->limits[ttype] = cgroup_io_limit_defaults[ttype];
 
@@ -3704,12 +3719,11 @@ int config_parse_blockio_device_weight(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *path = NULL, *resolved = NULL;
         CGroupBlockIODeviceWeight *w;
         CGroupContext *c = data;
-        const char *weight;
+        const char *p = rvalue;
         uint64_t u;
-        size_t n;
         int r;
 
         assert(filename);
@@ -3723,28 +3737,36 @@ int config_parse_blockio_device_weight(
                 return 0;
         }
 
-        n = strcspn(rvalue, WHITESPACE);
-        weight = rvalue + n;
-        weight += strspn(weight, WHITESPACE);
-
-        if (isempty(weight)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Expected block device and device weight. Ignoring.");
-                return 0;
-        }
-
-        path = strndup(rvalue, n);
-        if (!path)
+        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        if (r == -ENOMEM)
                 return log_oom();
-
-        if (!path_startswith(path, "/dev") &&
-            !path_startswith(path, "/run/systemd/inaccessible/")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to extract device node and weight from '%s', ignoring.", rvalue);
                 return 0;
         }
 
-        r = cg_blkio_weight_parse(weight, &u);
+        r = unit_full_printf(userdata, path, &resolved);
         if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Block IO weight '%s' invalid. Ignoring.", weight);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
+                return 0;
+        }
+
+        if (!path_startswith(resolved, "/dev") &&
+            !path_startswith(resolved, "/run/systemd/inaccessible/")) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", resolved);
+                return 0;
+        }
+
+        r = cg_blkio_weight_parse(p, &u);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid block IO weight '%s', ignoring: %m", p);
                 return 0;
         }
 
@@ -3754,8 +3776,7 @@ int config_parse_blockio_device_weight(
         if (!w)
                 return log_oom();
 
-        w->path = TAKE_PTR(path);
-
+        w->path = TAKE_PTR(resolved);
         w->weight = u;
 
         LIST_PREPEND(device_weights, c->blockio_device_weights, w);
@@ -3774,13 +3795,12 @@ int config_parse_blockio_bandwidth(
                 void *data,
                 void *userdata) {
 
-        _cleanup_free_ char *path = NULL;
+        _cleanup_free_ char *path = NULL, *resolved = NULL;
         CGroupBlockIODeviceBandwidth *b = NULL, *t;
         CGroupContext *c = data;
-        const char *bandwidth;
+        const char *p = rvalue;
         uint64_t bytes;
         bool read;
-        size_t n;
         int r;
 
         assert(filename);
@@ -3797,33 +3817,41 @@ int config_parse_blockio_bandwidth(
                 return 0;
         }
 
-        n = strcspn(rvalue, WHITESPACE);
-        bandwidth = rvalue + n;
-        bandwidth += strspn(bandwidth, WHITESPACE);
-
-        if (!*bandwidth) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Expected space separated pair of device node and bandwidth. Ignoring.");
-                return 0;
-        }
-
-        path = strndup(rvalue, n);
-        if (!path)
+        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        if (r == -ENOMEM)
                 return log_oom();
-
-        if (!path_startswith(path, "/dev") &&
-            !path_startswith(path, "/run/systemd/inaccessible/")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", path);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to extract device node and bandwidth from '%s', ignoring.", rvalue);
                 return 0;
         }
 
-        r = parse_size(bandwidth, 1000, &bytes);
+        r = unit_full_printf(userdata, path, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
+                return 0;
+        }
+
+        if (!path_startswith(resolved, "/dev") &&
+            !path_startswith(resolved, "/run/systemd/inaccessible/")) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s', ignoring.", resolved);
+                return 0;
+        }
+
+        r = parse_size(p, 1000, &bytes);
         if (r < 0 || bytes <= 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Block IO Bandwidth '%s' invalid. Ignoring.", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid Block IO Bandwidth '%s', ignoring.", p);
                 return 0;
         }
 
         LIST_FOREACH(device_bandwidths, t, c->blockio_device_bandwidths) {
-                if (path_equal(path, t->path)) {
+                if (path_equal(resolved, t->path)) {
                         b = t;
                         break;
                 }
@@ -3834,7 +3862,7 @@ int config_parse_blockio_bandwidth(
                 if (!b)
                         return log_oom();
 
-                b->path = TAKE_PTR(path);
+                b->path = TAKE_PTR(resolved);
                 b->rbps = CGROUP_LIMIT_MAX;
                 b->wbps = CGROUP_LIMIT_MAX;
 
