@@ -915,11 +915,10 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                 j->manager->n_failed_jobs++;
 
         job_uninstall(j);
-        /* Remember jobs started before the reload */
-        if (MANAGER_IS_RELOADING(j->manager) && j->reloaded) {
-                if (job_save_pending_finished_job(j) < 0)
-                        job_free(j);
-        } else
+        /* Keep jobs started before the reload to send singal later, free all others */
+        if (!MANAGER_IS_RELOADING(j->manager) ||
+            !j->reloaded ||
+            job_save_pending_finished_job(j) < 0)
                 job_free(j);
 
         /* Fail depending jobs on failure */
