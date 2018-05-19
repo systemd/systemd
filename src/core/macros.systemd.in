@@ -14,10 +14,13 @@
 %_udevhwdbdir @udevhwdbdir@
 %_udevrulesdir @udevrulesdir@
 %_journalcatalogdir @catalogdir@
-%_tmpfilesdir @tmpfilesdir@
-%_sysusersdir @sysusersdir@
-%_sysctldir @sysctldir@
 %_binfmtdir @binfmtdir@
+%_sysctldir @sysctldir@
+%_sysusersdir @sysusersdir@
+%_tmpfilesdir @tmpfilesdir@
+%_environmnentdir @environmentdir@
+%_modulesloaddir @modulesloaddir@
+%_modprobedir @modprobedir@
 %_systemdgeneratordir @systemgeneratordir@
 %_systemdusergeneratordir @usergeneratordir@
 %_systemd_system_env_generator_dir @systemenvgeneratordir@
