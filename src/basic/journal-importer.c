@@ -246,17 +246,12 @@ static int get_data_newline(JournalImporter *imp) {
         return 1;
 }
 
-static int process_dunder(JournalImporter *imp, char *line, size_t n) {
+static int process_dunder(JournalImporter *imp, char *line) {
         const char *timestamp;
         char buf[CELLESCAPE_DEFAULT_LENGTH];
         int r;
 
         assert(line);
-        assert(n > 0);
-        assert(line[n-1] == '\n');
-
-        /* XXX: is it worth to support timestamps in extended format?
-         * We don't produce them, but who knows... */
 
         timestamp = startswith(line, "__CURSOR=");
         if (timestamp)
@@ -267,7 +262,6 @@ static int process_dunder(JournalImporter *imp, char *line, size_t n) {
         if (timestamp) {
                 uint64_t x;
 
-                line[n-1] = '\0';
                 r = safe_atou64(timestamp, &x);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse __REALTIME_TIMESTAMP '%s': %m",
@@ -285,7 +279,6 @@ static int process_dunder(JournalImporter *imp, char *line, size_t n) {
         if (timestamp) {
                 uint64_t x;
 
-                line[n-1] = '\0';
                 r = safe_atou64(timestamp, &x);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse __MONOTONIC_TIMESTAMP '%s': %m",
@@ -334,10 +327,6 @@ int journal_importer_process_data(JournalImporter *imp) {
                         return 1;
                 }
 
-                r = process_dunder(imp, line, n);
-                if (r != 0)
-                        return r < 0 ? r : 0;
-
                 /* MESSAGE=xxx\n
                    or
                    COREDUMP\n
@@ -357,6 +346,11 @@ int journal_importer_process_data(JournalImporter *imp) {
 
                                 return 0;
                         }
+
+                        line[n] = '\0';
+                        r = process_dunder(imp, line);
+                        if (r != 0)
+                                return r < 0 ? r : 0;
 
                         r = iovw_put(&imp->iovw, line, n);
                         if (r < 0)
