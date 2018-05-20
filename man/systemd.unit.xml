@@ -458,7 +458,7 @@
     <para>The set of load paths for the user manager instance may be augmented or
     changed using various environment variables. And environment variables may in
     turn be set using environment generators, see
-    <citerefentry><refentrytitle>system.environment-generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+    <citerefentry><refentrytitle>systemd.environment-generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
     In particular, <varname>$XDG_DATA_HOME</varname> and
     <varname>$XDG_DATA_DIRS</varname> may be easily set using
     <citerefentry><refentrytitle>systemd-environment-d-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
