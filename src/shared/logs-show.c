@@ -839,7 +839,7 @@ static int output_json(
                 if (!eq)
                         continue;
 
-                n = strndup(data, eq - (const char*) data);
+                n = memdup_suffix0(data, eq - (const char*) data);
                 if (!n) {
                         r = log_oom();
                         goto finish;
@@ -891,7 +891,7 @@ static int output_json(
 
                         m = eq - (const char*) data;
 
-                        n = strndup(data, m);
+                        n = memdup_suffix0(data, m);
                         if (!n) {
                                 r = log_oom();
                                 goto finish;
