@@ -14,6 +14,7 @@
 #include "io-util.h"
 #include "journal-file.h"
 #include "journal-importer.h"
+#include "journal-util.h"
 #include "parse-util.h"
 #include "string-util.h"
 #include "unaligned.h"
@@ -346,6 +347,16 @@ int journal_importer_process_data(JournalImporter *imp) {
                 if (sep) {
                         /* chomp newline */
                         n--;
+
+                        if (!journal_field_valid(line, sep - line, true)) {
+                                char buf[64], *t;
+
+                                t = strndupa(line, sep - line);
+                                log_debug("Ignoring invalid field: \"%s\"",
+                                          cellescape(buf, t));
+
+                                return 0;
+                        }
 
                         r = iovw_put(&imp->iovw, line, n);
                         if (r < 0)
