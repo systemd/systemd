@@ -50,6 +50,9 @@
 /* Erase characters until the end of the line */
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
 
+/* Move cursor up one line */
+#define ANSI_REVERSE_LINEFEED "\x1BM"
+
 /* Set cursor to top left corner and clear screen */
 #define ANSI_HOME_CLEAR "\x1B[H\x1B[2J"
 

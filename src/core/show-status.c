@@ -32,7 +32,7 @@ int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char 
         static const char status_indent[] = "         "; /* "[" STATUS "] " */
         _cleanup_free_ char *s = NULL;
         _cleanup_close_ int fd = -1;
-        struct iovec iovec[6] = {};
+        struct iovec iovec[7] = {};
         int n = 0;
         static bool prev_ephemeral;
 
@@ -76,8 +76,7 @@ int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char 
         }
 
         if (prev_ephemeral)
-                iovec[n++] = IOVEC_MAKE_STRING("\r" ANSI_ERASE_TO_END_OF_LINE);
-        prev_ephemeral = ephemeral;
+                iovec[n++] = IOVEC_MAKE_STRING(ANSI_REVERSE_LINEFEED "\r" ANSI_ERASE_TO_END_OF_LINE);
 
         if (status) {
                 if (!isempty(status)) {
@@ -89,8 +88,11 @@ int status_vprintf(const char *status, bool ellipse, bool ephemeral, const char 
         }
 
         iovec[n++] = IOVEC_MAKE_STRING(s);
-        if (!ephemeral)
-                iovec[n++] = IOVEC_MAKE_STRING("\n");
+        iovec[n++] = IOVEC_MAKE_STRING("\n");
+
+        if (prev_ephemeral && !ephemeral)
+                iovec[n++] = IOVEC_MAKE_STRING(ANSI_ERASE_TO_END_OF_LINE);
+        prev_ephemeral = ephemeral;
 
         if (writev(fd, iovec, n) < 0)
                 return -errno;
