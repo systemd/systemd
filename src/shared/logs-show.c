@@ -862,12 +862,10 @@ static int output_json(
                         }
                 }
         }
-
         if (r == -EBADMSG) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
-
         if (r < 0)
                 return r;
 
@@ -877,7 +875,8 @@ static int output_json(
 
                 SD_JOURNAL_FOREACH_DATA(j, data, length) {
                         const char *eq;
-                        char *kk, *n;
+                        char *kk;
+                        _cleanup_free_ char *n = NULL;
                         size_t m;
                         unsigned u;
 
@@ -890,33 +889,24 @@ static int output_json(
                                 continue;
 
                         m = eq - (const char*) data;
-
                         n = memdup_suffix0(data, m);
                         if (!n) {
                                 r = log_oom();
                                 goto finish;
                         }
 
-                        if (output_fields && !set_get(output_fields, n)) {
-                                free(n);
+                        if (output_fields && !set_get(output_fields, n))
                                 continue;
-                        }
 
-                        if (separator) {
-                                if (mode == OUTPUT_JSON_PRETTY)
-                                        fputs(",\n\t", f);
-                                else
-                                        fputs(", ", f);
-                        }
+                        if (separator)
+                                fputs(mode == OUTPUT_JSON_PRETTY ? ",\n\t" : ", ", f);
 
                         u = PTR_TO_UINT(hashmap_get2(h, n, (void**) &kk));
-                        if (u == 0) {
+                        if (u == 0)
                                 /* We already printed this, let's jump to the next */
-                                free(n);
                                 separator = false;
 
-                                continue;
-                        } else if (u == 1) {
+                        else if (u == 1) {
                                 /* Field only appears once, output it directly */
 
                                 json_escape(f, data, m, flags);
@@ -926,11 +916,8 @@ static int output_json(
 
                                 hashmap_remove(h, n);
                                 free(kk);
-                                free(n);
 
                                 separator = true;
-
-                                continue;
 
                         } else {
                                 /* Field appears multiple times, output it as array */
@@ -958,7 +945,6 @@ static int output_json(
 
                                 hashmap_remove(h, n);
                                 free(kk);
-                                free(n);
 
                                 /* Iterate data fields form the beginning */
                                 done = false;
