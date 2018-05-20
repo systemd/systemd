@@ -290,6 +290,7 @@ sensor:modalias:acpi:BMA250E*:dmi:*:svnShenzhenPLOYER*:pnMOMO7W:*
 # match the entire dmi-alias, assuming that the use of a BMA250E +
 # bios-version + bios-date combo is unique
 sensor:modalias:acpi:BMA250E*:dmi:bvnAmericanMegatrendsInc.:bvr3BAIR1013:bd08/22/2014:svnTobefilledbyO.E.M.:pnTobefilledbyO.E.M.:pvrTobefilledbyO.E.M.:rvnAMICorporation:rnAptioCRB:rvrTobefilledbyO.E.M.:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:
+sensor:modalias:acpi:BMA250E*:dmi:bvnAmericanMegatrendsInc.:bvr3BAIR1014:bd10/24/2014:svnTobefilledbyO.E.M.:pnTobefilledbyO.E.M.:pvrTobefilledbyO.E.M.:rvnAMICorporation:rnAptioCRB:rvrTobefilledbyO.E.M.:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
