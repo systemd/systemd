@@ -32,7 +32,7 @@ typedef enum UserNamespaceMode {
         _USER_NAMESPACE_MODE_INVALID = -1,
 } UserNamespaceMode;
 
-typedef enum SettingsMask {
+enum SettingsMaskBits {
         SETTING_START_MODE        = UINT64_C(1) << 0,
         SETTING_ENVIRONMENT       = UINT64_C(1) << 1,
         SETTING_USER              = UINT64_C(1) << 2,
@@ -57,7 +57,9 @@ typedef enum SettingsMask {
         SETTING_RLIMIT_FIRST      = UINT64_C(1) << 21, /* we define one bit per resource limit here */
         SETTING_RLIMIT_LAST       = UINT64_C(1) << (21 + _RLIMIT_MAX - 1),
         _SETTINGS_MASK_ALL        = (UINT64_C(1) << (21 + _RLIMIT_MAX)) - 1
-} SettingsMask;
+};
+/* Bitwise-OR of one or more of the SettingsMaskBits above. */
+typedef uint64_t SettingsMask;
 
 typedef struct Settings {
         /* [Run] */
