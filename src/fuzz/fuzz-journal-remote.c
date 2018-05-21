@@ -6,6 +6,7 @@
 
 #include "sd-journal.h"
 
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -15,6 +16,7 @@
 #include "strv.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+        _cleanup_fclose_ FILE *dev_null = NULL;
         RemoteServer s = {};
         char name[] = "/tmp/fuzz-journal-remote.XXXXXX.journal";
         void *mem;
@@ -53,8 +55,13 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         r = sd_journal_open_files(&j, (const char**) STRV_MAKE(name), 0);
         assert_se(r >= 0);
 
+        if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0)
+                assert_se(dev_null = fopen("/dev/null", "we"));
+
         for (mode = 0; mode < _OUTPUT_MODE_MAX; mode++) {
-                r = show_journal(stdout, j, mode, 0, 0, -1, 0, NULL);
+                if (!dev_null)
+                        log_info("/* %s */", output_mode_to_string(mode));
+                r = show_journal(dev_null ?: stdout, j, mode, 0, 0, -1, 0, NULL);
                 assert_se(r >= 0);
 
                 r = sd_journal_seek_head(j);
