@@ -282,8 +282,11 @@ static char *format_timestamp_internal(
                 return NULL; /* Timestamp is unset */
 
         /* Let's not format times with years > 9999 */
-        if (t > USEC_TIMESTAMP_FORMATTABLE_MAX)
-                return NULL;
+        if (t > USEC_TIMESTAMP_FORMATTABLE_MAX) {
+                assert(l >= strlen("--- XXXX-XX-XX XX:XX:XX") + 1);
+                strcpy(buf, "--- XXXX-XX-XX XX:XX:XX");
+                return buf;
+        }
 
         sec = (time_t) (t / USEC_PER_SEC); /* Round down */
 
