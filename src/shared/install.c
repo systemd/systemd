@@ -2781,7 +2781,8 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
         assert(scope < _UNIT_FILE_SCOPE_MAX);
         assert(presets);
 
-        if (scope == UNIT_FILE_SYSTEM)
+        switch (scope) {
+        case UNIT_FILE_SYSTEM:
                 r = conf_files_list(&files, ".preset", root_dir, 0,
                                     "/etc/systemd/system-preset",
                                     "/run/systemd/system-preset",
@@ -2791,17 +2792,20 @@ static int read_presets(UnitFileScope scope, const char *root_dir, Presets *pres
                                     "/lib/systemd/system-preset",
 #endif
                                     NULL);
-        else if (scope == UNIT_FILE_GLOBAL)
+                break;
+
+        case UNIT_FILE_GLOBAL:
+        case UNIT_FILE_USER:
                 r = conf_files_list(&files, ".preset", root_dir, 0,
                                     "/etc/systemd/user-preset",
                                     "/run/systemd/user-preset",
                                     "/usr/local/lib/systemd/user-preset",
                                     "/usr/lib/systemd/user-preset",
                                     NULL);
-        else {
-                *presets = (Presets){};
+                break;
 
-                return 0;
+        default:
+                assert_not_reached("Invalid unit file scope");
         }
 
         if (r < 0)
