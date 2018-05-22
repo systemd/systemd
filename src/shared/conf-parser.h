@@ -26,17 +26,26 @@ typedef enum ConfigParseFlags {
         CONFIG_PARSE_REFUSE_BOM    = 1U << 3,
 } ConfigParseFlags;
 
+/* Argument list for parsers of specific configuration settings. */
+#define CONFIG_PARSER_ARGUMENTS                 \
+        const char *unit,                       \
+        const char *filename,                   \
+        unsigned line,                          \
+        const char *section,                    \
+        unsigned section_line,                  \
+        const char *lvalue,                     \
+        int ltype,                              \
+        const char *rvalue,                     \
+        void *data,                             \
+        void *userdata
+
 /* Prototype for a parser for a specific configuration setting */
-typedef int (*ConfigParserCallback)(const char *unit,
-                                    const char *filename,
-                                    unsigned line,
-                                    const char *section,
-                                    unsigned section_line,
-                                    const char *lvalue,
-                                    int ltype,
-                                    const char *rvalue,
-                                    void *data,
-                                    void *userdata);
+typedef int (*ConfigParserCallback)(CONFIG_PARSER_ARGUMENTS);
+
+/* A macro declaring the a function prototype, following the typedef above, simply because it's so cumbersomely long
+ * otherwise. (And current emacs gets irritatingly slow when editing files that contain lots of very long function
+ * prototypes on the same screen…) */
+#define CONFIG_PARSER_PROTOTYPE(name) int name(CONFIG_PARSER_ARGUMENTS)
 
 /* Wraps information for parsing a specific configuration variable, to
  * be stored in a simple array */
@@ -107,47 +116,35 @@ int config_parse_many(
                 ConfigParseFlags flags,
                 void *userdata);
 
-/* Generic parsers */
-#define GENERIC_PARSER_ARGS \
-                const char *unit,                                       \
-                const char *filename,                                   \
-                unsigned line,                                          \
-                const char *section,                                    \
-                unsigned section_line,                                  \
-                const char *lvalue,                                     \
-                int ltype,                                              \
-                const char *rvalue,                                     \
-                void *data,                                             \
-                void *userdata
-int config_parse_int(GENERIC_PARSER_ARGS);
-int config_parse_unsigned(GENERIC_PARSER_ARGS);
-int config_parse_long(GENERIC_PARSER_ARGS);
-int config_parse_uint8(GENERIC_PARSER_ARGS);
-int config_parse_uint16(GENERIC_PARSER_ARGS);
-int config_parse_uint32(GENERIC_PARSER_ARGS);
-int config_parse_uint64(GENERIC_PARSER_ARGS);
-int config_parse_double(GENERIC_PARSER_ARGS);
-int config_parse_iec_size(GENERIC_PARSER_ARGS);
-int config_parse_si_size(GENERIC_PARSER_ARGS);
-int config_parse_iec_uint64(GENERIC_PARSER_ARGS);
-int config_parse_bool(GENERIC_PARSER_ARGS);
-int config_parse_tristate(GENERIC_PARSER_ARGS);
-int config_parse_string(GENERIC_PARSER_ARGS);
-int config_parse_path(GENERIC_PARSER_ARGS);
-int config_parse_strv(GENERIC_PARSER_ARGS);
-int config_parse_sec(GENERIC_PARSER_ARGS);
-int config_parse_nsec(GENERIC_PARSER_ARGS);
-int config_parse_mode(GENERIC_PARSER_ARGS);
-int config_parse_warn_compat(GENERIC_PARSER_ARGS);
-int config_parse_log_facility(GENERIC_PARSER_ARGS);
-int config_parse_log_level(GENERIC_PARSER_ARGS);
-int config_parse_signal(GENERIC_PARSER_ARGS);
-int config_parse_personality(GENERIC_PARSER_ARGS);
-int config_parse_ifname(GENERIC_PARSER_ARGS);
-int config_parse_ip_port(GENERIC_PARSER_ARGS);
-int config_parse_join_controllers(GENERIC_PARSER_ARGS);
-int config_parse_mtu(GENERIC_PARSER_ARGS);
-int config_parse_rlimit(GENERIC_PARSER_ARGS);
+CONFIG_PARSER_PROTOTYPE(config_parse_int);
+CONFIG_PARSER_PROTOTYPE(config_parse_unsigned);
+CONFIG_PARSER_PROTOTYPE(config_parse_long);
+CONFIG_PARSER_PROTOTYPE(config_parse_uint8);
+CONFIG_PARSER_PROTOTYPE(config_parse_uint16);
+CONFIG_PARSER_PROTOTYPE(config_parse_uint32);
+CONFIG_PARSER_PROTOTYPE(config_parse_uint64);
+CONFIG_PARSER_PROTOTYPE(config_parse_double);
+CONFIG_PARSER_PROTOTYPE(config_parse_iec_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_si_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_iec_uint64);
+CONFIG_PARSER_PROTOTYPE(config_parse_bool);
+CONFIG_PARSER_PROTOTYPE(config_parse_tristate);
+CONFIG_PARSER_PROTOTYPE(config_parse_string);
+CONFIG_PARSER_PROTOTYPE(config_parse_path);
+CONFIG_PARSER_PROTOTYPE(config_parse_strv);
+CONFIG_PARSER_PROTOTYPE(config_parse_sec);
+CONFIG_PARSER_PROTOTYPE(config_parse_nsec);
+CONFIG_PARSER_PROTOTYPE(config_parse_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_warn_compat);
+CONFIG_PARSER_PROTOTYPE(config_parse_log_facility);
+CONFIG_PARSER_PROTOTYPE(config_parse_log_level);
+CONFIG_PARSER_PROTOTYPE(config_parse_signal);
+CONFIG_PARSER_PROTOTYPE(config_parse_personality);
+CONFIG_PARSER_PROTOTYPE(config_parse_ifname);
+CONFIG_PARSER_PROTOTYPE(config_parse_ip_port);
+CONFIG_PARSER_PROTOTYPE(config_parse_join_controllers);
+CONFIG_PARSER_PROTOTYPE(config_parse_mtu);
+CONFIG_PARSER_PROTOTYPE(config_parse_rlimit);
 
 typedef enum Disabled {
         DISABLED_CONFIGURATION,
@@ -156,7 +153,7 @@ typedef enum Disabled {
 } Disabled;
 
 #define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
-        int function(GENERIC_PARSER_ARGS) {                             \
+        CONFIG_PARSER_PROTOTYPE(function) {                             \
                 type *i = data, x;                                      \
                                                                         \
                 assert(filename);                                       \
@@ -175,7 +172,7 @@ typedef enum Disabled {
         }
 
 #define DEFINE_CONFIG_PARSE_ENUMV(function,name,type,invalid,msg)              \
-        int function(GENERIC_PARSER_ARGS) {                                    \
+        CONFIG_PARSER_PROTOTYPE(function) {                                    \
                 type **enums = data, x, *ys;                                   \
                 _cleanup_free_ type *xs = NULL;                                \
                 const char *word, *state;                                      \
