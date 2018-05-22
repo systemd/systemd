@@ -7,6 +7,7 @@
   Copyright (C) 2014 Intel Corporation. All rights reserved.
 ***/
 
+#include "conf-parser.h"
 #include "list.h"
 #include "macro.h"
 
@@ -30,5 +31,5 @@ int fdb_entry_configure(Link *link, FdbEntry *fdb_entry);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FdbEntry*, fdb_entry_free);
 
-int config_parse_fdb_hwaddr(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_fdb_vlan_id(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_fdb_hwaddr);
+CONFIG_PARSER_PROTOTYPE(config_parse_fdb_vlan_id);

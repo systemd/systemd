@@ -11,21 +11,21 @@
 #include "udev.h"
 
 #include "condition.h"
+#include "conf-parser.h"
 #include "dhcp-identifier.h"
 #include "hashmap.h"
-#include "resolve-util.h"
-
-#include "networkd-address.h"
+#include "netdev/netdev.h"
 #include "networkd-address-label.h"
+#include "networkd-address.h"
 #include "networkd-brvlan.h"
 #include "networkd-fdb.h"
-#include "networkd-lldp-tx.h"
 #include "networkd-ipv6-proxy-ndp.h"
+#include "networkd-lldp-tx.h"
 #include "networkd-radv.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-util.h"
-#include "netdev/netdev.h"
+#include "resolve-util.h"
 
 #define DHCP_ROUTE_METRIC 1024
 #define IPV4LL_ROUTE_METRIC 2048
@@ -272,27 +272,28 @@ void network_apply_anonymize_if_set(Network *network);
 
 bool network_has_static_ipv6_addresses(Network *network);
 
-int config_parse_netdev(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_domains(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_tunnel(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_dhcp(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_dns(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_dhcp_client_identifier(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_ipv6token(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_ipv6_privacy_extensions(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_hostname(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_timezone(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_dhcp_server_dns(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_radv_dns(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_radv_search_domains(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_dhcp_server_ntp(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_dnssec_negative_trust_anchors(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_dhcp_use_domains(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_lldp_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_dhcp_route_table(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);int config_parse_dhcp_user_class(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_ntp(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_netdev);
+CONFIG_PARSER_PROTOTYPE(config_parse_domains);
+CONFIG_PARSER_PROTOTYPE(config_parse_tunnel);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp);
+CONFIG_PARSER_PROTOTYPE(config_parse_dns);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_identifier);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6token);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_privacy_extensions);
+CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
+CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_dns);
+CONFIG_PARSER_PROTOTYPE(config_parse_radv_dns);
+CONFIG_PARSER_PROTOTYPE(config_parse_radv_search_domains);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_server_ntp);
+CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_negative_trust_anchors);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_use_domains);
+CONFIG_PARSER_PROTOTYPE(config_parse_lldp_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_route_table);
+CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_user_class);
+CONFIG_PARSER_PROTOTYPE(config_parse_ntp);
 /* Legacy IPv4LL support */
-int config_parse_ipv4ll(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv4ll);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 

@@ -12,6 +12,7 @@
 
 #include "sd-id128.h"
 
+#include "conf-parser.h"
 #include "macro.h"
 #include "nspawn-expose-ports.h"
 #include "nspawn-mount.h"
@@ -115,20 +116,20 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Settings*, settings_free);
 
 const struct ConfigPerfItem* nspawn_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
-int config_parse_capability(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_id128(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_expose_port(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_volatile_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_pivot_root(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_bind(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_tmpfs(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_overlay(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_veth_extra(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_network_zone(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_boot(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_pid2(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_private_users(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_syscall_filter(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_hostname(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_oom_score_adjust(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_cpu_affinity(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_capability);
+CONFIG_PARSER_PROTOTYPE(config_parse_id128);
+CONFIG_PARSER_PROTOTYPE(config_parse_expose_port);
+CONFIG_PARSER_PROTOTYPE(config_parse_volatile_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_pivot_root);
+CONFIG_PARSER_PROTOTYPE(config_parse_bind);
+CONFIG_PARSER_PROTOTYPE(config_parse_tmpfs);
+CONFIG_PARSER_PROTOTYPE(config_parse_overlay);
+CONFIG_PARSER_PROTOTYPE(config_parse_veth_extra);
+CONFIG_PARSER_PROTOTYPE(config_parse_network_zone);
+CONFIG_PARSER_PROTOTYPE(config_parse_boot);
+CONFIG_PARSER_PROTOTYPE(config_parse_pid2);
+CONFIG_PARSER_PROTOTYPE(config_parse_private_users);
+CONFIG_PARSER_PROTOTYPE(config_parse_syscall_filter);
+CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
+CONFIG_PARSER_PROTOTYPE(config_parse_oom_score_adjust);
+CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity);

@@ -7,6 +7,8 @@
   Copyright 2012 Lennart Poettering
 ***/
 
+#include "conf-parser.h"
+
 typedef enum HandleAction {
         HANDLE_IGNORE,
         HANDLE_POWEROFF,
@@ -36,4 +38,5 @@ const char* handle_action_to_string(HandleAction h) _const_;
 HandleAction handle_action_from_string(const char *s) _pure_;
 
 const char* manager_target_for_action(HandleAction handle);
-int config_parse_handle_action(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_handle_action);
