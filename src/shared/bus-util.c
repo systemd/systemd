@@ -527,6 +527,7 @@ int bus_verify_polkit_async(
 
         r = sd_bus_call_async(call->bus, &q->slot, pk, async_polkit_callback, q, 0);
         if (r < 0) {
+                hashmap_remove(*registry, call);
                 async_polkit_query_free(q);
                 return r;
         }
