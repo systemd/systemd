@@ -7,7 +7,6 @@
   Copyright 2010 Lennart Poettering
 ***/
 
-
 extern const sd_bus_vtable bus_automount_vtable[];
 
 int bus_automount_set_property(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);

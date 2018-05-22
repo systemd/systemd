@@ -21,7 +21,6 @@ struct IPv6ProxyNDPAddress {
     LIST_FIELDS(IPv6ProxyNDPAddress, ipv6_proxy_ndp_addresses);
 };
 
-
 int ipv6_proxy_ndp_address_new_static(Network *network, IPv6ProxyNDPAddress ** ipv6_proxy_ndp_address);
 void ipv6_proxy_ndp_address_free(IPv6ProxyNDPAddress *ipv6_proxy_ndp_address);
 int ipv6_proxy_ndp_address_configure(Link *link, IPv6ProxyNDPAddress *ipv6_proxy_ndp_address);

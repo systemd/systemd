@@ -7,7 +7,6 @@
   Copyright 2008-2011 Lennart Poettering
 ***/
 
-
 #include "sd-netlink.h"
 
 #include "in-addr-util.h"

@@ -7,7 +7,6 @@
   Copyright 2013 Kay Sievers
 ***/
 
-
 #include <stddef.h>
 
 #include "macro.h"

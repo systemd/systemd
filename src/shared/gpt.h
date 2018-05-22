@@ -33,7 +33,6 @@
 #define GPT_ROOT_ARM_64_VERITY SD_ID128_MAKE(df,33,00,ce,d6,9f,4c,92,97,8c,9b,fb,0f,38,d8,20)
 #define GPT_ROOT_IA64_VERITY   SD_ID128_MAKE(86,ed,10,d5,b6,07,45,bb,89,57,d3,50,f2,3d,05,71)
 
-
 #if defined(__x86_64__)
 #  define GPT_ROOT_NATIVE GPT_ROOT_X86_64
 #  define GPT_ROOT_SECONDARY GPT_ROOT_X86

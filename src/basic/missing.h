@@ -329,7 +329,6 @@ struct btrfs_ioctl_search_header {
         __u32 len;
 };
 
-
 struct btrfs_ioctl_search_args {
         struct btrfs_ioctl_search_key key;
         char buf[BTRFS_SEARCH_ARGS_BUFSIZE];
