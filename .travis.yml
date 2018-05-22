@@ -2,6 +2,8 @@ sudo: required
 
 services:
     - docker
+    
+cache: ccache
 
 jobs:
     include:
@@ -35,7 +37,7 @@ jobs:
               - MACHINE_ID=$(cat /var/lib/dbus/machine-id)
           before_script: *update
           script:
-              - docker run -dit --name travis_build ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT} bash
+              - docker run -v $HOME/.ccache:$HOME/.ccache -dit --name travis_build ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT} bash
               - docker exec -u 0 -ti travis_build bash -c "echo ${MACHINE_ID} > /etc/machine-id"
               - docker exec -ti travis_build meson build
               - docker exec -ti travis_build ninja -C build
@@ -49,7 +51,7 @@ jobs:
           compiler: gcc
           before_script: *update
           script:
-              - docker run --privileged --net=host -dit --name travis_test ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT} bash
+              - docker run -v $HOME/.ccache:$HOME/.ccache --privileged --net=host -dit --name travis_test ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT} bash
               - docker exec -ti travis_test ninja -C build test
               - docker commit -m "systemd test state" -a "${AUTHOR_NAME}" travis_test ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT}
               - docker login -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}"
