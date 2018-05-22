@@ -90,6 +90,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -916,7 +917,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (!optarg)
                                 arg_volatile_mode = VOLATILE_YES;
-                        else {
+                        else if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(volatile_mode, VolatileMode, _VOLATILE_MODE_MAX);
+                                return 0;
+                        } else {
                                 VolatileMode m;
 
                                 m = volatile_mode_from_string(optarg);
@@ -1024,6 +1028,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KILL_SIGNAL:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(signal, int, _NSIG);
+                                return 0;
+                        }
+
                         arg_kill_signal = signal_from_string(optarg);
                         if (arg_kill_signal < 0) {
                                 log_error("Cannot parse signal: %s", optarg);
@@ -1152,6 +1161,11 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *eq;
                         char *name;
                         int rl;
+
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(rlimit, int, _RLIMIT_MAX);
+                                return 0;
+                        }
 
                         eq = strchr(optarg, '=');
                         if (!eq) {

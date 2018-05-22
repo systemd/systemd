@@ -27,6 +27,7 @@
 #include "resolvectl.h"
 #include "resolved-def.h"
 #include "resolved-dns-packet.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "verbs.h"
@@ -2232,29 +2233,17 @@ static void help_protocol_types(void) {
 }
 
 static void help_dns_types(void) {
-        const char *t;
-        int i;
-
         if (arg_legend)
                 puts("Known DNS RR types:");
-        for (i = 0; i < _DNS_TYPE_MAX; i++) {
-                t = dns_type_to_string(i);
-                if (t)
-                        puts(t);
-        }
+
+        DUMP_STRING_TABLE(dns_type, int, _DNS_TYPE_MAX);
 }
 
 static void help_dns_classes(void) {
-        const char *t;
-        int i;
-
         if (arg_legend)
                 puts("Known DNS RR classes:");
-        for (i = 0; i < _DNS_CLASS_MAX; i++) {
-                t = dns_class_to_string(i);
-                if (t)
-                        puts(t);
-        }
+
+        DUMP_STRING_TABLE(dns_class, int, _DNS_CLASS_MAX);
 }
 
 static void compat_help(void) {

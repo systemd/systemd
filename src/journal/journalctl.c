@@ -58,11 +58,12 @@
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
+#include "string-table.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
-#include "udev.h"
 #include "udev-util.h"
+#include "udev.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -509,6 +510,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
+                                return 0;
+                        }
+
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0) {
                                 log_error("Unknown output format '%s'.", optarg);
