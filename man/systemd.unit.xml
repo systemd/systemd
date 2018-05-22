@@ -590,10 +590,12 @@
       <varlistentry>
         <term><varname>Requisite=</varname></term>
 
-        <listitem><para>Similar to <varname>Requires=</varname>.
-        However, if the units listed here are not started already,
-        they will not be started and the transaction will fail
-        immediately.</para>
+        <listitem><para>Similar to <varname>Requires=</varname>. However, if the units listed here
+        are not started already, they will not be started and the starting of this unit will fail
+        immediately. <varname>Requisite=</varname> does not imply an ordering dependency, even if
+        both units are started in the same transaction. Hence this setting should usually be
+        combined with <varname>After=</varname>, to ensure this unit is not started before the other
+        unit.</para>
 
         <para>When <varname>Requisite=b.service</varname> is used on
         <filename>a.service</filename>, this dependency will show as
