@@ -197,6 +197,26 @@ static int property_get_progress(
         return sd_bus_message_append(reply, "d", d);
 }
 
+static int property_get_show_status(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = userdata;
+        int b;
+
+        assert(bus);
+        assert(reply);
+        assert(m);
+
+        b = m->show_status > 0;
+        return sd_bus_message_append_basic(reply, 'b', &b);
+}
+
 static int property_set_runtime_watchdog(
                 sd_bus *bus,
                 const char *path,
@@ -2389,7 +2409,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("Progress", "d", property_get_progress, 0, 0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(Manager, environment), 0),
         SD_BUS_PROPERTY("ConfirmSpawn", "b", bus_property_get_bool, offsetof(Manager, confirm_spawn), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ShowStatus", "b", bus_property_get_bool, offsetof(Manager, show_status), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ShowStatus", "b", property_get_show_status, 0, 0),
         SD_BUS_PROPERTY("UnitPath", "as", NULL, offsetof(Manager, lookup_paths.search_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStandardOutput", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStandardError", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), SD_BUS_VTABLE_PROPERTY_CONST),
