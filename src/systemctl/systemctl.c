@@ -7199,81 +7199,64 @@ static void runlevel_help(void) {
 }
 
 static void help_types(void) {
-        int i;
-
         if (!arg_no_legend)
                 puts("Available unit types:");
-        for (i = 0; i < _UNIT_TYPE_MAX; i++)
-                puts(unit_type_to_string(i));
+
+        DUMP_STRING_TABLE(unit_type, UnitType, _UNIT_TYPE_MAX);
 }
 
 static void help_states(void) {
-        int i;
-
         if (!arg_no_legend)
                 puts("Available unit load states:");
-        for (i = 0; i < _UNIT_LOAD_STATE_MAX; i++)
-                puts(unit_load_state_to_string(i));
+        DUMP_STRING_TABLE(unit_load_state, UnitLoadState, _UNIT_LOAD_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable unit active states:");
-        for (i = 0; i < _UNIT_ACTIVE_STATE_MAX; i++)
-                puts(unit_active_state_to_string(i));
+        DUMP_STRING_TABLE(unit_active_state, UnitActiveState, _UNIT_ACTIVE_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable automount unit substates:");
-        for (i = 0; i < _AUTOMOUNT_STATE_MAX; i++)
-                puts(automount_state_to_string(i));
+        DUMP_STRING_TABLE(automount_state, AutomountState, _AUTOMOUNT_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable device unit substates:");
-        for (i = 0; i < _DEVICE_STATE_MAX; i++)
-                puts(device_state_to_string(i));
+        DUMP_STRING_TABLE(device_state, DeviceState, _DEVICE_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable mount unit substates:");
-        for (i = 0; i < _MOUNT_STATE_MAX; i++)
-                puts(mount_state_to_string(i));
+        DUMP_STRING_TABLE(mount_state, MountState, _MOUNT_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable path unit substates:");
-        for (i = 0; i < _PATH_STATE_MAX; i++)
-                puts(path_state_to_string(i));
+        DUMP_STRING_TABLE(path_state, PathState, _PATH_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable scope unit substates:");
-        for (i = 0; i < _SCOPE_STATE_MAX; i++)
-                puts(scope_state_to_string(i));
+        DUMP_STRING_TABLE(scope_state, ScopeState, _SCOPE_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable service unit substates:");
-        for (i = 0; i < _SERVICE_STATE_MAX; i++)
-                puts(service_state_to_string(i));
+        DUMP_STRING_TABLE(service_state, ServiceState, _SERVICE_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable slice unit substates:");
-        for (i = 0; i < _SLICE_STATE_MAX; i++)
-                puts(slice_state_to_string(i));
+        DUMP_STRING_TABLE(slice_state, SliceState, _SLICE_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable socket unit substates:");
-        for (i = 0; i < _SOCKET_STATE_MAX; i++)
-                puts(socket_state_to_string(i));
+        DUMP_STRING_TABLE(socket_state, SocketState, _SOCKET_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable swap unit substates:");
-        for (i = 0; i < _SWAP_STATE_MAX; i++)
-                puts(swap_state_to_string(i));
+        DUMP_STRING_TABLE(swap_state, SwapState, _SWAP_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable target unit substates:");
-        for (i = 0; i < _TARGET_STATE_MAX; i++)
-                puts(target_state_to_string(i));
+        DUMP_STRING_TABLE(target_state, TargetState, _TARGET_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable timer unit substates:");
-        for (i = 0; i < _TIMER_STATE_MAX; i++)
-                puts(timer_state_to_string(i));
+        DUMP_STRING_TABLE(timer_state, TimerState, _TIMER_STATE_MAX);
 }
 
 static int systemctl_parse_argv(int argc, char *argv[]) {
@@ -7569,6 +7552,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 's':
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(signal, int, _NSIG);
+                                return 0;
+                        }
+
                         arg_signal = signal_from_string(optarg);
                         if (arg_signal < 0) {
                                 log_error("Failed to parse signal string %s.", optarg);
@@ -7602,6 +7590,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
+                                return 0;
+                        }
+
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0) {
                                 log_error("Unknown output '%s'.", optarg);
@@ -7659,6 +7652,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PRESET_MODE:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MAX);
+                                return 0;
+                        }
 
                         arg_preset_mode = unit_file_preset_mode_from_string(optarg);
                         if (arg_preset_mode < 0) {

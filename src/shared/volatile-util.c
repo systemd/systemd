@@ -11,26 +11,9 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "volatile-util.h"
-
-VolatileMode volatile_mode_from_string(const char *s) {
-        int b;
-
-        if (isempty(s))
-                return _VOLATILE_MODE_INVALID;
-
-        b = parse_boolean(s);
-        if (b > 0)
-                return VOLATILE_YES;
-        if (b == 0)
-                return VOLATILE_NO;
-
-        if (streq(s, "state"))
-                return VOLATILE_STATE;
-
-        return _VOLATILE_MODE_INVALID;
-}
 
 int query_volatile_mode(VolatileMode *ret) {
         _cleanup_free_ char *mode = NULL;
@@ -56,3 +39,11 @@ finish:
         *ret = m;
         return r;
 }
+
+static const char* const volatile_mode_table[_VOLATILE_MODE_MAX] = {
+        [VOLATILE_NO] = "no",
+        [VOLATILE_YES] = "yes",
+        [VOLATILE_STATE] = "state",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(volatile_mode, VolatileMode, VOLATILE_YES);

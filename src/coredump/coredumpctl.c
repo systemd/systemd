@@ -217,7 +217,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'o':
                         if (arg_output) {
-                                log_error("cannot set output more than once");
+                                log_error("Cannot set output more than once.");
                                 return -EINVAL;
                         }
 
@@ -241,7 +241,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'F':
                         if (arg_field) {
-                                log_error("cannot use --field/-F more than once");
+                                log_error("Cannot use --field/-F more than once.");
                                 return -EINVAL;
                         }
                         arg_field = optarg;

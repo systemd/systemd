@@ -230,6 +230,12 @@
         technology identifier.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--list</option></term>
+
+        <listitem><para>Output all currently known and detectable container and VM environments.</para></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

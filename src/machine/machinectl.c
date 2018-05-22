@@ -46,6 +46,7 @@
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
@@ -2859,6 +2860,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
+                                return 0;
+                        }
+
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0) {
                                 log_error("Unknown output '%s'.", optarg);
@@ -2879,6 +2885,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 's':
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(signal, int, _NSIG);
+                                return 0;
+                        }
+
                         arg_signal = signal_from_string(optarg);
                         if (arg_signal < 0) {
                                 log_error("Failed to parse signal string %s.", optarg);
@@ -2913,6 +2924,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERIFY:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
+                                return 0;
+                        }
+
                         arg_verify = import_verify_from_string(optarg);
                         if (arg_verify < 0) {
                                 log_error("Failed to parse --verify= setting: %s", optarg);
