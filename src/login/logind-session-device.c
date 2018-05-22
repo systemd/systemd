@@ -20,6 +20,7 @@
 #include "missing.h"
 #include "parse-util.h"
 #include "sd-daemon.h"
+#include "stdio-util.h"
 #include "util.h"
 
 enum SessionDeviceNotifications {
@@ -405,21 +406,20 @@ error:
 void session_device_free(SessionDevice *sd) {
         assert(sd);
 
-        /* Make sure to remove the pushed fd. */
+        /* Make sure to remove the pushed fd.
+         * Note DRM fds can hold a lot of memory :). */
         if (sd->pushed_fd) {
-                _cleanup_free_ char *m = NULL;
+                char m[sizeof("FDSTOREREMOVE=1\n" "FDNAME=\n") + 255];
                 const char *id;
-                int r;
 
                 /* Session ID does not contain separators. */
                 id = sd->session->id;
                 assert(*(id + strcspn(id, "-\n")) == '\0');
 
-                r = asprintf(&m, "FDSTOREREMOVE=1\n"
-                                 "FDNAME=session-%s-device-%u-%u\n",
-                                 id, major(sd->dev), minor(sd->dev));
-                if (r >= 0)
-                        (void) sd_notify(false, m);
+                xsprintf(m, "FDSTOREREMOVE=1\n"
+                            "FDNAME=session-%s-device-%u-%u\n",
+                            id, major(sd->dev), minor(sd->dev));
+                (void) sd_notify(false, m);
         }
 
         session_device_stop(sd);
