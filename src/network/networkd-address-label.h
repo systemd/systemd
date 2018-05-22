@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include "conf-parser.h"
 #include "in-addr-util.h"
 
 typedef struct AddressLabel AddressLabel;
@@ -41,5 +42,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(AddressLabel*, address_label_free);
 
 int address_label_configure(AddressLabel *address, Link *link, sd_netlink_message_handler_t callback, bool update);
 
-int config_parse_address_label(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_address_label_prefix(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_label);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_label_prefix);

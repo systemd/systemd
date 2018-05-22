@@ -7,6 +7,7 @@
   Copyright 2013 Tom Gundersen <teg@jklm.no>
 ***/
 
+#include "conf-parser.h"
 #include "macro.h"
 
 typedef enum AddressFamilyBoolean {
@@ -19,8 +20,8 @@ typedef enum AddressFamilyBoolean {
         _ADDRESS_FAMILY_BOOLEAN_INVALID = -1,
 } AddressFamilyBoolean;
 
-int config_parse_address_family_boolean(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_address_family_boolean_with_kernel(const char* unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_family_boolean);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_family_boolean_with_kernel);
 
 const char *address_family_boolean_to_string(AddressFamilyBoolean b) _const_;
 AddressFamilyBoolean address_family_boolean_from_string(const char *s) _const_;

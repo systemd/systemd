@@ -7,6 +7,7 @@
   Copyright 2016 Lennart Poettering
 ***/
 
+#include "conf-parser.h"
 #include "macro.h"
 
 typedef enum ResolveSupport ResolveSupport;
@@ -38,8 +39,8 @@ enum DnssecMode {
         _DNSSEC_MODE_INVALID = -1
 };
 
-int config_parse_resolve_support(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_dnssec_mode(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_resolve_support);
+CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_mode);
 
 const char* resolve_support_to_string(ResolveSupport p) _const_;
 ResolveSupport resolve_support_from_string(const char *s) _pure_;

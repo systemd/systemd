@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include <stdbool.h>
 
+#include "conf-parser.h"
 #include "in-addr-util.h"
 
 typedef struct Address Address;
@@ -66,9 +67,9 @@ bool address_is_ready(const Address *a);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Address*, address_free);
 
-int config_parse_address(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_broadcast(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_label(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_lifetime(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_address_flags(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_address_scope(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_address);
+CONFIG_PARSER_PROTOTYPE(config_parse_broadcast);
+CONFIG_PARSER_PROTOTYPE(config_parse_label);
+CONFIG_PARSER_PROTOTYPE(config_parse_lifetime);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_flags);
+CONFIG_PARSER_PROTOTYPE(config_parse_address_scope);

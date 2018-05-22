@@ -9,6 +9,7 @@
 
 typedef struct User User;
 
+#include "conf-parser.h"
 #include "list.h"
 #include "logind.h"
 
@@ -80,4 +81,4 @@ UserState user_state_from_string(const char *s) _pure_;
 int bus_user_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_user_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
-int config_parse_compat_user_tasks_max(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_compat_user_tasks_max);
