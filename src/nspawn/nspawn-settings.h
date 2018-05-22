@@ -93,7 +93,7 @@ typedef enum SettingsMask {
         SETTING_RLIMIT_FIRST      = UINT64_C(1) << 24, /* we define one bit per resource limit here */
         SETTING_RLIMIT_LAST       = UINT64_C(1) << (24 + _RLIMIT_MAX - 1),
         _SETTINGS_MASK_ALL        = (UINT64_C(1) << (24 + _RLIMIT_MAX)) -1,
-        _FORCE_ENUM_WIDTH         = UINT64_MAX
+        _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
 /* We want to use SETTING_RLIMIT_FIRST in shifts, so make sure it is really 64 bits
