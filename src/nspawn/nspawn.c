@@ -192,7 +192,7 @@ static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static bool arg_userns_chown = false;
 static int arg_kill_signal = 0;
 static CGroupUnified arg_unified_cgroup_hierarchy = CGROUP_UNIFIED_UNKNOWN;
-static SettingsMask arg_settings_mask = 0;
+static uint64_t arg_settings_mask = 0;
 static int arg_settings_trusted = -1;
 static char **arg_parameters = NULL;
 static const char *arg_container_service_name = "systemd-nspawn";
@@ -1179,7 +1179,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse resource limit: %s", eq + 1);
 
-                        arg_settings_mask |= SETTING_RLIMIT_FIRST << rl;
+                        arg_settings_mask |= (uint64_t) SETTING_RLIMIT_FIRST << rl;
                         break;
                 }
 
@@ -3325,7 +3325,7 @@ static int merge_settings(Settings *settings, const char *path) {
         }
 
         for (rl = 0; rl < _RLIMIT_MAX; rl ++) {
-                if ((arg_settings_mask & (SETTING_RLIMIT_FIRST << rl)))
+                if ((arg_settings_mask & ((uint64_t) SETTING_RLIMIT_FIRST << rl)))
                         continue;
 
                 if (!settings->rlimit[rl])
@@ -3991,7 +3991,7 @@ static int initialize_rlimits(void) {
         for (rl = 0; rl < _RLIMIT_MAX; rl++) {
 
                 /* Let's only fill in what the user hasn't explicitly configured anyway */
-                if ((arg_settings_mask & (SETTING_RLIMIT_FIRST << rl)) == 0) {
+                if ((arg_settings_mask & ((uint64_t) SETTING_RLIMIT_FIRST << rl)) == 0) {
                         const struct rlimit *v;
                         struct rlimit buffer;
 
