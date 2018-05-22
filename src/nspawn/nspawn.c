@@ -2597,15 +2597,12 @@ static int inner_child(
                         return r;
         }
 
-        /* Now, explicitly close the log, so that we
-         * then can close all remaining fds. Closing
-         * the log explicitly first has the benefit
-         * that the logging subsystem knows about it,
-         * and is thus ready to be reopened should we
-         * need it again. Note that the other fds
-         * closed here are at least the locking and
-         * barrier fds. */
+        /* Now, explicitly close the log, so that we then can close all remaining fds. Closing the log explicitly first
+         * has the benefit that the logging subsystem knows about it, and is thus ready to be reopened should we need
+         * it again. Note that the other fds closed here are at least the locking and barrier fds. */
         log_close();
+        log_set_open_when_needed(true);
+
         (void) fdset_close_others(fds);
 
         if (arg_start_mode == START_BOOT) {
@@ -2643,9 +2640,7 @@ static int inner_child(
                 exec_target = "/bin/bash, /bin/sh";
         }
 
-        r = -errno;
-        (void) log_open();
-        return log_error_errno(r, "execv(%s) failed: %m", exec_target);
+        return log_error_errno(errno, "execv(%s) failed: %m", exec_target);
 }
 
 static int setup_sd_notify_child(void) {
