@@ -226,9 +226,6 @@ typedef enum Disabled {
                         *(xs + i) = invalid;                                   \
                 }                                                              \
                                                                                \
-                free(*enums);                                                  \
-                *enums = xs;                                                   \
-                xs = NULL;                                                     \
-                                                                               \
+                free_and_replace(*enums, xs);                                  \
                 return 0;                                                      \
         }
