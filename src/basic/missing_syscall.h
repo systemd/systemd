@@ -256,7 +256,6 @@ static inline int missing_kcmp(pid_t pid1, pid_t pid2, int type, unsigned long i
 #  define kcmp missing_kcmp
 #endif
 
-
 /* ======================================================================= */
 
 #if !HAVE_KEYCTL

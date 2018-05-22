@@ -9,7 +9,6 @@
 
 typedef struct Inhibitor Inhibitor;
 
-
 typedef enum InhibitWhat {
         INHIBIT_SHUTDOWN = 1,
         INHIBIT_SLEEP = 2,

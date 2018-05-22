@@ -80,7 +80,6 @@ typedef enum DnssecNsecResult {
 
 int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl);
 
-
 int dnssec_test_positive_wildcard(DnsAnswer *a, const char *name, const char *source, const char *zone, bool *authenticated);
 
 const char* dnssec_result_to_string(DnssecResult m) _const_;

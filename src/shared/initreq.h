@@ -55,7 +55,6 @@ struct init_request_bsd {
         char	reserved[128];		/* For future expansion.        */
 };
 
-
 /*
  *	Because of legacy interfaces, "runlevel" and "sleeptime"
  *	aren't in a separate struct in the union.

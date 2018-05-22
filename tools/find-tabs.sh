@@ -25,13 +25,13 @@ case "$1" in
 
         diff)
                 T=`mktemp`
-                sed '/^$/N;/^\n$/D' < "$2" > "$T"
+                sed 's/\t/        /g' < "$2" > "$T"
                 diff -u "$2" "$T"
                 rm -f "$T"
                 ;;
 
         patch)
-                sed -i '/^$/N;/^\n$/D' "$2"
+                sed -i 's/\t/        /g' "$2"
                 ;;
 
         *)

@@ -87,7 +87,6 @@ struct DnsResourceKey {
                 ._name = (char*) n,                     \
         })
 
-
 struct DnsTxtItem {
         size_t length;
         LIST_FIELDS(DnsTxtItem, items);

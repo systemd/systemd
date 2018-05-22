@@ -4194,12 +4194,12 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (arg_start_mode == START_BOOT) {
-			const char *p;
+                        const char *p;
 
-			if (arg_pivot_root_new)
-				p = prefix_roota(arg_directory, arg_pivot_root_new);
-			else
-				p = arg_directory;
+                        if (arg_pivot_root_new)
+                                p = prefix_roota(arg_directory, arg_pivot_root_new);
+                        else
+                                p = arg_directory;
 
                         if (path_is_os_tree(p) <= 0) {
                                 log_error("Directory %s doesn't look like an OS root directory (os-release file is missing). Refusing.", p);
@@ -4209,10 +4209,10 @@ int main(int argc, char *argv[]) {
                 } else {
                         const char *p, *q;
 
-			if (arg_pivot_root_new)
-				p = prefix_roota(arg_directory, arg_pivot_root_new);
-			else
-				p = arg_directory;
+                        if (arg_pivot_root_new)
+                                p = prefix_roota(arg_directory, arg_pivot_root_new);
+                        else
+                                p = arg_directory;
 
                         q = strjoina(p, "/usr/");
 

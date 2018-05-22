@@ -77,7 +77,6 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
                 return (type) -1;                                       \
         }                                                               \
 
-
 #define _DEFINE_STRING_TABLE_LOOKUP(name,type,scope)                    \
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)          \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name,type,scope)
