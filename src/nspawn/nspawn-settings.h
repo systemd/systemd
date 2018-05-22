@@ -56,8 +56,18 @@ typedef enum SettingsMask {
         SETTING_CPU_AFFINITY      = UINT64_C(1) << 20,
         SETTING_RLIMIT_FIRST      = UINT64_C(1) << 21, /* we define one bit per resource limit here */
         SETTING_RLIMIT_LAST       = UINT64_C(1) << (21 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (21 + _RLIMIT_MAX)) - 1
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (21 + _RLIMIT_MAX)) - 1,
+        _FORCE_ENUM_WIDTH         = UINT64_MAX
 } SettingsMask;
+
+/* We want to use SETTING_RLIMIT_FIRST in shifts, so make sure it is really 64 bits
+ * when used in expressions. */
+#define SETTING_RLIMIT_FIRST ((uint64_t) SETTING_RLIMIT_FIRST)
+#define SETTING_RLIMIT_LAST ((uint64_t) SETTING_RLIMIT_LAST)
+
+assert_cc(sizeof(SettingsMask) == 8);
+assert_cc(sizeof(SETTING_RLIMIT_FIRST) == 8);
+assert_cc(sizeof(SETTING_RLIMIT_LAST) == 8);
 
 typedef struct Settings {
         /* [Run] */

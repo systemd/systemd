@@ -26,7 +26,12 @@ enum Enum {
 };
 
 enum BigEnum {
-        big_enum_value = UINT64_C(-1),
+        big_enum_value = UINT64_C(1),
+};
+
+enum BigEnum2 {
+        big_enum2_pos = UINT64_C(1),
+        big_enum2_neg = UINT64_C(-1),
 };
 
 int main(void) {
@@ -55,6 +60,10 @@ int main(void) {
 
         info(enum Enum);
         info(enum BigEnum);
+        info(enum BigEnum2);
+        assert_cc(sizeof(enum BigEnum2) == 8);
+        printf("big_enum2_pos → %zu\n", sizeof(big_enum2_pos));
+        printf("big_enum2_neg → %zu\n", sizeof(big_enum2_neg));
 
         return 0;
 }
