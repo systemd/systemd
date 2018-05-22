@@ -828,14 +828,14 @@ void lookup_paths_flush_generator(LookupPaths *p) {
         /* Flush the generated unit files in full */
 
         if (p->generator)
-                (void) rm_rf(p->generator, REMOVE_ROOT);
+                (void) rm_rf(p->generator, REMOVE_ROOT|REMOVE_PHYSICAL);
         if (p->generator_early)
-                (void) rm_rf(p->generator_early, REMOVE_ROOT);
+                (void) rm_rf(p->generator_early, REMOVE_ROOT|REMOVE_PHYSICAL);
         if (p->generator_late)
-                (void) rm_rf(p->generator_late, REMOVE_ROOT);
+                (void) rm_rf(p->generator_late, REMOVE_ROOT|REMOVE_PHYSICAL);
 
         if (p->temporary_dir)
-                (void) rm_rf(p->temporary_dir, REMOVE_ROOT);
+                (void) rm_rf(p->temporary_dir, REMOVE_ROOT|REMOVE_PHYSICAL);
 }
 
 char **generator_binary_paths(UnitFileScope scope) {
