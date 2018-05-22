@@ -21,7 +21,8 @@ static const char *const output_mode_table[_OUTPUT_MODE_MAX] = {
         [OUTPUT_JSON] = "json",
         [OUTPUT_JSON_PRETTY] = "json-pretty",
         [OUTPUT_JSON_SSE] = "json-sse",
-        [OUTPUT_CAT] = "cat"
+        [OUTPUT_CAT] = "cat",
+        [OUTPUT_WITH_UNIT] = "with-unit",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(output_mode, OutputMode);
