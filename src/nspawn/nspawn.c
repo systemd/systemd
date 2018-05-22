@@ -2720,6 +2720,11 @@ static int outer_child(
                 if (terminal < 0)
                         return log_error_errno(terminal, "Failed to open console: %m");
 
+                /* Make sure we can continue logging to the original stderr, even if stderr points elsewhere now */
+                r = log_dup_console();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to duplicate stderr: %m");
+
                 r = rearrange_stdio(terminal, terminal, terminal); /* invalidates 'terminal' on success and failure */
                 if (r < 0)
                         return log_error_errno(r, "Failed to move console to stdin/stdout/stderr: %m");
