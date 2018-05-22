@@ -369,6 +369,18 @@
                 not even a timestamp.</para>
               </listitem>
             </varlistentry>
+
+            <varlistentry>
+              <term>
+                <option>with-unit</option>
+              </term>
+              <listitem>
+                <para>similar to short-full, but prefixes the unit and
+                user unit names instead of the traditional syslog
+                identifier. Useful when using templated instances, as it
+                will include the arguments in the unit names.</para>
+              </listitem>
+            </varlistentry>
           </variablelist>
         </listitem>
       </varlistentry>
