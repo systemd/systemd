@@ -2089,10 +2089,10 @@ static int setup_exec_directory(
                         }
                 } else {
                         r = mkdir_label(p, context->directories[type].mode);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
+                        if (r < 0 && r != -EEXIST)
                                 goto fail;
+                        if (r == -EEXIST && !context->dynamic_user)
+                                continue;
                 }
 
                 /* Don't change the owner of the configuration directory, as in the common case it is not written to by
