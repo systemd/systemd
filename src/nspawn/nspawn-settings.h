@@ -33,38 +33,32 @@ typedef enum UserNamespaceMode {
         _USER_NAMESPACE_MODE_INVALID = -1,
 } UserNamespaceMode;
 
-typedef enum SettingsMask {
-        SETTING_START_MODE        = UINT64_C(1) << 0,
-        SETTING_ENVIRONMENT       = UINT64_C(1) << 1,
-        SETTING_USER              = UINT64_C(1) << 2,
-        SETTING_CAPABILITY        = UINT64_C(1) << 3,
-        SETTING_KILL_SIGNAL       = UINT64_C(1) << 4,
-        SETTING_PERSONALITY       = UINT64_C(1) << 5,
-        SETTING_MACHINE_ID        = UINT64_C(1) << 6,
-        SETTING_NETWORK           = UINT64_C(1) << 7,
-        SETTING_EXPOSE_PORTS      = UINT64_C(1) << 8,
-        SETTING_READ_ONLY         = UINT64_C(1) << 9,
-        SETTING_VOLATILE_MODE     = UINT64_C(1) << 10,
-        SETTING_CUSTOM_MOUNTS     = UINT64_C(1) << 11,
-        SETTING_WORKING_DIRECTORY = UINT64_C(1) << 12,
-        SETTING_USERNS            = UINT64_C(1) << 13,
-        SETTING_NOTIFY_READY      = UINT64_C(1) << 14,
-        SETTING_PIVOT_ROOT        = UINT64_C(1) << 15,
-        SETTING_SYSCALL_FILTER    = UINT64_C(1) << 16,
-        SETTING_HOSTNAME          = UINT64_C(1) << 17,
-        SETTING_NO_NEW_PRIVILEGES = UINT64_C(1) << 18,
-        SETTING_OOM_SCORE_ADJUST  = UINT64_C(1) << 19,
-        SETTING_CPU_AFFINITY      = UINT64_C(1) << 20,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 21, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (21 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (21 + _RLIMIT_MAX)) - 1,
-        _FORCE_ENUM_WIDTH         = UINT64_MAX
-} SettingsMask;
-
-/* We want to use SETTING_RLIMIT_FIRST in shifts, so make sure it is really 64 bits
- * when used in expressions. */
-#define SETTING_RLIMIT_FIRST ((uint64_t) SETTING_RLIMIT_FIRST)
-#define SETTING_RLIMIT_LAST ((uint64_t) SETTING_RLIMIT_LAST)
+#define SETTING_START_MODE              (1L << 0)
+#define SETTING_ENVIRONMENT             (1L << 1)
+#define SETTING_USER                    (1L << 2)
+#define SETTING_CAPABILITY              (1L << 3)
+#define SETTING_KILL_SIGNAL             (1L << 4)
+#define SETTING_PERSONALITY             (1L << 5)
+#define SETTING_MACHINE_ID              (1L << 6)
+#define SETTING_NETWORK                 (1L << 7)
+#define SETTING_EXPOSE_PORTS            (1L << 8)
+#define SETTING_READ_ONLY               (1L << 9)
+#define SETTING_VOLATILE_MODE           (1L << 10)
+#define SETTING_CUSTOM_MOUNTS           (1L << 11)
+#define SETTING_WORKING_DIRECTORY       (1L << 12)
+#define SETTING_USERNS                  (1L << 13)
+#define SETTING_NOTIFY_READY            (1L << 14)
+#define SETTING_PIVOT_ROOT              (1L << 15)
+#define SETTING_SYSCALL_FILTER          (1L << 16)
+#define SETTING_HOSTNAME                (1L << 17)
+#define SETTING_NO_NEW_PRIVILEGES       (1L << 18)
+#define SETTING_OOM_SCORE_ADJUST        (1L << 19)
+#define SETTING_CPU_AFFINITY            (1L << 20)
+/* we define one bit per resource limit here */
+#define SETTING_RLIMIT_FIRST            (1L << 21)
+#define SETTING_RLIMIT_LAST             (1L << (21 + _RLIMIT_MAX - 1))
+#define _SETTINGS_MASK_ALL              ((1L << (21 + _RLIMIT_MAX)) - 1)
+typedef uint64_t SettingsMask;
 
 assert_cc(sizeof(SettingsMask) == 8);
 assert_cc(sizeof(SETTING_RLIMIT_FIRST) == 8);
