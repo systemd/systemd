@@ -10,7 +10,7 @@ case "$1" in
                         DIR="$2"
                 fi
 
-                find $DIR -type f \( -name '*.c' -o -name '*.xml' \) -exec $0 diff \{\} \;
+                find $DIR -type f \( -name '*.[ch]' -o -name '*.xml' \) -exec $0 diff \{\} \;
                 ;;
 
         recpatch)
@@ -20,7 +20,7 @@ case "$1" in
                         DIR="$2"
                 fi
 
-                find $DIR -type f \( -name '*.c' -o -name '*.xml' \) -exec $0 patch \{\} \;
+                find $DIR -type f \( -name '*.[ch]' -o -name '*.xml' \) -exec $0 patch \{\} \;
                 ;;
 
         diff)
