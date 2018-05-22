@@ -102,3 +102,18 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
         _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name,type,max,static)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max) \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING_FALLBACK(name,type,max,static)
+
+#define DUMP_STRING_TABLE(name,type,max)                                \
+        do {                                                            \
+                type _k;                                                \
+                flockfile(stdout);                                      \
+                for (_k = 0; _k < (max); _k++) {                        \
+                        const char *_t;                                 \
+                        _t = name##_to_string(_k);                      \
+                        if (!_t)                                        \
+                                continue;                               \
+                        fputs_unlocked(_t, stdout);                     \
+                        fputc_unlocked('\n', stdout);                   \
+                }                                                       \
+                funlockfile(stdout);                                    \
+        } while(false)
