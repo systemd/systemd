@@ -182,3 +182,5 @@ int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *descri
 static inline int bus_open_system_watch_bind(sd_bus **ret) {
         return bus_open_system_watch_bind_with_description(ret, NULL);
 }
+
+int bus_request_name_async_may_reload_dbus(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, uint64_t flags, void *userdata);
