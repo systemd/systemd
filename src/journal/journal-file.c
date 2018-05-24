@@ -1958,7 +1958,16 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         assert(f->header);
         assert(iovec || n_iovec == 0);
 
-        if (!ts) {
+        if (ts) {
+                if (!VALID_REALTIME(ts->realtime)) {
+                        log_debug("Invalid realtime timestamp %"PRIu64", refusing entry.", ts->realtime);
+                        return -EBADMSG;
+                }
+                if (!VALID_MONOTONIC(ts->monotonic)) {
+                        log_debug("Invalid monotomic timestamp %"PRIu64", refusing entry.", ts->monotonic);
+                        return -EBADMSG;
+                }
+        } else {
                 dual_timestamp_get(&_ts);
                 ts = &_ts;
         }
