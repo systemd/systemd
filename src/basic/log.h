@@ -284,6 +284,8 @@ void log_set_open_when_needed(bool b);
  * stderr, the console or kmsg */
 void log_set_prohibit_ipc(bool b);
 
+int log_dup_console(void);
+
 int log_syntax_internal(
                 const char *unit,
                 int level,
