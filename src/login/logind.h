@@ -121,7 +121,7 @@ struct Manager {
         usec_t holdoff_timeout_usec;
         sd_event_source *lid_switch_ignore_event_source;
 
-        size_t runtime_dir_size;
+        uint64_t runtime_dir_size;
         uint64_t user_tasks_max;
         uint64_t sessions_max;
         uint64_t inhibitors_max;

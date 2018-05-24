@@ -707,7 +707,7 @@ int config_parse_tmpfs_size(
                 void *data,
                 void *userdata) {
 
-        size_t *sz = data;
+        uint64_t *sz = data;
         int r;
 
         assert(filename);
