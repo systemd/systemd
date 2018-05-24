@@ -33,6 +33,38 @@ typedef enum UserNamespaceMode {
         _USER_NAMESPACE_MODE_INVALID = -1,
 } UserNamespaceMode;
 
+typedef enum ResolvConfMode {
+        RESOLV_CONF_OFF,
+        RESOLV_CONF_COPY_HOST,
+        RESOLV_CONF_COPY_STATIC,
+        RESOLV_CONF_BIND_HOST,
+        RESOLV_CONF_BIND_STATIC,
+        RESOLV_CONF_DELETE,
+        RESOLV_CONF_AUTO,
+        _RESOLV_CONF_MODE_MAX,
+        _RESOLV_CONF_MODE_INVALID = -1
+} ResolvConfMode;
+
+typedef enum LinkJournal {
+        LINK_NO,
+        LINK_AUTO,
+        LINK_HOST,
+        LINK_GUEST,
+        _LINK_JOURNAL_MAX,
+        _LINK_JOURNAL_INVALID = -1
+} LinkJournal;
+
+typedef enum TimezoneMode {
+        TIMEZONE_OFF,
+        TIMEZONE_COPY,
+        TIMEZONE_BIND,
+        TIMEZONE_SYMLINK,
+        TIMEZONE_DELETE,
+        TIMEZONE_AUTO,
+        _TIMEZONE_MODE_MAX,
+        _TIMEZONE_MODE_INVALID = -1
+} TimezoneMode;
+
 typedef enum SettingsMask {
         SETTING_START_MODE        = UINT64_C(1) << 0,
         SETTING_ENVIRONMENT       = UINT64_C(1) << 1,
@@ -55,10 +87,13 @@ typedef enum SettingsMask {
         SETTING_NO_NEW_PRIVILEGES = UINT64_C(1) << 18,
         SETTING_OOM_SCORE_ADJUST  = UINT64_C(1) << 19,
         SETTING_CPU_AFFINITY      = UINT64_C(1) << 20,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 21, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (21 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (21 + _RLIMIT_MAX)) - 1,
-        _FORCE_ENUM_WIDTH         = UINT64_MAX
+        SETTING_RESOLV_CONF       = UINT64_C(1) << 21,
+        SETTING_LINK_JOURNAL      = UINT64_C(1) << 22,
+        SETTING_TIMEZONE          = UINT64_C(1) << 23,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 24, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (24 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (24 + _RLIMIT_MAX)) -1,
+        _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
 /* We want to use SETTING_RLIMIT_FIRST in shifts, so make sure it is really 64 bits
@@ -96,6 +131,10 @@ typedef struct Settings {
         bool oom_score_adjust_set;
         cpu_set_t *cpuset;
         unsigned cpuset_ncpus;
+        ResolvConfMode resolv_conf;
+        LinkJournal link_journal;
+        bool link_journal_try;
+        TimezoneMode timezone;
 
         /* [Image] */
         int read_only;
@@ -143,3 +182,14 @@ CONFIG_PARSER_PROTOTYPE(config_parse_syscall_filter);
 CONFIG_PARSER_PROTOTYPE(config_parse_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_oom_score_adjust);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity);
+CONFIG_PARSER_PROTOTYPE(config_parse_resolv_conf);
+CONFIG_PARSER_PROTOTYPE(config_parse_link_journal);
+CONFIG_PARSER_PROTOTYPE(config_parse_timezone);
+
+const char *resolv_conf_mode_to_string(ResolvConfMode a) _const_;
+ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;
+
+const char *timezone_mode_to_string(TimezoneMode a) _const_;
+TimezoneMode timezone_mode_from_string(const char *s) _pure_;
+
+int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try);

@@ -38,6 +38,7 @@
 #include "base-filesystem.h"
 #include "blkid-util.h"
 #include "btrfs-util.h"
+#include "bus-error.h"
 #include "bus-util.h"
 #include "cap-list.h"
 #include "capability-util.h"
@@ -116,13 +117,6 @@ typedef enum ContainerStatus {
         CONTAINER_TERMINATED,
         CONTAINER_REBOOTED
 } ContainerStatus;
-
-typedef enum LinkJournal {
-        LINK_NO,
-        LINK_AUTO,
-        LINK_HOST,
-        LINK_GUEST
-} LinkJournal;
 
 static char *arg_directory = NULL;
 static char *arg_template = NULL;
@@ -211,6 +205,8 @@ static int arg_oom_score_adjust = 0;
 static bool arg_oom_score_adjust_set = false;
 static cpu_set_t *arg_cpuset = NULL;
 static unsigned arg_cpuset_ncpus = 0;
+static ResolvConfMode arg_resolv_conf = RESOLV_CONF_AUTO;
+static TimezoneMode arg_timezone = TIMEZONE_AUTO;
 
 static void help(void) {
 
@@ -287,6 +283,8 @@ static void help(void) {
                "     --link-journal=MODE    Link up guest journal, one of no, auto, guest, \n"
                "                            host, try-guest, try-host\n"
                "  -j                        Equivalent to --link-journal=try-guest\n"
+               "     --resolv-conf=MODE     Select mode of /etc/resolv.conf initialization\n"
+               "     --timezone=MODE        Select mode of /etc/localtime initialization\n"
                "     --read-only            Mount the root directory read-only\n"
                "     --bind=PATH[:PATH[:OPTIONS]]\n"
                "                            Bind mount a file or directory from the host into\n"
@@ -463,6 +461,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_NEW_PRIVILEGES,
                 ARG_OOM_SCORE_ADJUST,
                 ARG_CPU_AFFINITY,
+                ARG_RESOLV_CONF,
+                ARG_TIMEZONE,
         };
 
         static const struct option options[] = {
@@ -521,6 +521,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "rlimit",                 required_argument, NULL, ARG_RLIMIT                 },
                 { "oom-score-adjust",       required_argument, NULL, ARG_OOM_SCORE_ADJUST       },
                 { "cpu-affinity",           required_argument, NULL, ARG_CPU_AFFINITY           },
+                { "resolv-conf",            required_argument, NULL, ARG_RESOLV_CONF            },
+                { "timezone",               required_argument, NULL, ARG_TIMEZONE               },
                 {}
         };
 
@@ -805,32 +807,17 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'j':
                         arg_link_journal = LINK_GUEST;
                         arg_link_journal_try = true;
+                        arg_settings_mask |= SETTING_LINK_JOURNAL;
                         break;
 
                 case ARG_LINK_JOURNAL:
-                        if (streq(optarg, "auto")) {
-                                arg_link_journal = LINK_AUTO;
-                                arg_link_journal_try = false;
-                        } else if (streq(optarg, "no")) {
-                                arg_link_journal = LINK_NO;
-                                arg_link_journal_try = false;
-                        } else if (streq(optarg, "guest")) {
-                                arg_link_journal = LINK_GUEST;
-                                arg_link_journal_try = false;
-                        } else if (streq(optarg, "host")) {
-                                arg_link_journal = LINK_HOST;
-                                arg_link_journal_try = false;
-                        } else if (streq(optarg, "try-guest")) {
-                                arg_link_journal = LINK_GUEST;
-                                arg_link_journal_try = true;
-                        } else if (streq(optarg, "try-host")) {
-                                arg_link_journal = LINK_HOST;
-                                arg_link_journal_try = true;
-                        } else {
-                                log_error("Failed to parse link journal mode %s", optarg);
+                        r = parse_link_journal(optarg, &arg_link_journal, &arg_link_journal_try);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to parse link journal mode %s", optarg);
                                 return -EINVAL;
                         }
 
+                        arg_settings_mask |= SETTING_LINK_JOURNAL;
                         break;
 
                 case ARG_BIND:
@@ -885,6 +872,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SHARE_SYSTEM:
                         /* We don't officially support this anymore, except for compat reasons. People should use the
                          * $SYSTEMD_NSPAWN_SHARE_* environment variables instead. */
+                        log_warning("Please do not use --share-system anymore, use $SYSTEMD_NSPAWN_SHARE_* instead.");
                         arg_clone_ns_flags = 0;
                         break;
 
@@ -1222,6 +1210,36 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_RESOLV_CONF:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(resolv_conf_mode, ResolvConfMode, _RESOLV_CONF_MODE_MAX);
+                                return 0;
+                        }
+
+                        arg_resolv_conf = resolv_conf_mode_from_string(optarg);
+                        if (arg_resolv_conf < 0) {
+                                log_error("Failed to parse /etc/resolv.conf mode: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        arg_settings_mask |= SETTING_RESOLV_CONF;
+                        break;
+
+                case ARG_TIMEZONE:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(timezone_mode, TimezoneMode, _TIMEZONE_MODE_MAX);
+                                return 0;
+                        }
+
+                        arg_timezone = timezone_mode_from_string(optarg);
+                        if (arg_timezone < 0) {
+                                log_error("Failed to parse /etc/localtime mode: %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        arg_settings_mask |= SETTING_TIMEZONE;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1437,77 +1455,166 @@ static int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t u
         return userns_lchown(q, uid, gid);
 }
 
+static const char *timezone_from_path(const char *path) {
+        const char *z;
+
+        z = path_startswith(path, "../usr/share/zoneinfo/");
+        if (z)
+                return z;
+
+        z = path_startswith(path, "/usr/share/zoneinfo/");
+        if (z)
+                return z;
+
+        return NULL;
+}
+
 static int setup_timezone(const char *dest) {
-        _cleanup_free_ char *p = NULL, *q = NULL;
-        const char *where, *check, *what;
-        char *z, *y;
+        _cleanup_free_ char *p = NULL, *etc = NULL;
+        const char *where, *check;
+        TimezoneMode m;
         int r;
 
         assert(dest);
 
-        /* Fix the timezone, if possible */
-        r = readlink_malloc("/etc/localtime", &p);
-        if (r < 0) {
-                log_warning("host's /etc/localtime is not a symlink, not updating container timezone.");
-                /* to handle warning, delete /etc/localtime and replace it
-                 * with a symbolic link to a time zone data file.
-                 *
-                 * Example:
-                 * ln -s /usr/share/zoneinfo/UTC /etc/localtime
-                 */
-                return 0;
-        }
+        if (IN_SET(arg_timezone, TIMEZONE_AUTO, TIMEZONE_SYMLINK)) {
 
-        z = path_startswith(p, "../usr/share/zoneinfo/");
-        if (!z)
-                z = path_startswith(p, "/usr/share/zoneinfo/");
-        if (!z) {
-                log_warning("/etc/localtime does not point into /usr/share/zoneinfo/, not updating container timezone.");
-                return 0;
-        }
-
-        where = prefix_roota(dest, "/etc/localtime");
-        r = readlink_malloc(where, &q);
-        if (r >= 0) {
-                y = path_startswith(q, "../usr/share/zoneinfo/");
-                if (!y)
-                        y = path_startswith(q, "/usr/share/zoneinfo/");
-
-                /* Already pointing to the right place? Then do nothing .. */
-                if (y && streq(y, z))
+                r = readlink_malloc("/etc/localtime", &p);
+                if (r == -ENOENT && arg_timezone == TIMEZONE_AUTO)
+                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_OFF : TIMEZONE_DELETE;
+                else if (r == -EINVAL && arg_timezone == TIMEZONE_AUTO) /* regular file? */
+                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_BIND : TIMEZONE_COPY;
+                else if (r < 0) {
+                        log_warning_errno(r, "Failed to read host's /etc/localtime symlink, not updating container timezone: %m");
+                        /* To handle warning, delete /etc/localtime and replace it with a symbolic link to a time zone data
+                         * file.
+                         *
+                         * Example:
+                         * ln -s /usr/share/zoneinfo/UTC /etc/localtime
+                         */
                         return 0;
-        }
+                } else if (arg_timezone == TIMEZONE_AUTO)
+                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_BIND : TIMEZONE_SYMLINK;
+                else
+                        m = arg_timezone;
+        } else
+                m = arg_timezone;
 
-        check = strjoina("/usr/share/zoneinfo/", z);
-        check = prefix_roota(dest, check);
-        if (laccess(check, F_OK) < 0) {
-                log_warning("Timezone %s does not exist in container, not updating container timezone.", z);
+        if (m == TIMEZONE_OFF)
+                return 0;
+
+        r = chase_symlinks("/etc", dest, CHASE_PREFIX_ROOT, &etc);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to resolve /etc path in container, ignoring: %m");
                 return 0;
         }
 
-        if (unlink(where) < 0 && errno != ENOENT) {
-                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING, /* Don't complain on read-only images */
-                               errno,
-                               "Failed to remove existing timezone info %s in container, ignoring: %m", where);
+        where = strjoina(etc, "/localtime");
+
+        switch (m) {
+
+        case TIMEZONE_DELETE:
+                if (unlink(where) < 0)
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno, "Failed to remove '%s', ignoring: %m", where);
+
                 return 0;
+
+        case TIMEZONE_SYMLINK: {
+                _cleanup_free_ char *q = NULL;
+                const char *z, *what;
+
+                z = timezone_from_path(p);
+                if (!z) {
+                        log_warning("/etc/localtime does not point into /usr/share/zoneinfo/, not updating container timezone.");
+                        return 0;
+                }
+
+                r = readlink_malloc(where, &q);
+                if (r >= 0 && streq_ptr(timezone_from_path(q), z))
+                        return 0; /* Already pointing to the right place? Then do nothing .. */
+
+                check = strjoina(dest, "/usr/share/zoneinfo/", z);
+                r = chase_symlinks(check, dest, 0, NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Timezone %s does not exist (or is not accessible) in container, not creating symlink: %m", z);
+                else {
+                        if (unlink(where) < 0 && errno != ENOENT) {
+                                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING, /* Don't complain on read-only images */
+                                               errno, "Failed to remove existing timezone info %s in container, ignoring: %m", where);
+                                return 0;
+                        }
+
+                        what = strjoina("../usr/share/zoneinfo/", z);
+                        if (symlink(what, where) < 0) {
+                                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING,
+                                               errno, "Failed to correct timezone of container, ignoring: %m");
+                                return 0;
+                        }
+
+                        break;
+                }
+
+                _fallthrough_;
         }
 
-        what = strjoina("../usr/share/zoneinfo/", z);
-        if (symlink(what, where) < 0) {
-                log_full_errno(IN_SET(errno, EROFS, EACCES, EPERM) ? LOG_DEBUG : LOG_WARNING,
-                               errno,
-                               "Failed to correct timezone of container, ignoring: %m");
-                return 0;
+        case TIMEZONE_BIND: {
+                _cleanup_free_ char *resolved = NULL;
+                int found;
+
+                found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved);
+                if (found < 0) {
+                        log_warning_errno(found, "Failed to resolve /etc/localtime path in container, ignoring: %m");
+                        return 0;
+                }
+
+                if (found == 0) /* missing? */
+                        (void) touch(resolved);
+
+                r = mount_verbose(LOG_WARNING, "/etc/localtime", resolved, NULL, MS_BIND, NULL);
+                if (r >= 0)
+                        return mount_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
+
+                _fallthrough_;
         }
 
+        case TIMEZONE_COPY:
+                /* If mounting failed, try to copy */
+                r = copy_file_atomic("/etc/localtime", where, 0644, 0, COPY_REFLINK|COPY_REPLACE);
+                if (r < 0) {
+                        log_full_errno(IN_SET(r, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to copy /etc/localtime to %s, ignoring: %m", where);
+                        return 0;
+                }
+
+                break;
+
+        default:
+                assert_not_reached("unexpected mode");
+        }
+
+        /* Fix permissions of the symlink or file copy we just created */
         r = userns_lchown(where, 0, 0);
         if (r < 0)
-                return log_warning_errno(r, "Failed to chown /etc/localtime: %m");
+                log_warning_errno(r, "Failed to chown /etc/localtime, ignoring: %m");
 
         return 0;
 }
 
+static int have_resolv_conf(const char *path) {
+        assert(path);
+
+        if (access(path, F_OK) < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_debug_errno(errno, "Failed to determine whether '%s' is available: %m", path);
+        }
+
+        return 1;
+}
+
 static int resolved_listening(void) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *dns_stub_listener_mode = NULL;
         int r;
@@ -1516,33 +1623,53 @@ static int resolved_listening(void) {
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to open system bus: %m");
 
         r = bus_name_has_owner(bus, "org.freedesktop.resolve1", NULL);
-        if (r <= 0)
-                return r;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check whether the 'org.freedesktop.resolve1' bus name is taken: %m");
+        if (r == 0)
+                return 0;
 
         r = sd_bus_get_property_string(bus,
                                        "org.freedesktop.resolve1",
                                        "/org/freedesktop/resolve1",
                                        "org.freedesktop.resolve1.Manager",
                                        "DNSStubListener",
-                                       NULL,
+                                       &error,
                                        &dns_stub_listener_mode);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to query DNSStubListener property: %s", bus_error_message(&error, r));
 
         return STR_IN_SET(dns_stub_listener_mode, "udp", "yes");
 }
 
 static int setup_resolv_conf(const char *dest) {
-        _cleanup_free_ char *resolved = NULL, *etc = NULL;
-        const char *where;
-        int r, found;
+        _cleanup_free_ char *etc = NULL;
+        const char *where, *what;
+        ResolvConfMode m;
+        int r;
 
         assert(dest);
 
-        if (arg_private_network)
+        if (arg_resolv_conf == RESOLV_CONF_AUTO) {
+                if (arg_private_network)
+                        m = RESOLV_CONF_OFF;
+                else if (have_resolv_conf(STATIC_RESOLV_CONF) > 0 && resolved_listening() > 0)
+                        /* resolved is enabled on the host. In this, case bind mount its static resolv.conf file into the
+                         * container, so that the container can use the host's resolver. Given that network namespacing is
+                         * disabled it's only natural of the container also uses the host's resolver. It also has the big
+                         * advantage that the container will be able to follow the host's DNS server configuration changes
+                         * transparently. */
+                        m = RESOLV_CONF_BIND_STATIC;
+                else if (have_resolv_conf("/etc/resolv.conf") > 0)
+                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_BIND_HOST : RESOLV_CONF_COPY_HOST;
+                else
+                        m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? RESOLV_CONF_OFF : RESOLV_CONF_DELETE;
+        } else
+                m = arg_resolv_conf;
+
+        if (m == RESOLV_CONF_OFF)
                 return 0;
 
         r = chase_symlinks("/etc", dest, CHASE_PREFIX_ROOT, &etc);
@@ -1552,38 +1679,46 @@ static int setup_resolv_conf(const char *dest) {
         }
 
         where = strjoina(etc, "/resolv.conf");
-        found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved);
-        if (found < 0) {
-                log_warning_errno(found, "Failed to resolve /etc/resolv.conf path in container, ignoring: %m");
+
+        if (m == RESOLV_CONF_DELETE) {
+                if (unlink(where) < 0)
+                        log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno, "Failed to remove '%s', ignoring: %m", where);
+
                 return 0;
         }
 
-        if (access(STATIC_RESOLV_CONF, F_OK) >= 0 &&
-            resolved_listening() > 0) {
+        if (IN_SET(m, RESOLV_CONF_BIND_STATIC, RESOLV_CONF_COPY_STATIC))
+                what = STATIC_RESOLV_CONF;
+        else
+                what = "/etc/resolv.conf";
 
-                /* resolved is enabled on the host. In this, case bind mount its static resolv.conf file into the
-                 * container, so that the container can use the host's resolver. Given that network namespacing is
-                 * disabled it's only natural of the container also uses the host's resolver. It also has the big
-                 * advantage that the container will be able to follow the host's DNS server configuration changes
-                 * transparently. */
+        if (IN_SET(m, RESOLV_CONF_BIND_HOST, RESOLV_CONF_BIND_STATIC)) {
+                _cleanup_free_ char *resolved = NULL;
+                int found;
+
+                found = chase_symlinks(where, dest, CHASE_NONEXISTENT, &resolved);
+                if (found < 0) {
+                        log_warning_errno(found, "Failed to resolve /etc/resolv.conf path in container, ignoring: %m");
+                        return 0;
+                }
 
                 if (found == 0) /* missing? */
                         (void) touch(resolved);
 
-                r = mount_verbose(LOG_DEBUG, STATIC_RESOLV_CONF, resolved, NULL, MS_BIND, NULL);
+                r = mount_verbose(LOG_WARNING, what, resolved, NULL, MS_BIND, NULL);
                 if (r >= 0)
                         return mount_verbose(LOG_ERR, NULL, resolved, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NODEV, NULL);
         }
 
         /* If that didn't work, let's copy the file */
-        r = copy_file("/etc/resolv.conf", where, O_TRUNC|O_NOFOLLOW, 0644, 0, COPY_REFLINK);
+        r = copy_file(what, where, O_TRUNC|O_NOFOLLOW, 0644, 0, COPY_REFLINK);
         if (r < 0) {
                 /* If the file already exists as symlink, let's suppress the warning, under the assumption that
                  * resolved or something similar runs inside and the symlink points there.
                  *
                  * If the disk image is read-only, there's also no point in complaining.
                  */
-                log_full_errno(IN_SET(r, -ELOOP, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
+                log_full_errno(!IN_SET(RESOLV_CONF_COPY_HOST, RESOLV_CONF_COPY_STATIC) && IN_SET(r, -ELOOP, -EROFS, -EACCES, -EPERM) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to copy /etc/resolv.conf to %s, ignoring: %m", where);
                 return 0;
         }
@@ -3384,6 +3519,25 @@ static int merge_settings(Settings *settings, const char *path) {
                         arg_cpuset_ncpus = settings->cpuset_ncpus;
                 }
         }
+
+        if ((arg_settings_mask & SETTING_RESOLV_CONF) == 0 &&
+            settings->resolv_conf != _RESOLV_CONF_MODE_INVALID)
+                arg_resolv_conf = settings->resolv_conf;
+
+        if ((arg_settings_mask & SETTING_LINK_JOURNAL) == 0 &&
+            settings->link_journal != _LINK_JOURNAL_INVALID) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring journal link setting, file '%s' is not trusted.", path);
+                else {
+                        arg_link_journal = settings->link_journal;
+                        arg_link_journal_try = settings->link_journal_try;
+                }
+        }
+
+        if ((arg_settings_mask & SETTING_TIMEZONE) == 0 &&
+            settings->timezone != _TIMEZONE_MODE_INVALID)
+                arg_timezone = settings->timezone;
 
         return 0;
 }

@@ -859,6 +859,54 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--resolv-conf=</option></term>
+
+        <listitem><para>Configures how <filename>/etc/resolv.conf</filename> inside of the container (i.e. DNS
+        configuration synchronization from host to container) shall be handled. Takes one of <literal>off</literal>,
+        <literal>copy-host</literal>, <literal>copy-static</literal>, <literal>bind-host</literal>,
+        <literal>bind-static</literal>, <literal>delete</literal> or <literal>auto</literal>. If set to
+        <literal>off</literal> the <filename>/etc/resolv.conf</filename> file in the container is left as it is
+        included in the image, and neither modified nor bind mounted over. If set to <literal>copy-host</literal>, the
+        <filename>/etc/resolv.conf</filename> file from the host is copied into the container. Similar, if
+        <literal>bind-host</literal> is used, the file is bind mounted from the host into the container. If set to
+        <literal>copy-static</literal> the static <filename>resolv.conf</filename> file supplied with
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+        copied into the container, and correspondingly <literal>bind-static</literal> bind mounts it there. If set to
+        <literal>delete</literal> the <filename>/etc/resolv.conf</filename> file in the container is deleted if it
+        exists. Finally, if set to <literal>auto</literal> the file is left as it is if private networking is turned on
+        (see <option>--private-network</option>). Otherwise, if <filename>systemd-resolved.service</filename> is
+        connectible its static <filename>resolv.conf</filename> file is used, and if not the host's
+        <filename>/etc/resolv.conf</filename> file is used. In the latter cases the file is copied if the image is
+        writable, and bind mounted otherwise. It's recommended to use <literal>copy</literal> if the container shall be
+        able to make changes to the DNS configuration on its own, deviating from the host's settings. Otherwise
+        <literal>bind</literal> is preferable, as it means direct changes to <filename>/etc/resolv.conf</filename> in
+        the container are not allowed, as it is a read-only bind mount (but note that if the container has enough
+        privileges, it might simply go ahead and unmount the bind mount anyway). Note that both if the file is bind
+        mounted and if it is copied no further propagation of configuration is generally done after the one-time early
+        initialization (this is because the file is usually updated through copying and renaming). Defaults to
+        <literal>auto</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timezone=</option></term>
+
+        <listitem><para>Configures how <filename>/etc/localtime</filename> inside of the container (i.e. local timezone
+        synchronization from host to container) shall be handled. Takes one of <literal>off</literal>,
+        <literal>copy</literal>, <literal>bind</literal>, <literal>symlink</literal>, <literal>delete</literal> or
+        <literal>auto</literal>. If set to <literal>off</literal> the <filename>/etc/localtime</filename> file in the
+        container is left as it is included in the image, and neither modified nor bind mounted over. If set to
+        <literal>copy</literal> the <filename>/etc/localtime</filename> file of the host is copied into the
+        container. Similar, if <literal>bind</literal> is used, it is bind mounted from the host into the container. If
+        set to <literal>symlink</literal> a symlink from <filename>/etc/localtime</filename> in the container is
+        created pointing to the matching the timezone file of the container that matches the timezone setting on the
+        host. If set to <literal>delete</literal> the file in the container is deleted, should it exist. If set to
+        <literal>auto</literal> and the <filename>/etc/localtime</filename> file of the host is a symlink, then
+        <literal>symlink</literal> mode is used, and <literal>copy</literal> otherwise, except if the image is
+        read-only in which case <literal>bind</literal> is used instead. Defaults to
+        <literal>auto</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--read-only</option></term>
 
         <listitem><para>Mount the root file system read-only for the

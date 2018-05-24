@@ -16,6 +16,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -35,6 +36,9 @@ int settings_load(FILE *f, const char *path, Settings **ret) {
         s->start_mode = _START_MODE_INVALID;
         s->personality = PERSONALITY_INVALID;
         s->userns_mode = _USER_NAMESPACE_MODE_INVALID;
+        s->resolv_conf = _RESOLV_CONF_MODE_INVALID;
+        s->link_journal = _LINK_JOURNAL_INVALID;
+        s->timezone = _TIMEZONE_MODE_INVALID;
         s->uid_shift = UID_INVALID;
         s->uid_range = UID_INVALID;
         s->no_new_privileges = -1;
@@ -724,3 +728,86 @@ int config_parse_cpu_affinity(
 
         return 0;
 }
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf, resolv_conf_mode, ResolvConfMode, "Failed to parse resolv.conf mode");
+
+static const char *const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {
+        [RESOLV_CONF_OFF] = "off",
+        [RESOLV_CONF_COPY_HOST] = "copy-host",
+        [RESOLV_CONF_COPY_STATIC] = "copy-static",
+        [RESOLV_CONF_BIND_HOST] = "bind-host",
+        [RESOLV_CONF_BIND_STATIC] = "bind-static",
+        [RESOLV_CONF_DELETE] = "delete",
+        [RESOLV_CONF_AUTO] = "auto",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolv_conf_mode, ResolvConfMode, RESOLV_CONF_AUTO);
+
+int parse_link_journal(const char *s, LinkJournal *ret_mode, bool *ret_try) {
+        assert(s);
+        assert(ret_mode);
+        assert(ret_try);
+
+        if (streq(s, "auto")) {
+                *ret_mode = LINK_AUTO;
+                *ret_try = false;
+        } else if (streq(s, "no")) {
+                *ret_mode = LINK_NO;
+                *ret_try = false;
+        } else if (streq(s, "guest")) {
+                *ret_mode = LINK_GUEST;
+                *ret_try = false;
+        } else if (streq(s, "host")) {
+                *ret_mode = LINK_HOST;
+                *ret_try = false;
+        } else if (streq(s, "try-guest")) {
+                *ret_mode = LINK_GUEST;
+                *ret_try = true;
+        } else if (streq(s, "try-host")) {
+                *ret_mode = LINK_HOST;
+                *ret_try = true;
+        } else
+                return -EINVAL;
+
+        return 0;
+}
+
+int config_parse_link_journal(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = data;
+        int r;
+
+        assert(rvalue);
+        assert(settings);
+
+        r = parse_link_journal(rvalue, &settings->link_journal, &settings->link_journal_try);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse link journal mode, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        return 0;
+}
+
+DEFINE_CONFIG_PARSE_ENUM(config_parse_timezone, timezone_mode, TimezoneMode, "Failed to parse timezone mode");
+
+static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
+        [TIMEZONE_OFF] = "off",
+        [TIMEZONE_COPY] = "copy",
+        [TIMEZONE_BIND] = "bind",
+        [TIMEZONE_SYMLINK] = "symlink",
+        [TIMEZONE_DELETE] = "delete",
+        [TIMEZONE_AUTO] = "auto",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);

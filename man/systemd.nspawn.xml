@@ -340,6 +340,33 @@
         details.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>ResolvConf=</varname></term>
+
+        <listitem><para>Configures how <filename>/etc/resolv.conf</filename> in the container shall be handled. This is
+        equivalent to the <option>--resolv-conf=</option> command line switch, and takes the same argument. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Timezone=</varname></term>
+
+        <listitem><para>Configures how <filename>/etc/localtime</filename> in the container shall be handled. This is
+        equivalent to the <option>--localtime=</option> command line switch, and takes the same argument. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LinkJournal=</varname></term>
+
+        <listitem><para>Configures how to link host and container journal setups. This is equivalent to the
+        <option>--link-journal=</option> command line switch, and takes the same parameter. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
