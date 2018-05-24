@@ -9,6 +9,14 @@ CHANGES WITH 239 in spe:
           and udev may generate names based on PCI slot number in some cases
           where it previously did not.
 
+        * AF_INET and AF_INET6 are dropped from RestrictAddressFamilies= in
+          systemd-logind.service. Since v235, IPAddressDeny=any has been set to
+          the unit. So, it is expected that the default behavior of systemd-logind
+          is not changed. However, if distribution packagers or administrators
+          disabled or modified IPAddressDeny= setting by a drop-in config file,
+          then it may be necessary to update the file to re-enable AF_INET and
+          AF_INET6 to support network user name services, e.g. NIS.
+
 CHANGES WITH 238:
 
         * The MemoryAccounting= unit property now defaults to on. After
