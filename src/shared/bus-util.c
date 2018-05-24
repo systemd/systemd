@@ -697,7 +697,8 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                  * should it turn out to not be sufficient */
 
                 if (endswith(name, "Timestamp") || STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec")) {
-                        char timestamp[FORMAT_TIMESTAMP_MAX], *t;
+                        char timestamp[FORMAT_TIMESTAMP_MAX];
+                        const char *t;
 
                         t = format_timestamp(timestamp, sizeof(timestamp), u);
                         if (t || all)
