@@ -3065,11 +3065,22 @@ int config_parse_restrict_namespaces(
                 void *userdata) {
 
         ExecContext *c = data;
+        unsigned long flags;
         bool invert = false;
         int r;
 
         if (isempty(rvalue)) {
                 /* Reset to the default. */
+                c->restrict_namespaces = NAMESPACE_FLAGS_INITIAL;
+                return 0;
+        }
+
+        /* Boolean parameter ignores the previous settings */
+        r = parse_boolean(rvalue);
+        if (r > 0) {
+                c->restrict_namespaces = 0;
+                return 0;
+        } else if (r == 0) {
                 c->restrict_namespaces = NAMESPACE_FLAGS_ALL;
                 return 0;
         }
@@ -3079,23 +3090,19 @@ int config_parse_restrict_namespaces(
                 rvalue++;
         }
 
-        r = parse_boolean(rvalue);
-        if (r > 0)
-                c->restrict_namespaces = 0;
-        else if (r == 0)
-                c->restrict_namespaces = NAMESPACE_FLAGS_ALL;
-        else {
-                /* Not a boolean argument, in this case it's a list of namespace types. */
-
-                r = namespace_flag_from_string_many(rvalue, &c->restrict_namespaces);
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse namespace type string, ignoring: %s", rvalue);
-                        return 0;
-                }
+        /* Not a boolean argument, in this case it's a list of namespace types. */
+        r = namespace_flags_from_string(rvalue, &flags);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse namespace type string, ignoring: %s", rvalue);
+                return 0;
         }
 
-        if (invert)
-                c->restrict_namespaces = (~c->restrict_namespaces) & NAMESPACE_FLAGS_ALL;
+        if (c->restrict_namespaces == NAMESPACE_FLAGS_INITIAL)
+                /* Initial assignment. Just set the value. */
+                c->restrict_namespaces = invert ? (~flags) & NAMESPACE_FLAGS_ALL : flags;
+        else
+                /* Merge the value with the previous one. */
+                SET_FLAG(c->restrict_namespaces, flags, !invert);
 
         return 0;
 }

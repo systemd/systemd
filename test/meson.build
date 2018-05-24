@@ -99,6 +99,9 @@ test_data_files = '''
         test-execute/exec-readonlypaths-with-bindpaths.service
         test-execute/exec-readonlypaths.service
         test-execute/exec-readwritepaths-mount-propagation.service
+        test-execute/exec-restrictnamespaces-merge-all.service
+        test-execute/exec-restrictnamespaces-merge-and.service
+        test-execute/exec-restrictnamespaces-merge-or.service
         test-execute/exec-restrictnamespaces-mnt-blacklist.service
         test-execute/exec-restrictnamespaces-mnt.service
         test-execute/exec-restrictnamespaces-no.service

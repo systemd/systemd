@@ -716,7 +716,7 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                         else if ((u & NAMESPACE_FLAGS_ALL) == NAMESPACE_FLAGS_ALL)
                                 result = "no";
                         else {
-                                r = namespace_flag_to_string_many(u, &s);
+                                r = namespace_flags_to_string(u, &s);
                                 if (r < 0)
                                         return r;
 
