@@ -293,10 +293,9 @@ static int output_timestamp_realtime(FILE *f, sd_journal *j, OutputMode mode, Ou
         assert(f);
         assert(j);
 
-        r = -ENXIO;
         if (realtime)
                 r = safe_atou64(realtime, &x);
-        if (r < 0)
+        if (!realtime || r < 0 || !VALID_REALTIME(x))
                 r = sd_journal_get_realtime_usec(j, &x);
         if (r < 0)
                 return log_error_errno(r, "Failed to get realtime timestamp: %m");
@@ -417,7 +416,6 @@ static int output_short(
         sd_journal_set_data_threshold(j, flags & (OUTPUT_SHOW_ALL|OUTPUT_FULL_WIDTH) ? 0 : PRINT_CHAR_THRESHOLD + 1);
 
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
-
                 r = parse_fieldv(data, length, fields, ELEMENTSOF(fields));
                 if (r < 0)
                         return r;
