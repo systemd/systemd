@@ -1531,6 +1531,10 @@ _public_ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) 
         if (s->io.events == events && !(events & EPOLLET))
                 return 0;
 
+        r = source_set_pending(s, false);
+        if (r < 0)
+                return r;
+
         if (s->enabled != SD_EVENT_OFF) {
                 r = source_io_register(s, s->enabled, events);
                 if (r < 0)
@@ -1538,7 +1542,6 @@ _public_ int sd_event_source_set_io_events(sd_event_source *s, uint32_t events) 
         }
 
         s->io.events = events;
-        source_set_pending(s, false);
 
         return 0;
 }
@@ -1800,15 +1803,18 @@ _public_ int sd_event_source_get_time(sd_event_source *s, uint64_t *usec) {
 
 _public_ int sd_event_source_set_time(sd_event_source *s, uint64_t usec) {
         struct clock_data *d;
+        int r;
 
         assert_return(s, -EINVAL);
         assert_return(EVENT_SOURCE_IS_TIME(s->type), -EDOM);
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
-        s->time.next = usec;
+        r = source_set_pending(s, false);
+        if (r < 0)
+                return r;
 
-        source_set_pending(s, false);
+        s->time.next = usec;
 
         d = event_get_clock_data(s->event, s->type);
         assert(d);
@@ -1832,6 +1838,7 @@ _public_ int sd_event_source_get_time_accuracy(sd_event_source *s, uint64_t *use
 
 _public_ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec) {
         struct clock_data *d;
+        int r;
 
         assert_return(s, -EINVAL);
         assert_return(usec != (uint64_t) -1, -EINVAL);
@@ -1839,12 +1846,14 @@ _public_ int sd_event_source_set_time_accuracy(sd_event_source *s, uint64_t usec
         assert_return(s->event->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_pid_changed(s->event), -ECHILD);
 
+        r = source_set_pending(s, false);
+        if (r < 0)
+                return r;
+
         if (usec == 0)
                 usec = DEFAULT_ACCURACY_USEC;
 
         s->time.accuracy = usec;
-
-        source_set_pending(s, false);
 
         d = event_get_clock_data(s->event, s->type);
         assert(d);
