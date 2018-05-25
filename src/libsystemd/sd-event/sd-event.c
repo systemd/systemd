@@ -1638,6 +1638,13 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
 
         if (m == SD_EVENT_OFF) {
 
+                /* Unset the pending flag when this event source is disabled */
+                if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+                        r = source_set_pending(s, false);
+                        if (r < 0)
+                                return r;
+                }
+
                 switch (s->type) {
 
                 case SOURCE_IO:
@@ -1692,6 +1699,14 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
                 }
 
         } else {
+
+                /* Unset the pending flag when this event source is enabled */
+                if (s->enabled == SD_EVENT_OFF && !IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+                        r = source_set_pending(s, false);
+                        if (r < 0)
+                                return r;
+                }
+
                 switch (s->type) {
 
                 case SOURCE_IO:
