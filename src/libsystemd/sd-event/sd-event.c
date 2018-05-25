@@ -635,7 +635,7 @@ static int event_make_signal_data(
         if (e->signal_sources && e->signal_sources[sig])
                 priority = e->signal_sources[sig]->priority;
         else
-                priority = 0;
+                priority = SD_EVENT_PRIORITY_NORMAL;
 
         d = hashmap_get(e->signal_data, &priority);
         if (d) {
