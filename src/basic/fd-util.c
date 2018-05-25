@@ -575,7 +575,6 @@ int fd_duplicate_data_fd(int fd) {
 
         _cleanup_close_ int copy_fd = -1, tmp_fd = -1;
         _cleanup_free_ void *remains = NULL;
-        _cleanup_free_ char *t = NULL;
         size_t remains_size = 0;
         const char *td;
         struct stat st;
