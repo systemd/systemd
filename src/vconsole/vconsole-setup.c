@@ -420,7 +420,7 @@ int main(int argc, char **argv) {
 
         utf8 = is_locale_utf8();
 
-        r = parse_env_file("/etc/vconsole.conf", NEWLINE,
+        r = parse_env_file(NULL, "/etc/vconsole.conf", NEWLINE,
                            "KEYMAP", &vc_keymap,
                            "KEYMAP_TOGGLE", &vc_keymap_toggle,
                            "FONT", &vc_font,
@@ -432,7 +432,7 @@ int main(int argc, char **argv) {
 
         /* Let the kernel command line override /etc/vconsole.conf */
         if (detect_container() <= 0) {
-                r = parse_env_file("/proc/cmdline", WHITESPACE,
+                r = parse_env_file(NULL, "/proc/cmdline", WHITESPACE,
                                    "vconsole.keymap", &vc_keymap,
                                    "vconsole.keymap_toggle", &vc_keymap_toggle,
                                    "vconsole.font", &vc_font,

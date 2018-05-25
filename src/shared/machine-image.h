@@ -17,6 +17,13 @@
 #include "string-util.h"
 #include "time-util.h"
 
+typedef enum ImageClass {
+        IMAGE_MACHINE,
+        IMAGE_PORTABLE,
+        _IMAGE_CLASS_MAX,
+        _IMAGE_CLASS_INVALID = -1
+} ImageClass;
+
 typedef enum ImageType {
         IMAGE_DIRECTORY,
         IMAGE_SUBVOLUME,
@@ -27,6 +34,8 @@ typedef enum ImageType {
 } ImageType;
 
 typedef struct Image {
+        unsigned n_ref;
+
         ImageType type;
         char *name;
         char *path;
@@ -45,12 +54,15 @@ typedef struct Image {
         char **machine_info;
         char **os_release;
 
-        bool metadata_valid;
+        bool metadata_valid:1;
+        bool discoverable:1;  /* true if we know for sure that image_find() would find the image given just the short name */
 
         void *userdata;
 } Image;
 
 Image *image_unref(Image *i);
+Image *image_ref(Image *i);
+
 static inline Hashmap* image_hashmap_free(Hashmap *map) {
         return hashmap_free_with_destructor(map, image_unref);
 }
@@ -58,8 +70,10 @@ static inline Hashmap* image_hashmap_free(Hashmap *map) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, image_hashmap_free);
 
-int image_find(const char *name, Image **ret);
-int image_discover(Hashmap *map);
+int image_find(ImageClass class, const char *name, Image **ret);
+int image_from_path(const char *path, Image **ret);
+int image_find_harder(ImageClass class, const char *name_or_path, Image **ret);
+int image_discover(ImageClass class, Hashmap *map);
 
 int image_remove(Image *i);
 int image_rename(Image *i, const char *new_name);
@@ -77,6 +91,8 @@ int image_name_lock(const char *name, int operation, LockFile *ret);
 int image_set_limit(Image *i, uint64_t referenced_max);
 
 int image_read_metadata(Image *i);
+
+bool image_in_search_path(ImageClass class, const char *image);
 
 static inline bool IMAGE_IS_HIDDEN(const struct Image *i) {
         assert(i);

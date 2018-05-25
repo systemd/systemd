@@ -93,7 +93,7 @@ static int locale_read_data(Context *c) {
 
         context_free_locale(c);
 
-        r = parse_env_file("/etc/locale.conf", NEWLINE,
+        r = parse_env_file(NULL, "/etc/locale.conf", NEWLINE,
                            "LANG",              &c->locale[VARIABLE_LANG],
                            "LANGUAGE",          &c->locale[VARIABLE_LANGUAGE],
                            "LC_CTYPE",          &c->locale[VARIABLE_LC_CTYPE],
@@ -137,7 +137,7 @@ static int vconsole_read_data(Context *c) {
 
         context_free_vconsole(c);
 
-        r = parse_env_file("/etc/vconsole.conf", NEWLINE,
+        r = parse_env_file(NULL, "/etc/vconsole.conf", NEWLINE,
                            "KEYMAP",        &c->vc_keymap,
                            "KEYMAP_TOGGLE", &c->vc_keymap_toggle,
                            NULL);

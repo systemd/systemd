@@ -207,6 +207,12 @@ int unit_file_add_dependency(
                 UnitFileChange **changes,
                 size_t *n_changes);
 
+int unit_file_lookup_state(
+                UnitFileScope scope,
+                const LookupPaths *paths,
+                const char *name,
+                UnitFileState *ret);
+
 int unit_file_get_state(UnitFileScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
 int unit_file_exists(UnitFileScope scope, const LookupPaths *paths, const char *name);
 

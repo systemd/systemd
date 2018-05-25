@@ -77,6 +77,7 @@
 #include "nspawn-settings.h"
 #include "nspawn-setuid.h"
 #include "nspawn-stub-pid1.h"
+#include "os-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -2398,13 +2399,11 @@ static int determine_names(void) {
                 if (arg_machine) {
                         _cleanup_(image_unrefp) Image *i = NULL;
 
-                        r = image_find(arg_machine, &i);
+                        r = image_find(IMAGE_MACHINE, arg_machine, &i);
+                        if (r == -ENOENT)
+                                return log_error_errno(r, "No image for machine '%s'.", arg_machine);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
-                        if (r == 0) {
-                                log_error("No image for machine '%s'.", arg_machine);
-                                return -ENOENT;
-                        }
 
                         if (IN_SET(i->type, IMAGE_RAW, IMAGE_BLOCK))
                                 r = free_and_strdup(&arg_image, i->path);
@@ -2883,7 +2882,9 @@ static int outer_child(
                  * makes sure ESP partitions and userns are compatible. */
 
                 r = dissected_image_mount(dissected_image, directory, arg_uid_shift,
-                                          DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|(arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0));
+                                          DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_DISCARD_ON_LOOP|
+                                          (arg_read_only ? DISSECT_IMAGE_READ_ONLY : 0)|
+                                          (arg_start_mode == START_BOOT ? DISSECT_IMAGE_VALIDATE_OS : 0));
                 if (r < 0)
                         return r;
         }

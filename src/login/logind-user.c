@@ -287,7 +287,7 @@ int user_load(User *u) {
 
         assert(u);
 
-        r = parse_env_file(u->state_file, NEWLINE,
+        r = parse_env_file(NULL, u->state_file, NEWLINE,
                            "SERVICE_JOB", &u->service_job,
                            "SLICE_JOB",   &u->slice_job,
                            "DISPLAY",     &display,

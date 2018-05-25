@@ -1202,7 +1202,7 @@ int link_load_user(Link *l) {
         if (l->is_managed)
                 return 0; /* if the device is managed, then networkd is our configuration source, not the bus API */
 
-        r = parse_env_file(l->state_file, NEWLINE,
+        r = parse_env_file(NULL, l->state_file, NEWLINE,
                            "LLMNR", &llmnr,
                            "MDNS", &mdns,
                            "DNSSEC", &dnssec,

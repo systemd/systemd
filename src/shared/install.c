@@ -99,8 +99,6 @@ static inline void presets_freep(Presets *p) {
         p->n_rules = 0;
 }
 
-static int unit_file_lookup_state(UnitFileScope scope, const LookupPaths *paths, const char *name, UnitFileState *ret);
-
 bool unit_type_may_alias(UnitType type) {
         return IN_SET(type,
                       UNIT_SERVICE,
@@ -2643,7 +2641,7 @@ int unit_file_get_default(
         return 0;
 }
 
-static int unit_file_lookup_state(
+int unit_file_lookup_state(
                 UnitFileScope scope,
                 const LookupPaths *paths,
                 const char *name,

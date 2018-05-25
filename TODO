@@ -28,6 +28,12 @@ Features:
 
 * nspawn: greater control over selinux label?
 
+* sd-event: implement inotify events, as we can safely and robustly do that now
+  for any inode without fearing confusion by inodes appearing at multiple
+  places: we can open it with O_PATH first, then store its inode in a hash
+  table, to recognize duplicate watches before creating (and thus corrupting
+  pre-existing ones) them, and using /proc/self/fd/ to add it right after.
+
 * the error paths in usbffs_dispatch_ep() leak memory
 
 * cgroups: figure out if we can somehow communicate in a cleaner way whether a
@@ -44,6 +50,17 @@ Features:
   it is OK to include them in log strings. This would be particularly useful so
   that our log messages could contain clickable links for example for unit
   files and suchlike we operate on.
+
+* introduce a new SystemCallFilters= group called "@system-service" with a
+  sensible default set for system services, then make use of them in portable
+  profiles
+
+* add support for "portablectl attach http://foobar.com/waaa.raw (i.e. importd integration)
+
+* add attach --enable and attach --now (for attach+enable+start)
+
+* sync dynamic uids/gids between host+portable srvice (i.e. if DynamicUser=1 is set for a service, make sure that the
+  selected user is resolvable in the service even if it ships its own /etc/passwd)
 
 * Fix DECIMAL_STR_MAX or DECIMAL_STR_WIDTH. One includes a trailing NUL, the
   other doesn't. What a desaster. Probably to exclude it. Also

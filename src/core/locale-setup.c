@@ -24,7 +24,7 @@ int locale_setup(char ***environment) {
         int r = 0, i;
 
         if (detect_container() <= 0) {
-                r = parse_env_file("/proc/cmdline", WHITESPACE,
+                r = parse_env_file(NULL, "/proc/cmdline", WHITESPACE,
                                    "locale.LANG",              &variables[VARIABLE_LANG],
                                    "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],
                                    "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
@@ -48,7 +48,7 @@ int locale_setup(char ***environment) {
         /* Hmm, nothing set on the kernel cmd line? Then let's
          * try /etc/locale.conf */
         if (r <= 0) {
-                r = parse_env_file("/etc/locale.conf", NEWLINE,
+                r = parse_env_file(NULL, "/etc/locale.conf", NEWLINE,
                                    "LANG",              &variables[VARIABLE_LANG],
                                    "LANGUAGE",          &variables[VARIABLE_LANGUAGE],
                                    "LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],

@@ -95,7 +95,7 @@ static void test_parse_env_file(void) {
         }
 
         r = parse_env_file(
-                        t, NULL,
+                        NULL, t, NULL,
                        "one", &one,
                        "two", &two,
                        "three", &three,

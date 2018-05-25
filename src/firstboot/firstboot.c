@@ -33,6 +33,7 @@
 #include "hostname-util.h"
 #include "locale-util.h"
 #include "mkdir.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
@@ -79,27 +80,16 @@ static bool press_any_key(void) {
 
 static void print_welcome(void) {
         _cleanup_free_ char *pretty_name = NULL;
-        const char *os_release = NULL;
         static bool done = false;
         int r;
 
         if (done)
                 return;
 
-        os_release = prefix_roota(arg_root, "/etc/os-release");
-        r = parse_env_file(os_release, NEWLINE,
-                           "PRETTY_NAME", &pretty_name,
-                           NULL);
-        if (r == -ENOENT) {
-
-                os_release = prefix_roota(arg_root, "/usr/lib/os-release");
-                r = parse_env_file(os_release, NEWLINE,
-                                   "PRETTY_NAME", &pretty_name,
-                                   NULL);
-        }
-
-        if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to read os-release file: %m");
+        r = parse_os_release(arg_root, "PRETTY_NAME", &pretty_name, NULL);
+        if (r < 0)
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to read os-release file, ignoring: %m");
 
         printf("\nWelcome to your new installation of %s!\nPlease configure a few basic system settings:\n\n",
                isempty(pretty_name) ? "Linux" : pretty_name);

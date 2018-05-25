@@ -81,6 +81,8 @@ enum {
 
 int acquire_data_fd(const void *data, size_t size, unsigned flags);
 
+int fd_duplicate_data_fd(int fd);
+
 /* Hint: ENETUNREACH happens if we try to connect to "non-existing" special IP addresses, such as ::5 */
 #define ERRNO_IS_DISCONNECT(r) \
         IN_SET(r, ENOTCONN, ECONNRESET, ECONNREFUSED, ECONNABORTED, EPIPE, ENETUNREACH)

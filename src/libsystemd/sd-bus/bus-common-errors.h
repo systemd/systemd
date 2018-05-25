@@ -41,6 +41,8 @@
 #define BUS_ERROR_NO_SUCH_USER_MAPPING "org.freedesktop.machine1.NoSuchUserMapping"
 #define BUS_ERROR_NO_SUCH_GROUP_MAPPING "org.freedesktop.machine1.NoSuchGroupMapping"
 
+#define BUS_ERROR_NO_SUCH_PORTABLE_IMAGE "org.freedesktop.portable1.NoSuchImage"
+
 #define BUS_ERROR_NO_SUCH_SESSION "org.freedesktop.login1.NoSuchSession"
 #define BUS_ERROR_NO_SESSION_FOR_PID "org.freedesktop.login1.NoSessionForPID"
 #define BUS_ERROR_NO_SUCH_USER "org.freedesktop.login1.NoSuchUser"

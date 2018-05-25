@@ -5664,7 +5664,7 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         if (argc >= 3)
                 init = argv[2];
         else {
-                r = parse_env_file("/proc/cmdline", WHITESPACE,
+                r = parse_env_file(NULL, "/proc/cmdline", WHITESPACE,
                                    "init", &cmdline_init,
                                    NULL);
                 if (r < 0)
