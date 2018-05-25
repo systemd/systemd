@@ -490,6 +490,11 @@ int config_parse_exec_nice(
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                c->nice_set = false;
+                return 0;
+        }
+
         r = parse_nice(rvalue, &priority);
         if (r < 0) {
                 if (r == -ERANGE)
