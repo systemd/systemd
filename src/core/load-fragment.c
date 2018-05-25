@@ -1944,7 +1944,7 @@ int config_parse_service_timeout(
         assert(rvalue);
         assert(s);
 
-        /* This is called for three cases: TimeoutSec=, TimeoutStopSec= and TimeoutStartSec=. */
+        /* This is called for two cases: TimeoutSec= and TimeoutStartSec=. */
 
         r = parse_sec(rvalue, &usec);
         if (r < 0) {
@@ -1958,12 +1958,11 @@ int config_parse_service_timeout(
         if (usec <= 0)
                 usec = USEC_INFINITY;
 
-        if (!streq(lvalue, "TimeoutStopSec")) {
-                s->start_timeout_defined = true;
-                s->timeout_start_usec = usec;
-        }
 
-        if (!streq(lvalue, "TimeoutStartSec"))
+        s->start_timeout_defined = true;
+        s->timeout_start_usec = usec;
+
+        if (streq(lvalue, "TimeoutSec"))
                 s->timeout_stop_usec = usec;
 
         return 0;
