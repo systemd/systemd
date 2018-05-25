@@ -1115,6 +1115,12 @@ int config_parse_exec_io_class(const char *unit,
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                c->ioprio_set = false;
+                c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
+                return 0;
+        }
+
         x = ioprio_class_from_string(rvalue);
         if (x < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IO scheduling class, ignoring: %s", rvalue);
@@ -1145,6 +1151,12 @@ int config_parse_exec_io_priority(const char *unit,
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if (isempty(rvalue)) {
+                c->ioprio_set = false;
+                c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
+                return 0;
+        }
 
         r = ioprio_parse_priority(rvalue, &i);
         if (r < 0) {

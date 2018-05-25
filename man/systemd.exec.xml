@@ -728,7 +728,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Sets the I/O scheduling class for executed processes. Takes an integer between 0 and 3 or one
         of the strings <option>none</option>, <option>realtime</option>, <option>best-effort</option> or
-        <option>idle</option>. See
+        <option>idle</option>. If the empty string is assigned to this option, all prior assignments to both
+        <varname>IOSchedulingClass=</varname> and <varname>IOSchedulingPriority=</varname> have no effect. See
         <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -738,7 +739,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Sets the I/O scheduling priority for executed processes. Takes an integer between 0 (highest
         priority) and 7 (lowest priority). The available priorities depend on the selected I/O scheduling class (see
-        above). See <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        above). If the empty string is assigned to this option, all prior assignments to both
+        <varname>IOSchedulingClass=</varname> and <varname>IOSchedulingPriority=</varname> have no effect.
+        See <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
 
