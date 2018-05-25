@@ -2122,6 +2122,12 @@ int config_parse_working_directory(
         assert(c);
         assert(u);
 
+        if (isempty(rvalue)) {
+                c->working_directory_home = false;
+                c->working_directory = mfree(c->working_directory);
+                return 0;
+        }
+
         if (rvalue[0] == '-') {
                 missing_ok = true;
                 rvalue++;
