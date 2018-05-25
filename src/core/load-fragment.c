@@ -4358,37 +4358,6 @@ int config_parse_bind_paths(
         return 0;
 }
 
-int config_parse_no_new_privileges(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecContext *c = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse boolean value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        c->no_new_privileges = r;
-
-        return 0;
-}
-
 int config_parse_protect_home(
                 const char* unit,
                 const char *filename,

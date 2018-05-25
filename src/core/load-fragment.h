@@ -92,7 +92,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_directories);
 CONFIG_PARSER_PROTOTYPE(config_parse_set_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_namespace_path_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_temporary_filesystems);
-CONFIG_PARSER_PROTOTYPE(config_parse_no_new_privileges);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_quota);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_home);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_system);
