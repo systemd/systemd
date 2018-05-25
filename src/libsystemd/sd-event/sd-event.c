@@ -2342,7 +2342,7 @@ static int source_dispatch(sd_event_source *s) {
 
                 /* Now, reap the PID for good. */
                 if (zombie)
-                        waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG|WEXITED);
+                        (void) waitid(P_PID, s->child.pid, &s->child.siginfo, WNOHANG|WEXITED);
 
                 break;
         }
