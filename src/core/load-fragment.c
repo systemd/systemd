@@ -1946,18 +1946,14 @@ int config_parse_service_timeout(
 
         /* This is called for two cases: TimeoutSec= and TimeoutStartSec=. */
 
-        r = parse_sec(rvalue, &usec);
+        /* Traditionally, these options accepted 0 to disable the timeouts. However, a timeout of 0 suggests it happens
+         * immediately, hence fix this to become USEC_INFINITY instead. This is in-line with how we internally handle
+         * all other timeouts. */
+        r = parse_sec_fix_0(rvalue, &usec);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s= parameter, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
-
-        /* Traditionally, these options accepted 0 to disable the timeouts. However, a timeout of 0 suggests it happens
-         * immediately, hence fix this to become USEC_INFINITY instead. This is in-line with how we internally handle
-         * all other timeouts. */
-        if (usec <= 0)
-                usec = USEC_INFINITY;
-
 
         s->start_timeout_defined = true;
         s->timeout_start_usec = usec;
