@@ -1100,7 +1100,6 @@ int image_read_metadata(Image *i) {
                 sd_id128_t machine_id = SD_ID128_NULL;
                 _cleanup_free_ char *hostname = NULL;
                 _cleanup_free_ char *path = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
 
                 r = chase_symlinks("/etc/hostname", i->path, CHASE_PREFIX_ROOT|CHASE_TRAIL_SLASH, &path);
                 if (r < 0 && r != -ENOENT)
