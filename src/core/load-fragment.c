@@ -1189,6 +1189,13 @@ int config_parse_exec_cpu_sched_policy(const char *unit,
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                c->cpu_sched_set = false;
+                c->cpu_sched_policy = SCHED_OTHER;
+                c->cpu_sched_priority = 0;
+                return 0;
+        }
+
         x = sched_policy_from_string(rvalue);
         if (x < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse CPU scheduling policy, ignoring: %s", rvalue);
