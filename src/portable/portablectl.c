@@ -272,7 +272,7 @@ static int inspect_image(int argc, char *argv[], void *userdata) {
                 fflush(stdout);
                 nl = true;
         } else {
-                const char *pretty_portable = NULL, *pretty_os = NULL;
+                _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL;
 
                 _cleanup_fclose_ FILE *f;
 
