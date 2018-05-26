@@ -216,12 +216,11 @@ int bus_image_common_attach(
                 Image *image,
                 sd_bus_error *error) {
 
-        _cleanup_free_ char **matches = NULL;
+        _cleanup_strv_free_ char **matches = NULL;
         PortableChange *changes = NULL;
         PortableFlags flags = 0;
-        const char *copy_mode;
+        const char *profile, *copy_mode;
         size_t n_changes = 0;
-        const char *profile;
         int runtime, r;
 
         assert(message);
