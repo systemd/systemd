@@ -246,26 +246,26 @@ static int get_data_newline(JournalImporter *imp) {
         return 1;
 }
 
-static int process_dunder(JournalImporter *imp, char *line) {
-        const char *timestamp;
+static int process_special_field(JournalImporter *imp, char *line) {
+        const char *value;
         char buf[CELLESCAPE_DEFAULT_LENGTH];
         int r;
 
         assert(line);
 
-        timestamp = startswith(line, "__CURSOR=");
-        if (timestamp)
+        value = startswith(line, "__CURSOR=");
+        if (value)
                 /* ignore __CURSOR */
                 return 1;
 
-        timestamp = startswith(line, "__REALTIME_TIMESTAMP=");
-        if (timestamp) {
+        value = startswith(line, "__REALTIME_TIMESTAMP=");
+        if (value) {
                 uint64_t x;
 
-                r = safe_atou64(timestamp, &x);
+                r = safe_atou64(value, &x);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse __REALTIME_TIMESTAMP '%s': %m",
-                                                 cellescape(buf, sizeof buf, timestamp));
+                                                 cellescape(buf, sizeof buf, value));
                 else if (!VALID_REALTIME(x)) {
                         log_warning("__REALTIME_TIMESTAMP out of range, ignoring: %"PRIu64, x);
                         return -ERANGE;
@@ -275,14 +275,14 @@ static int process_dunder(JournalImporter *imp, char *line) {
                 return 1;
         }
 
-        timestamp = startswith(line, "__MONOTONIC_TIMESTAMP=");
-        if (timestamp) {
+        value = startswith(line, "__MONOTONIC_TIMESTAMP=");
+        if (value) {
                 uint64_t x;
 
-                r = safe_atou64(timestamp, &x);
+                r = safe_atou64(value, &x);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse __MONOTONIC_TIMESTAMP '%s': %m",
-                                                 cellescape(buf, sizeof buf, timestamp));
+                                                 cellescape(buf, sizeof buf, value));
                 else if (!VALID_MONOTONIC(x)) {
                         log_warning("__MONOTONIC_TIMESTAMP out of range, ignoring: %"PRIu64, x);
                         return -ERANGE;
@@ -292,9 +292,21 @@ static int process_dunder(JournalImporter *imp, char *line) {
                 return 1;
         }
 
-        timestamp = startswith(line, "__");
-        if (timestamp) {
-                log_notice("Unknown dunder line __%s, ignoring.", cellescape(buf, sizeof buf, timestamp));
+        /* Just a single underline, but it needs special treatment too. */
+        value = startswith(line, "_BOOT_ID=");
+        if (value) {
+                r = sd_id128_from_string(value, &imp->boot_id);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse _BOOT_ID '%s': %m",
+                                                 cellescape(buf, sizeof buf, value));
+
+                /* store the field in the usual fashion too */
+                return 0;
+        }
+
+        value = startswith(line, "__");
+        if (value) {
+                log_notice("Unknown dunder line __%s, ignoring.", cellescape(buf, sizeof buf, value));
                 return 1;
         }
 
@@ -342,13 +354,13 @@ int journal_importer_process_data(JournalImporter *imp) {
 
                                 t = strndupa(line, sep - line);
                                 log_debug("Ignoring invalid field: \"%s\"",
-                                          cellescape(buf, t));
+                                          cellescape(buf, sizeof buf, t));
 
                                 return 0;
                         }
 
                         line[n] = '\0';
-                        r = process_dunder(imp, line);
+                        r = process_special_field(imp, line);
                         if (r != 0)
                                 return r < 0 ? r : 0;
 

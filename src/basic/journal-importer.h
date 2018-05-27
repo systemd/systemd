@@ -11,6 +11,8 @@
 #include <stdbool.h>
 #include <sys/uio.h>
 
+#include "sd-id128.h"
+
 #include "time-util.h"
 
 /* Make sure not to make this smaller than the maximum coredump size.
@@ -45,6 +47,7 @@ typedef struct JournalImporter {
 
         int state;
         dual_timestamp ts;
+        sd_id128_t boot_id;
 } JournalImporter;
 
 void journal_importer_cleanup(JournalImporter *);
