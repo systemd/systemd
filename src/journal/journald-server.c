@@ -692,7 +692,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
 
         s->last_realtime_clock = ts.realtime;
 
-        r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(f, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r >= 0) {
                 server_schedule_sync(s, priority);
                 return;
@@ -711,7 +711,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                 return;
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(f, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to write entry (%zu items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
         else

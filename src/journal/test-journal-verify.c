@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
                 iovec.iov_base = (void*) test;
                 iovec.iov_len = strlen(test);
 
-                assert_se(journal_file_append_entry(f, &ts, &iovec, 1, NULL, NULL, NULL) == 0);
+                assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
                 free(test);
         }

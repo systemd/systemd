@@ -92,7 +92,8 @@ int writer_write(Writer *w,
                         return r;
         }
 
-        r = journal_file_append_entry(w->journal, ts, iovw->iovec, iovw->count,
+        r = journal_file_append_entry(w->journal, ts, NULL,
+                                      iovw->iovec, iovw->count,
                                       &w->seqnum, NULL, NULL);
         if (r >= 0) {
                 if (w->server)
@@ -109,7 +110,8 @@ int writer_write(Writer *w,
                 log_debug("%s: Successfully rotated journal", w->journal->path);
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(w->journal, ts, iovw->iovec, iovw->count,
+        r = journal_file_append_entry(w->journal, ts, NULL,
+                                      iovw->iovec, iovw->count,
                                       &w->seqnum, NULL, NULL);
         if (r < 0)
                 return r;

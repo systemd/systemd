@@ -23,6 +23,7 @@ static void test_non_empty(void) {
         static const char test[] = "TEST1=1", test2[] = "TEST2=2";
         Object *o;
         uint64_t p;
+        sd_id128_t fake_boot_id;
         char t[] = "/tmp/journal-XXXXXX";
 
         log_set_max_level(LOG_DEBUG);
@@ -32,19 +33,20 @@ static void test_non_empty(void) {
 
         assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, 0666, true, (uint64_t) -1, true, NULL, NULL, NULL, NULL, &f) == 0);
 
-        dual_timestamp_get(&ts);
+        assert_se(dual_timestamp_get(&ts));
+        assert_se(sd_id128_randomize(&fake_boot_id) == 0);
 
         iovec.iov_base = (void*) test;
         iovec.iov_len = strlen(test);
-        assert_se(journal_file_append_entry(f, &ts, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
         iovec.iov_base = (void*) test2;
         iovec.iov_len = strlen(test2);
-        assert_se(journal_file_append_entry(f, &ts, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
         iovec.iov_base = (void*) test;
         iovec.iov_len = strlen(test);
-        assert_se(journal_file_append_entry(f, &ts, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f, &ts, &fake_boot_id, &iovec, 1, NULL, NULL, NULL) == 0);
 
 #if HAVE_GCRYPT
         journal_file_append_tag(f);
@@ -59,6 +61,7 @@ static void test_non_empty(void) {
 
         assert_se(journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) == 1);
         assert_se(le64toh(o->entry.seqnum) == 3);
+        assert_se(sd_id128_equal(o->entry.boot_id, fake_boot_id));
 
         assert_se(journal_file_next_entry(f, p, DIRECTION_DOWN, &o, &p) == 0);
 
@@ -177,7 +180,7 @@ static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
 
         iovec.iov_base = (void*) data;
         iovec.iov_len = data_size;
-        assert_se(journal_file_append_entry(f, &ts, &iovec, 1, NULL, NULL, NULL) == 0);
+        assert_se(journal_file_append_entry(f, &ts, NULL, &iovec, 1, NULL, NULL, NULL) == 0);
 
 #if HAVE_GCRYPT
         journal_file_append_tag(f);
