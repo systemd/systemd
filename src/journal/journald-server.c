@@ -1012,7 +1012,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                         goto finish;
                 }
 
-                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
+                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset);
                 if (r >= 0)
                         continue;
 
@@ -1031,7 +1031,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                 }
 
                 log_debug("Retrying write.");
-                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
+                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset);
                 if (r < 0) {
                         log_error_errno(r, "Can't write entry: %m");
                         goto finish;

@@ -3575,7 +3575,7 @@ int journal_file_open_reliably(
                                  deferred_closes, template, ret);
 }
 
-int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {
+int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
         uint64_t i, n;
         uint64_t q, xor_hash = 0;
         int r;

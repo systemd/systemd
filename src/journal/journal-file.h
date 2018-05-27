@@ -229,7 +229,7 @@ int journal_file_move_to_entry_by_seqnum_for_data(JournalFile *f, uint64_t data_
 int journal_file_move_to_entry_by_realtime_for_data(JournalFile *f, uint64_t data_offset, uint64_t realtime, direction_t direction, Object **ret, uint64_t *offset);
 int journal_file_move_to_entry_by_monotonic_for_data(JournalFile *f, uint64_t data_offset, sd_id128_t boot_id, uint64_t monotonic, direction_t direction, Object **ret, uint64_t *offset);
 
-int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset);
+int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p);
 
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
