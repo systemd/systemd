@@ -657,10 +657,8 @@ static int output_export(
         JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
                 const char *c;
 
-                /* We already printed the boot id, from the data in
-                 * the header, hence let's suppress it here */
-                if (length >= 9 &&
-                    startswith(data, "_BOOT_ID="))
+                /* We already printed the boot id from the data in the header, hence let's suppress it here */
+                if (memory_startswith(data, length, "_BOOT_ID="))
                         continue;
 
                 c = memchr(data, '=', length);
@@ -873,7 +871,8 @@ static int output_json(
                         size_t m;
                         unsigned u;
 
-                        /* We already printed the boot id, from the data in the header, hence let's suppress it here */
+                        /* We already printed the boot id from the data in
+                         * the header, hence let's suppress it here */
                         if (memory_startswith(data, length, "_BOOT_ID="))
                                 continue;
 
