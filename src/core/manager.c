@@ -108,6 +108,7 @@ static int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
 static int manager_dispatch_sigchld(sd_event_source *source, void *userdata);
+static int manager_dispatch_timezone_change(sd_event_source *source, const struct inotify_event *event, void *userdata);
 static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
 
@@ -387,6 +388,65 @@ static int manager_setup_time_change(Manager *m) {
         (void) sd_event_source_set_description(m->time_change_event_source, "manager-time-change");
 
         log_debug("Set up TFD_TIMER_CANCEL_ON_SET timerfd.");
+
+        return 0;
+}
+
+static int manager_read_timezone_stat(Manager *m) {
+        struct stat st;
+        bool changed;
+
+        assert(m);
+
+        /* Read the current stat() data of /etc/localtime so that we detect changes */
+        if (lstat("/etc/localtime", &st) < 0) {
+                log_debug_errno(errno, "Failed to stat /etc/localtime, ignoring: %m");
+                changed = m->etc_localtime_accessible;
+                m->etc_localtime_accessible = false;
+        } else {
+                usec_t k;
+
+                k = timespec_load(&st.st_mtim);
+                changed = !m->etc_localtime_accessible || k != m->etc_localtime_mtime;
+
+                m->etc_localtime_mtime = k;
+                m->etc_localtime_accessible = true;
+        }
+
+        return changed;
+}
+
+static int manager_setup_timezone_change(Manager *m) {
+        sd_event_source *new_event = NULL;
+        int r;
+
+        assert(m);
+
+        if (m->test_run_flags != 0)
+                return 0;
+
+        /* We watch /etc/localtime for three events: change of the link count (which might mean removal from /etc even
+         * though another link might be kept), renames, and file close operations after writing. Note we don't bother
+         * with IN_DELETE_SELF, as that would just report when the inode is removed entirely, i.e. after the link count
+         * went to zero and all fds to it are closed.
+         *
+         * Note that we never follow symlinks here. This is a simplification, but should cover almost all cases
+         * correctly.
+         *
+         * Note that we create the new event source first here, before releasing the old one. This should optimize
+         * behaviour as this way sd-event can reuse the old watch in case the inode didn't change. */
+
+        r = sd_event_add_inotify(m->event, &new_event, "/etc/localtime",
+                                 IN_ATTRIB|IN_MOVE_SELF|IN_CLOSE_WRITE|IN_DONT_FOLLOW, manager_dispatch_timezone_change, m);
+        if (r == -ENOENT) /* If the file doesn't exist yet, subscribe to /etc instead, and wait until it is created
+                           * either by O_CREATE or by rename() */
+                r = sd_event_add_inotify(m->event, &new_event, "/etc",
+                                         IN_CREATE|IN_MOVED_TO|IN_ONLYDIR, manager_dispatch_timezone_change, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create timezone change event source: %m");
+
+        sd_event_source_unref(m->timezone_change_event_source);
+        m->timezone_change_event_source = new_event;
 
         return 0;
 }
@@ -772,6 +832,14 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
                         return r;
 
                 r = manager_setup_time_change(m);
+                if (r < 0)
+                        return r;
+
+                r = manager_read_timezone_stat(m);
+                if (r < 0)
+                        return r;
+
+                r = manager_setup_timezone_change(m);
                 if (r < 0)
                         return r;
 
@@ -1216,6 +1284,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->notify_event_source);
         sd_event_source_unref(m->cgroups_agent_event_source);
         sd_event_source_unref(m->time_change_event_source);
+        sd_event_source_unref(m->timezone_change_event_source);
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->run_queue_event_source);
         sd_event_source_unref(m->user_lookup_event_source);
@@ -2566,6 +2635,41 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
         HASHMAP_FOREACH(u, m->units, i)
                 if (UNIT_VTABLE(u)->time_change)
                         UNIT_VTABLE(u)->time_change(u);
+
+        return 0;
+}
+
+static int manager_dispatch_timezone_change(
+                sd_event_source *source,
+                const struct inotify_event *e,
+                void *userdata) {
+
+        Manager *m = userdata;
+        int changed;
+        Iterator i;
+        Unit *u;
+
+        assert(m);
+
+        log_debug("inotify event for /etc/localtime");
+
+        changed = manager_read_timezone_stat(m);
+        if (changed < 0)
+                return changed;
+        if (!changed)
+                return 0;
+
+        /* Something changed, restart the watch, to ensure we watch the new /etc/localtime if it changed */
+        (void) manager_setup_timezone_change(m);
+
+        /* Read the new timezone */
+        tzset();
+
+        log_debug("Timezone has been changed (now: %s).", tzname[daylight]);
+
+        HASHMAP_FOREACH(u, m->units, i)
+                if (UNIT_VTABLE(u)->timezone_change)
+                        UNIT_VTABLE(u)->timezone_change(u);
 
         return 0;
 }
