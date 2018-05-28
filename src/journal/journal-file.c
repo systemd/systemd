@@ -262,7 +262,7 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
 }
 
 static int journal_file_set_online(JournalFile *f) {
-        bool joined = false;
+        bool wait = true;
 
         assert(f);
 
@@ -272,23 +272,25 @@ static int journal_file_set_online(JournalFile *f) {
         if (!(f->fd >= 0 && f->header))
                 return -EINVAL;
 
-        while (!joined) {
+        while (wait) {
                 switch (f->offline_state) {
                 case OFFLINE_JOINED:
                         /* No offline thread, no need to wait. */
-                        joined = true;
+                        wait = false;
                         break;
 
                 case OFFLINE_SYNCING:
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_SYNCING, OFFLINE_CANCEL))
                                 continue;
                         /* Canceled syncing prior to offlining, no need to wait. */
+                        wait = false;
                         break;
 
                 case OFFLINE_AGAIN_FROM_SYNCING:
                         if (!__sync_bool_compare_and_swap(&f->offline_state, OFFLINE_AGAIN_FROM_SYNCING, OFFLINE_CANCEL))
                                 continue;
                         /* Canceled restart from syncing, no need to wait. */
+                        wait = false;
                         break;
 
                 case OFFLINE_AGAIN_FROM_OFFLINING:
@@ -303,7 +305,7 @@ static int journal_file_set_online(JournalFile *f) {
                         if (r < 0)
                                 return r;
 
-                        joined = true;
+                        wait = false;
                         break;
                 }
                 }
