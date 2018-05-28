@@ -12,6 +12,7 @@
 #include "condition.h"
 #include "device.h"
 #include "execute.h"
+#include "import-util.h"
 #include "install.h"
 #include "job.h"
 #include "journald-server.h"
@@ -20,8 +21,11 @@
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "machine-image.h"
 #include "mount.h"
 #include "path.h"
+#include "process-util.h"
+#include "resolve-util.h"
 #include "rlimit-util.h"
 #include "scope.h"
 #include "service.h"
@@ -42,13 +46,23 @@ int main(int argc, char **argv) {
         test_table(assert_type, CONDITION_TYPE);
         test_table(automount_result, AUTOMOUNT_RESULT);
         test_table(automount_state, AUTOMOUNT_STATE);
+        test_table(cgroup_controller, CGROUP_CONTROLLER);
         test_table(cgroup_device_policy, CGROUP_DEVICE_POLICY);
+        test_table(cgroup_io_limit_type, CGROUP_IO_LIMIT_TYPE);
+        test_table(collect_mode, COLLECT_MODE);
         test_table(condition_result, CONDITION_RESULT);
         test_table(condition_type, CONDITION_TYPE);
         test_table(device_state, DEVICE_STATE);
+        test_table(dnssec_mode, DNSSEC_MODE);
         test_table(emergency_action, EMERGENCY_ACTION);
+        test_table(exec_directory_type, EXEC_DIRECTORY_TYPE);
         test_table(exec_input, EXEC_INPUT);
+        test_table(exec_keyring_mode, EXEC_KEYRING_MODE);
         test_table(exec_output, EXEC_OUTPUT);
+        test_table(exec_preserve_mode, EXEC_PRESERVE_MODE);
+        test_table(exec_utmp_mode, EXEC_UTMP_MODE);
+        test_table(image_type, IMAGE_TYPE);
+        test_table(import_verify, IMPORT_VERIFY);
         test_table(job_mode, JOB_MODE);
         test_table(job_result, JOB_RESULT);
         test_table(job_state, JOB_STATE);
@@ -59,17 +73,21 @@ int main(int argc, char **argv) {
         test_table(log_target, LOG_TARGET);
         test_table(mac_policy, MACPOLICY);
         test_table(manager_state, MANAGER_STATE);
+        test_table(manager_timestamp, MANAGER_TIMESTAMP);
         test_table(mount_exec_command, MOUNT_EXEC_COMMAND);
         test_table(mount_result, MOUNT_RESULT);
         test_table(mount_state, MOUNT_STATE);
         test_table(name_policy, NAMEPOLICY);
+        test_table(namespace_type, NAMESPACE_TYPE);
         test_table(notify_access, NOTIFY_ACCESS);
         test_table(output_mode, OUTPUT_MODE);
+        test_table(partition_designator, PARTITION_DESIGNATOR);
         test_table(path_result, PATH_RESULT);
         test_table(path_state, PATH_STATE);
         test_table(path_type, PATH_TYPE);
         test_table(protect_home, PROTECT_HOME);
         test_table(protect_system, PROTECT_SYSTEM);
+        test_table(resolve_support, RESOLVE_SUPPORT);
         test_table(rlimit, RLIMIT);
         test_table(scope_result, SCOPE_RESULT);
         test_table(scope_state, SCOPE_STATE);
