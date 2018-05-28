@@ -9,9 +9,9 @@
 #include "test-tables.h"
 
 int main(int argc, char **argv) {
+        test_table(kill_who, KILL_WHO);
         test_table(machine_class, MACHINE_CLASS);
         test_table(machine_state, MACHINE_STATE);
-        test_table(kill_who, KILL_WHO);
 
         return EXIT_SUCCESS;
 }
