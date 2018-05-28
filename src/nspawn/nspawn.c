@@ -210,7 +210,6 @@ static ResolvConfMode arg_resolv_conf = RESOLV_CONF_AUTO;
 static TimezoneMode arg_timezone = TIMEZONE_AUTO;
 
 static void help(void) {
-
         (void) pager_open(false, false);
 
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
@@ -420,7 +419,6 @@ static void parse_mount_settings_env(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_VERSION = 0x100,
                 ARG_PRIVATE_NETWORK,
@@ -536,7 +534,6 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         while ((c = getopt_long(argc, argv, "+hD:u:abL:M:jS:Z:qi:xp:nUE:", options, NULL)) >= 0)
-
                 switch (c) {
 
                 case 'h':
@@ -626,7 +623,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NETWORK_INTERFACE:
-
                         if (!ifname_valid(optarg)) {
                                 log_error("Network interface name not valid: %s", optarg);
                                 return -EINVAL;
@@ -1479,7 +1475,6 @@ static int setup_timezone(const char *dest) {
         assert(dest);
 
         if (IN_SET(arg_timezone, TIMEZONE_AUTO, TIMEZONE_SYMLINK)) {
-
                 r = readlink_malloc("/etc/localtime", &p);
                 if (r == -ENOENT && arg_timezone == TIMEZONE_AUTO)
                         m = arg_read_only && arg_volatile_mode != VOLATILE_YES ? TIMEZONE_OFF : TIMEZONE_DELETE;
@@ -1764,7 +1759,6 @@ static int setup_boot_id(void) {
 }
 
 static int copy_devnodes(const char *dest) {
-
         static const char devnodes[] =
                 "null\0"
                 "zero\0"
@@ -2427,7 +2421,6 @@ static int determine_names(void) {
         }
 
         if (!arg_machine) {
-
                 if (arg_directory && path_equal(arg_directory, "/"))
                         arg_machine = gethostname_malloc();
                 else {
@@ -2624,8 +2617,6 @@ static int inner_child(
         if (r < 0)
                 return r;
         kmsg_socket = safe_close(kmsg_socket);
-
-        umask(0022);
 
         if (setsid() < 0)
                 return log_error_errno(errno, "setsid() failed: %m");
@@ -3867,7 +3858,6 @@ static int run(int master,
         }
 
         if (arg_private_network) {
-
                 if (!arg_network_namespace_path) {
                         /* Wait until the child has unshared its network namespace. */
                         if (!barrier_place_and_sync(&barrier)) { /* #3 */
@@ -3948,7 +3938,6 @@ static int run(int master,
         }
 
         if (arg_register) {
-
                 r = register_machine(
                                 bus,
                                 arg_machine,
@@ -3966,7 +3955,6 @@ static int run(int master,
                         return r;
 
         } else if (!arg_keep_unit) {
-
                 r = allocate_scope(
                                 bus,
                                 arg_machine,
@@ -4126,7 +4114,6 @@ static int run(int master,
 }
 
 static int initialize_rlimits(void) {
-
         /* The default resource limits the kernel passes to PID 1, as per kernel 4.16. Let's pass our container payload
          * the same values as the kernel originally passed to PID 1, in order to minimize differences between host and
          * container execution environments. */
@@ -4158,7 +4145,6 @@ static int initialize_rlimits(void) {
         int rl;
 
         for (rl = 0; rl < _RLIMIT_MAX; rl++) {
-
                 /* Let's only fill in what the user hasn't explicitly configured anyway */
                 if ((arg_settings_mask & (SETTING_RLIMIT_FIRST << rl)) == 0) {
                         const struct rlimit *v;
@@ -4191,7 +4177,6 @@ static int initialize_rlimits(void) {
 }
 
 int main(int argc, char *argv[]) {
-
         _cleanup_free_ char *console = NULL;
         _cleanup_close_ int master = -1;
         _cleanup_fdset_free_ FDSet *fds = NULL;
@@ -4250,6 +4235,11 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
         }
+
+        /* The "default" umask. This is appropriate for most file and directory
+        * operations performed by nspawn, and is the umask that will be used for
+        * the child. Functions like copy_devnodes() change the umask temporarily. */
+        umask(0022);
 
         if (arg_directory) {
                 assert(!arg_image);
