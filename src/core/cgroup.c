@@ -1474,7 +1474,7 @@ static int unit_create_cgroup(
         (void) unit_watch_cgroup(u);
 
         /* Enable all controllers we need */
-        r = cg_enable_everywhere(u->manager->cgroup_supported, enable_mask, u->cgroup_path);
+        r = cg_enable_everywhere(u->manager->cgroup_supported, enable_mask, u->cgroup_path, unit_cgroup_delegate(u));
         if (r < 0)
                 log_unit_warning_errno(u, r, "Failed to enable controllers on cgroup %s, ignoring: %m", u->cgroup_path);
 

@@ -190,6 +190,6 @@ int create_subcgroup(pid_t pid, bool keep_unit, CGroupUnified unified_requested)
         }
 
         /* Try to enable as many controllers as possible for the new payload. */
-        (void) cg_enable_everywhere(supported, supported, cgroup);
+        (void) cg_enable_everywhere(supported, supported, cgroup, /* delegate */ false);
         return 0;
 }
