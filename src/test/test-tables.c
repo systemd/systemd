@@ -39,22 +39,23 @@
 
 int main(int argc, char **argv) {
         test_table(architecture, ARCHITECTURE);
+        test_table(assert_type, CONDITION_TYPE);
         test_table(automount_result, AUTOMOUNT_RESULT);
         test_table(automount_state, AUTOMOUNT_STATE);
         test_table(cgroup_device_policy, CGROUP_DEVICE_POLICY);
-        test_table(condition_type, CONDITION_TYPE);
-        test_table(assert_type, CONDITION_TYPE);
         test_table(condition_result, CONDITION_RESULT);
+        test_table(condition_type, CONDITION_TYPE);
         test_table(device_state, DEVICE_STATE);
+        test_table(emergency_action, EMERGENCY_ACTION);
         test_table(exec_input, EXEC_INPUT);
         test_table(exec_output, EXEC_OUTPUT);
-        test_table(emergency_action, EMERGENCY_ACTION);
         test_table(job_mode, JOB_MODE);
         test_table(job_result, JOB_RESULT);
         test_table(job_state, JOB_STATE);
         test_table(job_type, JOB_TYPE);
         test_table(kill_mode, KILL_MODE);
         test_table(kill_who, KILL_WHO);
+        test_table(locale_variable, VARIABLE_LC);
         test_table(log_target, LOG_TARGET);
         test_table(mac_policy, MACPOLICY);
         test_table(manager_state, MANAGER_STATE);
@@ -98,7 +99,6 @@ int main(int argc, char **argv) {
         test_table(unit_file_state, UNIT_FILE_STATE);
         test_table(unit_load_state, UNIT_LOAD_STATE);
         test_table(unit_type, UNIT_TYPE);
-        test_table(locale_variable, VARIABLE_LC);
         test_table(virtualization, VIRTUALIZATION);
 
         test_table_sparse(object_compressed, OBJECT_COMPRESSED);
