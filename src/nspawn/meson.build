@@ -45,6 +45,11 @@ libnspawn_core = static_library(
 systemd_nspawn_sources = files('nspawn.c')
 
 tests += [
+        [['src/nspawn/test-nspawn-tables.c'],
+         [libnspawn_core,
+          libshared],
+         []],
+
         [['src/nspawn/test-patch-uid.c'],
          [libnspawn_core,
           libshared],
