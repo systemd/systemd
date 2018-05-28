@@ -39,3 +39,5 @@ int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_er
 int bus_forward_agent_released(Manager *m, const char *path);
 
 uint64_t manager_bus_n_queued_write(Manager *m);
+
+void dump_bus_properties(FILE *f);
