@@ -10,7 +10,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: https://github.com/systemd/systemd/issues\n"
 "POT-Creation-Date: 2018-02-27 16:46+0900\n"
-"PO-Revision-Date: 2018-02-27 16:55+0900\n"
+"PO-Revision-Date: 2018-05-28 10:30+0900\n"
 "Last-Translator: Yu Watanabe <watanabe.yu+github@gmail.com>\n"
 "Language-Team: \n"
 "Language: ja\n"
@@ -25,8 +25,7 @@ msgstr "パスフレーズをシステムに送信"
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
-msgstr ""
-"パスフレーズをシステムに送信するには認証が必要です。"
+msgstr "パスフレーズをシステムに送信するには認証が必要です。"
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -44,21 +43,21 @@ msgstr "システムサービスファイルやその他のユニットファイ
 msgid "Authentication is required to manage system service or unit files."
 msgstr "システムサービスファイルやその他のユニットファイルを管理するには認証が必要です。"
 
-#: src/core/org.freedesktop.systemd1.policy.in:53
+#: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
 msgstr "システムマネージャ環境変数の設定もしくは解除"
 
-#: src/core/org.freedesktop.systemd1.policy.in:54
+#: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr "システムマネージャ環境変数を設定もしくは解除するには認証が必要です。"
 
-#: src/core/org.freedesktop.systemd1.policy.in:63
+#: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
 msgstr "systemdの状態の再読込"
 
-#: src/core/org.freedesktop.systemd1.policy.in:64
+#: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
 msgstr "systemdの状態を再読込するには認証が必要です。"
 
@@ -487,6 +486,31 @@ msgid ""
 "images."
 msgstr "ローカルな仮想マシンやコンテナのイメージを管理するには認証が必要です。"
 
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service"
+msgstr "ポータブルサービスの検索"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+msgid "Authentication is required to inspect a portable service."
+msgstr "ポータブルサービスの検索には認証が必要です。"
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service"
+msgstr "ポータブルサービスの接続もしくは切り離し"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+msgid "Authentication is required to attach or detach a portable service."
+msgstr "ポータブルサービスを接続もしくは切り離すには認証が必要です。"
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "ポータブルサービスの削除もしくは修正"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr "ポータブルサービスを削除もしくは修正するには認証が必要です。"
+
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
 msgstr "DNS-SDサービスを登録"
@@ -529,40 +553,40 @@ msgid ""
 "UTC time."
 msgstr "ハードウェア時刻をローカルタイムゾーンもしくはUTCに設定するには認証が必要です。"
 
-#: src/timedate/org.freedesktop.timedate1.policy:54
+#: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "ネットワーク経由の時刻同期の有効化もしくは無効化"
 
-#: src/timedate/org.freedesktop.timedate1.policy:55
+#: src/timedate/org.freedesktop.timedate1.policy:54
 msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
 msgstr "ネットワーク経由の時刻同期を有効もしくは無効にするには認証が必要です。"
 
-#: src/core/dbus-unit.c:496
+#: src/core/dbus-unit.c:329
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)'を開始するには認証が必要です。"
 
-#: src/core/dbus-unit.c:497
+#: src/core/dbus-unit.c:330
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)'を停止するには認証が必要です。"
 
-#: src/core/dbus-unit.c:498
+#: src/core/dbus-unit.c:331
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)'を再読込するには認証が必要です。"
 
-#: src/core/dbus-unit.c:499 src/core/dbus-unit.c:500
+#: src/core/dbus-unit.c:332 src/core/dbus-unit.c:333
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)'を再起動するには認証が必要です。"
 
-#: src/core/dbus-unit.c:607
+#: src/core/dbus-unit.c:440
 msgid "Authentication is required to kill '$(unit)'."
 msgstr "'$(unit)'を強制停止するには認証が必要です。"
 
-#: src/core/dbus-unit.c:638
+#: src/core/dbus-unit.c:471
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)'の「失敗」状態をリセットするには認証が必要です。"
 
-#: src/core/dbus-unit.c:671
+#: src/core/dbus-unit.c:504
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)'のプロパティを設定するには認証が必要です。"
