@@ -4973,12 +4973,23 @@ void unit_dump_config_items(FILE *f) {
 
         NULSTR_FOREACH(i, load_fragment_gperf_nulstr) {
                 const char *rvalue = "OTHER", *lvalue;
-                unsigned j;
+                const ConfigPerfItem *p;
                 size_t prefix_len;
                 const char *dot;
-                const ConfigPerfItem *p;
+                unsigned j;
 
                 assert_se(p = load_fragment_gperf_lookup(i, strlen(i)));
+
+                /* Hide legacy settings */
+                if (p->parse == config_parse_warn_compat &&
+                    p->ltype == DISABLED_LEGACY)
+                        continue;
+
+                for (j = 0; j < ELEMENTSOF(table); j++)
+                        if (p->parse == table[j].callback) {
+                                rvalue = table[j].rvalue;
+                                break;
+                        }
 
                 dot = strchr(i, '.');
                 lvalue = dot ? dot + 1 : i;
@@ -4990,12 +5001,6 @@ void unit_dump_config_items(FILE *f) {
                                         fputc('\n', f);
 
                                 fprintf(f, "[%.*s]\n", (int) prefix_len, i);
-                        }
-
-                for (j = 0; j < ELEMENTSOF(table); j++)
-                        if (p->parse == table[j].callback) {
-                                rvalue = table[j].rvalue;
-                                break;
                         }
 
                 fprintf(f, "%s=%s\n", lvalue, rvalue);
