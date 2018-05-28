@@ -2618,8 +2618,6 @@ static int inner_child(
                 return r;
         kmsg_socket = safe_close(kmsg_socket);
 
-        umask(0022);
-
         if (setsid() < 0)
                 return log_error_errno(errno, "setsid() failed: %m");
 
@@ -4237,6 +4235,11 @@ int main(int argc, char *argv[]) {
                         goto finish;
                 }
         }
+
+        /* The "default" umask. This is appropriate for most file and directory
+        * operations performed by nspawn, and is the umask that will be used for
+        * the child. Functions like copy_devnodes() change the umask temporarily. */
+        umask(0022);
 
         if (arg_directory) {
                 assert(!arg_image);
