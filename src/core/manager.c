@@ -364,6 +364,9 @@ static int manager_setup_time_change(Manager *m) {
         if (m->test_run_flags)
                 return 0;
 
+        m->time_change_event_source = sd_event_source_unref(m->time_change_event_source);
+        m->time_change_fd = safe_close(m->time_change_fd);
+
         /* Uses TFD_TIMER_CANCEL_ON_SET to get notifications whenever
          * CLOCK_REALTIME makes a jump relative to CLOCK_MONOTONIC */
 
@@ -2558,10 +2561,7 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
                    LOG_MESSAGE("Time has been changed"));
 
         /* Restart the watch */
-        m->time_change_event_source = sd_event_source_unref(m->time_change_event_source);
-        m->time_change_fd = safe_close(m->time_change_fd);
-
-        manager_setup_time_change(m);
+        (void) manager_setup_time_change(m);
 
         HASHMAP_FOREACH(u, m->units, i)
                 if (UNIT_VTABLE(u)->time_change)
