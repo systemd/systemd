@@ -7,6 +7,8 @@
   Copyright 2010 Lennart Poettering
 ***/
 
+#include "sd-bus.h"
+
 #include "manager.h"
 
 int bus_send_queued_message(Manager *m);

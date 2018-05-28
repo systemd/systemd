@@ -8,6 +8,7 @@
 ***/
 
 #include "sd-bus.h"
+#include "sd-bus-vtable.h"
 
 #include "execute.h"
 

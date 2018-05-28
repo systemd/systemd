@@ -8,8 +8,10 @@
 ***/
 
 #include "sd-bus.h"
+#include "sd-bus-vtable.h"
 
 #include "scope.h"
+#include "unit.h"
 
 extern const sd_bus_vtable bus_scope_vtable[];
 
