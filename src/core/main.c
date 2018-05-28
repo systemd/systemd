@@ -36,6 +36,7 @@
 #include "clock-util.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
+#include "dbus.h"
 #include "dbus-manager.h"
 #include "def.h"
 #include "emergency-action.h"
@@ -89,7 +90,8 @@ static enum {
         ACTION_HELP,
         ACTION_VERSION,
         ACTION_TEST,
-        ACTION_DUMP_CONFIGURATION_ITEMS
+        ACTION_DUMP_CONFIGURATION_ITEMS,
+        ACTION_DUMP_BUS_PROPERTIES,
 } arg_action = ACTION_RUN;
 static char *arg_default_unit = NULL;
 static bool arg_system = false;
@@ -775,6 +777,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_VERSION,
                 ARG_DUMP_CONFIGURATION_ITEMS,
+                ARG_DUMP_BUS_PROPERTIES,
                 ARG_DUMP_CORE,
                 ARG_CRASH_CHVT,
                 ARG_CRASH_SHELL,
@@ -802,6 +805,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",                     no_argument,       NULL, 'h'                          },
                 { "version",                  no_argument,       NULL, ARG_VERSION                  },
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
+                { "dump-bus-properties",      no_argument,       NULL, ARG_DUMP_BUS_PROPERTIES      },
                 { "dump-core",                optional_argument, NULL, ARG_DUMP_CORE                },
                 { "crash-chvt",               required_argument, NULL, ARG_CRASH_CHVT               },
                 { "crash-shell",              optional_argument, NULL, ARG_CRASH_SHELL              },
@@ -919,6 +923,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DUMP_CONFIGURATION_ITEMS:
                         arg_action = ACTION_DUMP_CONFIGURATION_ITEMS;
+                        break;
+
+                case ARG_DUMP_BUS_PROPERTIES:
+                        arg_action = ACTION_DUMP_BUS_PROPERTIES;
                         break;
 
                 case ARG_DUMP_CORE:
@@ -1064,6 +1072,7 @@ static int help(void) {
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --no-pager                  Do not pipe output into a pager\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
+               "     --dump-bus-properties       Dump exposed bus properties\n"
                "     --unit=UNIT                 Set default unit\n"
                "     --system                    Run a system instance, even if PID != 1\n"
                "     --user                      Run a user instance\n"
@@ -2302,7 +2311,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS))
+        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS, ACTION_DUMP_BUS_PROPERTIES))
                 (void) pager_open(arg_no_pager, false);
 
         if (arg_action != ACTION_RUN)
@@ -2316,6 +2325,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
         } else if (arg_action == ACTION_DUMP_CONFIGURATION_ITEMS) {
                 unit_dump_config_items(stdout);
+                retval = EXIT_SUCCESS;
+                goto finish;
+        } else if (arg_action == ACTION_DUMP_BUS_PROPERTIES) {
+                dump_bus_properties(stdout);
                 retval = EXIT_SUCCESS;
                 goto finish;
         }

@@ -7,6 +7,6 @@
   Copyright 2010 Lennart Poettering
 ***/
 
-#include "unit.h"
+#include "sd-bus-vtable.h"
 
 extern const sd_bus_vtable bus_device_vtable[];

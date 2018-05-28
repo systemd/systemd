@@ -311,7 +311,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>set-limit</command> [<replaceable>NAME</replaceable>] <replaceable>BYTES</replaceable></term>
+        <term><command>set-limit</command> [<replaceable>IMAGE</replaceable>] <replaceable>BYTES</replaceable></term>
 
         <listitem><para>Sets the maximum size in bytes that a specific portable service image, or all images, may grow
         up to on disk (disk quota). Takes either one or two parameters. The first, optional parameter refers to a

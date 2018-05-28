@@ -7,6 +7,8 @@
   Copyright 2010 Lennart Poettering
 ***/
 
+#include "sd-bus-vtable.h"
+
 #include "manager.h"
 
 extern const sd_bus_vtable bus_manager_vtable[];
