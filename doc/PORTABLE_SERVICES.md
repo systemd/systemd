@@ -120,7 +120,7 @@ This command does the following:
    generally contains security options that lock down the service. By default
    the `default` profile is used, which provides a medium level of
    security. There's also `trusted` which runs the service at the highest
-   privileges, i.e. host's root and everything. The `strict' profile comes with
+   privileges, i.e. host's root and everything. The `strict` profile comes with
    the toughest security restrictions. Finally, `nonetwork` is like `default`
    but without network access. Users may define their own profiles too (or
    modify the existing ones)
