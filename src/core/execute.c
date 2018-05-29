@@ -1787,8 +1787,20 @@ static bool exec_needs_mount_namespace(
             context->protect_control_groups)
                 return true;
 
-        if (context->mount_apivfs && (context->root_image || context->root_directory))
-                return true;
+        if (context->root_directory) {
+                ExecDirectoryType t;
+
+                if (context->mount_apivfs)
+                        return true;
+
+                for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                        if (!params->prefix[t])
+                                continue;
+
+                        if (!strv_isempty(context->directories[t].paths))
+                                return true;
+                }
+        }
 
         if (context->dynamic_user &&
             (!strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
@@ -2220,7 +2232,8 @@ static int compile_bind_mounts(
                         continue;
 
                 if (context->dynamic_user &&
-                    !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION)) {
+                    !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION) &&
+                    !(context->root_directory || context->root_image)) {
                         char *private_root;
 
                         /* So this is for a dynamic user, and we need to make sure the process can access its own
@@ -2251,7 +2264,15 @@ static int compile_bind_mounts(
                                 goto finish;
                         }
 
-                        d = strdup(s);
+                        if (context->dynamic_user &&
+                            !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION) &&
+                            (context->root_directory || context->root_image))
+                                /* When RootDirectory= or RootImage= are set, then the symbolic link to the private
+                                 * directory is not created on the root directory. So, let's bind-mount the directory
+                                 * on the 'non-private' place. */
+                                d = strjoin(params->prefix[t], "/", *suffix);
+                        else
+                                d = strdup(s);
                         if (!d) {
                                 free(s);
                                 r = -ENOMEM;
