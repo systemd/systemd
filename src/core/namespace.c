@@ -1682,7 +1682,7 @@ static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(protect_home, ProtectHome);
 
-ProtectHome parse_protect_home_or_bool(const char *s) {
+ProtectHome protect_home_or_bool_from_string(const char *s) {
         int r;
 
         r = parse_boolean(s);
@@ -1703,7 +1703,7 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(protect_system, ProtectSystem);
 
-ProtectSystem parse_protect_system_or_bool(const char *s) {
+ProtectSystem protect_system_or_bool_from_string(const char *s) {
         int r;
 
         r = parse_boolean(s);

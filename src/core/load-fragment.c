@@ -4328,71 +4328,8 @@ int config_parse_bind_paths(
         return 0;
 }
 
-int config_parse_protect_home(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecContext *c = data;
-        ProtectHome h;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        /* Our enum shall be a superset of booleans, hence first try
-         * to parse as boolean, and then as enum */
-
-        h = parse_protect_home_or_bool(rvalue);
-        if (h < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect home value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        c->protect_home = h;
-
-        return 0;
-}
-
-int config_parse_protect_system(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecContext *c = data;
-        ProtectSystem s;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        s = parse_protect_system_or_bool(rvalue);
-        if (s < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect system value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        c->protect_system = s;
-
-        return 0;
-}
-
+DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home_or_bool, ProtectHome, "Failed to parse protect home value");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system_or_bool, ProtectSystem, "Failed to parse protect system value");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode, "Failed to parse keyring mode");
 
 int config_parse_job_timeout_sec(

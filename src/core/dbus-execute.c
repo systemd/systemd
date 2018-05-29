@@ -1024,8 +1024,8 @@ static BUS_DEFINE_SET_TRANSIENT_IS_VALID(nice, "i", int32_t, int, "%" PRIi32, ni
 static BUS_DEFINE_SET_TRANSIENT_PARSE(std_input, ExecInput, exec_input_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(std_output, ExecOutput, exec_output_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(utmp_mode, ExecUtmpMode, exec_utmp_mode_from_string);
-static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_system, ProtectSystem, parse_protect_system_or_bool);
-static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_home, ProtectHome, parse_protect_home_or_bool);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_system, ProtectSystem, protect_system_or_bool_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_home, ProtectHome, protect_home_or_bool_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(keyring_mode, ExecKeyringMode, exec_keyring_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(preserve_mode, ExecPreserveMode, exec_preserve_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(personality, unsigned long, parse_personality);
