@@ -17,6 +17,12 @@ CHANGES WITH 239 in spe:
           then it may be necessary to update the file to re-enable AF_INET and
           AF_INET6 to support network user name services, e.g. NIS.
 
+        * When the RestrictNamespaces= unit property is specified multiple times,
+          then the specified types are merged now. Previously, only the last
+          assignment was used. So, if distribution packagers or administrators
+          modified the setting by a drop-in config file, then it may be necessary
+          to update the file.
+
 CHANGES WITH 238:
 
         * The MemoryAccounting= unit property now defaults to on. After
