@@ -222,8 +222,8 @@ int config_parse_search_domains(
 int config_parse_dnssd_service_name(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
         static const Specifier specifier_table[] = {
                 { 'b', specifier_boot_id,         NULL },
-                { 'H', specifier_host_name, NULL },
-                { 'm', specifier_machine_id, NULL },
+                { 'H', specifier_host_name,       NULL },
+                { 'm', specifier_machine_id,      NULL },
                 { 'v', specifier_kernel_release,  NULL },
                 {}
         };

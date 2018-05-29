@@ -179,10 +179,13 @@ static const Specifier specifier_table[] = {
         { 'U', specifier_user_id,         NULL },
         { 'u', specifier_user_name,       NULL },
         { 'h', specifier_user_home,       NULL },
+
         { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
         { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE) },
         { 'C', specifier_directory,       UINT_TO_PTR(DIRECTORY_CACHE) },
         { 'L', specifier_directory,       UINT_TO_PTR(DIRECTORY_LOGS) },
+        { 'T', specifier_tmp_dir,         NULL },
+        { 'V', specifier_var_tmp_dir,     NULL },
         {}
 };
 

@@ -24,6 +24,9 @@ Janitorial Clean-ups:
 
 Features:
 
+* document specifiers systemd-sysusers understands in its man page (the way
+  it's already documented in tmpfiles.d(5)' man page)
+
 * add O_TMPFILE support to copy_file_atomic()
 
 * nspawn: greater control over selinux label?

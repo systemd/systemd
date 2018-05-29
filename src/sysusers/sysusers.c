@@ -1359,10 +1359,12 @@ static bool item_equal(Item *a, Item *b) {
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         static const Specifier specifier_table[] = {
-                { 'm', specifier_machine_id, NULL },
-                { 'b', specifier_boot_id, NULL },
-                { 'H', specifier_host_name, NULL },
+                { 'm', specifier_machine_id,     NULL },
+                { 'b', specifier_boot_id,        NULL },
+                { 'H', specifier_host_name,      NULL },
                 { 'v', specifier_kernel_release, NULL },
+                { 'T', specifier_tmp_dir,        NULL },
+                { 'V', specifier_var_tmp_dir,    NULL },
                 {}
         };
 
