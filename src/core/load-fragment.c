@@ -1252,42 +1252,7 @@ int config_parse_exec_cpu_affinity(const char *unit,
         return 0;
 }
 
-int config_parse_exec_secure_bits(const char *unit,
-                                  const char *filename,
-                                  unsigned line,
-                                  const char *section,
-                                  unsigned section_line,
-                                  const char *lvalue,
-                                  int ltype,
-                                  const char *rvalue,
-                                  void *data,
-                                  void *userdata) {
-
-        ExecContext *c = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (isempty(rvalue)) {
-                /* An empty assignment resets the field */
-                c->secure_bits = 0;
-                return 0;
-        }
-
-        r = secure_bits_from_string(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse secure bits, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        c->secure_bits = r;
-
-        return 0;
-}
+DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string, "Failed to parse secure bits");
 
 int config_parse_capability_set(
                 const char *unit,
@@ -1342,33 +1307,7 @@ int config_parse_capability_set(
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
-
-int config_parse_exec_mount_flags(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecContext *c = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = mount_propagation_flags_from_string(rvalue, &c->mount_flags);
-        if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse mount flag %s, ignoring: %m", rvalue);
-
-        return 0;
-}
+DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_flags, mount_propagation_flags_from_string, unsigned long, "Failed to parse mount flag");
 
 int config_parse_exec_selinux_context(
                 const char *unit,
@@ -3068,62 +3007,8 @@ int config_parse_unit_slice(
 }
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy, "Failed to parse device policy");
-
-int config_parse_cpu_weight(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint64_t *weight = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = cg_weight_parse(rvalue, weight);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid CPU weight '%s', ignoring: %m", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-int config_parse_cpu_shares(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint64_t *shares = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = cg_cpu_shares_parse(rvalue, shares);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid CPU shares '%s', ignoring: %m", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
+DEFINE_CONFIG_PARSE_PTR(config_parse_cg_weight, cg_weight_parse, uint64_t, "Invalid weight");
+DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares, cg_cpu_shares_parse, uint64_t, "Invalid CPU shares");
 
 int config_parse_cpu_quota(
                 const char *unit,
@@ -3402,34 +3287,6 @@ int config_parse_device_allow(
         return 0;
 }
 
-int config_parse_io_weight(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint64_t *weight = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = cg_weight_parse(rvalue, weight);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid IO weight '%s', ignoring.", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
 int config_parse_io_device_weight(
                 const char *unit,
                 const char *filename,
@@ -3602,33 +3459,7 @@ int config_parse_io_limit(
         return 0;
 }
 
-int config_parse_blockio_weight(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint64_t *weight = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = cg_blkio_weight_parse(rvalue, weight);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid block IO weight '%s', ignoring: %m", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
+DEFINE_CONFIG_PARSE_PTR(config_parse_blockio_weight, cg_blkio_weight_parse, uint64_t, "Invalid block IO weight");
 
 int config_parse_blockio_device_weight(
                 const char *unit,
@@ -4763,12 +4594,11 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_restrict_namespaces,   "NAMESPACES"  },
 #endif
                 { config_parse_cpu_shares,            "SHARES" },
-                { config_parse_cpu_weight,            "WEIGHT" },
+                { config_parse_cg_weight,             "WEIGHT" },
                 { config_parse_memory_limit,          "LIMIT" },
                 { config_parse_device_allow,          "DEVICE" },
                 { config_parse_device_policy,         "POLICY" },
                 { config_parse_io_limit,              "LIMIT" },
-                { config_parse_io_weight,             "WEIGHT" },
                 { config_parse_io_device_weight,      "DEVICEWEIGHT" },
                 { config_parse_blockio_bandwidth,     "BANDWIDTH" },
                 { config_parse_blockio_weight,        "WEIGHT" },
