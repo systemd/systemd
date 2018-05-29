@@ -547,6 +547,17 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
             (options && !string_is_safe(options)))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Received invalid keyboard data");
 
+        r = verify_xkb_rmlvo(model, layout, variant, options);
+        if (r < 0) {
+                log_error_errno(r, "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
+                                strempty(model), strempty(layout), strempty(variant), strempty(options));
+
+                if (r == -EOPNOTSUPP)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
+
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
+        }
+
         r = bus_verify_polkit_async(
                         m,
                         CAP_SYS_ADMIN,
@@ -560,17 +571,6 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                 return r;
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
-
-        r = verify_xkb_rmlvo(model, layout, variant, options);
-        if (r < 0) {
-                log_error_errno(r, "Cannot compile XKB keymap for new x11 keyboard layout ('%s' / '%s' / '%s' / '%s'): %m",
-                                strempty(model), strempty(layout), strempty(variant), strempty(options));
-
-                if (r == -EOPNOTSUPP)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Local keyboard configuration not supported on this system.");
-
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified keymap cannot be compiled, refusing as invalid.");
-        }
 
         if (free_and_strdup(&c->x11_layout, layout) < 0 ||
             free_and_strdup(&c->x11_model, model) < 0 ||
