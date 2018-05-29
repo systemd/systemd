@@ -243,6 +243,12 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>Multicast=</varname></term>
+        <listitem>
+          <para> A boolean. Enables or disables the change the MULTICAST flag on the device.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Unmanaged=</varname></term>
         <listitem>
           <para>A boolean. When <literal>yes</literal>, no attempts are
