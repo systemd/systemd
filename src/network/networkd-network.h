@@ -213,6 +213,7 @@ struct Network {
         struct ether_addr *mac;
         uint32_t mtu;
         int arp;
+        int multicast;
         bool unmanaged;
         bool configure_without_carrier;
         uint32_t iaid;
