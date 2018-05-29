@@ -212,7 +212,7 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
         if (!f->writable)
                 return -EPERM;
 
-        if (!(f->fd >= 0 && f->header))
+        if (f->fd < 0 || !f->header)
                 return -EINVAL;
 
         /* An offlining journal is implicitly online and may modify f->header->state,
@@ -269,7 +269,7 @@ static int journal_file_set_online(JournalFile *f) {
         if (!f->writable)
                 return -EPERM;
 
-        if (!(f->fd >= 0 && f->header))
+        if (f->fd < 0 || !f->header)
                 return -EINVAL;
 
         while (wait) {
