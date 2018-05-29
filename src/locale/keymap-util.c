@@ -668,7 +668,7 @@ int x11_convert_to_vconsole(Context *c) {
 
                 context_free_vconsole(c);
         } else {
-                char *new_keymap = NULL;
+                _cleanup_free_ char *new_keymap = NULL;
                 int r;
 
                 r = find_converted_keymap(c->x11_layout, c->x11_variant, &new_keymap);
@@ -687,12 +687,10 @@ int x11_convert_to_vconsole(Context *c) {
                                    c->x11_layout);
 
                 if (!streq_ptr(c->vc_keymap, new_keymap)) {
-                        free(c->vc_keymap);
-                        c->vc_keymap = new_keymap;
+                        free_and_replace(c->vc_keymap, new_keymap);
                         c->vc_keymap_toggle = mfree(c->vc_keymap_toggle);
                         modified = true;
-                } else
-                        free(new_keymap);
+                }
         }
 
         if (modified)
