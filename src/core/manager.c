@@ -369,6 +369,11 @@ static int manager_setup_time_change(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create time change event source: %m");
 
+        /* Schedule this slightly earlier than the .timer event sources */
+        r = sd_event_source_set_priority(m->time_change_event_source, SD_EVENT_PRIORITY_NORMAL-1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority of time change event sources: %m");
+
         (void) sd_event_source_set_description(m->time_change_event_source, "manager-time-change");
 
         log_debug("Set up TFD_TIMER_CANCEL_ON_SET timerfd.");
@@ -401,7 +406,7 @@ static int manager_read_timezone_stat(Manager *m) {
 }
 
 static int manager_setup_timezone_change(Manager *m) {
-        sd_event_source *new_event = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *new_event = NULL;
         int r;
 
         assert(m);
@@ -429,8 +434,13 @@ static int manager_setup_timezone_change(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create timezone change event source: %m");
 
+        /* Schedule this slightly earlier than the .timer event sources */
+        r = sd_event_source_set_priority(new_event, SD_EVENT_PRIORITY_NORMAL-1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority of timezone change event sources: %m");
+
         sd_event_source_unref(m->timezone_change_event_source);
-        m->timezone_change_event_source = new_event;
+        m->timezone_change_event_source = TAKE_PTR(new_event);
 
         return 0;
 }
