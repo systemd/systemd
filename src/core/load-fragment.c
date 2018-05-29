@@ -438,37 +438,7 @@ int config_parse_socket_protocol(const char *unit,
         return 0;
 }
 
-int config_parse_socket_bind(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
-
-        Socket *s;
-        SocketAddressBindIPv6Only b;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        s = SOCKET(data);
-
-        b = parse_socket_address_bind_ipv6_only_or_bool(rvalue);
-        if (b < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse bind IPv6 only value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        s->bind_ipv6_only = b;
-
-        return 0;
-}
+DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_bind, socket_address_bind_ipv6_only_or_bool, SocketAddressBindIPv6Only, "Failed to parse bind IPv6 only value");
 
 int config_parse_exec_nice(
                 const char *unit,
