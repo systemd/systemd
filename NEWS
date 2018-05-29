@@ -1966,7 +1966,7 @@ CHANGES WITH 231:
           with future releases) that the components link to. This should
           decrease systemd footprint both in memory during runtime and on
           disk. Note that the shared library is not for public use, and is
-          neither API not ABI stable, but is likely to change with every new
+          neither API nor ABI stable, but is likely to change with every new
           released update. Packagers need to make sure that binaries
           linking to libsystemd-shared.so are updated in step with the
           library.

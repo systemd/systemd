@@ -838,7 +838,7 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                                         printf("%s=", name);
 
                                 /* This property has multiple space-separated values, so
-                                 * neither spaces not newlines can be allowed in a value. */
+                                 * neither spaces nor newlines can be allowed in a value. */
                                 good = str[strcspn(str, " \n")] == '\0';
 
                                 printf("%s%s", first ? "" : " ", good ? str : "[unprintable]");

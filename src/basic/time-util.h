@@ -183,5 +183,5 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
 /* With a 32bit time_t we can't go beyond 2038... */
 #define USEC_TIMESTAMP_FORMATTABLE_MAX ((usec_t) 2147483647000000)
 #else
-#error "Yuck, time_t is neither 4 not 8 bytes wide?"
+#error "Yuck, time_t is neither 4 nor 8 bytes wide?"
 #endif
