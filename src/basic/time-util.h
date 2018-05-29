@@ -185,3 +185,5 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
 #else
 #error "Yuck, time_t is neither 4 nor 8 bytes wide?"
 #endif
+
+int time_change_fd(void);
