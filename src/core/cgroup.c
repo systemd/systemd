@@ -1453,6 +1453,7 @@ static int unit_create_cgroup(
 
         CGroupContext *c;
         int r;
+        bool created;
 
         assert(u);
 
@@ -1469,14 +1470,20 @@ static int unit_create_cgroup(
         r = cg_create_everywhere(u->manager->cgroup_supported, target_mask, u->cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to create cgroup %s: %m", u->cgroup_path);
+        created = !!r;
 
         /* Start watching it */
         (void) unit_watch_cgroup(u);
 
-        /* Enable all controllers we need */
-        r = cg_enable_everywhere(u->manager->cgroup_supported, enable_mask, u->cgroup_path);
-        if (r < 0)
-                log_unit_warning_errno(u, r, "Failed to enable controllers on cgroup %s, ignoring: %m", u->cgroup_path);
+        /* Preserve enabled controllers in delegated units, adjust others. */
+        if (created || !unit_cgroup_delegate(u)) {
+
+                /* Enable all controllers we need */
+                r = cg_enable_everywhere(u->manager->cgroup_supported, enable_mask, u->cgroup_path);
+                if (r < 0)
+                        log_unit_warning_errno(u, r, "Failed to enable controllers on cgroup %s, ignoring: %m",
+                                               u->cgroup_path);
+        }
 
         /* Keep track that this is now realized */
         u->cgroup_realized = true;

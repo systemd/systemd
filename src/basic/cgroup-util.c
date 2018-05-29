@@ -754,6 +754,9 @@ int cg_trim(const char *controller, const char *path, bool delete_root) {
         return r;
 }
 
+/* Create a cgroup in the hierarchy of controller.
+ * Returns 0 if the group already existed, 1 on success, negative otherwise.
+ */
 int cg_create(const char *controller, const char *path) {
         _cleanup_free_ char *fs = NULL;
         int r;
@@ -2104,23 +2107,29 @@ done:
 
 int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path) {
         CGroupController c;
+        bool created;
         int r;
 
         /* This one will create a cgroup in our private tree, but also
          * duplicate it in the trees specified in mask, and remove it
-         * in all others */
+         * in all others.
+         *
+         * Returns 0 if the group already existed in the systemd hierarchy,
+         * 1 on success, negative otherwise.
+         */
 
         /* First create the cgroup in our own hierarchy. */
         r = cg_create(SYSTEMD_CGROUP_CONTROLLER, path);
         if (r < 0)
                 return r;
+        created = !!r;
 
         /* If we are in the unified hierarchy, we are done now */
         r = cg_all_unified();
         if (r < 0)
                 return r;
         if (r > 0)
-                return 0;
+                return created;
 
         /* Otherwise, do the same in the other hierarchies */
         for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
@@ -2135,7 +2144,7 @@ int cg_create_everywhere(CGroupMask supported, CGroupMask mask, const char *path
                         (void) cg_trim(n, path, true);
         }
 
-        return 0;
+        return created;
 }
 
 int cg_attach_everywhere(CGroupMask supported, const char *path, pid_t pid, cg_migrate_callback_t path_callback, void *userdata) {
