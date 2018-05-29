@@ -552,14 +552,17 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                 return sd_bus_error_set_errnof(error, r, "Failed to set time zone: %m");
         }
 
-        /* 2. Tell the kernel our timezone */
+        /* 2. Make glibc notice the new timezone */
+        tzset();
+
+        /* 3. Tell the kernel our timezone */
         clock_set_timezone(NULL);
 
         if (c->local_rtc) {
                 struct timespec ts;
                 struct tm *tm;
 
-                /* 3. Sync RTC from system clock, with the new delta */
+                /* 4. Sync RTC from system clock, with the new delta */
                 assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
                 assert_se(tm = localtime(&ts.tv_sec));
                 clock_set_hwclock(tm);
@@ -568,7 +571,9 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TIMEZONE_CHANGE_STR,
                    "TIMEZONE=%s", c->zone,
-                   LOG_MESSAGE("Changed time zone to '%s'.", c->zone),
+                   "TIMEZONE_SHORTNAME=%s", tzname[daylight],
+                   "DAYLIGHT=%i", daylight,
+                   LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, tzname[daylight]),
                    NULL);
 
         (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone", NULL);
