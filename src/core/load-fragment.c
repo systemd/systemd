@@ -2455,33 +2455,7 @@ int config_parse_log_extra_fields(
         }
 }
 
-int config_parse_ip_tos(const char *unit,
-                        const char *filename,
-                        unsigned line,
-                        const char *section,
-                        unsigned section_line,
-                        const char *lvalue,
-                        int ltype,
-                        const char *rvalue,
-                        void *data,
-                        void *userdata) {
-
-        int *ip_tos = data, x;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        x = ip_tos_from_string(rvalue);
-        if (x < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IP TOS value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *ip_tos = x;
-        return 0;
-}
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_ip_tos, ip_tos, int, -1, "Failed to parse IP TOS value");
 
 int config_parse_unit_condition_path(
                 const char *unit,
