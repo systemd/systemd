@@ -404,40 +404,22 @@ int config_parse_socket_listen(const char *unit,
         return 0;
 }
 
-int config_parse_socket_protocol(const char *unit,
-                                 const char *filename,
-                                 unsigned line,
-                                 const char *section,
-                                 unsigned section_line,
-                                 const char *lvalue,
-                                 int ltype,
-                                 const char *rvalue,
-                                 void *data,
-                                 void *userdata) {
-        Socket *s;
+static int supported_socket_protocol_from_string(const char *s) {
         int r;
 
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
+        if (isempty(s))
+                return IPPROTO_IP;
 
-        s = SOCKET(data);
+        r = socket_protocol_from_name(s);
+        if (r < 0)
+                return -EINVAL;
+        if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP))
+                return -EPROTONOSUPPORT;
 
-        r = socket_protocol_from_name(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid socket protocol '%s', ignoring: %m", rvalue);
-                return 0;
-        } else if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Socket protocol not supported, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        s->socket_protocol = r;
-
-        return 0;
+        return r;
 }
 
+DEFINE_CONFIG_PARSE(config_parse_socket_protocol, supported_socket_protocol_from_string, "Failed to parse socket protocol");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_bind, socket_address_bind_ipv6_only_or_bool, SocketAddressBindIPv6Only, "Failed to parse bind IPv6 only value");
 
 int config_parse_exec_nice(
