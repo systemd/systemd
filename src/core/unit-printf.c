@@ -232,6 +232,8 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
          * %S: the state directory root (e.g. /var/lib or $XDG_CONFIG_HOME)
          * %C: the cache directory root (e.g. /var/cache or $XDG_CACHE_HOME)
          * %L: the log directory root (e.g. /var/log or $XDG_CONFIG_HOME/log)
+         * %T: the temporary directory (e.g. /tmp, or $TMPDIR, $TEMP, $TMP)
+         * %V: the temporary directory for large, persistent stuff (e.g. /var/tmp, or $TMPDIR, $TEMP, $TMP)
          *
          * %h: the homedir of the running user
          * %s: the shell of the running user
@@ -257,10 +259,13 @@ int unit_full_printf(Unit *u, const char *format, char **ret) {
                 { 'c', specifier_cgroup,                   NULL },
                 { 'r', specifier_cgroup_slice,             NULL },
                 { 'R', specifier_cgroup_root,              NULL },
+
                 { 't', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_RUNTIME) },
                 { 'S', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
                 { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
                 { 'L', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
+                { 'T', specifier_tmp_dir,                  NULL },
+                { 'V', specifier_var_tmp_dir,              NULL },
 
                 { 'U', specifier_user_id,                  NULL },
                 { 'u', specifier_user_name,                NULL },

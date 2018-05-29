@@ -15,6 +15,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "fs-util.h"
 #include "hostname-util.h"
 #include "macro.h"
 #include "specifier.h"
@@ -220,6 +221,40 @@ int specifier_user_shell(char specifier, void *data, void *userdata, char **ret)
          * which is good. See above */
 
         return get_shell(ret);
+}
+
+int specifier_tmp_dir(char specifier, void *data, void *userdata, char **ret) {
+        const char *p;
+        char *copy;
+        int r;
+
+        r = tmp_dir(&p);
+        if (r < 0)
+                return r;
+
+        copy = strdup(p);
+        if (!copy)
+                return -ENOMEM;
+
+        *ret = copy;
+        return 0;
+}
+
+int specifier_var_tmp_dir(char specifier, void *data, void *userdata, char **ret) {
+        const char *p;
+        char *copy;
+        int r;
+
+        r = var_tmp_dir(&p);
+        if (r < 0)
+                return r;
+
+        copy = strdup(p);
+        if (!copy)
+                return -ENOMEM;
+
+        *ret = copy;
+        return 0;
 }
 
 int specifier_escape_strv(char **l, char ***ret) {

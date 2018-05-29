@@ -652,6 +652,11 @@ r! /tmp/.X[0-9]*-lock</programlisting>
               <entry>In --user mode, this is the same <varname>$XDG_RUNTIME_DIR</varname>, and <filename>/run</filename> otherwise.</entry>
             </row>
             <row>
+              <entry><literal>%T</literal></entry>
+              <entry>Directory for temporary files</entry>
+              <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
+            </row>
+            <row>
               <entry><literal>%u</literal></entry>
               <entry>User name</entry>
               <entry>This is the name of the user running the service manager instance. In case of the system manager this resolves to <literal>root</literal>.</entry>
@@ -665,6 +670,11 @@ r! /tmp/.X[0-9]*-lock</programlisting>
               <entry><literal>%v</literal></entry>
               <entry>Kernel release</entry>
               <entry>Identical to <command>uname -r</command> output.</entry>
+            </row>
+            <row>
+              <entry><literal>%V</literal></entry>
+              <entry>Directory for larger and persistent temporary files</entry>
+              <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
             </row>
             <row>
               <entry><literal>%%</literal></entry>
