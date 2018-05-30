@@ -832,8 +832,7 @@ static int output_json(
                 char *n;
                 unsigned u;
 
-                if (length >= 9 &&
-                    memcmp(data, "_BOOT_ID=", 9) == 0)
+                if (memory_startswith(data, length, "_BOOT_ID="))
                         continue;
 
                 eq = memchr(data, '=', length);
@@ -882,10 +881,8 @@ static int output_json(
                         size_t m;
                         unsigned u;
 
-                        /* We already printed the boot id, from the data in
-                         * the header, hence let's suppress it here */
-                        if (length >= 9 &&
-                            memcmp(data, "_BOOT_ID=", 9) == 0)
+                        /* We already printed the boot id, from the data in the header, hence let's suppress it here */
+                        if (memory_startswith(data, length, "_BOOT_ID="))
                                 continue;
 
                         eq = memchr(data, '=', length);

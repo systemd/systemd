@@ -1037,13 +1037,9 @@ int log_struct_iovec_internal(
                         return -error;
         }
 
-        for (i = 0; i < n_input_iovec; i++) {
-                if (input_iovec[i].iov_len < STRLEN("MESSAGE="))
-                        continue;
-
-                if (memcmp(input_iovec[i].iov_base, "MESSAGE=", STRLEN("MESSAGE=")) == 0)
+        for (i = 0; i < n_input_iovec; i++)
+                if (memory_startswith(input_iovec[i].iov_base, input_iovec[i].iov_len, "MESSAGE="))
                         break;
-        }
 
         if (_unlikely_(i >= n_input_iovec)) /* Couldn't find MESSAGE=? */
                 return -error;

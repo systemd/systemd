@@ -248,16 +248,13 @@ static bool line_equals(const char *s, size_t m, const char *line) {
 }
 
 static bool line_begins(const char *s, size_t m, const char *word) {
-        size_t l;
+        const char *p;
 
-        l = strlen(word);
-        if (m < l)
+        p = memory_startswith(s, m, word);
+        if (!p)
                 return false;
 
-        if (memcmp(s, word, l) != 0)
-                return false;
-
-        return m == l || (m > l && s[l] == ' ');
+        return IN_SET(*p, 0, ' ');
 }
 
 static int verify_anonymous_token(sd_bus *b, const char *p, size_t l) {
