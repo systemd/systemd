@@ -525,10 +525,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 return 0;                                             \
         }
 
-DEFINE_SETTER(config_parse_level2, log_set_max_level_from_string, "log level")
-DEFINE_SETTER(config_parse_target, log_set_target_from_string, "target")
-DEFINE_SETTER(config_parse_color, log_show_color_from_string, "color" )
-DEFINE_SETTER(config_parse_location, log_show_location_from_string, "location")
+DEFINE_SETTER(config_parse_level2, log_set_max_level_from_string, "log level");
+DEFINE_SETTER(config_parse_target, log_set_target_from_string, "target");
+DEFINE_SETTER(config_parse_color, log_show_color_from_string, "color" );
+DEFINE_SETTER(config_parse_location, log_show_location_from_string, "location");
 
 static int config_parse_cpu_affinity2(
                 const char *unit,
@@ -1640,8 +1640,12 @@ static int invoke_main_loop(
 
                 switch (m->exit_code) {
 
-                case MANAGER_RELOAD:
+                case MANAGER_RELOAD: {
+                        int saved_log_level;
+
                         log_info("Reloading.");
+
+                        saved_log_level = m->log_level_overridden ? log_get_max_level() : -1;
 
                         r = parse_config_file();
                         if (r < 0)
@@ -1649,11 +1653,15 @@ static int invoke_main_loop(
 
                         set_manager_defaults(m);
 
+                        if (saved_log_level >= 0)
+                                manager_override_log_level(m, saved_log_level);
+
                         r = manager_reload(m);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to reload, ignoring: %m");
 
                         break;
+                }
 
                 case MANAGER_REEXECUTE:
 

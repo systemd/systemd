@@ -74,6 +74,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "syslog-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "transaction.h"
@@ -735,6 +736,7 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         m->default_timeout_start_usec = DEFAULT_TIMEOUT_USEC;
         m->default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
         m->default_restart_usec = DEFAULT_RESTART_USEC;
+        m->original_log_level = -1;
 
 #if ENABLE_EFI
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
@@ -2626,13 +2628,11 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         break;
 
                 case 22:
-                        log_set_max_level(LOG_DEBUG);
-                        log_info("Setting log level to debug.");
+                        manager_override_log_level(m, LOG_DEBUG);
                         break;
 
                 case 23:
-                        log_set_max_level(LOG_INFO);
-                        log_info("Setting log level to info.");
+                        manager_restore_original_log_level(m);
                         break;
 
                 case 24:
@@ -3027,6 +3027,9 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         fprintf(f, "taint-logged=%s\n", yes_no(m->taint_logged));
         fprintf(f, "service-watchdogs=%s\n", yes_no(m->service_watchdogs));
 
+        if (m->log_level_overridden)
+                fprintf(f, "log-level-override=%i\n", log_get_max_level());
+
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 /* The userspace and finish timestamps only apply to the host system, hence only serialize them there */
                 if (in_initrd() && IN_SET(q, MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH))
@@ -3209,6 +3212,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse service-watchdogs flag %s", val);
                         else
                                 m->service_watchdogs = b;
+
+                } else if ((val = startswith(l, "log-level-override="))) {
+                        int level;
+
+                        level = log_level_from_string(val);
+                        if (level < 0)
+                                log_notice("Failed to parse log-level-override value '%s', ignoring.", val);
+                        else
+                                manager_override_log_level(m, level);
 
                 } else if (startswith(l, "env=")) {
                         r = deserialize_environment(&m->environment, l);
@@ -4446,6 +4458,35 @@ void manager_unref_console(Manager *m) {
 
         if (m->n_on_console == 0)
                 m->no_console_output = false; /* unset no_console_output flag, since the console is definitely free now */
+}
+
+void manager_override_log_level(Manager *m, int level) {
+        _cleanup_free_ char *s = NULL;
+        assert(m);
+
+        if (!m->log_level_overridden) {
+                m->original_log_level = log_get_max_level();
+                m->log_level_overridden = true;
+        }
+
+        (void) log_level_to_string_alloc(level, &s);
+        log_info("Setting log level to %s.", strna(s));
+
+        log_set_max_level(level);
+}
+
+void manager_restore_original_log_level(Manager *m) {
+        _cleanup_free_ char *s = NULL;
+        assert(m);
+
+        if (!m->log_level_overridden)
+                return;
+
+        (void) log_level_to_string_alloc(m->original_log_level, &s);
+        log_info("Restoring log level to original (%s).", strna(s));
+
+        log_set_max_level(m->original_log_level);
+        m->log_level_overridden = false;
 }
 
 static const char *const manager_state_table[_MANAGER_STATE_MAX] = {

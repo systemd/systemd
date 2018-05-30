@@ -302,6 +302,9 @@ struct Manager {
         uint64_t default_tasks_max;
         usec_t default_timer_accuracy_usec;
 
+        int original_log_level;
+        bool log_level_overridden:1;
+
         struct rlimit *rlimit[_RLIMIT_MAX];
 
         /* non-zero if we are reloading or reexecuting, */
@@ -464,6 +467,9 @@ char *manager_taint_string(Manager *m);
 
 void manager_ref_console(Manager *m);
 void manager_unref_console(Manager *m);
+
+void manager_override_log_level(Manager *m, int level);
+void manager_restore_original_log_level(Manager *m);
 
 const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;
