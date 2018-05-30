@@ -3227,13 +3227,21 @@ static int bus_add_match_full(
                                 goto finish;
                         }
 
-                        if (asynchronous)
+                        if (asynchronous) {
                                 r = bus_add_match_internal_async(bus,
                                                                  &s->match_callback.install_slot,
                                                                  s->match_callback.match_string,
                                                                  add_match_callback,
                                                                  s);
-                        else
+
+                                if (r < 0)
+                                        return r;
+
+                                /* Make the slot of the match call floating now. We need the reference, but we don't
+                                 * want that this match pins the bus object, hence we first create it non-floating, but
+                                 * then make it floating. */
+                                r = sd_bus_slot_set_floating(s->match_callback.install_slot, true);
+                        } else
                                 r = bus_add_match_internal(bus, s->match_callback.match_string);
                         if (r < 0)
                                 goto finish;

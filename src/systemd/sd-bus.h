@@ -228,6 +228,8 @@ void *sd_bus_slot_get_userdata(sd_bus_slot *slot);
 void *sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata);
 int sd_bus_slot_set_description(sd_bus_slot *slot, const char *description);
 int sd_bus_slot_get_description(sd_bus_slot *slot, const char **description);
+int sd_bus_slot_get_floating(sd_bus_slot *slot);
+int sd_bus_slot_set_floating(sd_bus_slot *slot, int b);
 
 sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot);
 sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *bus);

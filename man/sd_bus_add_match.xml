@@ -123,7 +123,7 @@
     name), from which the match string is internally generated. Optionally, these parameters may be specified as
     <constant>NULL</constant> in which case the relevant field of incoming signals is not tested.</para>
 
-    <para><function>sd_bus_match_signal_async()</function> is combines the signal matching logic of
+    <para><function>sd_bus_match_signal_async()</function> combines the signal matching logic of
     <function>sd_bus_match_signal()</function> with the asynchronous behaviour of
     <function>sd_bus_add_match_async()</function>.</para>
 
@@ -132,7 +132,9 @@
     at a later time with
     <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If specified
     as <constant>NULL</constant> the lifetime of the match is bound to the lifetime of the bus object itself, and the
-    match cannot be removed independently.</para>
+    match is generally not removed independently. See
+    <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+    details.</para>
 
     <para>The message <parameter>m</parameter> passed to the callback is only borrowed, that is, the callback should
     not call <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
@@ -175,7 +177,8 @@
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_slot_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>sd_bus_set_bus_client</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>sd_bus_set_bus_client</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>
 

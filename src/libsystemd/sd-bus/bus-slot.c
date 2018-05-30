@@ -260,6 +260,37 @@ _public_ void* sd_bus_slot_get_current_userdata(sd_bus_slot *slot) {
         return slot->bus->current_userdata;
 }
 
+_public_ int sd_bus_slot_get_floating(sd_bus_slot *slot) {
+        assert_return(slot, -EINVAL);
+
+        return slot->floating;
+}
+
+_public_ int sd_bus_slot_set_floating(sd_bus_slot *slot, int b) {
+        assert_return(slot, -EINVAL);
+
+        if (slot->floating == !!b)
+                return 0;
+
+        if (!slot->bus) /* already disconnected slots can't be reconnected */
+                return -ESTALE;
+
+        slot->floating = b;
+
+        /* When a slot is "floating" then the bus references the slot. Otherwise the slot references the bus. Hence,
+         * when we move from one to the other, let's increase one reference and decrease the other. */
+
+        if (b) {
+                sd_bus_slot_ref(slot);
+                sd_bus_unref(slot->bus);
+        } else {
+                sd_bus_ref(slot->bus);
+                sd_bus_slot_unref(slot);
+        }
+
+        return 1;
+}
+
 _public_ int sd_bus_slot_set_description(sd_bus_slot *slot, const char *description) {
         assert_return(slot, -EINVAL);
 
@@ -269,8 +300,13 @@ _public_ int sd_bus_slot_set_description(sd_bus_slot *slot, const char *descript
 _public_ int sd_bus_slot_get_description(sd_bus_slot *slot, const char **description) {
         assert_return(slot, -EINVAL);
         assert_return(description, -EINVAL);
-        assert_return(slot->description, -ENXIO);
 
-        *description = slot->description;
+        if (slot->description)
+                *description = slot->description;
+        else if (slot->type == BUS_MATCH_CALLBACK)
+                *description = slot->match_callback.match_string;
+        else
+                return -ENXIO;
+
         return 0;
 }
