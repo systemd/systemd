@@ -108,3 +108,20 @@ static inline int make_null_stdio(void) {
         })
 
 int fd_reopen(int fd, int flags);
+
+struct _funlockfile_struct_ {
+        FILE *f;
+        bool quit;
+};
+
+static inline void _release_funlockfile_(struct _funlockfile_struct_ *s) {
+        funlockfile(s->f);
+}
+
+#define WITH_FLOCKFILE(f) \
+        for (_cleanup_(_release_funlockfile_) struct _funlockfile_struct_ _flocked_ = ({ \
+                                flockfile(f);                           \
+                                (struct _funlockfile_struct_) { (f), false}; \
+                        });                                             \
+             !_flocked_.quit;                                           \
+             _flocked_.quit = true)

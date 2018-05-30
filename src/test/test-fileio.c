@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "alloc-util.h"
 #include "ctype.h"
@@ -714,6 +715,51 @@ static void test_read_line3(void) {
         assert_se(read_line(f, LINE_MAX, NULL) == 0);
 }
 
+static void *checker(void *p) {
+        FILE *f = p;
+
+        if (ftrylockfile(f) != 0)
+                return (void*) true;
+
+        funlockfile(f);
+        return (void*) false;
+}
+
+static bool fislockfiled(FILE *f) {
+        void *retval;
+        pthread_t t;
+
+        /* Checks whether the object is currently locked, through ftrylockfile(). A horrible hack but good enough for
+         * testing */
+
+        assert_se(pthread_create(&t, NULL, checker, f) == 0);
+        assert_se(pthread_join(t, &retval) == 0);
+
+        return !!retval;
+}
+
+static void test_with_flockfile(void) {
+        _cleanup_fclose_ FILE *f = NULL;
+
+        assert_se(f = tmpfile());
+
+        assert_se(!fislockfiled(f));
+        flockfile(f);
+        assert_se(fislockfiled(f));
+        funlockfile(f);
+        assert_se(!fislockfiled(f));
+
+        {
+                assert_se(!fislockfiled(f));
+                WITH_FLOCKFILE(f) {
+                        assert_se(fislockfiled(f));
+                }
+                assert_se(!fislockfiled(f));
+        }
+
+        assert_se(!fislockfiled(f));
+}
+
 int main(int argc, char *argv[]) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
@@ -738,6 +784,7 @@ int main(int argc, char *argv[]) {
         test_read_line();
         test_read_line2();
         test_read_line3();
+        test_with_flockfile();
 
         return 0;
 }
