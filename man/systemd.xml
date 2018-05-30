@@ -742,15 +742,16 @@
 
       <varlistentry>
         <term><constant>SIGRTMIN+22</constant></term>
+
+        <listitem><para>Sets the log level to <literal>debug</literal> as controlled via
+        <varname>systemd.log_level=debug</varname> on the kernel command line.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>SIGRTMIN+23</constant></term>
 
-        <listitem><para>Sets the log level to <literal>debug</literal>
-        (or <literal>info</literal> on
-        <constant>SIGRTMIN+23</constant>), as controlled via
-        <varname>systemd.log_level=debug</varname> (or
-        <varname>systemd.log_level=info</varname> on
-        <constant>SIGRTMIN+23</constant>) on the kernel command
-        line.</para></listitem>
+        <listitem><para>Restores the log level to its default value as defined by the default
+        settings.</para></listitem>
       </varlistentry>
 
       <varlistentry>

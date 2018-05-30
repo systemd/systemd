@@ -73,6 +73,7 @@
 #include "signal-util.h"
 #include "smack-setup.h"
 #include "special.h"
+#include "syslog-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "strv.h"
@@ -103,6 +104,7 @@ static bool arg_switched_root = false;
 static bool arg_no_pager = false;
 static bool arg_service_watchdogs = true;
 static char ***arg_join_controllers = NULL;
+static int arg_default_log_max_level = LOG_INFO;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 static usec_t arg_default_restart_usec = DEFAULT_RESTART_USEC;
@@ -522,10 +524,11 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 return 0;                                             \
         }
 
-DEFINE_SETTER(config_parse_level2, log_set_max_level_from_string, "log level")
 DEFINE_SETTER(config_parse_target, log_set_target_from_string, "target")
 DEFINE_SETTER(config_parse_color, log_show_color_from_string, "color" )
 DEFINE_SETTER(config_parse_location, log_show_location_from_string, "location")
+
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_level2, log_level, int, "log level");
 
 static int config_parse_cpu_affinity2(
                 const char *unit,
@@ -645,7 +648,7 @@ static int config_parse_crash_chvt(
 static int parse_config_file(void) {
 
         const ConfigTableItem items[] = {
-                { "Manager", "LogLevel",                  config_parse_level2,           0, NULL                                   },
+                { "Manager", "LogLevel",                  config_parse_level2,           0, &arg_default_log_max_level             },
                 { "Manager", "LogTarget",                 config_parse_target,           0, NULL                                   },
                 { "Manager", "LogColor",                  config_parse_color,            0, NULL                                   },
                 { "Manager", "LogLocation",               config_parse_location,         0, NULL                                   },
@@ -758,6 +761,10 @@ static void set_manager_settings(Manager *m) {
         m->runtime_watchdog = arg_runtime_watchdog;
         m->shutdown_watchdog = arg_shutdown_watchdog;
         m->cad_burst_action = arg_cad_burst_action;
+        m->default_log_max_level = arg_default_log_max_level;
+
+        if (!m->log_max_level_overridden)
+                log_set_max_level(m->default_log_max_level);
 
         manager_set_show_status(m, arg_show_status);
 }
@@ -1953,6 +1960,9 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
                 return r;
         }
 
+        /* Log level should be put in effect as soon as possible. */
+        log_set_max_level(arg_default_log_max_level);
+
         if (arg_system) {
                 r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
                 if (r < 0)
@@ -1967,6 +1977,11 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
                 *ret_error_message = "Failed to parse commandline arguments";
                 return r;
         }
+
+        /* The log level might have been changed through environment variables
+         * or options, let's record the new value as the definitive default
+         * one. */
+        arg_default_log_max_level = log_get_max_level();
 
         /* Initialize default unit */
         if (!arg_default_unit) {

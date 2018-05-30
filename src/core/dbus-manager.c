@@ -158,6 +158,7 @@ static int property_set_log_level(
                 void *userdata,
                 sd_bus_error *error) {
 
+        Manager *m = userdata;
         const char *t;
         int r;
 
@@ -168,9 +169,18 @@ static int property_set_log_level(
         if (r < 0)
                 return r;
 
+        if (isempty(t)) {
+                log_set_max_level(m->default_log_max_level);
+                m->log_max_level_overridden = false;
+                log_info("Restoring log level to the default setting.");
+                return 0;
+        }
+
         r = log_set_max_level_from_string(t);
-        if (r == 0)
+        if (r == 0) {
+                m->log_max_level_overridden = true;
                 log_info("Setting log level to %s.", t);
+        }
         return r;
 }
 
