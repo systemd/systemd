@@ -1847,6 +1847,31 @@ int link_up(Link *link) {
         return 0;
 }
 
+static int link_up_can(Link *link) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+
+        log_link_debug(link, "Bringing CAN link up");
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+
+        r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not set link flags: %m");
+
+        r = sd_netlink_call_async(link->manager->rtnl, req, link_up_handler, link, 0, NULL);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link_ref(link);
+
+        return 0;
+}
+
 static int link_down_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata) {
         _cleanup_(link_unrefp) Link *link = userdata;
         int r;
@@ -1883,31 +1908,6 @@ int link_down(Link *link) {
                 return log_link_error_errno(link, r, "Could not set link flags: %m");
 
         r = sd_netlink_call_async(link->manager->rtnl, req, link_down_handler, link,  0, NULL);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
-
-        return 0;
-}
-
-static int link_up_can(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(link);
-
-        log_link_debug(link, "Bringing CAN link up");
-
-        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
-
-        r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set link flags: %m");
-
-        r = sd_netlink_call_async(link->manager->rtnl, req, link_up_handler, link, 0, NULL);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
 
