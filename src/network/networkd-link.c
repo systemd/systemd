@@ -2599,6 +2599,20 @@ static int link_update_lldp(Link *link) {
         return r;
 }
 
+static int link_configure_can(Link *link) {
+        int r;
+
+        if (!(link->flags & IFF_UP)) {
+                r = link_up_can(link);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
 static int link_configure(Link *link) {
         int r;
 
@@ -2606,18 +2620,8 @@ static int link_configure(Link *link) {
         assert(link->network);
         assert(link->state == LINK_STATE_PENDING);
 
-        if (streq_ptr(link->kind, "vcan")) {
-
-                if (!(link->flags & IFF_UP)) {
-                        r = link_up_can(link);
-                        if (r < 0) {
-                                link_enter_failed(link);
-                                return r;
-                        }
-                }
-
-                return 0;
-        }
+        if (streq_ptr(link->kind, "vcan"))
+                return link_configure_can(link);
 
         /* Drop foreign config, but ignore loopback or critical devices.
          * We do not want to remove loopback address or addresses used for root NFS. */
