@@ -123,7 +123,7 @@
     name), from which the match string is internally generated. Optionally, these parameters may be specified as
     <constant>NULL</constant> in which case the relevant field of incoming signals is not tested.</para>
 
-    <para><function>sd_bus_match_signal_async()</function> is combines the signal matching logic of
+    <para><function>sd_bus_match_signal_async()</function> combines the signal matching logic of
     <function>sd_bus_match_signal()</function> with the asynchronous behaviour of
     <function>sd_bus_add_match_async()</function>.</para>
 
