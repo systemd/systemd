@@ -423,6 +423,13 @@ evdev:name:1A586753:00 06CB:8323 Touchpad:dmi:*svnRazer:pnBladeStealth:*
  EVDEV_ABS_35=::12:8
  EVDEV_ABS_36=::11:8
 
+# Razer Blade Stealth (2016)
+evdev:name:Synaptics TM2438-005:dmi:*svnRazer:pnBladeStealth*
+ EVDEV_ABS_00=0:4064:29
+ EVDEV_ABS_01=0:2405:37
+ EVDEV_ABS_35=0:4064:29
+ EVDEV_ABS_36=0:2405:37
+
 #########################################
 # Samsung
 #########################################
@@ -467,17 +474,6 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnTOSHIBA:pnSATELLITER830*
  EVDEV_ABS_01=1045:4826:76
  EVDEV_ABS_35=1238:5785:53
  EVDEV_ABS_36=1045:4826:76
-
-#########################################
-# Razer
-#########################################
-
-# Razer Blade Stealth (2016)
-evdev:name:Synaptics TM2438-005:dmi:*svnRazer:pnBladeStealth*
- EVDEV_ABS_00=0:4064:29
- EVDEV_ABS_01=0:2405:37
- EVDEV_ABS_35=0:4064:29
- EVDEV_ABS_36=0:2405:37
 
 #########################################
 # Waltop
