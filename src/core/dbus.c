@@ -1098,17 +1098,11 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 }
 
 void bus_done_api(Manager *m) {
-        assert(m);
-
-        if (m->api_bus)
-                destroy_bus(m, &m->api_bus);
+        destroy_bus(m, &m->api_bus);
 }
 
 void bus_done_system(Manager *m) {
-        assert(m);
-
-        if (m->system_bus)
-                destroy_bus(m, &m->system_bus);
+        destroy_bus(m, &m->system_bus);
 }
 
 void bus_done_private(Manager *m) {
