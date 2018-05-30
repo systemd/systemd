@@ -300,8 +300,13 @@ _public_ int sd_bus_slot_set_description(sd_bus_slot *slot, const char *descript
 _public_ int sd_bus_slot_get_description(sd_bus_slot *slot, const char **description) {
         assert_return(slot, -EINVAL);
         assert_return(description, -EINVAL);
-        assert_return(slot->description, -ENXIO);
 
-        *description = slot->description;
+        if (slot->description)
+                *description = slot->description;
+        else if (slot->type == BUS_MATCH_CALLBACK)
+                *description = slot->match_callback.match_string;
+        else
+                return -ENXIO;
+
         return 0;
 }
