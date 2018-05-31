@@ -811,7 +811,8 @@ int config_parse_socket_bindtodevice(
                 return 0;
         }
 
-        free_and_strdup(&s->bind_to_device, rvalue);
+        if (free_and_strdup(&s->bind_to_device, rvalue) < 0)
+                return log_oom();
 
         return 0;
 }
