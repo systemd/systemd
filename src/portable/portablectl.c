@@ -141,18 +141,20 @@ static int determine_matches(const char *image, char **l, bool allow_any, char *
                 if (!arg_quiet)
                         log_info("(Matching all unit files.)");
         } else {
-                _cleanup_free_ char *joined = NULL;
 
                 k = strv_copy(l);
                 if (!k)
                         return log_oom();
 
-                joined = strv_join(k, "', '");
-                if (!joined)
-                        return log_oom();
+                if (!arg_quiet) {
+                        _cleanup_free_ char *joined = NULL;
 
-                if (!arg_quiet)
+                        joined = strv_join(k, "', '");
+                        if (!joined)
+                                return log_oom();
+
                         log_info("(Matching unit files with prefixes '%s'.)", joined);
+                }
         }
 
         *ret = TAKE_PTR(k);
