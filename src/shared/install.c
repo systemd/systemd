@@ -894,16 +894,13 @@ static int find_symlinks_in_scope(
                 if (r > 0) {
                         /* We found symlinks in this dir? Yay! Let's see where precisely it is enabled. */
 
-                        r = path_is_config(paths, *p, false);
-                        if (r < 0)
-                                return r;
-                        if (r > 0) {
+                        if (path_equal_ptr(*p, paths->persistent_config)) {
                                 /* This is the best outcome, let's return it immediately. */
                                 *state = UNIT_FILE_ENABLED;
                                 return 1;
                         }
 
-                        /* look for globally enablement of user units */
+                        /* look for global enablement of user units */
                         if (scope == UNIT_FILE_USER && path_is_user_config_dir(*p)) {
                                 *state = UNIT_FILE_ENABLED;
                                 return 1;
@@ -918,11 +915,7 @@ static int find_symlinks_in_scope(
                                 enabled_at_all = true;
 
                 } else if (same_name_link) {
-
-                        r = path_is_config(paths, *p, false);
-                        if (r < 0)
-                                return r;
-                        if (r > 0)
+                        if (path_equal_ptr(*p, paths->persistent_config))
                                 same_name_link_config = true;
                         else {
                                 r = path_is_runtime(paths, *p, false);
