@@ -786,27 +786,28 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sKeepAliveTimeSec: %s\n",
                         prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_time, USEC_PER_SEC));
 
-        if (s->keep_alive_interval)
+        if (s->keep_alive_interval > 0)
                 fprintf(f,
                         "%sKeepAliveIntervalSec: %s\n",
                         prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_interval, USEC_PER_SEC));
 
-        if (s->keep_alive_cnt)
+        if (s->keep_alive_cnt > 0)
                 fprintf(f,
                         "%sKeepAliveProbes: %u\n",
                         prefix, s->keep_alive_cnt);
 
-        if (s->defer_accept)
+        if (s->defer_accept > 0)
                 fprintf(f,
                         "%sDeferAcceptSec: %s\n",
                         prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->defer_accept, USEC_PER_SEC));
 
         LIST_FOREACH(port, p, s->ports) {
 
-                if (p->type == SOCKET_SOCKET) {
+                switch (p->type) {
+                case SOCKET_SOCKET: {
+                        _cleanup_free_ char *k = NULL;
                         const char *t;
                         int r;
-                        char *k = NULL;
 
                         r = socket_address_print(&p->address, &k);
                         if (r < 0)
@@ -815,15 +816,20 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                                 t = k;
 
                         fprintf(f, "%s%s: %s\n", prefix, listen_lookup(socket_address_family(&p->address), p->address.type), t);
-                        free(k);
-                } else if (p->type == SOCKET_SPECIAL)
+                        break;
+                }
+                case SOCKET_SPECIAL:
                         fprintf(f, "%sListenSpecial: %s\n", prefix, p->path);
-                else if (p->type == SOCKET_USB_FUNCTION)
+                        break;
+                case SOCKET_USB_FUNCTION:
                         fprintf(f, "%sListenUSBFunction: %s\n", prefix, p->path);
-                else if (p->type == SOCKET_MQUEUE)
+                        break;
+                case SOCKET_MQUEUE:
                         fprintf(f, "%sListenMessageQueue: %s\n", prefix, p->path);
-                else
+                        break;
+                default:
                         fprintf(f, "%sListenFIFO: %s\n", prefix, p->path);
+                }
         }
 
         fprintf(f,
@@ -1033,43 +1039,43 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         assert(fd >= 0);
 
         if (s->keep_alive) {
-                int b = s->keep_alive;
-                if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &b, sizeof(b)) < 0)
+                int one = 1;
+                if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof(one)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "SO_KEEPALIVE failed: %m");
         }
 
-        if (s->keep_alive_time) {
+        if (s->keep_alive_time > 0) {
                 int value = s->keep_alive_time / USEC_PER_SEC;
                 if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &value, sizeof(value)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPIDLE failed: %m");
         }
 
-        if (s->keep_alive_interval) {
+        if (s->keep_alive_interval > 0) {
                 int value = s->keep_alive_interval / USEC_PER_SEC;
                 if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &value, sizeof(value)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPINTVL failed: %m");
         }
 
-        if (s->keep_alive_cnt) {
+        if (s->keep_alive_cnt > 0) {
                 int value = s->keep_alive_cnt;
                 if (setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &value, sizeof(value)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPCNT failed: %m");
         }
 
-        if (s->defer_accept) {
+        if (s->defer_accept > 0) {
                 int value = s->defer_accept / USEC_PER_SEC;
                 if (setsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &value, sizeof(value)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_DEFER_ACCEPT failed: %m");
         }
 
         if (s->no_delay) {
-                int b = s->no_delay;
+                int one = 1;
 
                 if (s->socket_protocol == IPPROTO_SCTP) {
-                        if (setsockopt(fd, SOL_SCTP, SCTP_NODELAY, &b, sizeof(b)) < 0)
+                        if (setsockopt(fd, SOL_SCTP, SCTP_NODELAY, &one, sizeof(one)) < 0)
                                 log_unit_warning_errno(UNIT(s), errno, "SCTP_NODELAY failed: %m");
                 } else {
-                        if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &b, sizeof(b)) < 0)
+                        if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) < 0)
                                 log_unit_warning_errno(UNIT(s), errno, "TCP_NODELAY failed: %m");
                 }
         }
@@ -1100,7 +1106,6 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 int value = (int) s->receive_buffer;
 
                 /* We first try with SO_RCVBUFFORCE, in case we have the perms for that */
-
                 if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &value, sizeof(value)) < 0)
                         if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
                                 log_unit_warning_errno(UNIT(s), errno, "SO_RCVBUF failed: %m");
@@ -1190,7 +1195,7 @@ static int fifo_address_create(
                 return r;
 
         /* Enforce the right access mode for the fifo */
-        old_mask = umask(~ socket_mode);
+        old_mask = umask(~socket_mode);
 
         /* Include the original umask in our mask */
         (void) umask(~socket_mode | old_mask);
@@ -1294,7 +1299,7 @@ static int mq_address_create(
         }
 
         /* Enforce the right access mode for the mq */
-        old_mask = umask(~ mq_mode);
+        old_mask = umask(~mq_mode);
 
         /* Include the original umask in our mask */
         (void) umask(~mq_mode | old_mask);

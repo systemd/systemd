@@ -152,7 +152,45 @@ typedef enum Disabled {
         DISABLED_EXPERIMENTAL,
 } Disabled;
 
-#define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
+#define DEFINE_CONFIG_PARSE(function, parser, msg)                      \
+        CONFIG_PARSER_PROTOTYPE(function) {                             \
+                int *i = data, r;                                       \
+                                                                        \
+                assert(filename);                                       \
+                assert(lvalue);                                         \
+                assert(rvalue);                                         \
+                assert(data);                                           \
+                                                                        \
+                r = parser(rvalue);                                     \
+                if (r < 0) {                                            \
+                        log_syntax(unit, LOG_ERR, filename, line, r,    \
+                                   msg ", ignoring: %s", rvalue);       \
+                        return 0;                                       \
+                }                                                       \
+                                                                        \
+                *i = r;                                                 \
+                return 0;                                               \
+        }
+
+#define DEFINE_CONFIG_PARSE_PTR(function, parser, type, msg)            \
+        CONFIG_PARSER_PROTOTYPE(function) {                             \
+                type *i = data;                                         \
+                int r;                                                  \
+                                                                        \
+                assert(filename);                                       \
+                assert(lvalue);                                         \
+                assert(rvalue);                                         \
+                assert(data);                                           \
+                                                                        \
+                r = parser(rvalue, i);                                  \
+                if (r < 0)                                              \
+                        log_syntax(unit, LOG_ERR, filename, line, r,    \
+                                   msg ", ignoring: %s", rvalue);       \
+                                                                        \
+                return 0;                                               \
+        }
+
+#define DEFINE_CONFIG_PARSE_ENUM(function, name, type, msg)             \
         CONFIG_PARSER_PROTOTYPE(function) {                             \
                 type *i = data, x;                                      \
                                                                         \
@@ -161,8 +199,9 @@ typedef enum Disabled {
                 assert(rvalue);                                         \
                 assert(data);                                           \
                                                                         \
-                if ((x = name##_from_string(rvalue)) < 0) {             \
-                        log_syntax(unit, LOG_ERR, filename, line, -x,   \
+                x = name##_from_string(rvalue);                         \
+                if (x < 0) {                                            \
+                        log_syntax(unit, LOG_ERR, filename, line, 0,    \
                                    msg ", ignoring: %s", rvalue);       \
                         return 0;                                       \
                 }                                                       \
@@ -171,7 +210,32 @@ typedef enum Disabled {
                 return 0;                                               \
         }
 
-#define DEFINE_CONFIG_PARSE_ENUMV(function,name,type,invalid,msg)              \
+#define DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(function, name, type, default_value, msg) \
+        CONFIG_PARSER_PROTOTYPE(function) {                             \
+                type *i = data, x;                                      \
+                                                                        \
+                assert(filename);                                       \
+                assert(lvalue);                                         \
+                assert(rvalue);                                         \
+                assert(data);                                           \
+                                                                        \
+                if (isempty(rvalue)) {                                  \
+                        *i = default_value;                             \
+                        return 0;                                       \
+                }                                                       \
+                                                                        \
+                x = name##_from_string(rvalue);                         \
+                if (x < 0) {                                            \
+                        log_syntax(unit, LOG_ERR, filename, line, 0,    \
+                                   msg ", ignoring: %s", rvalue);       \
+                        return 0;                                       \
+                }                                                       \
+                                                                        \
+                *i = x;                                                 \
+                return 0;                                               \
+        }
+
+#define DEFINE_CONFIG_PARSE_ENUMV(function, name, type, invalid, msg)          \
         CONFIG_PARSER_PROTOTYPE(function) {                                    \
                 type **enums = data, x, *ys;                                   \
                 _cleanup_free_ type *xs = NULL;                                \
@@ -198,17 +262,17 @@ typedef enum Disabled {
                                 return -ENOMEM;                                \
                                                                                \
                         if ((x = name##_from_string(en)) < 0) {                \
-                                log_syntax(unit, LOG_ERR, filename, line,      \
-                                       -x, msg ", ignoring: %s", en);          \
+                                log_syntax(unit, LOG_ERR, filename, line, 0,   \
+                                           msg ", ignoring: %s", en);          \
                                 continue;                                      \
                         }                                                      \
                                                                                \
                         for (ys = xs; x != invalid && *ys != invalid; ys++) {  \
                                 if (*ys == x) {                                \
-                                        log_syntax(unit, LOG_ERR, filename,    \
-                                              line, -x,                        \
-                                              "Duplicate entry, ignoring: %s", \
-                                              en);                             \
+                                        log_syntax(unit, LOG_NOTICE, filename, \
+                                                   line, 0,                    \
+                                                   "Duplicate entry, ignoring: %s", \
+                                                   en);                        \
                                         x = invalid;                           \
                                 }                                              \
                         }                                                      \

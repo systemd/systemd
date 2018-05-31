@@ -61,7 +61,42 @@
 #include "utf8.h"
 #include "web-util.h"
 
+static int supported_socket_protocol_from_string(const char *s) {
+        int r;
+
+        if (isempty(s))
+                return IPPROTO_IP;
+
+        r = socket_protocol_from_name(s);
+        if (r < 0)
+                return -EINVAL;
+        if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP))
+                return -EPROTONOSUPPORT;
+
+        return r;
+}
+
+DEFINE_CONFIG_PARSE(config_parse_socket_protocol, supported_socket_protocol_from_string, "Failed to parse socket protocol");
+DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string, "Failed to parse secure bits");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode, "Failed to parse garbage collection mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy, "Failed to parse device policy");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_emergency_action, emergency_action, EmergencyAction, "Failed to parse failure action specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode, "Failed to parse keyring mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode, "Failed to parse job mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home_or_bool, ProtectHome, "Failed to parse protect home value");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system_or_bool, ProtectSystem, "Failed to parse protect system value");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_runtime_preserve_mode, exec_preserve_mode, ExecPreserveMode, "Failed to parse runtime directory preserve mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_bind, socket_address_bind_ipv6_only_or_bool, SocketAddressBindIPv6Only, "Failed to parse bind IPv6 only value");
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_ip_tos, ip_tos, int, -1, "Failed to parse IP TOS value");
+DEFINE_CONFIG_PARSE_PTR(config_parse_blockio_weight, cg_blkio_weight_parse, uint64_t, "Invalid block IO weight");
+DEFINE_CONFIG_PARSE_PTR(config_parse_cg_weight, cg_weight_parse, uint64_t, "Invalid weight");
+DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares, cg_cpu_shares_parse, uint64_t, "Invalid CPU shares");
+DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_flags, mount_propagation_flags_from_string, unsigned long, "Failed to parse mount flag");
 
 int config_parse_unit_deps(
                 const char *unit,
@@ -404,72 +439,6 @@ int config_parse_socket_listen(const char *unit,
         return 0;
 }
 
-int config_parse_socket_protocol(const char *unit,
-                                 const char *filename,
-                                 unsigned line,
-                                 const char *section,
-                                 unsigned section_line,
-                                 const char *lvalue,
-                                 int ltype,
-                                 const char *rvalue,
-                                 void *data,
-                                 void *userdata) {
-        Socket *s;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        s = SOCKET(data);
-
-        r = socket_protocol_from_name(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid socket protocol '%s', ignoring: %m", rvalue);
-                return 0;
-        } else if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Socket protocol not supported, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        s->socket_protocol = r;
-
-        return 0;
-}
-
-int config_parse_socket_bind(const char *unit,
-                             const char *filename,
-                             unsigned line,
-                             const char *section,
-                             unsigned section_line,
-                             const char *lvalue,
-                             int ltype,
-                             const char *rvalue,
-                             void *data,
-                             void *userdata) {
-
-        Socket *s;
-        SocketAddressBindIPv6Only b;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        s = SOCKET(data);
-
-        b = parse_socket_address_bind_ipv6_only_or_bool(rvalue);
-        if (b < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse bind IPv6 only value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        s->bind_ipv6_only = b;
-
-        return 0;
-}
-
 int config_parse_exec_nice(
                 const char *unit,
                 const char *filename,
@@ -489,6 +458,11 @@ int config_parse_exec_nice(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if (isempty(rvalue)) {
+                c->nice_set = false;
+                return 0;
+        }
 
         r = parse_nice(rvalue, &priority);
         if (r < 0) {
@@ -778,9 +752,6 @@ int config_parse_exec(
 
         return 0;
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
 
 int config_parse_socket_bindtodevice(
                 const char* unit,
@@ -1111,6 +1082,12 @@ int config_parse_exec_io_class(const char *unit,
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                c->ioprio_set = false;
+                c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
+                return 0;
+        }
+
         x = ioprio_class_from_string(rvalue);
         if (x < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IO scheduling class, ignoring: %s", rvalue);
@@ -1142,6 +1119,12 @@ int config_parse_exec_io_priority(const char *unit,
         assert(rvalue);
         assert(data);
 
+        if (isempty(rvalue)) {
+                c->ioprio_set = false;
+                c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
+                return 0;
+        }
+
         r = ioprio_parse_priority(rvalue, &i);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse IO priority, ignoring: %s", rvalue);
@@ -1172,6 +1155,13 @@ int config_parse_exec_cpu_sched_policy(const char *unit,
         assert(lvalue);
         assert(rvalue);
         assert(data);
+
+        if (isempty(rvalue)) {
+                c->cpu_sched_set = false;
+                c->cpu_sched_policy = SCHED_OTHER;
+                c->cpu_sched_priority = 0;
+                return 0;
+        }
 
         x = sched_policy_from_string(rvalue);
         if (x < 0) {
@@ -1277,43 +1267,6 @@ int config_parse_exec_cpu_affinity(const char *unit,
         return 0;
 }
 
-int config_parse_exec_secure_bits(const char *unit,
-                                  const char *filename,
-                                  unsigned line,
-                                  const char *section,
-                                  unsigned section_line,
-                                  const char *lvalue,
-                                  int ltype,
-                                  const char *rvalue,
-                                  void *data,
-                                  void *userdata) {
-
-        ExecContext *c = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (isempty(rvalue)) {
-                /* An empty assignment resets the field */
-                c->secure_bits = 0;
-                return 0;
-        }
-
-        r = secure_bits_from_string(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse secure bits, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        c->secure_bits = r;
-
-        return 0;
-}
-
 int config_parse_capability_set(
                 const char *unit,
                 const char *filename,
@@ -1361,71 +1314,6 @@ int config_parse_capability_set(
                 else
                         *capability_set |= sum;
         }
-
-        return 0;
-}
-
-#if HAVE_SYSV_COMPAT
-int config_parse_sysv_priority(const char *unit,
-                               const char *filename,
-                               unsigned line,
-                               const char *section,
-                               unsigned section_line,
-                               const char *lvalue,
-                               int ltype,
-                               const char *rvalue,
-                               void *data,
-                               void *userdata) {
-
-        int *priority = data;
-        int i, r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = safe_atoi(rvalue, &i);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse SysV start priority, ignoring: %s", rvalue);
-                return 0;
-        }
-        if (i < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid SysV start priority, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *priority = (int) i;
-        return 0;
-}
-#endif
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
-
-int config_parse_exec_mount_flags(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecContext *c = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = mount_propagation_flags_from_string(rvalue, &c->mount_flags);
-        if (r < 0)
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse mount flag %s, ignoring: %m", rvalue);
 
         return 0;
 }
@@ -1956,26 +1844,21 @@ int config_parse_service_timeout(
         assert(rvalue);
         assert(s);
 
-        /* This is called for three cases: TimeoutSec=, TimeoutStopSec= and TimeoutStartSec=. */
+        /* This is called for two cases: TimeoutSec= and TimeoutStartSec=. */
 
-        r = parse_sec(rvalue, &usec);
+        /* Traditionally, these options accepted 0 to disable the timeouts. However, a timeout of 0 suggests it happens
+         * immediately, hence fix this to become USEC_INFINITY instead. This is in-line with how we internally handle
+         * all other timeouts. */
+        r = parse_sec_fix_0(rvalue, &usec);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s= parameter, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
-        /* Traditionally, these options accepted 0 to disable the timeouts. However, a timeout of 0 suggests it happens
-         * immediately, hence fix this to become USEC_INFINITY instead. This is in-line with how we internally handle
-         * all other timeouts. */
-        if (usec <= 0)
-                usec = USEC_INFINITY;
+        s->start_timeout_defined = true;
+        s->timeout_start_usec = usec;
 
-        if (!streq(lvalue, "TimeoutStopSec")) {
-                s->start_timeout_defined = true;
-                s->timeout_start_usec = usec;
-        }
-
-        if (!streq(lvalue, "TimeoutStartSec"))
+        if (streq(lvalue, "TimeoutSec"))
                 s->timeout_stop_usec = usec;
 
         return 0;
@@ -2138,6 +2021,12 @@ int config_parse_working_directory(
         assert(rvalue);
         assert(c);
         assert(u);
+
+        if (isempty(rvalue)) {
+                c->working_directory_home = false;
+                c->working_directory = mfree(c->working_directory);
+                return 0;
+        }
 
         if (rvalue[0] == '-') {
                 missing_ok = true;
@@ -2514,34 +2403,6 @@ int config_parse_log_extra_fields(
         }
 }
 
-int config_parse_ip_tos(const char *unit,
-                        const char *filename,
-                        unsigned line,
-                        const char *section,
-                        unsigned section_line,
-                        const char *lvalue,
-                        int ltype,
-                        const char *rvalue,
-                        void *data,
-                        void *userdata) {
-
-        int *ip_tos = data, x;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        x = ip_tos_from_string(rvalue);
-        if (x < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse IP TOS value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        *ip_tos = x;
-        return 0;
-}
-
 int config_parse_unit_condition_path(
                 const char *unit,
                 const char *filename,
@@ -2702,9 +2563,6 @@ int config_parse_unit_condition_null(
         LIST_PREPEND(conditions, *list, c);
         return 0;
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_emergency_action, emergency_action, EmergencyAction, "Failed to parse failure action specifier");
 
 int config_parse_unit_requires_mounts_for(
                 const char *unit,
@@ -3152,64 +3010,6 @@ int config_parse_unit_slice(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy, "Failed to parse device policy");
-
-int config_parse_cpu_weight(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint64_t *weight = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = cg_weight_parse(rvalue, weight);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid CPU weight '%s', ignoring: %m", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
-int config_parse_cpu_shares(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint64_t *shares = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = cg_cpu_shares_parse(rvalue, shares);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid CPU shares '%s', ignoring: %m", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
 int config_parse_cpu_quota(
                 const char *unit,
                 const char *filename,
@@ -3487,34 +3287,6 @@ int config_parse_device_allow(
         return 0;
 }
 
-int config_parse_io_weight(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint64_t *weight = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = cg_weight_parse(rvalue, weight);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid IO weight '%s', ignoring.", rvalue);
-                return 0;
-        }
-
-        return 0;
-}
-
 int config_parse_io_device_weight(
                 const char *unit,
                 const char *filename,
@@ -3683,34 +3455,6 @@ int config_parse_io_limit(
         }
 
         l->limits[type] = num;
-
-        return 0;
-}
-
-int config_parse_blockio_weight(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        uint64_t *weight = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-
-        r = cg_blkio_weight_parse(rvalue, weight);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Invalid block IO weight '%s', ignoring: %m", rvalue);
-                return 0;
-        }
 
         return 0;
 }
@@ -3885,8 +3629,6 @@ int config_parse_blockio_bandwidth(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode, "Failed to parse job mode");
-
 int config_parse_job_mode_isolate(
                 const char *unit,
                 const char *filename,
@@ -3917,8 +3659,6 @@ int config_parse_job_mode_isolate(
         *m = r ? JOB_ISOLATE : JOB_REPLACE;
         return 0;
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_runtime_preserve_mode, exec_preserve_mode, ExecPreserveMode, "Failed to parse runtime directory preserve mode");
 
 int config_parse_exec_directories(
                 const char *unit,
@@ -4369,104 +4109,6 @@ int config_parse_bind_paths(
         return 0;
 }
 
-int config_parse_no_new_privileges(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecContext *c = data;
-        int r;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse boolean value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        c->no_new_privileges = r;
-
-        return 0;
-}
-
-int config_parse_protect_home(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecContext *c = data;
-        ProtectHome h;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        /* Our enum shall be a superset of booleans, hence first try
-         * to parse as boolean, and then as enum */
-
-        h = parse_protect_home_or_bool(rvalue);
-        if (h < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect home value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        c->protect_home = h;
-
-        return 0;
-}
-
-int config_parse_protect_system(
-                const char* unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecContext *c = data;
-        ProtectSystem s;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        s = parse_protect_system_or_bool(rvalue);
-        if (s < 0) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse protect system value, ignoring: %s", rvalue);
-                return 0;
-        }
-
-        c->protect_system = s;
-
-        return 0;
-}
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode, "Failed to parse keyring mode");
-
 int config_parse_job_timeout_sec(
                 const char* unit,
                 const char *filename,
@@ -4875,9 +4517,7 @@ void unit_dump_config_items(FILE *f) {
                 const ConfigParserCallback callback;
                 const char *rvalue;
         } table[] = {
-#if !HAVE_SYSV_COMPAT || !HAVE_SECCOMP || !HAVE_PAM || !HAVE_SELINUX || !ENABLE_SMACK || !HAVE_APPARMOR
                 { config_parse_warn_compat,           "NOTSUPPORTED" },
-#endif
                 { config_parse_int,                   "INTEGER" },
                 { config_parse_unsigned,              "UNSIGNED" },
                 { config_parse_iec_size,              "SIZE" },
@@ -4908,9 +4548,6 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_exec,                  "PATH [ARGUMENT [...]]" },
                 { config_parse_service_type,          "SERVICETYPE" },
                 { config_parse_service_restart,       "SERVICERESTART" },
-#if HAVE_SYSV_COMPAT
-                { config_parse_sysv_priority,         "SYSVPRIORITY" },
-#endif
                 { config_parse_kill_mode,             "KILLMODE" },
                 { config_parse_signal,                "SIGNAL" },
                 { config_parse_socket_listen,         "SOCKET [...]" },
@@ -4946,12 +4583,11 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_restrict_namespaces,   "NAMESPACES"  },
 #endif
                 { config_parse_cpu_shares,            "SHARES" },
-                { config_parse_cpu_weight,            "WEIGHT" },
+                { config_parse_cg_weight,             "WEIGHT" },
                 { config_parse_memory_limit,          "LIMIT" },
                 { config_parse_device_allow,          "DEVICE" },
                 { config_parse_device_policy,         "POLICY" },
                 { config_parse_io_limit,              "LIMIT" },
-                { config_parse_io_weight,             "WEIGHT" },
                 { config_parse_io_device_weight,      "DEVICEWEIGHT" },
                 { config_parse_blockio_bandwidth,     "BANDWIDTH" },
                 { config_parse_blockio_weight,        "WEIGHT" },
