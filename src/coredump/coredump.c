@@ -852,21 +852,18 @@ static void map_context_fields(const struct iovec *iovec, const char* context[])
         assert(context);
 
         for (i = 0; i < ELEMENTSOF(context_field_names); i++) {
-                size_t l;
+                char *p;
 
                 if (!context_field_names[i])
                         continue;
 
-                l = strlen(context_field_names[i]);
-                if (iovec->iov_len < l)
-                        continue;
-
-                if (memcmp(iovec->iov_base, context_field_names[i], l) != 0)
+                p = memory_startswith(iovec->iov_base, iovec->iov_len, context_field_names[i]);
+                if (!p)
                         continue;
 
                 /* Note that these strings are NUL terminated, because we made sure that a trailing NUL byte is in the
                  * buffer, though not included in the iov_len count. (see below) */
-                context[i] = (char*) iovec->iov_base + l;
+                context[i] = p;
                 break;
         }
 }

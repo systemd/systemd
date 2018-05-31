@@ -209,3 +209,21 @@ static inline size_t strlen_ptr(const char *s) {
 
         return strlen(s);
 }
+
+/* Like startswith(), but operates on arbitrary memory blocks */
+static inline void *memory_startswith(const void *p, size_t sz, const char *token) {
+        size_t n;
+
+        assert(token);
+
+        n = strlen(token);
+        if (sz < n)
+                return NULL;
+
+        assert(p);
+
+        if (memcmp(p, token, n) != 0)
+                return NULL;
+
+        return (uint8_t*) p + n;
+}
