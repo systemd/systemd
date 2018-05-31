@@ -1371,8 +1371,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
         _cleanup_free_ char *action = NULL,
                 *name = NULL, *resolved_name = NULL,
                 *id = NULL, *resolved_id = NULL,
-                *description = NULL,
-                *home = NULL,
+                *description = NULL, *resolved_description = NULL,
+                *home = NULL, *resolved_home = NULL,
                 *shell, *resolved_shell = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
@@ -1446,8 +1446,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 description = mfree(description);
 
         if (description) {
-                if (!valid_gecos(description)) {
-                        log_error("[%s:%u] '%s' is not a valid GECOS field.", fname, line, description);
+                r = specifier_printf(description, specifier_table, NULL, &resolved_description);
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, description);
+                        return r;
+                }
+
+                if (!valid_gecos(resolved_description)) {
+                        log_error("[%s:%u] '%s' is not a valid GECOS field.", fname, line, resolved_description);
                         return -EINVAL;
                 }
         }
@@ -1457,8 +1463,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 home = mfree(home);
 
         if (home) {
-                if (!valid_home(home)) {
-                        log_error("[%s:%u] '%s' is not a valid home directory field.", fname, line, home);
+                r = specifier_printf(home, specifier_table, NULL, &resolved_home);
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, home);
+                        return r;
+                }
+
+                if (!valid_home(resolved_home)) {
+                        log_error("[%s:%u] '%s' is not a valid home directory field.", fname, line, resolved_home);
                         return -EINVAL;
                 }
         }
@@ -1608,8 +1620,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         }
                 }
 
-                i->description = TAKE_PTR(description);
-                i->home = TAKE_PTR(home);
+                i->description = TAKE_PTR(resolved_description);
+                i->home = TAKE_PTR(resolved_home);
                 i->shell = TAKE_PTR(resolved_shell);
 
                 h = users;
