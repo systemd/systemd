@@ -116,9 +116,11 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>The two calls return 0 on success (in which case
-    <parameter>ret</parameter> is filled in), or a negative
-    errno-style error code.</para>
+    <para>Those calls return 0 on success (in which case <parameter>ret</parameter> is filled in),
+    or a negative errno-style error code. In particular, <function>sd_id128_get_machine()</function>
+    and <function>sd_id128_get_machine_app_specific()</function> return <constant>-ENOENT</constant>
+    if <filename>/etc/machine-id</filename> is missing, and <constant>-ENOMEDIUM</constant> if is
+    empty or all zeros.</para>
   </refsect1>
 
   <refsect1>

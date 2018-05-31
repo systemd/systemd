@@ -96,6 +96,7 @@ not_found:
 #endif
 }
 
+#if HAVE_BLKID
 /* Detect RPMB and Boot partitions, which are not listed by blkid.
  * See https://github.com/systemd/systemd/issues/5806. */
 static bool device_is_mmc_special_partition(struct udev_device *d) {
@@ -115,6 +116,7 @@ static bool device_is_block(struct udev_device *d) {
 
         return streq(ss, "block");
 }
+#endif
 
 int dissect_image(
                 int fd,

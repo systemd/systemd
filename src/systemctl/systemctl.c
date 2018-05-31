@@ -3948,8 +3948,8 @@ static void print_status_info(
                 UnitStatusInfo *i,
                 bool *ellipsized) {
 
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1, since2[FORMAT_TIMESTAMP_MAX], *s2;
-        const char *active_on, *active_off, *on, *off, *ss;
+        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
+        const char *s1, *s2, *active_on, *active_off, *on, *off, *ss;
         _cleanup_free_ char *formatted_path = NULL;
         ExecStatusInfo *p;
         usec_t timestamp;
@@ -4077,7 +4077,7 @@ static void print_status_info(
         if (endswith(i->id, ".timer")) {
                 char tstamp1[FORMAT_TIMESTAMP_RELATIVE_MAX],
                      tstamp2[FORMAT_TIMESTAMP_MAX];
-                char *next_rel_time, *next_time;
+                const char *next_rel_time, *next_time;
                 dual_timestamp nw, next = {i->next_elapse_real,
                                            i->next_elapse_monotonic};
                 usec_t next_elapse;
@@ -4086,12 +4086,8 @@ static void print_status_info(
 
                 dual_timestamp_get(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
-                next_rel_time = format_timestamp_relative(tstamp1,
-                                                          sizeof(tstamp1),
-                                                          next_elapse);
-                next_time = format_timestamp(tstamp2,
-                                             sizeof(tstamp2),
-                                             next_elapse);
+                next_rel_time = format_timestamp_relative(tstamp1, sizeof tstamp1, next_elapse);
+                next_time = format_timestamp(tstamp2, sizeof tstamp2, next_elapse);
 
                 if (next_time && next_rel_time)
                         printf("%s; %s\n", next_time, next_rel_time);

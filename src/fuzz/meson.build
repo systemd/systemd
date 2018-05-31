@@ -19,4 +19,9 @@ fuzzers += [
          [libcore,
           libshared],
          [libmount]],
+
+        [['src/fuzz/fuzz-journal-remote.c'],
+         [libsystemd_journal_remote,
+          libshared],
+         []],
 ]

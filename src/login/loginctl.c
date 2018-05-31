@@ -474,8 +474,9 @@ static int print_session_status_info(sd_bus *bus, const char *path, bool *new_li
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
-        char since2[FORMAT_TIMESTAMP_MAX], *s2;
+        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX];
+        char since2[FORMAT_TIMESTAMP_MAX];
+        const char *s1, *s2;
         SessionStatusInfo i = {};
         int r;
 
@@ -605,8 +606,9 @@ static int print_user_status_info(sd_bus *bus, const char *path, bool *new_line)
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
-        char since2[FORMAT_TIMESTAMP_MAX], *s2;
+        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX];
+        char since2[FORMAT_TIMESTAMP_MAX];
+        const char *s1, *s2;
         _cleanup_(user_status_info_clear) UserStatusInfo i = {};
         int r;
 

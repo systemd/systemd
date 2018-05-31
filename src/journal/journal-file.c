@@ -453,7 +453,10 @@ static int journal_file_refresh_header(JournalFile *f) {
         assert(f->header);
 
         r = sd_id128_get_machine(&f->header->machine_id);
-        if (r < 0)
+        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
+                /* We don't have a machine-id, let's continue without */
+                zero(f->header->machine_id);
+        else if (r < 0)
                 return r;
 
         r = sd_id128_get_boot(&boot_id);
@@ -1798,6 +1801,7 @@ static int journal_file_link_entry(JournalFile *f, Object *o, uint64_t offset) {
 static int journal_file_append_entry_internal(
                 JournalFile *f,
                 const dual_timestamp *ts,
+                const sd_id128_t *boot_id,
                 uint64_t xor_hash,
                 const EntryItem items[], unsigned n_items,
                 uint64_t *seqnum,
@@ -1823,7 +1827,7 @@ static int journal_file_append_entry_internal(
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
         o->entry.xor_hash = htole64(xor_hash);
-        o->entry.boot_id = f->header->boot_id;
+        o->entry.boot_id = boot_id ? *boot_id : f->header->boot_id;
 
 #if HAVE_GCRYPT
         r = journal_file_hmac_put_object(f, OBJECT_ENTRY, o, np);
@@ -1944,7 +1948,14 @@ static int entry_item_cmp(const void *_a, const void *_b) {
         return 0;
 }
 
-int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const struct iovec iovec[], unsigned n_iovec, uint64_t *seqnum, Object **ret, uint64_t *offset) {
+int journal_file_append_entry(
+                JournalFile *f,
+                const dual_timestamp *ts,
+                const sd_id128_t *boot_id,
+                const struct iovec iovec[], unsigned n_iovec,
+                uint64_t *seqnum,
+                Object **ret, uint64_t *offset) {
+
         unsigned i;
         EntryItem *items;
         int r;
@@ -1955,7 +1966,16 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
         assert(f->header);
         assert(iovec || n_iovec == 0);
 
-        if (!ts) {
+        if (ts) {
+                if (!VALID_REALTIME(ts->realtime)) {
+                        log_debug("Invalid realtime timestamp %"PRIu64", refusing entry.", ts->realtime);
+                        return -EBADMSG;
+                }
+                if (!VALID_MONOTONIC(ts->monotonic)) {
+                        log_debug("Invalid monotomic timestamp %"PRIu64", refusing entry.", ts->monotonic);
+                        return -EBADMSG;
+                }
+        } else {
                 dual_timestamp_get(&_ts);
                 ts = &_ts;
         }
@@ -1986,7 +2006,7 @@ int journal_file_append_entry(JournalFile *f, const dual_timestamp *ts, const st
          * times for rotating media. */
         qsort_safe(items, n_iovec, sizeof(EntryItem), entry_item_cmp);
 
-        r = journal_file_append_entry_internal(f, ts, xor_hash, items, n_iovec, seqnum, ret, offset);
+        r = journal_file_append_entry_internal(f, ts, boot_id, xor_hash, items, n_iovec, seqnum, ret, offset);
 
         /* If the memory mapping triggered a SIGBUS then we return an
          * IO error and ignore the error code passed down to us, since
@@ -3563,12 +3583,13 @@ int journal_file_open_reliably(
                                  deferred_closes, template, ret);
 }
 
-int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p, uint64_t *seqnum, Object **ret, uint64_t *offset) {
+int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint64_t p) {
         uint64_t i, n;
         uint64_t q, xor_hash = 0;
         int r;
         EntryItem *items;
         dual_timestamp ts;
+        const sd_id128_t *boot_id;
 
         assert(from);
         assert(to);
@@ -3580,6 +3601,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 
         ts.monotonic = le64toh(o->entry.monotonic);
         ts.realtime = le64toh(o->entry.realtime);
+        boot_id = &o->entry.boot_id;
 
         n = journal_file_entry_n_items(o);
         /* alloca() can't take 0, hence let's allocate at least one */
@@ -3639,7 +3661,8 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
                         return r;
         }
 
-        r = journal_file_append_entry_internal(to, &ts, xor_hash, items, n, seqnum, ret, offset);
+        r = journal_file_append_entry_internal(to, &ts, boot_id, xor_hash, items, n,
+                                               NULL, NULL, NULL);
 
         if (mmap_cache_got_sigbus(to->mmap, to->cache_fd))
                 return -EIO;

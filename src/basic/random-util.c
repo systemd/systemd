@@ -46,7 +46,7 @@ int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
          * for us. */
 
         /* Use the getrandom() syscall unless we know we don't have it. */
-        if (have_syscall != 0) {
+        if (have_syscall != 0 && !HAS_FEATURE_MEMORY_SANITIZER) {
                 r = getrandom(p, n, GRND_NONBLOCK);
                 if (r > 0) {
                         have_syscall = true;

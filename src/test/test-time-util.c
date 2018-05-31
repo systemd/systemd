@@ -120,18 +120,16 @@ static void test_parse_nsec(void) {
 }
 
 static void test_format_timespan_one(usec_t x, usec_t accuracy) {
-        char *r;
         char l[FORMAT_TIMESPAN_MAX];
+        const char *t;
         usec_t y;
 
         log_info(USEC_FMT"     (at accuracy "USEC_FMT")", x, accuracy);
 
-        r = format_timespan(l, sizeof(l), x, accuracy);
-        assert_se(r);
+        assert_se(t = format_timespan(l, sizeof l, x, accuracy));
+        log_info(" = <%s>", t);
 
-        log_info(" = <%s>", l);
-
-        assert_se(parse_sec(l, &y) >= 0);
+        assert_se(parse_sec(t, &y) >= 0);
 
         log_info(" = "USEC_FMT, y);
 
@@ -271,13 +269,12 @@ static void test_format_timestamp(void) {
         }
 }
 
-static void test_format_timestamp_utc_one(usec_t t, const char *result) {
+static void test_format_timestamp_utc_one(usec_t val, const char *result) {
         char buf[FORMAT_TIMESTAMP_MAX];
+        const char *t;
 
-        assert_se(!format_timestamp_utc(buf, sizeof(buf), t) == !result);
-
-        if (result)
-                assert_se(streq(result, buf));
+        t = format_timestamp_utc(buf, sizeof(buf), val);
+        assert_se(streq_ptr(t, result));
 }
 
 static void test_format_timestamp_utc(void) {
@@ -287,11 +284,12 @@ static void test_format_timestamp_utc(void) {
 
 #if SIZEOF_TIME_T == 8
         test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX, "Thu 9999-12-30 23:59:59 UTC");
+        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, "--- XXXX-XX-XX XX:XX:XX");
 #elif SIZEOF_TIME_T == 4
         test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX, "Tue 2038-01-19 03:14:07 UTC");
+        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, "--- XXXX-XX-XX XX:XX:XX");
 #endif
 
-        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX+1, NULL);
         test_format_timestamp_utc_one(USEC_INFINITY, NULL);
 }
 

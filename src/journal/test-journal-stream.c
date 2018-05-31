@@ -109,12 +109,12 @@ int main(int argc, char *argv[]) {
                 iovec[1].iov_len = strlen(q);
 
                 if (i % 10 == 0)
-                        assert_se(journal_file_append_entry(three, &ts, iovec, 2, NULL, NULL, NULL) == 0);
+                        assert_se(journal_file_append_entry(three, &ts, NULL, iovec, 2, NULL, NULL, NULL) == 0);
                 else {
                         if (i % 3 == 0)
-                                assert_se(journal_file_append_entry(two, &ts, iovec, 2, NULL, NULL, NULL) == 0);
+                                assert_se(journal_file_append_entry(two, &ts, NULL, iovec, 2, NULL, NULL, NULL) == 0);
 
-                        assert_se(journal_file_append_entry(one, &ts, iovec, 2, NULL, NULL, NULL) == 0);
+                        assert_se(journal_file_append_entry(one, &ts, NULL, iovec, 2, NULL, NULL, NULL) == 0);
                 }
 
                 free(p);

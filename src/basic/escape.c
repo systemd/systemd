@@ -15,8 +15,8 @@
 #include "macro.h"
 #include "utf8.h"
 
-size_t cescape_char(char c, char *buf) {
-        char * buf_old = buf;
+int cescape_char(char c, char *buf) {
+        char *buf_old = buf;
 
         switch (c) {
 

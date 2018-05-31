@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
                 assert_se(r >= 0);
 
-                r = journal_file_copy_entry(f, new_journal, o, f->current_offset, NULL, NULL, NULL);
+                r = journal_file_copy_entry(f, new_journal, o, f->current_offset);
                 assert_se(r >= 0);
 
                 n++;

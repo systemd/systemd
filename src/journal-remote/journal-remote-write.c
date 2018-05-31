@@ -92,13 +92,15 @@ int writer_write(Writer *w,
                         return r;
         }
 
-        r = journal_file_append_entry(w->journal, ts, iovw->iovec, iovw->count,
+        r = journal_file_append_entry(w->journal, ts, NULL,
+                                      iovw->iovec, iovw->count,
                                       &w->seqnum, NULL, NULL);
         if (r >= 0) {
                 if (w->server)
                         w->server->event_count += 1;
-                return 1;
-        }
+                return 0;
+        } else if (r == -EBADMSG)
+                return r;
 
         log_debug_errno(r, "%s: Write failed, rotating: %m", w->journal->path);
         r = do_rotate(&w->journal, compress, seal);
@@ -108,12 +110,13 @@ int writer_write(Writer *w,
                 log_debug("%s: Successfully rotated journal", w->journal->path);
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(w->journal, ts, iovw->iovec, iovw->count,
+        r = journal_file_append_entry(w->journal, ts, NULL,
+                                      iovw->iovec, iovw->count,
                                       &w->seqnum, NULL, NULL);
         if (r < 0)
                 return r;
 
         if (w->server)
                 w->server->event_count += 1;
-        return 1;
+        return 0;
 }

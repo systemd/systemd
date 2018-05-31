@@ -6,6 +6,7 @@
 ***/
 
 #include "alloc-util.h"
+#include "locale-util.h"
 #include "macro.h"
 #include "string-util.h"
 #include "strv.h"
@@ -75,6 +76,29 @@ static void test_ascii_strcasecmp_nn(void) {
         assert_se(ascii_strcasecmp_nn("aaaa", 4, "bbbb", 4) < 0);
         assert_se(ascii_strcasecmp_nn("aaAA", 4, "BBbb", 4) < 0);
         assert_se(ascii_strcasecmp_nn("BBbb", 4, "aaaa", 4) > 0);
+}
+
+static void test_cellescape(void) {
+        char buf[40];
+
+        assert_se(streq(cellescape(buf, 10, "1"), "1"));
+        assert_se(streq(cellescape(buf, 10, "12"), "12"));
+        assert_se(streq(cellescape(buf, 10, "123"), is_locale_utf8() ? "1…" : "1..."));
+
+        assert_se(streq(cellescape(buf, 10, "1\011"), "1\\t"));
+        assert_se(streq(cellescape(buf, 10, "1\020"), "1\\020"));
+        assert_se(streq(cellescape(buf, 10, "1\020x"), is_locale_utf8() ? "1…" : "1..."));
+
+        assert_se(streq(cellescape(buf, 40, "1\020"), "1\\020"));
+        assert_se(streq(cellescape(buf, 40, "1\020x"), "1\\020x"));
+
+        assert_se(streq(cellescape(buf, 40, "\a\b\f\n\r\t\v\\\"'"), "\\a\\b\\f\\n\\r\\t\\v\\\\\\\"\\'"));
+        assert_se(streq(cellescape(buf, 10, "\a\b\f\n\r\t\v\\\"'"), is_locale_utf8() ? "\\a…" : "\\a..."));
+        assert_se(streq(cellescape(buf, 11, "\a\b\f\n\r\t\v\\\"'"), is_locale_utf8() ? "\\a…" : "\\a..."));
+        assert_se(streq(cellescape(buf, 12, "\a\b\f\n\r\t\v\\\"'"), is_locale_utf8() ? "\\a\\b…" : "\\a\\b..."));
+
+        assert_se(streq(cellescape(buf, sizeof buf, "1\020"), "1\\020"));
+        assert_se(streq(cellescape(buf, sizeof buf, "1\020x"), "1\\020x"));
 }
 
 static void test_streq_ptr(void) {
@@ -422,6 +446,7 @@ int main(int argc, char *argv[]) {
         test_string_erase();
         test_ascii_strcasecmp_n();
         test_ascii_strcasecmp_nn();
+        test_cellescape();
         test_streq_ptr();
         test_strstrip();
         test_strextend();
