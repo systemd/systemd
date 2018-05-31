@@ -884,13 +884,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'p':
+                        if (streq(optarg, "help"))
+                                return dump_profiles();
+
                         if (!filename_is_valid(optarg)) {
                                 log_error("Unit profile name not valid: %s", optarg);
                                 return -EINVAL;
                         }
-
-                        if (streq(optarg, "help"))
-                                return dump_profiles();
 
                         arg_profile = optarg;
                         break;
