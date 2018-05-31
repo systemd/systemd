@@ -61,7 +61,42 @@
 #include "utf8.h"
 #include "web-util.h"
 
+static int supported_socket_protocol_from_string(const char *s) {
+        int r;
+
+        if (isempty(s))
+                return IPPROTO_IP;
+
+        r = socket_protocol_from_name(s);
+        if (r < 0)
+                return -EINVAL;
+        if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP))
+                return -EPROTONOSUPPORT;
+
+        return r;
+}
+
+DEFINE_CONFIG_PARSE(config_parse_socket_protocol, supported_socket_protocol_from_string, "Failed to parse socket protocol");
+DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string, "Failed to parse secure bits");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_collect_mode, collect_mode, CollectMode, "Failed to parse garbage collection mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy, "Failed to parse device policy");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_emergency_action, emergency_action, EmergencyAction, "Failed to parse failure action specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode, "Failed to parse keyring mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode, "Failed to parse job mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home_or_bool, ProtectHome, "Failed to parse protect home value");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system_or_bool, ProtectSystem, "Failed to parse protect system value");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_runtime_preserve_mode, exec_preserve_mode, ExecPreserveMode, "Failed to parse runtime directory preserve mode");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_bind, socket_address_bind_ipv6_only_or_bool, SocketAddressBindIPv6Only, "Failed to parse bind IPv6 only value");
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_ip_tos, ip_tos, int, -1, "Failed to parse IP TOS value");
+DEFINE_CONFIG_PARSE_PTR(config_parse_blockio_weight, cg_blkio_weight_parse, uint64_t, "Invalid block IO weight");
+DEFINE_CONFIG_PARSE_PTR(config_parse_cg_weight, cg_weight_parse, uint64_t, "Invalid weight");
+DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares, cg_cpu_shares_parse, uint64_t, "Invalid CPU shares");
+DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_flags, mount_propagation_flags_from_string, unsigned long, "Failed to parse mount flag");
 
 int config_parse_unit_deps(
                 const char *unit,
@@ -404,24 +439,6 @@ int config_parse_socket_listen(const char *unit,
         return 0;
 }
 
-static int supported_socket_protocol_from_string(const char *s) {
-        int r;
-
-        if (isempty(s))
-                return IPPROTO_IP;
-
-        r = socket_protocol_from_name(s);
-        if (r < 0)
-                return -EINVAL;
-        if (!IN_SET(r, IPPROTO_UDPLITE, IPPROTO_SCTP))
-                return -EPROTONOSUPPORT;
-
-        return r;
-}
-
-DEFINE_CONFIG_PARSE(config_parse_socket_protocol, supported_socket_protocol_from_string, "Failed to parse socket protocol");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_socket_bind, socket_address_bind_ipv6_only_or_bool, SocketAddressBindIPv6Only, "Failed to parse bind IPv6 only value");
-
 int config_parse_exec_nice(
                 const char *unit,
                 const char *filename,
@@ -735,9 +752,6 @@ int config_parse_exec(
 
         return 0;
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
 
 int config_parse_socket_bindtodevice(
                 const char* unit,
@@ -1252,8 +1266,6 @@ int config_parse_exec_cpu_affinity(const char *unit,
         return 0;
 }
 
-DEFINE_CONFIG_PARSE(config_parse_exec_secure_bits, secure_bits_from_string, "Failed to parse secure bits");
-
 int config_parse_capability_set(
                 const char *unit,
                 const char *filename,
@@ -1304,10 +1316,6 @@ int config_parse_capability_set(
 
         return 0;
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_utmp_mode, exec_utmp_mode, ExecUtmpMode, "Failed to parse utmp mode");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
-DEFINE_CONFIG_PARSE_PTR(config_parse_exec_mount_flags, mount_propagation_flags_from_string, unsigned long, "Failed to parse mount flag");
 
 int config_parse_exec_selinux_context(
                 const char *unit,
@@ -2394,8 +2402,6 @@ int config_parse_log_extra_fields(
         }
 }
 
-DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_ip_tos, ip_tos, int, -1, "Failed to parse IP TOS value");
-
 int config_parse_unit_condition_path(
                 const char *unit,
                 const char *filename,
@@ -2556,9 +2562,6 @@ int config_parse_unit_condition_null(
         LIST_PREPEND(conditions, *list, c);
         return 0;
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_notify_access, notify_access, NotifyAccess, "Failed to parse notify access specifier");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_emergency_action, emergency_action, EmergencyAction, "Failed to parse failure action specifier");
 
 int config_parse_unit_requires_mounts_for(
                 const char *unit,
@@ -3005,10 +3008,6 @@ int config_parse_unit_slice(
 
         return 0;
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_device_policy, cgroup_device_policy, CGroupDevicePolicy, "Failed to parse device policy");
-DEFINE_CONFIG_PARSE_PTR(config_parse_cg_weight, cg_weight_parse, uint64_t, "Invalid weight");
-DEFINE_CONFIG_PARSE_PTR(config_parse_cpu_shares, cg_cpu_shares_parse, uint64_t, "Invalid CPU shares");
 
 int config_parse_cpu_quota(
                 const char *unit,
@@ -3459,8 +3458,6 @@ int config_parse_io_limit(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_PTR(config_parse_blockio_weight, cg_blkio_weight_parse, uint64_t, "Invalid block IO weight");
-
 int config_parse_blockio_device_weight(
                 const char *unit,
                 const char *filename,
@@ -3631,8 +3628,6 @@ int config_parse_blockio_bandwidth(
         return 0;
 }
 
-DEFINE_CONFIG_PARSE_ENUM(config_parse_job_mode, job_mode, JobMode, "Failed to parse job mode");
-
 int config_parse_job_mode_isolate(
                 const char *unit,
                 const char *filename,
@@ -3663,8 +3658,6 @@ int config_parse_job_mode_isolate(
         *m = r ? JOB_ISOLATE : JOB_REPLACE;
         return 0;
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_runtime_preserve_mode, exec_preserve_mode, ExecPreserveMode, "Failed to parse runtime directory preserve mode");
 
 int config_parse_exec_directories(
                 const char *unit,
@@ -4114,10 +4107,6 @@ int config_parse_bind_paths(
 
         return 0;
 }
-
-DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_home, protect_home_or_bool, ProtectHome, "Failed to parse protect home value");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_protect_system, protect_system_or_bool, ProtectSystem, "Failed to parse protect system value");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_exec_keyring_mode, exec_keyring_mode, ExecKeyringMode, "Failed to parse keyring mode");
 
 int config_parse_job_timeout_sec(
                 const char* unit,
