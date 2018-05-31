@@ -900,7 +900,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_copy_mode = NULL;
                         else if (STR_IN_SET(optarg, "copy", "symlink"))
                                 arg_copy_mode = optarg;
-                        else {
+                        else if (streq(optarg, "help")) {
+                                puts("auto\n"
+                                     "copy\n"
+                                     "symlink");
+                                return 0;
+                        } else {
                                 log_error("Failed to parse --copy= argument: %s", optarg);
                                 return -EINVAL;
                         }
