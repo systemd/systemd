@@ -214,6 +214,7 @@ struct Network {
         uint32_t mtu;
         int arp;
         int multicast;
+        int allmulticast;
         bool unmanaged;
         bool configure_without_carrier;
         uint32_t iaid;
