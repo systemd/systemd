@@ -811,7 +811,8 @@ int config_parse_socket_bindtodevice(
                 return 0;
         }
 
-        free_and_strdup(&s->bind_to_device, rvalue);
+        if (free_and_strdup(&s->bind_to_device, rvalue) < 0)
+                return log_oom();
 
         return 0;
 }
@@ -4593,8 +4594,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                 if (r < 0)
                         return r;
 
-                free(*filename);
-                *filename = target;
+                free_and_replace(*filename, target);
         }
 
         f = fdopen(fd, "re");
