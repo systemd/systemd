@@ -4594,8 +4594,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                 if (r < 0)
                         return r;
 
-                free(*filename);
-                *filename = target;
+                free_and_replace(*filename, target);
         }
 
         f = fdopen(fd, "re");
