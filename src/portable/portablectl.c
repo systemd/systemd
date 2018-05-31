@@ -111,7 +111,7 @@ static int extract_prefix(const char *path, char **ret) {
 }
 
 static int determine_matches(const char *image, char **l, bool allow_any, char ***ret) {
-        char **k;
+        _cleanup_strv_free_ char **k = NULL;
         int r;
 
         /* Determine the matches to apply. If the list is empty we derive the match from the image name. If the list
@@ -128,7 +128,6 @@ static int determine_matches(const char *image, char **l, bool allow_any, char *
                 if (!arg_quiet)
                         log_info("(Matching unit files with prefix '%s'.)", prefix);
 
-                k = NULL;
                 r = strv_consume(&k, prefix);
                 if (r < 0)
                         return log_oom();
@@ -142,7 +141,6 @@ static int determine_matches(const char *image, char **l, bool allow_any, char *
 
                 if (!arg_quiet)
                         log_info("(Matching all unit files.)");
-                k = NULL;
         } else {
                 _cleanup_free_ char *joined = NULL;
 
@@ -158,7 +156,7 @@ static int determine_matches(const char *image, char **l, bool allow_any, char *
                         log_info("(Matching unit files with prefixes '%s'.)", joined);
         }
 
-        *ret = k;
+        *ret = TAKE_PTR(k);
 
         return 0;
 }
