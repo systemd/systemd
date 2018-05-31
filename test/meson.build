@@ -145,6 +145,7 @@ test_data_files = '''
         test-execute/exec-user-nobody.service
         test-execute/exec-user.service
         test-execute/exec-workingdirectory.service
+        test-execute/exec-workingdirectory-trailing-dot.service
         test-path/basic.target
         test-path/path-changed.path
         test-path/path-changed.service

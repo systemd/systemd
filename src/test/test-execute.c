@@ -176,6 +176,7 @@ static void test_exec_workingdirectory(Manager *m) {
         assert_se(mkdir_p("/tmp/test-exec_workingdirectory", 0755) >= 0);
 
         test(m, "exec-workingdirectory.service", 0, CLD_EXITED);
+        test(m, "exec-workingdirectory-trailing-dot.service", 0, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT|REMOVE_PHYSICAL);
 }
