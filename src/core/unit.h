@@ -279,6 +279,10 @@ typedef struct Unit {
 
         uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
 
+        /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
+         * ones which might have appeared. */
+        sd_event_source *rewatch_pids_event_source;
+
         /* How to start OnFailure units */
         JobMode on_failure_job_mode;
 
@@ -650,7 +654,8 @@ int unit_watch_pid(Unit *u, pid_t pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);
 
-void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2);
+int unit_enqueue_rewatch_pids(Unit *u);
+void unit_dequeue_rewatch_pids(Unit *u);
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name);
 int unit_watch_bus_name(Unit *u, const char *name);

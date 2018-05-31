@@ -1058,8 +1058,10 @@ static void service_set_state(Service *s, ServiceState state) {
                 s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
         }
 
-        if (IN_SET(state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART))
+        if (IN_SET(state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART)) {
                 unit_unwatch_all_pids(UNIT(s));
+                unit_dequeue_rewatch_pids(UNIT(s));
+        }
 
         if (!IN_SET(state,
                     SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
@@ -1154,16 +1156,14 @@ static int service_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART))
-                unit_watch_all_pids(UNIT(s));
-
-        if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
-                service_start_watchdog(s);
-
         if (!IN_SET(s->deserialized_state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_AUTO_RESTART)) {
+                (void) unit_enqueue_rewatch_pids(u);
                 (void) unit_setup_dynamic_creds(u);
                 (void) unit_setup_exec_runtime(u);
         }
+
+        if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
+                service_start_watchdog(s);
 
         if (UNIT_ISSET(s->accept_socket)) {
                 Socket* socket = SOCKET(UNIT_DEREF(s->accept_socket));
@@ -1679,7 +1679,8 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
                 s->result = f;
 
         service_unwatch_control_pid(s);
-        unit_watch_all_pids(UNIT(s));
+
+        (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST];
         if (s->control_command) {
@@ -1731,7 +1732,12 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
         if (s->result == SERVICE_SUCCESS)
                 s->result = f;
 
-        unit_watch_all_pids(UNIT(s));
+        /* Before sending any signal, make sure we track all members of this cgroup */
+        (void) unit_watch_all_pids(UNIT(s));
+
+        /* Also, enqueue a job that we recheck all our PIDs a bit later, given that it's likely some processes have
+         * died now */
+        (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         r = unit_kill_context(
                         UNIT(s),
@@ -1772,7 +1778,7 @@ fail:
 static void service_enter_stop_by_notify(Service *s) {
         assert(s);
 
-        unit_watch_all_pids(UNIT(s));
+        (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), s->timeout_stop_usec));
 
@@ -1789,7 +1795,7 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                 s->result = f;
 
         service_unwatch_control_pid(s);
-        unit_watch_all_pids(UNIT(s));
+        (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         s->control_command = s->exec_command[SERVICE_EXEC_STOP];
         if (s->control_command) {
@@ -3290,11 +3296,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         /* If we get a SIGCHLD event for one of the processes we were interested in, then we look for others to watch,
          * under the assumption that we'll sooner or later get a SIGCHLD for them, as the original process we watched
          * was probably the parent of them, and they are hence now our children. */
-        unit_tidy_watch_pids(u, s->main_pid, s->control_pid);
-        unit_watch_all_pids(u);
-
-        /* If the PID set is empty now, then let's check if the cgroup is empty too and finish off the unit. */
-        unit_synthesize_cgroup_empty_event(u);
+        (void) unit_enqueue_rewatch_pids(u);
 }
 
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
