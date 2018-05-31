@@ -284,6 +284,18 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         if (r < 0)
                 return r;
 
+        /* If single locale without variable name is provided, then we assume it is LANG=. */
+        if (strv_length(l) == 1 && !strchr(*l, '=')) {
+                if (!locale_is_valid(*l))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid Locale data.");
+
+                new_locale[VARIABLE_LANG] = strdup(*l);
+                if (!new_locale[VARIABLE_LANG])
+                        return -ENOMEM;
+
+                l = strv_free(l);
+        }
+
         /* Check whether a variable is valid */
         STRV_FOREACH(i, l) {
                 bool valid = false;
