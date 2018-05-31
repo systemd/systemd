@@ -26,9 +26,6 @@ jobs:
                 # Build docker container
               - $CI_SCRIPT_DIR/build-docker-image.sh
 
-              - docker login -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}"
-              - docker push ${DOCKER_REPOSITORY}
-
         - stage: build
           language: c
           compiler: gcc
@@ -43,8 +40,6 @@ jobs:
               - docker exec -ti travis_build ninja -C build
                 # Commit it to the new image that will be used for testing
               - docker commit -m "systemd build state" -a "${AUTHOR_NAME}" travis_build ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT}
-              - docker login -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}"
-              - docker push ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT}
 
         - stage: test
           language: c
@@ -54,8 +49,6 @@ jobs:
               - docker run -v $HOME/.ccache:$HOME/.ccache --privileged --net=host -dit --name travis_test ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT} bash
               - docker exec -ti travis_test ninja -C build test
               - docker commit -m "systemd test state" -a "${AUTHOR_NAME}" travis_test ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT}
-              - docker login -u="${DOCKER_USERNAME}" -p="${DOCKER_PASSWORD}"
-              - docker push ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT}
 
         - stage: coverity scan
           language: c
@@ -70,7 +63,7 @@ jobs:
               # Token for systemd/systemd Coverity Scan Analysis
               #   The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
               #   via the "travis encrypt" command using the project repo's public key
-              - secure: "UNQLspT89GYWuVKFqW5W5RyqqnYg5RvX20IrNraOddhpdV9nhKBtozrfmhGXDGZwfHGWHt6g7YROlD/NIMvDvThVJIEYvSQiXCoo2zRrwkl2siET5MjPfRG8numiLq0KX47KGmyBJISJZCgDUdNGqqGwgf7AhDN78I3XtgqjFT1z0mGl8n0wiFpKPi7i3nECvF4Mk7xCCHqwByaq0z5G9NkVlOvP1EyCxwv3B6I5Umfch7ibp7iH44YnVXILK+yEry5dMuctYwYkDouR80ChEPQQ5fhhpO4++HJmFuSpfMTeCHpucAd2xwSUijejYeN/GNQ177GxSSk/8hRBGcuSK8T/WJ+KiuJPhZObV8mw+a6+qdQssWY4F9jya5ZKbZ/yTbxjtQ0m4AgtL28P9bEze8pLh16zFMX+hIEuoFSNmJqmtNttfbD5TKyYVZml59s9wvhlvMnlNpRSQva88OAOjXtiA41g+XtTxxpfW9mgd7HYhzSBs1efNiK7PfkANgve7KIYMAmCAqasgb1IIAyX7stOlJH06QOFXNH55PmJLkkKyL3SMQzgryMDWegU+XbS8t43r0x14WLuE7sc9JtnOr/G8hthFaMRp8xLy9aCBwyEIkEsyWa50VMoZDa3Spdb4r1CKBwcGdCbyE4rCehwEIznbfrsSovhwiUds7bbhBU="
+              - secure: "lErL36sR24agNtkp5xIQbZtrDERHMH0sXXu3MyKG4itkmM8a3vmqPesriA03elDnUitP880GmEtfdYAHJegOBnF6pHsnqqDRnVMoXlQJiwM++vOrhymr3dc/17DXa1EAph8rTKy/uwjgzZT0330k08TFs4WXI/cGOMwCGKKkjZPdVTPesMuU5D4+vXYHSw6xTARzEEx7A+AAA6VE2wy5lTt4KSkzia9Il1d79FEPe1BlIuQqH2kdras1um7TAzCdTxCCnc6zhWvnSnkHfWhxEXnqHBIwVuUoXPNzDgwUr0/FqudFSqMFXsJEUWpuNdzbXnpZtG3DuvVUhOGOH294zUh/CAGNAxx4x4+9xLSnVTEC7Ybl/GB/vZ/Olx3WIa+hOOOi0ZKgCbzoNTH0dRC4ExSb+dOuBFwVZeq/nRT0m2SdI3hdhrv+tQVuawezdta/SEuWGFwQphctWE2PvRcsIasFmh5tjBBUKOyDloRFPLQao8zx/5D1k/yTu7x7jiUUJxsNbDGWGEx+IuV9cLUJV0qcnw2GjERE6RAqZz7t8I6pKJLzoPGxlpRwj6oCY3DffVOahaBsV1AGHE/VxxkRXOR3FTK+AckMRdLLKCbLrVQdRTLZLdQqKyw7fexMGQUaWTcGfzTBzWbLBwSaIV1JViGru2iWXYAuafys5ZYbWlw="
           script:
                 # Copy content of CI_DIR into WORKDIR
               - find $CI_DIR -maxdepth 1 -type f -exec cp -t . {} +
@@ -106,32 +99,6 @@ jobs:
               - docker exec -it travis_coverity_scan coverity.sh build
               - docker exec -it travis_coverity_scan coverity.sh upload
 
-        - stage: clean docker
-          language: python
-          # python:
-              # - "3.6"  Probably broken ATM
-          env:
-              - SIZE_LIMIT="3000" # Limit in MBs
-              - TAG_LIMIT="3" # Number of tags to be kept at the time
-          before-script:
-              - sudo apt-get -y install python3
-          script:
-                # Get docker-remote tool and setup venv
-              - sudo $CI_TOOL_DIR/get-docker-remote.sh
-                # Activate virtual environment to be able to use docker-remote safely
-              - source venv/bin/activate
-              # Check the size and tag limit of the repo
-              - REPO_SIZE=$(docker-remote repository --size $DOCKER_REPOSITORY)
-              - TAG_COUNT=$(docker-remote tags --count $DOCKER_REPOSITORY)
-              - 'echo -e "\033[33;1mCurrent repository size: $REPO_SIZE in $TAG_COUNT tags \033[0m"'
-              - |
-                  if [[ ${REPO_SIZE%.*} -gt $SIZE_LIMIT ]] || [[ $TAG_COUNT -gt $TAG_LIMIT ]]
-                  then
-                      docker-remote --login $DOCKER_USERNAME:$DOCKER_PASSWORD \
-                      tags --assumeyes --pop-back --keep $TAG_LIMIT $DOCKER_REPOSITORY
-                  fi
-
-
 
 # Specify the order of stages and conditions
 stages:
@@ -150,17 +117,9 @@ stages:
     - name: coverity scan
       if: type = cron
 
-      # Check for repository size and clean Docker repo if necessary
-    - name: clean Docker
-      if: type = cron
-
 env:
     global:
         # Secure Docker Hub credentials
-        - secure: "TY61ufmEJyxCer8vuAlQ3mYwGRynFZXPCFTxKgIzobAHHyE1Zwx0bZDDwDd88Gdgz7EGnOJtMABfa0axfPOK9il5u7lYmmZ8Usa0HAvKavkpSRnw2b16zz88N98x3DyaIquvg2J8iQpHHoM32+BGiAS7P8BiYTO6r+E0CMPYC0Ylh7eHVSBGfWbR9m+yCo/mDIEAWyop6Jv4rTMN4qP9U7e6Kou7m/AJeiCWMaR7rlanpLFNQi3+qF/Mt5dbE7LVLNSOkmpg/FPw34g4RC5mfLAh+c8YBadqo6kFA6qV1b931or0aZUYVtobI6UwC9U1GGqzfCTjXuVMNgPBBQ6n3JMt91mFFkP0lXdGMxpBNbwFL/btBrt2a359L/wNtqv6PuSJwJ3oTe/FP++X6xjbM7LcAHZMWZiK+0BFefNOUcRzBpaEJ2nGNzcLKHn4Bl0pl4LwZ0uVocN8RBwHnDX+hyUwwQPoQTLJQB9tpwDweIzftt9KmrIHmL9v7KZXR4s/8CKpNfVQ/XSysdtsK+7EKK5AsnbMNrZLjpH7D0Lo/Xp92/eJ2UGyqI7awJbJGPV2FNwyGcojDEXIBUsVssUjb5+B4LpHP1x4UQe/m9SuPJdtRB0R7PKe/tyPD3GTyfVO9K7imQATDdnMY32nkWXmXej8YWo76yA732rTZRZtFAc="
-        - secure: "NAEzWn5Ru6IqDA1RSyTVhpIp2iQluumg0EOI111EN7qWWGUDNgAZi+QgvRI+OBNyuMpBpN/GX1Ys4YxUDos1F/fhm2vytoB4A/LG463FQsSVP3wnyMFJTSOI8H0jgK41xj79qiww7edbfq93MZ/XS95Ws4tUTi/0etUGvAgIHGgofFCPPdMNkOvSHLgzSnYfydzLuD9FVpCgvpbJnQ+47XHyN+sKoA+OlZ+EfIOVZt+Mk/dqYrsM7MRKEfplk1MvUiJpHvrw+xWTslCIiO03V6ws091fBMgedIFRpsySrsd1KwH8JIeOK6KFn5W7Q53auzZkKYk7ymknlJt4WVBy7Qg33njMQ53t3qMQYTRUIV4dcR60cdII7tatzgpKBcycxHQMAshOYPT6pYhSsO6JEKgiO+ZhOxvqWGwtEeH9Zq7P4ft8Q7GJhRkdi0X0WY7/6RjwinO/1LLj1LODim3mDFfAK7xS7e+nQW/JEOdWohT2+qm97j9IOZeQtPtdqZP9F8HJXgw6WjiGJIXMF3Ov9GkQh4uJyMYJ6hN7T3iRoenV86Dzgg6u5Ku131Ziwvlm+n94qlXF8Jl47wCcAS7VmyYxMft1gH+Zs+4Wq7KO0vysmnEk6rCqb87ZQSDOdTzBfK9HTyyAqmBCgS4Dp5x7/xOBMVXfq/SOb9c3Sh/JItA="
-        - DOCKER_REPOSITORY=$DOCKER_USERNAME/systemd
-
         - ADMIN_EMAIL=macermak@redhat.com
 
         - AUTHOR_NAME="$(git log -1 $TRAVIS_COMMIT --pretty=\"%aN\")"
