@@ -121,11 +121,12 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>set-locale LOCALE…</command></term>
+        <term><command>set-locale LOCALE</command></term>
+        <term><command>set-locale VARIABLE=LOCALE…</command></term>
 
-        <listitem><para>Set the system locale. This takes one or more
-        assignments such as "LANG=de_DE.utf8",
-        "LC_MESSAGES=en_GB.utf8", and so on. See
+        <listitem><para>Set the system locale. This takes one locale such as <literal>en_US.UTF-8</literal>, or takes one or more
+        locale assignments such as <literal>LANG=de_DE.utf8</literal>, <literal>LC_MESSAGES=en_GB.utf8</literal>, and so on. If
+        one locale without variable name is provided, then <literal>LANG=</literal> locale variable will be set. See
         <citerefentry project='man-pages'><refentrytitle>locale</refentrytitle><manvolnum>7</manvolnum></citerefentry>
         for details on the available settings and their meanings. Use
         <command>list-locales</command> for a list of available
