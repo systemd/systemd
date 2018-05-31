@@ -104,8 +104,7 @@ static int extract_prefix(const char *path, char **ret) {
         if (!filename_is_valid(name))
                 return -EINVAL;
 
-        *ret = name;
-        name = NULL;
+        *ret = TAKE_PTR(name);
 
         return 0;
 }
