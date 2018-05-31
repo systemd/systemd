@@ -26,6 +26,16 @@
                 assert_se(path_equal(b, a) == !result);   \
         }
 
+static void test_path_simplify(const char *in, const char *out, const char *out_dot) {
+        char *p;
+
+        p = strdupa(in);
+        assert_se(streq(path_simplify(p, false), out));
+
+        p = strdupa(in);
+        assert_se(streq(path_simplify(p, true), out_dot));
+}
+
 static void test_path(void) {
         _cleanup_close_ int fd = -1;
 
@@ -69,15 +79,28 @@ static void test_path(void) {
         assert_se(fd >= 0);
         assert_se(fd_is_mount_point(fd, "/", 0) > 0);
 
-        {
-                char p1[] = "aaa/bbb////ccc";
-                char p2[] = "//aaa/.////ccc";
-                char p3[] = "/./";
-
-                assert_se(path_equal(path_kill_slashes(p1), "aaa/bbb/ccc"));
-                assert_se(path_equal(path_kill_slashes(p2), "/aaa/./ccc"));
-                assert_se(path_equal(path_kill_slashes(p3), "/./"));
-        }
+        test_path_simplify("aaa/bbb////ccc", "aaa/bbb/ccc", "aaa/bbb/ccc");
+        test_path_simplify("//aaa/.////ccc", "/aaa/./ccc", "/aaa/ccc");
+        test_path_simplify("///", "/", "/");
+        test_path_simplify("///.//", "/.", "/");
+        test_path_simplify("///.//.///", "/./.", "/");
+        test_path_simplify("////.././///../.", "/.././../.", "/../..");
+        test_path_simplify(".", ".", "");
+        test_path_simplify("./", ".", "");
+        test_path_simplify(".///.//./.", "./././.", "");
+        test_path_simplify(".///.//././/", "./././.", "");
+        test_path_simplify("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/.",
+                           "/./aaa/././.bbb/../c./d.dd/..eeee/.",
+                           "/aaa/.bbb/../c./d.dd/..eeee");
+        test_path_simplify("//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
+                           "/./aaa/././.bbb/../c./d.dd/..eeee/..",
+                           "/aaa/.bbb/../c./d.dd/..eeee/..");
+        test_path_simplify(".//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
+                           "././aaa/././.bbb/../c./d.dd/..eeee/..",
+                           "aaa/.bbb/../c./d.dd/..eeee/..");
+        test_path_simplify("..//./aaa///.//./.bbb/..///c.//d.dd///..eeee/..",
+                           ".././aaa/././.bbb/../c./d.dd/..eeee/..",
+                           "../aaa/.bbb/../c./d.dd/..eeee/..");
 
         assert_se(PATH_IN_SET("/bin", "/", "/bin", "/foo"));
         assert_se(PATH_IN_SET("/bin", "/bin"));

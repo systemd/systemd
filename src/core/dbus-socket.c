@@ -365,7 +365,7 @@ static int bus_socket_set_transient_property(
 
                         if (p->type != SOCKET_SOCKET) {
                                 p->path = strdup(a);
-                                path_kill_slashes(p->path);
+                                path_simplify(p->path, false);
 
                         } else if (streq(t, "Netlink")) {
                                 r = socket_address_parse_netlink(&p->address, a);

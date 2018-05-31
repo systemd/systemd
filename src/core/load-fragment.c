@@ -325,7 +325,7 @@ int config_parse_unit_path_strv_printf(
                         return 0;
                 }
 
-                path_kill_slashes(k);
+                path_simplify(k, false);
 
                 r = strv_push(x, k);
                 if (r < 0)
@@ -376,7 +376,7 @@ int config_parse_socket_listen(const char *unit,
                         return 0;
                 }
 
-                path_kill_slashes(p->path);
+                path_simplify(p->path, false);
 
         } else if (streq(lvalue, "ListenNetlink")) {
                 _cleanup_free_ char  *k = NULL;
@@ -673,7 +673,7 @@ int config_parse_exec(
                         n[nlen] = NULL;
                 }
 
-                path_kill_slashes(path);
+                path_simplify(path, false);
 
                 while (!isempty(p)) {
                         _cleanup_free_ char *word = NULL, *resolved = NULL;
@@ -1624,7 +1624,7 @@ int config_parse_path_spec(const char *unit,
                 return 0;
         }
 
-        path_kill_slashes(k);
+        path_simplify(k, false);
 
         if (!path_is_absolute(k)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Path is not absolute, ignoring: %s", k);
@@ -2048,7 +2048,7 @@ int config_parse_working_directory(
                         return missing_ok ? 0 : -ENOEXEC;
                 }
 
-                path_kill_slashes(k);
+                path_simplify(k, false);
 
                 if (!utf8_is_valid(k)) {
                         log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
@@ -3871,7 +3871,7 @@ int config_parse_namespace_path_strv(
                         continue;
                 }
 
-                path_kill_slashes(resolved);
+                path_simplify(resolved, false);
 
                 joined = strjoin(ignore_enoent ? "-" : "",
                                  shall_prefix ? "+" : "",
@@ -3955,7 +3955,7 @@ int config_parse_temporary_filesystems(
                         continue;
                 }
 
-                path_kill_slashes(resolved);
+                path_simplify(resolved, false);
 
                 r = temporary_filesystem_add(&c->temporary_filesystems, &c->n_temporary_filesystems, path, w);
                 if (r == -ENOMEM)
@@ -4036,7 +4036,7 @@ int config_parse_bind_paths(
                         return 0;
                 }
 
-                path_kill_slashes(s);
+                path_simplify(s, false);
 
                 /* Optionally, the destination is specified. */
                 if (p && p[-1] == ':') {
@@ -4068,7 +4068,7 @@ int config_parse_bind_paths(
                                 return 0;
                         }
 
-                        d = path_kill_slashes(dresolved);
+                        d = path_simplify(dresolved, false);
 
                         /* Optionally, there's also a short option string specified */
                         if (p && p[-1] == ':') {
@@ -4203,7 +4203,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_final) {
                 if (c++ >= FOLLOW_MAX)
                         return -ELOOP;
 
-                path_kill_slashes(*filename);
+                path_simplify(*filename, false);
 
                 /* Add the file name we are currently looking at to
                  * the names of this unit, but only if it is a valid

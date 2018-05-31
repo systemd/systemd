@@ -740,7 +740,7 @@ int config_parse_path(
         if (!n)
                 return log_oom();
 
-        path_kill_slashes(n);
+        path_simplify(n, false);
 
 finalize:
         free(*s);

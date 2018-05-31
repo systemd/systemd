@@ -4551,7 +4551,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         if (!p)
                 return -ENOMEM;
 
-        path = path_kill_slashes(p);
+        path = path_simplify(p, false);
 
         if (!path_is_normalized(path))
                 return -EPERM;

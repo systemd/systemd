@@ -307,7 +307,7 @@ static int swap_load(Unit *u) {
                                 return -ENOMEM;
                 }
 
-                path_kill_slashes(s->what);
+                path_simplify(s->what, false);
 
                 if (!UNIT(s)->description) {
                         r = unit_set_description(u, s->what);

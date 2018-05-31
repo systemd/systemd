@@ -1393,7 +1393,7 @@ static int usbffs_dispatch_eps(SocketPort *p) {
                 if (!ep)
                         return -ENOMEM;
 
-                path_kill_slashes(ep);
+                path_simplify(ep, false);
 
                 r = usbffs_address_create(ep);
                 if (r < 0)

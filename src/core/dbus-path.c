@@ -108,13 +108,14 @@ static int bus_path_set_transient_property(
                                 if (!k)
                                         return -ENOMEM;
 
+                                path_simplify(k, false);
+
                                 s = new0(PathSpec, 1);
                                 if (!s)
                                         return -ENOMEM;
 
                                 s->unit = u;
-                                s->path = path_kill_slashes(k);
-                                k = NULL;
+                                s->path = TAKE_PTR(k);
                                 s->type = t;
                                 s->inotify_fd = -1;
 

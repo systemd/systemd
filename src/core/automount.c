@@ -199,7 +199,7 @@ static int automount_set_where(Automount *a) {
         if (r < 0)
                 return r;
 
-        path_kill_slashes(a->where);
+        path_simplify(a->where, false);
         return 1;
 }
 

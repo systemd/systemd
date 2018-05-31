@@ -159,7 +159,7 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
                         if (!r)
                                 return -ENOMEM;
 
-                        path_kill_slashes(r);
+                        path_simplify(r, false);
 
                         *_r = r;
                         return 0;
@@ -214,7 +214,7 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
                 p = mempcpy(p, "../", 3);
 
         strcpy(p, to_path);
-        path_kill_slashes(r);
+        path_simplify(r, false);
 
         *_r = r;
         return 0;
@@ -235,7 +235,7 @@ int path_strv_make_absolute_cwd(char **l) {
                 if (r < 0)
                         return r;
 
-                path_kill_slashes(t);
+                path_simplify(t, false);
                 free_and_replace(*s, t);
         }
 
@@ -335,17 +335,30 @@ char **path_strv_resolve_uniq(char **l, const char *root) {
         return strv_uniq(l);
 }
 
-char *path_kill_slashes(char *path) {
+char *path_simplify(char *path, bool kill_dots) {
         char *f, *t;
-        bool slash = false;
+        bool slash = false, ignore_slash = false, absolute;
 
-        /* Removes redundant inner and trailing slashes. Modifies the
-         * passed string in-place.
+        assert(path);
+
+        /* Removes redundant inner and trailing slashes. Also removes unnecessary dots
+         * if kill_dots is true. Modifies the passed string in-place.
          *
-         * ///foo///bar/ becomes /foo/bar
+         * ///foo//./bar/.   becomes /foo/./bar/.  (if kill_dots is false)
+         * ///foo//./bar/.   becomes /foo/bar      (if kill_dots is true)
+         * .//./foo//./bar/. becomes ./foo/bar     (if kill_dots is false)
+         * .//./foo//./bar/. becomes foo/bar       (if kill_dots is true)
          */
 
-        for (f = path, t = path; *f; f++) {
+        absolute = path_is_absolute(path);
+
+        f = path;
+        if (kill_dots && *f == '.' && IN_SET(f[1], 0, '/')) {
+                ignore_slash = true;
+                f++;
+        }
+
+        for (t = path; *f; f++) {
 
                 if (*f == '/') {
                         slash = true;
@@ -353,17 +366,21 @@ char *path_kill_slashes(char *path) {
                 }
 
                 if (slash) {
+                        if (kill_dots && *f == '.' && IN_SET(f[1], 0, '/'))
+                                continue;
+
                         slash = false;
-                        *(t++) = '/';
+                        if (ignore_slash)
+                                ignore_slash = false;
+                        else
+                                *(t++) = '/';
                 }
 
                 *(t++) = *f;
         }
 
-        /* Special rule, if we are talking of the root directory, a
-        trailing slash is good */
-
-        if (t == path && slash)
+        /* Special rule, if we are talking of the root directory, a trailing slash is good */
+        if (absolute && t == path)
                 *(t++) = '/';
 
         *t = 0;
@@ -530,7 +547,7 @@ int find_binary(const char *name, char **ret) {
                         /* Found it! */
 
                         if (ret) {
-                                *ret = path_kill_slashes(j);
+                                *ret = path_simplify(j, false);
                                 j = NULL;
                         }
 
@@ -684,12 +701,11 @@ int parse_path_argument_and_warn(const char *path, bool suppress_root, char **ar
         if (r < 0)
                 return log_error_errno(r, "Failed to parse path \"%s\" and make it absolute: %m", path);
 
-        path_kill_slashes(p);
+        path_simplify(p, false);
         if (suppress_root && empty_or_root(p))
                 p = mfree(p);
 
-        free(*arg);
-        *arg = p;
+        free_and_replace(*arg, p);
 
         return 0;
 }
