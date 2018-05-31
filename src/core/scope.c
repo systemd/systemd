@@ -347,6 +347,9 @@ static int scope_start(Unit *u) {
         s->result = SCOPE_SUCCESS;
 
         scope_set_state(s, SCOPE_RUNNING);
+
+        /* Start watching the PIDs currently in the scope */
+        (void) unit_enqueue_rewatch_pids(UNIT(s));
         return 1;
 }
 
