@@ -30,7 +30,7 @@ static int test_fiemap(const char *path) {
         if (fd < 0)
                 return log_error_errno(errno, "failed to open %s: %m", path);
         r = read_fiemap(fd, &fiemap);
-        if (r == -ENOTSUP) {
+        if (r == -EOPNOTSUPP) {
                 log_info("Skipping test, not supported");
                 exit(EXIT_TEST_SKIP);
         }

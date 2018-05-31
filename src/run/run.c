@@ -917,7 +917,7 @@ static int start_transient_service(
         if (arg_stdio == ARG_STDIO_PTY) {
 
                 if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                        master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NDELAY);
+                        master = posix_openpt(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                         if (master < 0)
                                 return log_error_errno(errno, "Failed to acquire pseudo tty: %m");
 

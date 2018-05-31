@@ -1245,7 +1245,7 @@ static int write_one_file(Item *i, const char *path) {
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
-                fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+                fd = open(path, flags|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
                 mac_selinux_create_file_clear();
         }
 
