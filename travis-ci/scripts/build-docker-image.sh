@@ -11,4 +11,4 @@ docker build \
 --build-arg DOCKER_USER=$USER \
 --build-arg DOCKER_USER_UID=`id -u` \
 --build-arg DOCKER_USER_GID=`id -g` \
---force-rm -t ${DOCKER_REPOSITORY}:${TRAVIS_COMMIT} --pull=true .
+--force-rm -t coverity-${TRAVIS_COMMIT} --pull=true .
