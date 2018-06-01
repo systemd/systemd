@@ -3988,7 +3988,7 @@ static void print_status_info(
         if (path && terminal_urlify_path(path, NULL, &formatted_path) >= 0)
                 path = formatted_path;
 
-        if (i->load_error != 0)
+        if (!isempty(i->load_error))
                 printf("   Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
         else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset) &&
