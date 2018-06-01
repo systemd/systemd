@@ -1242,7 +1242,7 @@ int bus_unit_queue_job(
         }
 
         if (type == JOB_STOP &&
-            (IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_ERROR)) &&
+            IN_SET(u->load_state, UNIT_NOT_FOUND, UNIT_ERROR, UNIT_BAD_SETTING) &&
             unit_active_state(u) == UNIT_INACTIVE)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not loaded.", u->id);
 
@@ -1726,6 +1726,9 @@ int bus_unit_validate_load_state(Unit *u, sd_bus_error *error) {
 
         case UNIT_NOT_FOUND:
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not found.", u->id);
+
+        case UNIT_BAD_SETTING:
+                return sd_bus_error_setf(error, BUS_ERROR_BAD_UNIT_SETTING, "Unit %s has a bad unit file setting.", u->id);
 
         case UNIT_ERROR: /* Only show .load_error in UNIT_ERROR state */
                 return sd_bus_error_set_errnof(error, u->load_error, "Unit %s failed to loaded properly: %m.", u->id);

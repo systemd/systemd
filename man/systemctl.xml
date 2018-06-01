@@ -702,13 +702,14 @@ To show all installed unit files use 'systemctl list-unit-files'.
             were masked, not found, or otherwise failed.</para>
 
             <para>The LOAD column shows the load state, one of <constant>loaded</constant>,
-            <constant>not-found</constant>, <constant>error</constant>, <constant>masked</constant>. The ACTIVE columns
-            shows the general unit state, one of <constant>active</constant>, <constant>reloading</constant>,
-            <constant>inactive</constant>, <constant>failed</constant>, <constant>activating</constant>,
-            <constant>deactivating</constant>. The SUB column shows the unit-type-specific detailed state of the unit,
-            possible values vary by unit type. The list of possible LOAD, ACTIVE, and SUB states is not constant and
-            new systemd releases may both add and remove values. <programlisting>systemctl --state=help</programlisting> command maybe be
-            used to display the current set of possible values.</para>
+            <constant>not-found</constant>, <constant>bad-setting</constant>, <constant>error</constant>,
+            <constant>masked</constant>. The ACTIVE columns shows the general unit state, one of
+            <constant>active</constant>, <constant>reloading</constant>, <constant>inactive</constant>,
+            <constant>failed</constant>, <constant>activating</constant>, <constant>deactivating</constant>. The SUB
+            column shows the unit-type-specific detailed state of the unit, possible values vary by unit type. The list
+            of possible LOAD, ACTIVE, and SUB states is not constant and new systemd releases may both add and remove
+            values. <programlisting>systemctl --state=help</programlisting> command maybe be used to display the
+            current set of possible values.</para>
 
             <para>This is the default command.</para>
           </listitem>
@@ -970,10 +971,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
             memory. Other possible values for "Loaded:" include: <literal>error</literal> if there was a problem
-            loading it, <literal>not-found</literal>, and <literal>masked</literal>. Along with showing the path to
-            the unit file, this line will also show the enablement state.  Enabled commands start at boot.  See the
-            full table of possible enablement states — including the definition of <literal>masked</literal> — in the
-            documentation for the <command>is-enabled</command> command.
+            loading it, <literal>not-found</literal> if not unit file was found for this unit,
+            <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
+            <literal>masked</literal> if the unit file has been masked. Along with showing the path to the unit file,
+            this line will also show the enablement state.  Enabled commands start at boot.  See the full table of
+            possible enablement states — including the definition of <literal>masked</literal> — in the documentation
+            for the <command>is-enabled</command> command.
             </para>
 
             <para>The "Active:" line shows active state.  The value is usually <literal>active</literal> or
