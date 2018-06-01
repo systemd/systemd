@@ -296,7 +296,7 @@ int rename_process(const char name[]) {
          * can use PR_SET_NAME, which sets the thread name for the calling thread. */
         if (prctl(PR_SET_NAME, name) < 0)
                 log_debug_errno(errno, "PR_SET_NAME failed: %m");
-        if (l > 15) /* Linux process names can be 15 chars at max */
+        if (l >= TASK_COMM_LEN) /* Linux process names can be 15 chars at max */
                 truncated = true;
 
         /* Second step, change glibc's ID of the process name. */

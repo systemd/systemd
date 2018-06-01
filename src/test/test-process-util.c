@@ -366,7 +366,7 @@ static void test_rename_process_now(const char *p, int ret) {
 
         assert_se(get_process_comm(0, &comm) >= 0);
         log_info("comm = <%s>", comm);
-        assert_se(strneq(comm, p, 15));
+        assert_se(strneq(comm, p, TASK_COMM_LEN-1));
 
         assert_se(get_process_cmdline(0, 0, false, &cmdline) >= 0);
         /* we cannot expect cmdline to be renamed properly without privileges */
