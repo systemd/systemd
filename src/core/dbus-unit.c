@@ -271,16 +271,18 @@ static int property_get_load_error(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
-        int *n = userdata;
+        Unit *u = userdata;
+        int r;
 
         assert(bus);
         assert(reply);
-        assert(n);
+        assert(u);
 
-        if (*n != 0)
-                sd_bus_error_set_errno(&e, *n);
+        r = bus_unit_validate_load_state(u, &e);
+        if (r < 0)
+                return sd_bus_message_append(reply, "(ss)", e.name, e.message);
 
-        return sd_bus_message_append(reply, "(ss)", e.name, e.message);
+        return sd_bus_message_append(reply, "(ss)", NULL, NULL);
 }
 
 static int bus_verify_manage_units_async_full(
@@ -629,7 +631,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("AssertTimestamp", offsetof(Unit, assert_timestamp), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Conditions", "a(sbbsi)", property_get_conditions, offsetof(Unit, conditions), 0),
         SD_BUS_PROPERTY("Asserts", "a(sbbsi)", property_get_conditions, offsetof(Unit, asserts), 0),
-        SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, offsetof(Unit, load_error), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LoadError", "(ss)", property_get_load_error, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Transient", "b", bus_property_get_bool, offsetof(Unit, transient), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Perpetual", "b", bus_property_get_bool, offsetof(Unit, perpetual), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StartLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Unit, start_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
