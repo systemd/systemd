@@ -1641,11 +1641,16 @@ static int invoke_main_loop(
                 switch (m->exit_code) {
 
                 case MANAGER_RELOAD: {
+                        LogTarget saved_log_target;
                         int saved_log_level;
 
                         log_info("Reloading.");
 
+                        /* First, save any overriden log level/target, then parse the configuration file, which might
+                         * change the log level to new settings. */
+
                         saved_log_level = m->log_level_overridden ? log_get_max_level() : -1;
+                        saved_log_target = m->log_target_overridden ? log_get_target() : _LOG_TARGET_INVALID;
 
                         r = parse_config_file();
                         if (r < 0)
@@ -1655,6 +1660,8 @@ static int invoke_main_loop(
 
                         if (saved_log_level >= 0)
                                 manager_override_log_level(m, saved_log_level);
+                        if (saved_log_target >= 0)
+                                manager_override_log_target(m, saved_log_target);
 
                         r = manager_reload(m);
                         if (r < 0)

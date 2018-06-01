@@ -303,7 +303,9 @@ struct Manager {
         usec_t default_timer_accuracy_usec;
 
         int original_log_level;
+        LogTarget original_log_target;
         bool log_level_overridden:1;
+        bool log_target_overridden:1;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
 
@@ -470,6 +472,9 @@ void manager_unref_console(Manager *m);
 
 void manager_override_log_level(Manager *m, int level);
 void manager_restore_original_log_level(Manager *m);
+
+void manager_override_log_target(Manager *m, LogTarget target);
+void manager_restore_original_log_target(Manager *m);
 
 const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;

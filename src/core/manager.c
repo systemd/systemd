@@ -737,6 +737,7 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         m->default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
         m->default_restart_usec = DEFAULT_RESTART_USEC;
         m->original_log_level = -1;
+        m->original_log_target = _LOG_TARGET_INVALID;
 
 #if ENABLE_EFI
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
@@ -2646,18 +2647,15 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 case 26:
                 case 29: /* compatibility: used to be mapped to LOG_TARGET_SYSLOG_OR_KMSG */
-                        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
-                        log_notice("Setting log target to journal-or-kmsg.");
+                        manager_restore_original_log_target(m);
                         break;
 
                 case 27:
-                        log_set_target(LOG_TARGET_CONSOLE);
-                        log_notice("Setting log target to console.");
+                        manager_override_log_target(m, LOG_TARGET_CONSOLE);
                         break;
 
                 case 28:
-                        log_set_target(LOG_TARGET_KMSG);
-                        log_notice("Setting log target to kmsg.");
+                        manager_override_log_target(m, LOG_TARGET_KMSG);
                         break;
 
                 default:
@@ -3029,6 +3027,8 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
 
         if (m->log_level_overridden)
                 fprintf(f, "log-level-override=%i\n", log_get_max_level());
+        if (m->log_target_overridden)
+                fprintf(f, "log-target-override=%s\n", log_target_to_string(log_get_target()));
 
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 /* The userspace and finish timestamps only apply to the host system, hence only serialize them there */
@@ -3221,6 +3221,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse log-level-override value '%s', ignoring.", val);
                         else
                                 manager_override_log_level(m, level);
+
+                } else if ((val = startswith(l, "log-target-override="))) {
+                        LogTarget target;
+
+                        target = log_target_from_string(val);
+                        if (target < 0)
+                                log_notice("Failed to parse log-target-override value '%s', ignoring.", val);
+                        else
+                                manager_override_log_target(m, target);
 
                 } else if (startswith(l, "env=")) {
                         r = deserialize_environment(&m->environment, l);
@@ -4487,6 +4496,30 @@ void manager_restore_original_log_level(Manager *m) {
 
         log_set_max_level(m->original_log_level);
         m->log_level_overridden = false;
+}
+
+void manager_override_log_target(Manager *m, LogTarget target) {
+        assert(m);
+
+        if (!m->log_target_overridden) {
+                m->original_log_target = log_get_target();
+                m->log_target_overridden = true;
+        }
+
+        log_info("Setting log target to %s.", log_target_to_string(target));
+        log_set_target(target);
+}
+
+void manager_restore_original_log_target(Manager *m) {
+        assert(m);
+
+        if (!m->log_target_overridden)
+                return;
+
+        log_info("Restoring log target to original %s.", log_target_to_string(m->original_log_target));
+
+        log_set_target(m->original_log_target);
+        m->log_target_overridden = false;
 }
 
 static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
