@@ -18,6 +18,8 @@
 int cescape_char(char c, char *buf) {
         char *buf_old = buf;
 
+        /* Needs space for 4 characters in the buffer */
+
         switch (c) {
 
                 case '\a':
