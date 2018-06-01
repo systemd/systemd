@@ -1839,10 +1839,11 @@ static void service_enter_running(Service *s, ServiceResult f) {
 
         service_unwatch_control_pid(s);
 
-        if (service_good(s)) {
+        if (s->result != SERVICE_SUCCESS)
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
+        else if (service_good(s)) {
 
-                /* If there are any queued up sd_notify()
-                 * notifications, process them now */
+                /* If there are any queued up sd_notify() notifications, process them now */
                 if (s->notify_state == NOTIFY_RELOADING)
                         service_enter_reload_by_notify(s);
                 else if (s->notify_state == NOTIFY_STOPPING)
@@ -1852,9 +1853,7 @@ static void service_enter_running(Service *s, ServiceResult f) {
                         service_arm_timer(s, usec_add(UNIT(s)->active_enter_timestamp.monotonic, s->runtime_max_usec));
                 }
 
-        } else if (f != SERVICE_SUCCESS)
-                service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
-        else if (s->remain_after_exit)
+        } else if (s->remain_after_exit)
                 service_set_state(s, SERVICE_EXITED);
         else
                 service_enter_stop(s, SERVICE_SUCCESS);
