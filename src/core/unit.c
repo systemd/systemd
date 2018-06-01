@@ -1510,7 +1510,7 @@ int unit_load(Unit *u) {
 
                 if (u->on_failure_job_mode == JOB_ISOLATE && hashmap_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
                         log_unit_error(u, "More than one OnFailure= dependencies specified but OnFailureJobMode=isolate set. Refusing.");
-                        r = -EINVAL;
+                        r = -ENOEXEC;
                         goto fail;
                 }
 

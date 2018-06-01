@@ -543,37 +543,37 @@ static int service_verify(Service *s) {
 
         if (!s->exec_command[SERVICE_EXEC_START] && !s->exec_command[SERVICE_EXEC_STOP]) {
                 log_unit_error(UNIT(s), "Service lacks both ExecStart= and ExecStop= setting. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->type != SERVICE_ONESHOT && !s->exec_command[SERVICE_EXEC_START]) {
                 log_unit_error(UNIT(s), "Service has no ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (!s->remain_after_exit && !s->exec_command[SERVICE_EXEC_START]) {
                 log_unit_error(UNIT(s), "Service has no ExecStart= setting, which is only allowed for RemainAfterExit=yes services. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->type != SERVICE_ONESHOT && s->exec_command[SERVICE_EXEC_START]->command_next) {
                 log_unit_error(UNIT(s), "Service has more than one ExecStart= setting, which is only allowed for Type=oneshot services. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->type == SERVICE_ONESHOT && s->restart != SERVICE_RESTART_NO) {
                 log_unit_error(UNIT(s), "Service has Restart= setting other than no, which isn't allowed for Type=oneshot services. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->type == SERVICE_ONESHOT && !exit_status_set_is_empty(&s->restart_force_status)) {
                 log_unit_error(UNIT(s), "Service has RestartForceStatus= set, which isn't allowed for Type=oneshot services. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->type == SERVICE_DBUS && !s->bus_name) {
                 log_unit_error(UNIT(s), "Service is of type D-Bus but no D-Bus service name has been specified. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->bus_name && s->type != SERVICE_DBUS)
@@ -581,7 +581,7 @@ static int service_verify(Service *s) {
 
         if (s->exec_context.pam_name && !IN_SET(s->kill_context.kill_mode, KILL_CONTROL_GROUP, KILL_MIXED)) {
                 log_unit_error(UNIT(s), "Service has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->usb_function_descriptors && !s->usb_function_strings)

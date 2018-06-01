@@ -517,23 +517,23 @@ static int mount_verify(Mount *m) {
 
         if (!unit_has_name(UNIT(m), e)) {
                 log_unit_error(UNIT(m), "Where= setting doesn't match unit name. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (mount_point_is_api(m->where) || mount_point_ignore(m->where)) {
                 log_unit_error(UNIT(m), "Cannot create mount unit for API file system %s. Refusing.", m->where);
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         p = get_mount_parameters_fragment(m);
         if (p && !p->what) {
                 log_unit_error(UNIT(m), "What= setting is missing. Refusing.");
-                return -EBADMSG;
+                return -ENOEXEC;
         }
 
         if (m->exec_context.pam_name && m->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_unit_error(UNIT(m), "Unit has PAM enabled. Kill mode must be set to control-group'. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;

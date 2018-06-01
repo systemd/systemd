@@ -172,7 +172,7 @@ static int automount_verify(Automount *a) {
 
         if (path_equal(a->where, "/")) {
                 log_unit_error(UNIT(a), "Cannot have an automount unit for the root directory. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         r = unit_name_from_path(a->where, ".automount", &e);
@@ -181,7 +181,7 @@ static int automount_verify(Automount *a) {
 
         if (!unit_has_name(UNIT(a), e)) {
                 log_unit_error(UNIT(a), "Where= setting doesn't match unit name. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;

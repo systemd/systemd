@@ -78,7 +78,7 @@ static int timer_verify(Timer *t) {
 
         if (!t->values) {
                 log_unit_error(UNIT(t), "Timer unit lacks value setting. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;
