@@ -234,7 +234,7 @@
       <varlistentry>
         <term><varname>ARP=</varname></term>
         <listitem>
-          <para> A boolean. Enables or disables the ARP (low-level Address Resolution Protocol)
+          <para>A boolean. Enables or disables the ARP (low-level Address Resolution Protocol)
           for this interface. Defaults to unset, which means that the kernel default will be used.</para>
           <para> For example, disabling ARP is useful when creating multiple MACVLAN or VLAN virtual
           interfaces atop a single lower-level physical interface, which will then only serve as a
@@ -245,13 +245,13 @@
       <varlistentry>
         <term><varname>Multicast=</varname></term>
         <listitem>
-          <para> A boolean. Enables or disables the change the MULTICAST flag on the device.</para>
+          <para>A boolean. Enables or disables the multicast flag on the device.</para>
         </listitem>
       </varlistentry>
-       <varlistentry>
+      <varlistentry>
         <term><varname>AllMulticast=</varname></term>
         <listitem>
-          <para> A boolean. When this flag is set the driver retrieves all multicast packets from the network.
+          <para>A boolean. When this flag is set the driver retrieves all multicast packets from the network.
           This happens when multicast routing is enabled.</para>
         </listitem>
       </varlistentry>
