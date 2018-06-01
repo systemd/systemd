@@ -910,7 +910,7 @@ int transaction_add_job_and_dependencies(
                 return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
 
         if (type != JOB_STOP) {
-                r = bus_unit_check_load_state(unit, e);
+                r = bus_unit_validate_load_state(unit, e);
                 if (r < 0)
                         return r;
         }

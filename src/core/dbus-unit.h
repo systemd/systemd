@@ -31,7 +31,7 @@ int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *e
 int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 int bus_unit_queue_job(sd_bus_message *message, Unit *u, JobType type, JobMode mode, bool reload_if_possible, sd_bus_error *error);
-int bus_unit_check_load_state(Unit *u, sd_bus_error *error);
+int bus_unit_validate_load_state(Unit *u, sd_bus_error *error);
 
 int bus_unit_track_add_name(Unit *u, const char *name);
 int bus_unit_track_add_sender(Unit *u, sd_bus_message *m);

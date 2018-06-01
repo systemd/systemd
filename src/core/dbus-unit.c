@@ -1712,22 +1712,30 @@ int bus_unit_set_properties(
         return n;
 }
 
-int bus_unit_check_load_state(Unit *u, sd_bus_error *error) {
+int bus_unit_validate_load_state(Unit *u, sd_bus_error *error) {
         assert(u);
 
-        if (u->load_state == UNIT_LOADED)
+        /* Generates a pretty error if a unit isn't properly loaded. */
+
+        switch (u->load_state) {
+
+        case UNIT_LOADED:
                 return 0;
 
-        /* Give a better description of the unit error when
-         * possible. Note that in the case of UNIT_MASKED, load_error
-         * is not set. */
-        if (u->load_state == UNIT_MASKED)
-                return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit %s is masked.", u->id);
-
-        if (u->load_state == UNIT_NOT_FOUND)
+        case UNIT_NOT_FOUND:
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unit %s not found.", u->id);
 
-        return sd_bus_error_set_errnof(error, u->load_error, "Unit %s is not loaded properly: %m.", u->id);
+        case UNIT_ERROR: /* Only show .load_error in UNIT_ERROR state */
+                return sd_bus_error_set_errnof(error, u->load_error, "Unit %s failed to loaded properly: %m.", u->id);
+
+        case UNIT_MASKED:
+                return sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit %s is masked.", u->id);
+
+        case UNIT_STUB:
+        case UNIT_MERGED:
+        default:
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT, "Unexpected load state of unit %s", u->id);
+        }
 }
 
 static int bus_unit_track_handler(sd_bus_track *t, void *userdata) {
