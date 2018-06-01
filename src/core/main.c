@@ -105,6 +105,7 @@ static bool arg_no_pager = false;
 static bool arg_service_watchdogs = true;
 static char ***arg_join_controllers = NULL;
 static int arg_default_log_max_level = LOG_INFO;
+static LogTarget arg_default_log_target = _LOG_TARGET_INVALID;
 static ExecOutput arg_default_std_output = EXEC_OUTPUT_JOURNAL;
 static ExecOutput arg_default_std_error = EXEC_OUTPUT_INHERIT;
 static usec_t arg_default_restart_usec = DEFAULT_RESTART_USEC;
@@ -524,11 +525,11 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 return 0;                                             \
         }
 
-DEFINE_SETTER(config_parse_target, log_set_target_from_string, "target")
 DEFINE_SETTER(config_parse_color, log_show_color_from_string, "color" )
 DEFINE_SETTER(config_parse_location, log_show_location_from_string, "location")
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_level2, log_level, int, "log level");
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_target, log_target, LogTarget, "log target");
 
 static int config_parse_cpu_affinity2(
                 const char *unit,
@@ -649,7 +650,7 @@ static int parse_config_file(void) {
 
         const ConfigTableItem items[] = {
                 { "Manager", "LogLevel",                  config_parse_level2,           0, &arg_default_log_max_level             },
-                { "Manager", "LogTarget",                 config_parse_target,           0, NULL                                   },
+                { "Manager", "LogTarget",                 config_parse_target,           0, &arg_default_log_target,               },
                 { "Manager", "LogColor",                  config_parse_color,            0, NULL                                   },
                 { "Manager", "LogLocation",               config_parse_location,         0, NULL                                   },
                 { "Manager", "DumpCore",                  config_parse_bool,             0, &arg_dump_core                         },
@@ -762,9 +763,12 @@ static void set_manager_settings(Manager *m) {
         m->shutdown_watchdog = arg_shutdown_watchdog;
         m->cad_burst_action = arg_cad_burst_action;
         m->default_log_max_level = arg_default_log_max_level;
+        m->default_log_target = arg_default_log_target;
 
         if (!m->log_max_level_overridden)
                 log_set_max_level(m->default_log_max_level);
+        if (!m->log_target_overridden)
+                log_set_target(m->default_log_target);
 
         manager_set_show_status(m, arg_show_status);
 }
@@ -1951,8 +1955,13 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
         int r;
 
         assert(ret_error_message);
+        assert(arg_default_log_target == _LOG_TARGET_INVALID);
 
         arg_default_tasks_max = system_tasks_max_scale(DEFAULT_TASKS_MAX_PERCENTAGE, 100U);
+
+        /* The log target default depend on the runtime environment and should
+         * be set now. */
+        arg_default_log_target = log_get_target();
 
         r = parse_config_file();
         if (r < 0) {
@@ -1960,8 +1969,10 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
                 return r;
         }
 
-        /* Log level should be put in effect as soon as possible. */
+        /* Overridden log level/target values (if any) should be put in effect
+         * as soon as possible. */
         log_set_max_level(arg_default_log_max_level);
+        log_set_target(arg_default_log_target);
 
         if (arg_system) {
                 r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
@@ -1978,10 +1989,11 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
                 return r;
         }
 
-        /* The log level might have been changed through environment variables
-         * or options, let's record the new value as the definitive default
-         * one. */
+        /* The log level/target might have been changed through environment
+         * variables or options, let's record the new values as the definitive
+         * default ones. */
         arg_default_log_max_level = log_get_max_level();
+        arg_default_log_target = log_get_target();
 
         /* Initialize default unit */
         if (!arg_default_unit) {

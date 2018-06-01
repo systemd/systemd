@@ -298,6 +298,8 @@ struct Manager {
 
         int default_log_max_level;
         bool log_max_level_overridden;
+        LogTarget default_log_target;
+        bool log_target_overridden;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
 

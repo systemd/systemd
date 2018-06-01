@@ -114,6 +114,7 @@ static int property_set_log_target(
                 void *userdata,
                 sd_bus_error *error) {
 
+        Manager *m = userdata;
         const char *t;
         int r;
 
@@ -124,7 +125,19 @@ static int property_set_log_target(
         if (r < 0)
                 return r;
 
-        return log_set_target_from_string(t);
+        if (isempty(t)) {
+                m->log_target_overridden = false;
+                log_set_target(m->default_log_target);
+                log_info("Restoring log target to the default setting.");
+                return 0;
+        }
+
+        r = log_set_target_from_string(t);
+        if (r == 0) {
+                m->log_target_overridden = true;
+                log_info("Setting log target to %s.", t);
+        }
+        return r;
 }
 
 static int property_get_log_level(
