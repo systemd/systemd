@@ -224,6 +224,7 @@ struct Network {
         int allmulticast;
         bool unmanaged;
         bool configure_without_carrier;
+        bool ignore_carrier_loss;
         uint32_t iaid;
         DUID duid;
 
