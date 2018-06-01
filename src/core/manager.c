@@ -1954,16 +1954,12 @@ int manager_load_startable_unit_or_warn(
         r = manager_load_unit(m, name, path, &error, &unit);
         if (r < 0)
                 return log_error_errno(r, "Failed to load %s %s: %s",
-                                       name ? "unit" : "file", name ?: path,
+                                       name ? "unit" : "unit file", name ?: path,
                                        bus_error_message(&error, r));
-        else if (IN_SET(unit->load_state, UNIT_ERROR, UNIT_NOT_FOUND))
-                return log_error_errno(unit->load_error, "Failed to load %s %s: %m",
-                                       name ? "unit" : "file", name ?: path);
-        else if (unit->load_state == UNIT_MASKED) {
-                log_error("%s %s is masked.",
-                          name ? "Unit" : "File", name ?: path);
-                return -ERFKILL;
-        }
+
+        r = bus_unit_validate_load_state(unit, &error);
+        if (r < 0)
+                return log_error_errno(r, "%s", bus_error_message(&error, r));
 
         *ret = unit;
         return 0;
