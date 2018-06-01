@@ -627,24 +627,57 @@ char *cellescape(char *buf, size_t len, const char *s) {
          * very end.
          */
 
-        size_t i;
-        const char *t = s;
+        size_t i = 0, last_char_width[4] = {}, k = 0, j;
 
-        assert(len > 4 + 4 + 1); /* two chars and the terminator */
+        assert(len > 0); /* at least a terminating NUL */
 
-        for (i = 0; i < len - 9; t++) {
-                if (!*t)
+        for (;;) {
+                char four[4];
+                int w;
+
+                if (*s == 0) /* terminating NUL detected? then we are done! */
                         goto done;
-                i += cescape_char(*t, buf + i);
+
+                w = cescape_char(*s, four);
+                if (i + w + 1 > len) /* This character doesn't fit into the buffer anymore? In that case let's
+                                      * ellipsize at the previous location */
+                        break;
+
+                /* OK, there was space, let's add this escaped character to the buffer */
+                memcpy(buf + i, four, w);
+                i += w;
+
+                /* And remember its width in the ring buffer */
+                last_char_width[k] = w;
+                k = (k + 1) % 4;
+
+                s++;
         }
 
-        /* We have space for one more char and terminating nul at this point */
-        if (*t) {
-                if (*(t+1))
-                        i += write_ellipsis(buf + i, false);
-                else
-                        i += cescape_char(*t, buf + i);
+        /* Ellipsation is necessary. This means we might need to truncate the string again to make space for 4
+         * characters ideally, but the buffer is shorter than that in the first place take what we can get */
+        for (j = 0; j < ELEMENTSOF(last_char_width); j++) {
+
+                if (i + 4 <= len) /* nice, we reached our space goal */
+                        break;
+
+                k = k == 0 ? 3 : k - 1;
+                if (last_char_width[k] == 0) /* bummer, we reached the beginning of the strings */
+                        break;
+
+                assert(i >= last_char_width[k]);
+                i -= last_char_width[k];
         }
+
+        if (i + 4 <= len) /* yay, enough space */
+                i += write_ellipsis(buf + i, false);
+        else if (i + 3 <= len) { /* only space for ".." */
+                buf[i++] = '.';
+                buf[i++] = '.';
+        } else if (i + 2 <= len) /* only space for a single "." */
+                buf[i++] = '.';
+        else
+                assert(i + 1 <= len);
 
  done:
         buf[i] = '\0';
