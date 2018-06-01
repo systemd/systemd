@@ -1133,9 +1133,9 @@ int setup_namespace(
         _cleanup_free_ void *root_hash = NULL;
         MountEntry *m, *mounts = NULL;
         size_t root_hash_size = 0;
-        bool make_slave = false;
         const char *root;
         size_t n_mounts;
+        bool make_slave;
         bool require_prefix = false;
         int r = 0;
 
@@ -1200,8 +1200,7 @@ int setup_namespace(
                         protect_home, protect_system);
 
         /* Set mount slave mode */
-        if (root || n_mounts > 0)
-                make_slave = true;
+        make_slave = root || n_mounts > 0 || ns_info->private_mounts;
 
         if (n_mounts > 0) {
                 m = mounts = (MountEntry *) alloca0(n_mounts * sizeof(MountEntry));

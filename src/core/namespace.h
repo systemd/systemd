@@ -50,6 +50,7 @@ typedef enum ProtectSystem {
 struct NamespaceInfo {
         bool ignore_protect_paths:1;
         bool private_dev:1;
+        bool private_mounts:1;
         bool protect_control_groups:1;
         bool protect_kernel_tunables:1;
         bool protect_kernel_modules:1;

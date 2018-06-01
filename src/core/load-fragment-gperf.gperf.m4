@@ -114,6 +114,7 @@ $1.ProtectKernelModules,         config_parse_bool,                  0,         
 $1.ProtectControlGroups,         config_parse_bool,                  0,                             offsetof($1, exec_context.protect_control_groups)
 $1.PrivateNetwork,               config_parse_bool,                  0,                             offsetof($1, exec_context.private_network)
 $1.PrivateUsers,                 config_parse_bool,                  0,                             offsetof($1, exec_context.private_users)
+$1.PrivateMounts,                config_parse_bool,                  0,                             offsetof($1, exec_context.private_mounts)
 $1.ProtectSystem,                config_parse_protect_system,        0,                             offsetof($1, exec_context.protect_system)
 $1.ProtectHome,                  config_parse_protect_home,          0,                             offsetof($1, exec_context.protect_home)
 $1.MountFlags,                   config_parse_exec_mount_flags,      0,                             offsetof($1, exec_context.mount_flags)
