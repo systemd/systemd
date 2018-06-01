@@ -2126,6 +2126,7 @@ void unit_start_on_failure(Unit *u) {
         Unit *other;
         Iterator i;
         void *v;
+        int r;
 
         assert(u);
 
@@ -2135,11 +2136,11 @@ void unit_start_on_failure(Unit *u) {
         log_unit_info(u, "Triggering OnFailure= dependencies.");
 
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_ON_FAILURE], i) {
-                int r;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, NULL, NULL);
+                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, &error, NULL);
                 if (r < 0)
-                        log_unit_error_errno(u, r, "Failed to enqueue OnFailure= job: %m");
+                        log_unit_warning_errno(u, r, "Failed to enqueue OnFailure= job, ignoring: %s", bus_error_message(&error, r));
         }
 }
 
