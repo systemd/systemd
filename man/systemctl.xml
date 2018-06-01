@@ -701,18 +701,13 @@ To show all installed unit files use 'systemctl list-unit-files'.
             terminal supports that. A colored dot is shown next to services which
             were masked, not found, or otherwise failed.</para>
 
-            <para>The LOAD column shows the load state, one of
-            <constant>loaded</constant>, <constant>not-found</constant>,
-            <constant>stub</constant>, <constant>error</constant>,
-            <constant>merged</constant>, <constant>masked</constant>. The ACTIVE
-            columns shows the general unit state, one of <constant>active</constant>,
-            <constant>reloading</constant>, <constant>inactive</constant>,
-            <constant>failed</constant>, <constant>activating</constant>,
-            <constant>deactivating</constant>. The SUB column shows the
-            unit-type-specific detailed state of the unit, possible values vary by
-            unit type. The list of possible LOAD, ACTIVE, and SUB states is not
-            constant and new systemd releases may both add and remove values.
-            <programlisting>systemctl --state=help</programlisting> command maybe be
+            <para>The LOAD column shows the load state, one of <constant>loaded</constant>,
+            <constant>not-found</constant>, <constant>error</constant>, <constant>masked</constant>. The ACTIVE columns
+            shows the general unit state, one of <constant>active</constant>, <constant>reloading</constant>,
+            <constant>inactive</constant>, <constant>failed</constant>, <constant>activating</constant>,
+            <constant>deactivating</constant>. The SUB column shows the unit-type-specific detailed state of the unit,
+            possible values vary by unit type. The list of possible LOAD, ACTIVE, and SUB states is not constant and
+            new systemd releases may both add and remove values. <programlisting>systemctl --state=help</programlisting> command maybe be
             used to display the current set of possible values.</para>
 
             <para>This is the default command.</para>
