@@ -671,8 +671,19 @@ static int session_stop_scope(Session *s, bool force) {
 
                 free(s->scope_job);
                 s->scope_job = job;
-        } else
+        } else {
                 s->scope_job = mfree(s->scope_job);
+
+                /* With no killing, this session is allowed to persist in "closing" state indefinitely.
+                 * Therefore session stop and session removal may be two distinct events.
+                 * Session stop is quite significant on its own, let's log it. */
+                log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
+                           "SESSION_ID=%s", s->id,
+                           "USER_ID=%s", s->user->name,
+                           "LEADER="PID_FMT, s->leader,
+                           LOG_MESSAGE("Session %s logged out. Waiting for processes to exit.", s->id),
+                           NULL);
+        }
 
         return 0;
 }
