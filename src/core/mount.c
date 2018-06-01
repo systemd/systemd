@@ -657,7 +657,8 @@ static void mount_set_state(Mount *m, MountState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(m), "Changed %s -> %s", mount_state_to_string(old_state), mount_state_to_string(state));
 
-        unit_notify(UNIT(m), state_translation_table[old_state], state_translation_table[state], m->reload_result == MOUNT_SUCCESS);
+        unit_notify(UNIT(m), state_translation_table[old_state], state_translation_table[state],
+                    m->reload_result == MOUNT_SUCCESS ? 0 : UNIT_NOTIFY_RELOAD_FAILURE);
 }
 
 static int mount_coldplug(Unit *u) {
