@@ -32,6 +32,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "utf8.h"
 
 bool path_is_absolute(const char *p) {
         return p[0] == '/';
@@ -988,4 +989,53 @@ bool empty_or_root(const char *root) {
                 return true;
 
         return root[strspn(root, "/")] == 0;
+}
+
+int path_simplify_and_warn(
+                char *path,
+                unsigned flag,
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *lvalue) {
+
+        bool fatal, absolute;
+
+        assert((flag & (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE)) != (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
+
+        fatal = flag & PATH_CHECK_FATAL;
+
+        if (!utf8_is_valid(path)) {
+                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, path);
+                return -EINVAL;
+        }
+
+        if (flag & (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE)) {
+                absolute = path_is_absolute(path);
+
+                if (!absolute && (flag & PATH_CHECK_ABSOLUTE)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "%s= path is not absolute%s: %s",
+                                   fatal ? "" : ", ignoring", lvalue, path);
+                        return -EINVAL;
+                }
+
+                if (absolute && (flag & PATH_CHECK_RELATIVE)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0,
+                                   "%s= path is absolute%s: %s",
+                                   fatal ? "" : ", ignoring", lvalue, path);
+                        return -EINVAL;
+                }
+        }
+
+        path_simplify(path, true);
+
+        if (!path_is_normalized(path)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0,
+                           "%s= path is not normalized%s: %s",
+                           fatal ? "" : ", ignoring", lvalue, path);
+                return -EINVAL;
+        }
+
+        return 0;
 }
