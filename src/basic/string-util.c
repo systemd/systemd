@@ -607,13 +607,6 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         return e;
 }
 
-char *ellipsize(const char *s, size_t length, unsigned percent) {
-        if (length == (size_t) -1)
-                return strdup(s);
-
-        return ellipsize_mem(s, strlen(s), length, percent);
-}
-
 char *cellescape(char *buf, size_t len, const char *s) {
         /* Escape and ellipsize s into buffer buf of size len. Only non-control ASCII
          * characters are copied as they are, everything else is escaped. The result
