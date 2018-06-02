@@ -469,8 +469,8 @@ static int write_ellipsis(char *buf, bool unicode) {
 }
 
 static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
-        size_t x, need_space;
-        char *r;
+        size_t x, need_space, suffix_len;
+        char *t;
 
         assert(s);
         assert(percent <= 100);
@@ -506,8 +506,8 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
          * either for the UTF-8 encoded character or for three ASCII characters. */
         need_space = is_locale_utf8() ? 1 : 3;
 
-        r = new(char, new_length+3);
-        if (!r)
+        t = new(char, new_length+3);
+        if (!t)
                 return NULL;
 
         assert(new_length >= need_space);
@@ -515,13 +515,13 @@ static char *ascii_ellipsize_mem(const char *s, size_t old_length, size_t new_le
         x = ((new_length - need_space) * percent + 50) / 100;
         assert(x <= new_length - need_space);
 
-        memcpy(r, s, x);
-        write_ellipsis(r + x, false);
-        memcpy(r + x + 3,
-               s + old_length - (new_length - x - need_space),
-               new_length - x - need_space + 1);
+        memcpy(t, s, x);
+        write_ellipsis(t + x, false);
+        suffix_len = new_length - x - need_space;
+        memcpy(t + x + 3, s + old_length - suffix_len, suffix_len);
+        *(t + x + 3 + suffix_len) = '\0';
 
-        return r;
+        return t;
 }
 
 char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigned percent) {
@@ -559,35 +559,49 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
         assert(x <= new_length - 1);
 
         k = 0;
-        for (i = s; k < x && i < s + old_length; i = utf8_next_char(i)) {
+        for (i = s; i < s + old_length; i = utf8_next_char(i)) {
                 char32_t c;
+                int w;
 
                 r = utf8_encoded_to_unichar(i, &c);
                 if (r < 0)
                         return NULL;
-                k += unichar_iswide(c) ? 2 : 1;
+
+                w = unichar_iswide(c) ? 2 : 1;
+                if (k + w <= x)
+                        k += w;
+                else
+                        break;
         }
 
-        if (k > x) /* last character was wide and went over quota */
-                x++;
-
-        for (j = s + old_length; k < new_length && j > i; ) {
+        for (j = s + old_length; j > i; ) {
                 char32_t c;
+                int w;
+                const char *jj;
 
-                j = utf8_prev_char(j);
-                r = utf8_encoded_to_unichar(j, &c);
+                jj = utf8_prev_char(j);
+                r = utf8_encoded_to_unichar(jj, &c);
                 if (r < 0)
                         return NULL;
-                k += unichar_iswide(c) ? 2 : 1;
+
+                w = unichar_iswide(c) ? 2 : 1;
+                if (k + w <= new_length) {
+                        k += w;
+                        j = jj;
+                } else
+                        break;
         }
         assert(i <= j);
 
         /* we don't actually need to ellipsize */
         if (i == j)
-                return memdup(s, old_length + 1);
+                return memdup_suffix0(s, old_length);
 
-        /* make space for ellipsis */
-        j = utf8_next_char(j);
+        /* make space for ellipsis, if possible */
+        if (j < s + old_length)
+                j = utf8_next_char(j);
+        else if (i > s)
+                i = utf8_prev_char(i);
 
         len = i - s;
         len2 = s + old_length - j;
@@ -602,7 +616,8 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
 
         memcpy(e, s, len);
         write_ellipsis(e + len, true);
-        memcpy(e + len + 3, j, len2 + 1);
+        memcpy(e + len + 3, j, len2);
+        *(e + len + 3 + len2) = '\0';
 
         return e;
 }
