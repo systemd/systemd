@@ -58,7 +58,6 @@
 #include "unit-name.h"
 #include "unit-printf.h"
 #include "user-util.h"
-#include "utf8.h"
 #include "web-util.h"
 
 static int supported_socket_protocol_from_string(const char *s) {
@@ -3827,11 +3826,6 @@ int config_parse_namespace_path_strv(
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to extract first word, ignoring: %s", rvalue);
                         return 0;
-                }
-
-                if (!utf8_is_valid(word)) {
-                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, word);
-                        continue;
                 }
 
                 w = word;

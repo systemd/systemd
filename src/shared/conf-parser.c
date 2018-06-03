@@ -688,11 +688,6 @@ int config_parse_string(
         assert(rvalue);
         assert(data);
 
-        if (!utf8_is_valid(rvalue)) {
-                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
-                return 0;
-        }
-
         if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
                 return log_oom();
 
@@ -775,12 +770,6 @@ int config_parse_strv(
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                         break;
-                }
-
-                if (!utf8_is_valid(word)) {
-                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, word);
-                        free(word);
-                        continue;
                 }
 
                 r = strv_consume(sv, word);
