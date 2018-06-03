@@ -20,6 +20,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "list.h"
@@ -967,6 +968,15 @@ static int manager_network_read_link_servers(Manager *m) {
 
         STRV_FOREACH(i, ntp) {
                 bool found = false;
+
+                r = dns_name_is_valid_or_address(*i);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to check validity of NTP server name or address '%s': %m", *i);
+                        goto clear;
+                } else if (r == 0) {
+                        log_error("Invalid NTP server name or address, ignoring: %s", *i);
+                        continue;
+                }
 
                 LIST_FOREACH(names, n, m->link_servers)
                         if (streq(n->string, *i)) {
