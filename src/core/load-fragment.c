@@ -314,18 +314,9 @@ int config_parse_unit_path_strv_printf(
                         return 0;
                 }
 
-                if (!utf8_is_valid(k)) {
-                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
+                r = path_simplify_and_warn(k, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
                         return 0;
-                }
-
-                if (!path_is_absolute(k)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Symlink path is not absolute: %s", k);
-                        return 0;
-                }
-
-                path_simplify(k, false);
 
                 r = strv_push(x, k);
                 if (r < 0)
@@ -368,20 +359,24 @@ int config_parse_socket_listen(const char *unit,
                 return log_oom();
 
         if (ltype != SOCKET_SOCKET) {
+                _cleanup_free_ char *k = NULL;
 
-                p->type = ltype;
-                r = unit_full_printf(UNIT(s), rvalue, &p->path);
+                r = unit_full_printf(UNIT(s), rvalue, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                         return 0;
                 }
 
-                path_simplify(p->path, false);
+                r = path_simplify_and_warn(k, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
+                        return 0;
+
+                free_and_replace(p->path, k);
+                p->type = ltype;
 
         } else if (streq(lvalue, "ListenNetlink")) {
                 _cleanup_free_ char  *k = NULL;
 
-                p->type = SOCKET_SOCKET;
                 r = unit_full_printf(UNIT(s), rvalue, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
@@ -394,10 +389,11 @@ int config_parse_socket_listen(const char *unit,
                         return 0;
                 }
 
+                p->type = SOCKET_SOCKET;
+
         } else {
                 _cleanup_free_ char *k = NULL;
 
-                p->type = SOCKET_SOCKET;
                 r = unit_full_printf(UNIT(s), rvalue, &k);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
@@ -424,6 +420,8 @@ int config_parse_socket_listen(const char *unit,
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Address family not supported, ignoring: %s", rvalue);
                         return 0;
                 }
+
+                p->type = SOCKET_SOCKET;
         }
 
         p->fd = -1;
@@ -837,15 +835,9 @@ int config_parse_exec_input(
                 if (r < 0)
                         return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s': %m", n);
 
-                if (!path_is_absolute(resolved)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "file: requires an absolute path name: %s", resolved);
+                r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE | PATH_CHECK_FATAL, unit, filename, line, lvalue);
+                if (r < 0)
                         return -EINVAL;
-                }
-
-                if (!path_is_normalized(resolved)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "file: requires a normalized path name: %s", resolved);
-                        return -EINVAL;
-                }
 
                 free_and_replace(c->stdio_file[STDIN_FILENO], resolved);
 
@@ -1021,15 +1013,9 @@ int config_parse_exec_output(
                 if (r < 0)
                         return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in %s: %m", n);
 
-                if (!path_is_absolute(resolved)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "file: requires an absolute path name: %s", resolved);
+                r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE | PATH_CHECK_FATAL, unit, filename, line, lvalue);
+                if (r < 0)
                         return -EINVAL;
-                }
-
-                if (!path_is_normalized(resolved)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "file: requires a normalized path name, ignoring: %s", resolved);
-                        return -EINVAL;
-                }
 
                 eo = EXEC_OUTPUT_FILE;
 
@@ -1624,12 +1610,9 @@ int config_parse_path_spec(const char *unit,
                 return 0;
         }
 
-        path_simplify(k, false);
-
-        if (!path_is_absolute(k)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Path is not absolute, ignoring: %s", k);
+        r = path_simplify_and_warn(k, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
                 return 0;
-        }
 
         s = new0(PathSpec, 1);
         if (!s)
@@ -2048,19 +2031,9 @@ int config_parse_working_directory(
                         return missing_ok ? 0 : -ENOEXEC;
                 }
 
-                path_simplify(k, false);
-
-                if (!utf8_is_valid(k)) {
-                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
+                r = path_simplify_and_warn(k, PATH_CHECK_ABSOLUTE | (missing_ok ? 0 : PATH_CHECK_FATAL), unit, filename, line, lvalue);
+                if (r < 0)
                         return missing_ok ? 0 : -ENOEXEC;
-                }
-
-                if (!path_is_absolute(k)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "Working directory path '%s' is not absolute%s.",
-                                   rvalue, missing_ok ? ", ignoring" : "");
-                        return missing_ok ? 0 : -ENOEXEC;
-                }
 
                 c->working_directory_home = false;
                 free_and_replace(c->working_directory, k);
@@ -2103,14 +2076,15 @@ int config_parse_unit_env_file(const char *unit,
                 return 0;
         }
 
-        if (!path_is_absolute(n[0] == '-' ? n + 1 : n)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Path '%s' is not absolute, ignoring.", n);
+        r = path_simplify_and_warn(n[0] == '-' ? n + 1 : n, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
                 return 0;
-        }
 
-        r = strv_extend(env, n);
+        r = strv_push(env, n);
         if (r < 0)
                 return log_oom();
+
+        n = NULL;
 
         return 0;
 }
@@ -2447,10 +2421,9 @@ int config_parse_unit_condition_path(
                 return 0;
         }
 
-        if (!path_is_absolute(p)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Path in condition not absolute, ignoring: %s", p);
+        r = path_simplify_and_warn(p, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
                 return 0;
-        }
 
         c = condition_new(t, p, trigger, negate);
         if (!c)
@@ -2599,16 +2572,15 @@ int config_parse_unit_requires_mounts_for(
                         return 0;
                 }
 
-                if (!utf8_is_valid(word)) {
-                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
-                        continue;
-                }
-
                 r = unit_full_printf(u, word, &resolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", word);
                         continue;
                 }
+
+                r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
+                        continue;
 
                 r = unit_require_mounts_for(u, resolved, UNIT_DEPENDENCY_FILE);
                 if (r < 0) {
@@ -3263,6 +3235,10 @@ int config_parse_device_allow(
                 return 0;
         }
 
+        r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
+
         if (!is_deviceallow_pattern(resolved) &&
             !path_startswith(resolved, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s', ignoring.", resolved);
@@ -3337,6 +3313,10 @@ int config_parse_io_device_weight(
                            "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
                 return 0;
         }
+
+        r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
 
         if (!path_startswith(resolved, "/dev") &&
             !path_startswith(resolved, "/run/systemd/inaccessible/")) {
@@ -3416,6 +3396,10 @@ int config_parse_io_limit(
                            "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
                 return 0;
         }
+
+        r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
 
         if (!path_startswith(resolved, "/dev") &&
             !path_startswith(resolved, "/run/systemd/inaccessible/")) {
@@ -3510,6 +3494,10 @@ int config_parse_blockio_device_weight(
                 return 0;
         }
 
+        r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
+
         if (!path_startswith(resolved, "/dev") &&
             !path_startswith(resolved, "/run/systemd/inaccessible/")) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", resolved);
@@ -3589,6 +3577,10 @@ int config_parse_blockio_bandwidth(
                            "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
                 return 0;
         }
+
+        r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
 
         if (!path_startswith(resolved, "/dev") &&
             !path_startswith(resolved, "/run/systemd/inaccessible/")) {
@@ -3709,21 +3701,13 @@ int config_parse_exec_directories(
                         continue;
                 }
 
-                if (!path_is_normalized(k)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "%s= path is not normalized, ignoring assignment: %s", lvalue, rvalue);
+                r = path_simplify_and_warn(k, PATH_CHECK_RELATIVE, unit, filename, line, lvalue);
+                if (r < 0)
                         continue;
-                }
-
-                if (path_is_absolute(k)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "%s= path is absolute, ignoring assignment: %s", lvalue, rvalue);
-                        continue;
-                }
 
                 if (path_startswith(k, "private")) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
-                                   "%s= path can't be 'private', ingoring assignment: %s", lvalue, rvalue);
+                                   "%s= path can't be 'private', ingoring assignment: %s", lvalue, word);
                         continue;
                 }
 
@@ -3866,12 +3850,9 @@ int config_parse_namespace_path_strv(
                         continue;
                 }
 
-                if (!path_is_absolute(resolved)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute path, ignoring: %s", resolved);
+                r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
                         continue;
-                }
-
-                path_simplify(resolved, false);
 
                 joined = strjoin(ignore_enoent ? "-" : "",
                                  shall_prefix ? "+" : "",
@@ -3950,12 +3931,9 @@ int config_parse_temporary_filesystems(
                         continue;
                 }
 
-                if (!path_is_absolute(resolved)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute path, ignoring: %s", resolved);
+                r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
                         continue;
-                }
-
-                path_simplify(resolved, false);
 
                 r = temporary_filesystem_add(&c->temporary_filesystems, &c->n_temporary_filesystems, path, w);
                 if (r == -ENOMEM)
@@ -4010,7 +3988,7 @@ int config_parse_bind_paths(
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s: %s", lvalue, rvalue);
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
                         return 0;
                 }
 
@@ -4018,7 +3996,7 @@ int config_parse_bind_paths(
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r,
                                    "Failed to resolved unit specifiers in \"%s\", ignoring: %m", source);
-                        return 0;
+                        continue;
                 }
 
                 s = sresolved;
@@ -4027,16 +4005,9 @@ int config_parse_bind_paths(
                         s++;
                 }
 
-                if (!utf8_is_valid(s)) {
-                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, s);
-                        return 0;
-                }
-                if (!path_is_absolute(s)) {
-                        log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute source path, ignoring: %s", s);
-                        return 0;
-                }
-
-                path_simplify(s, false);
+                r = path_simplify_and_warn(s, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                if (r < 0)
+                        continue;
 
                 /* Optionally, the destination is specified. */
                 if (p && p[-1] == ':') {
@@ -4044,31 +4015,26 @@ int config_parse_bind_paths(
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s: %s", lvalue, rvalue);
+                                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse %s, ignoring: %s", lvalue, rvalue);
                                 return 0;
                         }
                         if (r == 0) {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "Missing argument after ':': %s", rvalue);
-                                return 0;
+                                log_syntax(unit, LOG_ERR, filename, line, 0, "Missing argument after ':', ignoring: %s", s);
+                                continue;
                         }
 
                         r = unit_full_printf(u, destination, &dresolved);
                         if (r < 0) {
                                 log_syntax(unit, LOG_ERR, filename, line, r,
                                            "Failed to resolved specifiers in \"%s\", ignoring: %m", destination);
-                                return 0;
+                                continue;
                         }
 
-                        if (!utf8_is_valid(dresolved)) {
-                                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, dresolved);
-                                return 0;
-                        }
-                        if (!path_is_absolute(dresolved)) {
-                                log_syntax(unit, LOG_ERR, filename, line, 0, "Not an absolute destination path, ignoring: %s", dresolved);
-                                return 0;
-                        }
+                        r = path_simplify_and_warn(dresolved, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+                        if (r < 0)
+                                continue;
 
-                        d = path_simplify(dresolved, false);
+                        d = dresolved;
 
                         /* Optionally, there's also a short option string specified */
                         if (p && p[-1] == ':') {
@@ -4088,7 +4054,7 @@ int config_parse_bind_paths(
                                         rbind = false;
                                 else {
                                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid option string, ignoring setting: %s", options);
-                                        return 0;
+                                        continue;
                                 }
                         }
                 } else
