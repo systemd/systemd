@@ -13,6 +13,10 @@
 
 #include "sd-netlink.h"
 
+#if HAVE_FOU_CMD_GET
+#include <linux/fou.h>
+#endif
+
 #include "conf-parser.h"
 #include "missing.h"
 #include "networkd-link.h"
@@ -65,6 +69,22 @@ static int netdev_ipip_fill_message_create(NetDev *netdev, Link *link, sd_netlin
         r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PMTUDISC, t->pmtudisc);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_PMTUDISC attribute: %m");
+
+
+        if (t->fou_tunnel) {
+
+                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_TYPE, t->fou_encap_type);
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_TYPE attribute: %m");
+
+                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_SPORT, htobe16(t->encap_src_port));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_SPORT attribute: %m");
+
+                r = sd_netlink_message_append_u16(m, IFLA_IPTUN_ENCAP_DPORT, htobe16(t->fou_destination_port));
+                if (r < 0)
+                        return log_netdev_error_errno(netdev, r, "Could not append IFLA_IPTUN_ENCAP_DPORT attribute: %m");
+        }
 
         return r;
 }
@@ -422,6 +442,13 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                 return -EINVAL;
         }
 
+        if (t->fou_tunnel) {
+                if (t->fou_destination_port <= 0) {
+                        log_netdev_error(netdev, "FooOverUDP missing port configured in %s. Ignoring", filename);
+                        return -EINVAL;
+                }
+        }
+
         return 0;
 }
 
@@ -605,6 +632,7 @@ static void ipip_init(NetDev *n) {
         assert(t);
 
         t->pmtudisc = true;
+        t->fou_encap_type = FOU_ENCAP_DIRECT;
 }
 
 static void sit_init(NetDev *n) {

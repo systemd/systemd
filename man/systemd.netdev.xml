@@ -174,6 +174,9 @@
           <row><entry><varname>wireguard</varname></entry>
           <entry>WireGuard Secure Network Tunnel.</entry></row>
 
+          <row><entry><varname>fou</varname></entry>
+          <entry>Foo-over-UDP tunneling.</entry></row>
+
         </tbody>
       </tgroup>
     </table>
@@ -887,7 +890,75 @@
           </para>
         </listitem>
       </varlistentry>
+      <varlistentry>
+        <term><varname>FooOverUDP=</varname></term>
+        <listitem>
+          <para>A boolean. Specifies whether <varname>FooOverUDP=</varname> tunnel is to be configured.
+          Defaults to false. For more detail information see
+          <ulink url="https://lwn.net/Articles/614348">Foo over UDP</ulink></para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>FOUDestinationPort=</varname></term>
+        <listitem>
+          <para>The <varname>FOUDestinationPort=</varname> Specifies the UDP destination port for encapsulation.
+          This field is mandatory and is not set by default.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>FOUSourcePort=</varname></term>
+        <listitem>
+          <para>The <varname>FOUSourcePort=</varname> Specifies the
+          UDP source port for encapsulation. Defaults to <varname>0</varname>,
+          that is the source port for packets is left to the network stack to decide.</para>
+        </listitem>
+      </varlistentry>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>[FooOverUDP] Section Options</title>
+
+    <para>The <literal>[FooOverUDP]</literal> section only applies for
+    netdevs of kind <literal>fou</literal> and accepts the
+    following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>Protocol=</varname></term>
+        <listitem>
+          <para>The <varname>Protocol=</varname> specifies the protocol number of the
+          packets arriving at <varname>FooOverUDPPort=</varname>. This field is mandatory and is not set
+          by default. Valid range is 1-255.
+          Note: When encap type is FOU, then protocol is mandatory. However, protocol cannot specified when GUE is used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>EncapType=</varname></term>
+        <listitem>
+          <para>UDP encapsulation encompasses the techniques and protocols to
+          encapsulate and decapsulate networking packets of various protocols
+          inside UDP. Supports below specific UDP encapsulation methods.
+
+          <literal>FOU</literal> provides the simplest no frills model of UDP encapsulation, it simply encapsulates
+          packets directly in the UDP payload.
+          <literal>GUE</literal> is a generic and extensible encapsulation, it allows encapsulation of packets for any IP
+          protocol and optional data as part of the encapsulation.
+          For more detail information see <ulink url="https://lwn.net/Articles/615044">Generic UDP Encapsulation</ulink>.
+          Defaults to <varname>FOU</varname>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Port=</varname></term>
+        <listitem>
+          <para> Specifies the port number, where the IP encapsulation packets will arrive. Please take note that the packets
+          will arrive with the encapsulation will be removed. Then they will be manually fed back into the network stack, and sent ahead
+          for delivery to the real destination.
+          This option is mandatory.</para>
+        </listitem>
+        </varlistentry>
+      </variablelist>
   </refsect1>
   <refsect1>
     <title>[Peer] Section Options</title>
@@ -1386,6 +1457,21 @@ MTUBytes=1480
 Local=192.168.223.238
 Remote=192.169.224.239
 TTL=64</programlisting>
+    </example>
+    <example>
+<title>/etc/systemd/network/25-fou-ipip.netdev</title>
+<programlisting>[NetDev]
+[NetDev]
+Name=ipip-tun
+Kind=ipip
+
+[Tunnel]
+Independent=true
+Local=10.65.208.212
+Remote=10.65.208.211
+FooOverUDP=true
+FOUDestinationPort=5555
+</programlisting>
     </example>
     <example>
       <title>/etc/systemd/network/25-tap.netdev</title>

@@ -35,6 +35,8 @@ sources = files('''
         netdev/vxcan.h
         netdev/wireguard.c
         netdev/wireguard.h
+        netdev/fou-tunnel.c
+        netdev/fou-tunnel.h
         networkd-address-label.c
         networkd-address-label.h
         networkd-address-pool.c
