@@ -214,6 +214,10 @@ static void test_raw_clone(void) {
                 waitpid(pid, &status, __WCLONE);
                 assert_se(WIFEXITED(status) && WEXITSTATUS(status) == EXIT_SUCCESS);
         }
+
+        errno = 0;
+        assert_se(raw_clone(CLONE_FS|CLONE_NEWNS) == -1);
+        assert_se(errno == EINVAL);
 }
 
 static void test_physical_memory(void) {

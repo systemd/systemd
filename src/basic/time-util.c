@@ -484,7 +484,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 /* Let's see if we should shows this in dot notation */
                 if (t < USEC_PER_MINUTE && b > 0) {
                         usec_t cc;
-                        int j;
+                        signed char j;
 
                         j = 0;
                         for (cc = table[i].usec; cc > 1; cc /= 10)
