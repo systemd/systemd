@@ -19,6 +19,7 @@ _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
 #include "netdev/netdev.h"
 #include "netdev/vxcan.h"
 #include "netdev/wireguard.h"
+#include "netdev/fou-tunnel.h"
 #include "vlan-util.h"
 %}
 struct ConfigPerfItem;
@@ -65,6 +66,13 @@ Tunnel.CopyDSCP,                   config_parse_bool,                    0,     
 Tunnel.EncapsulationLimit,         config_parse_encap_limit,             0,                             offsetof(Tunnel, encap_limit)
 Tunnel.Independent,                config_parse_bool,                    0,                             offsetof(Tunnel, independent)
 Tunnel.AllowLocalRemote,           config_parse_tristate,                0,                             offsetof(Tunnel, allow_localremote)
+Tunnel.FooOverUDP,                 config_parse_bool,                    0,                             offsetof(Tunnel, fou_tunnel)
+Tunnel.FOUDestinationPort,         config_parse_ip_port,                 0,                             offsetof(Tunnel, fou_destination_port)
+Tunnel.FOUSourcePort,              config_parse_ip_port,                 0,                             offsetof(Tunnel, encap_src_port)
+Tunnel.Encapsulation,              config_parse_fou_encap_type,          0,                             offsetof(Tunnel, fou_encap_type)
+FooOverUDP.Protocol,               config_parse_uint8,                   0,                             offsetof(FouTunnel, fou_protocol)
+FooOverUDP.Encapsulation,          config_parse_fou_encap_type,          0,                             offsetof(FouTunnel, fou_encap_type)
+FooOverUDP.Port,                   config_parse_ip_port,                 0,                             offsetof(FouTunnel, port)
 Peer.Name,                         config_parse_ifname,                  0,                             offsetof(Veth, ifname_peer)
 Peer.MACAddress,                   config_parse_hwaddr,                  0,                             offsetof(Veth, mac_peer)
 VXCAN.Peer,                        config_parse_ifname,                  0,                             offsetof(VxCan, ifname_peer)

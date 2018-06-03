@@ -12,6 +12,7 @@ typedef struct {
 static const genl_family genl_families[] = {
         [SD_GENL_ID_CTRL] = { .name = "", .version = 1 },
         [SD_GENL_WIREGUARD] = { .name = "wireguard", .version = 1 },
+        [SD_GENL_FOU]       = { .name = "fou", .version = 1 },
 };
 
 int sd_genl_socket_open(sd_netlink **ret) {

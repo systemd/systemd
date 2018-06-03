@@ -4,6 +4,7 @@
 #include "in-addr-util.h"
 
 #include "netdev/netdev.h"
+#include "netdev/fou-tunnel.h"
 
 typedef enum Ip6TnlMode {
         NETDEV_IP6_TNL_MODE_IP6IP6,
@@ -40,10 +41,15 @@ typedef struct Tunnel {
         union in_addr_union remote;
 
         Ip6TnlMode ip6tnl_mode;
+        FooOverUDPEncapType fou_encap_type;
 
         bool pmtudisc;
         bool copy_dscp;
         bool independent;
+        bool fou_tunnel;
+
+        uint16_t encap_src_port;
+        uint16_t fou_destination_port;
 } Tunnel;
 
 DEFINE_NETDEV_CAST(IPIP, Tunnel);
@@ -96,6 +102,7 @@ int config_parse_encap_limit(const char *unit, const char *filename,
                              unsigned section_line, const char *lvalue,
                              int ltype, const char *rvalue, void *data,
                              void *userdata);
+
 int config_parse_tunnel_key(const char *unit, const char *filename,
                             unsigned line, const char *section,
                             unsigned section_line, const char *lvalue,

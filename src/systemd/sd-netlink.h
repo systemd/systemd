@@ -32,7 +32,7 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_netlink sd_netlink;
 typedef struct sd_genl_socket sd_genl_socket;
 typedef struct sd_netlink_message sd_netlink_message;
-typedef enum {SD_GENL_ID_CTRL, SD_GENL_WIREGUARD} sd_genl_family;
+typedef enum {SD_GENL_ID_CTRL, SD_GENL_WIREGUARD, SD_GENL_FOU} sd_genl_family;
 
 /* callback */
 

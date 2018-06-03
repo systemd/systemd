@@ -34,6 +34,7 @@
 #include "netdev/vxcan.h"
 #include "netdev/wireguard.h"
 #include "netdev/netdevsim.h"
+#include "netdev/fou-tunnel.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
@@ -62,6 +63,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VXCAN] = &vxcan_vtable,
         [NETDEV_KIND_WIREGUARD] = &wireguard_vtable,
         [NETDEV_KIND_NETDEVSIM] = &netdevsim_vtable,
+        [NETDEV_KIND_FOU] = &foutnl_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -91,6 +93,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_VXCAN] = "vxcan",
         [NETDEV_KIND_WIREGUARD] = "wireguard",
         [NETDEV_KIND_NETDEVSIM] = "netdevsim",
+        [NETDEV_KIND_FOU] = "fou",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);

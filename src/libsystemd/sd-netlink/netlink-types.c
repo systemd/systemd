@@ -16,6 +16,11 @@
 #include <linux/if_link.h>
 #include <linux/if_tunnel.h>
 #include <linux/veth.h>
+
+#if HAVE_FOU_CMD_GET
+#include <linux/fou.h>
+#endif
+
 #if HAVE_VXCAN_INFO_PEER
 #include <linux/can/vxcan.h>
 #endif
@@ -733,9 +738,34 @@ static const NLTypeSystem genl_ctrl_id_ctrl_type_system = {
         .types = genl_ctrl_id_ctrl_cmds,
 };
 
+static const NLType genl_fou_types[] = {
+        [FOU_ATTR_PORT]              = { .type = NETLINK_TYPE_U16 },
+        [FOU_ATTR_AF]                = { .type = NETLINK_TYPE_U8 },
+        [FOU_ATTR_IPPROTO]           = { .type = NETLINK_TYPE_U8 },
+        [FOU_ATTR_TYPE]              = { .type = NETLINK_TYPE_U8 },
+        [FOU_ATTR_REMCSUM_NOPARTIAL] = { .type = NETLINK_TYPE_FLAG },
+};
+
+static const NLTypeSystem genl_fou_type_system = {
+        .count = ELEMENTSOF(genl_fou_types),
+        .types = genl_fou_types,
+};
+
+static const NLType genl_fou_cmds[] = {
+        [FOU_CMD_ADD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_type_system },
+        [FOU_CMD_DEL] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_type_system },
+        [FOU_CMD_GET] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_type_system },
+};
+
+static const NLTypeSystem genl_fou_cmds_type_system = {
+        .count = ELEMENTSOF(genl_fou_cmds),
+        .types = genl_fou_cmds,
+};
+
 static const NLType genl_families[] = {
-        [SD_GENL_ID_CTRL]  = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_id_ctrl_type_system },
+        [SD_GENL_ID_CTRL]   = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_ctrl_id_ctrl_type_system },
         [SD_GENL_WIREGUARD] = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_wireguard_type_system },
+        [SD_GENL_FOU]       = { .type = NETLINK_TYPE_NESTED, .type_system = &genl_fou_cmds_type_system},
 };
 
 const NLTypeSystem genl_family_type_system_root = {
