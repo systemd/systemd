@@ -127,8 +127,8 @@ int path_make_absolute_cwd(const char *p, char **ret) {
 }
 
 int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
-        char *r, *p;
-        unsigned n_parents;
+        char *f, *t, *r, *p;
+        unsigned n_parents = 0;
 
         assert(from_dir);
         assert(to_path);
@@ -136,85 +136,81 @@ int path_make_relative(const char *from_dir, const char *to_path, char **_r) {
 
         /* Strips the common part, and adds ".." elements as necessary. */
 
-        if (!path_is_absolute(from_dir))
+        if (!path_is_absolute(from_dir) || !path_is_absolute(to_path))
                 return -EINVAL;
 
-        if (!path_is_absolute(to_path))
-                return -EINVAL;
+        f = strdupa(from_dir);
+        t = strdupa(to_path);
+
+        path_simplify(f, true);
+        path_simplify(t, true);
 
         /* Skip the common part. */
         for (;;) {
                 size_t a, b;
 
-                from_dir += strspn(from_dir, "/");
-                to_path += strspn(to_path, "/");
+                f += *f == '/';
+                t += *t == '/';
 
-                if (!*from_dir) {
-                        if (!*to_path)
+                if (!*f) {
+                        if (!*t)
                                 /* from_dir equals to_path. */
                                 r = strdup(".");
                         else
                                 /* from_dir is a parent directory of to_path. */
-                                r = strdup(to_path);
+                                r = strdup(t);
                         if (!r)
                                 return -ENOMEM;
-
-                        path_simplify(r, false);
 
                         *_r = r;
                         return 0;
                 }
 
-                if (!*to_path)
+                if (!*t)
                         break;
 
-                a = strcspn(from_dir, "/");
-                b = strcspn(to_path, "/");
+                a = strcspn(f, "/");
+                b = strcspn(t, "/");
 
-                if (a != b)
+                if (a != b || memcmp(f, t, a) != 0)
                         break;
 
-                if (memcmp(from_dir, to_path, a) != 0)
-                        break;
-
-                from_dir += a;
-                to_path += b;
+                f += a;
+                t += b;
         }
 
         /* If we're here, then "from_dir" has one or more elements that need to
          * be replaced with "..". */
 
         /* Count the number of necessary ".." elements. */
-        for (n_parents = 0;;) {
+        for (; *f;) {
                 size_t w;
 
-                from_dir += strspn(from_dir, "/");
-
-                if (!*from_dir)
-                        break;
-
-                w = strcspn(from_dir, "/");
+                w = strcspn(f, "/");
 
                 /* If this includes ".." we can't do a simple series of "..", refuse */
-                if (w == 2 && from_dir[0] == '.' && from_dir[1] == '.')
+                if (w == 2 && f[0] == '.' && f[1] == '.')
                         return -EINVAL;
 
-                /* Count number of elements, except if they are "." */
-                if (w != 1 || from_dir[0] != '.')
-                        n_parents++;
+                /* Count number of elements */
+                n_parents++;
 
-                from_dir += w;
+                f += w;
+                f += *f == '/';
         }
 
-        r = new(char, n_parents * 3 + strlen(to_path) + 1);
+        r = new(char, n_parents * 3 + strlen(t) + 1);
         if (!r)
                 return -ENOMEM;
 
         for (p = r; n_parents > 0; n_parents--)
                 p = mempcpy(p, "../", 3);
 
-        strcpy(p, to_path);
-        path_simplify(r, false);
+        if (*t)
+                strcpy(p, t);
+        else
+                /* Remove trailing slash */
+                *(--p) = 0;
 
         *_r = r;
         return 0;
