@@ -96,6 +96,7 @@ static void test_config_parse_path(void) {
         test_config_parse_path_one("/path", "/path");
         test_config_parse_path_one("/path//////////", "/path");
         test_config_parse_path_one("///path/foo///bar////bar//", "/path/foo/bar/bar");
+        test_config_parse_path_one("/path//./////hogehoge///.", "/path/hogehoge");
         test_config_parse_path_one("/path/\xc3\x80", "/path/\xc3\x80");
 
         test_config_parse_path_one("not_absolute/path", NULL);
