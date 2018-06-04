@@ -1463,6 +1463,25 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
         return true;
 }
 
+static void manager_setup_bus(Manager *m) {
+        assert(m);
+
+        /* Let's set up our private bus connection now, unconditionally */
+        (void) bus_init_private(m);
+
+        /* If we are in --user mode also connect to the system bus now */
+        if (MANAGER_IS_USER(m))
+                (void) bus_init_system(m);
+
+        /* Let's connect to the bus now, but only if the unit is supposed to be up */
+        if (manager_dbus_is_running(m, MANAGER_IS_RELOADING(m))) {
+                (void) bus_init_api(m);
+
+                if (MANAGER_IS_SYSTEM(m))
+                        (void) bus_init_system(m);
+        }
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r;
 
@@ -1543,20 +1562,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 /* This shouldn't fail, except if things are really broken. */
                 return r;
 
-        /* Let's set up our private bus connection now, unconditionally */
-        (void) bus_init_private(m);
-
-        /* If we are in --user mode also connect to the system bus now */
-        if (MANAGER_IS_USER(m))
-                (void) bus_init_system(m);
-
-        /* Let's connect to the bus now, but only if the unit is supposed to be up */
-        if (manager_dbus_is_running(m, !!serialization)) {
-                (void) bus_init_api(m);
-
-                if (MANAGER_IS_SYSTEM(m))
-                        (void) bus_init_system(m);
-        }
+        /* Connect to the bus if we are good for it */
+        manager_setup_bus(m);
 
         /* Now that we are connected to all possible busses, let's deserialize who is tracking us. */
         (void) bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
