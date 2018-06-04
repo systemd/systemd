@@ -55,8 +55,8 @@ static void device_unset_sysfs(Device *d) {
 }
 
 static int device_set_sysfs(Device *d, const char *sysfs) {
+        _cleanup_free_ char *copy = NULL;
         Device *first;
-        char *copy;
         int r;
 
         assert(d);
@@ -80,12 +80,10 @@ static int device_set_sysfs(Device *d, const char *sysfs) {
         r = hashmap_replace(UNIT(d)->manager->devices_by_sysfs, copy, first);
         if (r < 0) {
                 LIST_REMOVE(same_sysfs, first, d);
-                free(copy);
                 return r;
         }
 
-        d->sysfs = copy;
-
+        d->sysfs = TAKE_PTR(copy);
         return 0;
 }
 
