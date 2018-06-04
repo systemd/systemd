@@ -999,11 +999,9 @@ int path_simplify_and_warn(
                 unsigned line,
                 const char *lvalue) {
 
-        bool fatal, absolute;
+        bool absolute, fatal = flag & PATH_CHECK_FATAL;
 
-        assert((flag & (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE)) != (PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
-
-        fatal = flag & PATH_CHECK_FATAL;
+        assert(!FLAGS_SET(flag, PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
 
         if (!utf8_is_valid(path)) {
                 log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, path);
