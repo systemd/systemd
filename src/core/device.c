@@ -838,6 +838,24 @@ fail:
         device_shutdown(m);
 }
 
+static void device_propagate_reload_by_sysfs(Manager *m, const char *sysfs) {
+        Device *d, *l, *n;
+        int r;
+
+        assert(m);
+        assert(sysfs);
+
+        l = hashmap_get(m->devices_by_sysfs, sysfs);
+        LIST_FOREACH_SAFE(same_sysfs, d, n, l) {
+                if (d->state == DEVICE_DEAD)
+                        continue;
+
+                r = manager_propagate_reload(m, UNIT(d), JOB_REPLACE, NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to propagate reload, ignoring: %m");
+        }
+}
+
 static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         Manager *m = userdata;
@@ -875,20 +893,8 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                 return 0;
         }
 
-        if (streq(action, "change"))  {
-                Unit *u;
-                Device *d, *l, *n;
-
-                l = hashmap_get(m->devices_by_sysfs, sysfs);
-                LIST_FOREACH_SAFE(same_sysfs, d, n, l) {
-                        u = &d->meta;
-                        if (u && UNIT_VTABLE(u)->active_state(u) == UNIT_ACTIVE) {
-                                r = manager_propagate_reload(m, u, JOB_REPLACE, NULL);
-                                if (r < 0)
-                                        log_error_errno(r, "Failed to propagate reload: %m");
-                        }
-                }
-        }
+        if (streq(action, "change"))
+                device_propagate_reload_by_sysfs(m, sysfs);
 
         /* A change event can signal that a device is becoming ready, in particular if
          * the device is using the SYSTEMD_READY logic in udev
