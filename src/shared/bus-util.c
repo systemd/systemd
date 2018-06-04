@@ -1838,13 +1838,15 @@ static int request_name_handler_may_reload_dbus(sd_bus_message *m, void *userdat
 int bus_request_name_async_may_reload_dbus(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, uint64_t flags, void *userdata) {
         struct request_name_data *data;
 
-        data = new0(struct request_name_data, 1);
+        data = new(struct request_name_data, 1);
         if (!data)
                 return -ENOMEM;
 
-        data->name = name;
-        data->flags = flags;
-        data->userdata = userdata;
+        *data = (struct request_name_data) {
+                .name = name,
+                .flags = flags,
+                .userdata = userdata,
+        };
 
         return sd_bus_request_name_async(bus, ret_slot, name, flags, request_name_handler_may_reload_dbus, data);
 }
