@@ -409,7 +409,7 @@ static bool device_is_bound_by_mounts(Device *d, struct udev_device *dev) {
         return d->bind_mounts;
 }
 
-static int device_upgrade_mount_deps(Unit *u) {
+static void device_upgrade_mount_deps(Unit *u) {
         Unit *other;
         Iterator i;
         void *v;
@@ -423,9 +423,8 @@ static int device_upgrade_mount_deps(Unit *u) {
 
                 r = unit_add_dependency(other, UNIT_BINDS_TO, u, true, UNIT_DEPENDENCY_UDEV);
                 if (r < 0)
-                        return r;
+                        log_unit_warning_errno(u, r, "Failed to add BindsTo= dependency between device and mount unit, ignoring: %m");
         }
-        return 0;
 }
 
 static int device_setup_unit(Manager *m, struct udev_device *dev, const char *path, bool main) {
