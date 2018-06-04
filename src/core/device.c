@@ -222,8 +222,8 @@ static int device_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         unit_serialize_item(u, f, "state", device_state_to_string(d->state));
 
-        (void) device_found_to_string_many(d->found, &s);
-        unit_serialize_item(u, f, "found", s);
+        if (device_found_to_string_many(d->found, &s) >= 0)
+                unit_serialize_item(u, f, "found", s);
 
         return 0;
 }
