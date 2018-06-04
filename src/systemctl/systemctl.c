@@ -233,7 +233,6 @@ static void release_busses(void) {
 }
 
 static void ask_password_agent_open_if_enabled(void) {
-
         /* Open the password agent as a child process if necessary */
 
         if (arg_dry_run)
@@ -297,7 +296,6 @@ static int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) 
 }
 
 static bool install_client_side(void) {
-
         /* Decides when to execute enable/disable/... operations
          * client-side rather than server-side. */
 
@@ -1612,7 +1610,6 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
 }
 
 static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, char ***deps) {
-
         struct DependencyStatusInfo {
                 char **dep[5];
         } info = {};
@@ -6497,7 +6494,6 @@ static int show_installation_targets(sd_bus *bus, const char *name) {
 }
 
 static int unit_is_enabled(int argc, char *argv[], void *userdata) {
-
         _cleanup_strv_free_ char **names = NULL;
         bool enabled;
         char **name;
@@ -6998,7 +6994,6 @@ end:
 }
 
 static void systemctl_help(void) {
-
         (void) pager_open(arg_no_pager, false);
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
@@ -7256,7 +7251,6 @@ static void help_states(void) {
 }
 
 static int systemctl_parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_FAIL = 0x100,
                 ARG_REVERSE,
@@ -7687,11 +7681,15 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (arg_runtime && STRPTR_IN_SET(argv[optind], "disable", "unmask", "preset", "preset-all")) {
+                log_error("--runtime cannot be used with %s", argv[optind]);
+                return -EINVAL;
+        }
+
         return 1;
 }
 
 static int halt_parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_HELP = 0x100,
                 ARG_HALT,
@@ -7835,7 +7833,6 @@ static int parse_shutdown_time_spec(const char *t, usec_t *_u) {
 }
 
 static int shutdown_parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_HELP = 0x100,
                 ARG_NO_WALL
@@ -7942,7 +7939,6 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
 }
 
 static int telinit_parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_HELP = 0x100,
                 ARG_NO_WALL
@@ -8029,7 +8025,6 @@ static int telinit_parse_argv(int argc, char *argv[]) {
 }
 
 static int runlevel_parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_HELP = 0x100,
         };
@@ -8131,7 +8126,6 @@ static int parse_argv(int argc, char *argv[]) {
 
 #if HAVE_SYSV_COMPAT
 _pure_ static int action_to_runlevel(void) {
-
         static const char table[_ACTION_MAX] = {
                 [ACTION_HALT] =      '0',
                 [ACTION_POWEROFF] =  '0',
@@ -8191,7 +8185,6 @@ static int talk_initctl(void) {
 }
 
 static int systemctl_main(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_units },
                 { "list-unit-files",       VERB_ANY, VERB_ANY, 0,                list_unit_files      },
@@ -8267,7 +8260,6 @@ static int systemctl_main(int argc, char *argv[]) {
 }
 
 static int reload_with_fallback(void) {
-
         /* First, try systemd via D-Bus. */
         if (daemon_reload(0, NULL, NULL) >= 0)
                 return 0;
@@ -8282,7 +8274,6 @@ static int reload_with_fallback(void) {
 }
 
 static int start_with_fallback(void) {
-
         /* First, try systemd via D-Bus. */
         if (start_unit(0, NULL, NULL) >= 0)
                 return 0;
@@ -8296,7 +8287,6 @@ static int start_with_fallback(void) {
 }
 
 static int halt_now(enum action a) {
-
         /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need to be
          * synce'd explicitly in advance. */
         if (!arg_no_sync && !arg_dry_run)
