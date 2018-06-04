@@ -254,14 +254,14 @@ static int device_deserialize_item(Unit *u, const char *key, const char *value, 
 
                 state = device_state_from_string(value);
                 if (state < 0)
-                        log_unit_debug(u, "Failed to parse state value: %s", value);
+                        log_unit_debug(u, "Failed to parse state value, ignoring: %s", value);
                 else
                         d->deserialized_state = state;
 
         } else if (streq(key, "found")) {
                 r = device_found_from_string_many(value, &d->found);
                 if (r < 0)
-                        log_unit_debug(u, "Failed to parse found value: %s", value);
+                        log_unit_debug(u, "Failed to parse found value, ignoring: %s", value);
 
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
@@ -570,7 +570,7 @@ static int device_process_new(Manager *m, struct udev_device *dev) {
 
                 r = extract_first_word(&alias, &word, NULL, EXTRACT_QUOTES);
                 if (r == 0)
-                        return 0;
+                        break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
@@ -581,6 +581,8 @@ static int device_process_new(Manager *m, struct udev_device *dev) {
                 else
                         log_warning("SYSTEMD_ALIAS for %s is not an absolute path, ignoring: %s", sysfs, word);
         }
+
+        return 0;
 }
 
 static void device_update_found_one(Device *d, bool add, DeviceFound found, bool now) {
@@ -749,7 +751,7 @@ static void device_enumerate(Manager *m) {
         if (!m->udev_monitor) {
                 m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev");
                 if (!m->udev_monitor) {
-                        log_oom();
+                        log_error_errno(errno, "Failed to allocate udev monitor: %m");
                         goto fail;
                 }
 
@@ -781,7 +783,7 @@ static void device_enumerate(Manager *m) {
 
         e = udev_enumerate_new(m->udev);
         if (!e) {
-                log_oom();
+                log_error_errno(errno, "Failed to alloacte udev enumerator: %m");
                 goto fail;
         }
 
@@ -812,7 +814,13 @@ static void device_enumerate(Manager *m) {
 
                 dev = udev_device_new_from_syspath(m->udev, sysfs);
                 if (!dev) {
-                        log_oom();
+                        if (errno == ENOMEM) {
+                                log_oom();
+                                goto fail;
+                        }
+
+                        /* If we can't create a device, don't bother, it probably just disappeared. */
+                        log_debug_errno(errno, "Failed to create udev device object for %s: %m", sysfs);
                         continue;
                 }
 
@@ -888,7 +896,7 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
         if (streq(action, "remove"))  {
                 r = swap_process_device_remove(m, dev);
                 if (r < 0)
-                        log_error_errno(r, "Failed to process swap device remove event: %m");
+                        log_warning_errno(r, "Failed to process swap device remove event, ignoring: %m");
 
                 /* If we get notified that a device was removed by
                  * udev, then it's completely gone, hence unset all
@@ -901,7 +909,7 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
 
                 r = swap_process_device_new(m, dev);
                 if (r < 0)
-                        log_error_errno(r, "Failed to process swap device new event: %m");
+                        log_warning_errno(r, "Failed to process swap device new event, ignoring: %m");
 
                 manager_dispatch_load_queue(m);
 
@@ -986,6 +994,8 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
 }
 
 bool device_shall_be_bound_by(Unit *device, Unit *u) {
+        assert(device);
+        assert(u);
 
         if (u->type != UNIT_MOUNT)
                 return false;
