@@ -943,6 +943,7 @@ static bool device_supported(void) {
 
 static int validate_node(Manager *m, const char *node, struct udev_device **ret) {
         struct stat st;
+        int r;
 
         assert(m);
         assert(node);
@@ -966,19 +967,15 @@ static int validate_node(Manager *m, const char *node, struct udev_device **ret)
         } else {
                 _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
 
-                if (!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) {
-                        *ret = NULL;
-                        return 0; /* bad! */
-                }
-
-                dev = udev_device_new_from_devnum(m->udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
-                if (!dev) {
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
-
+                r = udev_device_new_from_stat_rdev(m->udev, &st, &dev);
+                if (r == -ENOENT) {
                         *ret = NULL;
                         return 1; /* good! (though missing) */
-                }
+                } else if (r == -ENOTTY) {
+                        *ret = NULL;
+                        return 0; /* bad! (not a device node but some other kind of file system node) */
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
 
                 *ret = TAKE_PTR(dev);
                 return 1; /* good! */

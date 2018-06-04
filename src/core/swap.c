@@ -255,15 +255,19 @@ static int swap_load_devnode(Swap *s) {
         _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
         struct stat st;
         const char *p;
+        int r;
 
         assert(s);
 
         if (stat(s->what, &st) < 0 || !S_ISBLK(st.st_mode))
                 return 0;
 
-        d = udev_device_new_from_devnum(UNIT(s)->manager->udev, 'b', st.st_rdev);
-        if (!d)
+        r = udev_device_new_from_stat_rdev(UNIT(s)->manager->udev, &st, &d);
+        if (r < 0) {
+                log_unit_full(UNIT(s), r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to allocate udev device for swap %s: %m", s->what);
                 return 0;
+        }
 
         p = udev_device_get_devnode(d);
         if (!p)
@@ -443,9 +447,12 @@ static int swap_process_new(Manager *m, const char *device, int prio, bool set_f
         if (stat(device, &st) < 0 || !S_ISBLK(st.st_mode))
                 return 0;
 
-        d = udev_device_new_from_devnum(m->udev, 'b', st.st_rdev);
-        if (!d)
+        r = udev_device_new_from_stat_rdev(m->udev, &st, &d);
+        if (r < 0) {
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to allocate udev device for swap %s: %m", device);
                 return 0;
+        }
 
         /* Add the main device node */
         dn = udev_device_get_devnode(d);

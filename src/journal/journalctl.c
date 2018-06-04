@@ -182,11 +182,11 @@ typedef struct BootId {
 } BootId;
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
-        int r;
         _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         struct udev_device *d = NULL;
         struct stat st;
+        int r;
 
         assert(j);
         assert(devpath);
@@ -200,13 +200,12 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
         if (!udev)
                 return log_oom();
 
-        r = stat(devpath, &st);
-        if (r < 0)
-                log_error_errno(errno, "Couldn't stat file: %m");
+        if (stat(devpath, &st) < 0)
+                return log_error_errno(errno, "Couldn't stat file: %m");
 
-        d = device = udev_device_new_from_devnum(udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
-        if (!device)
-                return log_error_errno(errno, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
+        r = udev_device_new_from_stat_rdev(udev, &st, &device);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
 
         while (d) {
                 _cleanup_free_ char *match = NULL;
