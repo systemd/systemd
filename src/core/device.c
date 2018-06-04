@@ -324,19 +324,18 @@ static int device_update_description(Unit *u, struct udev_device *dev, const cha
                         _cleanup_free_ char *j;
 
                         j = strjoin(model, " ", label);
-                        if (j)
-                                r = unit_set_description(u, j);
-                        else
-                                r = -ENOMEM;
+                        if (!j)
+                                return log_oom();
+
+                        r = unit_set_description(u, j);
                 } else
                         r = unit_set_description(u, model);
         } else
                 r = unit_set_description(u, path);
-
         if (r < 0)
-                log_unit_error_errno(u, r, "Failed to set device description: %m");
+                return log_unit_error_errno(u, r, "Failed to set device description: %m");
 
-        return r;
+        return 0;
 }
 
 static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
