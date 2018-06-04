@@ -3380,8 +3380,7 @@ int manager_reload(Manager *m) {
                         r = q;
         }
 
-        fclose(f);
-        f = NULL;
+        f = safe_fclose(f);
 
         /* Re-register notify_fd as event source */
         q = manager_setup_notify(m);
