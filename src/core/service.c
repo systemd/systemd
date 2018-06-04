@@ -2067,8 +2067,7 @@ static void service_enter_restart(Service *s) {
                    LOG_UNIT_ID(UNIT(s)),
                    LOG_UNIT_INVOCATION_ID(UNIT(s)),
                    LOG_UNIT_MESSAGE(UNIT(s), "Scheduled restart job, restart counter is at %u.", s->n_restarts),
-                   "N_RESTARTS=%u", s->n_restarts,
-                   NULL);
+                   "N_RESTARTS=%u", s->n_restarts);
 
         /* Notify clients about changed restart counter */
         unit_add_to_dbus_queue(UNIT(s));
@@ -3065,8 +3064,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                            "EXIT_CODE=%s", sigchld_code_to_string(code),
                            "EXIT_STATUS=%i", status,
                            LOG_UNIT_ID(u),
-                           LOG_UNIT_INVOCATION_ID(u),
-                           NULL);
+                           LOG_UNIT_INVOCATION_ID(u));
 
                 if (s->result == SERVICE_SUCCESS)
                         s->result = f;

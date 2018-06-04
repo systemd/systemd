@@ -818,8 +818,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                            "JOB_TYPE=%s", job_type_to_string(t),
                            "JOB_RESULT=%s", job_result_to_string(result),
                            LOG_UNIT_ID(u),
-                           LOG_UNIT_INVOCATION_ID(u),
-                           NULL);
+                           LOG_UNIT_INVOCATION_ID(u));
                 return;
         }
 
@@ -829,8 +828,7 @@ static void job_log_status_message(Unit *u, JobType t, JobResult result) {
                    "JOB_RESULT=%s", job_result_to_string(result),
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
-                   mid,
-                   NULL);
+                   mid);
 }
 
 static void job_emit_status_message(Unit *u, JobType t, JobResult result) {
@@ -943,8 +941,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                            LOG_UNIT_MESSAGE(u, "Job %s/%s failed with result '%s'.",
                                             u->id,
                                             job_type_to_string(t),
-                                            job_result_to_string(result)),
-                           NULL);
+                                            job_result_to_string(result)));
 
                 unit_start_on_failure(u);
         }

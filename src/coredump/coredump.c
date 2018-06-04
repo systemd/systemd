@@ -384,8 +384,7 @@ static int save_external_coredump(
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
                            "SIZE_LIMIT=%zu", max_size,
-                           "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR,
-                           NULL);
+                           "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR);
 
         if (fstat(fd, &st) < 0) {
                 log_error_errno(errno, "Failed to fstat core file %s: %m", coredump_tmpfile_name(tmp));

@@ -2260,17 +2260,14 @@ static int link_enter_join_netdev(Link *link) {
                 log_struct(LOG_DEBUG,
                            LOG_LINK_INTERFACE(link),
                            LOG_NETDEV_INTERFACE(link->network->bond),
-                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bond->ifname),
-                           NULL);
+                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bond->ifname));
 
                 r = netdev_join(link->network->bond, link, netdev_join_handler);
                 if (r < 0) {
                         log_struct_errno(LOG_WARNING, r,
                                          LOG_LINK_INTERFACE(link),
                                          LOG_NETDEV_INTERFACE(link->network->bond),
-                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->bond->ifname),
-                                         NULL);
-
+                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->bond->ifname));
                         link_enter_failed(link);
                         return r;
                 }
@@ -2282,16 +2279,14 @@ static int link_enter_join_netdev(Link *link) {
                 log_struct(LOG_DEBUG,
                            LOG_LINK_INTERFACE(link),
                            LOG_NETDEV_INTERFACE(link->network->bridge),
-                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bridge->ifname),
-                           NULL);
+                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->bridge->ifname));
 
                 r = netdev_join(link->network->bridge, link, netdev_join_handler);
                 if (r < 0) {
                         log_struct_errno(LOG_WARNING, r,
                                          LOG_LINK_INTERFACE(link),
                                          LOG_NETDEV_INTERFACE(link->network->bridge),
-                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->bridge->ifname),
-                                         NULL),
+                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->bridge->ifname));
                         link_enter_failed(link);
                         return r;
                 }
@@ -2303,15 +2298,14 @@ static int link_enter_join_netdev(Link *link) {
                 log_struct(LOG_DEBUG,
                            LOG_LINK_INTERFACE(link),
                            LOG_NETDEV_INTERFACE(link->network->vrf),
-                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->vrf->ifname),
-                           NULL);
+                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", link->network->vrf->ifname));
+
                 r = netdev_join(link->network->vrf, link, netdev_join_handler);
                 if (r < 0) {
                         log_struct_errno(LOG_WARNING, r,
                                          LOG_LINK_INTERFACE(link),
                                          LOG_NETDEV_INTERFACE(link->network->vrf),
-                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->vrf->ifname),
-                                         NULL);
+                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", link->network->vrf->ifname));
                         link_enter_failed(link);
                         return r;
                 }
@@ -2329,16 +2323,14 @@ static int link_enter_join_netdev(Link *link) {
                 log_struct(LOG_DEBUG,
                            LOG_LINK_INTERFACE(link),
                            LOG_NETDEV_INTERFACE(netdev),
-                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", netdev->ifname),
-                           NULL);
+                           LOG_LINK_MESSAGE(link, "Enslaving by '%s'", netdev->ifname));
 
                 r = netdev_join(netdev, link, netdev_join_handler);
                 if (r < 0) {
                         log_struct_errno(LOG_WARNING, r,
                                          LOG_LINK_INTERFACE(link),
                                          LOG_NETDEV_INTERFACE(netdev),
-                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", netdev->ifname),
-                                         NULL);
+                                         LOG_LINK_MESSAGE(link, "Could not join netdev '%s': %m", netdev->ifname));
                         link_enter_failed(link);
                         return r;
                 }
