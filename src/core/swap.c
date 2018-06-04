@@ -1112,7 +1112,7 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
                 if (cunescape(dev, UNESCAPE_RELAX, &d) < 0)
                         return log_oom();
 
-                device_found_node(m, d, true, DEVICE_FOUND_SWAP, set_flags);
+                device_found_node(m, d, DEVICE_FOUND_SWAP, DEVICE_FOUND_SWAP);
 
                 k = swap_process_new(m, d, prio, set_flags);
                 if (k < 0)
@@ -1167,7 +1167,7 @@ static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
                         }
 
                         if (swap->what)
-                                device_found_node(m, swap->what, false, DEVICE_FOUND_SWAP, true);
+                                device_found_node(m, swap->what, 0, DEVICE_FOUND_SWAP);
 
                 } else if (swap->just_activated) {
 

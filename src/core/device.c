@@ -585,19 +585,19 @@ static int device_process_new(Manager *m, struct udev_device *dev) {
         return 0;
 }
 
-static void device_update_found_one(Device *d, bool add, DeviceFound found, bool now) {
+static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
         DeviceFound n, previous;
 
         assert(d);
 
-        n = add ? (d->found | found) : (d->found & ~found);
+        n = (d->found & ~mask) | (found & mask);
         if (n == d->found)
                 return;
 
         previous = d->found;
         d->found = n;
 
-        if (!now)
+        if (MANAGER_IS_RUNNING(UNIT(d)->manager))
                 return;
 
         /* Didn't exist before, but does now? if so, generate a new invocation ID for it */
@@ -622,26 +622,23 @@ static void device_update_found_one(Device *d, bool add, DeviceFound found, bool
                 device_set_state(d, DEVICE_DEAD);
                 device_unset_sysfs(d);
         }
-
 }
 
-static int device_update_found_by_sysfs(Manager *m, const char *sysfs, bool add, DeviceFound found, bool now) {
+static void device_update_found_by_sysfs(Manager *m, const char *sysfs, DeviceFound found, DeviceFound mask) {
         Device *d, *l, *n;
 
         assert(m);
         assert(sysfs);
 
-        if (found == DEVICE_NOT_FOUND)
-                return 0;
+        if (mask == 0)
+                return;
 
         l = hashmap_get(m->devices_by_sysfs, sysfs);
         LIST_FOREACH_SAFE(same_sysfs, d, n, l)
-                device_update_found_one(d, add, found, now);
-
-        return 0;
+                device_update_found_one(d, found, mask);
 }
 
-static int device_update_found_by_name(Manager *m, const char *path, bool add, DeviceFound found, bool now) {
+static int device_update_found_by_name(Manager *m, const char *path, DeviceFound found, DeviceFound mask) {
         _cleanup_free_ char *e = NULL;
         Unit *u;
         int r;
@@ -649,7 +646,7 @@ static int device_update_found_by_name(Manager *m, const char *path, bool add, D
         assert(m);
         assert(path);
 
-        if (found == DEVICE_NOT_FOUND)
+        if (mask == 0)
                 return 0;
 
         r = unit_name_from_path(path, ".device", &e);
@@ -660,7 +657,7 @@ static int device_update_found_by_name(Manager *m, const char *path, bool add, D
         if (!u)
                 return 0;
 
-        device_update_found_one(DEVICE(u), add, found, now);
+        device_update_found_one(DEVICE(u), found, mask);
         return 0;
 }
 
@@ -828,8 +825,7 @@ static void device_enumerate(Manager *m) {
                         continue;
 
                 (void) device_process_new(m, dev);
-
-                device_update_found_by_sysfs(m, sysfs, true, DEVICE_FOUND_UDEV_DB, false);
+                device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV_DB, DEVICE_FOUND_UDEV_DB);
         }
 
         return;
@@ -907,7 +903,7 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                 /* If we get notified that a device was removed by
                  * udev, then it's completely gone, hence unset all
                  * found bits */
-                device_update_found_by_sysfs(m, sysfs, false, DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP, true);
+                device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_UDEV|DEVICE_FOUND_MOUNT|DEVICE_FOUND_SWAP);
 
         } else if (device_is_ready(dev)) {
 
@@ -920,14 +916,14 @@ static int device_dispatch_io(sd_event_source *source, int fd, uint32_t revents,
                 manager_dispatch_load_queue(m);
 
                 /* The device is found now, set the udev found bit */
-                device_update_found_by_sysfs(m, sysfs, true, DEVICE_FOUND_UDEV, true);
+                device_update_found_by_sysfs(m, sysfs, DEVICE_FOUND_UDEV, DEVICE_FOUND_UDEV);
 
         } else {
                 /* The device is nominally around, but not ready for
                  * us. Hence unset the udev bit, but leave the rest
                  * around. */
 
-                device_update_found_by_sysfs(m, sysfs, false, DEVICE_FOUND_UDEV, true);
+                device_update_found_by_sysfs(m, sysfs, 0, DEVICE_FOUND_UDEV);
         }
 
         return 0;
@@ -945,7 +941,7 @@ static bool device_supported(void) {
         return read_only <= 0;
 }
 
-int device_found_node(Manager *m, const char *node, bool add, DeviceFound found, bool now) {
+void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFound mask) {
         _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
         struct stat st;
 
@@ -953,7 +949,7 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
         assert(node);
 
         if (!device_supported())
-                return 0;
+                return;
 
         /* This is called whenever we find a device referenced in
          * /proc/swaps or /proc/self/mounts. Such a device might be
@@ -962,9 +958,9 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
          * yet. In this case we will set the device unit to
          * "tentative" state. */
 
-        if (add) {
+        if ((found & mask) != 0) {
                 if (!path_startswith(node, "/dev"))
-                        return 0;
+                        return;
 
                 /* We make an extra check here, if the device node
                  * actually exists. If it's missing, then this is an
@@ -978,14 +974,18 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
 
                 if (stat(node, &st) >= 0) {
                         if (!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode))
-                                return 0;
+                                return;
 
                         dev = udev_device_new_from_devnum(m->udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
-                        if (!dev && errno != ENOENT)
-                                return log_error_errno(errno, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
+                        if (!dev && errno != ENOENT) {
+                                log_error_errno(errno, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
+                                return;
+                        }
 
-                } else if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to stat device node file %s: %m", node);
+                } else if (errno != ENOENT) {
+                        log_error_errno(errno, "Failed to stat device node file %s: %m", node);
+                        return;
+                }
 
                 /* If the device is known in the kernel and newly
                  * appeared, then we'll create a device unit for it,
@@ -996,7 +996,7 @@ int device_found_node(Manager *m, const char *node, bool add, DeviceFound found,
         }
 
         /* Update the device unit's state, should it exist */
-        return device_update_found_by_name(m, node, add, found, now);
+        (void) device_update_found_by_name(m, node, found, mask);
 }
 
 bool device_shall_be_bound_by(Unit *device, Unit *u) {
