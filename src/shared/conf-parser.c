@@ -706,8 +706,9 @@ int config_parse_path(
                 void *data,
                 void *userdata) {
 
-        char **s = data, *n;
+        _cleanup_free_ char *n = NULL;
         bool fatal = ltype;
+        char **s = data;
         int r;
 
         assert(filename);
