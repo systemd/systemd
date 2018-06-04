@@ -309,9 +309,9 @@ int unit_file_changes_add(
         if (!p || (source && !s))
                 return -ENOMEM;
 
-        path_kill_slashes(p);
+        path_simplify(p, false);
         if (s)
-                path_kill_slashes(s);
+                path_simplify(s, false);
 
         c[*n_changes] = (UnitFileChange) { type, p, s };
         p = s = NULL;
@@ -516,7 +516,7 @@ static int mark_symlink_for_removal(
         if (!n)
                 return -ENOMEM;
 
-        path_kill_slashes(n);
+        path_simplify(n, false);
 
         r = set_consume(*remove_symlinks_to, n);
         if (r == -EEXIST)
@@ -598,7 +598,7 @@ static int remove_marked_symlinks_fd(
                         p = path_make_absolute(de->d_name, path);
                         if (!p)
                                 return -ENOMEM;
-                        path_kill_slashes(p);
+                        path_simplify(p, false);
 
                         q = readlink_malloc(p, &dest);
                         if (q == -ENOENT)

@@ -211,6 +211,9 @@ static int parse_line(
                 return config_parse(unit, fn, NULL, sections, lookup, table, flags, userdata);
         }
 
+        if (!utf8_is_valid(l))
+                return log_syntax_invalid_utf8(unit, LOG_WARNING, filename, line, l);
+
         if (*l == '[') {
                 size_t k;
                 char *n;
@@ -237,8 +240,7 @@ static int parse_line(
                         *section_line = 0;
                         *section_ignored = true;
                 } else {
-                        free(*section);
-                        *section = n;
+                        free_and_replace(*section, n);
                         *section_line = line;
                         *section_ignored = false;
                 }
@@ -396,7 +398,6 @@ int config_parse(const char *unit,
                         if (flags & CONFIG_PARSE_WARN)
                                 log_warning_errno(r, "%s:%u: Failed to parse file: %m", filename, line);
                         return r;
-
                 }
 
                 continuation = mfree(continuation);
@@ -419,7 +420,6 @@ int config_parse(const char *unit,
                         if (flags & CONFIG_PARSE_WARN)
                                 log_warning_errno(r, "%s:%u: Failed to parse file: %m", filename, line);
                         return r;
-
                 }
         }
 
@@ -688,11 +688,6 @@ int config_parse_string(
         assert(rvalue);
         assert(data);
 
-        if (!utf8_is_valid(rvalue)) {
-                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
-                return 0;
-        }
-
         if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
                 return log_oom();
 
@@ -713,6 +708,7 @@ int config_parse_path(
 
         char **s = data, *n;
         bool fatal = ltype;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -724,27 +720,16 @@ int config_parse_path(
                 goto finalize;
         }
 
-        if (!utf8_is_valid(rvalue)) {
-                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
-                return fatal ? -ENOEXEC : 0;
-        }
-
-        if (!path_is_absolute(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Not an absolute path%s: %s",
-                           fatal ? "" : ", ignoring", rvalue);
-                return fatal ? -ENOEXEC : 0;
-        }
-
         n = strdup(rvalue);
         if (!n)
                 return log_oom();
 
-        path_kill_slashes(n);
+        r = path_simplify_and_warn(n, PATH_CHECK_ABSOLUTE | (fatal ? PATH_CHECK_FATAL : 0), unit, filename, line, lvalue);
+        if (r < 0)
+                return fatal ? -ENOEXEC : 0;
 
 finalize:
-        free(*s);
-        *s = n;
+        free_and_replace(*s, n);
 
         return 0;
 }
@@ -785,12 +770,6 @@ int config_parse_strv(
                 if (r < 0) {
                         log_syntax(unit, LOG_ERR, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
                         break;
-                }
-
-                if (!utf8_is_valid(word)) {
-                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, word);
-                        free(word);
-                        continue;
                 }
 
                 r = strv_consume(sv, word);

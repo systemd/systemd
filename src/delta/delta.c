@@ -655,7 +655,7 @@ int main(int argc, char *argv[]) {
                 int i;
 
                 for (i = optind; i < argc; i++) {
-                        path_kill_slashes(argv[i]);
+                        path_simplify(argv[i], false);
 
                         k = process_suffix_chop(argv[i]);
                         if (k < 0)

@@ -383,7 +383,7 @@ int unit_name_path_escape(const char *f, char **ret) {
         if (!p)
                 return -ENOMEM;
 
-        path_kill_slashes(p);
+        path_simplify(p, false);
 
         if (empty_or_root(p))
                 s = strdup("-");

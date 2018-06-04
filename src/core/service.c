@@ -2887,7 +2887,7 @@ static int service_demand_pid_file(Service *s) {
                 return -ENOMEM;
         }
 
-        path_kill_slashes(ps->path);
+        path_simplify(ps->path, false);
 
         /* PATH_CHANGED would not be enough. There are daemons (sendmail) that
          * keep their PID file open all the time. */

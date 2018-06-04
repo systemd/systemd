@@ -543,7 +543,7 @@ static int parse_fstab(bool initrd) {
                         return log_oom();
 
                 if (is_path(where)) {
-                        path_kill_slashes(where);
+                        path_simplify(where, false);
 
                         /* Follow symlinks here; see 5261ba901845c084de5a8fd06500ed09bfb0bd80 which makes sense for
                          * mount units, but causes problems since it historically worked to have symlinks in e.g.

@@ -630,14 +630,14 @@ static int portable_changes_add(
         if (!p)
                 return -ENOMEM;
 
-        path_kill_slashes(p);
+        path_simplify(p, false);
 
         if (source) {
                 s = strdup(source);
                 if (!s)
                         return -ENOMEM;
 
-                path_kill_slashes(s);
+                path_simplify(s, false);
         }
 
         c[(*n_changes)++] = (PortableChange) {

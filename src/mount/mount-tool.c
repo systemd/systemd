@@ -354,7 +354,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!arg_mount_what)
                                 return log_oom();
 
-                        path_kill_slashes(arg_mount_what);
+                        path_simplify(arg_mount_what, false);
 
                         if (!path_is_absolute(arg_mount_what)) {
                                 log_error("Only absolute path is supported: %s", arg_mount_what);
@@ -372,7 +372,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (!arg_mount_where)
                                         return log_oom();
 
-                                path_kill_slashes(arg_mount_where);
+                                path_simplify(arg_mount_where, false);
 
                                 if (!path_is_absolute(arg_mount_where)) {
                                         log_error("Only absolute path is supported: %s", arg_mount_where);
@@ -992,7 +992,7 @@ static int action_umount(
                         if (!p)
                                 return log_oom();
 
-                        path_kill_slashes(p);
+                        path_simplify(p, false);
 
                         r = stop_mounts(bus, p);
                         if (r < 0)

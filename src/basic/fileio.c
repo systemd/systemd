@@ -1234,7 +1234,7 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
 
         strcpy(stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn), "XXXXXX");
 
-        *ret = path_kill_slashes(t);
+        *ret = path_simplify(t, false);
         return 0;
 }
 
@@ -1275,7 +1275,7 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
 
         *x = 0;
 
-        *ret = path_kill_slashes(t);
+        *ret = path_simplify(t, false);
         return 0;
 }
 
@@ -1315,7 +1315,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
 
         *x = 0;
 
-        *ret = path_kill_slashes(t);
+        *ret = path_simplify(t, false);
         return 0;
 }
 

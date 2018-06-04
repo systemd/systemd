@@ -431,7 +431,7 @@ static void load_unix_sockets(void) {
                         goto fail;
                 }
 
-                path_kill_slashes(s);
+                path_simplify(s, false);
 
                 r = set_consume(unix_sockets, s);
                 if (r < 0 && r != -EEXIST) {
@@ -2289,7 +2289,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         return -EBADMSG;
                 }
 
-                path_kill_slashes(i.argument);
+                path_simplify(i.argument, false);
                 break;
 
         case CREATE_CHAR_DEVICE:
@@ -2362,7 +2362,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 return -EBADMSG;
         }
 
-        path_kill_slashes(i.path);
+        path_simplify(i.path, false);
 
         if (!should_include_path(i.path))
                 return 0;

@@ -170,7 +170,7 @@ static int image_new(
         if (!i->path)
                 return -ENOMEM;
 
-        path_kill_slashes(i->path);
+        path_simplify(i->path, false);
 
         *ret = TAKE_PTR(i);
 

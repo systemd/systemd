@@ -470,7 +470,7 @@ static int refresh_one(
                 if (!p)
                         return -ENOMEM;
 
-                path_kill_slashes(p);
+                path_simplify(p, false);
 
                 r = refresh_one(controller, p, a, b, iteration, depth + 1, &child);
                 if (r < 0)
