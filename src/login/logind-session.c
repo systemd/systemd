@@ -615,8 +615,7 @@ int session_start(Session *s, sd_bus_message *properties) {
                    "SESSION_ID=%s", s->id,
                    "USER_ID=%s", s->user->name,
                    "LEADER="PID_FMT, s->leader,
-                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->name),
-                   NULL);
+                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->name));
 
         if (!dual_timestamp_is_set(&s->timestamp))
                 dual_timestamp_get(&s->timestamp);
@@ -720,8 +719,7 @@ int session_finalize(Session *s) {
                            "SESSION_ID=%s", s->id,
                            "USER_ID=%s", s->user->name,
                            "LEADER="PID_FMT, s->leader,
-                           LOG_MESSAGE("Removed session %s.", s->id),
-                           NULL);
+                           LOG_MESSAGE("Removed session %s.", s->id));
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 

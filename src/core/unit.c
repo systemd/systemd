@@ -1680,8 +1680,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
                    LOG_MESSAGE("%s", buf),
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
-                   mid,
-                   NULL);
+                   mid);
 }
 
 void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
@@ -4681,8 +4680,7 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
                    LOG_UNIT_MESSAGE(u, "Directory %s to mount over is not empty, mounting anyway.", where),
-                   "WHERE=%s", where,
-                   NULL);
+                   "WHERE=%s", where);
 }
 
 int unit_fail_if_noncanonical(Unit *u, const char* where) {
@@ -4708,8 +4706,7 @@ int unit_fail_if_noncanonical(Unit *u, const char* where) {
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
                    LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
-                   "WHERE=%s", where,
-                   NULL);
+                   "WHERE=%s", where);
 
         return -ELOOP;
 }

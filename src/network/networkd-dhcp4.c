@@ -444,8 +444,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                                             ADDRESS_FMT_VAL(gateway)),
                            "ADDRESS=%u.%u.%u.%u", ADDRESS_FMT_VAL(address),
                            "PREFIXLEN=%u", prefixlen,
-                           "GATEWAY=%u.%u.%u.%u", ADDRESS_FMT_VAL(gateway),
-                           NULL);
+                           "GATEWAY=%u.%u.%u.%u", ADDRESS_FMT_VAL(gateway));
         else
                 log_struct(LOG_INFO,
                            LOG_LINK_INTERFACE(link),
@@ -453,8 +452,7 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
                                             ADDRESS_FMT_VAL(address),
                                             prefixlen),
                            "ADDRESS=%u.%u.%u.%u", ADDRESS_FMT_VAL(address),
-                           "PREFIXLEN=%u", prefixlen,
-                           NULL);
+                           "PREFIXLEN=%u", prefixlen);
 
         link->dhcp_lease = sd_dhcp_lease_ref(lease);
         link_dirty(link);

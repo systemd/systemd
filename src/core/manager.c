@@ -2555,8 +2555,7 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
 
         log_struct(LOG_DEBUG,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
-                   LOG_MESSAGE("Time has been changed"),
-                   NULL);
+                   LOG_MESSAGE("Time has been changed"));
 
         /* Restart the watch */
         m->time_change_event_source = sd_event_source_unref(m->time_change_event_source);
@@ -3354,8 +3353,7 @@ static void log_taint_string(Manager *m) {
         log_struct(LOG_NOTICE,
                    LOG_MESSAGE("System is tainted: %s", taint),
                    "TAINT=%s", taint,
-                   "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR,
-                   NULL);
+                   "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR);
 }
 
 static void manager_notify_finished(Manager *m) {
@@ -3402,8 +3400,7 @@ static void manager_notify_finished(Manager *m) {
                                                format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
                                                format_timespan(initrd, sizeof(initrd), initrd_usec, USEC_PER_MSEC),
                                                format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
-                                               format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)),
-                                   NULL);
+                                               format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)));
                 } else {
                         /* The initrd-less case on bare-metal*/
 
@@ -3418,8 +3415,7 @@ static void manager_notify_finished(Manager *m) {
                                                buf,
                                                format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
                                                format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
-                                               format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)),
-                                   NULL);
+                                               format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)));
                 }
         } else {
                 /* The container and --user case */
@@ -3430,8 +3426,7 @@ static void manager_notify_finished(Manager *m) {
                            "MESSAGE_ID=" SD_MESSAGE_USER_STARTUP_FINISHED_STR,
                            "USERSPACE_USEC="USEC_FMT, userspace_usec,
                            LOG_MESSAGE("Startup finished in %s.",
-                                       format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)),
-                           NULL);
+                                       format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)));
         }
 
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);

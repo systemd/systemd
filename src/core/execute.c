@@ -3400,29 +3400,24 @@ static int exec_child(
                 _cleanup_free_ char *line;
 
                 line = exec_command_line(final_argv);
-                if (line) {
+                if (line)
                         log_struct(LOG_DEBUG,
                                    "EXECUTABLE=%s", command->path,
                                    LOG_UNIT_MESSAGE(unit, "Executing: %s", line),
                                    LOG_UNIT_ID(unit),
-                                   LOG_UNIT_INVOCATION_ID(unit),
-                                   NULL);
-                }
+                                   LOG_UNIT_INVOCATION_ID(unit));
         }
 
         execve(command->path, final_argv, accum_env);
 
         if (errno == ENOENT && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
-
                 log_struct_errno(LOG_INFO, errno,
                                  "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                  LOG_UNIT_ID(unit),
                                  LOG_UNIT_INVOCATION_ID(unit),
                                  LOG_UNIT_MESSAGE(unit, "Executable %s missing, skipping: %m",
                                                   command->path),
-                                 "EXECUTABLE=%s", command->path,
-                                 NULL);
-
+                                 "EXECUTABLE=%s", command->path);
                 return 0;
         }
 
@@ -3496,8 +3491,7 @@ int exec_spawn(Unit *unit,
                    LOG_UNIT_MESSAGE(unit, "About to execute: %s", line),
                    "EXECUTABLE=%s", command->path,
                    LOG_UNIT_ID(unit),
-                   LOG_UNIT_INVOCATION_ID(unit),
-                   NULL);
+                   LOG_UNIT_INVOCATION_ID(unit));
 
         pid = fork();
         if (pid < 0)
@@ -3522,7 +3516,7 @@ int exec_spawn(Unit *unit,
                                unit->manager->user_lookup_fds[1],
                                &exit_status);
 
-                if (r < 0) {
+                if (r < 0)
                         log_struct_errno(LOG_ERR, r,
                                          "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                          LOG_UNIT_ID(unit),
@@ -3530,9 +3524,7 @@ int exec_spawn(Unit *unit,
                                          LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
                                                           exit_status_to_string(exit_status, EXIT_STATUS_SYSTEMD),
                                                           command->path),
-                                         "EXECUTABLE=%s", command->path,
-                                         NULL);
-                }
+                                         "EXECUTABLE=%s", command->path);
 
                 _exit(exit_status);
         }

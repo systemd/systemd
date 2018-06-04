@@ -1421,8 +1421,7 @@ static int bus_manager_log_shutdown(
         return log_struct(LOG_NOTICE,
                           "MESSAGE_ID=" SD_MESSAGE_SHUTDOWN_STR,
                           p,
-                          q,
-                          NULL);
+                          q);
 }
 
 static int lid_switch_ignore_handler(sd_event_source *e, uint64_t usec, void *userdata) {
