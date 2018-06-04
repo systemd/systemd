@@ -960,8 +960,13 @@ static int manager_network_read_link_servers(Manager *m) {
         assert(m);
 
         r = sd_network_get_ntp(&ntp);
-        if (r < 0)
+        if (r < 0) {
+                if (r == -ENOMEM)
+                        log_oom();
+                else
+                        log_debug_errno(r, "Failed to get link NTP servers: %m");
                 goto clear;
+        }
 
         LIST_FOREACH(names, n, m->link_servers)
                 n->marked = true;
@@ -987,8 +992,10 @@ static int manager_network_read_link_servers(Manager *m) {
 
                 if (!found) {
                         r = server_name_new(m, NULL, SERVER_LINK, *i);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_oom();
                                 goto clear;
+                        }
 
                         changed = true;
                 }
@@ -1022,6 +1029,7 @@ static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t re
 
         sd_network_monitor_flush(m->network_monitor);
 
+        /* When manager_network_read_link_servers() failed, we assume that the servers are changed. */
         changed = !!manager_network_read_link_servers(m);
 
         /* check if the machine is online */
@@ -1115,7 +1123,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        manager_network_read_link_servers(m);
+        (void) manager_network_read_link_servers(m);
 
         *ret = TAKE_PTR(m);
 
