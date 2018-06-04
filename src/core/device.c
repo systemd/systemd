@@ -167,7 +167,7 @@ static int device_found_to_string_many(DeviceFound flags, char **ret) {
         assert(ret);
 
         for (i = 0; device_found_map[i].name; i++) {
-                if ((flags & device_found_map[i].flag) != device_found_map[i].flag)
+                if (!FLAGS_SET(flags, device_found_map[i].flag))
                         continue;
 
                 if (!strextend_with_separator(&s, ",", device_found_map[i].name, NULL))
