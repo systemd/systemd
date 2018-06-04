@@ -941,9 +941,52 @@ static bool device_supported(void) {
         return read_only <= 0;
 }
 
-void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFound mask) {
-        _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+static int validate_node(Manager *m, const char *node, struct udev_device **ret) {
         struct stat st;
+
+        assert(m);
+        assert(node);
+        assert(ret);
+
+        /* Validates a device node that showed up in /proc/swaps or /proc/self/mountinfo if it makes sense for us to
+         * track. Note that this validator is fine within missing device nodes, but not with badly set up ones! */
+
+        if (!path_startswith(node, "/dev")) {
+                *ret = NULL;
+                return 0; /* bad! */
+        }
+
+        if (stat(node, &st) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to stat() device node file %s: %m", node);
+
+                *ret = NULL;
+                return 1; /* good! (though missing) */
+
+        } else {
+                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
+
+                if (!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode)) {
+                        *ret = NULL;
+                        return 0; /* bad! */
+                }
+
+                dev = udev_device_new_from_devnum(m->udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
+                if (!dev) {
+                        if (errno != ENOENT)
+                                return log_error_errno(errno, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
+
+                        *ret = NULL;
+                        return 1; /* good! (though missing) */
+                }
+
+                *ret = TAKE_PTR(dev);
+                return 1; /* good! */
+        }
+}
+
+void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFound mask) {
+        int r;
 
         assert(m);
         assert(node);
@@ -951,46 +994,23 @@ void device_found_node(Manager *m, const char *node, DeviceFound found, DeviceFo
         if (!device_supported())
                 return;
 
-        /* This is called whenever we find a device referenced in
-         * /proc/swaps or /proc/self/mounts. Such a device might be
-         * mounted/enabled at a time where udev has not finished
-         * probing it yet, and we thus haven't learned about it
-         * yet. In this case we will set the device unit to
-         * "tentative" state. */
+        if (mask == 0)
+                return;
+
+        /* This is called whenever we find a device referenced in /proc/swaps or /proc/self/mounts. Such a device might
+         * be mounted/enabled at a time where udev has not finished probing it yet, and we thus haven't learned about
+         * it yet. In this case we will set the device unit to "tentative" state. */
 
         if ((found & mask) != 0) {
-                if (!path_startswith(node, "/dev"))
-                        return;
+                _cleanup_(udev_device_unrefp) struct udev_device *dev = NULL;
 
-                /* We make an extra check here, if the device node
-                 * actually exists. If it's missing, then this is an
-                 * indication that device was unplugged but is still
-                 * referenced in /proc/swaps or
-                 * /proc/self/mountinfo. Note that this check doesn't
-                 * really cover all cases where a device might be gone
-                 * away, since drives that can have a medium inserted
-                 * will still have a device node even when the medium
-                 * is not there... */
+                /* If the device is known in the kernel and newly appeared, then we'll create a device unit for it,
+                 * under the name referenced in /proc/swaps or /proc/self/mountinfo. But first, let's validate if
+                 * everything is alright with the device node. */
 
-                if (stat(node, &st) >= 0) {
-                        if (!S_ISBLK(st.st_mode) && !S_ISCHR(st.st_mode))
-                                return;
-
-                        dev = udev_device_new_from_devnum(m->udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
-                        if (!dev && errno != ENOENT) {
-                                log_error_errno(errno, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
-                                return;
-                        }
-
-                } else if (errno != ENOENT) {
-                        log_error_errno(errno, "Failed to stat device node file %s: %m", node);
-                        return;
-                }
-
-                /* If the device is known in the kernel and newly
-                 * appeared, then we'll create a device unit for it,
-                 * under the name referenced in /proc/swaps or
-                 * /proc/self/mountinfo. */
+                r = validate_node(m, node, &dev);
+                if (r <= 0)
+                        return; /* Don't create a device unit for this if the device node is borked. */
 
                 (void) device_setup_unit(m, dev, node, false);
         }
