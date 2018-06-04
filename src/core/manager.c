@@ -1482,6 +1482,29 @@ static void manager_setup_bus(Manager *m) {
         }
 }
 
+static void manager_preset_all(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->first_boot <= 0)
+                return;
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return;
+
+        if (m->test_run_flags != 0)
+                return;
+
+        /* If this is the first boot, and we are in the host system, then preset everything */
+        r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
+        if (r < 0)
+                log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
+                               "Failed to populate /etc with preset unit settings, ignoring: %m");
+        else
+                log_info("Populated /etc with preset unit settings.");
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r;
 
@@ -1505,19 +1528,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
-        /* If this is the first boot, and we are in the host system, then preset everything */
-        if (m->first_boot > 0 &&
-            MANAGER_IS_SYSTEM(m) &&
-            !m->test_run_flags) {
-
-                r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
-                if (r < 0)
-                        log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
-                                       "Failed to populate /etc with preset unit settings, ignoring: %m");
-                else
-                        log_info("Populated /etc with preset unit settings.");
-        }
-
+        manager_preset_all(m);
         lookup_paths_reduce(&m->lookup_paths);
         manager_build_unit_path_cache(m);
 
