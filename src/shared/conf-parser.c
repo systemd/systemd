@@ -706,7 +706,8 @@ int config_parse_path(
                 void *data,
                 void *userdata) {
 
-        char **s = data, *n;
+        char **s = data;
+        _cleanup_free_ char *n = NULL;
         bool fatal = ltype;
         int r;
 
@@ -715,10 +716,8 @@ int config_parse_path(
         assert(rvalue);
         assert(data);
 
-        if (isempty(rvalue)) {
-                n = NULL;
+        if (!isempty(rvalue))
                 goto finalize;
-        }
 
         n = strdup(rvalue);
         if (!n)
@@ -728,10 +727,8 @@ int config_parse_path(
         if (r < 0)
                 return fatal ? -ENOEXEC : 0;
 
-finalize:
-        free_and_replace(*s, n);
-
-        return 0;
+ finalize:
+        return free_and_replace(*s, n);
 }
 
 int config_parse_strv(
