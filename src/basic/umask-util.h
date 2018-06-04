@@ -12,6 +12,7 @@
 #include <sys/types.h>
 
 #include "macro.h"
+#include "mp.h"
 
 static inline void umaskp(mode_t *u) {
         umask(*u);
@@ -19,16 +20,5 @@ static inline void umaskp(mode_t *u) {
 
 #define _cleanup_umask_ _cleanup_(umaskp)
 
-struct _umask_struct_ {
-        mode_t mask;
-        bool quit;
-};
-
-static inline void _reset_umask_(struct _umask_struct_ *s) {
-        umask(s->mask);
-};
-
 #define RUN_WITH_UMASK(mask)                                            \
-        for (_cleanup_(_reset_umask_) struct _umask_struct_ _saved_umask_ = { umask(mask), false }; \
-             !_saved_umask_.quit ;                                      \
-             _saved_umask_.quit = true)
+        MPP_DECLARE(1, _cleanup_umask_ mode_t _saved_umask_ = umask(mask))
