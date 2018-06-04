@@ -251,7 +251,7 @@ static int condition_test_control_group_controller(Condition *c) {
                 return 1;
         }
 
-        return (system_mask & wanted_mask) == wanted_mask;
+        return FLAGS_SET(system_mask, wanted_mask);
 }
 
 static int condition_test_group(Condition *c) {

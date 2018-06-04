@@ -1303,7 +1303,7 @@ const char *unit_get_realized_cgroup_path(Unit *u, CGroupMask mask) {
 
                 if (u->cgroup_path &&
                     u->cgroup_realized &&
-                    (u->cgroup_realized_mask & mask) == mask)
+                    FLAGS_SET(u->cgroup_realized_mask, mask))
                         return u->cgroup_path;
 
                 u = UNIT_DEREF(u->slice);

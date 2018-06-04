@@ -307,7 +307,7 @@ static bool test_key(struct udev_device *dev,
         /* the first 32 bits are ESC, numbers, and Q to D; if we have all of
          * those, consider it a full keyboard; do not test KEY_RESERVED, though */
         mask = 0xFFFFFFFE;
-        if ((bitmask_key[0] & mask) == mask) {
+        if (FLAGS_SET(bitmask_key[0], mask)) {
                 udev_builtin_add_property(dev, test, "ID_INPUT_KEYBOARD", "1");
                 ret = true;
         }

@@ -357,6 +357,8 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
 
 #define SET_FLAG(v, flag, b) \
         (v) = (b) ? ((v) | (flag)) : ((v) & ~(flag))
+#define FLAGS_SET(v, flags) \
+        (((v) & (flags)) == (flags))
 
 #define CASE_F(X) case X:
 #define CASE_F_1(CASE, X) CASE_F(X)

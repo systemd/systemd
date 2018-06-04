@@ -602,10 +602,10 @@ int chase_symlinks(const char *path, const char *original_root, unsigned flags, 
         assert(path);
 
         /* Either the file may be missing, or we return an fd to the final object, but both make no sense */
-        if ((flags & (CHASE_NONEXISTENT|CHASE_OPEN)) == (CHASE_NONEXISTENT|CHASE_OPEN))
+        if (FLAGS_SET(flags, CHASE_NONEXISTENT | CHASE_OPEN))
                 return -EINVAL;
 
-        if ((flags & (CHASE_STEP|CHASE_OPEN)) == (CHASE_STEP|CHASE_OPEN))
+        if (FLAGS_SET(flags, CHASE_STEP | CHASE_OPEN))
                 return -EINVAL;
 
         if (isempty(path))

@@ -1359,7 +1359,7 @@ int safe_fork_full(
                 }
         }
 
-        if ((flags & (FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE)) == (FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE)) {
+        if (FLAGS_SET(flags, FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE)) {
 
                 /* Optionally, make sure we never propagate mounts to the host. */
 
