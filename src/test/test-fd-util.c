@@ -315,7 +315,14 @@ static void test_fd_duplicate_data_fd(void) {
         assert_se(read(fd2, &j, sizeof(j)) == 0);
 }
 
+static void test_read_nr_open(void) {
+        log_info("nr-open: %i", read_nr_open());
+}
+
 int main(int argc, char *argv[]) {
+
+        log_set_max_level(LOG_DEBUG);
+
         test_close_many();
         test_close_nointr();
         test_same_fd();
@@ -324,6 +331,7 @@ int main(int argc, char *argv[]) {
         test_fd_move_above_stdio();
         test_rearrange_stdio();
         test_fd_duplicate_data_fd();
+        test_read_nr_open();
 
         return 0;
 }

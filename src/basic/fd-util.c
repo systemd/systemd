@@ -930,3 +930,27 @@ int fd_reopen(int fd, int flags) {
 
         return new_fd;
 }
+
+int read_nr_open(void) {
+        _cleanup_free_ char *nr_open = NULL;
+        int r;
+
+        /* Returns the kernel's current fd limit, either by reading it of /proc/sys if that works, or using the
+         * hard-coded default compiled-in value of current kernels (1M) if not. This call will never fail. */
+
+        r = read_one_line_file("/proc/sys/fs/nr_open", &nr_open);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read /proc/sys/fs/nr_open, ignoring: %m");
+        else {
+                int v;
+
+                r = safe_atoi(nr_open, &v);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse /proc/sys/fs/nr_open value '%s', ignoring: %m", nr_open);
+                else
+                        return v;
+        }
+
+        /* If we fail, fallback to the hard-coded kernel limit of 1024 * 1024. */
+        return 1024 * 1024;
+}
