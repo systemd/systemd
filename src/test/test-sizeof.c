@@ -49,6 +49,14 @@ int main(void) {
         info(double);
         info(long double);
 
+#ifdef __HAVE_DISTINCT_FLOAT128X
+        info(_Float128);
+        info(_Float64);
+        info(_Float64x);
+        info(_Float32);
+        info(_Float32x);
+#endif
+
         info(size_t);
         info(ssize_t);
         info(time_t);
