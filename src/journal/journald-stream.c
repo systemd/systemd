@@ -766,8 +766,8 @@ int server_restore_streams(Server *s, FDSet *fds) {
                         /* No file descriptor? Then let's delete the state file */
                         log_debug("Cannot restore stream file %s", de->d_name);
                         if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                log_warning("Failed to remove /run/systemd/journal/streams/%s: %m",
-                                            de->d_name);
+                                log_warning_errno(errno, "Failed to remove /run/systemd/journal/streams/%s: %m",
+                                                  de->d_name);
                         continue;
                 }
 

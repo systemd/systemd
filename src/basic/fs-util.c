@@ -1155,9 +1155,9 @@ int fsync_directory_of_file(int fd) {
 
         r = fd_get_path(fd, &path);
         if (r < 0) {
-                log_debug("Failed to query /proc/self/fd/%d%s: %m",
-                          fd,
-                          r == -EOPNOTSUPP ? ", ignoring" : "");
+                log_debug_errno(r, "Failed to query /proc/self/fd/%d%s: %m",
+                                fd,
+                                r == -EOPNOTSUPP ? ", ignoring" : "");
 
                 if (r == -EOPNOTSUPP)
                         /* If /proc is not available, we're most likely running in some

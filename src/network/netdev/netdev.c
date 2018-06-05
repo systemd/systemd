@@ -242,7 +242,7 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_netlink_message_h
 
         r = sd_netlink_call_async(netdev->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0)
-                return log_netdev_error(netdev, "Could not send rtnetlink message: %m");
+                return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 
