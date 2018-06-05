@@ -157,7 +157,6 @@ static const struct {
         { DEVICE_FOUND_UDEV_DB, "found-udev-db" },
         { DEVICE_FOUND_MOUNT,   "found-mount"   },
         { DEVICE_FOUND_SWAP,    "found-swap"    },
-        {}
 };
 
 static int device_found_to_string_many(DeviceFound flags, char **ret) {
@@ -166,7 +165,7 @@ static int device_found_to_string_many(DeviceFound flags, char **ret) {
 
         assert(ret);
 
-        for (i = 0; device_found_map[i].name; i++) {
+        for (i = 0; i < ELEMENTSOF(device_found_map); i++) {
                 if (!FLAGS_SET(flags, device_found_map[i].flag))
                         continue;
 
@@ -196,7 +195,7 @@ static int device_found_from_string_many(const char *name, DeviceFound *ret) {
                 if (r == 0)
                         break;
 
-                for (i = 0; device_found_map[i].name; i++)
+                for (i = 0; i < ELEMENTSOF(device_found_map); i++)
                         if (streq(word, device_found_map[i].name)) {
                                 f = device_found_map[i].flag;
                                 break;
