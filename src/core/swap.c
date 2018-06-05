@@ -1277,9 +1277,7 @@ static void swap_shutdown(Manager *m) {
         assert(m);
 
         m->swap_event_source = sd_event_source_unref(m->swap_event_source);
-
         m->proc_swaps = safe_fclose(m->proc_swaps);
-
         m->swaps_by_devnode = hashmap_free(m->swaps_by_devnode);
 }
 
@@ -1292,9 +1290,9 @@ static void swap_enumerate(Manager *m) {
                 m->proc_swaps = fopen("/proc/swaps", "re");
                 if (!m->proc_swaps) {
                         if (errno == ENOENT)
-                                log_debug("Not swap enabled, skipping enumeration");
+                                log_debug_errno(errno, "Not swap enabled, skipping enumeration.");
                         else
-                                log_error_errno(errno, "Failed to open /proc/swaps: %m");
+                                log_warning_errno(errno, "Failed to open /proc/swaps, ignoring: %m");
 
                         return;
                 }
