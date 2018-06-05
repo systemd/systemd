@@ -1647,6 +1647,7 @@ static int invoke_main_loop(
                                 log_warning_errno(r, "Failed to parse config file, ignoring: %m");
 
                         set_manager_defaults(m);
+                        set_manager_settings(m);
 
                         r = manager_reload(m);
                         if (r < 0)
