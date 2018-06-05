@@ -23,6 +23,14 @@ CHANGES WITH 239 in spe:
           modified the setting by a drop-in config file, then it may be necessary
           to update the file.
 
+        * When OnFailure= is used in combination with Restart= on a service
+          unit, then the specified units will no longer be triggered on
+          failures that result in restarting. Previously, the specified units
+          would be activated each time the unit failed, even when the unit was
+          going to be restarted automatically. This behaviour contradicted the
+          documentation. With this release the code is adjusted to match the
+          documentation.
+
 CHANGES WITH 238:
 
         * The MemoryAccounting= unit property now defaults to on. After

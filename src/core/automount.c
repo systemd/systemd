@@ -252,7 +252,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(a), "Changed %s -> %s", automount_state_to_string(old_state), automount_state_to_string(state));
 
-        unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state], true);
+        unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state], 0);
 }
 
 static int automount_coldplug(Unit *u) {

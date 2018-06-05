@@ -639,7 +639,12 @@ int unit_reload(Unit *u);
 int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error);
 int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t control_pid, sd_bus_error *error);
 
-void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
+typedef enum UnitNotifyFlags {
+        UNIT_NOTIFY_RELOAD_FAILURE    = 1U << 0,
+        UNIT_NOTIFY_WILL_AUTO_RESTART = 1U << 1,
+} UnitNotifyFlags;
+
+void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags);
 
 int unit_watch_pid(Unit *u, pid_t pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);

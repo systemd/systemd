@@ -1931,7 +1931,7 @@ int unit_reload(Unit *u) {
 
         if (!UNIT_VTABLE(u)->reload) {
                 /* Unit doesn't have a reload function, but we need to propagate the reload anyway */
-                unit_notify(u, unit_active_state(u), unit_active_state(u), true);
+                unit_notify(u, unit_active_state(u), unit_active_state(u), 0);
                 return 0;
         }
 
@@ -2125,6 +2125,7 @@ void unit_start_on_failure(Unit *u) {
         Unit *other;
         Iterator i;
         void *v;
+        int r;
 
         assert(u);
 
@@ -2134,11 +2135,11 @@ void unit_start_on_failure(Unit *u) {
         log_unit_info(u, "Triggering OnFailure= dependencies.");
 
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_ON_FAILURE], i) {
-                int r;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, NULL, NULL);
+                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, &error, NULL);
                 if (r < 0)
-                        log_unit_error_errno(u, r, "Failed to enqueue OnFailure= job: %m");
+                        log_unit_warning_errno(u, r, "Failed to enqueue OnFailure= job, ignoring: %s", bus_error_message(&error, r));
         }
 }
 
@@ -2299,7 +2300,7 @@ static void unit_update_on_console(Unit *u) {
 
 }
 
-void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
+void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags) {
         bool unexpected;
         Manager *m;
 
@@ -2375,7 +2376,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                         if (u->job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
-                                        job_finish_and_invalidate(u->job, reload_success ? JOB_DONE : JOB_FAILED, true, false);
+                                        job_finish_and_invalidate(u->job, (flags & UNIT_NOTIFY_RELOAD_FAILURE) ? JOB_FAILED : JOB_DONE, true, false);
                                 else if (!IN_SET(ns, UNIT_ACTIVATING, UNIT_RELOADING)) {
                                         unexpected = true;
 
@@ -2428,7 +2429,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 if (ns != os && ns == UNIT_FAILED) {
                         log_unit_debug(u, "Unit entered failed state.");
-                        unit_start_on_failure(u);
+
+                        if (!(flags & UNIT_NOTIFY_WILL_AUTO_RESTART))
+                                unit_start_on_failure(u);
                 }
         }
 

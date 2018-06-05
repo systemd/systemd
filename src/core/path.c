@@ -425,7 +425,7 @@ static void path_set_state(Path *p, PathState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(p), "Changed %s -> %s", path_state_to_string(old_state), path_state_to_string(state));
 
-        unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state], true);
+        unit_notify(UNIT(p), state_translation_table[old_state], state_translation_table[state], 0);
 }
 
 static void path_enter_waiting(Path *p, bool initial, bool recheck);
