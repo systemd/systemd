@@ -884,8 +884,17 @@ void reset_terminal_feature_caches(void) {
 }
 
 bool on_tty(void) {
+
+        /* We check both stdout and stderr, so that situations where pipes on the shell are used are reliably
+         * recognized, regardless if only the output or the errors are piped to some place. Since on_tty() is generally
+         * used to default to a safer, non-interactive, non-color mode of operation it's probably good to be defensive
+         * here, and check for both. Note that we don't check for STDIN_FILENO, because it should fine to use fancy
+         * terminal functionality when outputting stuff, even if the input is piped to us. */
+
         if (cached_on_tty < 0)
-                cached_on_tty = isatty(STDOUT_FILENO) > 0;
+                cached_on_tty =
+                        isatty(STDOUT_FILENO) > 0 &&
+                        isatty(STDERR_FILENO) > 0;
 
         return cached_on_tty;
 }
