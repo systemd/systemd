@@ -2040,7 +2040,7 @@ static int on_cgroup_empty_event(sd_event_source *s, void *userdata) {
                 /* More stuff queued, let's make sure we remain enabled */
                 r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to reenable cgroup empty event source: %m");
+                        log_debug_errno(r, "Failed to reenable cgroup empty event source, ignoring: %m");
         }
 
         unit_add_to_gc_queue(u);
