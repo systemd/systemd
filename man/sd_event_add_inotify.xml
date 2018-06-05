@@ -155,6 +155,16 @@
     </variablelist>
   </refsect1>
 
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>A simple program that uses inotify to monitor one or two directories</title>
+
+      <programlisting><xi:include href="inotify-watch-tmp.c" parse="text" /></programlisting>
+    </example>
+  </refsect1>
+
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
