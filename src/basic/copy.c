@@ -681,31 +681,55 @@ int copy_file(const char *from, const char *to, int flags, mode_t mode, unsigned
 }
 
 int copy_file_atomic(const char *from, const char *to, mode_t mode, unsigned chattr_flags, CopyFlags copy_flags) {
-        _cleanup_free_ char *t = NULL;
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_close_ int fdt = -1;
         int r;
 
         assert(from);
         assert(to);
 
-        r = tempfn_random(to, NULL, &t);
-        if (r < 0)
-                return r;
-
-        r = copy_file(from, t, O_NOFOLLOW|O_EXCL, mode, chattr_flags, copy_flags);
-        if (r < 0)
-                return r;
+        /* We try to use O_TMPFILE here to create the file if we can. Note that that only works if COPY_REPLACE is not
+         * set though as we need to use linkat() for linking the O_TMPFILE file into the file system but that system
+         * call can't replace existing files. Hence, if COPY_REPLACE is set we create a temporary name in the file
+         * system right-away and unconditionally which we then can renameat() to the right name after we completed
+         * writing it. */
 
         if (copy_flags & COPY_REPLACE) {
-                r = renameat(AT_FDCWD, t, AT_FDCWD, to);
+                r = tempfn_random(to, NULL, &t);
                 if (r < 0)
-                        r = -errno;
-        } else
-                r = rename_noreplace(AT_FDCWD, t, AT_FDCWD, to);
-        if (r < 0) {
-                (void) unlink(t);
-                return r;
+                        return r;
+
+                fdt = open(t, O_CREAT|O_EXCL|O_NOFOLLOW|O_NOCTTY|O_WRONLY|O_CLOEXEC, 0600);
+                if (fdt < 0) {
+                        t = mfree(t);
+                        return -errno;
+                }
+        } else {
+                fdt = open_tmpfile_linkable(to, O_WRONLY|O_CLOEXEC, &t);
+                if (fdt < 0)
+                        return fdt;
         }
 
+        if (chattr_flags != 0)
+                (void) chattr_fd(fdt, chattr_flags, (unsigned) -1);
+
+        r = copy_file_fd(from, fdt, copy_flags);
+        if (r < 0)
+                return r;
+
+        if (fchmod(fdt, mode) < 0)
+                return -errno;
+
+        if (copy_flags & COPY_REPLACE) {
+                if (renameat(AT_FDCWD, t, AT_FDCWD, to) < 0)
+                        return -errno;
+        } else {
+                r = link_tmpfile(fdt, t, to);
+                if (r < 0)
+                        return r;
+        }
+
+        t = mfree(t);
         return 0;
 }
 
