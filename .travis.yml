@@ -58,7 +58,7 @@ jobs:
 # Specify the order of stages and conditions
 stages:
     - name: coverity scan
-      if: type = cron
+      if: type != cron
 
 env:
     global:
