@@ -228,10 +228,10 @@ finish:
 }
 
 static int drop_from_file(const char *fn, uint64_t keep) {
-        int r, k;
-        uint32_t hi, lo;
+        _cleanup_free_ char *p = NULL;
         uint64_t current, after;
-        char *p;
+        uint32_t hi, lo;
+        int r, k;
 
         r = read_one_line_file(fn, &p);
         if (r < 0)
@@ -241,8 +241,6 @@ static int drop_from_file(const char *fn, uint64_t keep) {
         assert_cc(sizeof(lo) == sizeof(unsigned));
 
         k = sscanf(p, "%u %u", &lo, &hi);
-        free(p);
-
         if (k != 2)
                 return -EIO;
 
@@ -255,13 +253,7 @@ static int drop_from_file(const char *fn, uint64_t keep) {
         lo = (unsigned) (after & 0xFFFFFFFFULL);
         hi = (unsigned) ((after >> 32ULL) & 0xFFFFFFFFULL);
 
-        if (asprintf(&p, "%u %u", lo, hi) < 0)
-                return -ENOMEM;
-
-        r = write_string_file(fn, p, WRITE_STRING_FILE_CREATE);
-        free(p);
-
-        return r;
+        return write_string_filef(fn, WRITE_STRING_FILE_CREATE, "%u %u", lo, hi);
 }
 
 int capability_bounding_set_drop_usermode(uint64_t keep) {

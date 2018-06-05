@@ -1259,10 +1259,9 @@ static int bump_unix_max_dgram_qlen(void) {
         unsigned long v;
         int r;
 
-        /* Let's bump the net.unix.max_dgram_qlen sysctl. The kernel
-         * default of 16 is simply too low. We set the value really
-         * really early during boot, so that it is actually applied to
-         * all our sockets, including the $NOTIFY_SOCKET one. */
+        /* Let's bump the net.unix.max_dgram_qlen sysctl. The kernel default of 16 is simply too low. We set the value
+         * really really early during boot, so that it is actually applied to all our sockets, including the
+         * $NOTIFY_SOCKET one. */
 
         r = read_one_line_file("/proc/sys/net/unix/max_dgram_qlen", &qlen);
         if (r < 0)
@@ -1270,16 +1269,12 @@ static int bump_unix_max_dgram_qlen(void) {
 
         r = safe_atolu(qlen, &v);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse AF_UNIX datagram queue length, ignoring: %m");
+                return log_warning_errno(r, "Failed to parse AF_UNIX datagram queue length '%s', ignoring: %m", qlen);
 
         if (v >= DEFAULT_UNIX_MAX_DGRAM_QLEN)
                 return 0;
 
-        qlen = mfree(qlen);
-        if (asprintf(&qlen, "%lu\n", DEFAULT_UNIX_MAX_DGRAM_QLEN) < 0)
-                return log_oom();
-
-        r = write_string_file("/proc/sys/net/unix/max_dgram_qlen", qlen, 0);
+        r = write_string_filef("/proc/sys/net/unix/max_dgram_qlen", 0, "%lu", DEFAULT_UNIX_MAX_DGRAM_QLEN);
         if (r < 0)
                 return log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                       "Failed to bump AF_UNIX datagram queue length, ignoring: %m");
