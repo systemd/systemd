@@ -579,10 +579,12 @@ static int device_process_new(Manager *m, struct udev_device *dev) {
                 if (r < 0)
                         return log_warning_errno(r, "Failed to add parse SYSTEMD_ALIAS for %s: %m", sysfs);
 
-                if (path_is_absolute(word))
-                        (void) device_setup_unit(m, dev, word, false);
-                else
+                if (!path_is_absolute(word))
                         log_warning("SYSTEMD_ALIAS for %s is not an absolute path, ignoring: %s", sysfs, word);
+                else if (!path_is_normalized(word))
+                        log_warning("SYSTEMD_ALIAS for %s is not a normalized path, ignoring: %s", sysfs, word);
+                else
+                        (void) device_setup_unit(m, dev, word, false);
         }
 
         return 0;
