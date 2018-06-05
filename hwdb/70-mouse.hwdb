@@ -377,7 +377,7 @@ mouse:usb:v046dp1025:name:Logitech M510:
 # Logitech M705 (marathon mouse)
 mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
- MOUSE_DPI=800@166
+ MOUSE_DPI=1000@125
 
 # Logitech MX Revolution
 mouse:usb:v046dpc51a:name:Logitech USB Receiver:
