@@ -31,6 +31,10 @@ CHANGES WITH 239 in spe:
           documentation. With this release the code is adjusted to match the
           documentation.
 
+        * systemctl disable/unmask/preset/preset-all cannot be used with
+          --runtime. Previously this was allowed, but resulted in unintuitive
+          behaviour that wasn't useful.
+
 CHANGES WITH 238:
 
         * The MemoryAccounting= unit property now defaults to on. After
