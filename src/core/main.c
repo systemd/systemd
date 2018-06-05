@@ -1926,12 +1926,9 @@ static int do_queue_default_job(
 }
 
 static void free_arguments(void) {
-        size_t j;
 
         /* Frees all arg_* variables, with the exception of arg_serialization */
-
-        for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++)
-                arg_default_rlimit[j] = mfree(arg_default_rlimit[j]);
+        rlimit_free_all(arg_default_rlimit);
 
         arg_default_unit = mfree(arg_default_unit);
         arg_confirm_spawn = mfree(arg_confirm_spawn);
