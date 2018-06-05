@@ -311,6 +311,7 @@ static int parse_confirm_spawn(const char *value, char **console) {
                 s = strjoin("/dev/", value);
         if (!s)
                 return -ENOMEM;
+
         *console = s;
         return 0;
 }
@@ -731,6 +732,10 @@ static void set_manager_defaults(Manager *m) {
 
         assert(m);
 
+        /* Propagates the various default unit property settings into the manager object, i.e. properties that do not
+         * affect the manager itself, but are just what newly allocated units will have set if they haven't set
+         * anything else. (Also see set_manager_settings() for the settings that affect the manager's own behaviour) */
+
         m->default_timer_accuracy_usec = arg_default_timer_accuracy_usec;
         m->default_std_output = arg_default_std_output;
         m->default_std_error = arg_default_std_error;
@@ -754,6 +759,9 @@ static void set_manager_defaults(Manager *m) {
 static void set_manager_settings(Manager *m) {
 
         assert(m);
+
+        /* Propagates the various manager settings into the manager object, i.e. properties that effect the manager
+         * itself (as opposed to just being inherited into newly allocated units, see set_manager_defaults() above). */
 
         m->confirm_spawn = arg_confirm_spawn;
         m->service_watchdogs = arg_service_watchdogs;
