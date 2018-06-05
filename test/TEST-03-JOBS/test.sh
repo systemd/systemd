@@ -3,6 +3,7 @@
 # ex: ts=8 sw=4 sts=4 et filetype=sh
 set -e
 TEST_DESCRIPTION="Job-related tests"
+TEST_NO_QEMU=1
 
 . $TEST_BASE_DIR/test-functions
 
