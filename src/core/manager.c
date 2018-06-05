@@ -1322,13 +1322,30 @@ Manager* manager_free(Manager *m) {
         return mfree(m);
 }
 
+static void manager_enumerate_perpetual(Manager *m) {
+        UnitType c;
+
+        assert(m);
+
+        /* Let's ask every type to load all units from disk/kernel that it might know */
+        for (c = 0; c < _UNIT_TYPE_MAX; c++) {
+                if (!unit_type_supported(c)) {
+                        log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
+                        continue;
+                }
+
+                if (unit_vtable[c]->enumerate_perpetual)
+                        unit_vtable[c]->enumerate_perpetual(m);
+        }
+}
+
+
 static void manager_enumerate(Manager *m) {
         UnitType c;
 
         assert(m);
 
-        /* Let's ask every type to load all units from disk/kernel
-         * that it might know */
+        /* Let's ask every type to load all units from disk/kernel that it might know */
         for (c = 0; c < _UNIT_TYPE_MAX; c++) {
                 if (!unit_type_supported(c)) {
                         log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
@@ -1562,6 +1579,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         /* First, enumerate what we can from all config files */
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_UNITS_LOAD_START);
+        manager_enumerate_perpetual(m);
         manager_enumerate(m);
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_UNITS_LOAD_FINISH);
 

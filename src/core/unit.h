@@ -535,9 +535,15 @@ typedef struct UnitVTable {
         /* Returns true if the unit currently needs access to the console */
         bool (*needs_console)(Unit *u);
 
+        /* Like the enumerate() callback further down, but only enumerates the perpetual units, i.e. all units that
+         * unconditionally exist and are always active. The main reason to keep both enumeration functions separate is
+         * philosophical: the state of perpetual units should be put in place by coldplug(), while the state of those
+         * discovered through regular enumeration should be put in place by catchup(), see below. */
+        void (*enumerate_perpetual)(Manager *m);
+
         /* This is called for each unit type and should be used to enumerate units already existing in the system
          * internally and load them. However, everything that is loaded here should still stay in inactive state. It is
-         * the job of the coldplug() call above to put the units into the initial state.  */
+         * the job of the catchup() call above to put the units into the discovered state. */
         void (*enumerate)(Manager *m);
 
         /* Type specific cleanups. */
