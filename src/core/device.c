@@ -121,6 +121,9 @@ static void device_set_state(Device *d, DeviceState state) {
         old_state = d->state;
         d->state = state;
 
+        if (state == DEVICE_DEAD)
+                device_unset_sysfs(d);
+
         if (state != old_state)
                 log_unit_debug(UNIT(d), "Changed %s -> %s", device_state_to_string(old_state), device_state_to_string(state));
 
@@ -599,12 +602,10 @@ static void device_found_changed(Device *d, DeviceFound previous, DeviceFound no
                 /* If the device has not been seen by udev yet, but is now referenced by the kernel, then we assume the
                  * kernel knows it now, and udev might soon too. */
                 device_set_state(d, DEVICE_TENTATIVE);
-        else {
+        else
                 /* If nobody sees the device, or if the device was previously seen by udev and now is only referenced
                  * from the kernel, then we consider the device is gone, the kernel just hasn't noticed it yet. */
                 device_set_state(d, DEVICE_DEAD);
-                device_unset_sysfs(d);
-        }
 }
 
 static void device_update_found_one(Device *d, DeviceFound found, DeviceFound mask) {
