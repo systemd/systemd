@@ -267,11 +267,10 @@ static void locale_free(char ***l) {
 static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = userdata;
         _cleanup_strv_free_ char **settings = NULL, **l = NULL;
-        char *new_locale[_VARIABLE_LC_MAX] = {};
-        _cleanup_(locale_free) char **dummy = new_locale;
+        char *new_locale[_VARIABLE_LC_MAX] = {}, **i;
+        _cleanup_(locale_free) _unused_ char **dummy = new_locale;
         bool modified = false;
         int interactive, p, r;
-        char **i;
 
         assert(m);
         assert(c);
