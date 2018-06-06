@@ -680,8 +680,7 @@ static int session_stop_scope(Session *s, bool force) {
                            "SESSION_ID=%s", s->id,
                            "USER_ID=%s", s->user->name,
                            "LEADER="PID_FMT, s->leader,
-                           LOG_MESSAGE("Session %s logged out. Waiting for processes to exit.", s->id),
-                           NULL);
+                           LOG_MESSAGE("Session %s logged out. Waiting for processes to exit.", s->id));
         }
 
         return 0;
