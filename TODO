@@ -67,6 +67,12 @@ Features:
   DECIMAL_STR_WIDTH should probably add an extra "-" into account for negative
   numbers.
 
+* Check that users of inotify's IN_DELETE_SELF flag are using it properly, as
+  usually IN_ATTRIB is the right way to watch deleted files, as the former only
+  fires when a file is actually removed from disk, i.e. the link count drops to
+  zero and is not open anymore, while the latter happens when a file is
+  unlinked from any dir.
+
 * port systemctl, systemd-inhibit, busctl, … over to format-table.[ch]'s table formatters
 
 * pid1: lock image configured with RootDirectory=/RootImage= using the usual nspawn semantics while the unit is up
