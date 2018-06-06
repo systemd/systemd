@@ -124,6 +124,7 @@ loglevel=2 \
 init=$ROOTLIBDIR/systemd \
 console=ttyS0 \
 selinux=0 \
+printk.devkmsg=on \
 $_cgroup_args \
 $KERNEL_APPEND \
 "
