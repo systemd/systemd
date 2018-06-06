@@ -170,6 +170,8 @@ struct Manager {
         int time_change_fd;
         sd_event_source *time_change_event_source;
 
+        sd_event_source *timezone_change_event_source;
+
         sd_event_source *jobs_in_progress_event_source;
 
         int user_lookup_fds[2];
@@ -249,6 +251,10 @@ struct Manager {
         int pin_cgroupfs_fd;
 
         unsigned gc_marker;
+
+        /* The stat() data the last time we saw /etc/localtime */
+        usec_t etc_localtime_mtime;
+        bool etc_localtime_accessible:1;
 
         /* Flags */
         ManagerExitCode exit_code:5;

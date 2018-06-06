@@ -108,6 +108,12 @@
     particular event sources do not starve or dominate the event
     loop.</para>
 
+    <para>The priority of event sources may be changed at any time of their lifetime, with the exception of inotify
+    event sources (i.e. those created with
+    <citerefentry><refentrytitle>sd_event_add_inotify</refentrytitle><manvolnum>3</manvolnum></citerefentry>) whose
+    priority may only be changed in the time between their initial creation and the first subsequent event loop
+    iteration.</para>
+
     <para><function>sd_event_source_get_priority()</function> may be
     used to query the current priority assigned to the event source
     object <parameter>source</parameter>.</para>

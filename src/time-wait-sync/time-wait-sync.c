@@ -115,16 +115,15 @@ static int inotify_handler(sd_event_source *s,
         return 0;
 }
 
-static int clock_state_update(ClockState *sp,
-                              sd_event *event) {
-        static const struct itimerspec its = {
-                .it_value.tv_sec = TIME_T_MAX,
-        };
-        int r;
-        struct timex tx = {};
+static int clock_state_update(
+                ClockState *sp,
+                sd_event *event) {
+
         char buf[MAX((size_t)FORMAT_TIMESTAMP_MAX, STRLEN("unrepresentable"))];
-        usec_t t;
+        struct timex tx = {};
         const char * ts;
+        usec_t t;
+        int r;
 
         clock_state_release_timerfd(sp);
 
@@ -151,18 +150,13 @@ static int clock_state_update(ClockState *sp,
          * it synchronized. When an NTP source is selected it sets the clock again with clock_adjtime(2) which marks it
          * synchronized and also touches /run/systemd/timesync/synchronized which covers the case when the clock wasn't
          * "set". */
-        r = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
+
+        r = time_change_fd();
         if (r < 0) {
-                log_error_errno(errno, "Failed to create timerfd: %m");
+                log_error_errno(r, "Failed to create timerfd: %m");
                 goto finish;
         }
         sp->timerfd_fd = r;
-
-        r = timerfd_settime(sp->timerfd_fd, TFD_TIMER_ABSTIME | TFD_TIMER_CANCEL_ON_SET, &its, NULL);
-        if (r < 0) {
-                log_error_errno(errno, "Failed to set timerfd conditions: %m");
-                goto finish;
-        }
 
         r = adjtimex(&tx);
         if (r < 0) {

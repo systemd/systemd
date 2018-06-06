@@ -24,15 +24,12 @@ Janitorial Clean-ups:
 
 Features:
 
+* Add OnTimezoneChange= and OnTimeChange= stanzas to .timer units in order to
+  schedule events based on time and timezone changes.
+
 * add O_TMPFILE support to copy_file_atomic()
 
 * nspawn: greater control over selinux label?
-
-* sd-event: implement inotify events, as we can safely and robustly do that now
-  for any inode without fearing confusion by inodes appearing at multiple
-  places: we can open it with O_PATH first, then store its inode in a hash
-  table, to recognize duplicate watches before creating (and thus corrupting
-  pre-existing ones) them, and using /proc/self/fd/ to add it right after.
 
 * the error paths in usbffs_dispatch_ep() leak memory
 

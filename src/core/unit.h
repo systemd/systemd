@@ -516,6 +516,9 @@ typedef struct UnitVTable {
         /* Called whenever CLOCK_REALTIME made a jump */
         void (*time_change)(Unit *u);
 
+        /* Called whenever /etc/localtime was modified */
+        void (*timezone_change)(Unit *u);
+
         /* Returns the next timeout of a unit */
         int (*get_timeout)(Unit *u, usec_t *timeout);
 
