@@ -451,7 +451,7 @@
             connected bridge, <literal>non-tpmr-bridge</literal> permits propagation across Two-Port MAC Relays, but
             not any other bridges, and <literal>customer-bridge</literal> permits propagation until a customer bridge
             is reached. For details about these concepts, see <ulink
-            url="http://standards.ieee.org/getieee802/download/802.1AB-2009.pdf">IEEE 802.1AB-2009</ulink>. Note that
+            url="https://standards.ieee.org/findstds/standard/802.1AB-2016.html">IEEE 802.1AB-2016</ulink>. Note that
             configuring this setting to true is equivalent to <literal>nearest-bridge</literal>, the recommended and
             most restricted level of propagation. See <varname>LLDP=</varname> above for an option to enable LLDP
             reception.</para>
