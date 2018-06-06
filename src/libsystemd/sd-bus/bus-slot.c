@@ -203,6 +203,10 @@ _public_ sd_bus_slot* sd_bus_slot_unref(sd_bus_slot *slot) {
         }
 
         bus_slot_disconnect(slot);
+
+        if (slot->destroy_callback)
+                slot->destroy_callback(slot->userdata);
+
         free(slot->description);
         return mfree(slot);
 }
@@ -228,6 +232,22 @@ _public_ void *sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata) {
         slot->userdata = userdata;
 
         return ret;
+}
+
+_public_ int sd_bus_slot_set_destroy_callback(sd_bus_slot *slot, sd_bus_destroy_t callback) {
+        assert_return(slot, -EINVAL);
+
+        slot->destroy_callback = callback;
+        return 0;
+}
+
+_public_ int sd_bus_slot_get_destroy_callback(sd_bus_slot *slot, sd_bus_destroy_t *callback) {
+        assert_return(slot, -EINVAL);
+
+        if (callback)
+                *callback = slot->destroy_callback;
+
+        return !!slot->destroy_callback;
 }
 
 _public_ sd_bus_message *sd_bus_slot_get_current_message(sd_bus_slot *slot) {
