@@ -10,7 +10,7 @@
   Copyright 2012 Lennart Poettering
 -->
 
-<refentry id="sd_id128_get_machine">
+<refentry id="sd_id128_get_machine" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_id128_get_machine</title>
@@ -123,15 +123,7 @@
     empty or all zeros.</para>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>The <function>sd_id128_get_machine()</function>, <function>sd_id128_get_machine_app_specific()</function>
-    <function>sd_id128_get_boot()</function> and <function>sd_id128_get_invocation()</function> interfaces are
-    available as a shared library, which can be compiled and linked to with the
-    <literal>libsystemd</literal> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>Examples</title>

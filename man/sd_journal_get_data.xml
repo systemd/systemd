@@ -10,7 +10,7 @@
   Copyright 2012 Lennart Poettering
 -->
 
-<refentry id="sd_journal_get_data">
+<refentry id="sd_journal_get_data" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_get_data</title>
@@ -169,19 +169,7 @@
     success or a negative errno-style error code.</para>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>The <function>sd_journal_get_data()</function>,
-    <function>sd_journal_enumerate_data()</function>,
-    <function>sd_journal_restart_data()</function>,
-    <function>sd_journal_set_data_threshold()</function> and
-    <function>sd_journal_get_data_threshold()</function> interfaces
-    are available as a shared library, which can be compiled and
-    linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>Examples</title>
@@ -204,7 +192,6 @@ int print_fields(sd_journal *j) {
     printf("%.*s\n", (int) length, data);
 }
 …</programlisting>
-
   </refsect1>
 
   <refsect1>

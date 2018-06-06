@@ -10,7 +10,8 @@
   Copyright 2010 Lennart Poettering
 -->
 
-<refentry id="sd_uid_get_state" conditional='HAVE_PAM'>
+<refentry id="sd_uid_get_state" conditional='HAVE_PAM'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_uid_get_state</title>
@@ -197,14 +198,7 @@
     </variablelist>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>Functions described here are available as a shared library,
-    and can be compiled and linked to using the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    entry.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>
