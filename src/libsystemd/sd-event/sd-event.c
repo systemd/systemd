@@ -504,16 +504,32 @@ _public_ int sd_event_new(sd_event** ret) {
 
         assert_return(ret, -EINVAL);
 
-        e = new0(sd_event, 1);
+        e = new(sd_event, 1);
         if (!e)
                 return -ENOMEM;
 
-        e->n_ref = 1;
-        e->watchdog_fd = e->epoll_fd = e->realtime.fd = e->boottime.fd = e->monotonic.fd = e->realtime_alarm.fd = e->boottime_alarm.fd = -1;
-        e->realtime.next = e->boottime.next = e->monotonic.next = e->realtime_alarm.next = e->boottime_alarm.next = USEC_INFINITY;
-        e->realtime.wakeup = e->boottime.wakeup = e->monotonic.wakeup = e->realtime_alarm.wakeup = e->boottime_alarm.wakeup = WAKEUP_CLOCK_DATA;
-        e->original_pid = getpid_cached();
-        e->perturb = USEC_INFINITY;
+        *e = (sd_event) {
+                .n_ref = 1,
+                .epoll_fd = -1,
+                .watchdog_fd = -1,
+                .realtime.wakeup = WAKEUP_CLOCK_DATA,
+                .realtime.fd = -1,
+                .realtime.next = USEC_INFINITY,
+                .boottime.wakeup = WAKEUP_CLOCK_DATA,
+                .boottime.fd = -1,
+                .boottime.next = USEC_INFINITY,
+                .monotonic.wakeup = WAKEUP_CLOCK_DATA,
+                .monotonic.fd = -1,
+                .monotonic.next = USEC_INFINITY,
+                .realtime_alarm.wakeup = WAKEUP_CLOCK_DATA,
+                .realtime_alarm.fd = -1,
+                .realtime_alarm.next = USEC_INFINITY,
+                .boottime_alarm.wakeup = WAKEUP_CLOCK_DATA,
+                .boottime_alarm.fd = -1,
+                .boottime_alarm.next = USEC_INFINITY,
+                .perturb = USEC_INFINITY,
+                .original_pid = getpid_cached(),
+        };
 
         r = prioq_ensure_allocated(&e->pending, pending_prioq_compare);
         if (r < 0)
@@ -730,13 +746,15 @@ static int event_make_signal_data(
                 if (r < 0)
                         return r;
 
-                d = new0(struct signal_data, 1);
+                d = new(struct signal_data, 1);
                 if (!d)
                         return -ENOMEM;
 
-                d->wakeup = WAKEUP_SIGNAL_DATA;
-                d->fd  = -1;
-                d->priority = priority;
+                *d = (struct signal_data) {
+                        .wakeup = WAKEUP_SIGNAL_DATA,
+                        .fd = -1,
+                        .priority = priority,
+                };
 
                 r = hashmap_put(e->signal_data, &d->priority, d);
                 if (r < 0) {
@@ -1066,15 +1084,18 @@ static sd_event_source *source_new(sd_event *e, bool floating, EventSourceType t
 
         assert(e);
 
-        s = new0(sd_event_source, 1);
+        s = new(sd_event_source, 1);
         if (!s)
                 return NULL;
 
-        s->n_ref = 1;
-        s->event = e;
-        s->floating = floating;
-        s->type = type;
-        s->pending_index = s->prepare_index = PRIOQ_IDX_NULL;
+        *s = (struct sd_event_source) {
+                .n_ref = 1,
+                .event = e,
+                .floating = floating,
+                .type = type,
+                .pending_index = PRIOQ_IDX_NULL,
+                .prepare_index = PRIOQ_IDX_NULL,
+        };
 
         if (!floating)
                 sd_event_ref(e);
