@@ -1729,19 +1729,34 @@ int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *descri
 }
 
 struct request_name_data {
+        unsigned n_ref;
+
         const char *name;
         uint64_t flags;
         void *userdata;
 };
 
+static void request_name_destroy_callback(void *userdata) {
+        struct request_name_data *data = userdata;
+
+        assert(data);
+        assert(data->n_ref > 0);
+
+        log_info("%s n_ref=%u", __func__, data->n_ref);
+
+        data->n_ref--;
+        if (data->n_ref == 0)
+                free(data);
+}
+
 static int reload_dbus_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_free_ struct request_name_data *data = userdata;
+        struct request_name_data *data = userdata;
         const sd_bus_error *e;
         int r;
 
-        assert(m);
         assert(data);
         assert(data->name);
+        assert(data->n_ref > 0);
 
         e = sd_bus_message_get_error(m);
         if (e) {
@@ -1758,15 +1773,16 @@ static int reload_dbus_handler(sd_bus_message *m, void *userdata, sd_bus_error *
 }
 
 static int request_name_handler_may_reload_dbus(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_free_ struct request_name_data *data = userdata;
+        struct request_name_data *data = userdata;
         uint32_t ret;
         int r;
 
         assert(m);
-        assert(userdata);
+        assert(data);
 
         if (sd_bus_message_is_method_error(m, NULL)) {
                 const sd_bus_error *e = sd_bus_message_get_error(m);
+                _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
 
                 if (!sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED)) {
                         log_debug_errno(sd_bus_error_get_errno(e),
@@ -1778,31 +1794,37 @@ static int request_name_handler_may_reload_dbus(sd_bus_message *m, void *userdat
                 }
 
                 log_debug_errno(sd_bus_error_get_errno(e),
-                                "Unable to request name, retry after reloading DBus configuration: %s",
+                                "Unable to request name, will retry after reloading DBus configuration: %s",
                                 e->message);
 
                 /* If systemd-timesyncd.service enables DynamicUser= and dbus.service
                  * started before the dynamic user is realized, then the DBus policy
                  * about timesyncd has not been enabled yet. So, let's try to reload
-                 * DBus configuration, and after that request name again. Note that it
+                 * DBus configuration, and after that request the name again. Note that it
                  * seems that no privileges are necessary to call the following method. */
 
                 r = sd_bus_call_method_async(
                                 sd_bus_message_get_bus(m),
-                                NULL,
+                                &slot,
                                 "org.freedesktop.DBus",
                                 "/org/freedesktop/DBus",
                                 "org.freedesktop.DBus",
                                 "ReloadConfig",
                                 reload_dbus_handler,
-                                userdata, NULL);
+                                data, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to reload DBus configuration: %m");
                         bus_enter_closing(sd_bus_message_get_bus(m));
                         return 1;
                 }
 
-                data = NULL; /* Avoid free() */
+                data->n_ref ++;
+                assert_se(sd_bus_slot_set_destroy_callback(slot, request_name_destroy_callback) >= 0);
+
+                r = sd_bus_slot_set_floating(slot, true);
+                if (r < 0)
+                        return r;
+
                 return 1;
         }
 
@@ -1836,19 +1858,37 @@ static int request_name_handler_may_reload_dbus(sd_bus_message *m, void *userdat
 }
 
 int bus_request_name_async_may_reload_dbus(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, uint64_t flags, void *userdata) {
-        struct request_name_data *data;
+        _cleanup_free_ struct request_name_data *data = NULL;
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        int r;
 
         data = new(struct request_name_data, 1);
         if (!data)
                 return -ENOMEM;
 
         *data = (struct request_name_data) {
+                .n_ref = 1,
                 .name = name,
                 .flags = flags,
                 .userdata = userdata,
         };
 
-        return sd_bus_request_name_async(bus, ret_slot, name, flags, request_name_handler_may_reload_dbus, data);
+        r = sd_bus_request_name_async(bus, &slot, name, flags, request_name_handler_may_reload_dbus, data);
+        if (r < 0)
+                return r;
+
+        assert_se(sd_bus_slot_set_destroy_callback(slot, request_name_destroy_callback) >= 0);
+        TAKE_PTR(data);
+
+        if (ret_slot)
+                *ret_slot = TAKE_PTR(slot);
+        else {
+                r = sd_bus_slot_set_floating(slot, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 int bus_reply_pair_array(sd_bus_message *m, char **l) {
