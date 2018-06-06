@@ -65,7 +65,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static int load_module(struct kmod_ctx *ctx, const char *m) {
-        const int probe_flags = KMOD_PROBE_APPLY_BLACKLIST;
+        /* probe_flags must not include KMOD_PROBE_APPLY_BLACKLIST, since
+         * these modules are being explicitly loaded by configuration
+         * files or kernel command line. */
+        const int probe_flags = 0;
         struct kmod_list *itr;
         _cleanup_(kmod_module_unref_listp) struct kmod_list *modlist = NULL;
         int r = 0;
