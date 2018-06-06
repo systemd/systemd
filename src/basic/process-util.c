@@ -258,15 +258,10 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                                 memcpy(ans, "[...]", max_length-1);
                                 ans[max_length-1] = 0;
                         } else {
-                                char *e;
-
                                 t[max_length - 6] = 0;
 
                                 /* Chop off final spaces */
-                                e = strchr(t, 0);
-                                while (e > t && isspace(e[-1]))
-                                        e--;
-                                *e = 0;
+                                delete_trailing_chars(t, WHITESPACE);
 
                                 ans = strjoin("[", t, "...]");
                         }

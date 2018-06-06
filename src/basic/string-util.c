@@ -269,23 +269,12 @@ char *strjoin_real(const char *x, ...) {
 }
 
 char *strstrip(char *s) {
-        char *e;
-
         if (!s)
                 return NULL;
 
-        /* Drops trailing whitespace. Modifies the string in
-         * place. Returns pointer to first non-space character */
+        /* Drops trailing whitespace. Modifies the string in place. Returns pointer to first non-space character */
 
-        s += strspn(s, WHITESPACE);
-
-        for (e = strchr(s, 0); e > s; e --)
-                if (!strchr(WHITESPACE, e[-1]))
-                        break;
-
-        *e = 0;
-
-        return s;
+        return delete_trailing_chars(skip_leading_chars(s, WHITESPACE), WHITESPACE);
 }
 
 char *delete_chars(char *s, const char *bad) {
