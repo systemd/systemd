@@ -28,6 +28,8 @@ After=multi-user.target
 [Service]
 ExecStart=/test-jobs.sh
 Type=oneshot
+StandardOutput=tty
+StandardError=tty
 EOF
 
         # copy the units used by this test
