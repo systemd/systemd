@@ -29,6 +29,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "mount-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -531,8 +532,34 @@ static int fd_copy_directory(
                 }
 
                 if (S_ISDIR(buf.st_mode)) {
-                        if (buf.st_dev != original_device)
-                                continue;
+                        /*
+                         * Don't descend into directories on other file systems, if this is requested. We do a simple
+                         * .st_dev check here, which basically comes for free. Note that we do this check only on
+                         * directories, not other kind of file system objects, for two reason:
+                         *
+                         * • The kernel's overlayfs pseudo file system that overlays multiple real file systems
+                         *   propagates the .st_dev field of the file system a file originates from all the way up
+                         *   through the stack to stat(). It doesn't do that for directories however. This means that
+                         *   comparing .st_dev on non-directories suggests that they all are mount points. To avoid
+                         *   confusion we hence avoid relying on this check for regular files.
+                         *
+                         * • The main reason we do this check at all is to protect ourselves from bind mount cycles,
+                         *   where we really want to avoid descending down in all eternity. However the .st_dev check
+                         *   is usually not sufficient for this protection anyway, as bind mount cycles from the same
+                         *   file system onto itself can't be detected that way.
+                         */
+
+                        if (FLAGS_SET(copy_flags, COPY_SAME_MOUNT)) {
+                                if (buf.st_dev != original_device)
+                                        continue;
+
+                                r = fd_is_mount_point(dirfd(d), de->d_name, 0);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        continue;
+                        }
+
                         q = fd_copy_directory(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device, override_uid, override_gid, copy_flags);
                 } else if (S_ISREG(buf.st_mode))
                         q = fd_copy_regular(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);

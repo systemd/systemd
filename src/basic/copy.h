@@ -13,9 +13,10 @@
 #include <sys/types.h>
 
 typedef enum CopyFlags {
-        COPY_REFLINK = 1U << 0, /* Try to reflink */
-        COPY_MERGE   = 1U << 1, /* Merge existing trees with our new one to copy */
-        COPY_REPLACE = 1U << 2, /* Replace an existing file if there's one */
+        COPY_REFLINK    = 1U << 0, /* Try to reflink */
+        COPY_MERGE      = 1U << 1, /* Merge existing trees with our new one to copy */
+        COPY_REPLACE    = 1U << 2, /* Replace an existing file if there's one */
+        COPY_SAME_MOUNT = 1U << 3, /* Don't descend recursively into other file systems, across mount point boundaries */
 } CopyFlags;
 
 int copy_file_fd(const char *from, int to, CopyFlags copy_flags);
