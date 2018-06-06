@@ -824,7 +824,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
         assert(p);
 
         r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, p, &f);
-        if (r == ENOENT)
+        if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return r;
