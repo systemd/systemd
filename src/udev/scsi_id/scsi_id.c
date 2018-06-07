@@ -164,7 +164,7 @@ static int get_file_options(struct udev *udev,
                             const char *vendor, const char *model,
                             int *argc, char ***newargv)
 {
-        char *buffer;
+        _cleanup_free_ char *buffer = NULL;
         _cleanup_fclose_ FILE *f;
         char *buf;
         char *str1;
@@ -295,14 +295,13 @@ static int get_file_options(struct udev *udev,
                                 (*newargv)[c] = buffer;
                                 for (c = 1; c < *argc; c++)
                                         (*newargv)[c] = strsep(&buffer, " \t");
+                                buffer = NULL;
                         }
                 } else {
                         /* No matches  */
                         retval = 1;
                 }
         }
-        if (retval != 0)
-                free(buffer);
         return retval;
 }
 
