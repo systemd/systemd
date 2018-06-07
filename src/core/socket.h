@@ -73,6 +73,7 @@ struct Socket {
 
         unsigned n_accepted;
         unsigned n_connections;
+        unsigned n_rejected;
         unsigned max_connections;
         unsigned max_connections_per_source;
 

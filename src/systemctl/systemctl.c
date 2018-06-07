@@ -3890,6 +3890,7 @@ typedef struct UnitStatusInfo {
         /* Socket */
         unsigned n_accepted;
         unsigned n_connections;
+        unsigned n_rejected;
         bool accept;
 
         /* Pairs of type, path */
@@ -4156,7 +4157,7 @@ static void print_status_info(
                 printf(" %*s %s (%s)\n", 9, t == i->listen ? "Listen:" : "", *t2, *t);
 
         if (i->accept)
-                printf(" Accepted: %u; Connected: %u\n", i->n_accepted, i->n_connections);
+                printf(" Accepted: %u; Connected: %u; Rejected: %u\n", i->n_accepted, i->n_connections, i->n_rejected);
 
         LIST_FOREACH(exec, p, i->exec) {
                 _cleanup_free_ char *argv = NULL;
@@ -4956,6 +4957,7 @@ static int show_one(
                 { "NextElapseUSecMonotonic",        "t",              NULL,           offsetof(UnitStatusInfo, next_elapse_monotonic)             },
                 { "NAccepted",                      "u",              NULL,           offsetof(UnitStatusInfo, n_accepted)                        },
                 { "NConnections",                   "u",              NULL,           offsetof(UnitStatusInfo, n_connections)                     },
+                { "NRejected",                      "u",              NULL,           offsetof(UnitStatusInfo, n_rejected)                        },
                 { "Accept",                         "b",              NULL,           offsetof(UnitStatusInfo, accept)                            },
                 { "Listen",                         "a(ss)",          map_listen,     offsetof(UnitStatusInfo, listen)                            },
                 { "SysFSPath",                      "s",              NULL,           offsetof(UnitStatusInfo, sysfs_path)                        },

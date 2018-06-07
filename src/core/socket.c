@@ -2290,6 +2290,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 Service *service;
 
                 if (s->n_connections >= s->max_connections) {
+                        s->n_rejected++;
                         log_unit_warning(UNIT(s), "Too many incoming connections (%u), dropping connection.",
                                          s->n_connections);
                         safe_close(cfd);
@@ -2306,6 +2307,7 @@ static void socket_enter_running(Socket *s, int cfd) {
 
                                 (void) sockaddr_pretty(&p->peer.sa, p->peer_salen, true, false, &t);
 
+                                s->n_rejected++;
                                 log_unit_warning(UNIT(s),
                                                  "Too many incoming connections (%u) from source %s, dropping connection.",
                                                  p->n_ref, strnull(t));
