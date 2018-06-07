@@ -1,16 +1,8 @@
 Bugfixes:
 
-* Should systemctl status \* work on all unit types, not just .service?
+* the error paths in usbffs_dispatch_ep() leak memory
 
-* Dangling symlinks of .automount unit files in .wants/ directories, set up
-  automount points even when the original .automount file did not exist
-  anymore. Only the .mount unit was still around.
-
-* ExecStart with unicode characters fails in strv_split_extract:
-
-          [Service]
-          Environment=ONE='one' "TWO='two two' too" THREE=
-          ExecStart=/bin/python3 -c 'import sys;print(sys.argv)' $ONE $TWO $THREE
+* copy.c: set the right chattrs before copying files and others after
 
 External:
 
@@ -22,10 +14,10 @@ Janitorial Clean-ups:
 
 * Rearrange tests so that the various test-xyz.c match a specific src/basic/xyz.c again
 
-Features:
-
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
+
+Features:
 
 * When reloading configuration PID 1 should reset all its properties to the
   original defaults before calling parse_config()
@@ -36,8 +28,6 @@ Features:
 * add O_TMPFILE support to copy_file_atomic()
 
 * nspawn: greater control over selinux label?
-
-* the error paths in usbffs_dispatch_ep() leak memory
 
 * cgroups: figure out if we can somehow communicate in a cleaner way whether a
   systemd instance not running in the cgroup root shall or shall not manage the
