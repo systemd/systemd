@@ -75,4 +75,3 @@ notifications:
   email:
     recipients:
       - ${ADMIN_EMAIL}
-      - ${AUTHOR_EMAIL}
