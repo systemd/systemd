@@ -104,7 +104,7 @@ void prefix_free(Prefix *prefix) {
 }
 
 int prefix_new(Prefix **ret) {
-        Prefix *prefix = NULL;
+        _cleanup_(prefix_freep) Prefix *prefix = NULL;
 
         prefix = new0(Prefix, 1);
         if (!prefix)
