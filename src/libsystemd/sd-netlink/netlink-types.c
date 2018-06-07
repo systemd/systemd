@@ -325,6 +325,7 @@ static const char* const nl_union_link_info_data_table[] = {
         [NL_UNION_LINK_INFO_DATA_GENEVE] = "geneve",
         [NL_UNION_LINK_INFO_DATA_VXCAN] = "vxcan",
         [NL_UNION_LINK_INFO_DATA_WIREGUARD] = "wireguard",
+        [NL_UNION_LINK_INFO_DATA_NETDEVSIM] = "netdevsim",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(nl_union_link_info_data, NLUnionLinkInfoData);
