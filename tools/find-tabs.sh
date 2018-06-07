@@ -1,11 +1,13 @@
 #!/bin/sh
 # SPDX-License-Identifier: LGPL-2.1+
 
+TOP=`git rev-parse --show-toplevel`
+
 case "$1" in
 
         recdiff)
                 if [ "$2" = "" ] ; then
-                        DIR="$PWD/.."
+                        DIR="$TOP"
                 else
                         DIR="$2"
                 fi
@@ -15,7 +17,7 @@ case "$1" in
 
         recpatch)
                 if [ "$2" = "" ] ; then
-                        DIR="$PWD/.."
+                        DIR="$TOP"
                 else
                         DIR="$2"
                 fi
