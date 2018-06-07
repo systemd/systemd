@@ -18,9 +18,9 @@ typedef struct PortableMetadata {
 #define PORTABLE_METADATA_IS_UNIT(m) (!IN_SET((m)->name[0], 0, '/'))
 
 typedef enum PortableFlags {
-        PORTABLE_PREFER_COPY    = 1U << 0,
-        PORTABLE_PREFER_SYMLINK = 1U << 1,
-        PORTABLE_RUNTIME        = 1U << 2,
+        PORTABLE_PREFER_COPY    = 1 << 0,
+        PORTABLE_PREFER_SYMLINK = 1 << 1,
+        PORTABLE_RUNTIME        = 1 << 2,
 } PortableFlags;
 
 typedef enum PortableChangeType {

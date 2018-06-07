@@ -46,9 +46,9 @@
 #define UNIT_FILE_FOLLOW_SYMLINK_MAX 64
 
 typedef enum SearchFlags {
-        SEARCH_LOAD                   = 1U << 0,
-        SEARCH_FOLLOW_CONFIG_SYMLINKS = 1U << 1,
-        SEARCH_DROPIN                 = 1U << 2,
+        SEARCH_LOAD                   = 1 << 0,
+        SEARCH_FOLLOW_CONFIG_SYMLINKS = 1 << 1,
+        SEARCH_DROPIN                 = 1 << 2,
 } SearchFlags;
 
 typedef struct {

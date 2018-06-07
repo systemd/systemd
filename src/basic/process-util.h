@@ -51,8 +51,8 @@ int get_process_ppid(pid_t pid, pid_t *ppid);
 int wait_for_terminate(pid_t pid, siginfo_t *status);
 
 typedef enum WaitFlags {
-        WAIT_LOG_ABNORMAL             = 1U << 0,
-        WAIT_LOG_NON_ZERO_EXIT_STATUS = 1U << 1,
+        WAIT_LOG_ABNORMAL             = 1 << 0,
+        WAIT_LOG_NON_ZERO_EXIT_STATUS = 1 << 1,
 
         /* A shortcut for requesting the most complete logging */
         WAIT_LOG = WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS,
@@ -155,15 +155,15 @@ void reset_cached_pid(void);
 int must_be_root(void);
 
 typedef enum ForkFlags {
-        FORK_RESET_SIGNALS = 1U << 0,
-        FORK_CLOSE_ALL_FDS = 1U << 1,
-        FORK_DEATHSIG      = 1U << 2,
-        FORK_NULL_STDIO    = 1U << 3,
-        FORK_REOPEN_LOG    = 1U << 4,
-        FORK_LOG           = 1U << 5,
-        FORK_WAIT          = 1U << 6,
-        FORK_NEW_MOUNTNS   = 1U << 7,
-        FORK_MOUNTNS_SLAVE = 1U << 8,
+        FORK_RESET_SIGNALS = 1 << 0,
+        FORK_CLOSE_ALL_FDS = 1 << 1,
+        FORK_DEATHSIG      = 1 << 2,
+        FORK_NULL_STDIO    = 1 << 3,
+        FORK_REOPEN_LOG    = 1 << 4,
+        FORK_LOG           = 1 << 5,
+        FORK_WAIT          = 1 << 6,
+        FORK_NEW_MOUNTNS   = 1 << 7,
+        FORK_MOUNTNS_SLAVE = 1 << 8,
 } ForkFlags;
 
 int safe_fork_full(const char *name, const int except_fds[], size_t n_except_fds, ForkFlags flags, pid_t *ret_pid);

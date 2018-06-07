@@ -279,20 +279,20 @@ static inline bool exec_context_restrict_namespaces_set(const ExecContext *c) {
 }
 
 typedef enum ExecFlags {
-        EXEC_APPLY_SANDBOXING  = 1U << 0,
-        EXEC_APPLY_CHROOT      = 1U << 1,
-        EXEC_APPLY_TTY_STDIN   = 1U << 2,
-        EXEC_NEW_KEYRING       = 1U << 3,
-        EXEC_PASS_LOG_UNIT     = 1U << 4, /* Whether to pass the unit name to the service's journal stream connection */
-        EXEC_CHOWN_DIRECTORIES = 1U << 5, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
-        EXEC_NSS_BYPASS_BUS    = 1U << 6, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
-        EXEC_CGROUP_DELEGATE   = 1U << 7,
+        EXEC_APPLY_SANDBOXING  = 1 << 0,
+        EXEC_APPLY_CHROOT      = 1 << 1,
+        EXEC_APPLY_TTY_STDIN   = 1 << 2,
+        EXEC_NEW_KEYRING       = 1 << 3,
+        EXEC_PASS_LOG_UNIT     = 1 << 4, /* Whether to pass the unit name to the service's journal stream connection */
+        EXEC_CHOWN_DIRECTORIES = 1 << 5, /* chown() the runtime/state/cache/log directories to the user we run as, under all conditions */
+        EXEC_NSS_BYPASS_BUS    = 1 << 6, /* Set the SYSTEMD_NSS_BYPASS_BUS environment variable, to disable nss-systemd for dbus */
+        EXEC_CGROUP_DELEGATE   = 1 << 7,
 
         /* The following are not used by execute.c, but by consumers internally */
-        EXEC_PASS_FDS          = 1U << 8,
-        EXEC_IS_CONTROL        = 1U << 9,
-        EXEC_SETENV_RESULT     = 1U << 10,
-        EXEC_SET_WATCHDOG      = 1U << 11,
+        EXEC_PASS_FDS          = 1 << 8,
+        EXEC_IS_CONTROL        = 1 << 9,
+        EXEC_SETENV_RESULT     = 1 << 10,
+        EXEC_SET_WATCHDOG      = 1 << 11,
 } ExecFlags;
 
 struct ExecParameters {
