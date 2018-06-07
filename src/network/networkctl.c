@@ -636,6 +636,10 @@ static int next_lldp_neighbor(FILE *f, sd_lldp_neighbor **ret) {
         if (l != sizeof(u))
                 return -EBADMSG;
 
+        /* each LLDP packet is at most MTU size, but let's allow up to 4KiB just in case */
+        if (le64toh(u) >= 4096)
+                return -EBADMSG;
+
         raw = new(uint8_t, le64toh(u));
         if (!raw)
                 return -ENOMEM;
