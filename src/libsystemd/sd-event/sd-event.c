@@ -106,6 +106,8 @@ struct sd_event_source {
         uint64_t pending_iteration;
         uint64_t prepare_iteration;
 
+        sd_event_destroy_t destroy_callback;
+
         LIST_FIELDS(sd_event_source, sources);
 
         union {
@@ -1016,7 +1018,10 @@ static void source_free(sd_event_source *s) {
         source_disconnect(s);
 
         if (s->type == SOURCE_IO && s->io.owned)
-                safe_close(s->io.fd);
+                s->io.fd = safe_close(s->io.fd);
+
+        if (s->destroy_callback)
+                s->destroy_callback(s->userdata);
 
         free(s->description);
         free(s);
@@ -3774,4 +3779,20 @@ _public_ int sd_event_get_iteration(sd_event *e, uint64_t *ret) {
 
         *ret = e->iteration;
         return 0;
+}
+
+_public_ int sd_event_source_set_destroy_callback(sd_event_source *s, sd_event_destroy_t callback) {
+        assert_return(s, -EINVAL);
+
+        s->destroy_callback = callback;
+        return 0;
+}
+
+_public_ int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_destroy_t *ret) {
+        assert_return(s, -EINVAL);
+
+        if (ret)
+                *ret = s->destroy_callback;
+
+        return !!s->destroy_callback;
 }

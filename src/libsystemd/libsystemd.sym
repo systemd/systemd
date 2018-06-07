@@ -569,4 +569,6 @@ global:
         sd_bus_track_set_destroy_callback;
         sd_event_add_inotify;
         sd_event_source_get_inotify_mask;
+        sd_event_source_set_destroy_callback;
+        sd_event_source_get_destroy_callback;
 } LIBSYSTEMD_238;
