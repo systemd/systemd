@@ -176,7 +176,7 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
                 return log_debug_errno(errno, "Error opening USB device 'descriptors' file: %m");
 
         size = read(fd, buf, sizeof(buf));
-        if (size < 18 || size == sizeof(buf))
+        if (size < 18 || (size_t) size >= sizeof(buf))
                 return -EIO;
 
         ifs_str[0] = '\0';
