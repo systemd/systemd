@@ -177,7 +177,7 @@ static int automount_verify(Automount *a) {
 
         r = unit_name_from_path(a->where, ".automount", &e);
         if (r < 0)
-                return log_unit_error(UNIT(a), "Failed to generate unit name from path: %m");
+                return log_unit_error_errno(UNIT(a), r, "Failed to generate unit name from path: %m");
 
         if (!unit_has_name(UNIT(a), e)) {
                 log_unit_error(UNIT(a), "Where= setting doesn't match unit name. Refusing.");

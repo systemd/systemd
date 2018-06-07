@@ -437,9 +437,13 @@ typedef struct UnitVTable {
          * UNIT_STUB if no configuration could be found. */
         int (*load)(Unit *u);
 
-        /* If a lot of units got created via enumerate(), this is
-         * where to actually set the state and call unit_notify(). */
+        /* During deserialization we only record the intended state to return to. With coldplug() we actually put the
+         * deserialized state in effect. This is where unit_notify() should be called to start things up. */
         int (*coldplug)(Unit *u);
+
+        /* This is called shortly after all units' coldplug() call was invoked. It's supposed to catch up state changes
+         * we missed so far (for example because they took place while we were reloading/reexecing) */
+        void (*catchup)(Unit *u);
 
         void (*dump)(Unit *u, FILE *f, const char *prefix);
 
@@ -531,11 +535,15 @@ typedef struct UnitVTable {
         /* Returns true if the unit currently needs access to the console */
         bool (*needs_console)(Unit *u);
 
-        /* This is called for each unit type and should be used to
-         * enumerate existing devices and load them. However,
-         * everything that is loaded here should still stay in
-         * inactive state. It is the job of the coldplug() call above
-         * to put the units into the initial state.  */
+        /* Like the enumerate() callback further down, but only enumerates the perpetual units, i.e. all units that
+         * unconditionally exist and are always active. The main reason to keep both enumeration functions separate is
+         * philosophical: the state of perpetual units should be put in place by coldplug(), while the state of those
+         * discovered through regular enumeration should be put in place by catchup(), see below. */
+        void (*enumerate_perpetual)(Manager *m);
+
+        /* This is called for each unit type and should be used to enumerate units already existing in the system
+         * internally and load them. However, everything that is loaded here should still stay in inactive state. It is
+         * the job of the catchup() call above to put the units into the discovered state. */
         void (*enumerate)(Manager *m);
 
         /* Type specific cleanups. */
@@ -687,6 +695,7 @@ void unit_serialize_item_format(Unit *u, FILE *f, const char *key, const char *v
 int unit_add_node_dependency(Unit *u, const char *what, bool wants, UnitDependency d, UnitDependencyMask mask);
 
 int unit_coldplug(Unit *u);
+void unit_catchup(Unit *u);
 
 void unit_status_printf(Unit *u, const char *status, const char *unit_status_msg_format) _printf_(3, 0);
 void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t);

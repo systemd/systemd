@@ -326,7 +326,7 @@ static int slice_make_perpetual(Manager *m, const char *name, Unit **ret) {
         return 0;
 }
 
-static void slice_enumerate(Manager *m) {
+static void slice_enumerate_perpetual(Manager *m) {
         Unit *u;
         int r;
 
@@ -383,7 +383,7 @@ const UnitVTable slice_vtable = {
         .bus_set_property = bus_slice_set_property,
         .bus_commit_properties = bus_slice_commit_properties,
 
-        .enumerate = slice_enumerate,
+        .enumerate_perpetual = slice_enumerate_perpetual,
 
         .status_message_formats = {
                 .finished_start_job = {

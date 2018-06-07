@@ -540,7 +540,7 @@ _pure_ static const char *scope_sub_state_to_string(Unit *u) {
         return scope_state_to_string(SCOPE(u)->state);
 }
 
-static void scope_enumerate(Manager *m) {
+static void scope_enumerate_perpetual(Manager *m) {
         Unit *u;
         int r;
 
@@ -622,5 +622,5 @@ const UnitVTable scope_vtable = {
         .bus_set_property = bus_scope_set_property,
         .bus_commit_properties = bus_scope_commit_properties,
 
-        .enumerate = scope_enumerate,
+        .enumerate_perpetual = scope_enumerate_perpetual,
 };

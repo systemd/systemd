@@ -210,7 +210,7 @@ static int unit_file_find_dirs(
 
         type = unit_name_to_type(name);
         if (type < 0) {
-                log_error("Failed to to derive unit type from unit name: %m");
+                log_error("Failed to to derive unit type from unit name: %s", name);
                 return -EINVAL;
         }
 

@@ -303,8 +303,8 @@ int config_parse(const char *unit,
                         /* Only log on request, except for ENOENT,
                          * since we return 0 to the caller. */
                         if ((flags & CONFIG_PARSE_WARN) || errno == ENOENT)
-                                log_full(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
-                                         "Failed to open configuration file '%s': %m", filename);
+                                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                                               "Failed to open configuration file '%s': %m", filename);
                         return errno == ENOENT ? 0 : -errno;
                 }
         }

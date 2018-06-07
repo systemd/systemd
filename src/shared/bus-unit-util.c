@@ -1156,8 +1156,10 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         r = extract_first_word(&w, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument: %m");
-                        if (r == 0)
-                                return log_error("Failed to parse argument: %m");
+                        if (r == 0) {
+                                log_error("Failed to parse argument: %s", p);
+                                return -EINVAL;
+                        }
 
                         r = sd_bus_message_append(m, "(ss)", path, w);
                         if (r < 0)

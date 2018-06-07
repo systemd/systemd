@@ -349,7 +349,7 @@ int conf_files_cat(const char *root, const char *name) {
                 assert(endswith(dir, "/"));
                 r = strv_extendf(&dirs, "%s%s.d", dir, name);
                 if (r < 0)
-                        return log_error("Failed to build directory list: %m");
+                        return log_error_errno(r, "Failed to build directory list: %m");
         }
 
         r = conf_files_list_strv(&files, ".conf", root, 0, (const char* const*) dirs);

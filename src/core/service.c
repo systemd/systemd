@@ -1947,7 +1947,7 @@ static void service_enter_start(Service *s) {
                         /* There's no command line configured for the main command? Hmm, that is strange. This can only
                          * happen if the configuration changes at runtime. In this case, let's enter a failure
                          * state. */
-                        log_unit_error(UNIT(s), "There's no 'start' task anymore we could start: %m");
+                        log_unit_error(UNIT(s), "There's no 'start' task anymore we could start.");
                         r = -ENXIO;
                         goto fail;
                 }

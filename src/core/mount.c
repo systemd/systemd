@@ -1634,7 +1634,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (cunescape(path, UNESCAPE_RELAX, &p) < 0)
                         return log_oom();
 
-                (void) device_found_node(m, d, true, DEVICE_FOUND_MOUNT, set_flags);
+                device_found_node(m, d, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
                 k = mount_setup_unit(m, d, p, options, fstype, set_flags);
                 if (r == 0 && k < 0)
@@ -1671,7 +1671,7 @@ static int mount_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
-static int synthesize_root_mount(Manager *m) {
+static void mount_enumerate_perpetual(Manager *m) {
         Unit *u;
         int r;
 
@@ -1683,8 +1683,10 @@ static int synthesize_root_mount(Manager *m) {
         u = manager_get_unit(m, SPECIAL_ROOT_MOUNT);
         if (!u) {
                 r = unit_new_for_name(m, sizeof(Mount), SPECIAL_ROOT_MOUNT, &u);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to allocate the special " SPECIAL_ROOT_MOUNT " unit: %m");
+                if (r < 0) {
+                        log_error_errno(r, "Failed to allocate the special " SPECIAL_ROOT_MOUNT " unit: %m");
+                        return;
+                }
         }
 
         u->perpetual = true;
@@ -1692,8 +1694,6 @@ static int synthesize_root_mount(Manager *m) {
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);
-
-        return 0;
 }
 
 static bool mount_is_mounted(Mount *m) {
@@ -1706,10 +1706,6 @@ static void mount_enumerate(Manager *m) {
         int r;
 
         assert(m);
-
-        r = synthesize_root_mount(m);
-        if (r < 0)
-                goto fail;
 
         mnt_init_debug(0);
 
@@ -1896,7 +1892,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                         continue;
 
                 /* Let the device units know that the device is no longer mounted */
-                (void) device_found_node(m, what, false, DEVICE_FOUND_MOUNT, true);
+                device_found_node(m, what, 0, DEVICE_FOUND_MOUNT);
         }
 
         return 0;
@@ -2001,6 +1997,7 @@ const UnitVTable mount_vtable = {
 
         .can_transient = true,
 
+        .enumerate_perpetual = mount_enumerate_perpetual,
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown,
 

@@ -1322,13 +1322,30 @@ Manager* manager_free(Manager *m) {
         return mfree(m);
 }
 
+static void manager_enumerate_perpetual(Manager *m) {
+        UnitType c;
+
+        assert(m);
+
+        /* Let's ask every type to load all units from disk/kernel that it might know */
+        for (c = 0; c < _UNIT_TYPE_MAX; c++) {
+                if (!unit_type_supported(c)) {
+                        log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
+                        continue;
+                }
+
+                if (unit_vtable[c]->enumerate_perpetual)
+                        unit_vtable[c]->enumerate_perpetual(m);
+        }
+}
+
+
 static void manager_enumerate(Manager *m) {
         UnitType c;
 
         assert(m);
 
-        /* Let's ask every type to load all units from disk/kernel
-         * that it might know */
+        /* Let's ask every type to load all units from disk/kernel that it might know */
         for (c = 0; c < _UNIT_TYPE_MAX; c++) {
                 if (!unit_type_supported(c)) {
                         log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
@@ -1350,7 +1367,9 @@ static void manager_coldplug(Manager *m) {
 
         assert(m);
 
-        /* Then, let's set up their initial state. */
+        log_debug("Invoking unit coldplug() handlers…");
+
+        /* Let's place the units back into their deserialized state */
         HASHMAP_FOREACH_KEY(u, k, m->units, i) {
 
                 /* ignore aliases */
@@ -1360,6 +1379,26 @@ static void manager_coldplug(Manager *m) {
                 r = unit_coldplug(u);
                 if (r < 0)
                         log_warning_errno(r, "We couldn't coldplug %s, proceeding anyway: %m", u->id);
+        }
+}
+
+static void manager_catchup(Manager *m) {
+        Iterator i;
+        Unit *u;
+        char *k;
+
+        assert(m);
+
+        log_debug("Invoking unit catchup() handlers…");
+
+        /* Let's catch up on any state changes that happened while we were reloading/reexecing */
+        HASHMAP_FOREACH_KEY(u, k, m->units, i) {
+
+                /* ignore aliases */
+                if (u->id != k)
+                        continue;
+
+                unit_catchup(u);
         }
 }
 
@@ -1463,6 +1502,48 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
         return true;
 }
 
+static void manager_setup_bus(Manager *m) {
+        assert(m);
+
+        /* Let's set up our private bus connection now, unconditionally */
+        (void) bus_init_private(m);
+
+        /* If we are in --user mode also connect to the system bus now */
+        if (MANAGER_IS_USER(m))
+                (void) bus_init_system(m);
+
+        /* Let's connect to the bus now, but only if the unit is supposed to be up */
+        if (manager_dbus_is_running(m, MANAGER_IS_RELOADING(m))) {
+                (void) bus_init_api(m);
+
+                if (MANAGER_IS_SYSTEM(m))
+                        (void) bus_init_system(m);
+        }
+}
+
+static void manager_preset_all(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->first_boot <= 0)
+                return;
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return;
+
+        if (m->test_run_flags != 0)
+                return;
+
+        /* If this is the first boot, and we are in the host system, then preset everything */
+        r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
+        if (r < 0)
+                log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
+                               "Failed to populate /etc with preset unit settings, ignoring: %m");
+        else
+                log_info("Populated /etc with preset unit settings.");
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r;
 
@@ -1486,19 +1567,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
-        /* If this is the first boot, and we are in the host system, then preset everything */
-        if (m->first_boot > 0 &&
-            MANAGER_IS_SYSTEM(m) &&
-            !m->test_run_flags) {
-
-                r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
-                if (r < 0)
-                        log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
-                                       "Failed to populate /etc with preset unit settings, ignoring: %m");
-                else
-                        log_info("Populated /etc with preset unit settings.");
-        }
-
+        manager_preset_all(m);
         lookup_paths_reduce(&m->lookup_paths);
         manager_build_unit_path_cache(m);
 
@@ -1510,6 +1579,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         /* First, enumerate what we can from all config files */
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_UNITS_LOAD_START);
+        manager_enumerate_perpetual(m);
         manager_enumerate(m);
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_UNITS_LOAD_FINISH);
 
@@ -1543,20 +1613,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 /* This shouldn't fail, except if things are really broken. */
                 return r;
 
-        /* Let's set up our private bus connection now, unconditionally */
-        (void) bus_init_private(m);
-
-        /* If we are in --user mode also connect to the system bus now */
-        if (MANAGER_IS_USER(m))
-                (void) bus_init_system(m);
-
-        /* Let's connect to the bus now, but only if the unit is supposed to be up */
-        if (manager_dbus_is_running(m, !!serialization)) {
-                (void) bus_init_api(m);
-
-                if (MANAGER_IS_SYSTEM(m))
-                        (void) bus_init_system(m);
-        }
+        /* Connect to the bus if we are good for it */
+        manager_setup_bus(m);
 
         /* Now that we are connected to all possible busses, let's deserialize who is tracking us. */
         (void) bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
@@ -1583,6 +1641,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                  * finished */
                 m->send_reloading_done = true;
         }
+
+        /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
+        manager_catchup(m);
 
         return 0;
 }
@@ -3362,8 +3423,7 @@ int manager_reload(Manager *m) {
                         r = q;
         }
 
-        fclose(f);
-        f = NULL;
+        f = safe_fclose(f);
 
         /* Re-register notify_fd as event source */
         q = manager_setup_notify(m);
@@ -3396,6 +3456,9 @@ int manager_reload(Manager *m) {
         /* It might be safe to log to the journal now and connect to dbus */
         manager_recheck_journal(m);
         manager_recheck_dbus(m);
+
+        /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
+        manager_catchup(m);
 
         /* Sync current state of bus names with our set of listening units */
         q = manager_enqueue_sync_bus_names(m);

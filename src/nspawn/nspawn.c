@@ -2930,7 +2930,7 @@ static int outer_child(
                 if (l < 0)
                         return log_error_errno(errno, "Failed to send cgroup mode: %m");
                 if (l != sizeof(arg_unified_cgroup_hierarchy)) {
-                        log_error("Short write while sending cgroup mode: %m");
+                        log_error("Short write while sending cgroup mode.");
                         return -EIO;
                 }
 
