@@ -127,6 +127,7 @@ struct sd_bus_slot {
         unsigned n_ref;
         sd_bus *bus;
         void *userdata;
+        sd_bus_destroy_t destroy_callback;
         BusSlotType type:5;
 
         /* Slots can be "floating" or not. If they are not floating (the usual case) then they reference the bus object

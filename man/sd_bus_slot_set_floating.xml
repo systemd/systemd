@@ -4,7 +4,7 @@
 
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<refentry id="sd_bus_slot_set_floating">
+<refentry id="sd_bus_slot_set_floating" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_slot_set_floating</title>
@@ -29,7 +29,7 @@
 
       <funcprototype>
         <funcdef>int <function>sd_bus_slot_set_floating</function></funcdef>
-        <paramdef>sd_bus_slot *<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus_slot *<parameter>slot</parameter></paramdef>
         <paramdef>int <parameter>b</parameter></paramdef>
       </funcprototype>
 
@@ -82,6 +82,12 @@
 
     <variablelist>
       <varlistentry>
+        <term><constant>-EINVAL</constant></term>
+
+        <listitem><para>The <parameter>slot</parameter> parameter is <constant>NULL</constant>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>-ECHILD</constant></term>
 
         <listitem><para>The bus connection has been created in a different process.</para></listitem>
@@ -96,14 +102,7 @@
     </variablelist>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para><function>sd_bus_slot_set_floating()</function> and <function>sd_bus_slot_get_floating()</function> are
-    available as a shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>
@@ -111,6 +110,7 @@
     <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_set_destroy_callback</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     </para>
   </refsect1>

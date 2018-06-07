@@ -251,15 +251,7 @@ sd_bus_message_append(m, "ynqiuxtd", y, n, q, i, u, x, t, d);</programlisting>
 
   <xi:include href="sd_bus_message_append_basic.xml" xpointer="errors" />
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para><function>sd_bus_open_user()</function> and other functions
-    described here are available as a shared library, which can be
-    compiled and linked to with the
-    <constant>libsystemd-bus</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

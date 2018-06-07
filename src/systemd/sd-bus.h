@@ -111,6 +111,7 @@ typedef int (*sd_bus_property_set_t) (sd_bus *bus, const char *path, const char 
 typedef int (*sd_bus_object_find_t) (sd_bus *bus, const char *path, const char *interface, void *userdata, void **ret_found, sd_bus_error *ret_error);
 typedef int (*sd_bus_node_enumerator_t) (sd_bus *bus, const char *prefix, void *userdata, char ***ret_nodes, sd_bus_error *ret_error);
 typedef int (*sd_bus_track_handler_t) (sd_bus_track *track, void *userdata);
+typedef void (*sd_bus_destroy_t)(void *userdata);
 
 #include "sd-bus-protocol.h"
 #include "sd-bus-vtable.h"
@@ -230,6 +231,8 @@ int sd_bus_slot_set_description(sd_bus_slot *slot, const char *description);
 int sd_bus_slot_get_description(sd_bus_slot *slot, const char **description);
 int sd_bus_slot_get_floating(sd_bus_slot *slot);
 int sd_bus_slot_set_floating(sd_bus_slot *slot, int b);
+int sd_bus_slot_set_destroy_callback(sd_bus_slot *s, sd_bus_destroy_t callback);
+int sd_bus_slot_get_destroy_callback(sd_bus_slot *s, sd_bus_destroy_t *callback);
 
 sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot);
 sd_bus_message_handler_t sd_bus_slot_get_current_handler(sd_bus_slot *bus);

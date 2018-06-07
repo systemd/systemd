@@ -10,7 +10,8 @@
   Copyright 2010 Lennart Poettering
 -->
 
-<refentry id="sd_pid_get_owner_uid" conditional='HAVE_PAM'>
+<refentry id="sd_pid_get_owner_uid" conditional='HAVE_PAM'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_pid_get_owner_uid</title>
@@ -308,24 +309,7 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>The <function>sd_pid_get_session()</function>,
-    <function>sd_pid_get_unit()</function>,
-    <function>sd_pid_get_user_unit()</function>,
-    <function>sd_pid_get_owner_uid()</function>,
-    <function>sd_pid_get_machine_name()</function>,
-    <function>sd_pid_get_slice()</function>,
-    <function>sd_pid_get_user_slice()</function>,
-    <function>sd_peer_get_session()</function>,
-    <function>sd_peer_get_unit()</function>,
-    <function>sd_peer_get_user_unit()</function>,
-    <function>sd_peer_get_owner_uid()</function>,
-    <function>sd_peer_get_machine_name()</function>,
-    <function>sd_peer_get_slice()</function> and
-    <function>sd_peer_get_user_slice()</function> interfaces are
-    available as a shared library, which can be compiled and linked to
-    with the <constant>libsystemd</constant> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
 
     <para>Note that the login session identifier as
     returned by <function>sd_pid_get_session()</function>

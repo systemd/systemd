@@ -10,7 +10,8 @@
   Copyright 2010 Lennart Poettering
 -->
 
-<refentry id="sd_login_monitor_new" conditional='HAVE_PAM'>
+<refentry id="sd_login_monitor_new" conditional='HAVE_PAM'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_login_monitor_new</title>
@@ -246,20 +247,7 @@ else {
     </variablelist>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>The <function>sd_login_monitor_new()</function>,
-    <function>sd_login_monitor_unref()</function>,
-    <function>sd_login_monitor_flush()</function>,
-    <function>sd_login_monitor_get_fd()</function>,
-    <function>sd_login_monitor_get_events()</function> and
-    <function>sd_login_monitor_get_timeout()</function>
-    interfaces are available as a shared library, which can be
-    compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>
