@@ -86,7 +86,7 @@ typedef enum UnitDependencyMask {
         /* A dependency created because of data read from /proc/swaps and no other configuration source */
         UNIT_DEPENDENCY_PROC_SWAP          = 1 << 7,
 
-        _UNIT_DEPENDENCY_MASK_FULL = (1 << 8) - 1,
+        _UNIT_DEPENDENCY_MASK_FULL         = (1 << 8) - 1,
 } UnitDependencyMask;
 
 /* The Unit's dependencies[] hashmaps use this structure as value. It has the same size as a void pointer, and thus can
@@ -655,8 +655,8 @@ int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error);
 int unit_kill_common(Unit *u, KillWho who, int signo, pid_t main_pid, pid_t control_pid, sd_bus_error *error);
 
 typedef enum UnitNotifyFlags {
-        UNIT_NOTIFY_RELOAD_FAILURE    = 1U << 0,
-        UNIT_NOTIFY_WILL_AUTO_RESTART = 1U << 1,
+        UNIT_NOTIFY_RELOAD_FAILURE    = 1 << 0,
+        UNIT_NOTIFY_WILL_AUTO_RESTART = 1 << 1,
 } UnitNotifyFlags;
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags);

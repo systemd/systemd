@@ -20,10 +20,10 @@
 /* An abstract parser for simple, line based, shallow configuration files consisting of variable assignments only. */
 
 typedef enum ConfigParseFlags {
-        CONFIG_PARSE_RELAXED       = 1U << 0,
-        CONFIG_PARSE_ALLOW_INCLUDE = 1U << 1,
-        CONFIG_PARSE_WARN          = 1U << 2,
-        CONFIG_PARSE_REFUSE_BOM    = 1U << 3,
+        CONFIG_PARSE_RELAXED       = 1 << 0,
+        CONFIG_PARSE_ALLOW_INCLUDE = 1 << 1,
+        CONFIG_PARSE_WARN          = 1 << 2,
+        CONFIG_PARSE_REFUSE_BOM    = 1 << 3,
 } ConfigParseFlags;
 
 /* Argument list for parsers of specific configuration settings. */

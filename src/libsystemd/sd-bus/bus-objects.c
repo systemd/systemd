@@ -160,9 +160,9 @@ static int add_enumerated_to_set(
 
 enum {
         /* if set, add_subtree() works recursively */
-        CHILDREN_RECURSIVE              = (1U << 1),
+        CHILDREN_RECURSIVE      = 1 << 0,
         /* if set, add_subtree() scans object-manager hierarchies recursively */
-        CHILDREN_SUBHIERARCHIES         = (1U << 0),
+        CHILDREN_SUBHIERARCHIES = 1 << 1,
 };
 
 static int add_subtree_to_set(

@@ -68,9 +68,9 @@ enum UnitFileChangeType {
 };
 
 enum UnitFileFlags {
-        UNIT_FILE_RUNTIME = 1U << 0,
-        UNIT_FILE_FORCE   = 1U << 1,
-        UNIT_FILE_DRY_RUN = 1U << 2,
+        UNIT_FILE_RUNTIME = 1 << 0,
+        UNIT_FILE_FORCE   = 1 << 1,
+        UNIT_FILE_DRY_RUN = 1 << 2,
 };
 
 /* type can either one of the UnitFileChangeTypes listed above, or a negative error.

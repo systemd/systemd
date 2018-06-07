@@ -62,12 +62,12 @@ static bool arg_no_pager = false;
 static int arg_diff = -1;
 
 static enum {
-        SHOW_MASKED = 1 << 0,
+        SHOW_MASKED     = 1 << 0,
         SHOW_EQUIVALENT = 1 << 1,
         SHOW_REDIRECTED = 1 << 2,
         SHOW_OVERRIDDEN = 1 << 3,
-        SHOW_UNCHANGED = 1 << 4,
-        SHOW_EXTENDED = 1 << 5,
+        SHOW_UNCHANGED  = 1 << 4,
+        SHOW_EXTENDED   = 1 << 5,
 
         SHOW_DEFAULTS =
         (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN | SHOW_EXTENDED)
