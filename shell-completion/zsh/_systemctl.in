@@ -106,7 +106,7 @@ _systemctl_all_units()
   if ( [[ ${+_sys_all_units} -eq 0 ]] || _cache_invalid SYS_ALL_UNITS$_sys_service_mgr ) ||
     ! _retrieve_cache SYS_ALL_UNITS$_sys_service_mgr;
   then
-    _sys_all_units=( ${${(f)"$(__systemctl list-units --all)"}%% *} )
+    _sys_all_units=( ${${(f)"$(__systemctl list-units --all "$PREFIX*" )"}%% *} )
     _store_cache SYS_ALL_UNITS$_sys_service_mgr _sys_all_units
   fi
 }
@@ -119,7 +119,7 @@ _systemctl_really_all_units()
   if ( [[ ${+_sys_really_all_units} -eq 0 ]] || _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr ) ||
     ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr;
   then
-    all_unit_files=( ${${(f)"$(__systemctl list-unit-files)"}%% *} )
+    all_unit_files=( ${${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}%% *} )
     _systemctl_all_units
     really_all_units=($_sys_all_units $all_unit_files)
     _sys_really_all_units=(${(u)really_all_units})
@@ -270,7 +270,7 @@ done
 (( $+functions[_systemctl_set-default] )) || _systemctl_set-default()
 {
   _wanted systemd-targets expl target \
-    compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all)"}%% *} ||
+    compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all "$PREFIX*" )"}%% *} ||
       _message "no targets found"
 }
 
