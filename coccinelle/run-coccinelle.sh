@@ -1,5 +1,6 @@
 #!/bin/bash -e
 
+top="$(git rev-parse --show-toplevel)"
 files="$(git ls-files ':/*.[ch]')"
 args=
 
@@ -10,7 +11,7 @@ case "$1" in
                 ;;
 esac
 
-for SCRIPT in ${@-coccinelle/*.cocci} ; do
+for SCRIPT in ${@-$top/coccinelle/*.cocci} ; do
         echo "--x-- Processing $SCRIPT --x--"
         TMPFILE=`mktemp`
         echo "+ spatch --sp-file $SCRIPT $args ..."
