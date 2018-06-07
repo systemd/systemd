@@ -207,6 +207,7 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
         if (r < 0)
                 return log_error_errno(r, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
 
+        d = device;
         while (d) {
                 _cleanup_free_ char *match = NULL;
                 const char *subsys, *sysname, *devnode;
