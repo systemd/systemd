@@ -302,7 +302,6 @@ possible_cc_flags = [
         '-Wold-style-definition',
         '-Wpointer-arith',
         '-Winit-self',
-        '-Wdeclaration-after-statement',
         '-Wfloat-equal',
         '-Wsuggest-attribute=noreturn',
         '-Werror=missing-prototypes',
@@ -365,7 +364,7 @@ endif
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
 
 # "negative" arguments: gcc on purpose does not return an error for "-Wno-"
-# arguments, just emits a warnings. So test for the "positive" version instead.
+# arguments, just emits a warning. So test for the "positive" version instead.
 foreach arg : ['unused-parameter',
                'missing-field-initializers',
                'unused-result',
