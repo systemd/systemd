@@ -36,6 +36,9 @@ Features:
   should be revisited to make clearer and also work if the payload systemd runs
   with full privs and without userns.
 
+* portables: introduce a new unit file directory /etc/systemd/system.attached/
+  or so, where we attach portable services to
+
 * cgroups: use inotify to get notified when somebody else modifies cgroups
   owned by us, then log a friendly warning.
 
