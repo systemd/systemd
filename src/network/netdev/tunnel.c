@@ -401,10 +401,10 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                 return -EINVAL;
         }
 
-        if (netdev->kind == NETDEV_KIND_VTI &&
+        if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_IPIP, NETDEV_KIND_GRE, NETDEV_KIND_GRETAP) &&
             (t->family != AF_INET || in_addr_is_null(t->family, &t->local))) {
                 log_netdev_error(netdev,
-                                 "vti tunnel without a local IPv4 address configured in %s. Ignoring", filename);
+                                 "vti/ipip/gre/gretap tunnel without a local IPv4 address configured in %s. Ignoring", filename);
                 return -EINVAL;
         }
 
