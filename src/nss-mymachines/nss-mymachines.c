@@ -643,7 +643,7 @@ enum nss_status _nss_mymachines_getgrnam_r(
         strcpy(buffer + sizeof(char*), name);
 
         gr->gr_name = buffer + sizeof(char*);
-        gr->gr_gid = gid;
+        gr->gr_gid = mapped;
         gr->gr_passwd = (char*) "*"; /* locked */
         gr->gr_mem = (char**) buffer;
 
