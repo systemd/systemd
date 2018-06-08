@@ -318,6 +318,7 @@ void server_process_syslog_message(
         ClientContext *context = NULL;
         struct iovec *iovec;
         size_t n = 0, m, i, leading_ws;
+        bool altered;
 
         assert(s);
         assert(buf);
@@ -340,13 +341,15 @@ void server_process_syslog_message(
 
         /* Check for utf-8 validity to see if we need to escape anything. */
         if (utf8_is_valid_n(buf + leading_ws, i - leading_ws)) {
-                if (i == buf_len && leading_ws == 0)
+                if (i == buf_len && leading_ws == 0) {
                         /* Nice! No need to strip anything, let's optimize this a bit */
                         msg = buf;
-                else {
+                        altered = false;
+                } else {
                         msg = buf_a = newa(char, i + 1 - leading_ws);
                         memcpy(buf_a, buf + leading_ws, i - leading_ws);
                         buf_a[i - leading_ws] = 0;
+                        altered = true;
                 }
         } else {
                 /* This is the slow path, we need to malloc stuff */
@@ -354,6 +357,7 @@ void server_process_syslog_message(
                 if (!buf_m)
                         return;
                 msg = buf_m;
+                altered = true;
         }
 
         syslog_parse_priority(&msg, &priority, true);
@@ -376,7 +380,7 @@ void server_process_syslog_message(
         if (s->forward_to_wall)
                 server_forward_wall(s, priority, identifier, msg, ucred);
 
-        m = N_IOVEC_META_FIELDS + 6 + client_context_extra_fields_n_iovec(context);
+        m = N_IOVEC_META_FIELDS + 6 + altered + client_context_extra_fields_n_iovec(context);
         iovec = newa(struct iovec, m);
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=syslog");
@@ -400,8 +404,18 @@ void server_process_syslog_message(
         }
 
         message = strjoina("MESSAGE=", msg);
-        if (message)
-                iovec[n++] = IOVEC_MAKE_STRING(message);
+        iovec[n++] = IOVEC_MAKE_STRING(message);
+
+        if (altered) {
+                /* Store the original datagram to make it possible to recreate input bit-for-bit */
+                const size_t hlen = strlen("_ORIGINAL_INPUT=");
+
+                buf_a = newa(char, hlen + buf_len);
+                memcpy(buf_a, "_ORIGINAL_INPUT=", hlen);
+                memcpy(buf_a + hlen, buf, buf_len);
+
+                iovec[n++] = IOVEC_MAKE(buf_a, hlen + buf_len);
+        }
 
         server_dispatch_message(s, iovec, n, m, context, tv, priority, 0);
 }
