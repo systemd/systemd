@@ -225,7 +225,7 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         return e;
 }
 
-static void syslog_skip_date(char **buf) {
+static void syslog_skip_date(const char **buf) {
         enum {
                 LETTER,
                 SPACE,
@@ -245,7 +245,7 @@ static void syslog_skip_date(char **buf) {
                 SPACE
         };
 
-        char *p;
+        const char *p;
         unsigned i;
 
         assert(buf);
@@ -297,23 +297,28 @@ static void syslog_skip_date(char **buf) {
 void server_process_syslog_message(
                 Server *s,
                 const char *buf,
-                size_t buf_len,
+                size_t raw_len,
                 const struct ucred *ucred,
                 const struct timeval *tv,
                 const char *label,
                 size_t label_len) {
 
         char syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
-             syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)], *msg;
-        const char *message = NULL, *syslog_identifier = NULL, *syslog_pid = NULL;
+             syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
+        const char *message = NULL, *syslog_identifier = NULL, *syslog_pid = NULL, *msg;
         _cleanup_free_ char *identifier = NULL, *pid = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
         struct iovec *iovec;
-        size_t n = 0, m, i;
+        size_t n = 0, m, i, leading_ws;
 
         assert(s);
         assert(buf);
+        /* The message cannot be empty. */
+        assert(raw_len > 0);
+        /* The buffer NUL-terminated and can be used a string. raw_len is the length
+         * without the terminating NUL byte, the buffer is actually one bigger. */
+        assert(buf[raw_len] == '\0');
 
         if (ucred && pid_is_valid(ucred->pid)) {
                 r = client_context_get(s, ucred->pid, ucred, label, label_len, NULL, &context);
@@ -321,26 +326,35 @@ void server_process_syslog_message(
                         log_warning_errno(r, "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m", ucred->pid);
         }
 
-        /* We are creating copy of the message because we want to forward original message verbatim to the legacy
-           syslog implementation */
-        for (i = buf_len; i > 0; i--)
+        /* We are creating a copy of the message because we want to forward the original message
+           verbatim to the legacy syslog implementation */
+        for (i = raw_len; i > 0; i--)
                 if (!strchr(WHITESPACE, buf[i-1]))
                         break;
 
-        msg = newa(char, i + 1);
-        *((char *) mempcpy(msg, buf, i)) = 0;
-        msg = skip_leading_chars(msg, WHITESPACE);
+        leading_ws = strspn(buf, WHITESPACE);
 
-        syslog_parse_priority((const char **)&msg, &priority, true);
+        if (i == raw_len)
+                /* Nice! No need to strip anything on the end, let's optimize this a bit */
+                msg = buf + leading_ws;
+        else {
+                char *t;
+
+                msg = t = newa(char, i - leading_ws + 1);
+                memcpy(t, buf + leading_ws, i - leading_ws);
+                t[i - leading_ws] = 0;
+        }
+
+        syslog_parse_priority(&msg, &priority, true);
 
         if (!client_context_test_priority(context, priority))
                 return;
 
-        if (s->forward_to_syslog)
-                forward_syslog_raw(s, priority, buf, buf_len, ucred, tv);
-
         syslog_skip_date(&msg);
-        syslog_parse_identifier((const char**)&msg, &identifier, &pid);
+        syslog_parse_identifier(&msg, &identifier, &pid);
+
+        if (s->forward_to_syslog)
+                forward_syslog_raw(s, priority, buf, raw_len, ucred, tv);
 
         if (s->forward_to_kmsg)
                 server_forward_kmsg(s, priority, identifier, msg, ucred);
