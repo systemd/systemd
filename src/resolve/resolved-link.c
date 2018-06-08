@@ -115,6 +115,11 @@ void link_allocate_scopes(Link *l) {
 
                 dns_server_reset_features_all(l->manager->fallback_dns_servers);
                 dns_server_reset_features_all(l->manager->dns_servers);
+
+                /* Also, flush the global unicast scope, to deal with split horizon setups, where talking through one
+                 * interface reveals different DNS zones than through others. */
+                if (l->manager->unicast_scope)
+                        dns_cache_flush(&l->manager->unicast_scope->cache);
         }
 
         /* And now, allocate all scopes that makes sense now if we didn't have them yet, and drop those which we don't
