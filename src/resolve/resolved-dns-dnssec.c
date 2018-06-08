@@ -700,7 +700,7 @@ int dnssec_verify_rrset(
                 usec_t realtime,
                 DnssecResult *result) {
 
-        uint8_t wire_format_name[DNS_WIRE_FOMAT_HOSTNAME_MAX];
+        uint8_t wire_format_name[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         DnsResourceRecord **list, *rr;
         const char *source, *name;
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
@@ -1153,7 +1153,7 @@ static int digest_to_gcrypt_md(uint8_t algorithm) {
 }
 
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
-        uint8_t wire_format[DNS_WIRE_FOMAT_HOSTNAME_MAX];
+        uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         size_t hash_size;
         int md_algorithm, r;
@@ -1269,7 +1269,7 @@ static int nsec3_hash_to_gcrypt_md(uint8_t algorithm) {
 }
 
 int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
-        uint8_t wire_format[DNS_WIRE_FOMAT_HOSTNAME_MAX];
+        uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
         int algorithm;
