@@ -485,6 +485,9 @@ const char* sd_bus_track_contains(sd_bus_track *track, const char *name);
 const char* sd_bus_track_first(sd_bus_track *track);
 const char* sd_bus_track_next(sd_bus_track *track);
 
+int sd_bus_track_set_destroy_callback(sd_bus_track *s, sd_bus_destroy_t callback);
+int sd_bus_track_get_destroy_callback(sd_bus_track *s, sd_bus_destroy_t *ret);
+
 /* Define helpers so that __attribute__((cleanup(sd_bus_unrefp))) and similar may be used. */
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus, sd_bus_unref);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_bus, sd_bus_flush_close_unref);

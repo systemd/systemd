@@ -31,6 +31,7 @@ struct sd_bus_track {
         bool in_queue:1;   /* In bus->track_queue? */
         bool modified:1;
         bool recursive:1;
+        sd_bus_destroy_t destroy_callback;
 
         LIST_FIELDS(sd_bus_track, tracks);
 };
@@ -164,18 +165,21 @@ _public_ sd_bus_track* sd_bus_track_unref(sd_bus_track *track) {
                 return NULL;
 
         assert(track->n_ref > 0);
+        track->n_ref--;
 
-        if (track->n_ref > 1) {
-                track->n_ref--;
+        if (track->n_ref > 0)
                 return NULL;
-        }
 
         if (track->in_list)
                 LIST_REMOVE(tracks, track->bus->tracks, track);
 
         bus_track_remove_from_queue(track);
-        hashmap_free_with_destructor(track->names, track_item_free);
-        sd_bus_unref(track->bus);
+        track->names = hashmap_free_with_destructor(track->names, track_item_free);
+        track->bus = sd_bus_unref(track->bus);
+
+        if (track->destroy_callback)
+                track->destroy_callback(track->userdata);
+
         return mfree(track);
 }
 
@@ -437,6 +441,22 @@ _public_ void *sd_bus_track_set_userdata(sd_bus_track *track, void *userdata) {
         track->userdata = userdata;
 
         return ret;
+}
+
+_public_ int sd_bus_track_set_destroy_callback(sd_bus_track *track, sd_bus_destroy_t callback) {
+        assert_return(track, -EINVAL);
+
+        track->destroy_callback = callback;
+        return 0;
+}
+
+_public_ int sd_bus_track_get_destroy_callback(sd_bus_track *track, sd_bus_destroy_t *ret) {
+        assert_return(track, -EINVAL);
+
+        if (ret)
+                *ret = track->destroy_callback;
+
+        return !!track->destroy_callback;
 }
 
 _public_ int sd_bus_track_set_recursive(sd_bus_track *track, int b) {

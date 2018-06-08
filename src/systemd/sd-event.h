@@ -80,6 +80,7 @@ typedef int (*sd_event_child_handler_t)(sd_event_source *s, const siginfo_t *si,
 typedef void* sd_event_child_handler_t;
 #endif
 typedef int (*sd_event_inotify_handler_t)(sd_event_source *s, const struct inotify_event *event, void *userdata);
+typedef void (*sd_event_destroy_t)(void *userdata);
 
 int sd_event_default(sd_event **e);
 
@@ -143,6 +144,8 @@ int sd_event_source_get_time_clock(sd_event_source *s, clockid_t *clock);
 int sd_event_source_get_signal(sd_event_source *s);
 int sd_event_source_get_child_pid(sd_event_source *s, pid_t *pid);
 int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret);
+int sd_event_source_set_destroy_callback(sd_event_source *s, sd_event_destroy_t callback);
+int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_destroy_t *ret);
 
 /* Define helpers so that __attribute__((cleanup(sd_event_unrefp))) and similar may be used. */
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_event, sd_event_unref);
