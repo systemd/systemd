@@ -12,6 +12,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "io-util.h"
@@ -26,6 +27,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "syslog-util.h"
+#include "utf8.h"
 
 /* Warn once every 30s if we missed syslog message */
 #define WARN_FORWARD_SYSLOG_MISSED_USEC (30 * USEC_PER_SEC)
@@ -230,7 +232,7 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         return e;
 }
 
-static void syslog_skip_date(char **buf) {
+static void syslog_skip_date(const char **buf) {
         enum {
                 LETTER,
                 SPACE,
@@ -250,7 +252,7 @@ static void syslog_skip_date(char **buf) {
                 SPACE
         };
 
-        char *p;
+        const char *p;
         unsigned i;
 
         assert(buf);
@@ -309,16 +311,18 @@ void server_process_syslog_message(
                 size_t label_len) {
 
         char syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
-             syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)], *msg;
-        const char *message = NULL, *syslog_identifier = NULL, *syslog_pid = NULL;
-        _cleanup_free_ char *identifier = NULL, *pid = NULL;
+             syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)], *buf_a;
+        const char *message = NULL, *syslog_identifier = NULL, *syslog_pid = NULL, *msg;
+        _cleanup_free_ char *identifier = NULL, *pid = NULL, *buf_m = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
         struct iovec *iovec;
-        size_t n = 0, m, i;
+        size_t n = 0, m, i, leading_ws;
 
         assert(s);
         assert(buf);
+        assert(buf_len > 0);
+        /* We know that buf is non-empty. It is also always NUL-terminated and can be used a string */
 
         if (ucred && pid_is_valid(ucred->pid)) {
                 r = client_context_get(s, ucred->pid, ucred, label, label_len, NULL, &context);
@@ -326,26 +330,42 @@ void server_process_syslog_message(
                         log_warning_errno(r, "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m", ucred->pid);
         }
 
-        /* We are creating copy of the message because we want to forward original message verbatim to the legacy
-           syslog implementation */
+        /* We are creating a copy of the message because we want to forward the original message
+           verbatim to the legacy syslog implementation */
         for (i = buf_len; i > 0; i--)
                 if (!strchr(WHITESPACE, buf[i-1]))
                         break;
 
-        msg = newa0(char, i + 1);
-        memcpy(msg, buf, i);
-        msg += strspn(msg, WHITESPACE);
+        leading_ws = strspn(buf, WHITESPACE);
 
-        syslog_parse_priority((const char **)&msg, &priority, true);
+        /* Check for utf-8 validity to see if we need to escape anything. */
+        if (utf8_is_valid_n(buf + leading_ws, i - leading_ws)) {
+                if (i == buf_len && leading_ws == 0)
+                        /* Nice! No need to strip anything, let's optimize this a bit */
+                        msg = buf;
+                else {
+                        msg = buf_a = newa(char, i + 1 - leading_ws);
+                        memcpy(buf_a, buf + leading_ws, i - leading_ws);
+                        buf_a[i - leading_ws] = 0;
+                }
+        } else {
+                /* This is the slow path, we need to malloc stuff */
+                buf_m = cescape_length(buf + leading_ws, i - leading_ws);
+                if (!buf_m)
+                        return;
+                msg = buf_m;
+        }
+
+        syslog_parse_priority(&msg, &priority, true);
 
         if (!client_context_test_priority(context, priority))
                 return;
 
+        syslog_skip_date(&msg);
+        syslog_parse_identifier(&msg, &identifier, &pid);
+
         if (s->forward_to_syslog)
                 forward_syslog_raw(s, priority, buf, buf_len, ucred, tv);
-
-        syslog_skip_date(&msg);
-        syslog_parse_identifier((const char**)&msg, &identifier, &pid);
 
         if (s->forward_to_kmsg)
                 server_forward_kmsg(s, priority, identifier, msg, ucred);
