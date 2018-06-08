@@ -160,6 +160,30 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
         return true;
 }
 
+const char *utf8_is_valid_n(const char *str, size_t len_bytes) {
+        size_t i;
+
+        assert(str);
+
+        /* Check that str is a len_bytes-long sequence of valid utf-8 characters.
+         * A NUL within those len_bytes is not allowed. */
+
+        for (i = 0; i < len_bytes && str[i]; ) {
+                int len;
+
+                len = utf8_encoded_valid_unichar(str + i);
+                if (len < 0)
+                        break;
+
+                i += len;
+        }
+
+        if (i != len_bytes)
+                return NULL;
+
+        return str;
+}
+
 const char *utf8_is_valid(const char *str) {
         const uint8_t *p;
 

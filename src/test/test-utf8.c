@@ -11,20 +11,29 @@
 #include "util.h"
 
 static void test_utf8_is_printable(void) {
-        assert_se(utf8_is_printable("ascii is valid\tunicode", 22));
-        assert_se(utf8_is_printable("\342\204\242", 3));
+        assert_se( utf8_is_printable("ascii is valid\tunicode", 22));
+        assert_se( utf8_is_printable("\342\204\242", 3));
         assert_se(!utf8_is_printable("\341\204", 2));
-        assert_se(utf8_is_printable("ąę", 4));
+        assert_se( utf8_is_printable("ąę", 4));
 }
 
 static void test_utf8_is_valid(void) {
-        assert_se(utf8_is_valid("ascii is valid unicode"));
-        assert_se(utf8_is_valid("\342\204\242"));
+        assert_se( utf8_is_valid("ascii is valid unicode"));
+        assert_se( utf8_is_valid("\342\204\242"));
         assert_se(!utf8_is_valid("\341\204"));
 }
 
+static void test_utf8_is_valid_n(void) {
+        assert_se( utf8_is_valid_n("ascii", 5));
+        assert_se(!utf8_is_valid_n("ascii", 6));
+        assert_se( utf8_is_valid_n("\342\204\242", 3));
+        assert_se(!utf8_is_valid_n("\342\204\242", 2));
+        assert_se(!utf8_is_valid_n("\342\204\242", 1));
+        assert_se(!utf8_is_valid_n("\342\204\242", 4));
+}
+
 static void test_ascii_is_valid(void) {
-        assert_se(ascii_is_valid("alsdjf\t\vbarr\nba z"));
+        assert_se( ascii_is_valid("alsdjf\t\vbarr\nba z"));
         assert_se(!ascii_is_valid("\342\204\242"));
         assert_se(!ascii_is_valid("\341\204"));
 }
@@ -113,6 +122,7 @@ static void test_utf8_console_width(void) {
 
 int main(int argc, char *argv[]) {
         test_utf8_is_valid();
+        test_utf8_is_valid_n();
         test_utf8_is_printable();
         test_ascii_is_valid();
         test_utf8_encoded_valid_unichar();
