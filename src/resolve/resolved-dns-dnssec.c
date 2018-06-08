@@ -700,7 +700,7 @@ int dnssec_verify_rrset(
                 usec_t realtime,
                 DnssecResult *result) {
 
-        uint8_t wire_format_name[DNS_WIRE_FOMAT_HOSTNAME_MAX];
+        uint8_t wire_format_name[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         DnsResourceRecord **list, *rr;
         const char *source, *name;
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
@@ -1153,7 +1153,7 @@ static int digest_to_gcrypt_md(uint8_t algorithm) {
 }
 
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
-        char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
+        uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         size_t hash_size;
         int md_algorithm, r;
@@ -1192,7 +1192,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (ds->ds.digest_size != hash_size)
                 return 0;
 
-        r = dnssec_canonicalize(dns_resource_key_name(dnskey->key), owner_name, sizeof(owner_name));
+        r = dns_name_to_wire_format(dns_resource_key_name(dnskey->key), wire_format, sizeof(wire_format), true);
         if (r < 0)
                 return r;
 
@@ -1200,7 +1200,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (!md)
                 return -EIO;
 
-        gcry_md_write(md, owner_name, r);
+        gcry_md_write(md, wire_format, r);
         if (mask_revoke)
                 md_add_uint16(md, dnskey->dnskey.flags & ~DNSKEY_FLAG_REVOKE);
         else
@@ -1213,7 +1213,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (!result)
                 return -EIO;
 
-        return memcmp(result, ds->ds.digest, ds->ds.digest_size) != 0;
+        return memcmp(result, ds->ds.digest, ds->ds.digest_size) == 0;
 }
 
 int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
@@ -1269,7 +1269,7 @@ static int nsec3_hash_to_gcrypt_md(uint8_t algorithm) {
 }
 
 int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
-        uint8_t wire_format[DNS_WIRE_FOMAT_HOSTNAME_MAX];
+        uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
         int algorithm;

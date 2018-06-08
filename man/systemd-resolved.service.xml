@@ -79,7 +79,7 @@
     <filename>/etc/systemd/resolved.conf</filename>, the per-link static settings in
     <filename>/etc/systemd/network/*.network</filename> files (in case
     <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
-    used), the per-link dynamic settings received over DHCP and any DNS server information made available by other
+    used), the per-link dynamic settings received over DHCP, and any DNS server information made available by other
     system services. See
     <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details
