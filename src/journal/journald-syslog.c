@@ -311,6 +311,7 @@ void server_process_syslog_message(
         ClientContext *context = NULL;
         struct iovec *iovec;
         size_t n = 0, m, i, leading_ws;
+        bool store_raw;
 
         assert(s);
         assert(buf);
@@ -345,6 +346,10 @@ void server_process_syslog_message(
                 t[i - leading_ws] = 0;
         }
 
+        /* We will add the SYSLOG_RAW= field when we stripped anything
+         * _or_ if the input message contained NUL bytes. */
+        store_raw = msg != buf || strlen(msg) != raw_len;
+
         syslog_parse_priority(&msg, &priority, true);
 
         if (!client_context_test_priority(context, priority))
@@ -365,7 +370,7 @@ void server_process_syslog_message(
         if (s->forward_to_wall)
                 server_forward_wall(s, priority, identifier, msg, ucred);
 
-        m = N_IOVEC_META_FIELDS + 6 + client_context_extra_fields_n_iovec(context);
+        m = N_IOVEC_META_FIELDS + 7 + client_context_extra_fields_n_iovec(context);
         iovec = newa(struct iovec, m);
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=syslog");
@@ -389,8 +394,18 @@ void server_process_syslog_message(
         }
 
         message = strjoina("MESSAGE=", msg);
-        if (message)
-                iovec[n++] = IOVEC_MAKE_STRING(message);
+        iovec[n++] = IOVEC_MAKE_STRING(message);
+
+        if (store_raw) {
+                const size_t hlen = strlen("SYSLOG_RAW=");
+                char *t;
+
+                t = newa(char, hlen + raw_len);
+                memcpy(t, "SYSLOG_RAW=", hlen);
+                memcpy(t + hlen, buf, raw_len);
+
+                iovec[n++] = IOVEC_MAKE(t, hlen + raw_len);
+        }
 
         server_dispatch_message(s, iovec, n, m, context, tv, priority, 0);
 }
