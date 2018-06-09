@@ -1174,7 +1174,7 @@ int table_print(Table *t, FILE *f) {
                         if (l > width[j]) {
                                 /* Field is wider than allocated space. Let's ellipsize */
 
-                                buffer = ellipsize_mem(field, (size_t) -1, width[j], d->ellipsize_percent);
+                                buffer = ellipsize(field, width[j], d->ellipsize_percent);
                                 if (!buffer)
                                         return -ENOMEM;
 

@@ -541,7 +541,7 @@ char *ellipsize_mem(const char *s, size_t old_length, size_t new_length, unsigne
                 return strdup("");
 
         /* If no multibyte characters use ascii_ellipsize_mem for speed */
-        if (ascii_is_valid(s))
+        if (ascii_is_valid_n(s, old_length))
                 return ascii_ellipsize_mem(s, old_length, new_length, percent);
 
         x = ((new_length - 1) * percent) / 100;
