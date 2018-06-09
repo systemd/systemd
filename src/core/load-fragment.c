@@ -3096,7 +3096,9 @@ int config_parse_memory_limit(
                 }
         }
 
-        if (streq(lvalue, "MemoryLow"))
+        if (streq(lvalue, "MemoryMin"))
+                c->memory_min = bytes;
+        else if (streq(lvalue, "MemoryLow"))
                 c->memory_low = bytes;
         else if (streq(lvalue, "MemoryHigh"))
                 c->memory_high = bytes;
