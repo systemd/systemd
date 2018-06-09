@@ -24,9 +24,19 @@ static void test_utf8_is_valid(void) {
 }
 
 static void test_ascii_is_valid(void) {
-        assert_se(ascii_is_valid("alsdjf\t\vbarr\nba z"));
+        assert_se( ascii_is_valid("alsdjf\t\vbarr\nba z"));
         assert_se(!ascii_is_valid("\342\204\242"));
         assert_se(!ascii_is_valid("\341\204"));
+}
+
+static void test_ascii_is_valid_n(void) {
+        assert_se( ascii_is_valid_n("alsdjf\t\vbarr\nba z", 17));
+        assert_se( ascii_is_valid_n("alsdjf\t\vbarr\nba z", 16));
+        assert_se(!ascii_is_valid_n("alsdjf\t\vbarr\nba z", 18));
+        assert_se(!ascii_is_valid_n("\342\204\242", 3));
+        assert_se(!ascii_is_valid_n("\342\204\242", 2));
+        assert_se(!ascii_is_valid_n("\342\204\242", 1));
+        assert_se( ascii_is_valid_n("\342\204\242", 0));
 }
 
 static void test_utf8_encoded_valid_unichar(void) {
@@ -115,6 +125,7 @@ int main(int argc, char *argv[]) {
         test_utf8_is_valid();
         test_utf8_is_printable();
         test_ascii_is_valid();
+        test_ascii_is_valid_n();
         test_utf8_encoded_valid_unichar();
         test_utf8_escaping();
         test_utf8_escaping_printable();
