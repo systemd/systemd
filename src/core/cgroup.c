@@ -193,6 +193,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 "%sStartupIOWeight=%" PRIu64 "\n"
                 "%sBlockIOWeight=%" PRIu64 "\n"
                 "%sStartupBlockIOWeight=%" PRIu64 "\n"
+                "%sMemoryMin=%" PRIu64 "\n"
                 "%sMemoryLow=%" PRIu64 "\n"
                 "%sMemoryHigh=%" PRIu64 "\n"
                 "%sMemoryMax=%" PRIu64 "\n"
@@ -216,6 +217,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
                 prefix, c->startup_io_weight,
                 prefix, c->blockio_weight,
                 prefix, c->startup_blockio_weight,
+                prefix, c->memory_min,
                 prefix, c->memory_low,
                 prefix, c->memory_high,
                 prefix, c->memory_max,
@@ -668,7 +670,7 @@ static void cgroup_apply_blkio_device_limit(Unit *u, const char *dev_path, uint6
 }
 
 static bool cgroup_context_has_unified_memory_config(CGroupContext *c) {
-        return c->memory_low > 0 || c->memory_high != CGROUP_LIMIT_MAX || c->memory_max != CGROUP_LIMIT_MAX || c->memory_swap_max != CGROUP_LIMIT_MAX;
+        return c->memory_min > 0 || c->memory_low > 0 || c->memory_high != CGROUP_LIMIT_MAX || c->memory_max != CGROUP_LIMIT_MAX || c->memory_swap_max != CGROUP_LIMIT_MAX;
 }
 
 static void cgroup_apply_unified_memory_limit(Unit *u, const char *file, uint64_t v) {
@@ -920,6 +922,7 @@ static void cgroup_context_apply(
                                         log_cgroup_compat(u, "Applying MemoryLimit %" PRIu64 " as MemoryMax", max);
                         }
 
+                        cgroup_apply_unified_memory_limit(u, "memory.min", c->memory_min);
                         cgroup_apply_unified_memory_limit(u, "memory.low", c->memory_low);
                         cgroup_apply_unified_memory_limit(u, "memory.high", c->memory_high);
                         cgroup_apply_unified_memory_limit(u, "memory.max", max);

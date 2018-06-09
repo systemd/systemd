@@ -217,6 +217,27 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MemoryMin=<replaceable>bytes</replaceable></varname></term>
+
+        <listitem>
+          <para>Specify the memory usage protection of the executed processes in this unit. If the memory usages of
+          this unit and all its ancestors are below their minimum boundaries, this unit's memory won't be reclaimed.</para>
+
+          <para>Takes a memory size in bytes. If the value is suffixed with K, M, G or T, the specified memory size is
+          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. Alternatively, a
+          percentage value may be specified, which is taken relative to the installed physical memory on the
+          system. This controls the <literal>memory.min</literal> control group attribute. For details about this
+          control group attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+
+          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
+
+          <para>This setting is supported only if the unified control group hierarchy is used and disables
+          <varname>MemoryLimit=</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MemoryLow=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
