@@ -3911,6 +3911,7 @@ typedef struct UnitStatusInfo {
 
         /* CGroup */
         uint64_t memory_current;
+        uint64_t memory_min;
         uint64_t memory_low;
         uint64_t memory_high;
         uint64_t memory_max;
@@ -4290,12 +4291,17 @@ static void print_status_info(
 
                 printf("   Memory: %s", format_bytes(buf, sizeof(buf), i->memory_current));
 
-                if (i->memory_low > 0 || i->memory_high != CGROUP_LIMIT_MAX ||
-                    i->memory_max != CGROUP_LIMIT_MAX || i->memory_swap_max != CGROUP_LIMIT_MAX ||
+                if (i->memory_min > 0 || i->memory_low > 0 ||
+                    i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX ||
+                    i->memory_swap_max != CGROUP_LIMIT_MAX ||
                     i->memory_limit != CGROUP_LIMIT_MAX) {
                         const char *prefix = "";
 
                         printf(" (");
+                        if (i->memory_min > 0) {
+                                printf("%smin: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_min));
+                                prefix = " ";
+                        }
                         if (i->memory_low > 0) {
                                 printf("%slow: %s", prefix, format_bytes(buf, sizeof(buf), i->memory_low));
                                 prefix = " ";
@@ -4971,6 +4977,7 @@ static int show_one(
                 { "Where",                          "s",              NULL,           offsetof(UnitStatusInfo, where)                             },
                 { "What",                           "s",              NULL,           offsetof(UnitStatusInfo, what)                              },
                 { "MemoryCurrent",                  "t",              NULL,           offsetof(UnitStatusInfo, memory_current)                    },
+                { "MemoryMin",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_min)                        },
                 { "MemoryLow",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_low)                        },
                 { "MemoryHigh",                     "t",              NULL,           offsetof(UnitStatusInfo, memory_high)                       },
                 { "MemoryMax",                      "t",              NULL,           offsetof(UnitStatusInfo, memory_max)                        },
