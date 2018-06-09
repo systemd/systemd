@@ -319,6 +319,7 @@ possible_cc_flags = [
         '-Wstrict-aliasing=2',
         '-Wwrite-strings',
         '-Werror=overflow',
+        '-Werror=shift-count-overflow',
         '-Wdate-time',
         '-Wnested-externs',
         '-ffast-math',
