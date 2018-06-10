@@ -2243,7 +2243,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                 log_unit_debug(UNIT(s), "Suppressing connection request since unit stop is scheduled.");
 
                 if (cfd >= 0)
-                        cfd = safe_close(cfd);
+                        goto refuse;
                 else
                         flush_ports(s);
 
@@ -2251,10 +2251,9 @@ static void socket_enter_running(Socket *s, int cfd) {
         }
 
         if (!ratelimit_below(&s->trigger_limit)) {
-                safe_close(cfd);
                 log_unit_warning(UNIT(s), "Trigger limit hit, refusing further activation.");
                 socket_enter_stop_pre(s, SOCKET_FAILURE_TRIGGER_LIMIT_HIT);
-                return;
+                goto refuse;
         }
 
         if (cfd < 0) {
@@ -2290,29 +2289,24 @@ static void socket_enter_running(Socket *s, int cfd) {
                 Service *service;
 
                 if (s->n_connections >= s->max_connections) {
-                        s->n_rejected++;
                         log_unit_warning(UNIT(s), "Too many incoming connections (%u), dropping connection.",
                                          s->n_connections);
-                        safe_close(cfd);
-                        return;
+                        goto refuse;
                 }
 
                 if (s->max_connections_per_source > 0) {
                         r = socket_acquire_peer(s, cfd, &p);
                         if (r < 0) {
-                                safe_close(cfd);
-                                return;
+                                goto refuse;
                         } else if (r > 0 && p->n_ref > s->max_connections_per_source) {
                                 _cleanup_free_ char *t = NULL;
 
                                 (void) sockaddr_pretty(&p->peer.sa, p->peer_salen, true, false, &t);
 
-                                s->n_rejected++;
                                 log_unit_warning(UNIT(s),
                                                  "Too many incoming connections (%u) from source %s, dropping connection.",
                                                  p->n_ref, strnull(t));
-                                safe_close(cfd);
-                                return;
+                                goto refuse;
                         }
                 }
 
@@ -2328,8 +2322,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                         /* ENOTCONN is legitimate if TCP RST was received.
                          * This connection is over, but the socket unit lives on. */
                         log_unit_debug(UNIT(s), "Got ENOTCONN on incoming socket, assuming aborted connection attempt, ignoring.");
-                        safe_close(cfd);
-                        return;
+                        goto refuse;
                 }
 
                 r = unit_name_to_prefix(UNIT(s)->id, &prefix);
@@ -2371,6 +2364,11 @@ static void socket_enter_running(Socket *s, int cfd) {
                 unit_add_to_dbus_queue(UNIT(s));
         }
 
+        return;
+
+refuse:
+        s->n_refused++;
+        safe_close(cfd);
         return;
 
 fail:
@@ -2516,6 +2514,7 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item(u, f, "state", socket_state_to_string(s->state));
         unit_serialize_item(u, f, "result", socket_result_to_string(s->result));
         unit_serialize_item_format(u, f, "n-accepted", "%u", s->n_accepted);
+        unit_serialize_item_format(u, f, "n-refused", "%u", s->n_refused);
 
         if (s->control_pid > 0)
                 unit_serialize_item_format(u, f, "control-pid", PID_FMT, s->control_pid);
@@ -2596,6 +2595,13 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "Failed to parse n-accepted value: %s", value);
                 else
                         s->n_accepted += k;
+        } else if (streq(key, "n-refused")) {
+                unsigned k;
+
+                if (safe_atou(value, &k) < 0)
+                        log_unit_debug(u, "Failed to parse n-refused value: %s", value);
+                else
+                        s->n_refused += k;
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
 
