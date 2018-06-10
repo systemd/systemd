@@ -147,6 +147,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><command>show</command></term>
+
+        <listitem><para>Show the same information as <option>status</option>, but in machine readable form.
+        This command is intended to be used whenever computer-parsable output is required.
+        Use <option>status</option> if you are looking for formatted human-readable output.</para>
+        <para>By default, empty properties are suppressed. Use <option>--all</option> to show those too.
+        To select specific properties to show, use <option>--property=</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>set-time [TIME]</command></term>
 
         <listitem><para>Set the system clock to the specified time.
@@ -207,11 +217,12 @@
 
     </variablelist>
 
-    <refsect2><title>systemd-timesyncd Commands</title>
+    <refsect2>
+      <title>systemd-timesyncd Commands</title>
 
-    <para>The following commands are specific to
-    <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    </para>
+      <para>The following commands are specific to
+      <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      </para>
 
       <variablelist>
         <varlistentry>
@@ -225,12 +236,11 @@
         <varlistentry>
           <term><command>show-timesync</command></term>
 
-          <listitem><para>Show properties of the manager of
-          <citerefentry><refentrytitle>systemd-timesyncd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-          By default, empty properties are suppressed. Use <option>--all</option> to show those too. To select specific
-          properties to show, use <option>--property=</option>. This command is intended to be used whenever
-          computer-parsable output is required. Use <option>timesync-status</option> if you are looking for formatted
-          human-readable output.</para></listitem>
+          <listitem><para>Show the same information as <option>timesync-status</option>, but in machine readable form.
+          This command is intended to be used whenever computer-parsable output is required.
+          Use <option>timesync-status</option> if you are looking for formatted human-readable output.</para>
+          <para>By default, empty properties are suppressed. Use <option>--all</option> to show those too.
+          To select specific properties to show, use <option>--property=</option>.</para></listitem>
         </varlistentry>
       </variablelist>
 

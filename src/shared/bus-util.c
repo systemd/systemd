@@ -696,7 +696,8 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                 /* Yes, heuristics! But we can change this check
                  * should it turn out to not be sufficient */
 
-                if (endswith(name, "Timestamp") || STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec")) {
+                if (endswith(name, "Timestamp") ||
+                    STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec", "TimeUSec", "RTCTimeUSec")) {
                         char timestamp[FORMAT_TIMESTAMP_MAX];
                         const char *t;
 

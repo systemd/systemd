@@ -168,6 +168,26 @@ static int show_status(int argc, char **argv, void *userdata) {
         return r;
 }
 
+static int show_properties(int argc, char **argv, void *userdata) {
+        sd_bus *bus = userdata;
+        int r;
+
+        assert(bus);
+
+        r = bus_print_all_properties(bus,
+                                     "org.freedesktop.timedate1",
+                                     "/org/freedesktop/timedate1",
+                                     NULL,
+                                     arg_property,
+                                     arg_value,
+                                     arg_all,
+                                     NULL);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
 static int set_time(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool relative = false, interactive = arg_ask_password;
@@ -696,6 +716,7 @@ static int help(void) {
                "\n"
                "Commands:\n"
                "  status                   Show current time settings\n"
+               "  show                     Show properties of systemd-timedated\n"
                "  set-time TIME            Set system time\n"
                "  set-timezone ZONE        Set system time zone\n"
                "  list-timezones           Show known time zones\n"
@@ -815,6 +836,7 @@ static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
 
         static const Verb verbs[] = {
                 { "status",          VERB_ANY, 1,        VERB_DEFAULT, show_status          },
+                { "show",            VERB_ANY, 1,        0,            show_properties      },
                 { "set-time",        2,        2,        0,            set_time             },
                 { "set-timezone",    2,        2,        0,            set_timezone         },
                 { "list-timezones",  VERB_ANY, 1,        0,            list_timezones       },
