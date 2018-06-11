@@ -3234,14 +3234,16 @@ int config_parse_device_allow(
                 return 0;
         }
 
-        r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
-        if (r < 0)
-                return 0;
+        if (!startswith(resolved, "block-") && !startswith(resolved, "char-")) {
 
-        if (!is_deviceallow_pattern(resolved) &&
-            !path_startswith(resolved, "/run/systemd/inaccessible/")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s', ignoring.", resolved);
-                return 0;
+                r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
+                if (r < 0)
+                        return 0;
+
+                if (!valid_device_node_path(resolved)) {
+                        log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s', ignoring.", resolved);
+                        return 0;
+                }
         }
 
         if (!isempty(p) && !in_charset(p, "rwm")) {

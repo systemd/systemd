@@ -1059,15 +1059,12 @@ int bus_cgroup_set_property(
 
                 while ((r = sd_bus_message_read(message, "(ss)", &path, &rwm)) > 0) {
 
-                        if ((!is_deviceallow_pattern(path) &&
-                             !path_startswith(path, "/run/systemd/inaccessible/")) ||
-                            strpbrk(path, WHITESPACE))
-                            return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node");
+                        if (!valid_device_allow_pattern(path) || strpbrk(path, WHITESPACE))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node or pattern");
 
                         if (isempty(rwm))
                                 rwm = "rwm";
-
-                        if (!in_charset(rwm, "rwm"))
+                        else if (!in_charset(rwm, "rwm"))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
