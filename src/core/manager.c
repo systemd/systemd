@@ -74,6 +74,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "syslog-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "transaction.h"
@@ -735,6 +736,8 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
         m->default_timeout_start_usec = DEFAULT_TIMEOUT_USEC;
         m->default_timeout_stop_usec = DEFAULT_TIMEOUT_USEC;
         m->default_restart_usec = DEFAULT_RESTART_USEC;
+        m->default_log_max_level = log_get_max_level();
+        m->default_log_target = log_get_target();
 
 #if ENABLE_EFI
         if (MANAGER_IS_SYSTEM(m) && detect_container() <= 0)
@@ -2626,13 +2629,15 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
                         break;
 
                 case 22:
+                        m->log_max_level_overridden = true;
                         log_set_max_level(LOG_DEBUG);
                         log_info("Setting log level to debug.");
                         break;
 
                 case 23:
-                        log_set_max_level(LOG_INFO);
-                        log_info("Setting log level to info.");
+                        m->log_max_level_overridden = false;
+                        log_set_max_level(m->default_log_max_level);
+                        log_info("Restoring log level to default setting.");
                         break;
 
                 case 24:
@@ -2646,16 +2651,19 @@ static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t 
 
                 case 26:
                 case 29: /* compatibility: used to be mapped to LOG_TARGET_SYSLOG_OR_KMSG */
-                        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
-                        log_notice("Setting log target to journal-or-kmsg.");
+                        m->log_target_overridden = false;
+                        log_set_target(m->default_log_target);
+                        log_notice("Restoring log target to default setting.");
                         break;
 
                 case 27:
+                        m->log_target_overridden = true;
                         log_set_target(LOG_TARGET_CONSOLE);
                         log_notice("Setting log target to console.");
                         break;
 
                 case 28:
+                        m->log_target_overridden = true;
                         log_set_target(LOG_TARGET_KMSG);
                         log_notice("Setting log target to kmsg.");
                         break;
@@ -3026,6 +3034,10 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         fprintf(f, "ready-sent=%s\n", yes_no(m->ready_sent));
         fprintf(f, "taint-logged=%s\n", yes_no(m->taint_logged));
         fprintf(f, "service-watchdogs=%s\n", yes_no(m->service_watchdogs));
+        if (m->log_max_level_overridden)
+                fprintf(f, "log-max-level=%d\n", log_get_max_level());
+        if (m->log_target_overridden)
+                fprintf(f, "log-target=%s\n", log_target_to_string(log_get_target()));
 
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
                 /* The userspace and finish timestamps only apply to the host system, hence only serialize them there */
@@ -3209,6 +3221,20 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse service-watchdogs flag %s", val);
                         else
                                 m->service_watchdogs = b;
+
+                } else if ((val = startswith(l, "log-max-level="))) {
+
+                        if (log_set_max_level_from_string(val) < 0)
+                                log_notice("Failed to parse log-max-level value %s", val);
+                        else
+                                m->log_max_level_overridden = true;
+
+                } else if ((val = startswith(l, "log-target="))) {
+
+                        if (log_set_target_from_string(val) < 0)
+                                log_notice("Failed to parse log-target value %s", val);
+                        else
+                                m->log_target_overridden = true;
 
                 } else if (startswith(l, "env=")) {
                         r = deserialize_environment(&m->environment, l);
