@@ -207,6 +207,38 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PrivateDNS=</varname></term>
+        <listitem>
+        <para>Takes false or
+        <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>
+        DNS request are attempted to send encrypted with DNS-over-TLS.
+        If the DNS server does not support TLS, DNS-over-TLS is disabled.
+        Note that this mode makes DNS-over-TLS vulnerable to "downgrade"
+        attacks, where an attacker might be able to trigger a downgrade
+        to non-encrypted mode by synthesizing a response that suggests
+        DNS-over-TLS was not supported. If set to false, DNS lookups
+        are send over UDP.</para>
+
+        <para>Note that DNS-over-TLS requires additional data to be
+        send for setting up an encrypted connection, and thus results
+        in a small DNS look-up time penalty.</para>
+
+        <para>Note as the resolver is not capable of authenticating
+        the server, it is vulnerable for "man-in-the-middle" attacks.</para>
+
+        <para>In addition to this global PrivateDNS setting
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        also maintains per-link PrivateDNS settings. For system DNS
+        servers (see above), only the global PrivateDNS setting is in
+        effect. For per-link DNS servers the per-link
+        setting is in effect, unless it is unset in which case the
+        global setting is used instead.</para>
+
+        <para>Defaults to off.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Cache=</varname></term>
         <listitem><para>Takes a boolean argument. If "yes" (the default), resolving a domain name which already got
         queried earlier will return the previous result as long as it is still valid, and thus does not result in a new

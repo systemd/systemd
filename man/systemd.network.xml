@@ -385,6 +385,21 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>PrivateDNS=</varname></term>
+          <listitem>
+            <para>Takes false or
+            <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>, enables
+            <ulink
+            url="https://tools.ietf.org/html/rfc7858">DNS-over-TLS</ulink>
+            support on the link. This option defines a
+            per-interface setting for
+            <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
+            global <varname>PrivateDNS=</varname> option. Defaults to
+            false. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>DNSSEC=</varname></term>
           <listitem>
             <para>A boolean or
