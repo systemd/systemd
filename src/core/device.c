@@ -546,8 +546,7 @@ static int device_process_new(Manager *m, struct udev_device *dev) {
                 /* Don't bother with the /dev/block links */
                 p = udev_list_entry_get_name(item);
 
-                if (path_startswith(p, "/dev/block/") ||
-                    path_startswith(p, "/dev/char/"))
+                if (PATH_STARTSWITH_SET(p, "/dev/block/", "/dev/char/"))
                         continue;
 
                 /* Verify that the symlink in the FS actually belongs

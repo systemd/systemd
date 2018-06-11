@@ -886,11 +886,9 @@ bool hidden_or_backup_file(const char *filename) {
 
 bool is_device_path(const char *path) {
 
-        /* Returns true on paths that refer to a device, either in
-         * sysfs or in /dev */
+        /* Returns true on paths that likely refer to a device, either by path in sysfs or to something in /dev */
 
-        return path_startswith(path, "/dev/") ||
-               path_startswith(path, "/sys/");
+        return PATH_STARTSWITH_SET(path, "/dev/", "/sys/");
 }
 
 bool valid_device_node_path(const char *path) {
