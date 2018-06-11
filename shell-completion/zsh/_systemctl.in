@@ -206,7 +206,7 @@ done
 {
    local _sys_startable_units; _systemctl_startable_units
    _wanted systemd-units expl 'startable unit' \
-     compadd "$@" - ${_sys_startable_units[*]} $(_systemctl_get_template_names)
+     compadd "$@" - ${_sys_startable_units[*]}
 }
 
 # Completion functions for STOPPABLE_UNITS
@@ -246,7 +246,7 @@ for fun in restart reload-or-restart ; do
   {
     local _sys_restartable_units; _systemctl_restartable_units
     _wanted systemd-units expl 'restartable unit' \
-      compadd "$@" - ${_sys_restartable_units[*]} $(_systemctl_get_template_names)
+      compadd "$@" - ${_sys_restartable_units[*]}
   }
 done
 
