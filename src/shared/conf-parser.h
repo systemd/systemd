@@ -140,6 +140,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_log_facility);
 CONFIG_PARSER_PROTOTYPE(config_parse_log_level);
 CONFIG_PARSER_PROTOTYPE(config_parse_signal);
 CONFIG_PARSER_PROTOTYPE(config_parse_personality);
+CONFIG_PARSER_PROTOTYPE(config_parse_permille);
 CONFIG_PARSER_PROTOTYPE(config_parse_ifname);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_port);
 CONFIG_PARSER_PROTOTYPE(config_parse_join_controllers);

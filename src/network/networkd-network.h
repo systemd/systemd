@@ -191,6 +191,11 @@ struct Network {
         uint32_t br_vid_bitmap[BRIDGE_VLAN_BITMAP_LEN];
         uint32_t br_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
 
+        /* CAN support */
+        size_t can_bitrate;
+        unsigned can_sample_point;
+        usec_t can_restart_us;
+
         AddressFamilyBoolean ip_forward;
         bool ip_masquerade;
 
