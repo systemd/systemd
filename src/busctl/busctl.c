@@ -1972,7 +1972,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
 
-                        arg_expect_reply = !!r;
+                        arg_expect_reply = r;
                         break;
 
                 case ARG_AUTO_START:
@@ -1982,7 +1982,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
 
-                        arg_auto_start = !!r;
+                        arg_auto_start = r;
                         break;
 
                 case ARG_ALLOW_INTERACTIVE_AUTHORIZATION:
@@ -1992,7 +1992,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
 
-                        arg_allow_interactive_authorization = !!r;
+                        arg_allow_interactive_authorization = r;
                         break;
 
                 case ARG_TIMEOUT:
@@ -2011,7 +2011,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
 
-                        arg_augment_creds = !!r;
+                        arg_augment_creds = r;
                         break;
 
                 case ARG_WATCH_BIND:
@@ -2021,7 +2021,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         }
 
-                        arg_watch_bind = !!r;
+                        arg_watch_bind = r;
                         break;
 
                 case '?':

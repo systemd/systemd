@@ -81,7 +81,7 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                 if (name)
                         found = streq(name, verbs[i].verb);
                 else
-                        found = !!(verbs[i].flags & VERB_DEFAULT);
+                        found = verbs[i].flags & VERB_DEFAULT;
 
                 if (found) {
                         verb = &verbs[i];

@@ -378,7 +378,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->level_prefix = !!r;
+                s->level_prefix = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_SYSLOG;
                 return 0;
 
@@ -389,7 +389,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->forward_to_syslog = !!r;
+                s->forward_to_syslog = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_KMSG;
                 return 0;
 
@@ -400,7 +400,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->forward_to_kmsg = !!r;
+                s->forward_to_kmsg = r;
                 s->state = STDOUT_STREAM_FORWARD_TO_CONSOLE;
                 return 0;
 
@@ -411,7 +411,7 @@ static int stdout_stream_line(StdoutStream *s, char *p, LineBreak line_break) {
                         return -EINVAL;
                 }
 
-                s->forward_to_console = !!r;
+                s->forward_to_console = r;
                 s->state = STDOUT_STREAM_RUNNING;
 
                 /* Try to save the stream, so that journald can be restarted and we can recover */

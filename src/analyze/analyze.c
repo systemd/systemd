@@ -1833,7 +1833,7 @@ static int parse_argv(int argc, char *argv[]) {
                                         return -EINVAL;
                                 }
 
-                                arg_man = !!r;
+                                arg_man = r;
                         } else
                                 arg_man = true;
 
@@ -1847,7 +1847,7 @@ static int parse_argv(int argc, char *argv[]) {
                                         return -EINVAL;
                                 }
 
-                                arg_generators = !!r;
+                                arg_generators = r;
                         } else
                                 arg_generators = true;
 

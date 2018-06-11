@@ -406,7 +406,7 @@ int dhcp6_request_address(Link *link, int ir) {
         if (r < 0)
                 return r;
         else
-                running = !!r;
+                running = r;
 
         if (running) {
                 r = sd_dhcp6_client_get_information_request(link->dhcp6_client, &inf_req);

@@ -302,7 +302,7 @@ int main(int argc, char *argv[]) {
         (void) cg_get_root_path(&cgroup);
         in_container = detect_container() > 0;
 
-        use_watchdog = !!getenv("WATCHDOG_USEC");
+        use_watchdog = getenv("WATCHDOG_USEC");
         watchdog_device = getenv("WATCHDOG_DEVICE");
         if (watchdog_device) {
                 r = watchdog_set_device(watchdog_device);

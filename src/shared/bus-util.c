@@ -1090,9 +1090,9 @@ static int map_basic(sd_bus *bus, const char *member, sd_bus_message *m, unsigne
                         return r;
 
                 if (flags & BUS_MAP_BOOLEAN_AS_BOOL)
-                        * (bool*) userdata = !!b;
+                        *(bool*) userdata = b;
                 else
-                        * (int*) userdata = b;
+                        *(int*) userdata = b;
 
                 return 0;
         }
@@ -1403,7 +1403,7 @@ int bus_property_set_bool(
         if (r < 0)
                 return r;
 
-        *(bool *) userdata = !!b;
+        *(bool*) userdata = b;
         return 0;
 }
 

@@ -563,7 +563,7 @@ static int property_get_bind_paths(
         assert(property);
         assert(reply);
 
-        ro = !!strstr(property, "ReadOnly");
+        ro = strstr(property, "ReadOnly");
 
         r = sd_bus_message_open_container(reply, 'a', "(ssbt)");
         if (r < 0)

@@ -500,7 +500,7 @@ int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
                                 (usec_t) le32toh(ri->otime.nsec) / NSEC_PER_USEC;
 
                         ret->subvol_id = subvol_id;
-                        ret->read_only = !!(le64toh(ri->flags) & BTRFS_ROOT_SUBVOL_RDONLY);
+                        ret->read_only = le64toh(ri->flags) & BTRFS_ROOT_SUBVOL_RDONLY;
 
                         assert_cc(sizeof(ri->uuid) == sizeof(ret->uuid));
                         memcpy(&ret->uuid, ri->uuid, sizeof(ret->uuid));

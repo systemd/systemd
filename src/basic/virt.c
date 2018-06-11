@@ -56,7 +56,7 @@ static int detect_vm_cpuid(void) {
         if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) == 0)
                 return VIRTUALIZATION_NONE;
 
-        hypervisor = !!(ecx & 0x80000000U);
+        hypervisor = ecx & 0x80000000U;
 
         if (hypervisor) {
                 union {
