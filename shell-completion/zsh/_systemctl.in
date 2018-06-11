@@ -135,6 +135,11 @@ _filter_units_by_property() {
   echo -E - "${(@g:o:)${(k@)props[(Re)$property=$value]}#Id=}"
 }
 
+_systemctl_get_non_template_names() { echo -E - ${^${(R)${(f)"$(
+    __systemctl $mode list-unit-files "$PREFIX*"
+    __systemctl $mode list-units --all "$PREFIX*"
+  )"}:#*@.*}%%[[:space:]]*} }
+
 _systemctl_get_template_names() { echo -E - ${^${(M)${(f)"$(__systemctl list-unit-files "$PREFIX*" )"}##*@.[^[:space:]]##}%%@.*}\@ }
 
 
@@ -161,12 +166,21 @@ _systemctl_unit_state() { typeset -gA _sys_unit_state; _sys_unit_state=( $(__sys
 
 local fun
 # Completion functions for ALL_UNITS
-for fun in is-active is-failed is-enabled status show cat mask preset help list-dependencies edit revert add-wants add-requires ; do
+for fun in cat mask ; do
   (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
   {
     _systemctl_really_all_units
     _wanted systemd-units expl unit \
       compadd "$@" -a - _sys_really_all_units
+  }
+done
+
+# Completion functions for NONTEMPLATE_UNITS
+for fun in is-active is-failed is-enabled status show preset help list-dependencies edit revert add-wants add-requires ; do
+  (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
+  {
+    _wanted systemd-units expl unit \
+      compadd "$@" - $(_systemctl_get_non_template_names)
   }
 done
 
