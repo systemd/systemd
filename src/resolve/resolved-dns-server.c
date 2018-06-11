@@ -15,10 +15,6 @@
 #include "string-table.h"
 #include "string-util.h"
 
-/* After how much time to repeat classic DNS requests */
-#define DNS_TIMEOUT_MIN_USEC (750 * USEC_PER_MSEC)
-#define DNS_TIMEOUT_MAX_USEC (SD_RESOLVED_QUERY_TIMEOUT_USEC / DNS_TRANSACTION_ATTEMPTS_MAX)
-
 /* The amount of time to wait before retrying with a full feature set */
 #define DNS_SERVER_FEATURE_GRACE_PERIOD_MAX_USEC (6 * USEC_PER_HOUR)
 #define DNS_SERVER_FEATURE_GRACE_PERIOD_MIN_USEC (5 * USEC_PER_MINUTE)
@@ -249,7 +245,7 @@ static void dns_server_reset_counters(DnsServer *s) {
          * incomplete. */
 }
 
-void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t rtt, size_t size) {
+void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t size) {
         assert(s);
 
         if (protocol == IPPROTO_UDP) {
@@ -285,14 +281,6 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
            this size. */
         if (protocol == IPPROTO_UDP && s->received_udp_packet_max < size)
                 s->received_udp_packet_max = size;
-
-        if (s->max_rtt < rtt) {
-                s->max_rtt = rtt;
-                s->resend_timeout = CLAMP(s->max_rtt * 2, DNS_TIMEOUT_MIN_USEC, DNS_TIMEOUT_MAX_USEC);
-        } else if (s->resend_timeout > rtt)
-                /* If we received the packet faster than the resend_timeout, bias
-                 * the resend_timeout back to the rtt. */
-                s->resend_timeout = CLAMP((2 * s->resend_timeout + rtt) / 3, DNS_TIMEOUT_MIN_USEC, DNS_TIMEOUT_MAX_USEC);
 }
 
 void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec) {
@@ -305,11 +293,6 @@ void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel le
                 else if (protocol == IPPROTO_TCP)
                         s->n_failed_tcp++;
         }
-
-        if (s->resend_timeout > usec)
-                return;
-
-        s->resend_timeout = MIN(s->resend_timeout * 2, DNS_TIMEOUT_MAX_USEC);
 }
 
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level) {
@@ -814,9 +797,6 @@ void dns_server_flush_cache(DnsServer *s) {
 
 void dns_server_reset_features(DnsServer *s) {
         assert(s);
-
-        s->max_rtt = 0;
-        s->resend_timeout = DNS_TIMEOUT_MIN_USEC;
 
         s->verified_feature_level = _DNS_SERVER_FEATURE_LEVEL_INVALID;
         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_BEST;

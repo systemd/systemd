@@ -54,9 +54,6 @@ struct DnsServer {
 
         char *server_string;
 
-        usec_t resend_timeout;
-        usec_t max_rtt;
-
         DnsServerFeatureLevel verified_feature_level;
         DnsServerFeatureLevel possible_feature_level;
 
@@ -98,7 +95,7 @@ DnsServer* dns_server_unref(DnsServer *s);
 void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
-void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t rtt, size_t size);
+void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t size);
 void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec);
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);

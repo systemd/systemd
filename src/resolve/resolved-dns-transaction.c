@@ -21,6 +21,9 @@
 #define TRANSACTIONS_MAX 4096
 #define TRANSACTION_TCP_TIMEOUT_USEC (10U*USEC_PER_SEC)
 
+/* After how much time to repeat classic DNS requests */
+#define DNS_TIMEOUT_USEC (SD_RESOLVED_QUERY_TIMEOUT_USEC / DNS_TRANSACTION_ATTEMPTS_MAX)
+
 static void dns_transaction_reset_answer(DnsTransaction *t) {
         assert(t);
 
@@ -1015,7 +1018,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p) {
                         dns_server_packet_bad_opt(t->server, t->current_feature_level);
 
                 /* Report that we successfully received a packet */
-                dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, ts - t->start_usec, p->size);
+                dns_server_packet_received(t->server, p->ipproto, t->current_feature_level, p->size);
         }
 
         /* See if we know things we didn't know before that indicate we better restart the lookup immediately. */
@@ -1233,8 +1236,7 @@ static usec_t transaction_get_resend_timeout(DnsTransaction *t) {
                 if (t->stream)
                         return TRANSACTION_TCP_TIMEOUT_USEC;
 
-                assert(t->server);
-                return t->server->resend_timeout;
+                return DNS_TIMEOUT_USEC;
 
         case DNS_PROTOCOL_MDNS:
                 assert(t->n_attempts > 0);
