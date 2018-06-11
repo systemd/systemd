@@ -3317,12 +3317,6 @@ int config_parse_io_device_weight(
         if (r < 0)
                 return 0;
 
-        if (!path_startswith(resolved, "/dev") &&
-            !path_startswith(resolved, "/run/systemd/inaccessible/")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s', ignoring.", resolved);
-                return 0;
-        }
-
         r = cg_weight_parse(p, &u);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "IO weight '%s' invalid, ignoring: %m", p);
@@ -3400,15 +3394,9 @@ int config_parse_io_limit(
         if (r < 0)
                 return 0;
 
-        if (!path_startswith(resolved, "/dev") &&
-            !path_startswith(resolved, "/run/systemd/inaccessible/")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s', ignoring.", resolved);
-                return 0;
-        }
-
-        if (streq("infinity", p)) {
+        if (streq("infinity", p))
                 num = CGROUP_LIMIT_MAX;
-        } else {
+        else {
                 r = parse_size(p, 1000, &num);
                 if (r < 0 || num <= 0) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid IO limit '%s', ignoring.", p);
@@ -3497,12 +3485,6 @@ int config_parse_blockio_device_weight(
         if (r < 0)
                 return 0;
 
-        if (!path_startswith(resolved, "/dev") &&
-            !path_startswith(resolved, "/run/systemd/inaccessible/")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s'. Ignoring.", resolved);
-                return 0;
-        }
-
         r = cg_blkio_weight_parse(p, &u);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Invalid block IO weight '%s', ignoring: %m", p);
@@ -3580,12 +3562,6 @@ int config_parse_blockio_bandwidth(
         r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
         if (r < 0)
                 return 0;
-
-        if (!path_startswith(resolved, "/dev") &&
-            !path_startswith(resolved, "/run/systemd/inaccessible/")) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid device node path '%s', ignoring.", resolved);
-                return 0;
-        }
 
         r = parse_size(p, 1000, &bytes);
         if (r < 0 || bytes <= 0) {
