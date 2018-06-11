@@ -882,8 +882,8 @@ static int table_data_requested_width(TableData *d, size_t *ret) {
         return 0;
 }
 
-static char *align_string_mem(const char *str, size_t old_length, size_t new_length, unsigned percent) {
-        size_t w = 0, space, lspace;
+static char *align_string_mem(const char *str, size_t new_length, unsigned percent) {
+        size_t w = 0, space, lspace, old_length;
         const char *p;
         char *ret;
         size_t i;
@@ -893,8 +893,7 @@ static char *align_string_mem(const char *str, size_t old_length, size_t new_len
         assert(str);
         assert(percent <= 100);
 
-        if (old_length == (size_t) -1)
-                old_length = strlen(str);
+        old_length = strlen(str);
 
         /* Determine current width on screen */
         p = str;
@@ -1183,7 +1182,7 @@ int table_print(Table *t, FILE *f) {
                         } else if (l < width[j]) {
                                 /* Field is shorter than allocated space. Let's align with spaces */
 
-                                buffer = align_string_mem(field, (size_t) -1, width[j], d->align_percent);
+                                buffer = align_string_mem(field, width[j], d->align_percent);
                                 if (!buffer)
                                         return -ENOMEM;
 
