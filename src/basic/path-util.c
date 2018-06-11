@@ -1014,14 +1014,14 @@ int path_simplify_and_warn(
                 if (!absolute && (flag & PATH_CHECK_ABSOLUTE)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
                                    "%s= path is not absolute%s: %s",
-                                   fatal ? "" : ", ignoring", lvalue, path);
+                                   lvalue, fatal ? "" : ", ignoring", path);
                         return -EINVAL;
                 }
 
                 if (absolute && (flag & PATH_CHECK_RELATIVE)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
                                    "%s= path is absolute%s: %s",
-                                   fatal ? "" : ", ignoring", lvalue, path);
+                                   lvalue, fatal ? "" : ", ignoring", path);
                         return -EINVAL;
                 }
         }
@@ -1031,7 +1031,7 @@ int path_simplify_and_warn(
         if (!path_is_normalized(path)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0,
                            "%s= path is not normalized%s: %s",
-                           fatal ? "" : ", ignoring", lvalue, path);
+                           lvalue, fatal ? "" : ", ignoring", path);
                 return -EINVAL;
         }
 
