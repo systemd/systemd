@@ -1311,6 +1311,9 @@ bool timezone_is_valid(const char *name, int log_level) {
         if (slash)
                 return false;
 
+        if (p - name >= PATH_MAX)
+                return false;
+
         t = strjoina("/usr/share/zoneinfo/", name);
 
         fd = open(t, O_RDONLY|O_CLOEXEC);
