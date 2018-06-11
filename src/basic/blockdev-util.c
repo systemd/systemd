@@ -81,6 +81,7 @@ int get_block_device(const char *path, dev_t *dev) {
         if (F_TYPE_EQUAL(sfs.f_type, BTRFS_SUPER_MAGIC))
                 return btrfs_get_block_device(path, dev);
 
+        *dev = 0;
         return 0;
 }
 

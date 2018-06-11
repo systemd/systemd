@@ -277,8 +277,10 @@ int btrfs_get_block_device_fd(int fd, dev_t *dev) {
                 return -errno;
 
         /* We won't do this for btrfs RAID */
-        if (fsi.num_devices != 1)
+        if (fsi.num_devices != 1) {
+                *dev = 0;
                 return 0;
+        }
 
         for (id = 1; id <= fsi.max_id; id++) {
                 struct btrfs_ioctl_dev_info_args di = {
