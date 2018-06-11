@@ -57,9 +57,26 @@ static void test_memdup_multiply_and_greedy_realloc(void) {
                 assert_se(p[i] == 0);
 }
 
+static void test_bool_assign(void) {
+        bool b, c, *cp = &c, d, e, f;
+
+        b = 123;
+        *cp = -11;
+        d = 0xF & 0xFF;
+        e = b & d;
+        f = 0x0;
+
+        assert(b);
+        assert(c);
+        assert(d);
+        assert(e);
+        assert(!f);
+}
+
 int main(int argc, char *argv[]) {
         test_alloca();
         test_memdup_multiply_and_greedy_realloc();
+        test_bool_assign();
 
         return 0;
 }
