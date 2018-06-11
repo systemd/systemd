@@ -820,7 +820,7 @@ int config_parse_exec_input(
                         resolved = mfree(resolved);
                 else if (!fdname_is_valid(resolved)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid file descriptor name: %s", resolved);
-                        return -EINVAL;
+                        return -ENOEXEC;
                 }
 
                 free_and_replace(c->stdio_fdname[STDIN_FILENO], resolved);
@@ -836,7 +836,7 @@ int config_parse_exec_input(
 
                 r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE | PATH_CHECK_FATAL, unit, filename, line, lvalue);
                 if (r < 0)
-                        return -EINVAL;
+                        return -ENOEXEC;
 
                 free_and_replace(c->stdio_file[STDIN_FILENO], resolved);
 
@@ -1001,7 +1001,7 @@ int config_parse_exec_output(
                         resolved = mfree(resolved);
                 else if (!fdname_is_valid(resolved)) {
                         log_syntax(unit, LOG_ERR, filename, line, 0, "Invalid file descriptor name: %s", resolved);
-                        return -EINVAL;
+                        return -ENOEXEC;
                 }
 
                 eo = EXEC_OUTPUT_NAMED_FD;
@@ -1014,7 +1014,7 @@ int config_parse_exec_output(
 
                 r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE | PATH_CHECK_FATAL, unit, filename, line, lvalue);
                 if (r < 0)
-                        return -EINVAL;
+                        return -ENOEXEC;
 
                 eo = EXEC_OUTPUT_FILE;
 

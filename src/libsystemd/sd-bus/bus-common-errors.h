@@ -14,6 +14,7 @@
 #define BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID "org.freedesktop.systemd1.NoUnitForInvocationID"
 #define BUS_ERROR_UNIT_EXISTS "org.freedesktop.systemd1.UnitExists"
 #define BUS_ERROR_LOAD_FAILED "org.freedesktop.systemd1.LoadFailed"
+#define BUS_ERROR_BAD_UNIT_SETTING "org.freedesktop.systemd1.BadUnitSetting"
 #define BUS_ERROR_JOB_FAILED "org.freedesktop.systemd1.JobFailed"
 #define BUS_ERROR_NO_SUCH_JOB "org.freedesktop.systemd1.NoSuchJob"
 #define BUS_ERROR_NOT_SUBSCRIBED "org.freedesktop.systemd1.NotSubscribed"

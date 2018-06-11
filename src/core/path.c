@@ -289,7 +289,7 @@ static int path_verify(Path *p) {
 
         if (!p->specs) {
                 log_unit_error(UNIT(p), "Path unit lacks path setting. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;

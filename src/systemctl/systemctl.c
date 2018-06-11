@@ -416,7 +416,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
                 if (!arg_no_legend &&
                     (streq(u->active_state, "failed") ||
-                     STR_IN_SET(u->load_state, "error", "not-found", "masked")))
+                     STR_IN_SET(u->load_state, "error", "not-found", "bad-setting", "masked")))
                         circle_len = 2;
         }
 
@@ -493,7 +493,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         underline = true;
                 }
 
-                if (STR_IN_SET(u->load_state, "error", "not-found", "masked") && !arg_plain) {
+                if (STR_IN_SET(u->load_state, "error", "not-found", "bad-setting", "masked") && !arg_plain) {
                         on_circle = ansi_highlight_yellow();
                         off_circle = ansi_normal();
                         circle = true;
@@ -3979,7 +3979,7 @@ static void print_status_info(
         if (i->following)
                 printf("   Follow: unit currently follows state of %s\n", i->following);
 
-        if (streq_ptr(i->load_state, "error")) {
+        if (STRPTR_IN_SET(i->load_state, "error", "not-found", "bad-setting")) {
                 on = ansi_highlight_red();
                 off = ansi_normal();
         } else
@@ -3989,7 +3989,7 @@ static void print_status_info(
         if (path && terminal_urlify_path(path, NULL, &formatted_path) >= 0)
                 path = formatted_path;
 
-        if (i->load_error != 0)
+        if (!isempty(i->load_error))
                 printf("   Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
         else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset) &&

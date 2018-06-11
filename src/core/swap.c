@@ -240,12 +240,12 @@ static int swap_verify(Swap *s) {
 
         if (!unit_has_name(UNIT(s), e)) {
                 log_unit_error(UNIT(s), "Value of What= and unit name do not match, not loading.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_unit_error(UNIT(s), "Unit has PAM enabled. Kill mode must be set to 'control-group'. Refusing to load.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;

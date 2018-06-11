@@ -610,7 +610,7 @@ static int method_set_unit_properties(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = bus_unit_check_load_state(u, error);
+        r = bus_unit_validate_load_state(u, error);
         if (r < 0)
                 return r;
 
@@ -634,7 +634,7 @@ static int method_ref_unit(sd_bus_message *message, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
-        r = bus_unit_check_load_state(u, error);
+        r = bus_unit_validate_load_state(u, error);
         if (r < 0)
                 return r;
 
@@ -658,7 +658,7 @@ static int method_unref_unit(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        r = bus_unit_check_load_state(u, error);
+        r = bus_unit_validate_load_state(u, error);
         if (r < 0)
                 return r;
 

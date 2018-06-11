@@ -441,32 +441,32 @@ static int socket_verify(Socket *s) {
 
         if (!s->ports) {
                 log_unit_error(UNIT(s), "Unit has no Listen setting (ListenStream=, ListenDatagram=, ListenFIFO=, ...). Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->accept && have_non_accept_socket(s)) {
                 log_unit_error(UNIT(s), "Unit configured for accepting sockets, but sockets are non-accepting. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->accept && s->max_connections <= 0) {
                 log_unit_error(UNIT(s), "MaxConnection= setting too small. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->accept && UNIT_DEREF(s->service)) {
                 log_unit_error(UNIT(s), "Explicit service configuration for accepting socket units not supported. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_unit_error(UNIT(s), "Unit has PAM enabled. Kill mode must be set to 'control-group'. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s)) {
                 log_unit_error(UNIT(s), "Unit has symlinks set but none or more than one node in the file system. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;
