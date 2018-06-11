@@ -320,6 +320,7 @@ possible_cc_flags = [
         '-Wwrite-strings',
         '-Werror=overflow',
         '-Werror=shift-count-overflow',
+        '-Werror=shift-overflow=2',
         '-Wdate-time',
         '-Wnested-externs',
         '-ffast-math',
