@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
   Copyright 2012 Lennart Poettering
