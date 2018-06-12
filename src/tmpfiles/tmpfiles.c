@@ -48,6 +48,7 @@
 #include "missing.h"
 #include "mkdir.h"
 #include "mount-util.h"
+#include "pager.h"
 #include "parse-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
@@ -156,6 +157,7 @@ static bool arg_create = false;
 static bool arg_clean = false;
 static bool arg_remove = false;
 static bool arg_boot = false;
+static bool arg_no_pager = false;
 
 static char **arg_include_prefixes = NULL;
 static char **arg_exclude_prefixes = NULL;
@@ -2511,6 +2513,7 @@ static void help(void) {
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "     --root=PATH            Operate on an alternate filesystem root\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
+               "     --no-pager             Do not pipe output into a pager\n"
                , program_invocation_short_name);
 }
 
@@ -2528,6 +2531,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_EXCLUDE_PREFIX,
                 ARG_ROOT,
                 ARG_REPLACE,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
@@ -2543,6 +2547,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "exclude-prefix", required_argument,   NULL, ARG_EXCLUDE_PREFIX },
                 { "root",           required_argument,   NULL, ARG_ROOT           },
                 { "replace",        required_argument,   NULL, ARG_REPLACE        },
+                { "no-pager",       no_argument,         NULL, ARG_NO_PAGER       },
                 {}
         };
 
@@ -2610,6 +2615,10 @@ static int parse_argv(int argc, char *argv[]) {
                         }
 
                         arg_replace = optarg;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
                         break;
 
                 case '?':
@@ -2801,6 +2810,8 @@ int main(int argc, char *argv[]) {
         }
 
         if (arg_cat_config) {
+                (void) pager_open(arg_no_pager, false);
+
                 r = cat_config(config_dirs, argv + optind);
                 goto finish;
         }
@@ -2847,6 +2858,8 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
+        pager_close();
+
         ordered_hashmap_free_with_destructor(items, item_array_free);
         ordered_hashmap_free_with_destructor(globs, item_array_free);
 

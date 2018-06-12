@@ -19,6 +19,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "log.h"
+#include "pager.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -28,6 +29,7 @@
 
 static char **arg_prefixes = NULL;
 static bool arg_cat_config = false;
+static bool arg_no_pager = false;
 
 static int apply_all(OrderedHashmap *sysctl_options) {
         char *property, *value;
@@ -170,6 +172,7 @@ static void help(void) {
                "     --version          Show package version\n"
                "     --cat-config       Show configuration files\n"
                "     --prefix=PATH      Only apply rules with the specified prefix\n"
+               "     --no-pager         Do not pipe output into a pager\n"
                , program_invocation_short_name);
 }
 
@@ -179,6 +182,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
                 ARG_PREFIX,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
@@ -186,6 +190,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",    no_argument,       NULL, ARG_VERSION    },
                 { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
                 { "prefix",     required_argument, NULL, ARG_PREFIX     },
+                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
                 {}
         };
 
@@ -230,6 +235,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
                 }
+
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -287,6 +296,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (arg_cat_config) {
+                        (void) pager_open(arg_no_pager, false);
+
                         r = cat_files(NULL, files, 0);
                         goto finish;
                 }
@@ -303,6 +314,8 @@ int main(int argc, char *argv[]) {
                 r = k;
 
 finish:
+        pager_close();
+
         ordered_hashmap_free_free_free(sysctl_options);
         strv_free(arg_prefixes);
 
