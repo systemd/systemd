@@ -51,11 +51,10 @@ available functionality:
     [online](https://oss-fuzz.com/v2/testcases?project=systemd).
 
 12. Our tree includes `.editorconfig`, `.dir-locals.el` and `.vimrc` files, to
-    ensure that editors follow the right indenting coding styles automatically.
+    ensure that editors follow the right indentiation styles automatically.
 
 13. When building systemd from a git checkout the build scripts will
-    automatically enabled a git commit hook that ensures whitespace
-    cleanliness.
+    automatically enable a git commit hook that ensures whitespace cleanliness.
 
 Access to Coverity and oss-fuzz reports is limited. Please reach out the the
 maintainers is you need access.

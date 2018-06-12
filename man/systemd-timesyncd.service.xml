@@ -85,7 +85,8 @@
 
         <listitem>
           <para>The modification time of this file indicates the timestamp of the last successful
-          synchronization.</para>
+          synchronization (or at least the systemd build date, in case synchronization was not
+          possible).</para>
         </listitem>
       </varlistentry>
 
