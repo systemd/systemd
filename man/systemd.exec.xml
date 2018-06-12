@@ -806,7 +806,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>These options take a whitespace-separated list of directory names. The specified directory
         names must be relative, and may not include <literal>..</literal>. If set, one or more
         directories by the specified names will be created (including their parents) below the locations
-        defined in the following table, when the unit is started.</para>          
+        defined in the following table, when the unit is started.</para>
         <table>
           <title>Automatic directory creation</title>
           <tgroup cols='3'>
@@ -846,7 +846,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
             </tbody>
           </tgroup>
         </table>
-          
+
         <para>In case of <varname>RuntimeDirectory=</varname> the lowest subdirectories are removed when the unit is
         stopped. It is possible to preserve the specified directories in this case if
         <varname>RuntimeDirectoryPreserve=</varname> is configured to <option>restart</option> or <option>yes</option>
