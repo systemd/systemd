@@ -396,6 +396,13 @@ int manager_parse_config_file(Manager *m) {
                 m->dnssec_mode = DNSSEC_NO;
         }
 #endif
+
+#if ! HAVE_GNUTLS
+        if (m->private_dns_mode != PRIVATE_DNS_NO) {
+                log_warning("Private DNS option cannot be set to opportunistic when systemd-resolved is built without gnutls support. Turning off private DNS support.");
+                m->private_dns_mode = PRIVATE_DNS_NO;
+        }
+#endif
         return 0;
 
 }

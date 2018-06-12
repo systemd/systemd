@@ -52,12 +52,18 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                  * not update it from the on, even if the setting
                  * changes. */
 
-                if (l)
+                if (l) {
                         s->dnssec_mode = link_get_dnssec_mode(l);
-                else
+                        s->private_dns_mode = link_get_private_dns_mode(l);
+                } else {
                         s->dnssec_mode = manager_get_dnssec_mode(m);
-        } else
+                        s->private_dns_mode = manager_get_private_dns_mode(m);
+                }
+
+        } else {
                 s->dnssec_mode = DNSSEC_NO;
+                s->private_dns_mode = PRIVATE_DNS_NO;
+        }
 
         LIST_PREPEND(scopes, m->dns_scopes, s);
 
@@ -306,10 +312,11 @@ static int dns_scope_socket(
                 int family,
                 const union in_addr_union *address,
                 DnsServer *server,
-                uint16_t port) {
+                uint16_t port,
+                union sockaddr_union *ret_socket_address) {
 
         _cleanup_close_ int fd = -1;
-        union sockaddr_union sa = {};
+        union sockaddr_union sa;
         socklen_t salen;
         static const int one = 1;
         int r, ifindex;
@@ -392,19 +399,27 @@ static int dns_scope_socket(
                 }
         }
 
-        r = connect(fd, &sa.sa, salen);
-        if (r < 0 && errno != EINPROGRESS)
-                return -errno;
+        if (ret_socket_address)
+                *ret_socket_address = sa;
+        else {
+                r = connect(fd, &sa.sa, salen);
+                if (r < 0 && errno != EINPROGRESS)
+                        return -errno;
+        }
 
         return TAKE_FD(fd);
 }
 
 int dns_scope_socket_udp(DnsScope *s, DnsServer *server, uint16_t port) {
-        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, server, port);
+        return dns_scope_socket(s, SOCK_DGRAM, AF_UNSPEC, NULL, server, port, NULL);
 }
 
-int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port) {
-        return dns_scope_socket(s, SOCK_STREAM, family, address, server, port);
+int dns_scope_socket_tcp(DnsScope *s, int family, const union in_addr_union *address, DnsServer *server, uint16_t port, union sockaddr_union *ret_socket_address) {
+        /* If ret_socket_address is not NULL, the caller is responisble
+         * for calling connect() or sendmsg(). This is required by TCP
+         * Fast Open, to be able to send the initial SYN packet along
+         * with the first data packet. */
+        return dns_scope_socket(s, SOCK_STREAM, family, address, server, port, ret_socket_address);
 }
 
 DnsScopeMatch dns_scope_good_domain(DnsScope *s, int ifindex, uint64_t flags, const char *domain) {

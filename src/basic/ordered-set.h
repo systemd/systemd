@@ -48,6 +48,14 @@ static inline bool ordered_set_iterate(OrderedSet *s, Iterator *i, void **value)
         return ordered_hashmap_iterate((OrderedHashmap*) s, i, value, NULL);
 }
 
+static inline void* ordered_set_remove(OrderedSet *s, void *p) {
+        return ordered_hashmap_remove((OrderedHashmap*) s, p);
+}
+
+static inline void* ordered_set_steal_first(OrderedSet *s) {
+        return ordered_hashmap_steal_first((OrderedHashmap*) s);
+}
+
 int ordered_set_consume(OrderedSet *s, void *p);
 int ordered_set_put_strdup(OrderedSet *s, const char *p);
 int ordered_set_put_strdupv(OrderedSet *s, char **l);

@@ -345,7 +345,7 @@ static int on_llmnr_stream(sd_event_source *s, int fd, uint32_t revents, void *u
                 return -errno;
         }
 
-        r = dns_stream_new(m, &stream, DNS_PROTOCOL_LLMNR, cfd);
+        r = dns_stream_new(m, &stream, DNS_PROTOCOL_LLMNR, cfd, NULL);
         if (r < 0) {
                 safe_close(cfd);
                 return r;

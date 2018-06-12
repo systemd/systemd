@@ -89,6 +89,11 @@ int dns_server_new(
 
         s->linked = true;
 
+#if HAVE_GNUTLS
+        /* Do not verify cerificate */
+        gnutls_certificate_allocate_credentials(&s->tls_cert_cred);
+#endif
+
         /* A new DNS server that isn't fallback is added and the one
          * we used so far was a fallback one? Then let's try to pick
          * the new one */
@@ -122,6 +127,16 @@ DnsServer* dns_server_unref(DnsServer *s)  {
 
         if (s->n_ref > 0)
                 return NULL;
+
+        dns_stream_unref(s->stream);
+
+#if HAVE_GNUTLS
+        if (s->tls_cert_cred)
+                gnutls_certificate_free_credentials(s->tls_cert_cred);
+
+        if (s->tls_session_data.data)
+                gnutls_free(s->tls_session_data.data);
+#endif
 
         free(s->server_string);
         return mfree(s);
@@ -234,6 +249,7 @@ static void dns_server_reset_counters(DnsServer *s) {
 
         s->n_failed_udp = 0;
         s->n_failed_tcp = 0;
+        s->n_failed_tls = 0;
         s->packet_truncated = false;
         s->verified_usec = 0;
 
@@ -255,28 +271,31 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
         if (protocol == IPPROTO_UDP) {
                 if (s->possible_feature_level == level)
                         s->n_failed_udp = 0;
-
-                /* If the RRSIG data is missing, then we can only validate EDNS0 at max */
-                if (s->packet_rrsig_missing && level >= DNS_SERVER_FEATURE_LEVEL_DO)
-                        level = DNS_SERVER_FEATURE_LEVEL_DO - 1;
-
-                /* If the OPT RR got lost, then we can only validate UDP at max */
-                if (s->packet_bad_opt && level >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
-                        level = DNS_SERVER_FEATURE_LEVEL_EDNS0 - 1;
-
-                /* Even if we successfully receive a reply to a request announcing support for large packets,
-                   that does not mean we can necessarily receive large packets. */
-                if (level == DNS_SERVER_FEATURE_LEVEL_LARGE)
-                        level = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
-
         } else if (protocol == IPPROTO_TCP) {
+                if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(level)) {
+                        if (s->possible_feature_level == level)
+                                s->n_failed_tls = 0;
+                } else {
+                        if (s->possible_feature_level == level)
+                                s->n_failed_tcp = 0;
 
-                if (s->possible_feature_level == level)
-                        s->n_failed_tcp = 0;
-
-                /* Successful TCP connections are only useful to verify the TCP feature level. */
-                level = DNS_SERVER_FEATURE_LEVEL_TCP;
+                        /* Successful TCP connections are only useful to verify the TCP feature level. */
+                        level = DNS_SERVER_FEATURE_LEVEL_TCP;
+                }
         }
+
+        /* If the RRSIG data is missing, then we can only validate EDNS0 at max */
+        if (s->packet_rrsig_missing && level >= DNS_SERVER_FEATURE_LEVEL_DO)
+                level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN : DNS_SERVER_FEATURE_LEVEL_EDNS0;
+
+        /* If the OPT RR got lost, then we can only validate UDP at max */
+        if (s->packet_bad_opt && level >= DNS_SERVER_FEATURE_LEVEL_EDNS0)
+                level = DNS_SERVER_FEATURE_LEVEL_EDNS0 - 1;
+
+        /* Even if we successfully receive a reply to a request announcing support for large packets,
+                that does not mean we can necessarily receive large packets. */
+        if (level == DNS_SERVER_FEATURE_LEVEL_LARGE)
+                level = DNS_SERVER_FEATURE_LEVEL_LARGE - 1;
 
         dns_server_verified(s, level);
 
@@ -302,8 +321,12 @@ void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel le
         if (s->possible_feature_level == level) {
                 if (protocol == IPPROTO_UDP)
                         s->n_failed_udp++;
-                else if (protocol == IPPROTO_TCP)
-                        s->n_failed_tcp++;
+                else if (protocol == IPPROTO_TCP) {
+                        if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(level))
+                                s->n_failed_tls++;
+                        else
+                                s->n_failed_tcp++;
+                }
         }
 
         if (s->resend_timeout > usec)
@@ -331,7 +354,7 @@ void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level) 
 
         /* If the RRSIG RRs are missing, we have to downgrade what we previously verified */
         if (s->verified_feature_level >= DNS_SERVER_FEATURE_LEVEL_DO)
-                s->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_DO-1;
+                s->verified_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN : DNS_SERVER_FEATURE_LEVEL_EDNS0;
 
         s->packet_rrsig_missing = true;
 }
@@ -393,9 +416,14 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
 
         /* Determine the best feature level we care about. If DNSSEC mode is off there's no point in using anything
          * better than EDNS0, hence don't even try. */
-        best = dns_server_get_dnssec_mode(s) == DNSSEC_NO ?
-                DNS_SERVER_FEATURE_LEVEL_EDNS0 :
-                DNS_SERVER_FEATURE_LEVEL_BEST;
+        if (dns_server_get_dnssec_mode(s) != DNSSEC_NO)
+                best = dns_server_get_private_dns_mode(s) == PRIVATE_DNS_NO ?
+                        DNS_SERVER_FEATURE_LEVEL_LARGE :
+                        DNS_SERVER_FEATURE_LEVEL_TLS_DO;
+        else
+                best = dns_server_get_private_dns_mode(s) == PRIVATE_DNS_NO ?
+                        DNS_SERVER_FEATURE_LEVEL_EDNS0 :
+                        DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
 
         /* Clamp the feature level the highest level we care about. The DNSSEC mode might have changed since the last
          * time, hence let's downgrade if we are still at a higher level. */
@@ -429,7 +457,14 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                          * work. Upgrade back to UDP again. */
                         log_debug("Reached maximum number of failed TCP connection attempts, trying UDP again...");
                         s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_UDP;
+                } else if (s->n_failed_tls > 0 &&
+                           DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level)) {
 
+                        /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext UDP
+                         * if we don't require DNS-over-TLS */
+
+                        log_debug("Server doesn't support seem to support DNS-over-TLS, downgrading protocol...");
+                        s->possible_feature_level--;
                 } else if (s->packet_bad_opt &&
                            s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
 
@@ -450,7 +485,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                          * not. */
 
                         log_debug("Detected server responses lack RRSIG records, downgrading feature level...");
-                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_EDNS0;
+                        s->possible_feature_level = DNS_SERVER_FEATURE_LEVEL_IS_TLS(s->possible_feature_level) ? DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN : DNS_SERVER_FEATURE_LEVEL_EDNS0;
 
                 } else if (s->n_failed_udp >= DNS_SERVER_FEATURE_RETRY_ATTEMPTS &&
                            s->possible_feature_level >= (dns_server_get_dnssec_mode(s) == DNSSEC_YES ? DNS_SERVER_FEATURE_LEVEL_LARGE : DNS_SERVER_FEATURE_LEVEL_UDP)) {
@@ -793,6 +828,15 @@ DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
         return manager_get_dnssec_mode(s->manager);
 }
 
+PrivateDnsMode dns_server_get_private_dns_mode(DnsServer *s) {
+        assert(s);
+
+        if (s->link)
+                return link_get_private_dns_mode(s->link);
+
+        return manager_get_private_dns_mode(s->manager);
+}
+
 void dns_server_flush_cache(DnsServer *s) {
         DnsServer *current;
         DnsScope *scope;
@@ -902,7 +946,9 @@ static const char* const dns_server_feature_level_table[_DNS_SERVER_FEATURE_LEVE
         [DNS_SERVER_FEATURE_LEVEL_TCP] = "TCP",
         [DNS_SERVER_FEATURE_LEVEL_UDP] = "UDP",
         [DNS_SERVER_FEATURE_LEVEL_EDNS0] = "UDP+EDNS0",
+        [DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN] = "TLS+EDNS0",
         [DNS_SERVER_FEATURE_LEVEL_DO] = "UDP+EDNS0+DO",
         [DNS_SERVER_FEATURE_LEVEL_LARGE] = "UDP+EDNS0+DO+LARGE",
+        [DNS_SERVER_FEATURE_LEVEL_TLS_DO] = "TLS+EDNS0+D0",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_server_feature_level, DnsServerFeatureLevel);

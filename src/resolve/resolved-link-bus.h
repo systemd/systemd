@@ -21,6 +21,7 @@ int bus_link_method_set_dns_servers(sd_bus_message *message, void *userdata, sd_
 int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_link_method_set_private_dns(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error *error);
