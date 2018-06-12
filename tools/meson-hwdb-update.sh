@@ -4,9 +4,11 @@ set -eu
 cd "$1"
 
 unset permissive
-if [ "$2" = "-p" ]; then
+if [ "${2:-}" = "-p" ]; then
         permissive=1
         shift
+else
+        permissive=0
 fi
 
 if [ "${2:-}" != "-n" ]; then (
