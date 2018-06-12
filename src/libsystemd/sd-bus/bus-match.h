@@ -2,7 +2,6 @@
 #pragma once
 
 /***
-  Copyright 2013 Lennart Poettering
 ***/
 
 #include "sd-bus.h"

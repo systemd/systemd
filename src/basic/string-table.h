@@ -2,10 +2,6 @@
 
 #pragma once
 
-/***
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>

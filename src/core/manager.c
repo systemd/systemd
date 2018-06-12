@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <fcntl.h>
@@ -1339,7 +1336,6 @@ static void manager_enumerate_perpetual(Manager *m) {
                         unit_vtable[c]->enumerate_perpetual(m);
         }
 }
-
 
 static void manager_enumerate(Manager *m) {
         UnitType c;

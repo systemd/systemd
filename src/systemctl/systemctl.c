@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2010 Lennart Poettering
   Copyright 2013 Marc-Antoine Perennou
 ***/
 
@@ -4160,7 +4159,6 @@ static void print_status_info(
                         printf(" Refused: %u", i->n_refused);
                 printf("\n");
         }
-
 
         LIST_FOREACH(exec, p, i->exec) {
                 _cleanup_free_ char *argv = NULL;

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
   Copyright 2013-2015 Kay Sievers
-  Copyright 2013 Lennart Poettering
 ***/
 
 #include <blkid.h>

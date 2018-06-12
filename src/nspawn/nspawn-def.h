@@ -1,9 +1,5 @@
 #pragma once
 
-/***
-  Copyright 2017 Lennart Poettering
-***/
-
 #include <sys/types.h>
 
 /* While we are chmod()ing a directory tree, we set the top-level UID base to this "busy" base, so that we can always

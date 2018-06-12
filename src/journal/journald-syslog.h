@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2011 Lennart Poettering
-***/
-
 #include "journald-server.h"
 
 int syslog_fixup_facility(int priority) _const_;

@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2014 Kay Sievers, Lennart Poettering
+  Copyright 2014 Kay Sievers
 ***/
 
 #include "conf-parser.h"

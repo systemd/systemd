@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2010 Lennart Poettering
-***/
-
 /* Missing glibc definitions to access certain kernel APIs */
 
 #include <errno.h>

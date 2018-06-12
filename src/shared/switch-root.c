@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2012 Harald Hoyer, Lennart Poettering
+  Copyright 2012 Harald Hoyer
 ***/
 
 #include <errno.h>

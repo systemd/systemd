@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2014 Lennart Poettering
-***/
-
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>

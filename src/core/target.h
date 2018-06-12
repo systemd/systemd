@@ -3,10 +3,6 @@
 
 #include "unit.h"
 
-/***
-  Copyright 2010 Lennart Poettering
-***/
-
 typedef struct Target Target;
 
 struct Target {

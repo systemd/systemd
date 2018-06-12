@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright 2016 Lennart Poettering
-***/
 
 #include "ordered-set.h"
 #include "strv.h"

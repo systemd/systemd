@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2010-2012 Lennart Poettering
-***/
-
 #include <alloca.h>
 #include <stdbool.h>
 #include <stddef.h>

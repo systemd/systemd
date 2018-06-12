@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright 2013 Lennart Poettering
-***/
 
 #include "dbus-cgroup.h"
 #include "dbus-slice.h"

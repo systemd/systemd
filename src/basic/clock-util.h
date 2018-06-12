@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2010-2012 Lennart Poettering
-***/
-
 #include <time.h>
 
 int clock_is_localtime(const char* adjtime_path);

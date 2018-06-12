@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2012 Lennart Poettering
-***/
-
 #include "bus-util.h"
 
 int polkit_agent_open(void);

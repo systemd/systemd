@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright 2010 Lennart Poettering
-***/
 
 #include <stdlib.h>
 #include <sys/socket.h>

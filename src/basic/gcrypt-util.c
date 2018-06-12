@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
-/***
-  Copyright 2012 Lennart Poettering
-***/
-
 #if HAVE_GCRYPT
 #include <gcrypt.h>
 

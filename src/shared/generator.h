@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2014 Lennart Poettering
-***/
-
 #include <stdio.h>
 
 int generator_open_unit_file(

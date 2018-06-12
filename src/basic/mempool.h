@@ -2,7 +2,6 @@
 #pragma once
 
 /***
-  Copyright 2011-2014 Lennart Poettering
   Copyright 2014 Michal Schmidt
 ***/
 

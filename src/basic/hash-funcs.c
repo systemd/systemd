@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2010 Lennart Poettering
   Copyright 2014 Michal Schmidt
 ***/
 

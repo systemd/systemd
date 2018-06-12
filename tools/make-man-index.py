@@ -2,7 +2,6 @@
 #  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 # SPDX-License-Identifier: LGPL-2.1+
 #
-#  Copyright 2012 Lennart Poettering
 #  Copyright 2013 Zbigniew Jędrzejewski-Szmek
 
 import collections

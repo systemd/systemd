@@ -2,7 +2,6 @@
 #pragma once
 
 /***
-  Copyright 2010-2012 Lennart Poettering
   Copyright 2010-2012 Kay Sievers
 ***/
 

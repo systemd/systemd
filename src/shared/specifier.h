@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2010 Lennart Poettering
-***/
-
 #include "string-util.h"
 
 typedef int (*SpecifierCallback)(char specifier, void *data, void *userdata, char **ret);

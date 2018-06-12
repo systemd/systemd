@@ -2,7 +2,6 @@
 #pragma once
 
 /***
-  Copyright 2016 Lennart Poettering
 ***/
 
 #include <stdbool.h>

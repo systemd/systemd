@@ -4,13 +4,10 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  Copyright 2012 Lennart Poettering
-
   This is based on crypttab(5) from Fedora's initscripts package, which in
   turn is based on Debian's version.
 
   The Red Hat version has been written by Miloslav Trmac <mitr@redhat.com>.
-
 -->
 <refentry id="crypttab" conditional='HAVE_LIBCRYPTSETUP'>
 

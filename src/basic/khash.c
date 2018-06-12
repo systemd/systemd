@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright 2016 Lennart Poettering
-***/
 
 #include <linux/if_alg.h>
 #include <stdbool.h>

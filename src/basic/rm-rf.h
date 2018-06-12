@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2015 Lennart Poettering
-***/
-
 #include <sys/stat.h>
 
 #include "util.h"

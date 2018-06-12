@@ -4,8 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  Copyright 2012 Lennart Poettering
 -->
 
 <refentry id="sd_id128_to_string" xmlns:xi="http://www.w3.org/2001/XInclude">

@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2010 Lennart Poettering
-***/
-
 #include <fnmatch.h>
 #include <stdarg.h>
 #include <stdbool.h>

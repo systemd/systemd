@@ -3,7 +3,6 @@
 #define foosdnetworkhfoo
 
 /***
-  Copyright 2011 Lennart Poettering
   Copyright 2014 Tom Gundersen
 
   systemd is free software; you can redistribute it and/or modify it

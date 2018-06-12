@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2014 Lennart Poettering
-***/
-
 #define VERB_ANY ((unsigned) -1)
 
 typedef enum VerbFlags {

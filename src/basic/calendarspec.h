@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2012 Lennart Poettering
-***/
-
 /* A structure for specifying (possibly repetitive) points in calendar
  * time, a la cron */
 

@@ -2,7 +2,6 @@
 #pragma once
 
 /***
-  Copyright 2010 Lennart Poettering
   Copyright © 2012 Roberto Sassu - Politecnico di Torino, Italy
                                    TORSEC group — http://security.polito.it
 ***/

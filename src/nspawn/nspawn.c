@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright 2010 Lennart Poettering
-***/
 
 #if HAVE_BLKID
 #include <blkid.h>

@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2012 Lennart Poettering
-***/
-
 typedef struct Button Button;
 
 #include "logind.h"

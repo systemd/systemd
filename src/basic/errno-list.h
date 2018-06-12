@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2013 Lennart Poettering
-***/
-
 #include <stdbool.h>
 /*
  * MAX_ERRNO is defined as 4095 in linux/err.h

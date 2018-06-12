@@ -2,7 +2,6 @@
 #pragma once
 
 /***
-  Copyright 2013 Lennart Poettering
 ***/
 
 void bus_track_dispatch(sd_bus_track *track);

@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright 2012 Lennart Poettering
-***/
 
 #include "output-mode.h"
 #include "string-table.h"

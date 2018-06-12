@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
   Copyright 2014 Thomas H.P. Andersen
-  Copyright 2010 Lennart Poettering
   Copyright 2011 Michal Schmidt
 ***/
 

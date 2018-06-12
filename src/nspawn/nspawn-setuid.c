@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright 2015 Lennart Poettering
-***/
 
 #include <grp.h>
 #include <sys/types.h>

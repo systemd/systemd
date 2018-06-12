@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright 2011,2013 Lennart Poettering
-***/
 
 #include <errno.h>
 #include <stdbool.h>

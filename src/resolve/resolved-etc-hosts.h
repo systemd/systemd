@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2016 Lennart Poettering
-***/
-
 #include "resolved-manager.h"
 #include "resolved-dns-question.h"
 #include "resolved-dns-answer.h"

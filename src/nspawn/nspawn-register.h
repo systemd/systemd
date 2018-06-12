@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2015 Lennart Poettering
-***/
-
 #include <sys/types.h>
 
 #include "sd-id128.h"

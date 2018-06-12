@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2011 Lennart Poettering
-***/
-
 typedef struct User User;
 
 #include "conf-parser.h"

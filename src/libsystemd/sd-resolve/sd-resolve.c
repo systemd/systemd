@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2005-2008 Lennart Poettering
 ***/
 
 #include <errno.h>

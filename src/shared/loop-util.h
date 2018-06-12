@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright 2016 Lennart Poettering
-***/
-
 #include "macro.h"
 
 typedef struct LoopDevice LoopDevice;
