@@ -67,8 +67,8 @@ CHANGES WITH 239 in spe:
           interface is now verb-based, similar in style to the other <xyz>ctl
           tools, such as systemctl or loginctl.
 
-        * The resolvectl/systemd-resolve tool also provides 'resolveconf'
-          compatibility. It may be symlinked under the 'resolveconf' name, in
+        * The resolvectl/systemd-resolve tool also provides 'resolvconf'
+          compatibility. It may be symlinked under the 'resolvconf' name, in
           which case it will take arguments and input compatible with the
           Debian and FreeBSD resolvconf tool.
 
