@@ -11,17 +11,18 @@ CHANGES WITH 239 in spe:
 
         * AF_INET and AF_INET6 are dropped from RestrictAddressFamilies= in
           systemd-logind.service. Since v235, IPAddressDeny=any has been set to
-          the unit. So, it is expected that the default behavior of systemd-logind
-          is not changed. However, if distribution packagers or administrators
-          disabled or modified IPAddressDeny= setting by a drop-in config file,
-          then it may be necessary to update the file to re-enable AF_INET and
-          AF_INET6 to support network user name services, e.g. NIS.
+          the unit. So, it is expected that the default behavior of
+          systemd-logind is not changed. However, if distribution packagers or
+          administrators disabled or modified IPAddressDeny= setting by a
+          drop-in config file, then it may be necessary to update the file to
+          re-enable AF_INET and AF_INET6 to support network user name services,
+          e.g. NIS.
 
-        * When the RestrictNamespaces= unit property is specified multiple times,
-          then the specified types are merged now. Previously, only the last
-          assignment was used. So, if distribution packagers or administrators
-          modified the setting by a drop-in config file, then it may be necessary
-          to update the file.
+        * When the RestrictNamespaces= unit property is specified multiple
+          times, then the specified types are merged now. Previously, only the
+          last assignment was used. So, if distribution packagers or
+          administrators modified the setting by a drop-in config file, then it
+          may be necessary to update the file.
 
         * When OnFailure= is used in combination with Restart= on a service
           unit, then the specified units will no longer be triggered on
@@ -41,9 +42,9 @@ CHANGES WITH 239 in spe:
 
         * systemctl disable/unmask/preset/preset-all cannot be used with
           --runtime. Previously this was allowed, but resulted in unintuitive
-          behaviour that wasn't useful. systemctl disable/unmask will now
-          undo both runtime and persistent enablement/masking, i.e. it will
-          remove any relevant symlinks both in /run and /etc.
+          behaviour that wasn't useful. systemctl disable/unmask will now undo
+          both runtime and persistent enablement/masking, i.e. it will remove
+          any relevant symlinks both in /run and /etc.
 
         * sd-boot acquired new loader configuration settings to optionally turn
           off Windows and MacOS boot partition discovery as well as
