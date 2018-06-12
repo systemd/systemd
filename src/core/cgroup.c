@@ -624,26 +624,22 @@ static void cgroup_apply_blkio_device_weight(Unit *u, const char *dev_path, uint
                               "Failed to set blkio.weight_device: %m");
 }
 
-static unsigned cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t *limits) {
+static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t *limits) {
         char limit_bufs[_CGROUP_IO_LIMIT_TYPE_MAX][DECIMAL_STR_MAX(uint64_t)];
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+(6+DECIMAL_STR_MAX(uint64_t)+1)*4];
         CGroupIOLimitType type;
         dev_t dev;
-        unsigned n = 0;
         int r;
 
         r = lookup_block_device(dev_path, &dev);
         if (r < 0)
-                return 0;
+                return;
 
-        for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++) {
-                if (limits[type] != cgroup_io_limit_defaults[type]) {
+        for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+                if (limits[type] != cgroup_io_limit_defaults[type])
                         xsprintf(limit_bufs[type], "%" PRIu64, limits[type]);
-                        n++;
-                } else {
+                else
                         xsprintf(limit_bufs[type], "%s", limits[type] == CGROUP_LIMIT_MAX ? "max" : "0");
-                }
-        }
 
         xsprintf(buf, "%u:%u rbps=%s wbps=%s riops=%s wiops=%s\n", major(dev), minor(dev),
                  limit_bufs[CGROUP_IO_RBPS_MAX], limit_bufs[CGROUP_IO_WBPS_MAX],
@@ -652,36 +648,28 @@ static unsigned cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint
         if (r < 0)
                 log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                               "Failed to set io.max: %m");
-        return n;
 }
 
-static unsigned cgroup_apply_blkio_device_limit(Unit *u, const char *dev_path, uint64_t rbps, uint64_t wbps) {
+static void cgroup_apply_blkio_device_limit(Unit *u, const char *dev_path, uint64_t rbps, uint64_t wbps) {
         char buf[DECIMAL_STR_MAX(dev_t)*2+2+DECIMAL_STR_MAX(uint64_t)+1];
         dev_t dev;
-        unsigned n = 0;
         int r;
 
         r = lookup_block_device(dev_path, &dev);
         if (r < 0)
-                return 0;
+                return;
 
-        if (rbps != CGROUP_LIMIT_MAX)
-                n++;
         sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), rbps);
         r = cg_set_attribute("blkio", u->cgroup_path, "blkio.throttle.read_bps_device", buf);
         if (r < 0)
                 log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                               "Failed to set blkio.throttle.read_bps_device: %m");
 
-        if (wbps != CGROUP_LIMIT_MAX)
-                n++;
         sprintf(buf, "%u:%u %" PRIu64 "\n", major(dev), minor(dev), wbps);
         r = cg_set_attribute("blkio", u->cgroup_path, "blkio.throttle.write_bps_device", buf);
         if (r < 0)
                 log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                               "Failed to set blkio.throttle.write_bps_device: %m");
-
-        return n;
 }
 
 static bool cgroup_context_has_unified_memory_config(CGroupContext *c) {
@@ -832,16 +820,15 @@ static void cgroup_context_apply(
 
                 /* Apply limits and free ones without config. */
                 if (has_io) {
-                        CGroupIODeviceLimit *l, *next;
+                        CGroupIODeviceLimit *l;
 
-                        LIST_FOREACH_SAFE(device_limits, l, next, c->io_device_limits) {
-                                if (!cgroup_apply_io_device_limit(u, l->path, l->limits))
-                                        cgroup_context_free_io_device_limit(c, l);
-                        }
+                        LIST_FOREACH(device_limits, l, c->io_device_limits)
+                                cgroup_apply_io_device_limit(u, l->path, l->limits);
+
                 } else if (has_blockio) {
-                        CGroupBlockIODeviceBandwidth *b, *next;
+                        CGroupBlockIODeviceBandwidth *b;
 
-                        LIST_FOREACH_SAFE(device_bandwidths, b, next, c->blockio_device_bandwidths) {
+                        LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths) {
                                 uint64_t limits[_CGROUP_IO_LIMIT_TYPE_MAX];
                                 CGroupIOLimitType type;
 
@@ -854,8 +841,7 @@ static void cgroup_context_apply(
                                 log_cgroup_compat(u, "Applying BlockIO{Read|Write}Bandwidth %" PRIu64 " %" PRIu64 " as IO{Read|Write}BandwidthMax for %s",
                                                   b->rbps, b->wbps, b->path);
 
-                                if (!cgroup_apply_io_device_limit(u, b->path, limits))
-                                        cgroup_context_free_blockio_device_bandwidth(c, b);
+                                cgroup_apply_io_device_limit(u, b->path, limits);
                         }
                 }
         }
@@ -909,21 +895,19 @@ static void cgroup_context_apply(
 
                 /* Apply limits and free ones without config. */
                 if (has_io) {
-                        CGroupIODeviceLimit *l, *next;
+                        CGroupIODeviceLimit *l;
 
-                        LIST_FOREACH_SAFE(device_limits, l, next, c->io_device_limits) {
+                        LIST_FOREACH(device_limits, l, c->io_device_limits) {
                                 log_cgroup_compat(u, "Applying IO{Read|Write}Bandwidth %" PRIu64 " %" PRIu64 " as BlockIO{Read|Write}BandwidthMax for %s",
                                                   l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX], l->path);
 
-                                if (!cgroup_apply_blkio_device_limit(u, l->path, l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX]))
-                                        cgroup_context_free_io_device_limit(c, l);
+                                cgroup_apply_blkio_device_limit(u, l->path, l->limits[CGROUP_IO_RBPS_MAX], l->limits[CGROUP_IO_WBPS_MAX]);
                         }
                 } else if (has_blockio) {
-                        CGroupBlockIODeviceBandwidth *b, *next;
+                        CGroupBlockIODeviceBandwidth *b;
 
-                        LIST_FOREACH_SAFE(device_bandwidths, b, next, c->blockio_device_bandwidths)
-                                if (!cgroup_apply_blkio_device_limit(u, b->path, b->rbps, b->wbps))
-                                        cgroup_context_free_blockio_device_bandwidth(c, b);
+                        LIST_FOREACH(device_bandwidths, b, c->blockio_device_bandwidths)
+                                cgroup_apply_blkio_device_limit(u, b->path, b->rbps, b->wbps);
                 }
         }
 
