@@ -520,7 +520,7 @@ int session_device_save(SessionDevice *sd) {
 
         if (sd->pushed_fd)
                 return 0;
-              
+
         /* Session ID does not contain separators. */
         id = sd->session->id;
         assert(*(id + strcspn(id, "-\n")) == '\0');
