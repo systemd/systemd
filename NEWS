@@ -137,8 +137,8 @@ CHANGES WITH 239 in spe:
 
         * Units gained a new load state "bad-setting", which is used when a
           unit file was loaded, but contained fatal errors which prevent it
-          from being started (for example, an ExecStart= path which references
-          a non-existent executable).
+          from being started (for example, a service unit has been defined
+          lacking both ExecStart= and ExecStop= lines).
 
         * coredumpctl's "gdb" verb has been renamed to "debug", in order to
           support alternative debuggers, for example lldb. The old name
