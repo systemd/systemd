@@ -57,7 +57,7 @@ CHANGES WITH 239 in spe:
           tools, such as systemctl or loginctl.
 
         * The resolvectl/systemd-resolve tool also provides 'resolveconf'
-          compatiblity. It may be symlinked under the 'resolveconf' name, in
+          compatibility. It may be symlinked under the 'resolveconf' name, in
           which case it will take arguments and input compatible with the
           Debian and FreeBSD resolvconf tool.
 
@@ -88,7 +88,7 @@ CHANGES WITH 239 in spe:
 
         * A new service systemd-time-sync-wait.service has been added. If
           enabled it will delay the time-sync.target unit at boot until time
-          synchronization has been recieved from the network. This
+          synchronization has been received from the network. This
           functionality is useful on systems lacking a local RTC or where it is
           acceptable that the boot process shall be delayed by external network
           services.
@@ -619,7 +619,7 @@ CHANGES WITH 237:
           systemd.service_watchdogs= for controlling the same.
 
         * Two new "log-level" and "log-target" options for systemd-analyze were
-          addded that merge the now deprecated get-log-level, set-log-level and
+          added that merge the now deprecated get-log-level, set-log-level and
           get-log-target, set-log-target pairs. The deprecated options are still
           understood for backwards compatibility. The two new options print the
           current value when no arguments are given, and set them when a
@@ -1188,7 +1188,7 @@ CHANGES WITH 234:
           (domain search list).
 
         * systemd-networkd gained support for serving IPv6 address ranges using
-          the Router Advertisment protocol. The new .network configuration
+          the Router Advertisement protocol. The new .network configuration
           section [IPv6Prefix] may be used to configure the ranges to
           serve. This is implemented based on a new, minimal, native server
           implementation of RA.
@@ -1919,7 +1919,7 @@ CHANGES WITH 232:
           counted multiple times, if it takes multiple references.
 
         * sd-bus gained new API calls sd_bus_set_exit_on_disconnect() and
-          sd_bus_get_exit_on_disconnect(). They may be used to to make a
+          sd_bus_get_exit_on_disconnect(). They may be used to make a
           process using sd-bus automatically exit if the bus connection is
           severed.
 

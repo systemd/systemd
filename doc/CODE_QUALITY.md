@@ -29,7 +29,7 @@ available functionality:
    `./tools/find-tabs.sh recpatch` to fix them. (Again, grain of salt, foreign
    headers should usually be left unmodified.)
 
-6. Use `ninja -C build check-api-docs` to compare the the list of exported
+6. Use `ninja -C build check-api-docs` to compare the list of exported
    symbols of `libsystemd.so` and `libudev.so` with the list of man pages. Symbols
    lacking documentation are highlighted.
 

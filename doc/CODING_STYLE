@@ -340,7 +340,7 @@
 - Avoid leaving long-running child processes around, i.e. fork()s that
   are not followed quickly by an execv() in the child. Resource
   management is unclear in this case, and memory CoW will result in
-  unexpected penalties in the parent much much later on.
+  unexpected penalties in the parent much, much later on.
 
 - Don't block execution for arbitrary amounts of time using usleep()
   or a similar call, unless you really know what you do. Just "giving
@@ -452,7 +452,7 @@
   setting.
 
 - When referring to a command line option in the documentation and such, please
-  allways prefix with "--" or "-" (as appropriate), to indicate that it is a
+  always prefix with "--" or "-" (as appropriate), to indicate that it is a
   command line option.
 
 - When referring to a file system path that is a directory, please always
