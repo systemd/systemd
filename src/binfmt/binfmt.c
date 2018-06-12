@@ -19,12 +19,14 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "pager.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
 
 static bool arg_cat_config = false;
+static bool arg_no_pager = false;
 
 static int delete_rule(const char *rule) {
         _cleanup_free_ char *x = NULL, *fn = NULL;
@@ -104,6 +106,7 @@ static void help(void) {
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --cat-config       Show configuration files\n"
+               "     --no-pager         Do not pipe output into a pager\n"
                , program_invocation_short_name);
 }
 
@@ -112,12 +115,14 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
+                { "help",       no_argument, NULL, 'h'            },
+                { "version",    no_argument, NULL, ARG_VERSION    },
+                { "cat-config", no_argument, NULL, ARG_CAT_CONFIG },
+                { "no-pager",   no_argument, NULL, ARG_NO_PAGER   },
                 {}
         };
 
@@ -139,6 +144,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CAT_CONFIG:
                         arg_cat_config = true;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
                         break;
 
                 case '?':
@@ -190,6 +199,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 if (arg_cat_config) {
+                        (void) pager_open(arg_no_pager, false);
+
                         r = cat_files(NULL, files, 0);
                         goto finish;
                 }
@@ -205,5 +216,7 @@ int main(int argc, char *argv[]) {
         }
 
 finish:
+        pager_close();
+
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

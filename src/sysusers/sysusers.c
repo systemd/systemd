@@ -13,10 +13,11 @@
 #include "copy.h"
 #include "def.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fileio-label.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "hashmap.h"
+#include "pager.h"
 #include "path-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
@@ -35,6 +36,7 @@ typedef enum ItemType {
         ADD_MEMBER = 'm',
         ADD_RANGE = 'r',
 } ItemType;
+
 typedef struct Item {
         ItemType type;
 
@@ -65,6 +67,7 @@ static char *arg_root = NULL;
 static bool arg_cat_config = false;
 static const char *arg_replace = NULL;
 static bool arg_inline = false;
+static bool arg_no_pager = false;
 
 static OrderedHashmap *users = NULL, *groups = NULL;
 static OrderedHashmap *todo_uids = NULL, *todo_gids = NULL;
@@ -1764,6 +1767,8 @@ static int cat_config(void) {
         if (r < 0)
                 return r;
 
+        (void) pager_open(arg_no_pager, false);
+
         return cat_files(NULL, files, 0);
 }
 
@@ -1776,6 +1781,7 @@ static void help(void) {
                "     --root=PATH            Operate on an alternate filesystem root\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --inline               Treat arguments as configuration lines\n"
+               "     --no-pager             Do not pipe output into a pager\n"
                , program_invocation_short_name);
 }
 
@@ -1787,6 +1793,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_ROOT,
                 ARG_REPLACE,
                 ARG_INLINE,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
@@ -1796,6 +1803,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "root",       required_argument, NULL, ARG_ROOT       },
                 { "replace",    required_argument, NULL, ARG_REPLACE    },
                 { "inline",     no_argument,       NULL, ARG_INLINE     },
+                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
                 {}
         };
 
@@ -1837,6 +1845,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_INLINE:
                         arg_inline = true;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
                         break;
 
                 case '?':
@@ -1999,6 +2011,8 @@ int main(int argc, char *argv[]) {
                 log_error_errno(r, "Failed to write files: %m");
 
 finish:
+        pager_close();
+
         ordered_hashmap_free_with_destructor(groups, item_free);
         ordered_hashmap_free_with_destructor(users, item_free);
 
