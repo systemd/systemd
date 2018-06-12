@@ -196,7 +196,7 @@
 
         <para>By default all unit files whose names start with a prefix generated from the image's file name are copied
         out. Specifically, the prefix is determined from the image file name with any suffix such as
-        <filename>.raw</filename> removed, truncated at the first occurence of and underscore character
+        <filename>.raw</filename> removed, truncated at the first occurrence of and underscore character
         (<literal>_</literal>), if there is one. The underscore logic is supposed to be used to versioning so that the
         an image file <filename>foobar_47.11.raw</filename> will result in a unit file matching prefix of
         <filename>foobar</filename>. This prefix is then compared with all unit files names contained in the image in
@@ -269,7 +269,7 @@
               </row>
               <row>
                 <entry><option>attached-runtime</option></entry>
-                <entry>Like <option>attached</option>, but the the unit files have been made available transiently only, i.e. the <command>attach</command> command has been invoked with the <option>--runtime</option> option.</entry>
+                <entry>Like <option>attached</option>, but the unit files have been made available transiently only, i.e. the <command>attach</command> command has been invoked with the <option>--runtime</option> option.</entry>
               </row>
               <row>
                 <entry><option>enabled</option></entry>
@@ -306,7 +306,7 @@
         <term><command>remove</command> <replaceable>IMAGE</replaceable>…</term>
 
         <listitem><para>Removes one or more portable service images. Note that this command will only remove the
-        specified image path itself — it it refers to a symbolic link then the symbolic link is removed and not the
+        specified image path itself — it refers to a symbolic link then the symbolic link is removed and not the
         image it points to.</para></listitem>
       </varlistentry>
 

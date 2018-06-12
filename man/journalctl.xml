@@ -950,7 +950,7 @@ journalctl _SYSTEMD_CGROUP=/user.slice/user-42.slice/session-c1.scope</programli
 
     <programlisting>journalctl _SYSTEMD_UNIT=avahi-daemon.service _PID=28097 + _SYSTEMD_UNIT=dbus.service</programlisting>
 
-    <para>To show all fields emited <emphasis>by</emphasis> a unit and <emphasis>about</emphasis>
+    <para>To show all fields emitted <emphasis>by</emphasis> a unit and <emphasis>about</emphasis>
     the unit, option <option>-u</option>/<option>--unit=</option> should be used.
     <command>journalctl -u <replaceable>name</replaceable></command>
     expands to a complex filter similar to
