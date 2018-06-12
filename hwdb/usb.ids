@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2018.01.04
-# Date:    2018-01-04 20:34:07
+# Version: 2018.05.04
+# Date:    2018-05-04 20:34:07
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -29,9 +29,17 @@
 	7788  counterfeit flash drive
 0053  Planex
 	5301  GW-US54ZGL 802.11bg
+0078  Microntek
+	0006  Joystick
 0079  DragonRise Inc.
 	0006  PC TWIN SHOCK Gamepad
 	0011  Gamepad
+	1800  Mayflash Wii U Pro Game Controller Adapter [DirectInput]
+	181b  Venom Arcade Joystick
+	1843  Mayflash GameCube Controller Adapter
+	1844  Mayflash GameCube Controller
+0085  Boeye Technology Co., Ltd.
+	0600  eBook Reader
 0105  Trust International B.V.
 	145f  NW-3100 802.11b/g 54Mbps Wireless Network Adapter [zd1211]
 0127  IBP
@@ -50,6 +58,7 @@
 	0301  MIDI Port
 02ad  HUMAX Co., Ltd.
 	138c  PVR Mass Storage
+0303  Mini Automation Controller
 0324  OCZ Technology Inc
 	bc06  OCZ ATV USB 2.0 Flash Drive
 	bc08  OCZ Rally2/ATV USB 2.0 Flash Drive
@@ -174,7 +183,7 @@
 	6902  Floppy Disk Drive
 	7500  CD-R/RW
 	ffff  Dongle with BlueCore in DFU mode
-03f0  Hewlett-Packard
+03f0  HP, Inc
 	0004  DeskJet 895c
 	0011  OfficeJet G55
 	0012  DeskJet 1125C Printer Port
@@ -423,6 +432,7 @@
 	2a1d  Integrated Module with Bluetooth 2.1 Wireless technology
 	2b11  PSC 2170 series
 	2b17  LaserJet 1020
+	2b4a  Business Slim Keyboard
 	2c12  Officejet J4680
 	2c17  LaserJet 1022
 	2c24  Logitech M-UAL-96 Mouse
@@ -476,10 +486,12 @@
 	3a02  PhotoSmart 7150
 	3a11  OfficeJet 5500 series
 	3a17  Printing Support
+	3a1d  hs2340 HSPA+ mobile broadband
 	3b02  PhotoSmart 7150~
 	3b05  Scanjet N8460
 	3b11  PSC 1300 series
 	3b17  LaserJet M1005 MFP
+	3b2a  Color LaserJet MFP M277dw
 	3c02  PhotoSmart 7350
 	3c05  Scanjet Professional 1000 Mobile Scanner
 	3c11  PSC 1358
@@ -789,8 +801,12 @@
 	a951  HCP HIT GSM/GPRS modem [Cinterion MC55i]
 	a9a0  FT2232D - Dual UART/FIFO IC - FTDI
 	abb8  Lego Mindstorms NXTCam
+	b0c0  microSensys RFID device
+	b0c1  microSensys RFID device
 	b0c2  iID contactless RFID device
 	b0c3  iID contactless RFID device
+	b0c4  RFID device
+	b0c5  RFID device
 	b810  US Interface Navigator (CAT and 2nd PTT lines)
 	b811  US Interface Navigator (WKEY and FSK lines)
 	b812  US Interface Navigator (RS232 and CONFIG lines)
@@ -1126,7 +1142,7 @@
 	0a68  Func MS-3 gaming mouse [WT6573F MCU]
 	2367  Human Interface Device [HP CalcPad 200 Calculator and Numeric Keypad]
 	6510  Weltrend Bar Code Reader
-	6520  XBOX Xploder
+	6520  Xploder Xbox Memory Unit (8MB)
 	6533  Speed-Link Competition Pro
 	6543  Manhattan Magnetic Card Strip Reader
 040c  VTech Computers, Ltd
@@ -1590,15 +1606,19 @@
 	2602  USB 2.0 Hub
 	2640  USB 2.0 Hub
 	2660  Hub
+	274d  HTC Hub Controller
+	3fcc  RME MADIface
 	4041  Hub and media card controller
 	4060  Ultra Fast Media Reader
 	4064  Ultra Fast Media Reader
 	5434  Hub
 	5534  Hub
 	7500  LAN7500 Ethernet 10/100/1000 Adapter
+	9500  LAN9500/LAN9500i
 	9512  SMC9512/9514 USB Hub
 	9514  SMC9514 Hub
 	9904  LAN9512/LAN9514 Ethernet 10/100 Adapter (SAL10)
+	9e00  LAN9500A/LAN9500Ai
 	a700  2 Port Hub
 	ec00  SMSC9512/9514 Fast Ethernet Adapter
 0425  Motorola Semiconductors HK, Ltd
@@ -1859,6 +1879,11 @@
 	0402  HOTAS Warthog Joystick
 	0404  HOTAS Warthog Throttle
 	044f  GP XID
+	0f00  Steering Wheel for Xbox
+	0f03  Steering Wheel for Xbox
+	0f07  Controller for Xbox
+	0f0c  Xbox Memory Unit (8MB)
+	0f10  Modena GT Wheel
 	a003  Rage 3D Game Pad
 	a01b  PK-GP301 Driving Wheel
 	a0a0  Top Gun Joystick
@@ -1876,6 +1901,7 @@
 	b315  Firestorm Dual Analog 3
 	b323  Dual Trigger 3-in-1 (PC Mode)
 	b324  Dual Trigger 3-in-1 (PS3 Mode)
+	b326  Gamepad GP XID
 	b603  force feedback Wheel
 	b605  force feedback Racing Wheel
 	b651  Ferrari GT Rumble Force Wheel
@@ -1897,6 +1923,8 @@
 	3410  TUSB3410 Microcontroller
 	3f00  OMAP1610
 	3f02  SMC WSKP100 Wi-Fi Phone
+	505f  TUSB5052 Serial
+	5153  TUSB5052 Hub
 	5409  Frontier Labs NEX IA+ Digital Audio Player
 	6000  AU5 ADSL Modem (pre-reenum)
 	6001  AU5 ADSL Modem
@@ -1937,6 +1965,7 @@
 	0162  SiS162 usb Wireless LAN Adapter
 	0163  SiS163U 802.11 Wireless LAN Adapter
 	0817  SiS-184-ASUS-4352.17 touch panel
+	10e1  HID Touch Controller
 	5401  Wireless Adapter RO80211GS-USB
 0458  KYE Systems Corp. (Mouse Systems)
 	0001  Mouse
@@ -2177,15 +2206,17 @@
 	02ae  Xbox NUI Camera
 	02b0  Xbox NUI Motor
 	02b6  Xbox360 Bluetooth Wireless Headset
+	02bb  Kinect Audio
 	02be  Kinect for Windows NUI Audio
 	02bf  Kinect for Windows NUI Camera
 	02c2  Kinect for Windows NUI Motor
 	02d1  Xbox One Controller
 	02d5  Xbox One Digital TV Tuner
-	02dd  Xbox One Controller (Covert Forces/Firmware 2015)
+	02dd  Xbox One Controller (Firmware 2015)
 	02e3  Xbox One Elite Controller
 	02e6  Wireless XBox Controller Dongle
 	02ea  Xbox One S Controller
+	02fd  Xbox One S Controller [Bluetooth]
 	0400  Windows Powered Pocket PC 2002
 	0401  Windows Powered Pocket PC 2002
 	0402  Windows Powered Pocket PC 2002
@@ -2352,9 +2383,20 @@
 	0799  Surface Pro embedded keyboard
 	07a5  Wireless Receiver 1461C
 	07b9  Wired Keyboard 200
+	07c6  RTL8153 GigE [Surface Dock Ethernet]
 	07ca  Surface Pro 3 Docking Station Audio Device
+	07cd  Surface Keyboard
 	07f8  Wired Keyboard 600 (model 1576)
 	07fd  Nano Transceiver 1.1
+	0900  Surface Dock Hub
+	0901  Surface Dock Hub
+	0902  Surface Dock Hub
+	0903  Surface Dock Hub
+	0904  Surface Dock Extender
+	0905  Surface Dock Audio
+	090b  Hub
+	090c  SD Card
+	091a  Hub
 	0a00  Lumia 950 Dual SIM (RM-1118)
 	930a  ISOUSB.SYS Intel 82930 Isochronous IO Test Board
 	ffca  Catalina
@@ -2422,6 +2464,7 @@
 	4d62  HP Laser Mobile Mini Mouse
 	4d75  Rocketfish RF-FLBTAD Bluetooth Adapter
 	4d81  Dell N889 Optical Mouse
+	4de3  HP 5-Button Optical Comfort Mouse
 	4de7  webcam
 	4e04  Lenovo Keyboard KB1021
 0463  MGE UPS Systems
@@ -2439,7 +2482,7 @@
 	0010  SmartBoard XX44
 	0011  G83 (RS 6000) Keyboard
 	0021  CyMotion Expert Combo
-	0023  CyMotion Master Linux Keyboard G230
+	0023  Keyboard
 	0027  CyMotion Master Solar Keyboard
 	002a  Wireless Mouse & Keyboard
 	002d  SmartTerminal XX44
@@ -2449,6 +2492,7 @@
 	0041  G86 6240 Keyboard
 	0080  eHealth Terminal ST 1503
 	0081  eHealth Keyboard G87 1504
+	00a1  SmartCard Reader Keyboard KC 1000 SC
 	0106  R-300 Wireless Mouse Receiver
 	010d  MX-Board 3.0 Keyboard
 	b090  Keyboard
@@ -2464,6 +2508,7 @@
 	0082  Acer Aspire 5672 Webcam
 	0200  WingMan Extreme Joystick
 	0203  M2452 Keyboard
+	0242  Chillstream for Xbox 360
 	0301  M4848 Mouse
 	0401  HP PageScan
 	0402  NEC PageScan
@@ -2484,6 +2529,7 @@
 	081d  HD Webcam C510
 	0820  QuickCam VC
 	0821  HD Webcam C910
+	0823  HD Webcam B910
 	0825  Webcam C270
 	0826  HD Webcam C525
 	0828  HD Webcam B990
@@ -2709,9 +2755,9 @@
 	c213  J-UH16 (Freedom 2.4 Cordless Joystick)
 	c214  ATK3 (Attack III Joystick)
 	c215  Extreme 3D Pro
-	c216  Dual Action Gamepad
-	c218  Logitech RumblePad 2 USB
-	c219  Cordless RumblePad 2
+	c216  F310 Gamepad [DirectInput Mode]
+	c218  F510 Gamepad [DirectInput Mode]
+	c219  F710 Gamepad [DirectInput Mode]
 	c21a  Precision Gamepad
 	c21c  G13 Advanced Gameboard
 	c21d  F310 Gamepad [XInput Mode]
@@ -2853,8 +2899,13 @@
 	c720  Bluetooth wireless hub
 	ca03  MOMO Racing
 	ca04  Formula Vibration Feedback Wheel
+	ca84  Cordless Controller for Xbox
+	ca88  Thunderpad for Xbox
+	ca8a  Precision Vibration Feedback Wheel for Xbox
+	caa3  DriveFX Racing Wheel
 	cab1  Cordless Keyboard for Wii HID Receiver
 	d001  QuickCam Pro
+	f301  Controller
 046e  Behavior Tech. Computer Corp.
 	0100  Keyboard
 	3001  Mass Storage Device
@@ -2972,6 +3023,7 @@
 	20e3  GoGear Raga
 	20e4  GoGear ViBE 8GB
 	2160  Mio LINK Heart Rate Monitor
+	21e0  GoGEAR Raga
 	262c  SPC230NC Webcam
 	485d  Senselock SenseIV v2.x
 	df55  LPCXpresso LPC-Link
@@ -3142,6 +3194,7 @@
 	0203  AH-K3001V
 	0204  iBurst Terminal
 	0408  FS-1320D Printer
+	0640  ECOSYS M6026cdn
 	069b  ECOSYS M2635dn
 0483  STMicroelectronics
 	0137  BeWAN ADSL USB ST (blue or green)
@@ -3162,13 +3215,18 @@
 	5000  ST Micro/Ergenic ERG BT-002 Bluetooth Adapter
 	5001  ST Micro Bluetooth Device
 	5710  Joystick in FS Mode
-	5720  STM microSD Flash Device
+	5720  Mass Storage Device
 	5721  Hantek DDS-3X25 Arbitrary Waveform Generator
-	5730  STM32 Audio Streaming
-	5740  STM32F407
+	5722  Bulk Demo
+	5730  Audio Speaker
+	5731  Microphone
+	5740  Virtual COM Port
 	7270  ST Micro Serial Bridge
 	7554  56k SoftModem
+	8213  ThermaData Logger Cradle
+	8259  Probe
 	91d1  Sensor Hub
+	a171  ThermaData WiFi
 	df11  STM Device in DFU Mode
 	ff10  Swann ST56 Modem
 0484  Specialix
@@ -3192,6 +3250,7 @@
 	e032  Broadcom BCM20702 Bluetooth
 	e042  Broadcom BCM20702 Bluetooth
 	e04d  Atheros AR3012 Bluetooth
+	e055  BCM43142A0 broadcom bluetooth
 048a  S-MOS Systems, Inc.
 048c  Alps Electric Ireland, Ltd
 048d  Integrated Technology Express, Inc.
@@ -3460,6 +3519,7 @@
 	049b  Strobe XP 100
 	04a0  7400
 	04ac  Xerox Travel Scanner 100
+	04bb  strobe 400 scanner
 	04cd  Xerox Travel Scanner 150
 04a8  Multivideo Labs, Inc.
 	0101  Hub
@@ -3548,6 +3608,7 @@
 	1607  DR-6080 Scanner
 	1608  DR-2580C Scanner
 	1609  DR-3080CII
+	160a  DR-2050C Scanner
 	1700  PIXMA MP110 Scanner
 	1701  PIXMA MP130 Scanner
 	1702  MP410 Composite
@@ -3711,11 +3772,14 @@
 	2623  FAX-B180C
 	2629  FAXPHONE L75
 	262b  LaserShot LBP-1120 Printer
+	262c  imageCLASS D300
 	262d  iR C3200
 	262f  PIXMA MP730
 	2630  PIXMA MP700
 	2631  LASER CLASS 700
 	2632  FAX-L2000
+	2633  LASERCLASS 500
+	2634  PC-D300/FAX-L400/ICD300
 	2635  MPC190
 	2637  iR C6800
 	2638  iR C3100
@@ -3770,6 +3834,7 @@
 	2687  iR4530
 	2688  LBP3460
 	2689  FAX-L180/L380S/L398S
+	268a  LC310/L390/L408S
 	268c  iR C6870
 	268d  iR 6870C EUR
 	268e  iR C5870
@@ -3958,6 +4023,7 @@
 	3193  PowerShot SD990 IS DIGITAL ELPH / Digital IXUS 980 IS / IXY DIGITAL 3000 IS
 	3195  PowerShot SX1 IS
 	3196  PowerShot SD880 IS DIGITAL ELPH / Digital IXUS 870 IS / IXY DIGITAL 920 IS
+	3199  EOS 5D Mark II
 	319a  EOS 7D
 	319b  EOS 50D
 	31aa  SELPHY CP770
@@ -4098,6 +4164,7 @@
 	32c1  PowerShot ELPH 180 / IXUS 175
 	32c2  PowerShot SX720 HS
 	32d5  PowerShot SX430 IS
+	32db  SELPHY CP1300
 04aa  DaeWoo Telecom, Ltd
 04ab  Chromatic Research
 04ac  Micro Audiometrics Corp.
@@ -4240,6 +4307,9 @@
 	5500  HID->COM RS232 Adapter
 	5a9b  Dacal CD/DVD Library D-101/DC-300/DC-016RW
 	6370  ViewMate Desktop Mouse CC2201
+	6502  CY4609
+	6506  CY4603
+	650a  CY4613
 	6560  CY7C65640 USB-2.0 "TetraHub"
 	6830  CY7C68300A EZ-USB AT2 USB 2.0 to ATA/ATAPI
 	6831  Storage Adapter ISD-300LP (CY)
@@ -4257,6 +4327,7 @@
 	f000  CY30700 Licorice evaluation board
 	f111  CY8CKIT-002 PSoC MiniProg3 Rev A Program and debug kit
 	f115  PSoC FirstTouch Programmer
+	f231  DELLY Changer 4in1 universal IR remote
 	f232  Mono embedded computer
 	fd13  Programmable power socket
 04b5  ROHM LSI Systems USA, LLC
@@ -4581,6 +4652,7 @@
 	300d  Atheros AR3012 Bluetooth
 	300f  Atheros AR3012 Bluetooth
 	3014  Qualcomm Atheros Bluetooth
+	7022  HP HD Webcam
 	7025  HP HD Webcam
 	7046  TOSHIBA Web Camera - HD
 	9304  Hub
@@ -4593,7 +4665,7 @@
 	0109  FinePix F601 Zoom (PC CAM)
 	010a  FinePix S602 (Pro) Zoom (DSC)
 	010b  FinePix S602 (Pro) Zoom (PC CAM)
-	010d  FinePix Digital Camera 020531
+	010d  FinePix S2 pro
 	010e  FinePix F402 Zoom (DSC)
 	010f  FinePix F402 Zoom (PC CAM)
 	0110  FinePix M603 Zoom (DSC)
@@ -4735,6 +4807,7 @@
 	8108  ChipKit Pro MX7 (PIC32MX)
 	9004  Microchip REAL ICE
 	900a  PICkit3
+	9012  PICkit4
 	c001  PicoLCD 20x4
 	e11c  TL866CS EEPROM Programmer [MiniPRO]
 	f2c4  Macareux-labs Hygrometry Temperature Sensor
@@ -4775,6 +4848,7 @@
 	2834  HT82A834R Audio MCU
 	a01c  wireless multimedia keyboard with trackball [Trust ADURA 17911]
 	a050  Chatman V1
+	a052  USB-zyTemp
 	a055  Keyboard
 	a096  Keyboard
 	a09f  E-Signal LUOM G10 Mechanical Gaming Mouse
@@ -5010,6 +5084,7 @@
 	3268  ML-1610 Mono Laser Printer
 	326c  ML-2010P Mono Laser Printer
 	3276  ML-3050/ML-3051 Laser Printer
+	327e  ML-2510 Series
 	328e  CLP-310 Color Laser Printer
 	3292  ML-1640 Series Laser Printer
 	3296  ML-2580N Mono Laser Printer
@@ -5119,6 +5194,7 @@
 	61b5  M3 Portable Hard Drive 2TB
 	61b6  M3 Portable Hard Drive 1TB
 	61f3  Portable SSD T3 (MU-PT250B, MU-PT500B)
+	61f5  Portable SSD T5
 	6601  Mobile Phone
 	6602  Galaxy
 	6603  Galaxy
@@ -5219,6 +5295,7 @@
 	0618  RG-0618U Wireless HID Receiver & KG-0609 Wireless Keyboard with Touchpad
 	0718  wired mouse
 	0760  Acer KU-0760 Keyboard
+	0833  KU-0833 Keyboard
 	0841  HP Multimedia Keyboard
 	0860  2.4G Multimedia Wireless Kit
 	1061  HP KG-1061 Wireless Keyboard+Mouse
@@ -5271,6 +5348,7 @@
 	b15c  Sony Vaio Integrated Camera
 	b175  4-Port Hub
 	b1aa  Webcam-101
+	b1ac  HP Laptop Integrated Webcam [2 MP Fixed]
 	b1b4  Lenovo Integrated Camera
 	b1b9  Asus Integrated Webcam
 	b1cf  Lenovo Integrated Camera
@@ -5287,7 +5365,9 @@
 	b2b0  Camera
 	b2b9  Lenovo Integrated Camera UVC
 	b2da  thinkpad t430s camera
+	b2db  Thinkpad T430 camera
 	b2ea  Integrated Camera [ThinkPad]
+	b2f4  HP Webcam-50
 	b330  Asus 720p CMOS webcam
 	b354  UVC 1.00 device HD UVC WebCam
 	b394  Integrated Camera
@@ -5296,6 +5376,8 @@
 	b3fd  HD WebCam (Asus N-series)
 	b40e  HP Truevision HD camera
 	b444  Lenovo Integrated Webcam
+	b5ce  Integrated Camera
+	b5cf  Integrated IR Camera
 04f3  Elan Microelectronics Corp.
 	000a  Touchscreen
 	0103  ActiveJet K-2024 Multimedia Keyboard
@@ -5308,6 +5390,7 @@
 	0230  3D Optical Mouse
 	0232  Mouse
 	0234  Optical Mouse
+	0235  Optical Mouse
 	02f4  2.4G Cordless Mouse
 	0381  Touchscreen
 	04a0  Dream Cheeky Stress/Panic Button
@@ -6071,7 +6154,7 @@
 	a4a2  Linux-USB Ethernet/RNDIS Gadget
 	a4a3  Linux-USB user-mode isochronous source/sink
 	a4a4  Linux-USB user-mode bulk source/sink
-	a4a5  Pocketbook Pro 903
+	a4a5  Pocketbook Pro 903 / Mobius 2 Action Cam
 	a4a6  Linux-USB Serial Gadget
 	a4a7  Linux-USB Serial Gadget (CDC ACM mode)
 	a4a8  Linux-USB Printer Gadget
@@ -6217,7 +6300,7 @@
 054c  Sony Corp.
 	0001  HUB
 	0002  Standard HUB
-	0010  DSC-S30/S70/S75/F505V/F505/FD92/W1 Cybershot/Mavica Digital Camera
+	0010  Cyber-shot, Mavica (msc)
 	0014  Nogatech USBVision (SY)
 	0022  Storage Adapter V2 (TPP)
 	0023  CD Writer
@@ -6394,17 +6477,19 @@
 	0485  MHS-PM5 HD camcorder
 	04cb  WALKMAN NWZ-E354
 	0541  DSC-HX100V [Cybershot Digital Still Camera]
-	05c4  DualShock 4 [CUH-ZCT1E]
+	05c4  DualShock 4 [CUH-ZCT1x]
 	0689  Walkman NWZ-B173F
 	06bb  WALKMAN NWZ-F805
 	06c3  RC-S380
 	07c4  ILCE-6000 (aka Alpha-6000) in Mass Storage mode
+	082f  Walkman NWZW Series
 	0847  WG-C10 Portable Wireless Server
 	088c  Portable Headphone Amplifier
 	08b7  ILCE-6000 (aka Alpha-6000) in MTP mode
 	094e  ILCE-6000 (aka Alpha-6000) in PC Remote mode
 	0994  ILCE-6000 (aka Alpha-6000) in charging mode
-	09cc  DualShock 4 [CUH-ZCT2E]
+	09cc  DualShock 4 [CUH-ZCT2x]
+	0ba0  Dualshock4 Wireless Adaptor
 	0bb5  Headset MDR-1000X
 	1000  Wireless Buzz! Receiver
 054d  Try Corp.
@@ -6510,6 +6595,7 @@
 	0408  BearPaw 2448 CU Pro
 	0409  BearPaw 2448 TA Pro
 	040b  ScanExpress A3 USB 1200 PRO
+	0501  ScanExpress A3 2400 Pro
 	0873  ScanExpress 600 USB
 	1000  BearPaw 4800 TA Pro
 	a350  gSmart 350 Camera
@@ -6702,12 +6788,30 @@
 	034e  DTH-W1620 [MobileStudio Pro 16] tablet
 	034f  DTH-1320 [Cintiq Pro 13] tablet
 	0350  DTH-1620 [Cintiq Pro 16] tablet
+	0351  DTH-2420 [Cintiq Pro 24 PT] tablet
+	0352  DTH-3220 [Cintiq Pro 32] tablet
 	0353  DTH-1320 [Cintiq Pro 13] touchscreen
 	0354  DTH-1620 [Cintiq Pro 16] touchscreen
+	0355  DTH-2420 [Cintiq Pro 24 PT] touchscreen
+	0356  DTH-3220 [Cintiq Pro 32] touchscreen
 	0357  PTH-660 [Intuos Pro (M)]
 	0358  PTH-860 [Intuos Pro (L)]
 	035a  DTH-1152 tablet
 	0368  DTH-1152 touchscreen
+	0374  CTL-4100 [Intuos (S)]
+	0375  CTL-6100 [Intuos (M)]
+	0376  CTL-4100WL [Intuos BT (S)]
+	0378  CTL-6100WL [Intuos BT (M)]
+	037a  CTL-472 [One by Wacom (S)]
+	037b  CTL-672 [One by Wacom (M)]
+	037c  DTK-2420 [Cintiq Pro 24 P]
+	037d  DTH-2452 tablet
+	037e  DTH-2452 touchscreen
+	0382  DTK-2451 tablet
+	038a  DTH-3220 [Cintiq Pro 32] internal hub
+	038d  DTH-3220 [Cintiq Pro 32] internal hub
+	038e  DTH-3220 [Cintiq Pro 32] external hub
+	038f  DTH-3220 [Cintiq Pro 32] internal hub
 	0400  PenPartner 4x5
 	4001  TPC4001
 	4004  TPC4004
@@ -6729,7 +6833,16 @@
 056e  Elecom Co., Ltd
 	0002  29UO Mouse
 	0057  M-PGDL Mouse
-	0072  Mouse
+	005c  M-PGDL Mouse
+	005d  M-FGDL Mouse
+	005e  M-FG2DL Mouse
+	0062  M-D18DR Mouse
+	0063  M-SODL Mouse
+	0069  M-GE1UL Mouse
+	0071  M-GE3DL Mouse
+	0072  M-LS6UL Mouse
+	0073  M-LS7UL Mouse
+	0074  M-FW1UL Mouse
 	200c  LD-USB/TX
 	4002  Laneed 100Mbps Ethernet LD-USB/TX [pegasus]
 	4005  LD-USBL/TX
@@ -18468,10 +18581,11 @@
 20f4  TRENDnet
 	648b  TEW-648UBM 802.11n 150Mbps Micro Wireless N Adapter [Realtek RTL8188CUS]
 20f7  XIMEA
-	3001  Camera with CMOS sensor [MQ]
-	3021  Camera with CCD sensor [MD]
-	30b3  Camera with CMOS sensor in Vision mode [MQ]
-	a003  Subminiature 5Mpix B/W Camera, MU9PM-MH
+	3001  MQ or MD camera
+	3002  MU camera
+	3021  MJ camera
+	30b3  MQ in U3V mode or MC camera
+	a003  MU camera
 2100  RT Systems
 	9e52  Yaesu VX-7
 	9e54  CT29B Radio Cable
@@ -18686,6 +18800,18 @@
 	0044  Mega ADK R3 (CDC ACM)
 	0045  Serial R3 (CDC ACM)
 	8036  Leonardo (CDC ACM, HID)
+2357  TP-Link
+	0100  TL-WN8200ND [Realtek RTL8192CU]
+	0101  RTL8812AU Archer T4U 802.11ac
+	0103  Archer T4UH wireless Realtek 8812AU
+	0105  Archer T1U 802.11a/n/ac Wireless Adapter [MediaTek MT7610U]
+	0107  TL-WN821N Version 5 RTL8192EU
+	0108  TL-WN822N Version 4 RTL8192EU
+	0109  TL WN823N RTL8192EU
+	010c  TL-WN722N v2
+	010e  TL-WN722N v2
+	0200  MA 180 Zero CD
+	0201  HSUPA Modem MA180
 2373  Pumatronix Ltda
 	0001  5 MegaPixel Digital Still Camera [DSC5M]
 2375  Digit@lway, Inc.
@@ -18878,6 +19004,14 @@
 	14ea  GW-US11H WLAN
 2c1a  Dolphin Peripherals
 	0000  Wireless Optical Mouse
+2c7c  Quectel Wireless Solutions Co., Ltd.
+	0121  EC21 LTE modem
+	0125  EC25 LTE modem
+	0191  EG91 LTE modem
+	0195  EG95 LTE modem
+	0296  BG96 CAT-M1/NB-IoT modem
+	0306  EG06/EP06/EM06 LTE-A modem
+	0435  AG35 LTE modem
 2dcf  Dialog Semiconductor
 	c952  Audio Class 2.0 Devices
 2fb2  Fujitsu, Ltd
