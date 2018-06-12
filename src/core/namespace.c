@@ -1173,19 +1173,17 @@ int setup_namespace(
 
         if (root_directory)
                 root = root_directory;
-        else if (root_image || n_bind_mounts > 0 || n_temporary_filesystems > 0) {
-
-                /* If we are booting from an image, create a mount point for the image, if it's still missing. We use
-                 * the same mount point for all images, which is safe, since they all live in their own namespaces
-                 * after all, and hence won't see each other. We also use such a root directory whenever there are bind
-                 * mounts configured, so that their source mounts are never obstructed by mounts we already applied
-                 * while we are applying them. */
+        else {
+                /* Always create the mount namespace in a temporary directory, instead of operating
+                 * directly in the root. The temporary directory prevents any mounts from being
+                 * potentially obscured my other mounts we already applied.
+                 * We use the same mount point for all images, which is safe, since they all live
+                 * in their own namespaces after all, and hence won't see each other. */
 
                 root = "/run/systemd/unit-root";
                 (void) mkdir_label(root, 0700);
                 require_prefix = true;
-        } else
-                root = NULL;
+        }
 
         n_mounts = namespace_calculate_mounts(
                         root,
