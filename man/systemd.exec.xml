@@ -785,7 +785,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         are still visible by combining with <varname>BindPaths=</varname> or <varname>BindReadOnlyPaths=</varname>.</para>
 
         <para>Setting this to <literal>yes</literal> is mostly equivalent to set the three directories in
-        <varname>InaccessiblePaths=</varname>. Similary, <literal>read-only</literal> is mostly equivalent to
+        <varname>InaccessiblePaths=</varname>. Similarly, <literal>read-only</literal> is mostly equivalent to
         <varname>ReadOnlyPaths=</varname>, and <literal>tmpfs</literal> is mostly equivalent to
         <varname>TemporaryFileSystem=</varname>.</para>
 
@@ -1115,8 +1115,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>ProtectKernelModules=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, explicit module loading will be denied. This allows to turn
-        off module load and unload operations on modular kernels. It is recommended to turn this on for most services
+        <listitem><para>Takes a boolean argument. If true, explicit module loading will be denied. This allows
+        module load and unload operations to be turned off on modular kernels. It is recommended to turn this on for most services
         that do not need special file systems or extra kernel modules to work. Defaults to off. Enabling this option
         removes <constant>CAP_SYS_MODULE</constant> from the capability bounding set for the unit, and installs a
         system call filter to block module system calls, also <filename>/usr/lib/modules</filename> is made
@@ -1799,7 +1799,7 @@ RestrictNamespaces=~cgroup net</programlisting>
 
         <para><varname>StandardInputText=</varname> accepts arbitrary textual data. C-style escapes for special
         characters as well as the usual <literal>%</literal>-specifiers are resolved. Each time this setting is used
-        the the specified text is appended to the per-unit data buffer, followed by a newline character (thus every use
+        the specified text is appended to the per-unit data buffer, followed by a newline character (thus every use
         appends a new line to the end of the buffer). Note that leading and trailing whitespace of lines configured
         with this option is removed. If an empty line is specified the buffer is cleared (hence, in order to insert an
         empty line, add an additional <literal>\n</literal> to the end or beginning of a line).</para>
@@ -1840,7 +1840,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         details. By default no filtering is applied (i.e. the default maximum log level is <option>debug</option>). Use
         this option to configure the logging system to drop log messages of a specific service above the specified
         level. For example, set <varname>LogLevelMax=</varname><option>info</option> in order to turn off debug logging
-        of a particularly chatty unit. Note that the the configured level is applied to any log messages written by any
+        of a particularly chatty unit. Note that the configured level is applied to any log messages written by any
         of the processes belonging to this unit, sent via any supported logging protocol. The filtering is applied
         early in the logging pipeline, before any kind of further processing is done. Moreover, messages which pass
         through this filter successfully might still be dropped by filters applied at a later stage in the logging

@@ -82,7 +82,7 @@
     <title>Initialization</title>
 
     <para>Each machine should have a non-empty ID in normal operation. The ID of each
-    machine should be unique. To achive those objectives,
+    machine should be unique. To achieve those objectives,
     <filename>/etc/machine-id</filename> can be initialized in a few different ways.
     </para>
 
@@ -104,7 +104,7 @@
     to be bind-mounted over the real file, in case the image is used read-only.</para>
 
     <para><citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    may be used to to initialize <filename>/etc/machine-id</filename> on mounted (but not
+    may be used to initialize <filename>/etc/machine-id</filename> on mounted (but not
     booted) system images.</para>
 
     <para>When a machine is booted with

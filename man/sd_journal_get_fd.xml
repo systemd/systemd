@@ -212,11 +212,11 @@ else {
       journal, to read the newly added entries.</para></listitem>
 
       <listitem><para>If <constant>SD_JOURNAL_INVALIDATE</constant>, journal files were added to or removed from the
-      set of of journal files watched (e.g. due to rotation or vacuuming), and thus entries might have appeared or
+      set of journal files watched (e.g. due to rotation or vacuuming), and thus entries might have appeared or
       disappeared at arbitrary places in the log stream, possibly before or after the previous end of the log
       stream. If <constant>SD_JOURNAL_INVALIDATE</constant> is returned, live-view UIs that want to reflect on screen
       the precise state of the log data on disk should probably refresh their entire display (relative to the cursor of
-      the log entry on the top of the screen). Programs only interested in a strictly sequencial stream of log data may
+      the log entry on the top of the screen). Programs only interested in a strictly sequential stream of log data may
       treat <constant>SD_JOURNAL_INVALIDATE</constant> the same way as <constant>SD_JOURNAL_APPEND</constant>, thus
       ignoring any changes to the log view earlier than the old end of the log stream.</para></listitem>
     </itemizedlist>

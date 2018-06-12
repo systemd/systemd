@@ -316,7 +316,7 @@
       <varlistentry>
         <term><option>x-systemd.makefs</option></term>
 
-        <listitem><para>The file system or swap structure will be intialized
+        <listitem><para>The file system or swap structure will be initialized
         on the device. If the device is not "empty", i.e. it contains any signature,
         the operation will be skipped. It is hence expected that this option
         remains set even after the device has been initalized.</para>

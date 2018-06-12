@@ -50,7 +50,7 @@
     itself and is freed automatically when the bus object is freed. Regular (i.e. non-floating) bus slot objects keep
     the bus referenced, hence the bus object remains allocated at least as long as there remains at least one
     referenced bus slot object around. The floating state hence controls the direction of referencing between the bus
-    object and the bus slot objects: if floating the bus pins the the bus slot, and otherwise the bus slot pins the bus
+    object and the bus slot objects: if floating the bus pins the bus slot, and otherwise the bus slot pins the bus
     objects. Use <function>sd_bus_slot_set_floating()</function> to switch between both modes: if the
     <parameter>b</parameter> parameter is zero, the slot object is considered floating, otherwise it is made a regular
     (non-floating) slot object.</para>

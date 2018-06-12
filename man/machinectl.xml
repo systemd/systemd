@@ -192,7 +192,7 @@
 
         <listitem><para>When used with <command>bind</command>, creates the destination file or directory before
         applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
-        directories, this option also creates the destination file node to mount over if the the object to mount is not
+        directories, this option also creates the destination file node to mount over if the object to mount is not
         a directory, but a regular file, device node, socket or FIFO.</para></listitem>
       </varlistentry>
 
