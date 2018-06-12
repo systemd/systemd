@@ -41,7 +41,9 @@ CHANGES WITH 239 in spe:
 
         * systemctl disable/unmask/preset/preset-all cannot be used with
           --runtime. Previously this was allowed, but resulted in unintuitive
-          behaviour that wasn't useful.
+          behaviour that wasn't useful. systemctl disable/unmask will now
+          undo both runtime and persistent enablement/masking, i.e. it will
+          remove any relevant symlinks both in /run and /etc.
 
         * sd-boot acquired new loader configuration settings to optionally turn
           off Windows and MacOS boot partition discovery as well as
@@ -121,6 +123,11 @@ CHANGES WITH 239 in spe:
           built-in $PATH, which may be queried with 'systemd-path
           search-binaries-default'. It's generally recommended to continue to
           use absolute paths for all binaries specified in unit files.
+
+        * Units gained a new load state "bad-setting", which is used when a
+          unit file was loaded, but contained fatal errors which prevent it
+          from being started (for example, an ExecStart= path which references
+          a non-existent executable).
 
         * coredumpctl's "gdb" verb has been renamed to "debug", in order to
           support alternative debuggers, for example lldb. The old name
@@ -218,6 +225,8 @@ CHANGES WITH 239 in spe:
 
         * A new --dump-bus-properties switch has been added to the systemd
           binary, which may be used to dump all supported D-Bus properties.
+          (Options which are still supported, but are deprecated, are *not*
+          shown.)
 
         * sd-bus gained a set of new calls:
           sd_bus_slot_set_floating()/sd_bus_slot_get_floating() may be used to
@@ -235,7 +244,12 @@ CHANGES WITH 239 in spe:
 
         * sd-event and sd-bus gained support for calling special user-supplied
           destructor functions for userdata pointers associated with
-          sd_event_source, sd_bus_slot and sd_bus_track objects.
+          sd_event_source, sd_bus_slot, and sd_bus_track objects. For this new
+          functions sd_bus_slot_set_destroy_callback,
+          sd_bus_slot_get_destroy_callback, sd_bus_track_set_destroy_callback,
+          sd_bus_track_get_destroy_callback,
+          sd_event_source_set_destroy_callback,
+          sd_event_source_get_destroy_callback have been added.
 
         * The "net.ipv4.tcp_ecn" sysctl will now be turned on by default.
 
