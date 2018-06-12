@@ -653,6 +653,8 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
 #if ENABLE_DNS_OVER_TLS
                 if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
+                        assert(t->server);
+
                         r = gnutls_init(&gs, GNUTLS_CLIENT | GNUTLS_ENABLE_FALSE_START | GNUTLS_NONBLOCK);
                         if (r < 0)
                                 return r;
@@ -666,7 +668,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         if (r < 0)
                                 return r;
 
-                        if (t->server && t->server->tls_session_data.size > 0)
+                        if (t->server->tls_session_data.size > 0)
                                 gnutls_session_set_data(gs, t->server->tls_session_data.data, t->server->tls_session_data.size);
 
                         gnutls_handshake_set_timeout(gs, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
