@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 #  SPDX-License-Identifier: MIT
 #

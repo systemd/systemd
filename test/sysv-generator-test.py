@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # systemd-sysv-generator integration test
