@@ -2,8 +2,6 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
   Copyright 2013 Intel Corporation
 
   Author: Auke Kok <auke-jan.h.kok@intel.com>

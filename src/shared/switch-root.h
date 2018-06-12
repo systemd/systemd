@@ -3,8 +3,6 @@
 
 #include <stdbool.h>
 /***
-  This file is part of systemd.
-
   Copyright 2012 Harald Hoyer, Lennart Poettering
 ***/
 

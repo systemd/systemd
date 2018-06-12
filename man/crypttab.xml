@@ -4,8 +4,6 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  This file is part of systemd.
-
   Copyright 2012 Lennart Poettering
 
   This is based on crypttab(5) from Fedora's initscripts package, which in

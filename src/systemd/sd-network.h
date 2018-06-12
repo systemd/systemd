@@ -3,8 +3,6 @@
 #define foosdnetworkhfoo
 
 /***
-  This file is part of systemd.
-
   Copyright 2011 Lennart Poettering
   Copyright 2014 Tom Gundersen
 

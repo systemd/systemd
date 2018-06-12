@@ -3,8 +3,6 @@
 #define foosdbushfoo
 
 /***
-  This file is part of systemd.
-
   Copyright 2013 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it

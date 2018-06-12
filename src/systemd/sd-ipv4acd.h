@@ -3,8 +3,6 @@
 #define foosdipv4acdfoo
 
 /***
-  This file is part of systemd.
-
   Copyright (C) 2014 Axis Communications AB. All rights reserved.
   Copyright (C) 2015 Tom Gundersen
 

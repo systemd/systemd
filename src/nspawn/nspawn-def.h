@@ -1,8 +1,6 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
   Copyright 2017 Lennart Poettering
 ***/
 

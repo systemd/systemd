@@ -3,8 +3,6 @@
 #define foosdlldphfoo
 
 /***
-  This file is part of systemd.
-
   Copyright (C) 2014 Tom Gundersen
   Copyright (C) 2014 Susant Sahani
 

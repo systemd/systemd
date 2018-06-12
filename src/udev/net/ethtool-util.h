@@ -2,8 +2,6 @@
 #pragma once
 
 /***
- This file is part of systemd.
-
  Copyright (C) 2013 Tom Gundersen <teg@jklm.no>
 ***/
 

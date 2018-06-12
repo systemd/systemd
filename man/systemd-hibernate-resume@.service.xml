@@ -4,8 +4,6 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  This file is part of systemd.
-
   Copyright 2014 Ivan Shapovalov
 -->
 <refentry id="systemd-hibernate-resume@.service" conditional='ENABLE_HIBERNATE'>

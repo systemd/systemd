@@ -3,8 +3,6 @@
 #define foosdresolvehfoo
 
 /***
-  This file is part of systemd.
-
   Copyright 2005-2014 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it

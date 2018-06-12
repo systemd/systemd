@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
   Copyright 2010 Lennart Poettering
   Copyright 2013 Thomas H.P. Andersen
 ***/

@@ -3,8 +3,6 @@
 #define foosdjournalhfoo
 
 /***
-  This file is part of systemd.
-
   Copyright 2011 Lennart Poettering
 
   systemd is free software; you can redistribute it and/or modify it

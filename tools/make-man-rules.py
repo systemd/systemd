@@ -2,8 +2,6 @@
 #  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 #  SPDX-License-Identifier: LGPL-2.1+
 #
-#  This file is part of systemd.
-#
 #  Copyright 2013, 2017 Zbigniew Jędrzejewski-Szmek
 
 from __future__ import print_function
