@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) IBM Corp. 2003
- * Copyright (C) SUSE Linux Products GmbH, 2006
+ * Copyright © IBM Corp. 2003
+ * Copyright © SUSE Linux Products GmbH, 2006
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

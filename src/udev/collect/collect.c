@@ -11,7 +11,7 @@
  * number of missing IDs otherwise.
  * A negative number is returned on error.
  *
- * Copyright(C) 2007, Hannes Reinecke <hare@suse.de>
+ * Copyright © 2007, Hannes Reinecke <hare@suse.de>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

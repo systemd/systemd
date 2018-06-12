@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright (C) 2013 Intel Corporation
+  Copyright © 2013 Intel Corporation
   Authors:
         Nathaniel Chen <nathaniel.chen@intel.com>
 ***/

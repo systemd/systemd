@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright (C) 2017 Intel Corporation. All rights reserved.
+  Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
 #include <netinet/icmp6.h>

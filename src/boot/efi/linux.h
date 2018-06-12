@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * Copyright (C) 2015 Kay Sievers <kay@vrfy.org>
+ * Copyright © 2015 Kay Sievers <kay@vrfy.org>
  */
 
 #ifndef __SDBOOT_kernel_H

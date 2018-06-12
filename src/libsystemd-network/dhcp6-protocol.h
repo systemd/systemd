@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright (C) 2014 Intel Corporation. All rights reserved.
+  Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
 #include <netinet/ip6.h>

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright (C) 2016 BISDN GmbH. All rights reserved.
+  Copyright © 2016 BISDN GmbH. All rights reserved.
 ***/
 
 #include <netinet/in.h>

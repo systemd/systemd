@@ -3,7 +3,7 @@
 #
 # Simple udev rules syntax checker
 #
-# (C) 2010 Canonical Ltd.
+# © 2010 Canonical Ltd.
 # Author: Martin Pitt <martin.pitt@ubuntu.com>
 
 import re

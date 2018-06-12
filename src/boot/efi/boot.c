@@ -10,8 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * Lesser General Public License for more details.
  *
- * Copyright (C) 2012-2015 Kay Sievers <kay@vrfy.org>
- * Copyright (C) 2012-2015 Harald Hoyer <harald@redhat.com>
+ * Copyright © 2012-2015 Kay Sievers <kay@vrfy.org>
+ * Copyright © 2012-2015 Harald Hoyer <harald@redhat.com>
  */
 
 #include <efi.h>

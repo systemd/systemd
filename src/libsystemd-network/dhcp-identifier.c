@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright (C) 2015 Tom Gundersen <teg@jklmen>
+  Copyright © 2015 Tom Gundersen <teg@jklmen>
 ***/
 
 #include "libudev.h"

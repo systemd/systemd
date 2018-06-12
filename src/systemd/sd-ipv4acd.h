@@ -3,8 +3,8 @@
 #define foosdipv4acdfoo
 
 /***
-  Copyright (C) 2014 Axis Communications AB. All rights reserved.
-  Copyright (C) 2015 Tom Gundersen
+  Copyright © 2014 Axis Communications AB. All rights reserved.
+  Copyright © 2015 Tom Gundersen
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by

@@ -2,7 +2,7 @@
 #pragma once
 
 /*
- * Copyright (C) 2014 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>
+ * Copyright © 2014 Zbigniew Jędrzejewski-Szmek <zbyszek@in.waw.pl>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

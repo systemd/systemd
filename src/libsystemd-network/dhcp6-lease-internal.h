@@ -2,8 +2,8 @@
 #pragma once
 
 /***
-  Copyright (C) 2014 Tom Gundersen
-  Copyright (C) 2014-2015 Intel Corporation. All rights reserved.
+  Copyright © 2014 Tom Gundersen
+  Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
 #include <stdint.h>

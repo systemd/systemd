@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright (C) 2016 Canonical Ltd.
+  Copyright © 2016 Canonical Ltd.
 ***/
 
 #include <unistd.h>

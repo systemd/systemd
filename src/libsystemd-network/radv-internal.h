@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright (C) 2017 Intel Corporation. All rights reserved.
+  Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
 #include "sd-radv.h"

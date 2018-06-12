@@ -6,7 +6,7 @@ OUTFILE_HEADER = """#!/usr/bin/env python3
 #
 # create-sys-script.py
 #
-# (C) 2017 Canonical Ltd.
+# © 2017 Canonical Ltd.
 # Author: Dan Streetman <dan.streetman@canonical.com>
 """
 

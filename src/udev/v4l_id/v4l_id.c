@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) 2009 Kay Sievers <kay@vrfy.org>
+ * Copyright © 2009 Kay Sievers <kay@vrfy.org>
  * Copyright (c) 2009 Filippo Argiolas <filippo.argiolas@gmail.com>
  *
  * This program is free software; you can redistribute it and/or
