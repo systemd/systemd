@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2010-2012 Kay Sievers
+  Copyright © 2010-2012 Kay Sievers
 ***/
 
 enum {

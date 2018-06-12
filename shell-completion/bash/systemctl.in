@@ -3,7 +3,7 @@
 #
 # This file is part of systemd.
 #
-# Copyright 2010 Ran Benita
+# Copyright © 2010 Ran Benita
 
 __systemctl() {
         local mode=$1; shift 1

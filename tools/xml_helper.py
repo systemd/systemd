@@ -2,7 +2,7 @@
 #  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 #  SPDX-License-Identifier: LGPL-2.1+
 #
-#  Copyright 2012-2013 Zbigniew Jędrzejewski-Szmek
+#  Copyright © 2012-2013 Zbigniew Jędrzejewski-Szmek
 
 from lxml import etree as tree
 

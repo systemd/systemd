@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2013 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include <string.h>

@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2013 David Herrmann
+  Copyright © 2013 David Herrmann
 ***/
 
 typedef enum DeviceType DeviceType;

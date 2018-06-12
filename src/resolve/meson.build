@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
+# Copyright © 2017 Zbigniew Jędrzejewski-Szmek
 
 basic_dns_sources = files('''
         resolved-dns-dnssec.c

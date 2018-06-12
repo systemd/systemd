@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2014 Vinay Kulkarni <kulkarniv@vmware.com>
+  Copyright © 2014 Vinay Kulkarni <kulkarniv@vmware.com>
 ***/
 
 #include "conf-parser.h"

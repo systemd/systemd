@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2016 Daniel Mack
+  Copyright © 2016 Daniel Mack
 
   [Except for the stuff copy/pasted from the kernel sources, see below]
 ***/

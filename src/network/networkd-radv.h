@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2017 Intel Corporation. All rights reserved.
+  Copyright © 2017 Intel Corporation. All rights reserved.
 ***/
 
 #include "conf-parser.h"

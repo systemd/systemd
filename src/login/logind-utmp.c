@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2015 Daniel Mack
+  Copyright © 2015 Daniel Mack
 ***/
 
 #include <errno.h>

@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2016 Michael Karcher
+  Copyright © 2016 Michael Karcher
 ***/
 
 #include <errno.h>

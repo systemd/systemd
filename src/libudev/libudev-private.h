@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
+  Copyright © 2008-2012 Kay Sievers <kay@vrfy.org>
 ***/
 
 #include <signal.h>

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2015 Filipe Brandenburger
+  Copyright © 2015 Filipe Brandenburger
 ***/
 
 #include <errno.h>

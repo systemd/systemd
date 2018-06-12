@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2012 Michael Olbrich
+  Copyright © 2012 Michael Olbrich
 ***/
 
 typedef enum EmergencyAction {

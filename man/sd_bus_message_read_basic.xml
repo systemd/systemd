@@ -5,7 +5,7 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  Copyright 2016 Julian Orth
+  Copyright © 2016 Julian Orth
 -->
 
 <refentry id="sd_bus_message_read_basic">

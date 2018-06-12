@@ -8,7 +8,7 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  Copyright 2012 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2012 Zbigniew Jędrzejewski-Szmek
 -->
 
 <refentry id="systemd-journal-remote" conditional='HAVE_MICROHTTPD'

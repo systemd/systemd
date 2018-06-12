@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2015 Tom Gundersen
+  Copyright © 2015 Tom Gundersen
 ***/
 
 #include "siphash24.h"

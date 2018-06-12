@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2013 Thomas H.P. Andersen
+  Copyright © 2013 Thomas H.P. Andersen
 ***/
 
 #include <errno.h>

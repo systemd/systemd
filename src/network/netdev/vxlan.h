@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
+  Copyright © 2014 Tom Gundersen <teg@jklm.no>
 ***/
 
 typedef struct VxLan VxLan;

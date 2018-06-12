@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2017 Shawn Landden
+  Copyright © 2017 Shawn Landden
 ***/
 
 #include <stdbool.h>

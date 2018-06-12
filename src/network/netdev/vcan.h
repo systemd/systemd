@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2016 Susant Sahani
+  Copyright © 2016 Susant Sahani
 ***/
 
 typedef struct VCan VCan;

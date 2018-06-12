@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2016 Daniel Mack
+  Copyright © 2016 Daniel Mack
 ***/
 
 #include <linux/libbpf.h>

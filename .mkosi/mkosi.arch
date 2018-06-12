@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
-# Copyright 2016 Zeal Jagannatha
+# Copyright © 2016 Zeal Jagannatha
 
 # This is a settings file for OS image generation using mkosi (https://github.com/systemd/mkosi).
 # Simply invoke "mkosi" in the project directory to build an OS image.

@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2013 Tom Gundersen <teg@jklm.no>
+  Copyright © 2013 Tom Gundersen <teg@jklm.no>
 ***/
 
 #include <endian.h>

@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2012 Kay Sievers <kay@vrfy.org>
+  Copyright © 2012 Kay Sievers <kay@vrfy.org>
 ***/
 
 #include "sparse-endian.h"

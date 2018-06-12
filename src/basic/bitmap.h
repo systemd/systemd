@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2015 Tom Gundersen
+  Copyright © 2015 Tom Gundersen
 ***/
 
 #include <stdbool.h>

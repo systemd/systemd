@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2016 Andreas Rammhold <andreas@rammhold.de>
+  Copyright © 2016 Andreas Rammhold <andreas@rammhold.de>
 ***/
 
 typedef struct Vrf Vrf;

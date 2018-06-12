@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2012 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2012 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include <microhttpd.h>

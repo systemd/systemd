@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2017 Yu Watanabe
+  Copyright © 2017 Yu Watanabe
 ***/
 
 #include <errno.h>

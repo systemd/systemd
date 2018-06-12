@@ -4,8 +4,8 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  Copyright 2016 Red Hat, Inc.
-  Copyright 2017 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2016 Red Hat, Inc.
+  Copyright © 2017 Zbigniew Jędrzejewski-Szmek
 -->
 <refentry id="environment.d" conditional='ENABLE_ENVIRONMENT_D'
     xmlns:xi="http://www.w3.org/2001/XInclude">

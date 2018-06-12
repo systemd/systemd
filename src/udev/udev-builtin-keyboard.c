@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2013 Kay Sievers <kay@vrfy.org>
+  Copyright © 2013 Kay Sievers <kay@vrfy.org>
 ***/
 
 #include <stdio.h>

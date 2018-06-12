@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2015 Ronny Chevalier
+  Copyright © 2015 Ronny Chevalier
 ***/
 
 #include "conf-parser.h"

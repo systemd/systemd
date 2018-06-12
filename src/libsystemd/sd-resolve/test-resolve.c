@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2014 Daniel Buch
+  Copyright © 2014 Daniel Buch
 ***/
 
 #include <arpa/inet.h>

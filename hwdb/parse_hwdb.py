@@ -4,7 +4,7 @@
 #
 # This file is distributed under the MIT license, see below.
 #
-# Copyright 2016 Zbigniew Jędrzejewski-Szmek
+# Copyright © 2016 Zbigniew Jędrzejewski-Szmek
 #
 # The MIT License (MIT)
 #

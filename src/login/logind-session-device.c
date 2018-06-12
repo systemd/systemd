@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2013 David Herrmann
+  Copyright © 2013 David Herrmann
 ***/
 
 #include <fcntl.h>

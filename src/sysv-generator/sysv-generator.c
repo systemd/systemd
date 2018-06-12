@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2014 Thomas H.P. Andersen
-  Copyright 2011 Michal Schmidt
+  Copyright © 2014 Thomas H.P. Andersen
+  Copyright © 2011 Michal Schmidt
 ***/
 
 #include <errno.h>

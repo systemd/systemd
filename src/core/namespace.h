@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2016 Djalal Harouni
+  Copyright © 2016 Djalal Harouni
 ***/
 
 typedef struct NamespaceInfo NamespaceInfo;

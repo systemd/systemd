@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2010 ProFUSION embedded systems
+  Copyright © 2010 ProFUSION embedded systems
 ***/
 
 #include "list.h"

@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2017 Susant Sahani
+  Copyright © 2017 Susant Sahani
 ***/
 
 #include <inttypes.h>

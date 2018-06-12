@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2014 David Herrmann <dh.herrmann@gmail.com>
+  Copyright © 2014 David Herrmann <dh.herrmann@gmail.com>
 ***/
 
 #include <stdbool.h>

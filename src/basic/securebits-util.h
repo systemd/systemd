@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2017 Yu Watanabe
+  Copyright © 2017 Yu Watanabe
 ***/
 
 #include "securebits.h"

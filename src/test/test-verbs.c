@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2014 systemd developers
+  Copyright © 2014 systemd developers
 ***/
 
 #include "macro.h"

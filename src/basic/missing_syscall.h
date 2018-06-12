@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2016 Zbigniew Jędrzejewski-Szmek
 ***/
 
 /* Missing glibc definitions to access certain kernel APIs */

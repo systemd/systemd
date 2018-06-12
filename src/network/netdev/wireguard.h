@@ -1,7 +1,7 @@
 #pragma once
 
 /***
-  Copyright 2016 Jörg Thalheim <joerg@thalheim.io>
+  Copyright © 2016 Jörg Thalheim <joerg@thalheim.io>
 ***/
 
 typedef struct Wireguard Wireguard;

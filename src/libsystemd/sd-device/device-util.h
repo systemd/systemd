@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2014-2015 Tom Gundersen <teg@jklm.no>
+  Copyright © 2014-2015 Tom Gundersen <teg@jklm.no>
 ***/
 
 #include "util.h"

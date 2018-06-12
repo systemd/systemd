@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1+
-# Copyright 2018 Jonathan Rudenberg
+# Copyright © 2018 Jonathan Rudenberg
 
 fuzzers += [
         [['src/fuzz/fuzz-dns-packet.c',

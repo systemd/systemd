@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2012 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2012 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include <fcntl.h>

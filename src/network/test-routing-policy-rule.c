@@ -1,7 +1,7 @@
 /***
   SPDX-License-Identifier: LGPL-2.1+
 
-  Copyright 2017 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2017 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include "fd-util.h"

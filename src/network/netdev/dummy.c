@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2014 Susant Sahani <susant@redhat.com>
-  Copyright 2014 Tom Gundersen
+  Copyright © 2014 Susant Sahani <susant@redhat.com>
+  Copyright © 2014 Tom Gundersen
 ***/
 
 #include "netdev/dummy.h"

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2017 Felipe Sateler
+  Copyright © 2017 Felipe Sateler
 ***/
 
 #include <errno.h>

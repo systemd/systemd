@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2014 Kay Sievers
+  Copyright © 2014 Kay Sievers
 ***/
 
 #include "list.h"

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
-# Copyright 2018 Zbigniew Jędrzejewski-Szmek
+# Copyright © 2018 Zbigniew Jędrzejewski-Szmek
 
 sanitize_address = custom_target(
         'sanitize-address-fuzzers',

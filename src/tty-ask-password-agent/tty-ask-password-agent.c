@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2015 Werner Fink
+  Copyright © 2015 Werner Fink
 ***/
 
 #include <errno.h>

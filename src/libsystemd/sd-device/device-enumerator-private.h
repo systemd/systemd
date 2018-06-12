@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2015 Tom Gundersen <teg@jklm.no>
+  Copyright © 2015 Tom Gundersen <teg@jklm.no>
 ***/
 
 #include "sd-device.h"

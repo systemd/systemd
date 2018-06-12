@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2012 Dan Walsh
+  Copyright © 2012 Dan Walsh
 ***/
 
 #include "sd-bus.h"

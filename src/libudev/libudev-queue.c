@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright 2009 Alan Jenkins <alan-jenkins@tuffmail.co.uk>
+  Copyright © 2008-2012 Kay Sievers <kay@vrfy.org>
+  Copyright © 2009 Alan Jenkins <alan-jenkins@tuffmail.co.uk>
 ***/
 
 #include <errno.h>

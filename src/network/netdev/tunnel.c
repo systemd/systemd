@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2014 Susant Sahani
+  Copyright © 2014 Susant Sahani
 ***/
 
 #include <arpa/inet.h>

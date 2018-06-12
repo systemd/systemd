@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
+  Copyright © 2014 Tom Gundersen <teg@jklm.no>
  ***/
 
 #include <netinet/in.h>

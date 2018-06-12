@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2012 Holger Hans Peter Freyther
+  Copyright © 2012 Holger Hans Peter Freyther
 ***/
 
 #include <sched.h>

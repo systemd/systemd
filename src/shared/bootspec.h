@@ -1,5 +1,5 @@
 /***
-  Copyright 2017 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2017 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #pragma once

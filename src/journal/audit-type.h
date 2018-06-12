@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2015 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2015 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include "macro.h"

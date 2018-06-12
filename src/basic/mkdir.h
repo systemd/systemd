@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2013 Kay Sievers
+  Copyright © 2013 Kay Sievers
 ***/
 
 #include <sys/types.h>

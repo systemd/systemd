@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2017 Florian Klink <flokli@flokli.de>
+  Copyright © 2017 Florian Klink <flokli@flokli.de>
 ***/
 
 #include "conf-parser.h"

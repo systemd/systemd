@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
-# Copyright 2017 Zbigniew Jędrzejewski-Szmek
+# Copyright © 2017 Zbigniew Jędrzejewski-Szmek
 
 _systemd_headers = '''
         sd-bus.h

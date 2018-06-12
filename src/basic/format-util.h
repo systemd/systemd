@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2015 Ronny Chevalier
+  Copyright © 2015 Ronny Chevalier
 ***/
 
 #include <inttypes.h>

@@ -3,8 +3,8 @@
 #define foosddevicehfoo
 
 /***
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright 2014-2015 Tom Gundersen <teg@jklm.no>
+  Copyright © 2008-2012 Kay Sievers <kay@vrfy.org>
+  Copyright © 2014-2015 Tom Gundersen <teg@jklm.no>
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by

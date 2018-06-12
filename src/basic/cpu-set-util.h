@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2015 Filipe Brandenburger
+  Copyright © 2015 Filipe Brandenburger
 ***/
 
 #include <sched.h>

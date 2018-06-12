@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2010 Harald Hoyer
+  Copyright © 2010 Harald Hoyer
 ***/
 
 #include <stdio.h>

@@ -2,7 +2,7 @@
 #  -*- Mode: python; coding: utf-8; indent-tabs-mode: nil -*- */
 # SPDX-License-Identifier: LGPL-2.1+
 #
-#  Copyright 2014 Michal Schmidt
+#  Copyright © 2014 Michal Schmidt
 
 import gdb
 

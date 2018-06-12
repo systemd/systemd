@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2010 ProFUSION embedded systems
+  Copyright © 2010 ProFUSION embedded systems
 ***/
 
 #include <errno.h>

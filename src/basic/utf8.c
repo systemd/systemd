@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright 2008-2011 Kay Sievers
+  Copyright © 2008-2011 Kay Sievers
 ***/
 
 /* Parts of this file are based on the GLIB utf8 validation functions. The

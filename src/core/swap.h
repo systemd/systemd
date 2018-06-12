@@ -2,7 +2,7 @@
 #pragma once
 
 /***
-  Copyright 2010 Maarten Lankhorst
+  Copyright © 2010 Maarten Lankhorst
 ***/
 
 #include "libudev.h"

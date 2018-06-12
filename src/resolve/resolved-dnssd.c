@@ -1,5 +1,5 @@
 /***
-  Copyright 2017 Dmitry Rozhkov
+  Copyright © 2017 Dmitry Rozhkov
 ***/
 
 #include "conf-files.h"
