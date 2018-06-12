@@ -1376,16 +1376,21 @@ int terminal_urlify_path(const char *path, const char *text, char **ret) {
 
 static int cat_file(const char *filename, bool newline) {
         _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *urlified = NULL;
         int r;
 
         f = fopen(filename, "re");
         if (!f)
                 return -errno;
 
+        r = terminal_urlify_path(filename, NULL, &urlified);
+        if (r < 0)
+                return r;
+
         printf("%s%s# %s%s\n",
                newline ? "\n" : "",
                ansi_highlight_blue(),
-               filename,
+               urlified,
                ansi_normal());
         fflush(stdout);
 
