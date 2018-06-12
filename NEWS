@@ -4,9 +4,9 @@ CHANGES WITH 239 in spe:
 
         * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"
           builtin may name network interfaces differently than in previous
-          versions.  SR-IOV virtual functions and NPAR partitions with PCI
-          function numbers of 8 and above will be named more predictably,
-          and udev may generate names based on PCI slot number in some cases
+          versions. SR-IOV virtual functions and NPAR partitions with PCI
+          function numbers of 8 and above will be named more predictably, and
+          udev may generate names based on the PCI slot number in some cases
           where it previously did not.
 
         * AF_INET and AF_INET6 are dropped from RestrictAddressFamilies= in
@@ -34,28 +34,30 @@ CHANGES WITH 239 in spe:
         * systemd-tmpfiles will now print a notice whenever it encounters
           tmpfiles.d/ lines referencing the /var/run/ directory. It will
           recommend reworking them to use the /run/ directory instead (for
-          which /var/run/ is simply a symlinked compatibility alias). This is
-          recommended, so that systemd-tmpfiles can properly detect line
-          conflicts and merge lines referencing the same files by both paths,
-          without having to access them.
+          which /var/run/ is simply a symlinked compatibility alias). This way
+          systemd-tmpfiles can properly detect line conflicts and merge lines
+          referencing the same file by two paths, without having to access
+          them.
 
         * systemctl disable/unmask/preset/preset-all cannot be used with
           --runtime. Previously this was allowed, but resulted in unintuitive
           behaviour that wasn't useful.
 
-        * sd-boot acquire new loader configuration settings for optionally
-          turning off Windows and MacOS boot partition discovery as well as
-          reboot-into-firmware menu items. It also should be able to pick a
-          better screen resolution for HiDPI systems, and now provides loader
+        * sd-boot acquired new loader configuration settings to optionally turn
+          off Windows and MacOS boot partition discovery as well as
+          reboot-into-firmware menu items. It is also able to pick a better
+          screen resolution for HiDPI systems, and now provides loader
           configuration settings to change the resolution explicitly.
 
         * The systemd-resolve tool has been renamed to resolvectl (it also
           remains available under the old name, for compatibility), and its
           interface is now verb-based, similar in style to the other <xyz>ctl
-          tools, such as systemctl or loginctl. Also, the tool may now be
-          linked to the "resolveconf" name, in which case it will take
-          arguments and input compatible with the Debian and FreeBSD resolvconf
-          tool.
+          tools, such as systemctl or loginctl.
+
+        * The resolvectl/systemd-resolve tool also provides 'resolveconf'
+          compatiblity. It may be symlinked under the 'resolveconf' name, in
+          which case it will take arguments and input compatible with the
+          Debian and FreeBSD resolvconf tool.
 
         * Support for suspend-then-hibernate has been added, i.e. a sleep mode
           where the system initially suspends, and after a time-out resumes and
@@ -73,14 +75,14 @@ CHANGES WITH 239 in spe:
           will be compressed, smaller ones will not. Previously this threshold
           was not configurable and set to 512.
 
-        * A new system.conf NoNewPrivileges= is now available which may be used
-          to turn off acquiring of new privileges system-wide (i.e. set Linux'
-          PR_SET_NO_NEW_PRIVS for PID 1 itself, and thus also all its
-          children). Note that turning this option on means setuid binaries and
-          file system capabilities lose their special powers. While turning on
-          this option is a big step towards a more secure system, doing so is
-          likely to break numerous pre-existing UNIX tools, in particular su
-          and sudo.
+        * A new system.conf setting NoNewPrivileges= is now available which may
+          be used to turn off acquisition of new privileges system-wide
+          (i.e. set Linux' PR_SET_NO_NEW_PRIVS for PID 1 itself, and thus also
+          for all its children). Note that turning this option on means setuid
+          binaries and file system capabilities lose their special powers.
+          While turning on this option is a big step towards a more secure
+          system, doing so is likely to break numerous pre-existing UNIX tools,
+          in particular su and sudo.
 
         * A new service systemd-time-sync-wait.service has been added. If
           enabled it will delay the time-sync.target unit at boot until time
@@ -93,32 +95,38 @@ CHANGES WITH 239 in spe:
           write offset, on kernels new enough to support this. This means swap
           files should work for hibernation now.
 
-        * When loading unit files, systemd will now look for drop-in unit file
-          extension at additional places. Previously, for a unit file name
+        * When loading unit files, systemd will now look for drop-in unit files
+          extensions in additional places. Previously, for a unit file name
           "foo-bar-baz.service" it would look for dropin files in
           "foo-bar-baz.service.d/*.conf". Now, it will also look in
           "foo-bar-.service.d/*.conf" and "foo-.service.d/", i.e. at the
           service name truncated after all inner dashes. This scheme allows
           writing drop-ins easily that apply to a whole set of unit files at
           once. It's particularly useful for mount and slice units (as their
-          naming is prefix based anyway), but is also useful for service and
-          other units, for packages that install multiple unit files at once,
+          naming is prefix based), but is also useful for service and other
+          units, for packages that install multiple unit files at once,
           following a strict naming regime of beginning the unit file name with
-          the package's name. Two new specifiers are now supported while
-          parsing unit files, to match this: %j and %J are replaced by the part
-          of the unit name following the last dash.
+          the package's name. Two new specifiers are now supported in unit
+          files to match this: %j and %J are replaced by the part of the unit
+          name following the last dash.
+
+        * Unit files and other configuration files that support specifier
+          expansion now understand another two new specifiers: %T and %V will
+          resolve to /tmp and /var/tmp respectively, or whatever temporary
+          directory has been set for the calling user.
 
         * The ExecStart= lines of unit files are no longer required to
           reference absolute paths. If non-absolute paths are specified the
           specified binary name is searched within the service manager's
-          built-in $PATH. It's generally recommended to continue to use
-          absolute paths for all binaries specified in unit files.
+          built-in $PATH, which may be queried with 'systemd-path
+          search-binaries-default'. It's generally recommended to continue to
+          use absolute paths for all binaries specified in unit files.
 
         * coredumpctl's "gdb" verb has been renamed to "debug", in order to
           support alternative debuggers, for example lldb. The old name
           continues to be available however, for compatibility reasons. Use the
-          new --debugger= switch and $SYSTEMD_DEBUGGER environment variable to
-          pick an alternative debugger instead of the default of gdb.
+          new --debugger= switch or the $SYSTEMD_DEBUGGER environment variable
+          to pick an alternative debugger instead of the default gdb.
 
         * systemctl and the other tools will now output escape sequences that
           generate proper clickable hyperlinks in various terminal emulators
@@ -129,10 +137,9 @@ CHANGES WITH 239 in spe:
           "less" pager doesn't support this yet, hence this functionality is
           currently automatically turned off when a pager is started (which
           happens quite often due to auto-paging). We hope to remove this
-          limitation as soon as "less" learns these escape sequences too. This
-          new behaviour may also be turned off explicitly with the
-          $SYSTEMD_URLIFY environment variable. For details on these escape
-          sequences see:
+          limitation as soon as "less" learns these escape sequences. This new
+          behaviour may also be turned off explicitly with the $SYSTEMD_URLIFY
+          environment variable. For details on these escape sequences see:
           https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
 
         * networkd's .network files now support a new IPv6MTUBytes= option for
@@ -148,25 +155,26 @@ CHANGES WITH 239 in spe:
         * networkd will now automatically make use of the kernel's route
           expiration feature, if it is available.
 
-        * udevd's .link files now support setting the number of Rx/Tx channels,
-          using the RxChannels=, TxChannels=, OtherChannels=,
-          CombinedChannels=. Support for UDPSegmentationOffload= has been
-          removed, given its limited support in hardware, and waning software
-          support.
+        * udevd's .link files now support setting the number of receive and
+          transmit channels, using the RxChannels=, TxChannels=,
+          OtherChannels=, CombinedChannels= settings.
+
+        * Support for UDPSegmentationOffload= has been removed, given its
+          limited support in hardware, and waning software support.
 
         * networkd's .netdev files now support creating "netdevsim" interfaces.
 
         * PID 1 learnt a new bus call GetUnitByControlGroup() which may be used
           to query the unit belonging to a specific kernel control group.
 
-        * systemd-analyze learnt a new verb "cat-config", which may be used to
+        * systemd-analyze gained a new verb "cat-config", which may be used to
           dump the contents of any configuration file, with all its matching
           drop-in files added in, and honouring the usual search and masking
           logic applied to systemd configuration files. For example use
           "systemd-analyze cat-config systemd/system.conf" to get the complete
           system configuration file of systemd how it would be loaded by PID 1
-          itself. Similar to this various tools, such as systemd-tmpfiles or
-          systemd-sysusers learnt new option "--cat-config", which do
+          itself. Similar to this, various tools such as systemd-tmpfiles or
+          systemd-sysusers, gained a new option "--cat-config", which does the
           corresponding operation for their own configuration settings. For
           example, "systemd-tmpfiles --cat-config" will now output the full
           list of tmpfiles.d/ lines in place.
@@ -180,23 +188,23 @@ CHANGES WITH 239 in spe:
 
         * systemd-nspawn gained a new --rlimit= switch for setting initial
           resource limits for the container payload. There's a new switch
-          --hostname= for explicitly overriding the container's hostname. A new
+          --hostname= to explicitly override the container's hostname. A new
           --no-new-privileges= switch may be used to control the
           PR_SET_NO_NEW_PRIVS flag for the container payload. A new
           --oom-score-adjust= switch controls the OOM scoring adjustment value
           for the payload. The new --cpu-affinity= switch controls the CPU
           affinity of the container payload. The new --resolv-conf= switch
           allows more detailed control of /etc/resolv.conf handling of the
-          container.  Similar, the new --timezone= switch allows more detailed
+          container. Similarly, the new --timezone= switch allows more detailed
           control of /etc/localtime handling of the container.
 
-        * systemd-detect-virt learnt a new --list switch, which will print a
+        * systemd-detect-virt gained a new --list switch, which will print a
           list of all currently known VM and container environments.
 
-        * Support for the new "Portable Services" concept has been added, see
+        * Support for "Portable Services" has been added, see
           doc/PORTABLE_SERVICES.md for details. Currently, the support is still
-          experimental, but this is expected to change soon. Reflecting the
-          experimental state the "portablectl" binary is not installed into
+          experimental, but this is expected to change soon. Reflecting this
+          experimental state, the "portablectl" binary is not installed into
           /usr/bin yet. The binary has to be called with the full path
           /usr/lib/systemd/portablectl instead.
 
@@ -210,11 +218,6 @@ CHANGES WITH 239 in spe:
 
         * A new --dump-bus-properties switch has been added to the systemd
           binary, which may be used to dump all supported D-Bus properties.
-
-        * Unit files and other configuration files that support specifier
-          expansion now understand two new specifiers: %T and %V will resolve
-          to /tmp and /var/tmp respectively, or whatever temporary directory
-          has been set for the calling user.
 
         * sd-bus gained a set of new calls:
           sd_bus_slot_set_floating()/sd_bus_slot_get_floating() may be used to
@@ -237,7 +240,7 @@ CHANGES WITH 239 in spe:
         * The "net.ipv4.tcp_ecn" sysctl will now be turned on by default.
 
         * PID 1 will now automatically reschedule .timer units whenever the
-          local timezone changes. (They previously got rescheduled already
+          local timezone changes. (They previously got rescheduled
           automatically when the system clock changed.)
 
         * New documentation has been added to document cgroups delegation,
