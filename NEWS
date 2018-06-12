@@ -51,6 +51,12 @@ CHANGES WITH 239 in spe:
           screen resolution for HiDPI systems, and now provides loader
           configuration settings to change the resolution explicitly.
 
+        * systemd-resolved now supports DNS-over-TLS ("PrivateDNS"). It's still
+          turned off by default, use PrivateDNS=yes to turn it on in
+          resolved.conf. We intend to make this the default as soon as couple
+          of additional techniques for optimizing the initial latency caused by
+          establishing a TLS/TCP connection are implemented.
+
         * The systemd-resolve tool has been renamed to resolvectl (it also
           remains available under the old name, for compatibility), and its
           interface is now verb-based, similar in style to the other <xyz>ctl
