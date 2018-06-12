@@ -174,7 +174,7 @@ static void job_merge_into_installed(Job *j, Job *other) {
         assert(j->unit == other->unit);
 
         if (j->type != JOB_NOP)
-                job_type_merge_and_collapse(&j->type, other->type, j->unit);
+                assert_se(job_type_merge_and_collapse(&j->type, other->type, j->unit) == 0);
         else
                 assert(other->type == JOB_NOP);
 
