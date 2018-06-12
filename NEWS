@@ -279,6 +279,15 @@ CHANGES WITH 239 in spe:
           query the default, built-in $PATH PID 1 will pass to the services it
           manages.
 
+        * A new unit file setting PrivateMounts= has been added. It's a boolean
+          option. If enabled the unit's processes are invoked in their own file
+          system namespace. Note that this behaviour is also implied if any
+          other file system namespacing options (such as PrivateTmp=,
+          PrivateDevices=, ProtectSystem=, …) are used. This option is hence
+          primarily useful for services that do not use any of the other file
+          system namespacing options. One such service is systemd-udevd.service
+          wher this is now used by default.
+
         Contributions from: Adam Duskett, Alan Jenkins, Alessandro Casale,
         Alexander Kurtz, Alex Gartrell, Anssi Hannula, Antique, Arnaud
         Rebillout, Brian J. Murrell, Bruno Vernay, Chris Lesiak, Christian
