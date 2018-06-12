@@ -21,6 +21,9 @@ acpi:AAVA*:
 acpi:AMDI*:
  ID_VENDOR_FROM_DATABASE=AMD
 
+acpi:AMPC*:
+ ID_VENDOR_FROM_DATABASE=Ampere Computing
+
 acpi:APMC*:
  ID_VENDOR_FROM_DATABASE=Applied Micro Circuits Corporation
 
@@ -2205,6 +2208,9 @@ acpi:EHN*:
 acpi:EIC*:
  ID_VENDOR_FROM_DATABASE=Eicon Technology Corporation
 
+acpi:EIN*:
+ ID_VENDOR_FROM_DATABASE=Elegant Invention
+
 acpi:EIZ*:
  ID_VENDOR_FROM_DATABASE=Eizo
 
@@ -3123,6 +3129,9 @@ acpi:HWD*:
 acpi:HWP*:
  ID_VENDOR_FROM_DATABASE=Hewlett Packard
 
+acpi:HWV*:
+ ID_VENDOR_FROM_DATABASE=Huawei Technologies Co., Inc.
+
 acpi:HXM*:
  ID_VENDOR_FROM_DATABASE=Hexium Ltd.
 
@@ -3314,6 +3323,9 @@ acpi:IMD*:
 
 acpi:IME*:
  ID_VENDOR_FROM_DATABASE=Imagraph
+
+acpi:IMF*:
+ ID_VENDOR_FROM_DATABASE=Immersive Audio Technologies France
 
 acpi:IMG*:
  ID_VENDOR_FROM_DATABASE=IMAGENICS Co., Ltd.
@@ -3575,6 +3587,9 @@ acpi:JDI*:
 
 acpi:JDL*:
  ID_VENDOR_FROM_DATABASE=Japan Digital Laboratory Co.,Ltd.
+
+acpi:JEM*:
+ ID_VENDOR_FROM_DATABASE=Japan E.M.Solutions Co., Ltd.
 
 acpi:JEN*:
  ID_VENDOR_FROM_DATABASE=N-Vision
@@ -4010,6 +4025,9 @@ acpi:LSJ*:
 
 acpi:LSL*:
  ID_VENDOR_FROM_DATABASE=Logical Solutions
+
+acpi:LSP*:
+ ID_VENDOR_FROM_DATABASE=Lightspace Technologies
 
 acpi:LSY*:
  ID_VENDOR_FROM_DATABASE=LSI Systems Inc
@@ -5451,6 +5469,9 @@ acpi:PXL*:
 acpi:PXM*:
  ID_VENDOR_FROM_DATABASE=Proxim Inc
 
+acpi:PXN*:
+ ID_VENDOR_FROM_DATABASE=PixelNext Inc
+
 acpi:QCC*:
  ID_VENDOR_FROM_DATABASE=QuakeCom Company Ltd
 
@@ -5471,6 +5492,9 @@ acpi:QCP*:
 
 acpi:QDI*:
  ID_VENDOR_FROM_DATABASE=Quantum Data Incorporated
+
+acpi:QDL*:
+ ID_VENDOR_FROM_DATABASE=QD Laser, Inc.
 
 acpi:QDM*:
  ID_VENDOR_FROM_DATABASE=Quadram
@@ -6132,6 +6156,9 @@ acpi:SNS*:
 acpi:SNT*:
  ID_VENDOR_FROM_DATABASE=SuperNet Inc
 
+acpi:SNV*:
+ ID_VENDOR_FROM_DATABASE=SONOVE GmbH
+
 acpi:SNW*:
  ID_VENDOR_FROM_DATABASE=Snell & Wilcox
 
@@ -6380,6 +6407,9 @@ acpi:SXD*:
 
 acpi:SXG*:
  ID_VENDOR_FROM_DATABASE=SELEX GALILEO
+
+acpi:SXI*:
+ ID_VENDOR_FROM_DATABASE=Silex Inside
 
 acpi:SXL*:
  ID_VENDOR_FROM_DATABASE=SolutionInside
@@ -6819,6 +6849,9 @@ acpi:TST*:
 acpi:TSV*:
  ID_VENDOR_FROM_DATABASE=TRANSVIDEO
 
+acpi:TSW*:
+ ID_VENDOR_FROM_DATABASE=VRSHOW Technology Limited
+
 acpi:TSY*:
  ID_VENDOR_FROM_DATABASE=TouchSystems
 
@@ -7196,6 +7229,9 @@ acpi:VRM*:
 
 acpi:VRS*:
  ID_VENDOR_FROM_DATABASE=VRstudios, Inc.
+
+acpi:VRT*:
+ ID_VENDOR_FROM_DATABASE=Varjo Technologies
 
 acpi:VSC*:
  ID_VENDOR_FROM_DATABASE=ViewSonic Corporation
