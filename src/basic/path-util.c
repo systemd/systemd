@@ -886,17 +886,36 @@ bool hidden_or_backup_file(const char *filename) {
 
 bool is_device_path(const char *path) {
 
-        /* Returns true on paths that refer to a device, either in
-         * sysfs or in /dev */
+        /* Returns true on paths that likely refer to a device, either by path in sysfs or to something in /dev */
 
-        return path_startswith(path, "/dev/") ||
-               path_startswith(path, "/sys/");
+        return PATH_STARTSWITH_SET(path, "/dev/", "/sys/");
 }
 
-bool is_deviceallow_pattern(const char *path) {
-        return path_startswith(path, "/dev/") ||
-               startswith(path, "block-") ||
-               startswith(path, "char-");
+bool valid_device_node_path(const char *path) {
+
+        /* Some superficial checks whether the specified path is a valid device node path, all without looking at the
+         * actual device node. */
+
+        if (!PATH_STARTSWITH_SET(path, "/dev/", "/run/systemd/inaccessible/"))
+                return false;
+
+        if (endswith(path, "/")) /* can't be a device node if it ends in a slash */
+                return false;
+
+        return path_is_normalized(path);
+}
+
+bool valid_device_allow_pattern(const char *path) {
+        assert(path);
+
+        /* Like valid_device_node_path(), but also allows full-subsystem expressions, like DeviceAllow= and DeviceDeny=
+         * accept it */
+
+        if (startswith(path, "block-") ||
+            startswith(path, "char-"))
+                return true;
+
+        return valid_device_node_path(path);
 }
 
 int systemd_installation_has_version(const char *root, unsigned minimal_version) {
