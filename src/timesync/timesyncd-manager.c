@@ -20,6 +20,7 @@
 #include "sd-daemon.h"
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "list.h"
@@ -959,14 +960,28 @@ static int manager_network_read_link_servers(Manager *m) {
         assert(m);
 
         r = sd_network_get_ntp(&ntp);
-        if (r < 0)
+        if (r < 0) {
+                if (r == -ENOMEM)
+                        log_oom();
+                else
+                        log_debug_errno(r, "Failed to get link NTP servers: %m");
                 goto clear;
+        }
 
         LIST_FOREACH(names, n, m->link_servers)
                 n->marked = true;
 
         STRV_FOREACH(i, ntp) {
                 bool found = false;
+
+                r = dns_name_is_valid_or_address(*i);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to check validity of NTP server name or address '%s': %m", *i);
+                        goto clear;
+                } else if (r == 0) {
+                        log_error("Invalid NTP server name or address, ignoring: %s", *i);
+                        continue;
+                }
 
                 LIST_FOREACH(names, n, m->link_servers)
                         if (streq(n->string, *i)) {
@@ -977,8 +992,10 @@ static int manager_network_read_link_servers(Manager *m) {
 
                 if (!found) {
                         r = server_name_new(m, NULL, SERVER_LINK, *i);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_oom();
                                 goto clear;
+                        }
 
                         changed = true;
                 }
@@ -1012,6 +1029,7 @@ static int manager_network_event_handler(sd_event_source *s, int fd, uint32_t re
 
         sd_network_monitor_flush(m->network_monitor);
 
+        /* When manager_network_read_link_servers() failed, we assume that the servers are changed. */
         changed = !!manager_network_read_link_servers(m);
 
         /* check if the machine is online */
@@ -1105,7 +1123,7 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        manager_network_read_link_servers(m);
+        (void) manager_network_read_link_servers(m);
 
         *ret = TAKE_PTR(m);
 
