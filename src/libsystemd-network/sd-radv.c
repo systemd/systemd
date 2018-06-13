@@ -77,6 +77,7 @@ _public_ sd_event *sd_radv_get_event(sd_radv *ra) {
 }
 
 static void radv_reset(sd_radv *ra) {
+        assert(ra);
 
         ra->timeout_event_source =
                 sd_event_source_unref(ra->timeout_event_source);
@@ -120,6 +121,9 @@ _public_ sd_radv *sd_radv_unref(sd_radv *ra) {
         radv_reset(ra);
 
         sd_radv_detach_event(ra);
+
+        ra->fd = safe_close(ra->fd);
+
         return mfree(ra);
 }
 
@@ -607,8 +611,8 @@ _public_ int sd_radv_add_prefix(sd_radv *ra, sd_radv_prefix *p, bool dynamic) {
 }
 
 _public_ sd_radv_prefix *sd_radv_remove_prefix(sd_radv *ra,
-                                               struct in6_addr *prefix,
-                                               uint8_t prefixlen) {
+                                               const struct in6_addr *prefix,
+                                               unsigned char prefixlen) {
         sd_radv_prefix *cur, *next;
 
         assert_return(ra, NULL);
@@ -675,9 +679,8 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
 
         assert_return(ra, -EINVAL);
 
-        if (!search_list || *search_list == NULL) {
+        if (strv_isempty(search_list)) {
                 ra->dnssl = mfree(ra->dnssl);
-
                 return 0;
         }
 
@@ -768,7 +771,7 @@ _public_ sd_radv_prefix *sd_radv_prefix_unref(sd_radv_prefix *p) {
         return mfree(p);
 }
 
-_public_ int sd_radv_prefix_set_prefix(sd_radv_prefix *p, struct in6_addr *in6_addr,
+_public_ int sd_radv_prefix_set_prefix(sd_radv_prefix *p, const struct in6_addr *in6_addr,
                                        unsigned char prefixlen) {
         assert_return(p, -EINVAL);
         assert_return(in6_addr, -EINVAL);
