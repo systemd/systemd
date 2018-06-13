@@ -65,6 +65,9 @@ _systemd-resolve() {
                         --set-dnssec)
                                 comps="yes no allow-downgrade"
                                 ;;
+                        --set-privatedns)
+                                comps="no opportunistic"
+                                ;;
                 esac
                 COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
                 return 0
