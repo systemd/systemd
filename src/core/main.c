@@ -2188,6 +2188,9 @@ int main(int argc, char *argv[]) {
         log_set_upgrade_syslog_to_journal(true);
 
         if (getpid_cached() == 1) {
+                /* When we run as PID 1 force system mode */
+                arg_system = true;
+
                 /* Disable the umask logic */
                 umask(0);
 
@@ -2204,7 +2207,6 @@ int main(int argc, char *argv[]) {
                 if (detect_container() <= 0) {
 
                         /* Running outside of a container as PID 1 */
-                        arg_system = true;
                         log_set_target(LOG_TARGET_KMSG);
                         log_open();
 
@@ -2243,7 +2245,6 @@ int main(int argc, char *argv[]) {
 
                 } else {
                         /* Running inside a container, as PID 1 */
-                        arg_system = true;
                         log_set_target(LOG_TARGET_CONSOLE);
                         log_open();
 
