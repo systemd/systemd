@@ -242,9 +242,9 @@ static int property_get_preparing(
         assert(m);
 
         if (streq(property, "PreparingForShutdown"))
-                b = !!(m->action_what & INHIBIT_SHUTDOWN);
+                b = m->action_what & INHIBIT_SHUTDOWN;
         else
-                b = !!(m->action_what & INHIBIT_SLEEP);
+                b = m->action_what & INHIBIT_SLEEP;
 
         return sd_bus_message_append(reply, "b", b);
 }

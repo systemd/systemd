@@ -322,7 +322,7 @@ static int append_tmpfs_mounts(MountEntry **p, const TemporaryFileSystem *tmpfs,
                         if (r < 0)
                                 return r;
 
-                        ro = !!(flags & MS_RDONLY);
+                        ro = flags & MS_RDONLY;
                         if (ro)
                                 flags ^= MS_RDONLY;
                 }

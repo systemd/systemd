@@ -477,7 +477,7 @@ static int map_ntp_message(sd_bus *bus, const char *member, sd_bus_message *m, s
 
         memcpy(p->reference.str, d, sz);
 
-        p->spike = !!b;
+        p->spike = b;
 
         return 0;
 }

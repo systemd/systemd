@@ -103,7 +103,7 @@ static int condition_test_kernel_command_line(Condition *c) {
         if (r < 0)
                 return r;
 
-        equal = !!strchr(c->parameter, '=');
+        equal = strchr(c->parameter, '=');
 
         for (p = line;;) {
                 _cleanup_free_ char *word = NULL;

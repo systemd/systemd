@@ -11,11 +11,17 @@ case "$1" in
                 ;;
 esac
 
+if ! parallel -h >/dev/null; then
+        echo 'Please install GNU parallel (package "parallel")'
+        exit 1
+fi
+
 for SCRIPT in ${@-$top/coccinelle/*.cocci} ; do
         echo "--x-- Processing $SCRIPT --x--"
         TMPFILE=`mktemp`
         echo "+ spatch --sp-file $SCRIPT $args ..."
-        spatch --sp-file $SCRIPT $args $files 2>"$TMPFILE" || cat "$TMPFILE"
-        rm "$TMPFILE"
+        parallel --halt now,fail=1 --keep-order --noswap --max-args=20 \
+                 spatch --sp-file $SCRIPT $args ::: $files \
+                 2>"$TMPFILE" || cat "$TMPFILE"
         echo -e "--x-- Processed $SCRIPT --x--\n"
 done

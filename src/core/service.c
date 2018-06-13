@@ -3215,7 +3215,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                          * The PID file might actually be created by a START_POST
                                          * script. In that case don't worry if the loading fails. */
 
-                                        has_start_post = !!s->exec_command[SERVICE_EXEC_START_POST];
+                                        has_start_post = s->exec_command[SERVICE_EXEC_START_POST];
                                         r = service_load_pid_file(s, !has_start_post);
                                         if (!has_start_post && r < 0) {
                                                 r = service_demand_pid_file(s);

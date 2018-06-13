@@ -572,7 +572,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_BOOLEAN:
-                        buffer.b = !!va_arg(ap, int);
+                        buffer.b = va_arg(ap, int);
                         data = &buffer.b;
                         break;
 
