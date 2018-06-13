@@ -352,6 +352,9 @@ _public_ int sd_radv_stop(sd_radv *ra) {
 
         assert_return(ra, -EINVAL);
 
+        if (ra->state == SD_RADV_STATE_IDLE)
+                return 0;
+
         log_radv("Stopping IPv6 Router Advertisement daemon");
 
         /* RFC 4861, Section 6.2.5, send at least one Router Advertisement
