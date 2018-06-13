@@ -467,9 +467,11 @@ static void on_transaction_stream_error(DnsTransaction *t, int error) {
                         /* If the LLMNR/TCP connection failed, the host doesn't support LLMNR, and we cannot answer the
                          * question on this scope. */
                         dns_transaction_complete(t, DNS_TRANSACTION_NOT_FOUND);
+                        return;
                 }
 
                 dns_transaction_retry(t, true);
+                return;
         }
         if (error != 0) {
                 t->answer_errno = error;
