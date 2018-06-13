@@ -20,8 +20,7 @@ static int append_machine_properties(
                 sd_bus_message *m,
                 CustomMount *mounts,
                 unsigned n_mounts,
-                int kill_signal,
-                char **properties) {
+                int kill_signal) {
 
         unsigned j;
         int r;
@@ -186,8 +185,7 @@ int register_machine(
                                 m,
                                 mounts,
                                 n_mounts,
-                                kill_signal,
-                                properties);
+                                kill_signal);
                 if (r < 0)
                         return r;
 
@@ -322,8 +320,7 @@ int allocate_scope(
                         m,
                         mounts,
                         n_mounts,
-                        kill_signal,
-                        properties);
+                        kill_signal);
         if (r < 0)
                 return r;
 
