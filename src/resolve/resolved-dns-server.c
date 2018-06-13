@@ -446,7 +446,7 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
                         /* We tried to connect using DNS-over-TLS, and it didn't work. Downgrade to plaintext UDP
                          * if we don't require DNS-over-TLS */
 
-                        log_debug("Server doesn't support seem to support DNS-over-TLS, downgrading protocol...");
+                        log_debug("Server doesn't support DNS-over-TLS, downgrading protocol...");
                         s->possible_feature_level--;
                 } else if (s->packet_bad_opt &&
                            s->possible_feature_level >= DNS_SERVER_FEATURE_LEVEL_EDNS0) {
