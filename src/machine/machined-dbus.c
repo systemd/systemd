@@ -1010,6 +1010,10 @@ static int method_map_to_machine_user(sd_bus_message *message, void *userdata, s
                                 return -EIO;
                         }
 
+                        /* The private user namespace is disabled, ignoring. */
+                        if (uid_shift == 0)
+                                continue;
+
                         if (uid < uid_shift || uid >= uid_shift + uid_range)
                                 continue;
 
@@ -1127,6 +1131,10 @@ static int method_map_to_machine_group(sd_bus_message *message, void *groupdata,
 
                                 return -EIO;
                         }
+
+                        /* The private user namespace is disabled, ignoring. */
+                        if (gid_shift == 0)
+                                continue;
 
                         if (gid < gid_shift || gid >= gid_shift + gid_range)
                                 continue;
