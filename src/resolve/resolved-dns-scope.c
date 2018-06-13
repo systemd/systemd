@@ -54,15 +54,15 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
 
                 if (l) {
                         s->dnssec_mode = link_get_dnssec_mode(l);
-                        s->private_dns_mode = link_get_private_dns_mode(l);
+                        s->dns_over_tls_mode = link_get_dns_over_tls_mode(l);
                 } else {
                         s->dnssec_mode = manager_get_dnssec_mode(m);
-                        s->private_dns_mode = manager_get_private_dns_mode(m);
+                        s->dns_over_tls_mode = manager_get_dns_over_tls_mode(m);
                 }
 
         } else {
                 s->dnssec_mode = DNSSEC_NO;
-                s->private_dns_mode = PRIVATE_DNS_NO;
+                s->dns_over_tls_mode = DNS_OVER_TLS_NO;
         }
 
         LIST_PREPEND(scopes, m->dns_scopes, s);

@@ -35,7 +35,7 @@ struct DnsScope {
         DnsProtocol protocol;
         int family;
         DnssecMode dnssec_mode;
-        PrivateDnsMode private_dns_mode;
+        DnsOverTlsMode dns_over_tls_mode;
 
         Link *link;
 

@@ -580,7 +580,7 @@ int manager_new(Manager **ret) {
         m->llmnr_support = RESOLVE_SUPPORT_YES;
         m->mdns_support = RESOLVE_SUPPORT_YES;
         m->dnssec_mode = DEFAULT_DNSSEC_MODE;
-        m->private_dns_mode = DEFAULT_PRIVATE_DNS_MODE;
+        m->dns_over_tls_mode = DEFAULT_DNS_OVER_TLS_MODE;
         m->enable_cache = true;
         m->dns_stub_listener_mode = DNS_STUB_LISTENER_UDP;
         m->read_resolv_conf = true;
@@ -1385,13 +1385,13 @@ bool manager_dnssec_supported(Manager *m) {
         return true;
 }
 
-PrivateDnsMode manager_get_private_dns_mode(Manager *m) {
+DnsOverTlsMode manager_get_dns_over_tls_mode(Manager *m) {
         assert(m);
 
-        if (m->private_dns_mode != _PRIVATE_DNS_MODE_INVALID)
-                return m->private_dns_mode;
+        if (m->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
+                return m->dns_over_tls_mode;
 
-        return PRIVATE_DNS_NO;
+        return DNS_OVER_TLS_NO;
 }
 
 void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key) {

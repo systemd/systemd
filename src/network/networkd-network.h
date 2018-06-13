@@ -261,7 +261,7 @@ struct Network {
         ResolveSupport llmnr;
         ResolveSupport mdns;
         DnssecMode dnssec_mode;
-        PrivateDnsMode private_dns_mode;
+        DnsOverTlsMode dns_over_tls_mode;
         Set *dnssec_negative_trust_anchors;
 
         LIST_FIELDS(Network, networks);

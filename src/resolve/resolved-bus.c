@@ -1471,7 +1471,7 @@ static int bus_property_get_ntas(
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
 static BUS_DEFINE_PROPERTY_GET(bus_property_get_dnssec_supported, "b", Manager, manager_dnssec_supported);
 static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dnssec_mode, "s", Manager, manager_get_dnssec_mode, dnssec_mode_to_string);
-static BUS_DEFINE_PROPERTY_GET2(bus_property_get_private_dns_mode, "s", Manager, manager_get_private_dns_mode, private_dns_mode_to_string);
+static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dns_over_tls_mode, "s", Manager, manager_get_dns_over_tls_mode, dns_over_tls_mode_to_string);
 
 static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
@@ -1542,8 +1542,8 @@ static int bus_method_set_link_mdns(sd_bus_message *message, void *userdata, sd_
         return call_link_method(userdata, message, bus_link_method_set_mdns, error);
 }
 
-static int bus_method_set_link_private_dns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return call_link_method(userdata, message, bus_link_method_set_private_dns, error);
+static int bus_method_set_link_dns_over_tls(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return call_link_method(userdata, message, bus_link_method_set_dns_over_tls, error);
 }
 
 static int bus_method_set_link_dnssec(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1836,7 +1836,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("LLMNRHostname", "s", NULL, offsetof(Manager, llmnr_hostname), 0),
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Manager, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Manager, mdns_support), 0),
-        SD_BUS_PROPERTY("PrivateDNS", "s", bus_property_get_private_dns_mode, 0, 0),
+        SD_BUS_PROPERTY("DNSOverTLS", "s", bus_property_get_dns_over_tls_mode, 0, 0),
         SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, 0),
         SD_BUS_PROPERTY("FallbackDNS", "a(iiay)", bus_property_get_fallback_dns_servers, offsetof(Manager, fallback_dns_servers), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), 0),
@@ -1861,7 +1861,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_METHOD("SetLinkDomains", "ia(sb)", NULL, bus_method_set_link_domains, 0),
         SD_BUS_METHOD("SetLinkLLMNR", "is", NULL, bus_method_set_link_llmnr, 0),
         SD_BUS_METHOD("SetLinkMulticastDNS", "is", NULL, bus_method_set_link_mdns, 0),
-        SD_BUS_METHOD("SetLinkPrivateDNS", "is", NULL, bus_method_set_link_private_dns, 0),
+        SD_BUS_METHOD("SetLinkDNSOverTLS", "is", NULL, bus_method_set_link_dns_over_tls, 0),
         SD_BUS_METHOD("SetLinkDNSSEC", "is", NULL, bus_method_set_link_dnssec, 0),
         SD_BUS_METHOD("SetLinkDNSSECNegativeTrustAnchors", "ias", NULL, bus_method_set_link_dnssec_negative_trust_anchors, 0),
         SD_BUS_METHOD("RevertLink", "i", NULL, bus_method_revert_link, 0),

@@ -144,7 +144,7 @@ void manager_next_dns_server(Manager *m);
 bool dns_server_address_valid(int family, const union in_addr_union *sa);
 
 DnssecMode dns_server_get_dnssec_mode(DnsServer *s);
-PrivateDnsMode dns_server_get_private_dns_mode(DnsServer *s);
+DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsServer*, dns_server_unref);
 

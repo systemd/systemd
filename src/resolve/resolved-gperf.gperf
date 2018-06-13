@@ -23,6 +23,6 @@ Resolve.Domains,         config_parse_search_domains,         0,                
 Resolve.LLMNR,           config_parse_resolve_support,        0,                   offsetof(Manager, llmnr_support)
 Resolve.MulticastDNS,    config_parse_resolve_support,        0,                   offsetof(Manager, mdns_support)
 Resolve.DNSSEC,          config_parse_dnssec_mode,            0,                   offsetof(Manager, dnssec_mode)
-Resolve.PrivateDNS,      config_parse_private_dns_mode,       0,                   offsetof(Manager, private_dns_mode)
+Resolve.DNSOverTLS,      config_parse_dns_over_tls_mode,      0,                   offsetof(Manager, dns_over_tls_mode)
 Resolve.Cache,           config_parse_bool,                   0,                   offsetof(Manager, enable_cache)
 Resolve.DNSStubListener, config_parse_dns_stub_listener_mode, 0,                   offsetof(Manager, dns_stub_listener_mode)

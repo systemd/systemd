@@ -207,7 +207,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>PrivateDNS=</varname></term>
+        <term><varname>DNSOverTLS=</varname></term>
         <listitem>
         <para>Takes false or
         <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>
@@ -226,10 +226,10 @@
         <para>Note as the resolver is not capable of authenticating
         the server, it is vulnerable for "man-in-the-middle" attacks.</para>
 
-        <para>In addition to this global PrivateDNS setting
+        <para>In addition to this global DNSOverTLS setting
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        also maintains per-link PrivateDNS settings. For system DNS
-        servers (see above), only the global PrivateDNS setting is in
+        also maintains per-link DNSOverTLS settings. For system DNS
+        servers (see above), only the global DNSOverTLS setting is in
         effect. For per-link DNS servers the per-link
         setting is in effect, unless it is unset in which case the
         global setting is used instead.</para>

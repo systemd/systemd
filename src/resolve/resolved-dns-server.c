@@ -400,11 +400,11 @@ DnsServerFeatureLevel dns_server_possible_feature_level(DnsServer *s) {
         /* Determine the best feature level we care about. If DNSSEC mode is off there's no point in using anything
          * better than EDNS0, hence don't even try. */
         if (dns_server_get_dnssec_mode(s) != DNSSEC_NO)
-                best = dns_server_get_private_dns_mode(s) == PRIVATE_DNS_NO ?
+                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
                         DNS_SERVER_FEATURE_LEVEL_LARGE :
                         DNS_SERVER_FEATURE_LEVEL_TLS_DO;
         else
-                best = dns_server_get_private_dns_mode(s) == PRIVATE_DNS_NO ?
+                best = dns_server_get_dns_over_tls_mode(s) == DNS_OVER_TLS_NO ?
                         DNS_SERVER_FEATURE_LEVEL_EDNS0 :
                         DNS_SERVER_FEATURE_LEVEL_TLS_PLAIN;
 
@@ -811,13 +811,13 @@ DnssecMode dns_server_get_dnssec_mode(DnsServer *s) {
         return manager_get_dnssec_mode(s->manager);
 }
 
-PrivateDnsMode dns_server_get_private_dns_mode(DnsServer *s) {
+DnsOverTlsMode dns_server_get_dns_over_tls_mode(DnsServer *s) {
         assert(s);
 
         if (s->link)
-                return link_get_private_dns_mode(s->link);
+                return link_get_dns_over_tls_mode(s->link);
 
-        return manager_get_private_dns_mode(s->manager);
+        return manager_get_dns_over_tls_mode(s->manager);
 }
 
 void dns_server_flush_cache(DnsServer *s) {

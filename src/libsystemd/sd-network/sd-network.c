@@ -178,8 +178,8 @@ _public_ int sd_network_link_get_mdns(int ifindex, char **mdns) {
         return network_link_get_string(ifindex, "MDNS", mdns);
 }
 
-_public_ int sd_network_link_get_private_dns(int ifindex, char **private_dns) {
-        return network_link_get_string(ifindex, "PRIVATE_DNS", private_dns);
+_public_ int sd_network_link_get_dns_over_tls(int ifindex, char **dns_over_tls) {
+        return network_link_get_string(ifindex, "DNS_OVER_TLS", dns_over_tls);
 }
 
 _public_ int sd_network_link_get_dnssec(int ifindex, char **dnssec) {

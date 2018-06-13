@@ -193,8 +193,8 @@ option('default-dnssec', type : 'combo',
        description : 'default DNSSEC mode',
        choices : ['yes', 'allow-downgrade', 'no'],
        value : 'allow-downgrade')
-option('default-private-dns', type : 'combo',
-       description : 'default private DNS mode',
+option('default-dns-over-tls', type : 'combo',
+       description : 'default DNS-over-TLS mode',
        choices : ['opportunistic', 'no'],
        value : 'no')
 option('dns-servers', type : 'string',
