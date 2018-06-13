@@ -302,7 +302,7 @@ void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLeve
                 s->received_udp_packet_max = size;
 }
 
-void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec) {
+void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level) {
         assert(s);
         assert(s->manager);
 
