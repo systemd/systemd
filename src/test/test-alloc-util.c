@@ -58,19 +58,23 @@ static void test_memdup_multiply_and_greedy_realloc(void) {
 }
 
 static void test_bool_assign(void) {
-        bool b, c, *cp = &c, d, e, f;
+        bool b, c, *cp = &c, d, e, f, g, h;
 
         b = 123;
         *cp = -11;
         d = 0xF & 0xFF;
         e = b & d;
         f = 0x0;
+        g = cp;    /* cast from pointer */
+        h = NULL;  /* cast from pointer */
 
         assert(b);
         assert(c);
         assert(d);
         assert(e);
         assert(!f);
+        assert(g);
+        assert(!h);
 }
 
 int main(int argc, char *argv[]) {
