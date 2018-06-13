@@ -52,10 +52,14 @@ CHANGES WITH 239 in spe:
           configuration settings to change the resolution explicitly.
 
         * systemd-resolved now supports DNS-over-TLS ("PrivateDNS"). It's still
-          turned off by default, use PrivateDNS=yes to turn it on in
+          turned off by default, use PrivateDNS=opportunistic to turn it on in
           resolved.conf. We intend to make this the default as soon as couple
           of additional techniques for optimizing the initial latency caused by
           establishing a TLS/TCP connection are implemented.
+
+        * systemd-resolved.service and systemd-networkd.service now set
+          DynamicUser=yes. The users systemd-resolve and systemd-network are
+          not created by systemd-sysusers.
 
         * The systemd-resolve tool has been renamed to resolvectl (it also
           remains available under the old name, for compatibility), and its
@@ -198,6 +202,11 @@ CHANGES WITH 239 in spe:
 
         * systemd-timesyncd gained a bus interface on which it exposes details
           about its state.
+
+        * A new environment variable $SYSTEMD_TIMEDATED_NTP_SERVICES is now
+          understood by systemd-timedated. It takes a colon-separated list of
+          unit names of NTP client services. The list is used by
+          "timedatectl set-ntp".
 
         * systemd-nspawn gained a new --rlimit= switch for setting initial
           resource limits for the container payload. There's a new switch
