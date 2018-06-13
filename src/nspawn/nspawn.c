@@ -586,8 +586,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        free(arg_network_zone);
-                        arg_network_zone = j;
+                        free_and_replace(arg_network_zone, j);
 
                         arg_network_veth = true;
                         arg_private_network = true;
@@ -4591,10 +4590,15 @@ finish:
         strv_free(arg_network_ipvlan);
         strv_free(arg_network_veth_extra);
         strv_free(arg_parameters);
+        free(arg_network_zone);
+        free(arg_network_namespace_path);
+        strv_free(arg_property);
         custom_mount_free_all(arg_custom_mounts, arg_n_custom_mounts);
         expose_port_free_all(arg_expose_ports);
         free(arg_root_hash);
         rlimit_free_all(arg_rlimit);
+        strv_free(arg_syscall_whitelist);
+        strv_free(arg_syscall_blacklist);
         arg_cpuset = cpu_set_mfree(arg_cpuset);
 
         return r < 0 ? EXIT_FAILURE : ret;
