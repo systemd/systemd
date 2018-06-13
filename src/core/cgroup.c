@@ -114,6 +114,15 @@ void cgroup_context_free_io_device_weight(CGroupContext *c, CGroupIODeviceWeight
         free(w);
 }
 
+void cgroup_context_free_io_device_latency(CGroupContext *c, CGroupIODeviceLatency *l) {
+        assert(c);
+        assert(l);
+
+        LIST_REMOVE(device_latencies, c->io_device_latencies, l);
+        free(l->path);
+        free(l);
+}
+
 void cgroup_context_free_io_device_limit(CGroupContext *c, CGroupIODeviceLimit *l) {
         assert(c);
         assert(l);
@@ -147,6 +156,9 @@ void cgroup_context_done(CGroupContext *c) {
         while (c->io_device_weights)
                 cgroup_context_free_io_device_weight(c, c->io_device_weights);
 
+        while (c->io_device_latencies)
+                cgroup_context_free_io_device_latency(c, c->io_device_latencies);
+
         while (c->io_device_limits)
                 cgroup_context_free_io_device_limit(c, c->io_device_limits);
 
@@ -171,6 +183,7 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         _cleanup_free_ char *cpuset_mems = NULL;
         CGroupIODeviceLimit *il;
         CGroupIODeviceWeight *iw;
+        CGroupIODeviceLatency *l;
         CGroupBlockIODeviceBandwidth *b;
         CGroupBlockIODeviceWeight *w;
         CGroupDeviceAllow *a;
@@ -256,10 +269,17 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
 
         LIST_FOREACH(device_weights, iw, c->io_device_weights)
                 fprintf(f,
-                        "%sIODeviceWeight=%s %" PRIu64,
+                        "%sIODeviceWeight=%s %" PRIu64 "\n",
                         prefix,
                         iw->path,
                         iw->weight);
+
+        LIST_FOREACH(device_latencies, l, c->io_device_latencies)
+                fprintf(f,
+                        "%sIODeviceLatencyTargetSec=%s %s\n",
+                        prefix,
+                        l->path,
+                        format_timespan(u, sizeof(u), l->target_usec, 1));
 
         LIST_FOREACH(device_limits, il, c->io_device_limits) {
                 char buf[FORMAT_BYTES_MAX];
@@ -573,6 +593,7 @@ static bool cgroup_context_has_io_config(CGroupContext *c) {
                 c->io_weight != CGROUP_WEIGHT_INVALID ||
                 c->startup_io_weight != CGROUP_WEIGHT_INVALID ||
                 c->io_device_weights ||
+                c->io_device_latencies ||
                 c->io_device_limits;
 }
 
@@ -644,6 +665,26 @@ static void cgroup_apply_blkio_device_weight(Unit *u, const char *dev_path, uint
         if (r < 0)
                 log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                               "Failed to set blkio.weight_device: %m");
+}
+
+static void cgroup_apply_io_device_latency(Unit *u, const char *dev_path, usec_t target) {
+        char buf[DECIMAL_STR_MAX(dev_t)*2+2+7+DECIMAL_STR_MAX(uint64_t)+1];
+        dev_t dev;
+        int r;
+
+        r = lookup_block_device(dev_path, &dev);
+        if (r < 0)
+                return;
+
+        if (target != USEC_INFINITY)
+                xsprintf(buf, "%u:%u target=%" PRIu64 "\n", major(dev), minor(dev), target);
+        else
+                xsprintf(buf, "%u:%u target=max\n", major(dev), minor(dev));
+
+        r = cg_set_attribute("io", u->cgroup_path, "io.latency", buf);
+        if (r < 0)
+                log_unit_full(u, IN_SET(r, -ENOENT, -EROFS, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to set io.latency on cgroup %s: %m", u->cgroup_path);
 }
 
 static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t *limits) {
@@ -827,13 +868,11 @@ static void cgroup_context_apply(
                         if (has_io) {
                                 CGroupIODeviceWeight *w;
 
-                                /* FIXME: no way to reset this list */
                                 LIST_FOREACH(device_weights, w, c->io_device_weights)
                                         cgroup_apply_io_device_weight(u, w->path, w->weight);
                         } else if (has_blockio) {
                                 CGroupBlockIODeviceWeight *w;
 
-                                /* FIXME: no way to reset this list */
                                 LIST_FOREACH(device_weights, w, c->blockio_device_weights) {
                                         weight = cgroup_weight_blkio_to_io(w->weight);
 
@@ -843,9 +882,15 @@ static void cgroup_context_apply(
                                         cgroup_apply_io_device_weight(u, w->path, weight);
                                 }
                         }
+
+                        if (has_io) {
+                                CGroupIODeviceLatency *l;
+
+                                LIST_FOREACH(device_latencies, l, c->io_device_latencies)
+                                        cgroup_apply_io_device_latency(u, l->path, l->target_usec);
+                        }
                 }
 
-                /* Apply limits and free ones without config. */
                 if (has_io) {
                         CGroupIODeviceLimit *l;
 
@@ -902,7 +947,6 @@ static void cgroup_context_apply(
                         if (has_io) {
                                 CGroupIODeviceWeight *w;
 
-                                /* FIXME: no way to reset this list */
                                 LIST_FOREACH(device_weights, w, c->io_device_weights) {
                                         weight = cgroup_weight_io_to_blkio(w->weight);
 
@@ -914,13 +958,11 @@ static void cgroup_context_apply(
                         } else if (has_blockio) {
                                 CGroupBlockIODeviceWeight *w;
 
-                                /* FIXME: no way to reset this list */
                                 LIST_FOREACH(device_weights, w, c->blockio_device_weights)
                                         cgroup_apply_blkio_device_weight(u, w->path, w->weight);
                         }
                 }
 
-                /* Apply limits and free ones without config. */
                 if (has_io) {
                         CGroupIODeviceLimit *l;
 
