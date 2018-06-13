@@ -56,7 +56,7 @@ char **arg_set_dns = NULL;
 char **arg_set_domain = NULL;
 static const char *arg_set_llmnr = NULL;
 static const char *arg_set_mdns = NULL;
-static const char *arg_set_private_dns = NULL;
+static const char *arg_set_dns_over_tls = NULL;
 static const char *arg_set_dnssec = NULL;
 static char **arg_set_nta = NULL;
 
@@ -1339,7 +1339,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 uint64_t scopes_mask;
                 const char *llmnr;
                 const char *mdns;
-                const char *private_dns;
+                const char *dns_over_tls;
                 const char *dnssec;
                 char *current_dns;
                 char **dns;
@@ -1355,7 +1355,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 { "Domains",                    "a(sb)",  map_link_domains,            offsetof(struct link_info, domains)          },
                 { "LLMNR",                      "s",      NULL,                        offsetof(struct link_info, llmnr)            },
                 { "MulticastDNS",               "s",      NULL,                        offsetof(struct link_info, mdns)             },
-                { "PrivateDNS",                 "s",      NULL,                        offsetof(struct link_info, private_dns)      },
+                { "DNSOverTLS",                 "s",      NULL,                        offsetof(struct link_info, dns_over_tls)     },
                 { "DNSSEC",                     "s",      NULL,                        offsetof(struct link_info, dnssec)           },
                 { "DNSSECNegativeTrustAnchors", "as",     NULL,                        offsetof(struct link_info, ntas)             },
                 { "DNSSECSupported",            "b",      NULL,                        offsetof(struct link_info, dnssec_supported) },
@@ -1437,7 +1437,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         if (mode == STATUS_PRIVATE) {
                 printf("%sLink %i (%s)%s: %s\n",
                        ansi_highlight(), ifindex, name, ansi_normal(),
-                       strna(link_info.private_dns));
+                       strna(link_info.dns_over_tls));
 
                 r = 0;
                 goto finish;
@@ -1470,12 +1470,12 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
 
         printf("       LLMNR setting: %s\n"
                "MulticastDNS setting: %s\n"
-               "  PrivateDNS setting: %s\n"
+               "  DNSOverTLS setting: %s\n"
                "      DNSSEC setting: %s\n"
                "    DNSSEC supported: %s\n",
                strna(link_info.llmnr),
                strna(link_info.mdns),
-               strna(link_info.private_dns),
+               strna(link_info.dns_over_tls),
                strna(link_info.dnssec),
                yes_no(link_info.dnssec_supported));
 
@@ -1617,7 +1617,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 char **ntas;
                 const char *llmnr;
                 const char *mdns;
-                const char *private_dns;
+                const char *dns_over_tls;
                 const char *dnssec;
                 bool dnssec_supported;
         } global_info = {};
@@ -1630,7 +1630,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 { "DNSSECNegativeTrustAnchors", "as",      NULL,                          offsetof(struct global_info, ntas)             },
                 { "LLMNR",                      "s",       NULL,                          offsetof(struct global_info, llmnr)            },
                 { "MulticastDNS",               "s",       NULL,                          offsetof(struct global_info, mdns)             },
-                { "PrivateDNS",                 "s",       NULL,                          offsetof(struct global_info, private_dns)      },
+                { "DNSOverTLS",                 "s",       NULL,                          offsetof(struct global_info, dns_over_tls)     },
                 { "DNSSEC",                     "s",       NULL,                          offsetof(struct global_info, dnssec)           },
                 { "DNSSECSupported",            "b",       NULL,                          offsetof(struct global_info, dnssec_supported) },
                 {}
@@ -1692,7 +1692,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         if (mode == STATUS_PRIVATE) {
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
-                       strna(global_info.private_dns));
+                       strna(global_info.dns_over_tls));
 
                 r = 0;
                 goto finish;
@@ -1710,12 +1710,12 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         printf("       LLMNR setting: %s\n"
                "MulticastDNS setting: %s\n"
-               "  PrivateDNS setting: %s\n"
+               "  DNSOverTLS setting: %s\n"
                "      DNSSEC setting: %s\n"
                "    DNSSEC supported: %s\n",
                strna(global_info.llmnr),
                strna(global_info.mdns),
-               strna(global_info.private_dns),
+               strna(global_info.dns_over_tls),
                strna(global_info.dnssec),
                yes_no(global_info.dnssec_supported));
 
@@ -2108,7 +2108,7 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_private_dns(int argc, char **argv, void *userdata) {
+static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int ifindex, r;
@@ -2134,7 +2134,7 @@ static int verb_private_dns(int argc, char **argv, void *userdata) {
                                "org.freedesktop.resolve1",
                                "/org/freedesktop/resolve1",
                                "org.freedesktop.resolve1.Manager",
-                               "SetLinkPrivateDNS",
+                               "SetLinkDNSOverTLS",
                                &error,
                                NULL,
                                "is", ifindex, argv[2]);
@@ -2146,7 +2146,7 @@ static int verb_private_dns(int argc, char **argv, void *userdata) {
                     sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_LINK))
                         return 0;
 
-                return log_error_errno(r, "Failed to set PrivateDNS configuration: %s", bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to set DNSOverTLS configuration: %s", bus_error_message(&error, r));
         }
 
         return 0;
@@ -2354,7 +2354,7 @@ static void compat_help(void) {
                "     --set-domain=DOMAIN    Set per-interface search domain\n"
                "     --set-llmnr=MODE       Set per-interface LLMNR mode\n"
                "     --set-mdns=MODE        Set per-interface MulticastDNS mode\n"
-               "     --set-privatedns=MODE  Set per-interface PrivateDNS mode\n"
+               "     --set-dnsovertls=MODE  Set per-interface DNS-over-TLS mode\n"
                "     --set-dnssec=MODE      Set per-interface DNSSEC mode\n"
                "     --set-nta=DOMAIN       Set per-interface DNSSEC NTA\n"
                "     --revert               Revert per-interface configuration\n"
@@ -2398,7 +2398,7 @@ static void native_help(void) {
                "  domain [LINK [DOMAIN...]]    Get/set per-interface search domain\n"
                "  llmnr [LINK [MODE]]          Get/set per-interface LLMNR mode\n"
                "  mdns [LINK [MODE]]           Get/set per-interface MulticastDNS mode\n"
-               "  privatedns [LINK [MODE]]     Get/set per-interface PrivateDNS mode\n"
+               "  dnsovertls [LINK [MODE]]     Get/set per-interface DNS-over-TLS mode\n"
                "  dnssec [LINK [MODE]]         Get/set per-interface DNSSEC mode\n"
                "  nta [LINK [DOMAIN...]]       Get/set per-interface DNSSEC NTA\n"
                "  revert LINK                  Revert per-interface configuration\n"
@@ -2464,7 +2464,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 { "set-domain",            required_argument, NULL, ARG_SET_DOMAIN            },
                 { "set-llmnr",             required_argument, NULL, ARG_SET_LLMNR             },
                 { "set-mdns",              required_argument, NULL, ARG_SET_MDNS              },
-                { "set-privatedns",        required_argument, NULL, ARG_SET_PRIVATE           },
+                { "set-dnsovertls",        required_argument, NULL, ARG_SET_PRIVATE           },
                 { "set-dnssec",            required_argument, NULL, ARG_SET_DNSSEC            },
                 { "set-nta",               required_argument, NULL, ARG_SET_NTA               },
                 { "revert",                no_argument,       NULL, ARG_REVERT_LINK           },
@@ -2684,7 +2684,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SET_PRIVATE:
-                        arg_set_private_dns = optarg;
+                        arg_set_dns_over_tls = optarg;
                         arg_mode = MODE_SET_LINK;
                         break;
 
@@ -2731,7 +2731,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
         if (IN_SET(arg_mode, MODE_SET_LINK, MODE_REVERT_LINK)) {
 
                 if (arg_ifindex <= 0) {
-                        log_error("--set-dns=, --set-domain=, --set-llmnr=, --set-mdns=, --set-privatedns=, --set-dnssec=, --set-nta= and --revert require --interface=.");
+                        log_error("--set-dns=, --set-domain=, --set-llmnr=, --set-mdns=, --set-dnsovertls=, --set-dnssec=, --set-nta= and --revert require --interface=.");
                         return -EINVAL;
                 }
 
@@ -2957,7 +2957,7 @@ static int native_main(int argc, char *argv[], sd_bus *bus) {
                 { "domain",                VERB_ANY, VERB_ANY, 0,            verb_domain           },
                 { "llmnr",                 VERB_ANY, 3,        0,            verb_llmnr            },
                 { "mdns",                  VERB_ANY, 3,        0,            verb_mdns             },
-                { "privatedns",            VERB_ANY, 3,        0,            verb_private_dns      },
+                { "dnsovertls",            VERB_ANY, 3,        0,            verb_dns_over_tls      },
                 { "dnssec",                VERB_ANY, 3,        0,            verb_dnssec           },
                 { "nta",                   VERB_ANY, VERB_ANY, 0,            verb_nta              },
                 { "revert",                2,        2,        0,            verb_revert_link      },
@@ -3050,8 +3050,8 @@ static int compat_main(int argc, char *argv[], sd_bus *bus) {
                                 return r;
                 }
 
-                if (arg_set_private_dns) {
-                        r = translate("privatedns", arg_ifname, 1, (char **) &arg_set_private_dns, bus);
+                if (arg_set_dns_over_tls) {
+                        r = translate("dnsovertls", arg_ifname, 1, (char **) &arg_set_dns_over_tls, bus);
                         if (r < 0)
                                 return r;
                 }

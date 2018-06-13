@@ -385,7 +385,7 @@
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><varname>PrivateDNS=</varname></term>
+          <term><varname>DNSOverTLS=</varname></term>
           <listitem>
             <para>Takes false or
             <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>, enables
@@ -394,7 +394,7 @@
             support on the link. This option defines a
             per-interface setting for
             <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
-            global <varname>PrivateDNS=</varname> option. Defaults to
+            global <varname>DNSOverTLS=</varname> option. Defaults to
             false. This setting is read by
             <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
           </listitem>

@@ -3762,9 +3762,9 @@ int link_save(Link *link) {
                 fprintf(f, "MDNS=%s\n",
                         resolve_support_to_string(link->network->mdns));
 
-                if (link->network->private_dns_mode != _PRIVATE_DNS_MODE_INVALID)
-                        fprintf(f, "PRIVATE_DNS=%s\n",
-                                private_dns_mode_to_string(link->network->private_dns_mode));
+                if (link->network->dns_over_tls_mode != _DNS_OVER_TLS_MODE_INVALID)
+                        fprintf(f, "DNS_OVER_TLS=%s\n",
+                                dns_over_tls_mode_to_string(link->network->dns_over_tls_mode));
 
                 if (link->network->dnssec_mode != _DNSSEC_MODE_INVALID)
                         fprintf(f, "DNSSEC=%s\n",

@@ -236,7 +236,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->llmnr = RESOLVE_SUPPORT_YES;
         network->mdns = RESOLVE_SUPPORT_NO;
         network->dnssec_mode = _DNSSEC_MODE_INVALID;
-        network->private_dns_mode = _PRIVATE_DNS_MODE_INVALID;
+        network->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
 
         network->link_local = ADDRESS_FAMILY_IPV6;
 

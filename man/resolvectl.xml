@@ -257,7 +257,7 @@
         <term><option>llmnr [<replaceable>LINK</replaceable> [<replaceable>MODE</replaceable>]]</option></term>
         <term><option>mdns [<replaceable>LINK</replaceable> [<replaceable>MODE</replaceable>]]</option></term>
         <term><option>dnssec [<replaceable>LINK</replaceable> [<replaceable>MODE</replaceable>]]</option></term>
-        <term><option>privatedns [<replaceable>LINK</replaceable> [<replaceable>MODE</replaceable>]]</option></term>
+        <term><option>dnsovertls [<replaceable>LINK</replaceable> [<replaceable>MODE</replaceable>]]</option></term>
         <term><option>nta [<replaceable>LINK</replaceable> [<replaceable>DOMAIN</replaceable>…]]</option></term>
 
         <listitem><para>Get/set per-interface DNS configuration. These commands may be used to configure various DNS
@@ -269,8 +269,8 @@
         through external means. The <option>dns</option> command expects IPv4 or IPv6 address specifications of DNS
         servers to use. The <option>domain</option> command expects valid DNS domains, possibly prefixed with
         <literal>~</literal>, and configures a per-interface search or route-only domain. The <option>llmnr</option>,
-        <option>mdns</option>, <option>dnssec</option> and <option>privatedns</option> commands may be used to configure
-        the per-interface LLMNR, MulticastDNS, DNSSEC and PrivateDNS settings. Finally, <option>nta</option> command
+        <option>mdns</option>, <option>dnssec</option> and <option>dnsovertls</option> commands may be used to configure
+        the per-interface LLMNR, MulticastDNS, DNSSEC and DNSOverTLS settings. Finally, <option>nta</option> command
         may be used to configure additional per-interface DNSSEC NTA domains. For details about these settings, their
         possible values and their effect, see the corresponding options in
         <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
@@ -283,7 +283,7 @@
         <listitem><para>Revert the per-interface DNS configuration. If the DNS configuration is reverted all
         per-interface DNS setting are reset to their defaults, undoing all effects of <option>dns</option>,
         <option>domain</option>, <option>llmnr</option>, <option>mdns</option>, <option>dnssec</option>,
-        <option>privatedns</option>, <option>nta</option>. Note that when a network interface disappears all
+        <option>dnsovertls</option>, <option>nta</option>. Note that when a network interface disappears all
         configuration is lost automatically, an explicit reverting is not necessary in that case.</para></listitem>
       </varlistentry>
 

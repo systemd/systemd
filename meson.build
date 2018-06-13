@@ -1137,17 +1137,17 @@ conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
 substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
 
-default_private_dns = get_option('default-private-dns')
+default_dns_over_tls = get_option('default-dns-over-tls')
 if fuzzer_build
-        default_private_dns = 'no'
+        default_dns_over_tls = 'no'
 endif
-if default_private_dns != 'no' and conf.get('HAVE_GNUTLS') == 0
-        message('default-private-dns cannot be set to strict or opportunistic when gnutls is disabled. Setting default-private-dns to no.')
-        default_private_dns = 'no'
+if default_dns_over_tls != 'no' and conf.get('HAVE_GNUTLS') == 0
+        message('default-dns-over-tls cannot be set to strict or opportunistic when gnutls is disabled. Setting default-dns-over-tls to no.')
+        default_dns_over_tls = 'no'
 endif
-conf.set('DEFAULT_PRIVATE_DNS_MODE',
-         'PRIVATE_DNS_' + default_private_dns.underscorify().to_upper())
-substs.set('DEFAULT_PRIVATE_DNS_MODE', default_private_dns)
+conf.set('DEFAULT_DNS_OVER_TLS_MODE',
+         'DNS_OVER_TLS_' + default_dns_over_tls.underscorify().to_upper())
+substs.set('DEFAULT_DNS_OVER_TLS_MODE', default_dns_over_tls)
 
 want_importd = get_option('importd')
 if want_importd != 'false'
@@ -2870,7 +2870,7 @@ status = [
         'symbolic gateway hostnames:        @0@'.format(', '.join(gateway_hostnames)),
 
         'default DNSSEC mode:               @0@'.format(default_dnssec),
-        'default private DNS mode:          @0@'.format(default_private_dns),
+        'default DNS-over-TLS mode:         @0@'.format(default_dns_over_tls),
         'default cgroup hierarchy:          @0@'.format(default_hierarchy),
         'default KillUserProcesses setting: @0@'.format(kill_user_processes)]
 

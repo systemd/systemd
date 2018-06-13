@@ -12,7 +12,7 @@
 
 typedef enum ResolveSupport ResolveSupport;
 typedef enum DnssecMode DnssecMode;
-typedef enum PrivateDnsMode PrivateDnsMode;
+typedef enum DnsOverTlsMode DnsOverTlsMode;
 
 enum ResolveSupport {
         RESOLVE_SUPPORT_NO,
@@ -40,21 +40,21 @@ enum DnssecMode {
         _DNSSEC_MODE_INVALID = -1
 };
 
-enum PrivateDnsMode {
+enum DnsOverTlsMode {
         /* No connection is made for DNS-over-TLS */
-        PRIVATE_DNS_NO,
+        DNS_OVER_TLS_NO,
 
         /* Try to connect using DNS-over-TLS, but if connection fails,
          * fallback to using an unencrypted connection */
-        PRIVATE_DNS_OPPORTUNISTIC,
+        DNS_OVER_TLS_OPPORTUNISTIC,
 
-        _PRIVATE_DNS_MODE_MAX,
-        _PRIVATE_DNS_MODE_INVALID = -1
+        _DNS_OVER_TLS_MODE_MAX,
+        _DNS_OVER_TLS_MODE_INVALID = -1
 };
 
 CONFIG_PARSER_PROTOTYPE(config_parse_resolve_support);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_mode);
-CONFIG_PARSER_PROTOTYPE(config_parse_private_dns_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_dns_over_tls_mode);
 
 const char* resolve_support_to_string(ResolveSupport p) _const_;
 ResolveSupport resolve_support_from_string(const char *s) _pure_;
@@ -62,5 +62,5 @@ ResolveSupport resolve_support_from_string(const char *s) _pure_;
 const char* dnssec_mode_to_string(DnssecMode p) _const_;
 DnssecMode dnssec_mode_from_string(const char *s) _pure_;
 
-const char* private_dns_mode_to_string(PrivateDnsMode p) _const_;
-PrivateDnsMode private_dns_mode_from_string(const char *s) _pure_;
+const char* dns_over_tls_mode_to_string(DnsOverTlsMode p) _const_;
+DnsOverTlsMode dns_over_tls_mode_from_string(const char *s) _pure_;

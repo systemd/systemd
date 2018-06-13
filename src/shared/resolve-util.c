@@ -11,7 +11,7 @@
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve_support, resolve_support, ResolveSupport, "Failed to parse resolve support setting");
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dnssec_mode, dnssec_mode, DnssecMode, "Failed to parse DNSSEC mode setting");
-DEFINE_CONFIG_PARSE_ENUM(config_parse_private_dns_mode, private_dns_mode, PrivateDnsMode, "Failed to parse private DNS mode setting");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_over_tls_mode, dns_over_tls_mode, DnsOverTlsMode, "Failed to parse DNS-over-TLS mode setting");
 
 static const char* const resolve_support_table[_RESOLVE_SUPPORT_MAX] = {
         [RESOLVE_SUPPORT_NO] = "no",
@@ -27,8 +27,8 @@ static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dnssec_mode, DnssecMode, DNSSEC_YES);
 
-static const char* const private_dns_mode_table[_PRIVATE_DNS_MODE_MAX] = {
-        [PRIVATE_DNS_NO] = "no",
-        [PRIVATE_DNS_OPPORTUNISTIC] = "opportunistic",
+static const char* const dns_over_tls_mode_table[_DNS_OVER_TLS_MODE_MAX] = {
+        [DNS_OVER_TLS_NO] = "no",
+        [DNS_OVER_TLS_OPPORTUNISTIC] = "opportunistic",
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_dns_mode, PrivateDnsMode, _PRIVATE_DNS_MODE_INVALID);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dns_over_tls_mode, DnsOverTlsMode, _DNS_OVER_TLS_MODE_INVALID);

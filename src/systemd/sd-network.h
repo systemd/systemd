@@ -129,13 +129,13 @@ int sd_network_link_get_llmnr(int ifindex, char **llmnr);
  */
 int sd_network_link_get_mdns(int ifindex, char **mdns);
 
-/* Indicates whether or not Private DNS should be enabled for the
+/* Indicates whether or not DNS-over-TLS should be enabled for the
  * link.
  * Possible levels of support: strict, no, opportunistic
  * Possible return codes:
  *   -ENODATA: networkd is not aware of the link
  */
-int sd_network_link_get_private_dns(int ifindex, char **private_dns);
+int sd_network_link_get_dns_over_tls(int ifindex, char **dns_over_tls);
 
 /* Indicates whether or not DNSSEC should be enabled for the link
  * Possible levels of support: yes, no, allow-downgrade
