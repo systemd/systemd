@@ -2464,7 +2464,7 @@ static int compat_parse_argv(int argc, char *argv[]) {
                 { "set-domain",            required_argument, NULL, ARG_SET_DOMAIN            },
                 { "set-llmnr",             required_argument, NULL, ARG_SET_LLMNR             },
                 { "set-mdns",              required_argument, NULL, ARG_SET_MDNS              },
-                { "set-privatedns",        required_argument, NULL, ARG_SET_PRIVATE       },
+                { "set-privatedns",        required_argument, NULL, ARG_SET_PRIVATE           },
                 { "set-dnssec",            required_argument, NULL, ARG_SET_DNSSEC            },
                 { "set-nta",               required_argument, NULL, ARG_SET_NTA               },
                 { "revert",                no_argument,       NULL, ARG_REVERT_LINK           },
