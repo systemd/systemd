@@ -77,6 +77,7 @@ _public_ sd_event *sd_radv_get_event(sd_radv *ra) {
 }
 
 static void radv_reset(sd_radv *ra) {
+        assert(ra);
 
         ra->timeout_event_source =
                 sd_event_source_unref(ra->timeout_event_source);
@@ -120,6 +121,9 @@ _public_ sd_radv *sd_radv_unref(sd_radv *ra) {
         radv_reset(ra);
 
         sd_radv_detach_event(ra);
+
+        ra->fd = safe_close(ra->fd);
+
         return mfree(ra);
 }
 
