@@ -1278,27 +1278,68 @@ RestrictNamespaces=~cgroup net</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PrivateMounts=</varname></term>
+
+        <listitem><para>Takes a boolean parameter. If set, the processes of this unit will be run in their own private
+        file system (mount) namespace with all mount propagation from the processes towards the host's main file system
+        namespace turned off. This means any file system mount points established or removed by the unit's processes
+        will be private to them and not be visible to the host. However, file system mount points established or
+        removed on the host will be propagated to the unit's processes. See <citerefentry
+        project='man-pages'><refentrytitle>mount_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details on file system namespaces. Defaults to off.</para>
+
+        <para>When turned on, this executes three operations for each invoked process: a new
+        <constant>CLONE_NEWNS</constant> namespace is created, after which all existing mounts are remounted to
+        <constant>MS_SLAVE</constant> to disable propagation from the unit's processes to the host (but leaving
+        propagation in the opposite direction in effect). Finally, the mounts are remounted again to the propagation
+        mode configured with <varname>MountFlags=</varname>, see below.</para>
+
+        <para>File system namespaces are set up individually for each process forked off by the service manager. Mounts
+        established in the namespace of the process created by <varname>ExecStartPre=</varname> will hence be cleaned
+        up automatically as soon as that process exits and will not be available to subsequent processes forked off for
+        <varname>ExecStart=</varname> (and similar applies to the various other commands configured for
+        units). Similarly, <varname>JoinsNamespaceOf=</varname> does not permit sharing kernel mount namespaces between
+        units, it only enables sharing of the <filename>/tmp/</filename> and <filename>/var/tmp/</filename>
+        directories.</para>
+
+        <para>Other file system namespace unit settings — <varname>PrivateMounts=</varname>,
+        <varname>PrivateTmp=</varname>, <varname>PrivateDevices=</varname>, <varname>ProtectSystem=</varname>,
+        <varname>ProtectHome=</varname>, <varname>ReadOnlyPaths=</varname>, <varname>InaccessiblePaths=</varname>,
+        <varname>ReadWritePaths=</varname>, … — also enable file system namespacing in a fashion equivalent to this
+        option. Hence it is primarily useful to explicitly request this behaviour if none of the other settings are
+        used.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MountFlags=</varname></term>
 
-        <listitem><para>Takes a mount propagation flag: <option>shared</option>, <option>slave</option> or
-        <option>private</option>, which control whether mounts in the file system namespace set up for this unit's
-        processes will receive or propagate mounts and unmounts. See <citerefentry
-        project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
-        details. Defaults to <option>shared</option>. Use <option>shared</option> to ensure that mounts and unmounts
-        are propagated from systemd's namespace to the service's namespace and vice versa. Use <option>slave</option>
-        to run processes so that none of their mounts and unmounts will propagate to the host. Use
-        <option>private</option> to also ensure that no mounts and unmounts from the host will propagate into the unit
-        processes' namespace.  If this is set to <option>slave</option> or <option>private</option>, any mounts created
-        by spawned processes will be unmounted after the completion of the current command line of
-        <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>, <varname>ExecStart=</varname>, and
-        <varname>ExecStopPost=</varname>. Note that <option>slave</option> means that file systems mounted on the host
-        might stay mounted continuously in the unit's namespace, and thus keep the device busy. Note that the file
-        system namespace related options (<varname>PrivateTmp=</varname>, <varname>PrivateDevices=</varname>,
-        <varname>ProtectSystem=</varname>, <varname>ProtectHome=</varname>, <varname>ProtectKernelTunables=</varname>,
-        <varname>ProtectControlGroups=</varname>, <varname>ReadOnlyPaths=</varname>,
-        <varname>InaccessiblePaths=</varname>, <varname>ReadWritePaths=</varname>) require that mount and unmount
-        propagation from the unit's file system namespace is disabled, and hence downgrade <option>shared</option> to
-        <option>slave</option>. </para></listitem>
+        <listitem><para>Takes a mount propagation setting: <option>shared</option>, <option>slave</option> or
+        <option>private</option>, which controls whether file system mount points in the file system namespaces set up
+        for this unit's processes will receive or propagate mounts and unmounts from other file system namespaces. See
+        <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+        for details on mount propagation, and the three propagation flags in particular.</para>
+
+        <para>This setting only controls the <emphasis>final</emphasis> propagation setting in effect on all mount
+        points of the file system namespace created for each process of this unit. Other file system namespacing unit
+        settings (see the discussion in <varname>PrivateMounts=</varname> above) will implicitly disable mount and
+        unmount propagation from the unit's processes towards the host by changing the propagation setting of all mount
+        points in the unit's file system namepace to <option>slave</option> first. Setting this option to
+        <option>shared</option> does not reestablish propagation in that case. Conversely, if this option is set, but
+        no other file system namespace setting is used, then new file system namespaces will be created for the unit's
+        processes and this propagation flag will be applied right away to all mounts within it, without the
+        intermediary application of <option>slave</option>.</para>
+
+        <para>If not set – but file system namespaces are enabled through another file system namespace unit setting –
+        <option>shared</option> mount propagation is used, but — as mentioned — as <option>slave</option> is applied
+        first, propagation from the unit's processes to the host is still turned off.</para>
+
+        <para>It is not recommended to to use <option>private</option> mount propagation for units, as this means
+        temporary mounts (such as removable media) of the host will stay mounted and thus indefinitely busy in forked
+        off processes, as unmount propagation events won't be received by the file system namespace of the unit.</para>
+
+        <para>Usually, it is best to leave this setting unmodified, and use higher level file system namespacing
+        options instead, in particular <varname>PrivateMounts=</varname>, see above.</para>
+        </listitem>
       </varlistentry>
 
     </variablelist>

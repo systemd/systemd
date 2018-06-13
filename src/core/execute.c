@@ -1780,6 +1780,7 @@ static bool exec_needs_mount_namespace(
                 return true;
 
         if (context->private_devices ||
+            context->private_mounts ||
             context->protect_system != PROTECT_SYSTEM_NO ||
             context->protect_home != PROTECT_HOME_NO ||
             context->protect_kernel_tunables ||
@@ -2312,7 +2313,7 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL;
         char *tmp = NULL, *var = NULL;
         const char *root_dir = NULL, *root_image = NULL;
-        NamespaceInfo ns_info = {};
+        NamespaceInfo ns_info;
         bool needs_sandboxing;
         BindMount *bind_mounts = NULL;
         size_t n_bind_mounts = 0;
@@ -2342,16 +2343,7 @@ static int apply_mount_namespace(
         if (r < 0)
                 return r;
 
-        /*
-         * If DynamicUser=no and RootDirectory= is set then lets pass a relaxed
-         * sandbox info, otherwise enforce it, don't ignore protected paths and
-         * fail if we are enable to apply the sandbox inside the mount namespace.
-         */
-        if (!context->dynamic_user && root_dir)
-                ns_info.ignore_protect_paths = true;
-
         needs_sandboxing = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & EXEC_COMMAND_FULLY_PRIVILEGED);
-
         if (needs_sandboxing)
                 ns_info = (NamespaceInfo) {
                         .ignore_protect_paths = false,
@@ -2360,7 +2352,19 @@ static int apply_mount_namespace(
                         .protect_kernel_tunables = context->protect_kernel_tunables,
                         .protect_kernel_modules = context->protect_kernel_modules,
                         .mount_apivfs = context->mount_apivfs,
+                        .private_mounts = context->private_mounts,
                 };
+        else if (!context->dynamic_user && root_dir)
+                /*
+                 * If DynamicUser=no and RootDirectory= is set then lets pass a relaxed
+                 * sandbox info, otherwise enforce it, don't ignore protected paths and
+                 * fail if we are enable to apply the sandbox inside the mount namespace.
+                 */
+                ns_info = (NamespaceInfo) {
+                        .ignore_protect_paths = true,
+                };
+        else
+                ns_info = (NamespaceInfo) {};
 
         r = setup_namespace(root_dir, root_image,
                             &ns_info, context->read_write_paths,

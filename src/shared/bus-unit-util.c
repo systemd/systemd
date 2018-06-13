@@ -699,7 +699,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
         if (STR_IN_SET(field,
                        "IgnoreSIGPIPE", "TTYVHangup", "TTYReset", "TTYVTDisallocate",
                        "PrivateTmp", "PrivateDevices", "PrivateNetwork", "PrivateUsers",
-                       "NoNewPrivileges", "SyslogLevelPrefix",
+                       "PrivateMounts", "NoNewPrivileges", "SyslogLevelPrefix",
                        "MemoryDenyWriteExecute", "RestrictRealtime", "DynamicUser", "RemoveIPC",
                        "ProtectKernelTunables", "ProtectKernelModules", "ProtectControlGroups",
                        "MountAPIVFS", "CPUSchedulingResetOnFork", "LockPersonality"))

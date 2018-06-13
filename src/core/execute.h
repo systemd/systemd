@@ -228,6 +228,7 @@ struct ExecContext {
         bool private_network;
         bool private_devices;
         bool private_users;
+        bool private_mounts;
         ProtectSystem protect_system;
         ProtectHome protect_home;
         bool protect_kernel_tunables;
