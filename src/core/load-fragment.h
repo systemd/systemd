@@ -68,6 +68,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_tasks_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate);
 CONFIG_PARSER_PROTOTYPE(config_parse_device_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_device_allow);
+CONFIG_PARSER_PROTOTYPE(config_parse_io_device_latency);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_device_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_limit);
 CONFIG_PARSER_PROTOTYPE(config_parse_blockio_weight);

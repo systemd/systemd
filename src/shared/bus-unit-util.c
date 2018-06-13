@@ -550,6 +550,37 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 return 1;
         }
 
+        if (streq(field, "IODeviceLatencyTargetSec")) {
+                const char *field_usec = "IODeviceLatencyTargetUSec";
+
+                if (isempty(eq))
+                        r = sd_bus_message_append(m, "(sv)", field_usec, "a(st)", USEC_INFINITY);
+                else {
+                        const char *path, *target, *e;
+                        usec_t usec;
+
+                        e = strchr(eq, ' ');
+                        if (!e) {
+                                log_error("Failed to parse %s value %s.", field, eq);
+                                return -EINVAL;
+                        }
+
+                        path = strndupa(eq, e - eq);
+                        target = e+1;
+
+                        r = parse_sec(target, &usec);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse %s value %s: %m", field, target);
+
+                        r = sd_bus_message_append(m, "(sv)", field_usec, "a(st)", 1, path, usec);
+                }
+
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                return 1;
+        }
+
         if (STR_IN_SET(field, "IPAddressAllow", "IPAddressDeny")) {
                 unsigned char prefixlen;
                 union in_addr_union prefix = {};

@@ -387,11 +387,11 @@
         <listitem>
           <para>Set the per-device overall block I/O weight for the executed processes, if the unified control group
           hierarchy is used on the system. Takes a space-separated pair of a file path and a weight value to specify
-          the device specific weight value, between 1 and 10000. (Example: "/dev/sda 1000"). The file path may be
-          specified as path to a block device node or as any other file, in which case the backing block device of the
-          file system of the file is determined. This controls the <literal>io.weight</literal> control group
-          attribute, which defaults to 100. Use this option multiple times to set weights for multiple devices. For
-          details about this control group attribute, see <ulink
+          the device specific weight value, between 1 and 10000. (Example: <literal>/dev/sda 1000</literal>). The file
+          path may be specified as path to a block device node or as any other file, in which case the backing block
+          device of the file system of the file is determined. This controls the <literal>io.weight</literal> control
+          group attribute, which defaults to 100. Use this option multiple times to set weights for multiple devices.
+          For details about this control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
           <para>Implies <literal>IOAccounting=true</literal>.</para>
@@ -449,6 +449,25 @@
 
           <para>These settings are supported only if the unified control group hierarchy is used and disable settings
           prefixed with <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IODeviceLatencyTargetSec=<replaceable>device</replaceable> <replaceable>target</replaceable></varname></term>
+
+        <listitem>
+          <para>Set the per-device average target I/O latency for the executed processes, if the unified control group
+          hierarchy is used on the system. Takes a file path and a timespan separated by a space to specify
+          the device specific latency target. (Example: "/dev/sda 25ms"). The file path may be specified
+          as path to a block device node or as any other file, in which case the backing block device of the file
+          system of the file is determined. This controls the <literal>io.latency</literal> control group
+          attribute. Use this option multiple times to set latency target for multiple devices. For details about this
+          control group attribute, see <ulink
+          url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
+
+          <para>Implies <literal>IOAccounting=true</literal>.</para>
+
+          <para>These settings are supported only if the unified control group hierarchy is used.</para>
         </listitem>
       </varlistentry>
 
