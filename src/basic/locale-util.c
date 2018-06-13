@@ -306,7 +306,7 @@ int get_keymaps(char ***ret) {
                 return -ENOMEM;
 
         NULSTR_FOREACH(dir, KBD_KEYMAP_DIRS) {
-                r = nftw(dir, nftw_cb, 20, FTW_MOUNT|FTW_PHYS|FTW_ACTIONRETVAL);
+                r = nftw(dir, nftw_cb, 20, FTW_PHYS|FTW_ACTIONRETVAL);
 
                 if (r == FTW_STOP)
                         log_debug("Directory not found %s", dir);
