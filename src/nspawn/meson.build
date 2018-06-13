@@ -2,7 +2,7 @@
 #
 # Copyright 2017 Zbigniew Jędrzejewski-Szmek
 
-systemd_nspawn_sources = files('''
+libnspawn_core_sources = files('''
         nspawn-cgroup.c
         nspawn-cgroup.h
         nspawn-def.h
@@ -24,7 +24,6 @@ systemd_nspawn_sources = files('''
         nspawn-setuid.h
         nspawn-stub-pid1.c
         nspawn-stub-pid1.h
-        nspawn.c
 '''.split())
 
 nspawn_gperf_c = custom_target(
@@ -33,13 +32,27 @@ nspawn_gperf_c = custom_target(
         output : 'nspawn-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-systemd_nspawn_sources += [nspawn_gperf_c]
+libnspawn_core_sources += [nspawn_gperf_c]
+
+libnspawn_core = static_library(
+        'nspawn-core',
+        libnspawn_core_sources,
+        include_directories : includes,
+        dependencies : [libacl,
+                        libseccomp,
+                        libselinux])
+
+systemd_nspawn_sources = files('nspawn.c')
 
 tests += [
-        [['src/nspawn/test-patch-uid.c',
-          'src/nspawn/nspawn-patch-uid.c',
-          'src/nspawn/nspawn-patch-uid.h'],
-         [libshared],
+        [['src/nspawn/test-nspawn-tables.c'],
+         [libnspawn_core,
+          libshared],
+         []],
+
+        [['src/nspawn/test-patch-uid.c'],
+         [libnspawn_core,
+          libshared],
          [libacl],
          '', 'manual'],
 ]

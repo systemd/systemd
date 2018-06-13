@@ -35,6 +35,7 @@ struct Manager {
         ResolveSupport llmnr_support;
         ResolveSupport mdns_support;
         DnssecMode dnssec_mode;
+        PrivateDnsMode private_dns_mode;
         bool enable_cache;
         DnsStubListenerMode dns_stub_listener_mode;
 
@@ -171,6 +172,8 @@ int manager_compile_search_domains(Manager *m, OrderedSet **domains, int filter_
 
 DnssecMode manager_get_dnssec_mode(Manager *m);
 bool manager_dnssec_supported(Manager *m);
+
+PrivateDnsMode manager_get_private_dns_mode(Manager *m);
 
 void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key);
 

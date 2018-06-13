@@ -1676,7 +1676,7 @@ static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, con
 #if ENABLE_TPM
                 /* Try to log any options to the TPM, especially to catch manually edited options */
                 err = tpm_log_event(SD_TPM_PCR,
-                                    (EFI_PHYSICAL_ADDRESS) loaded_image->LoadOptions,
+                                    (EFI_PHYSICAL_ADDRESS) (UINTN) loaded_image->LoadOptions,
                                     loaded_image->LoadOptionsSize, loaded_image->LoadOptions);
                 if (EFI_ERROR(err)) {
                         Print(L"Unable to add image options measurement: %r", err);

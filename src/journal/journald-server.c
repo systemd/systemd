@@ -692,7 +692,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
 
         s->last_realtime_clock = ts.realtime;
 
-        r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(f, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r >= 0) {
                 server_schedule_sync(s, priority);
                 return;
@@ -711,7 +711,7 @@ static void write_to_journal(Server *s, uid_t uid, struct iovec *iovec, size_t n
                 return;
 
         log_debug("Retrying write.");
-        r = journal_file_append_entry(f, &ts, iovec, n, &s->seqnum, NULL, NULL);
+        r = journal_file_append_entry(f, &ts, NULL, iovec, n, &s->seqnum, NULL, NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to write entry (%zu items, %zu bytes) despite vacuuming, ignoring: %m", n, IOVEC_TOTAL_SIZE(iovec, n));
         else
@@ -1012,7 +1012,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                         goto finish;
                 }
 
-                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
+                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset);
                 if (r >= 0)
                         continue;
 
@@ -1031,7 +1031,7 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
                 }
 
                 log_debug("Retrying write.");
-                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset, NULL, NULL, NULL);
+                r = journal_file_copy_entry(f, s->system_journal, o, f->current_offset);
                 if (r < 0) {
                         log_error_errno(r, "Can't write entry: %m");
                         goto finish;
@@ -1155,7 +1155,7 @@ int server_process_datagram(sd_event_source *es, int fd, uint32_t revents, void 
 
         if (fd == s->syslog_fd) {
                 if (n > 0 && n_fds == 0)
-                        server_process_syslog_message(s, strstrip(s->buffer), ucred, tv, label, label_len);
+                        server_process_syslog_message(s, s->buffer, n, ucred, tv, label, label_len);
                 else if (n_fds > 0)
                         log_warning("Got file descriptors via syslog socket. Ignoring.");
 

@@ -37,8 +37,8 @@ struct bus_properties_map {
 };
 
 enum {
-        BUS_MAP_STRDUP          = 1U << 0, /* If set, each "s" message is duplicated. Thus, each pointer needs to be freed. */
-        BUS_MAP_BOOLEAN_AS_BOOL = 1U << 1, /* If set, each "b" message is written to a bool pointer. If not set, "b" is written to a int pointer. */
+        BUS_MAP_STRDUP          = 1 << 0, /* If set, each "s" message is duplicated. Thus, each pointer needs to be freed. */
+        BUS_MAP_BOOLEAN_AS_BOOL = 1 << 1, /* If set, each "b" message is written to a bool pointer. If not set, "b" is written to a int pointer. */
 };
 
 int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata);
@@ -122,7 +122,7 @@ assert_cc(sizeof(mode_t) == sizeof(uint32_t));
 int bus_log_parse_error(int r);
 int bus_log_create_error(int r);
 
-#define BUS_DEFINE_PROPERTY_GET_ENUM(function, name, type)              \
+#define BUS_DEFINE_PROPERTY_GET_GLOBAL(function, bus_type, val)         \
         int function(sd_bus *bus,                                       \
                      const char *path,                                  \
                      const char *interface,                             \
@@ -131,22 +131,41 @@ int bus_log_create_error(int r);
                      void *userdata,                                    \
                      sd_bus_error *error) {                             \
                                                                         \
-                const char *value;                                      \
-                type *field = userdata;                                 \
-                int r;                                                  \
+                assert(bus);                                            \
+                assert(reply);                                          \
+                                                                        \
+                return sd_bus_message_append(reply, bus_type, val);     \
+        }
+
+#define BUS_DEFINE_PROPERTY_GET2(function, bus_type, data_type, get1, get2) \
+        int function(sd_bus *bus,                                       \
+                     const char *path,                                  \
+                     const char *interface,                             \
+                     const char *property,                              \
+                     sd_bus_message *reply,                             \
+                     void *userdata,                                    \
+                     sd_bus_error *error) {                             \
+                                                                        \
+                data_type *data = userdata;                             \
                                                                         \
                 assert(bus);                                            \
                 assert(reply);                                          \
-                assert(field);                                          \
+                assert(data);                                           \
                                                                         \
-                value = strempty(name##_to_string(*field));             \
-                                                                        \
-                r = sd_bus_message_append_basic(reply, 's', value);     \
-                if (r < 0)                                              \
-                        return r;                                       \
-                                                                        \
-                return 1;                                               \
+                return sd_bus_message_append(reply, bus_type,           \
+                                             get2(get1(data)));         \
         }
+
+#define ident(x) (x)
+#define BUS_DEFINE_PROPERTY_GET(function, bus_type, data_type, get1) \
+        BUS_DEFINE_PROPERTY_GET2(function, bus_type, data_type, get1, ident)
+
+#define ref(x) (*(x))
+#define BUS_DEFINE_PROPERTY_GET_REF(function, bus_type, data_type, get) \
+        BUS_DEFINE_PROPERTY_GET2(function, bus_type, data_type, ref, get)
+
+#define BUS_DEFINE_PROPERTY_GET_ENUM(function, name, type)              \
+        BUS_DEFINE_PROPERTY_GET_REF(function, "s", type, name##_to_string)
 
 #define BUS_PROPERTY_DUAL_TIMESTAMP(name, offset, flags) \
         SD_BUS_PROPERTY(name, "t", bus_property_get_usec, (offset) + offsetof(struct dual_timestamp, realtime), (flags)), \
@@ -163,3 +182,7 @@ int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *descri
 static inline int bus_open_system_watch_bind(sd_bus **ret) {
         return bus_open_system_watch_bind_with_description(ret, NULL);
 }
+
+int bus_request_name_async_may_reload_dbus(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, uint64_t flags, void *userdata);
+
+int bus_reply_pair_array(sd_bus_message *m, char **l);

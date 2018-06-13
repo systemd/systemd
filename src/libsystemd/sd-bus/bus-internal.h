@@ -127,8 +127,17 @@ struct sd_bus_slot {
         unsigned n_ref;
         sd_bus *bus;
         void *userdata;
+        sd_bus_destroy_t destroy_callback;
         BusSlotType type:5;
+
+        /* Slots can be "floating" or not. If they are not floating (the usual case) then they reference the bus object
+         * they are associated with. This means the bus object stays allocated at least as long as there is a slot
+         * around associated with it. If it is floating, then the slot's lifecycle is bound to the lifecycle of the
+         * bus: it will be disconnected from the bus when the bus is destroyed, and it keeping the slot reffed hence
+         * won't mean the bus stays reffed too. Internally this means the reference direction is reversed: floating
+         * slots objects are referenced by the bus object, and not vice versa. */
         bool floating:1;
+
         bool match_added:1;
         char *description;
 

@@ -13,6 +13,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 
+#include "conf-parser.h"
 #include "hashmap.h"
 #include "list.h"
 #include "set.h"
@@ -120,7 +121,7 @@ struct Manager {
         usec_t holdoff_timeout_usec;
         sd_event_source *lid_switch_ignore_event_source;
 
-        size_t runtime_dir_size;
+        uint64_t runtime_dir_size;
         uint64_t user_tasks_max;
         uint64_t sessions_max;
         uint64_t inhibitors_max;
@@ -179,8 +180,8 @@ const struct ConfigPerfItem* logind_gperf_lookup(const char *key, GPERF_LEN_TYPE
 
 int manager_set_lid_switch_ignore(Manager *m, usec_t until);
 
-int config_parse_n_autovts(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_tmpfs_size(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_n_autovts);
+CONFIG_PARSER_PROTOTYPE(config_parse_tmpfs_size);
 
 int manager_get_session_from_creds(Manager *m, sd_bus_message *message, const char *name, sd_bus_error *error, Session **ret);
 int manager_get_user_from_creds(Manager *m, sd_bus_message *message, uid_t uid, sd_bus_error *error, User **ret);

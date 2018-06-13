@@ -16,6 +16,8 @@
 #define DNS_STREAM_TIMEOUT_USEC (10 * USEC_PER_SEC)
 #define DNS_STREAMS_MAX 128
 
+#define WRITE_TLS_DATA 1
+
 static void dns_stream_stop(DnsStream *s) {
         assert(s);
 
@@ -31,6 +33,13 @@ static int dns_stream_update_io(DnsStream *s) {
 
         if (s->write_packet && s->n_written < sizeof(s->write_size) + s->write_packet->size)
                 f |= EPOLLOUT;
+        else if (!ordered_set_isempty(s->write_queue)) {
+                dns_packet_unref(s->write_packet);
+                s->write_packet = ordered_set_steal_first(s->write_queue);
+                s->write_size = htobe16(s->write_packet->size);
+                s->n_written = 0;
+                f |= EPOLLOUT;
+        }
         if (!s->read_packet || s->n_read < sizeof(s->read_size) + s->read_packet->size)
                 f |= EPOLLIN;
 
@@ -40,7 +49,19 @@ static int dns_stream_update_io(DnsStream *s) {
 static int dns_stream_complete(DnsStream *s, int error) {
         assert(s);
 
-        dns_stream_stop(s);
+#if HAVE_GNUTLS
+        if (s->tls_session && IN_SET(error, ETIMEDOUT, 0)) {
+                int r;
+
+                r = gnutls_bye(s->tls_session, GNUTLS_SHUT_RDWR);
+                if (r == GNUTLS_E_AGAIN && !s->tls_bye) {
+                        dns_stream_ref(s); /* keep reference for closing TLS session */
+                        s->tls_bye = true;
+                } else
+                        dns_stream_stop(s);
+        } else
+#endif
+                dns_stream_stop(s);
 
         if (s->complete)
                 s->complete(s, error);
@@ -175,6 +196,114 @@ static int dns_stream_identify(DnsStream *s) {
         return 0;
 }
 
+static ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, int flags) {
+        ssize_t r;
+
+        assert(s);
+        assert(iov);
+
+#if HAVE_GNUTLS
+        if (s->tls_session && !(flags & WRITE_TLS_DATA)) {
+                ssize_t ss;
+                size_t i;
+
+                r = 0;
+                for (i = 0; i < iovcnt; i++) {
+                        ss = gnutls_record_send(s->tls_session, iov[i].iov_base, iov[i].iov_len);
+                        if (ss < 0) {
+                                switch(ss) {
+
+                                case GNUTLS_E_INTERRUPTED:
+                                        return -EINTR;
+                                case GNUTLS_E_AGAIN:
+                                        return -EAGAIN;
+                                default:
+                                        log_debug("Failed to invoke gnutls_record_send: %s", gnutls_strerror(ss));
+                                        return -EIO;
+                                }
+                        }
+
+                        r += ss;
+                        if (ss != (ssize_t) iov[i].iov_len)
+                                continue;
+                }
+        } else
+#endif
+        if (s->tfo_salen > 0) {
+                struct msghdr hdr = {
+                        .msg_iov = (struct iovec*) iov,
+                        .msg_iovlen = iovcnt,
+                        .msg_name = &s->tfo_address.sa,
+                        .msg_namelen = s->tfo_salen
+                };
+
+                r = sendmsg(s->fd, &hdr, MSG_FASTOPEN);
+                if (r < 0) {
+                        if (errno == EOPNOTSUPP) {
+                                s->tfo_salen = 0;
+                                r = connect(s->fd, &s->tfo_address.sa, s->tfo_salen);
+                                if (r < 0)
+                                        return -errno;
+
+                                r = -EAGAIN;
+                        } else if (errno == EINPROGRESS)
+                                r = -EAGAIN;
+                } else
+                        s->tfo_salen = 0; /* connection is made */
+        } else
+                r = writev(s->fd, iov, iovcnt);
+
+        return r;
+}
+
+static ssize_t dns_stream_read(DnsStream *s, void *buf, size_t count) {
+        ssize_t ss;
+
+#if HAVE_GNUTLS
+        if (s->tls_session) {
+                ss = gnutls_record_recv(s->tls_session, buf, count);
+                if (ss < 0) {
+                        switch(ss) {
+
+                        case GNUTLS_E_INTERRUPTED:
+                                return -EINTR;
+                        case GNUTLS_E_AGAIN:
+                                return -EAGAIN;
+                        default:
+                                log_debug("Failed to invoke gnutls_record_send: %s", gnutls_strerror(ss));
+                                return -EIO;
+                        }
+                } else if (s->on_connection) {
+                        int r;
+
+                        r = s->on_connection(s);
+                        s->on_connection = NULL; /* only call once */
+                        if (r < 0)
+                                return r;
+                }
+        } else
+#endif
+                ss = read(s->fd, buf, count);
+
+        return ss;
+}
+
+#if HAVE_GNUTLS
+static ssize_t dns_stream_tls_writev(gnutls_transport_ptr_t p, const giovec_t * iov, int iovcnt) {
+        int r;
+
+        assert(p);
+
+        r = dns_stream_writev((DnsStream*) p, (struct iovec*) iov, iovcnt, WRITE_TLS_DATA);
+        if (r < 0) {
+                errno = -r;
+                return -1;
+        }
+
+        return r;
+}
+#endif
+
 static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
         DnsStream *s = userdata;
 
@@ -189,9 +318,46 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
         assert(s);
 
-        r = dns_stream_identify(s);
-        if (r < 0)
-                return dns_stream_complete(s, -r);
+#if HAVE_GNUTLS
+        if (s->tls_bye) {
+                assert(s->tls_session);
+
+                r = gnutls_bye(s->tls_session, GNUTLS_SHUT_RDWR);
+                if (r != GNUTLS_E_AGAIN) {
+                        s->tls_bye = false;
+                        dns_stream_unref(s);
+                }
+
+                return 0;
+        }
+
+        if (s->tls_handshake < 0) {
+                assert(s->tls_session);
+
+                s->tls_handshake = gnutls_handshake(s->tls_session);
+                if (s->tls_handshake >= 0) {
+                        if (s->on_connection && !(gnutls_session_get_flags(s->tls_session) & GNUTLS_SFLAGS_FALSE_START)) {
+                                r = s->on_connection(s);
+                                s->on_connection = NULL; /* only call once */
+                                if (r < 0)
+                                        return r;
+                        }
+                } else {
+                        if (gnutls_error_is_fatal(s->tls_handshake))
+                                return dns_stream_complete(s, ECONNREFUSED);
+                        else
+                                return 0;
+                }
+
+        }
+#endif
+
+        /* only identify after connecting */
+        if (s->tfo_salen == 0) {
+                r = dns_stream_identify(s);
+                if (r < 0)
+                        return dns_stream_complete(s, -r);
+        }
 
         if ((revents & EPOLLOUT) &&
             s->write_packet &&
@@ -207,7 +373,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
                 IOVEC_INCREMENT(iov, 2, s->n_written);
 
-                ss = writev(fd, iov, 2);
+                ss = dns_stream_writev(s, iov, 2, 0);
                 if (ss < 0) {
                         if (!IN_SET(errno, EINTR, EAGAIN))
                                 return dns_stream_complete(s, errno);
@@ -229,7 +395,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                 if (s->n_read < sizeof(s->read_size)) {
                         ssize_t ss;
 
-                        ss = read(fd, (uint8_t*) &s->read_size + s->n_read, sizeof(s->read_size) - s->n_read);
+                        ss = dns_stream_read(s, (uint8_t*) &s->read_size + s->n_read, sizeof(s->read_size) - s->n_read);
                         if (ss < 0) {
                                 if (!IN_SET(errno, EINTR, EAGAIN))
                                         return dns_stream_complete(s, errno);
@@ -277,7 +443,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                         }
                                 }
 
-                                ss = read(fd,
+                                ss = dns_stream_read(s,
                                           (uint8_t*) DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
                                           sizeof(s->read_size) + be16toh(s->read_size) - s->n_read);
                                 if (ss < 0) {
@@ -291,15 +457,18 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
                         /* Are we done? If so, disable the event source for EPOLLIN */
                         if (s->n_read >= sizeof(s->read_size) + be16toh(s->read_size)) {
-                                r = dns_stream_update_io(s);
-                                if (r < 0)
-                                        return dns_stream_complete(s, -r);
-
                                 /* If there's a packet handler
                                  * installed, call that. Note that
                                  * this is optional... */
-                                if (s->on_packet)
-                                        return s->on_packet(s);
+                                if (s->on_packet) {
+                                        r = s->on_packet(s);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                r = dns_stream_update_io(s);
+                                if (r < 0)
+                                        return dns_stream_complete(s, -r);
                         }
                 }
         }
@@ -312,6 +481,9 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 }
 
 DnsStream *dns_stream_unref(DnsStream *s) {
+        DnsPacket *p;
+        Iterator i;
+
         if (!s)
                 return NULL;
 
@@ -323,18 +495,30 @@ DnsStream *dns_stream_unref(DnsStream *s) {
 
         dns_stream_stop(s);
 
+        if (s->server && s->server->stream == s)
+                s->server->stream = NULL;
+
         if (s->manager) {
                 LIST_REMOVE(streams, s->manager->dns_streams, s);
                 s->manager->n_dns_streams--;
         }
 
+#if HAVE_GNUTLS
+        if (s->tls_session)
+                gnutls_deinit(s->tls_session);
+#endif
+
+        ORDERED_SET_FOREACH(p, s->write_queue, i)
+                dns_packet_unref(ordered_set_remove(s->write_queue, p));
+
         dns_packet_unref(s->write_packet);
         dns_packet_unref(s->read_packet);
+        dns_server_unref(s->server);
+
+        ordered_set_free(s->write_queue);
 
         return mfree(s);
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_unref);
 
 DnsStream *dns_stream_ref(DnsStream *s) {
         if (!s)
@@ -346,7 +530,7 @@ DnsStream *dns_stream_ref(DnsStream *s) {
         return s;
 }
 
-int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
+int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address) {
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
         int r;
 
@@ -359,6 +543,10 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
         s = new0(DnsStream, 1);
         if (!s)
                 return -ENOMEM;
+
+        r = ordered_set_ensure_allocated(&s->write_queue, &dns_packet_hash_ops);
+        if (r < 0)
+                return r;
 
         s->n_ref = 1;
         s->fd = -1;
@@ -384,6 +572,11 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
         LIST_PREPEND(streams, m->dns_streams, s);
         s->manager = m;
         s->fd = fd;
+        if (tfo_address) {
+                s->tfo_address = *tfo_address;
+                s->tfo_salen = tfo_address->sa.sa_family == AF_INET6 ? sizeof(tfo_address->in6) : sizeof(tfo_address->in);
+        }
+
         m->n_dns_streams++;
 
         *ret = TAKE_PTR(s);
@@ -391,15 +584,31 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd) {
         return 0;
 }
 
+#if HAVE_GNUTLS
+int dns_stream_connect_tls(DnsStream *s, gnutls_session_t tls_session) {
+        gnutls_transport_set_ptr2(tls_session, (gnutls_transport_ptr_t) (long) s->fd, s);
+        gnutls_transport_set_vec_push_function(tls_session, &dns_stream_tls_writev);
+
+        s->encrypted = true;
+        s->tls_session = tls_session;
+        s->tls_handshake = gnutls_handshake(tls_session);
+        if (s->tls_handshake < 0 && gnutls_error_is_fatal(s->tls_handshake))
+                return -ECONNREFUSED;
+
+        return 0;
+}
+#endif
+
 int dns_stream_write_packet(DnsStream *s, DnsPacket *p) {
+        int r;
+
         assert(s);
 
-        if (s->write_packet)
-                return -EBUSY;
+        r = ordered_set_put(s->write_queue, p);
+        if (r < 0)
+                return r;
 
-        s->write_packet = dns_packet_ref(p);
-        s->write_size = htobe16(p->size);
-        s->n_written = 0;
+        dns_packet_ref(p);
 
         return dns_stream_update_io(s);
 }

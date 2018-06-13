@@ -152,7 +152,7 @@ static int load_cursor_state(Uploader *u) {
         if (!u->state_file)
                 return 0;
 
-        r = parse_env_file(u->state_file, NEWLINE,
+        r = parse_env_file(NULL, u->state_file, NEWLINE,
                            "LAST_CURSOR",  &u->last_cursor,
                            NULL);
 

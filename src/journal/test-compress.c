@@ -13,6 +13,7 @@
 #include "compress.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "macro.h"
 #include "path-util.h"
 #include "random-util.h"
@@ -142,8 +143,9 @@ static void test_compress_stream(int compression,
                                  const char *srcfile) {
 
         _cleanup_close_ int src = -1, dst = -1, dst2 = -1;
-        char pattern[] = "/tmp/systemd-test.compressed.XXXXXX",
-             pattern2[] = "/tmp/systemd-test.compressed.XXXXXX";
+        _cleanup_(unlink_tempfilep) char
+                pattern[] = "/tmp/systemd-test.compressed.XXXXXX",
+                pattern2[] = "/tmp/systemd-test.compressed.XXXXXX";
         int r;
         _cleanup_free_ char *cmd = NULL, *cmd2 = NULL;
         struct stat st = {};
@@ -195,9 +197,6 @@ static void test_compress_stream(int compression,
         assert_se(lseek(dst2, 0, SEEK_SET) == 0);
         r = decompress(dst, dst2, st.st_size - 1);
         assert_se(r == -EFBIG);
-
-        assert_se(unlink(pattern) == 0);
-        assert_se(unlink(pattern2) == 0);
 }
 #endif
 

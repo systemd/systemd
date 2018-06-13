@@ -570,19 +570,19 @@
         <term><option>--runtime</option></term>
 
         <listitem>
-          <para>When used with <command>enable</command>,
-          <command>disable</command>, <command>edit</command>,
-          (and related commands), make changes only temporarily, so
-          that they are lost on the next reboot. This will have the
-          effect that changes are not made in subdirectories of
-          <filename>/etc</filename> but in <filename>/run</filename>,
-          with identical immediate effects, however, since the latter
+          <para>When used with <command>set-property</command>, make changes only
+          temporarily, so that they are lost on the next reboot.</para>
+
+          <para>Similarily, when used with <command>enable</command>, <command>mask</command>,
+          <command>edit</command> and related commands, make temporary changes, which are lost on
+          the next reboot. Changes are not made in subdirectories of <filename>/etc</filename>, but
+          in <filename>/run</filename>. The immediate effect is identical, however since the latter
           is lost on reboot, the changes are lost too.</para>
 
-          <para>Similarly, when used with
-          <command>set-property</command>, make changes only
-          temporarily, so that they are lost on the next
-          reboot.</para>
+          <para>Note: this option cannot be used with <command>disable</command>,
+          <command>unmask</command>, <command>preset</command>, or <command>preset-all</command>,
+          because those operations sometimes need to remove symlinks under <filename>/etc</filename>
+          to have the desired effect, which would cause a persistent change.</para>
         </listitem>
       </varlistentry>
 
@@ -701,19 +701,15 @@ To show all installed unit files use 'systemctl list-unit-files'.
             terminal supports that. A colored dot is shown next to services which
             were masked, not found, or otherwise failed.</para>
 
-            <para>The LOAD column shows the load state, one of
-            <constant>loaded</constant>, <constant>not-found</constant>,
-            <constant>stub</constant>, <constant>error</constant>,
-            <constant>merged</constant>, <constant>masked</constant>. The ACTIVE
-            columns shows the general unit state, one of <constant>active</constant>,
-            <constant>reloading</constant>, <constant>inactive</constant>,
-            <constant>failed</constant>, <constant>activating</constant>,
-            <constant>deactivating</constant>. The SUB column shows the
-            unit-type-specific detailed state of the unit, possible values vary by
-            unit type. The list of possible LOAD, ACTIVE, and SUB states is not
-            constant and new systemd releases may both add and remove values.
-            <programlisting>systemctl --state=help</programlisting> command maybe be
-            used to display the current set of possible values.</para>
+            <para>The LOAD column shows the load state, one of <constant>loaded</constant>,
+            <constant>not-found</constant>, <constant>bad-setting</constant>, <constant>error</constant>,
+            <constant>masked</constant>. The ACTIVE columns shows the general unit state, one of
+            <constant>active</constant>, <constant>reloading</constant>, <constant>inactive</constant>,
+            <constant>failed</constant>, <constant>activating</constant>, <constant>deactivating</constant>. The SUB
+            column shows the unit-type-specific detailed state of the unit, possible values vary by unit type. The list
+            of possible LOAD, ACTIVE, and SUB states is not constant and new systemd releases may both add and remove
+            values. <programlisting>systemctl --state=help</programlisting> command maybe be used to display the
+            current set of possible values.</para>
 
             <para>This is the default command.</para>
           </listitem>
@@ -975,10 +971,12 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>The "Loaded:" line in the output will show <literal>loaded</literal> if the unit has been loaded into
             memory. Other possible values for "Loaded:" include: <literal>error</literal> if there was a problem
-            loading it, <literal>not-found</literal>, and <literal>masked</literal>. Along with showing the path to
-            the unit file, this line will also show the enablement state.  Enabled commands start at boot.  See the
-            full table of possible enablement states — including the definition of <literal>masked</literal> — in the
-            documentation for the <command>is-enabled</command> command.
+            loading it, <literal>not-found</literal> if not unit file was found for this unit,
+            <literal>bad-setting</literal> if an essential unit file setting could not be parsed and
+            <literal>masked</literal> if the unit file has been masked. Along with showing the path to the unit file,
+            this line will also show the enablement state.  Enabled commands start at boot.  See the full table of
+            possible enablement states — including the definition of <literal>masked</literal> — in the documentation
+            for the <command>is-enabled</command> command.
             </para>
 
             <para>The "Active:" line shows active state.  The value is usually <literal>active</literal> or

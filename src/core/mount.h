@@ -11,6 +11,7 @@ typedef struct Mount Mount;
 
 #include "kill.h"
 #include "dynamic-user.h"
+#include "unit.h"
 
 typedef enum MountExecCommand {
         MOUNT_EXEC_MOUNT,
@@ -97,3 +98,5 @@ MountExecCommand mount_exec_command_from_string(const char *s) _pure_;
 
 const char* mount_result_to_string(MountResult i) _const_;
 MountResult mount_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(MOUNT, Mount);

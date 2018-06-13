@@ -116,7 +116,7 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret);
 
 const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
-SocketAddressBindIPv6Only parse_socket_address_bind_ipv6_only_or_bool(const char *s);
+SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *s);
 
 int netlink_family_to_string_alloc(int b, char **s);
 int netlink_family_from_string(const char *s) _pure_;

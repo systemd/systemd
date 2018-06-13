@@ -32,6 +32,7 @@
 #include "machine-dbus.h"
 #include "machine.h"
 #include "mkdir.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -39,31 +40,8 @@
 #include "terminal-util.h"
 #include "user-util.h"
 
-static int property_get_state(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Machine *m = userdata;
-        const char *state;
-        int r;
-
-        assert(bus);
-        assert(reply);
-        assert(m);
-
-        state = machine_state_to_string(machine_get_state(m));
-
-        r = sd_bus_message_append_basic(reply, 's', state);
-        if (r < 0)
-                return r;
-
-        return 1;
-}
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);
+static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", Machine, machine_get_state, machine_state_to_string);
 
 static int property_get_netif(
                 sd_bus *bus,
@@ -84,8 +62,6 @@ static int property_get_netif(
 
         return sd_bus_message_append_array(reply, 'i', m->netif, m->n_netif * sizeof(int));
 }
-
-static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_class, machine_class, MachineClass);
 
 int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Machine *m = userdata;
@@ -355,7 +331,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
         switch (m->class) {
 
         case MACHINE_HOST:
-                r = load_env_file_pairs(NULL, "/etc/os-release", NULL, &l);
+                r = load_os_release_pairs(NULL, &l);
                 if (r < 0)
                         return r;
 
@@ -386,13 +362,10 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
                         if (r < 0)
                                 _exit(EXIT_FAILURE);
 
-                        fd = open("/etc/os-release", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                        if (fd < 0 && errno == ENOENT) {
-                                fd = open("/usr/lib/os-release", O_RDONLY|O_CLOEXEC|O_NOCTTY);
-                                if (fd < 0 && errno == ENOENT)
-                                        _exit(EXIT_NOT_FOUND);
-                        }
-                        if (fd < 0)
+                        r = open_os_release(NULL, NULL, &fd);
+                        if (r == -ENOENT)
+                                _exit(EXIT_NOT_FOUND);
+                        if (r < 0)
                                 _exit(EXIT_FAILURE);
 
                         r = copy_bytes(fd, pair[1], (uint64_t) -1, 0);

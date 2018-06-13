@@ -684,7 +684,8 @@ static int bus_append_automount_property(sd_bus_message *m, const char *field, c
 }
 
 static int bus_append_execute_property(sd_bus_message *m, const char *field, const char *eq) {
-        int r, rl;
+        const char *suffix;
+        int r;
 
         if (STR_IN_SET(field,
                        "User", "Group",
@@ -863,25 +864,29 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 return bus_append_byte_array(m, field, decoded, sz);
         }
 
-        rl = rlimit_from_string(field);
-        if (rl >= 0) {
-                const char *sn;
-                struct rlimit l;
+        if ((suffix = startswith(field, "Limit"))) {
+                int rl;
 
-                r = rlimit_parse(rl, eq, &l);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse resource limit: %s", eq);
+                rl = rlimit_from_string(suffix);
+                if (rl >= 0) {
+                        const char *sn;
+                        struct rlimit l;
 
-                r = sd_bus_message_append(m, "(sv)", field, "t", l.rlim_max);
-                if (r < 0)
-                        return bus_log_create_error(r);
+                        r = rlimit_parse(rl, eq, &l);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse resource limit: %s", eq);
 
-                sn = strjoina(field, "Soft");
-                r = sd_bus_message_append(m, "(sv)", sn, "t", l.rlim_cur);
-                if (r < 0)
-                        return bus_log_create_error(r);
+                        r = sd_bus_message_append(m, "(sv)", field, "t", l.rlim_max);
+                        if (r < 0)
+                                return bus_log_create_error(r);
 
-                return 1;
+                        sn = strjoina(field, "Soft");
+                        r = sd_bus_message_append(m, "(sv)", sn, "t", l.rlim_cur);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        return 1;
+                }
         }
 
         if (STR_IN_SET(field, "AppArmorProfile", "SmackProcessLabel")) {
@@ -1003,12 +1008,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
 
         if (streq(field, "RestrictNamespaces")) {
                 bool invert = false;
-                unsigned long flags = 0;
-
-                if (eq[0] == '~') {
-                        invert = true;
-                        eq++;
-                }
+                unsigned long flags;
 
                 r = parse_boolean(eq);
                 if (r > 0)
@@ -1016,7 +1016,12 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 else if (r == 0)
                         flags = NAMESPACE_FLAGS_ALL;
                 else {
-                        r = namespace_flag_from_string_many(eq, &flags);
+                        if (eq[0] == '~') {
+                                invert = true;
+                                eq++;
+                        }
+
+                        r = namespace_flags_from_string(eq, &flags);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse %s value %s.", field, eq);
                 }
@@ -1151,8 +1156,10 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         r = extract_first_word(&w, &path, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument: %m");
-                        if (r == 0)
-                                return log_error("Failed to parse argument: %m");
+                        if (r == 0) {
+                                log_error("Failed to parse argument: %s", p);
+                                return -EINVAL;
+                        }
 
                         r = sd_bus_message_append(m, "(ss)", path, w);
                         if (r < 0)

@@ -171,8 +171,7 @@ static int execute(char **modes, char **states) {
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_SLEEP_START_STR,
                    LOG_MESSAGE("Suspending system..."),
-                   "SLEEP=%s", arg_verb,
-                   NULL);
+                   "SLEEP=%s", arg_verb);
 
         r = write_state(&f, states);
         if (r < 0)
@@ -181,8 +180,7 @@ static int execute(char **modes, char **states) {
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_SLEEP_STOP_STR,
                    LOG_MESSAGE("System resumed."),
-                   "SLEEP=%s", arg_verb,
-                   NULL);
+                   "SLEEP=%s", arg_verb);
 
         arguments[1] = (char*) "post";
         execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, arguments);

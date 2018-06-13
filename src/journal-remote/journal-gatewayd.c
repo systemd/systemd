@@ -24,6 +24,7 @@
 #include "log.h"
 #include "logs-show.h"
 #include "microhttpd-util.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "sigbus.h"
 #include "util.h"
@@ -213,7 +214,7 @@ static ssize_t request_reader_entries(
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 }
 
-                r = output_journal(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH,
+                r = show_journal_entry(m->tmp, m->journal, m->mode, 0, OUTPUT_FULL_WIDTH,
                                    NULL, NULL, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to serialize item: %m");
@@ -777,10 +778,8 @@ static int request_handler_machine(
         if (r < 0)
                 return mhd_respondf(connection, r, MHD_HTTP_INTERNAL_SERVER_ERROR, "Failed to determine disk usage: %m");
 
-        if (parse_env_file("/etc/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL) == -ENOENT)
-                (void) parse_env_file("/usr/lib/os-release", NEWLINE, "PRETTY_NAME", &os_name, NULL);
-
-        get_virtualization(&v);
+        (void) parse_os_release(NULL, "PRETTY_NAME", &os_name, NULL);
+        (void) get_virtualization(&v);
 
         r = asprintf(&json,
                      "{ \"machine_id\" : \"" SD_ID128_FORMAT_STR "\","

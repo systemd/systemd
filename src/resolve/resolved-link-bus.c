@@ -15,7 +15,10 @@
 #include "resolved-resolv-conf.h"
 #include "strv.h"
 
-static int property_get_dnssec_mode(
+static BUS_DEFINE_PROPERTY_GET(property_get_dnssec_supported, "b", Link, link_dnssec_supported);
+static BUS_DEFINE_PROPERTY_GET2(property_get_dnssec_mode, "s", Link, link_get_dnssec_mode, dnssec_mode_to_string);
+
+static int property_get_private_dns_mode(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -29,7 +32,7 @@ static int property_get_dnssec_mode(
         assert(reply);
         assert(l);
 
-        return sd_bus_message_append(reply, "s", dnssec_mode_to_string(link_get_dnssec_mode(l)));
+        return sd_bus_message_append(reply, "s", private_dns_mode_to_string(link_get_private_dns_mode(l)));
 }
 
 static int property_get_dns(
@@ -161,23 +164,6 @@ static int property_get_ntas(
         }
 
         return sd_bus_message_close_container(reply);
-}
-
-static int property_get_dnssec_supported(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Link *l = userdata;
-
-        assert(reply);
-        assert(l);
-
-        return sd_bus_message_append(reply, "b", link_dnssec_supported(l));
 }
 
 static int verify_unmanaged_link(Link *l, sd_bus_error *error) {
@@ -433,6 +419,38 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
         return sd_bus_reply_method_return(message, NULL);
 }
 
+int bus_link_method_set_private_dns(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Link *l = userdata;
+        const char *private_dns;
+        PrivateDnsMode mode;
+        int r;
+
+        assert(message);
+        assert(l);
+
+        r = verify_unmanaged_link(l, error);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_read(message, "s", &private_dns);
+        if (r < 0)
+                return r;
+
+        if (isempty(private_dns))
+                mode = _PRIVATE_DNS_MODE_INVALID;
+        else {
+                mode = private_dns_mode_from_string(private_dns);
+                if (mode < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PrivateDNS setting: %s", private_dns);
+        }
+
+        link_set_private_dns_mode(l, mode);
+
+        (void) link_save_user(l);
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Link *l = userdata;
         const char *dnssec;
@@ -539,6 +557,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_PROPERTY("Domains", "a(sb)", property_get_domains, 0, 0),
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Link, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Link, mdns_support), 0),
+        SD_BUS_PROPERTY("PrivateDNS", "s", property_get_private_dns_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSEC", "s", property_get_dnssec_mode, 0, 0),
         SD_BUS_PROPERTY("DNSSECNegativeTrustAnchors", "as", property_get_ntas, 0, 0),
         SD_BUS_PROPERTY("DNSSECSupported", "b", property_get_dnssec_supported, 0, 0),
@@ -547,6 +566,7 @@ const sd_bus_vtable link_vtable[] = {
         SD_BUS_METHOD("SetDomains", "a(sb)", NULL, bus_link_method_set_domains, 0),
         SD_BUS_METHOD("SetLLMNR", "s", NULL, bus_link_method_set_llmnr, 0),
         SD_BUS_METHOD("SetMulticastDNS", "s", NULL, bus_link_method_set_mdns, 0),
+        SD_BUS_METHOD("SetPrivateDNS", "s", NULL, bus_link_method_set_private_dns, 0),
         SD_BUS_METHOD("SetDNSSEC", "s", NULL, bus_link_method_set_dnssec, 0),
         SD_BUS_METHOD("SetDNSSECNegativeTrustAnchors", "as", NULL, bus_link_method_set_dnssec_negative_trust_anchors, 0),
         SD_BUS_METHOD("Revert", NULL, NULL, bus_link_method_revert, 0),

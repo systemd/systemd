@@ -11,6 +11,7 @@
 #include <stdbool.h>
 
 #include "in-addr-util.h"
+#include "conf-parser.h"
 
 typedef struct RoutingPolicyRule RoutingPolicyRule;
 
@@ -69,9 +70,9 @@ int routing_policy_serialize_rules(Set *rules, FILE *f);
 int routing_policy_load_rules(const char *state_file, Set **rules);
 void routing_policy_rule_purge(Manager *m, Link *link);
 
-int config_parse_routing_policy_rule_tos(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data,void *userdata);
-int config_parse_routing_policy_rule_table(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_routing_policy_rule_fwmark_mask(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_routing_policy_rule_prefix(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_routing_policy_rule_priority(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data,void *userdata);
-int config_parse_routing_policy_rule_device(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data,void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_tos);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_table);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_fwmark_mask);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_prefix);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_priority);
+CONFIG_PARSER_PROTOTYPE(config_parse_routing_policy_rule_device);

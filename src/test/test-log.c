@@ -29,22 +29,19 @@ assert_cc((LOG_REALM_PLUS_LEVEL(LOG_REALM_UDEV, LOG_USER | LOG_INFO) & LOG_PRIMA
 static void test_log_console(void) {
         log_struct(LOG_INFO,
                    "MESSAGE=Waldo PID="PID_FMT, getpid_cached(),
-                   "SERVICE=piepapo",
-                   NULL);
+                   "SERVICE=piepapo");
 }
 
 static void test_log_journal(void) {
         log_struct(LOG_INFO,
                    "MESSAGE=Foobar PID="PID_FMT, getpid_cached(),
-                   "SERVICE=foobar",
-                   NULL);
+                   "SERVICE=foobar");
 
         log_struct(LOG_INFO,
                    "MESSAGE=Foobar PID="PID_FMT, getpid_cached(),
                    "FORMAT_STR_TEST=1=%i A=%c 2=%hi 3=%li 4=%lli 1=%p foo=%s 2.5=%g 3.5=%g 4.5=%Lg",
                    (int) 1, 'A', (short) 2, (long int) 3, (long long int) 4, (void*) 1, "foo", (float) 2.5f, (double) 3.5, (long double) 4.5,
-                   "SUFFIX=GOT IT",
-                   NULL);
+                   "SUFFIX=GOT IT");
 }
 
 static void test_long_lines(void) {

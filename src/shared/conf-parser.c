@@ -33,6 +33,7 @@
 #include "syslog-util.h"
 #include "time-util.h"
 #include "utf8.h"
+#include "rlimit-util.h"
 
 int config_item_table_lookup(
                 const void *table,
@@ -210,6 +211,9 @@ static int parse_line(
                 return config_parse(unit, fn, NULL, sections, lookup, table, flags, userdata);
         }
 
+        if (!utf8_is_valid(l))
+                return log_syntax_invalid_utf8(unit, LOG_WARNING, filename, line, l);
+
         if (*l == '[') {
                 size_t k;
                 char *n;
@@ -236,8 +240,7 @@ static int parse_line(
                         *section_line = 0;
                         *section_ignored = true;
                 } else {
-                        free(*section);
-                        *section = n;
+                        free_and_replace(*section, n);
                         *section_line = line;
                         *section_ignored = false;
                 }
@@ -300,8 +303,8 @@ int config_parse(const char *unit,
                         /* Only log on request, except for ENOENT,
                          * since we return 0 to the caller. */
                         if ((flags & CONFIG_PARSE_WARN) || errno == ENOENT)
-                                log_full(errno == ENOENT ? LOG_DEBUG : LOG_ERR,
-                                         "Failed to open configuration file '%s': %m", filename);
+                                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
+                                               "Failed to open configuration file '%s': %m", filename);
                         return errno == ENOENT ? 0 : -errno;
                 }
         }
@@ -395,7 +398,6 @@ int config_parse(const char *unit,
                         if (flags & CONFIG_PARSE_WARN)
                                 log_warning_errno(r, "%s:%u: Failed to parse file: %m", filename, line);
                         return r;
-
                 }
 
                 continuation = mfree(continuation);
@@ -418,7 +420,6 @@ int config_parse(const char *unit,
                         if (flags & CONFIG_PARSE_WARN)
                                 log_warning_errno(r, "%s:%u: Failed to parse file: %m", filename, line);
                         return r;
-
                 }
         }
 
@@ -501,34 +502,7 @@ int config_parse_many(
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \
-        int config_parse_##type(                                        \
-                        const char *unit,                               \
-                        const char *filename,                           \
-                        unsigned line,                                  \
-                        const char *section,                            \
-                        unsigned section_line,                          \
-                        const char *lvalue,                             \
-                        int ltype,                                      \
-                        const char *rvalue,                             \
-                        void *data,                                     \
-                        void *userdata) {                               \
-                                                                        \
-                vartype *i = data;                                      \
-                int r;                                                  \
-                                                                        \
-                assert(filename);                                       \
-                assert(lvalue);                                         \
-                assert(rvalue);                                         \
-                assert(data);                                           \
-                                                                        \
-                r = conv_func(rvalue, i);                               \
-                if (r < 0)                                              \
-                        log_syntax(unit, LOG_ERR, filename, line, r,    \
-                                   "Failed to parse %s value, ignoring: %s", \
-                                   #type, rvalue);                      \
-                                                                        \
-                return 0;                                               \
-        }
+        DEFINE_CONFIG_PARSE_PTR(config_parse_##type, conv_func, vartype, "Failed to parse " #type " value")
 
 DEFINE_PARSER(int, int, safe_atoi);
 DEFINE_PARSER(long, long, safe_atoli);
@@ -707,28 +681,15 @@ int config_parse_string(
                 void *data,
                 void *userdata) {
 
-        char **s = data, *n;
+        char **s = data;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (!utf8_is_valid(rvalue)) {
-                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
-                return 0;
-        }
-
-        if (isempty(rvalue))
-                n = NULL;
-        else {
-                n = strdup(rvalue);
-                if (!n)
-                        return log_oom();
-        }
-
-        free(*s);
-        *s = n;
+        if (free_and_strdup(s, empty_to_null(rvalue)) < 0)
+                return log_oom();
 
         return 0;
 }
@@ -745,8 +706,10 @@ int config_parse_path(
                 void *data,
                 void *userdata) {
 
-        char **s = data, *n;
+        _cleanup_free_ char *n = NULL;
         bool fatal = ltype;
+        char **s = data;
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -758,27 +721,16 @@ int config_parse_path(
                 goto finalize;
         }
 
-        if (!utf8_is_valid(rvalue)) {
-                log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, rvalue);
-                return fatal ? -ENOEXEC : 0;
-        }
-
-        if (!path_is_absolute(rvalue)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0,
-                           "Not an absolute path%s: %s",
-                           fatal ? "" : ", ignoring", rvalue);
-                return fatal ? -ENOEXEC : 0;
-        }
-
         n = strdup(rvalue);
         if (!n)
                 return log_oom();
 
-        path_kill_slashes(n);
+        r = path_simplify_and_warn(n, PATH_CHECK_ABSOLUTE | (fatal ? PATH_CHECK_FATAL : 0), unit, filename, line, lvalue);
+        if (r < 0)
+                return fatal ? -ENOEXEC : 0;
 
 finalize:
-        free(*s);
-        *s = n;
+        free_and_replace(*s, n);
 
         return 0;
 }
@@ -821,12 +773,6 @@ int config_parse_strv(
                         break;
                 }
 
-                if (!utf8_is_valid(word)) {
-                        log_syntax_invalid_utf8(unit, LOG_ERR, filename, line, word);
-                        free(word);
-                        continue;
-                }
-
                 r = strv_consume(sv, word);
                 if (r < 0)
                         return log_oom();
@@ -846,22 +792,26 @@ int config_parse_warn_compat(
                 const char *rvalue,
                 void *data,
                 void *userdata) {
+
         Disabled reason = ltype;
 
         switch(reason) {
+
         case DISABLED_CONFIGURATION:
                 log_syntax(unit, LOG_DEBUG, filename, line, 0,
                            "Support for option %s= has been disabled at compile time and it is ignored", lvalue);
                 break;
+
         case DISABLED_LEGACY:
                 log_syntax(unit, LOG_INFO, filename, line, 0,
                            "Support for option %s= has been removed and it is ignored", lvalue);
                 break;
+
         case DISABLED_EXPERIMENTAL:
                 log_syntax(unit, LOG_INFO, filename, line, 0,
                            "Support for option %s= has not yet been enabled and it is ignored", lvalue);
                 break;
-        };
+        }
 
         return 0;
 }
@@ -1211,6 +1161,76 @@ int config_parse_mtu(
                            "Failed to parse MTU value '%s', ignoring: %m", rvalue);
                 return 0;
         }
+
+        return 0;
+}
+
+int config_parse_rlimit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct rlimit **rl = data, d = {};
+        int r;
+
+        assert(rvalue);
+        assert(rl);
+
+        r = rlimit_parse(ltype, rvalue, &d);
+        if (r == -EILSEQ) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Soft resource limit chosen higher than hard limit, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse resource value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        if (rl[ltype])
+                *rl[ltype] = d;
+        else {
+                rl[ltype] = newdup(struct rlimit, &d, 1);
+                if (!rl[ltype])
+                        return log_oom();
+        }
+
+        return 0;
+}
+
+int config_parse_permille(const char* unit,
+                          const char *filename,
+                          unsigned line,
+                          const char *section,
+                          unsigned section_line,
+                          const char *lvalue,
+                          int ltype,
+                          const char *rvalue,
+                          void *data,
+                          void *userdata) {
+
+        unsigned *permille = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(permille);
+
+        r = parse_permille(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r,
+                           "Failed to parse permille value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        *permille = (unsigned) r;
 
         return 0;
 }

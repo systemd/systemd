@@ -21,18 +21,28 @@
 #include "macro.h"
 #include "missing.h"
 #include "path-util.h"
+#include "set.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "util.h"
 
-static int files_add(Hashmap *h, const char *suffix, const char *root, unsigned flags, const char *path) {
+static int files_add(
+                Hashmap *h,
+                Set *masked,
+                const char *suffix,
+                const char *root,
+                unsigned flags,
+                const char *path) {
+
         _cleanup_closedir_ DIR *dir = NULL;
         const char *dirpath;
         struct dirent *de;
         int r;
 
+        assert(h);
+        assert((flags & CONF_FILES_FILTER_MASKED) == 0 || masked);
         assert(path);
 
         dirpath = prefix_roota(root, path);
@@ -41,62 +51,89 @@ static int files_add(Hashmap *h, const char *suffix, const char *root, unsigned 
         if (!dir) {
                 if (errno == ENOENT)
                         return 0;
-                return -errno;
+
+                return log_debug_errno(errno, "Failed to open directory '%s': %m", dirpath);
         }
 
         FOREACH_DIRENT(de, dir, return -errno) {
-                char *p;
+                struct stat st;
+                char *p, *key;
 
-                if (!dirent_is_file_with_suffix(de, suffix)) {
-                        log_debug("Ignoring %s/%s, because it's not a regular file with suffix %s.", dirpath, de->d_name, strna(suffix));
+                /* Does this match the suffix? */
+                if (suffix && !endswith(de->d_name, suffix))
+                        continue;
+
+                /* Has this file already been found in an earlier directory? */
+                if (hashmap_contains(h, de->d_name)) {
+                        log_debug("Skipping overridden file '%s/%s'.", dirpath, de->d_name);
                         continue;
                 }
 
-                if (flags & CONF_FILES_EXECUTABLE) {
-                        struct stat st;
+                /* Has this been masked in an earlier directory? */
+                if ((flags & CONF_FILES_FILTER_MASKED) && set_contains(masked, de->d_name)) {
+                        log_debug("File '%s/%s' is masked by previous entry.", dirpath, de->d_name);
+                        continue;
+                }
 
-                        /* As requested: check if the file is marked exectuable. Note that we don't check access(X_OK)
-                         * here, as we care about whether the file is marked executable at all, and not whether it is
-                         * executable for us, because if such errors are stuff we should log about. */
-
+                /* Read file metadata if we shall validate the check for file masks, for node types or whether the node is marked executable. */
+                if (flags & (CONF_FILES_FILTER_MASKED|CONF_FILES_REGULAR|CONF_FILES_DIRECTORY|CONF_FILES_EXECUTABLE))
                         if (fstatat(dirfd(dir), de->d_name, &st, 0) < 0) {
-                                log_debug_errno(errno, "Failed to stat %s/%s, ignoring: %m", dirpath, de->d_name);
+                                log_debug_errno(errno, "Failed to stat '%s/%s', ignoring: %m", dirpath, de->d_name);
                                 continue;
                         }
 
-                        if (!null_or_empty(&st)) {
-                                /* A mask is a symlink to /dev/null or an empty file. It does not even
-                                 * have to be executable. Other entries must be regular executable files
-                                 * or symlinks to them. */
-                                if (S_ISREG(st.st_mode)) {
-                                        if ((st.st_mode & 0111) == 0) { /* not executable */
-                                                log_debug("Ignoring %s/%s, as it is not marked executable.",
-                                                          dirpath, de->d_name);
-                                                continue;
-                                        }
-                                } else {
-                                        log_debug("Ignoring %s/%s, as it is neither a regular file nor a mask.",
-                                                  dirpath, de->d_name);
-                                        continue;
-                                }
+                /* Is this a masking entry? */
+                if ((flags & CONF_FILES_FILTER_MASKED))
+                        if (null_or_empty(&st)) {
+                                /* Mark this one as masked */
+                                r = set_put_strdup(masked, de->d_name);
+                                if (r < 0)
+                                        return r;
+
+                                log_debug("File '%s/%s' is a mask.", dirpath, de->d_name);
+                                continue;
                         }
+
+                /* Does this node have the right type? */
+                if (flags & (CONF_FILES_REGULAR|CONF_FILES_DIRECTORY))
+                        if (!((flags & CONF_FILES_DIRECTORY) && S_ISDIR(st.st_mode)) &&
+                            !((flags & CONF_FILES_REGULAR) && S_ISREG(st.st_mode))) {
+                                log_debug("Ignoring '%s/%s', as it is not a of the right type.", dirpath, de->d_name);
+                                continue;
+                        }
+
+                /* Does this node have the executable bit set? */
+                if (flags & CONF_FILES_EXECUTABLE)
+                        /* As requested: check if the file is marked exectuable. Note that we don't check access(X_OK)
+                         * here, as we care about whether the file is marked executable at all, and not whether it is
+                         * executable for us, because if so, such errors are stuff we should log about. */
+
+                        if ((st.st_mode & 0111) == 0) { /* not executable */
+                                log_debug("Ignoring '%s/%s', as it is not marked executable.", dirpath, de->d_name);
+                                continue;
+                        }
+
+                if (flags & CONF_FILES_BASENAME) {
+                        p = strdup(de->d_name);
+                        if (!p)
+                                return -ENOMEM;
+
+                        key = p;
+                } else {
+                        p = strjoin(dirpath, "/", de->d_name);
+                        if (!p)
+                                return -ENOMEM;
+
+                        key = basename(p);
                 }
 
-                p = strjoin(dirpath, "/", de->d_name);
-                if (!p)
-                        return -ENOMEM;
-
-                r = hashmap_put(h, basename(p), p);
-                if (r == -EEXIST) {
-                        log_debug("Skipping overridden file: %s.", p);
+                r = hashmap_put(h, key, p);
+                if (r < 0) {
                         free(p);
-                } else if (r < 0) {
-                        free(p);
-                        return r;
-                } else if (r == 0) {
-                        log_debug("Duplicate file %s", p);
-                        free(p);
+                        return log_debug_errno(r, "Failed to add item to hashmap: %m");
                 }
+
+                assert(r > 0);
         }
 
         return 0;
@@ -112,6 +149,7 @@ static int base_cmp(const void *a, const void *b) {
 
 static int conf_files_list_strv_internal(char ***strv, const char *suffix, const char *root, unsigned flags, char **dirs) {
         _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_set_free_free_ Set *masked = NULL;
         char **files, **p;
         int r;
 
@@ -121,12 +159,18 @@ static int conf_files_list_strv_internal(char ***strv, const char *suffix, const
         if (!path_strv_resolve_uniq(dirs, root))
                 return -ENOMEM;
 
-        fh = hashmap_new(&string_hash_ops);
+        fh = hashmap_new(&path_hash_ops);
         if (!fh)
                 return -ENOMEM;
 
+        if (flags & CONF_FILES_FILTER_MASKED) {
+                masked = set_new(&path_hash_ops);
+                if (!masked)
+                        return -ENOMEM;
+        }
+
         STRV_FOREACH(p, dirs) {
-                r = files_add(fh, suffix, root, flags, *p);
+                r = files_add(fh, masked, suffix, root, flags, *p);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0)
@@ -305,7 +349,7 @@ int conf_files_cat(const char *root, const char *name) {
                 assert(endswith(dir, "/"));
                 r = strv_extendf(&dirs, "%s%s.d", dir, name);
                 if (r < 0)
-                        return log_error("Failed to build directory list: %m");
+                        return log_error_errno(r, "Failed to build directory list: %m");
         }
 
         r = conf_files_list_strv(&files, ".conf", root, 0, (const char* const*) dirs);

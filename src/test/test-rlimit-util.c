@@ -42,6 +42,7 @@ int main(int argc, char *argv[]) {
                 .rlim_cur = 10,
                 .rlim_max = 5,
         };
+        int i;
 
         log_parse_environment();
         log_open();
@@ -53,10 +54,41 @@ int main(int argc, char *argv[]) {
         new.rlim_max = old.rlim_max;
         assert_se(setrlimit(RLIMIT_NOFILE, &new) >= 0);
 
-        assert_se(rlimit_from_string("LimitNOFILE") == RLIMIT_NOFILE);
+        assert_se(rlimit_from_string("NOFILE") == RLIMIT_NOFILE);
+        assert_se(rlimit_from_string("LimitNOFILE") == -1);
+        assert_se(rlimit_from_string("RLIMIT_NOFILE") == -1);
+        assert_se(rlimit_from_string("xxxNOFILE") == -1);
         assert_se(rlimit_from_string("DefaultLimitNOFILE") == -1);
 
-        assert_se(streq_ptr(rlimit_to_string(RLIMIT_NOFILE), "LimitNOFILE"));
+        assert_se(rlimit_from_string_harder("NOFILE") == RLIMIT_NOFILE);
+        assert_se(rlimit_from_string_harder("LimitNOFILE") == RLIMIT_NOFILE);
+        assert_se(rlimit_from_string_harder("RLIMIT_NOFILE") == RLIMIT_NOFILE);
+        assert_se(rlimit_from_string_harder("xxxNOFILE") == -1);
+        assert_se(rlimit_from_string_harder("DefaultLimitNOFILE") == -1);
+
+        for (i = 0; i < _RLIMIT_MAX; i++) {
+                _cleanup_free_ char *prefixed = NULL;
+                const char *p;
+
+                assert_se(p = rlimit_to_string(i));
+                log_info("%i = %s", i, p);
+
+                assert_se(rlimit_from_string(p) == i);
+                assert_se(rlimit_from_string_harder(p) == i);
+
+                assert_se(prefixed = strjoin("Limit", p));
+
+                assert_se(rlimit_from_string(prefixed) < 0);
+                assert_se(rlimit_from_string_harder(prefixed) == i);
+
+                prefixed = mfree(prefixed);
+                assert_se(prefixed = strjoin("RLIMIT_", p));
+
+                assert_se(rlimit_from_string(prefixed) < 0);
+                assert_se(rlimit_from_string_harder(prefixed) == i);
+        }
+
+        assert_se(streq_ptr(rlimit_to_string(RLIMIT_NOFILE), "NOFILE"));
         assert_se(rlimit_to_string(-1) == NULL);
 
         assert_se(getrlimit(RLIMIT_NOFILE, &old) == 0);

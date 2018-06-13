@@ -15,8 +15,10 @@
 #include "macro.h"
 #include "utf8.h"
 
-size_t cescape_char(char c, char *buf) {
-        char * buf_old = buf;
+int cescape_char(char c, char *buf) {
+        char *buf_old = buf;
+
+        /* Needs space for 4 characters in the buffer */
 
         switch (c) {
 

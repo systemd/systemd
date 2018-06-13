@@ -99,6 +99,9 @@ test_data_files = '''
         test-execute/exec-readonlypaths-with-bindpaths.service
         test-execute/exec-readonlypaths.service
         test-execute/exec-readwritepaths-mount-propagation.service
+        test-execute/exec-restrictnamespaces-merge-all.service
+        test-execute/exec-restrictnamespaces-merge-and.service
+        test-execute/exec-restrictnamespaces-merge-or.service
         test-execute/exec-restrictnamespaces-mnt-blacklist.service
         test-execute/exec-restrictnamespaces-mnt.service
         test-execute/exec-restrictnamespaces-no.service
@@ -142,6 +145,7 @@ test_data_files = '''
         test-execute/exec-user-nobody.service
         test-execute/exec-user.service
         test-execute/exec-workingdirectory.service
+        test-execute/exec-workingdirectory-trailing-dot.service
         test-path/basic.target
         test-path/path-changed.path
         test-path/path-changed.service

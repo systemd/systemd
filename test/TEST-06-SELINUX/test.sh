@@ -11,7 +11,7 @@ TEST_NO_NSPAWN=1
 # selinux-policy-devel
 
 # Check if selinux-policy-devel is installed, and if it isn't bail out early instead of failing
-test -d /usr/share/selinux/devel || exit 0
+test -f /usr/share/selinux/devel/include/system/systemd.if || exit 0
 
 . $TEST_BASE_DIR/test-functions
 SETUP_SELINUX=yes

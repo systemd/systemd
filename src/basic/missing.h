@@ -329,7 +329,6 @@ struct btrfs_ioctl_search_header {
         __u32 len;
 };
 
-
 struct btrfs_ioctl_search_args {
         struct btrfs_ioctl_search_key key;
         char buf[BTRFS_SEARCH_ARGS_BUFSIZE];
@@ -1406,6 +1405,13 @@ struct statx {
 
 #ifndef AT_STATX_DONT_SYNC
 #define AT_STATX_DONT_SYNC 0x4000
+#endif
+
+/* The maximum thread/process name length including trailing NUL byte. This mimics the kernel definition of the same
+ * name, which we need in userspace at various places but is not defined in userspace currently, neither under this
+ * name nor any other. */
+#ifndef TASK_COMM_LEN
+#define TASK_COMM_LEN 16
 #endif
 
 #include "missing_syscall.h"

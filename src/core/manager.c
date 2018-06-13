@@ -28,6 +28,7 @@
 #include "sd-path.h"
 
 #include "alloc-util.h"
+#include "all-units.h"
 #include "audit-fd.h"
 #include "boot-timestamps.h"
 #include "bus-common-errors.h"
@@ -63,8 +64,10 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "ratelimit.h"
+#include "rlimit-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -105,6 +108,7 @@ static int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint
 static int manager_dispatch_jobs_in_progress(sd_event_source *source, usec_t usec, void *userdata);
 static int manager_dispatch_run_queue(sd_event_source *source, void *userdata);
 static int manager_dispatch_sigchld(sd_event_source *source, void *userdata);
+static int manager_dispatch_timezone_change(sd_event_source *source, const struct inotify_event *event, void *userdata);
 static int manager_run_environment_generators(Manager *m);
 static int manager_run_generators(Manager *m);
 
@@ -349,38 +353,94 @@ static void manager_close_idle_pipe(Manager *m) {
 static int manager_setup_time_change(Manager *m) {
         int r;
 
-        /* We only care for the cancellation event, hence we set the
-         * timeout to the latest possible value. */
-        struct itimerspec its = {
-                .it_value.tv_sec = TIME_T_MAX,
-        };
-
         assert(m);
-        assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
 
         if (m->test_run_flags)
                 return 0;
 
-        /* Uses TFD_TIMER_CANCEL_ON_SET to get notifications whenever
-         * CLOCK_REALTIME makes a jump relative to CLOCK_MONOTONIC */
+        m->time_change_event_source = sd_event_source_unref(m->time_change_event_source);
+        m->time_change_fd = safe_close(m->time_change_fd);
 
-        m->time_change_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
+        m->time_change_fd = time_change_fd();
         if (m->time_change_fd < 0)
-                return log_error_errno(errno, "Failed to create timerfd: %m");
-
-        if (timerfd_settime(m->time_change_fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0) {
-                log_debug_errno(errno, "Failed to set up TFD_TIMER_CANCEL_ON_SET, ignoring: %m");
-                m->time_change_fd = safe_close(m->time_change_fd);
-                return 0;
-        }
+                return log_error_errno(m->time_change_fd, "Failed to create timer change timer fd: %m");
 
         r = sd_event_add_io(m->event, &m->time_change_event_source, m->time_change_fd, EPOLLIN, manager_dispatch_time_change_fd, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to create time change event source: %m");
 
+        /* Schedule this slightly earlier than the .timer event sources */
+        r = sd_event_source_set_priority(m->time_change_event_source, SD_EVENT_PRIORITY_NORMAL-1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority of time change event sources: %m");
+
         (void) sd_event_source_set_description(m->time_change_event_source, "manager-time-change");
 
         log_debug("Set up TFD_TIMER_CANCEL_ON_SET timerfd.");
+
+        return 0;
+}
+
+static int manager_read_timezone_stat(Manager *m) {
+        struct stat st;
+        bool changed;
+
+        assert(m);
+
+        /* Read the current stat() data of /etc/localtime so that we detect changes */
+        if (lstat("/etc/localtime", &st) < 0) {
+                log_debug_errno(errno, "Failed to stat /etc/localtime, ignoring: %m");
+                changed = m->etc_localtime_accessible;
+                m->etc_localtime_accessible = false;
+        } else {
+                usec_t k;
+
+                k = timespec_load(&st.st_mtim);
+                changed = !m->etc_localtime_accessible || k != m->etc_localtime_mtime;
+
+                m->etc_localtime_mtime = k;
+                m->etc_localtime_accessible = true;
+        }
+
+        return changed;
+}
+
+static int manager_setup_timezone_change(Manager *m) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *new_event = NULL;
+        int r;
+
+        assert(m);
+
+        if (m->test_run_flags != 0)
+                return 0;
+
+        /* We watch /etc/localtime for three events: change of the link count (which might mean removal from /etc even
+         * though another link might be kept), renames, and file close operations after writing. Note we don't bother
+         * with IN_DELETE_SELF, as that would just report when the inode is removed entirely, i.e. after the link count
+         * went to zero and all fds to it are closed.
+         *
+         * Note that we never follow symlinks here. This is a simplification, but should cover almost all cases
+         * correctly.
+         *
+         * Note that we create the new event source first here, before releasing the old one. This should optimize
+         * behaviour as this way sd-event can reuse the old watch in case the inode didn't change. */
+
+        r = sd_event_add_inotify(m->event, &new_event, "/etc/localtime",
+                                 IN_ATTRIB|IN_MOVE_SELF|IN_CLOSE_WRITE|IN_DONT_FOLLOW, manager_dispatch_timezone_change, m);
+        if (r == -ENOENT) /* If the file doesn't exist yet, subscribe to /etc instead, and wait until it is created
+                           * either by O_CREATE or by rename() */
+                r = sd_event_add_inotify(m->event, &new_event, "/etc",
+                                         IN_CREATE|IN_MOVED_TO|IN_ONLYDIR, manager_dispatch_timezone_change, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create timezone change event source: %m");
+
+        /* Schedule this slightly earlier than the .timer event sources */
+        r = sd_event_source_set_priority(new_event, SD_EVENT_PRIORITY_NORMAL-1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set priority of timezone change event sources: %m");
+
+        sd_event_source_unref(m->timezone_change_event_source);
+        m->timezone_change_event_source = TAKE_PTR(new_event);
 
         return 0;
 }
@@ -766,6 +826,14 @@ int manager_new(UnitFileScope scope, unsigned test_run_flags, Manager **_m) {
                         return r;
 
                 r = manager_setup_time_change(m);
+                if (r < 0)
+                        return r;
+
+                r = manager_read_timezone_stat(m);
+                if (r < 0)
+                        return r;
+
+                r = manager_setup_timezone_change(m);
                 if (r < 0)
                         return r;
 
@@ -1172,7 +1240,6 @@ static void manager_clear_jobs_and_units(Manager *m) {
 
 Manager* manager_free(Manager *m) {
         UnitType c;
-        int i;
         ExecDirectoryType dt;
 
         if (!m)
@@ -1211,6 +1278,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->notify_event_source);
         sd_event_source_unref(m->cgroups_agent_event_source);
         sd_event_source_unref(m->time_change_event_source);
+        sd_event_source_unref(m->timezone_change_event_source);
         sd_event_source_unref(m->jobs_in_progress_event_source);
         sd_event_source_unref(m->run_queue_event_source);
         sd_event_source_unref(m->user_lookup_event_source);
@@ -1240,8 +1308,7 @@ Manager* manager_free(Manager *m) {
         free(m->switch_root);
         free(m->switch_root_init);
 
-        for (i = 0; i < _RLIMIT_MAX; i++)
-                m->rlimit[i] = mfree(m->rlimit[i]);
+        rlimit_free_all(m->rlimit);
 
         assert(hashmap_isempty(m->units_requiring_mounts_for));
         hashmap_free(m->units_requiring_mounts_for);
@@ -1255,13 +1322,30 @@ Manager* manager_free(Manager *m) {
         return mfree(m);
 }
 
+static void manager_enumerate_perpetual(Manager *m) {
+        UnitType c;
+
+        assert(m);
+
+        /* Let's ask every type to load all units from disk/kernel that it might know */
+        for (c = 0; c < _UNIT_TYPE_MAX; c++) {
+                if (!unit_type_supported(c)) {
+                        log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
+                        continue;
+                }
+
+                if (unit_vtable[c]->enumerate_perpetual)
+                        unit_vtable[c]->enumerate_perpetual(m);
+        }
+}
+
+
 static void manager_enumerate(Manager *m) {
         UnitType c;
 
         assert(m);
 
-        /* Let's ask every type to load all units from disk/kernel
-         * that it might know */
+        /* Let's ask every type to load all units from disk/kernel that it might know */
         for (c = 0; c < _UNIT_TYPE_MAX; c++) {
                 if (!unit_type_supported(c)) {
                         log_debug("Unit type .%s is not supported on this system.", unit_type_to_string(c));
@@ -1283,7 +1367,9 @@ static void manager_coldplug(Manager *m) {
 
         assert(m);
 
-        /* Then, let's set up their initial state. */
+        log_debug("Invoking unit coldplug() handlers…");
+
+        /* Let's place the units back into their deserialized state */
         HASHMAP_FOREACH_KEY(u, k, m->units, i) {
 
                 /* ignore aliases */
@@ -1293,6 +1379,26 @@ static void manager_coldplug(Manager *m) {
                 r = unit_coldplug(u);
                 if (r < 0)
                         log_warning_errno(r, "We couldn't coldplug %s, proceeding anyway: %m", u->id);
+        }
+}
+
+static void manager_catchup(Manager *m) {
+        Iterator i;
+        Unit *u;
+        char *k;
+
+        assert(m);
+
+        log_debug("Invoking unit catchup() handlers…");
+
+        /* Let's catch up on any state changes that happened while we were reloading/reexecing */
+        HASHMAP_FOREACH_KEY(u, k, m->units, i) {
+
+                /* ignore aliases */
+                if (u->id != k)
+                        continue;
+
+                unit_catchup(u);
         }
 }
 
@@ -1396,6 +1502,48 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
         return true;
 }
 
+static void manager_setup_bus(Manager *m) {
+        assert(m);
+
+        /* Let's set up our private bus connection now, unconditionally */
+        (void) bus_init_private(m);
+
+        /* If we are in --user mode also connect to the system bus now */
+        if (MANAGER_IS_USER(m))
+                (void) bus_init_system(m);
+
+        /* Let's connect to the bus now, but only if the unit is supposed to be up */
+        if (manager_dbus_is_running(m, MANAGER_IS_RELOADING(m))) {
+                (void) bus_init_api(m);
+
+                if (MANAGER_IS_SYSTEM(m))
+                        (void) bus_init_system(m);
+        }
+}
+
+static void manager_preset_all(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->first_boot <= 0)
+                return;
+
+        if (!MANAGER_IS_SYSTEM(m))
+                return;
+
+        if (m->test_run_flags != 0)
+                return;
+
+        /* If this is the first boot, and we are in the host system, then preset everything */
+        r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
+        if (r < 0)
+                log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
+                               "Failed to populate /etc with preset unit settings, ignoring: %m");
+        else
+                log_info("Populated /etc with preset unit settings.");
+}
+
 int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         int r;
 
@@ -1419,19 +1567,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
-        /* If this is the first boot, and we are in the host system, then preset everything */
-        if (m->first_boot > 0 &&
-            MANAGER_IS_SYSTEM(m) &&
-            !m->test_run_flags) {
-
-                r = unit_file_preset_all(UNIT_FILE_SYSTEM, 0, NULL, UNIT_FILE_PRESET_ENABLE_ONLY, NULL, 0);
-                if (r < 0)
-                        log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
-                                       "Failed to populate /etc with preset unit settings, ignoring: %m");
-                else
-                        log_info("Populated /etc with preset unit settings.");
-        }
-
+        manager_preset_all(m);
         lookup_paths_reduce(&m->lookup_paths);
         manager_build_unit_path_cache(m);
 
@@ -1443,6 +1579,7 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
 
         /* First, enumerate what we can from all config files */
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_UNITS_LOAD_START);
+        manager_enumerate_perpetual(m);
         manager_enumerate(m);
         dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_UNITS_LOAD_FINISH);
 
@@ -1476,20 +1613,8 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 /* This shouldn't fail, except if things are really broken. */
                 return r;
 
-        /* Let's set up our private bus connection now, unconditionally */
-        (void) bus_init_private(m);
-
-        /* If we are in --user mode also connect to the system bus now */
-        if (MANAGER_IS_USER(m))
-                (void) bus_init_system(m);
-
-        /* Let's connect to the bus now, but only if the unit is supposed to be up */
-        if (manager_dbus_is_running(m, !!serialization)) {
-                (void) bus_init_api(m);
-
-                if (MANAGER_IS_SYSTEM(m))
-                        (void) bus_init_system(m);
-        }
+        /* Connect to the bus if we are good for it */
+        manager_setup_bus(m);
 
         /* Now that we are connected to all possible busses, let's deserialize who is tracking us. */
         (void) bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
@@ -1516,6 +1641,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                  * finished */
                 m->send_reloading_done = true;
         }
+
+        /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
+        manager_catchup(m);
 
         return 0;
 }
@@ -1826,16 +1954,12 @@ int manager_load_startable_unit_or_warn(
         r = manager_load_unit(m, name, path, &error, &unit);
         if (r < 0)
                 return log_error_errno(r, "Failed to load %s %s: %s",
-                                       name ? "unit" : "file", name ?: path,
+                                       name ? "unit" : "unit file", name ?: path,
                                        bus_error_message(&error, r));
-        else if (IN_SET(unit->load_state, UNIT_ERROR, UNIT_NOT_FOUND))
-                return log_error_errno(unit->load_error, "Failed to load %s %s: %m",
-                                       name ? "unit" : "file", name ?: path);
-        else if (unit->load_state == UNIT_MASKED) {
-                log_error("%s %s is masked.",
-                          name ? "Unit" : "File", name ?: path);
-                return -ERFKILL;
-        }
+
+        r = bus_unit_validate_load_state(unit, &error);
+        if (r < 0)
+                return log_error_errno(r, "%s", bus_error_message(&error, r));
 
         *ret = unit;
         return 0;
@@ -2337,7 +2461,7 @@ static void manager_handle_ctrl_alt_del(Manager *m) {
          * 7 times within 2s, we reboot/shutdown immediately,
          * unless it was disabled in system.conf */
 
-        if (ratelimit_test(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == EMERGENCY_ACTION_NONE)
+        if (ratelimit_below(&m->ctrl_alt_del_ratelimit) || m->cad_burst_action == EMERGENCY_ACTION_NONE)
                 manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET, JOB_REPLACE_IRREVERSIBLY);
         else
                 emergency_action(m, m->cad_burst_action, NULL,
@@ -2554,18 +2678,49 @@ static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint
 
         log_struct(LOG_DEBUG,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
-                   LOG_MESSAGE("Time has been changed"),
-                   NULL);
+                   LOG_MESSAGE("Time has been changed"));
 
         /* Restart the watch */
-        m->time_change_event_source = sd_event_source_unref(m->time_change_event_source);
-        m->time_change_fd = safe_close(m->time_change_fd);
-
-        manager_setup_time_change(m);
+        (void) manager_setup_time_change(m);
 
         HASHMAP_FOREACH(u, m->units, i)
                 if (UNIT_VTABLE(u)->time_change)
                         UNIT_VTABLE(u)->time_change(u);
+
+        return 0;
+}
+
+static int manager_dispatch_timezone_change(
+                sd_event_source *source,
+                const struct inotify_event *e,
+                void *userdata) {
+
+        Manager *m = userdata;
+        int changed;
+        Iterator i;
+        Unit *u;
+
+        assert(m);
+
+        log_debug("inotify event for /etc/localtime");
+
+        changed = manager_read_timezone_stat(m);
+        if (changed < 0)
+                return changed;
+        if (!changed)
+                return 0;
+
+        /* Something changed, restart the watch, to ensure we watch the new /etc/localtime if it changed */
+        (void) manager_setup_timezone_change(m);
+
+        /* Read the new timezone */
+        tzset();
+
+        log_debug("Timezone has been changed (now: %s).", tzname[daylight]);
+
+        HASHMAP_FOREACH(u, m->units, i)
+                if (UNIT_VTABLE(u)->timezone_change)
+                        UNIT_VTABLE(u)->timezone_change(u);
 
         return 0;
 }
@@ -2632,7 +2787,7 @@ int manager_loop(Manager *m) {
                 if (m->runtime_watchdog > 0 && m->runtime_watchdog != USEC_INFINITY && MANAGER_IS_SYSTEM(m))
                         watchdog_ping();
 
-                if (!ratelimit_test(&rl)) {
+                if (!ratelimit_below(&rl)) {
                         /* Yay, something is going seriously wrong, pause a little */
                         log_warning("Looping too fast. Throttling execution a little.");
                         sleep(1);
@@ -2696,12 +2851,19 @@ int manager_load_unit_from_dbus_path(Manager *m, const char *s, sd_bus_error *e,
                         return 0;
                 }
 
-                return sd_bus_error_setf(e, BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID, "No unit with the specified invocation ID " SD_ID128_FORMAT_STR " known.", SD_ID128_FORMAT_VAL(invocation_id));
+                return sd_bus_error_setf(e, BUS_ERROR_NO_UNIT_FOR_INVOCATION_ID,
+                                         "No unit with the specified invocation ID " SD_ID128_FORMAT_STR " known.",
+                                         SD_ID128_FORMAT_VAL(invocation_id));
         }
 
         /* If this didn't work, we check if this is a unit name */
-        if (!unit_name_is_valid(n, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE))
-                return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s is neither a valid invocation ID nor unit name.", n);
+        if (!unit_name_is_valid(n, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE)) {
+                _cleanup_free_ char *nn = NULL;
+
+                nn = cescape(n);
+                return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Unit name %s is neither a valid invocation ID nor unit name.", strnull(nn));
+        }
 
         r = manager_load_unit(m, n, NULL, e, &u);
         if (r < 0)
@@ -3178,6 +3340,17 @@ finish:
         return r;
 }
 
+static void manager_flush_finished_jobs(Manager *m) {
+        Job *j;
+
+        while ((j = set_steal_first(m->pending_finished_jobs))) {
+                bus_job_send_removed_signal(j);
+                job_free(j);
+        }
+
+        m->pending_finished_jobs = set_free(m->pending_finished_jobs);
+}
+
 int manager_reload(Manager *m) {
         int r, q;
         _cleanup_fclose_ FILE *f = NULL;
@@ -3246,8 +3419,7 @@ int manager_reload(Manager *m) {
                         r = q;
         }
 
-        fclose(f);
-        f = NULL;
+        f = safe_fclose(f);
 
         /* Re-register notify_fd as event source */
         q = manager_setup_notify(m);
@@ -3281,10 +3453,16 @@ int manager_reload(Manager *m) {
         manager_recheck_journal(m);
         manager_recheck_dbus(m);
 
+        /* Let's finally catch up with any changes that took place while we were reloading/reexecing */
+        manager_catchup(m);
+
         /* Sync current state of bus names with our set of listening units */
         q = manager_enqueue_sync_bus_names(m);
         if (q < 0 && r >= 0)
                 r = q;
+
+        if (!MANAGER_IS_RELOADING(m))
+                manager_flush_finished_jobs(m);
 
         m->send_reloading_done = true;
 
@@ -3332,8 +3510,7 @@ static void log_taint_string(Manager *m) {
         log_struct(LOG_NOTICE,
                    LOG_MESSAGE("System is tainted: %s", taint),
                    "TAINT=%s", taint,
-                   "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR,
-                   NULL);
+                   "MESSAGE_ID=" SD_MESSAGE_TAINTED_STR);
 }
 
 static void manager_notify_finished(Manager *m) {
@@ -3380,8 +3557,7 @@ static void manager_notify_finished(Manager *m) {
                                                format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
                                                format_timespan(initrd, sizeof(initrd), initrd_usec, USEC_PER_MSEC),
                                                format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
-                                               format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)),
-                                   NULL);
+                                               format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)));
                 } else {
                         /* The initrd-less case on bare-metal*/
 
@@ -3396,8 +3572,7 @@ static void manager_notify_finished(Manager *m) {
                                                buf,
                                                format_timespan(kernel, sizeof(kernel), kernel_usec, USEC_PER_MSEC),
                                                format_timespan(userspace, sizeof(userspace), userspace_usec, USEC_PER_MSEC),
-                                               format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)),
-                                   NULL);
+                                               format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)));
                 }
         } else {
                 /* The container and --user case */
@@ -3408,8 +3583,7 @@ static void manager_notify_finished(Manager *m) {
                            "MESSAGE_ID=" SD_MESSAGE_USER_STARTUP_FINISHED_STR,
                            "USERSPACE_USEC="USEC_FMT, userspace_usec,
                            LOG_MESSAGE("Startup finished in %s.",
-                                       format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)),
-                           NULL);
+                                       format_timespan(sum, sizeof(sum), total_usec, USEC_PER_MSEC)));
         }
 
         bus_manager_send_finished(m, firmware_usec, loader_usec, kernel_usec, initrd_usec, userspace_usec, total_usec);
@@ -3845,7 +4019,7 @@ Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
         assert(path);
 
         strcpy(p, path);
-        path_kill_slashes(p);
+        path_simplify(p, false);
 
         return hashmap_get(m->units_requiring_mounts_for, streq(p, "/") ? "" : p);
 }

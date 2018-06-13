@@ -313,7 +313,7 @@
         inverted. Note that this option also affects the respective capabilities in the effective, permitted and
         inheritable capability sets. If this option is not used, the capability bounding set is not modified on process
         execution, hence no limits on the capabilities of the process are enforced. This option may appear more than
-        once, in which case the bounding sets are merged by <constant>AND</constant>, or by <constant>OR</constant> if
+        once, in which case the bounding sets are merged by <constant>OR</constant>, or by <constant>AND</constant> if
         the lines are prefixed with <literal>~</literal> (see below). If the empty string is assigned to this option,
         the bounding set is reset to the empty capability set, and all prior settings have no effect.  If set to
         <literal>~</literal> (without any further argument), the bounding set is reset to the full set of available
@@ -728,7 +728,8 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Sets the I/O scheduling class for executed processes. Takes an integer between 0 and 3 or one
         of the strings <option>none</option>, <option>realtime</option>, <option>best-effort</option> or
-        <option>idle</option>. See
+        <option>idle</option>. If the empty string is assigned to this option, all prior assignments to both
+        <varname>IOSchedulingClass=</varname> and <varname>IOSchedulingPriority=</varname> have no effect. See
         <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
@@ -738,7 +739,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
 
         <listitem><para>Sets the I/O scheduling priority for executed processes. Takes an integer between 0 (highest
         priority) and 7 (lowest priority). The available priorities depend on the selected I/O scheduling class (see
-        above). See <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        above). If the empty string is assigned to this option, all prior assignments to both
+        <varname>IOSchedulingClass=</varname> and <varname>IOSchedulingPriority=</varname> have no effect.
+        See <citerefentry><refentrytitle>ioprio_set</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
 
@@ -782,7 +785,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         are still visible by combining with <varname>BindPaths=</varname> or <varname>BindReadOnlyPaths=</varname>.</para>
 
         <para>Setting this to <literal>yes</literal> is mostly equivalent to set the three directories in
-        <varname>InaccessiblePaths=</varname>. Similary, <literal>read-only</literal> is mostly equivalent to
+        <varname>InaccessiblePaths=</varname>. Similarly, <literal>read-only</literal> is mostly equivalent to
         <varname>ReadOnlyPaths=</varname>, and <literal>tmpfs</literal> is mostly equivalent to
         <varname>TemporaryFileSystem=</varname>.</para>
 
@@ -801,13 +804,48 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>ConfigurationDirectory=</varname></term>
 
         <listitem><para>These options take a whitespace-separated list of directory names. The specified directory
-        names must be relative, and may not include <literal>.</literal> or <literal>..</literal>. If set, one or more
-        directories by the specified names will be created (including their parents) below <filename>/run</filename>
-        (or <varname>$XDG_RUNTIME_DIR</varname> for user services), <filename>/var/lib</filename> (or
-        <varname>$XDG_CONFIG_HOME</varname> for user services), <filename>/var/cache</filename> (or
-        <varname>$XDG_CACHE_HOME</varname> for user services), <filename>/var/log</filename> (or
-        <varname>$XDG_CONFIG_HOME</varname><filename>/log</filename> for user services), or <filename>/etc</filename>
-        (or <varname>$XDG_CONFIG_HOME</varname> for user services), respectively, when the unit is started.</para>
+        names must be relative, and may not include <literal>..</literal>. If set, one or more
+        directories by the specified names will be created (including their parents) below the locations
+        defined in the following table, when the unit is started.</para>
+        <table>
+          <title>Automatic directory creation</title>
+          <tgroup cols='3'>
+            <thead>
+              <row>
+                <entry>Locations</entry>
+                <entry>for system</entry>
+                <entry>for users</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><varname>RuntimeDirectory=</varname></entry>
+                <entry><filename>/run</filename></entry>
+                <entry><varname>$XDG_RUNTIME_DIR</varname></entry>
+              </row>
+              <row>
+                <entry><varname>StateDirectory=</varname></entry>
+                <entry><filename>/var/lib</filename></entry>
+                <entry><varname>$XDG_CONFIG_HOME</varname></entry>
+              </row>
+              <row>
+                <entry><varname>CacheDirectory=</varname></entry>
+                <entry><filename>/var/cache</filename></entry>
+                <entry><varname>$XDG_CACHE_HOME</varname></entry>
+              </row>
+              <row>
+                <entry><varname>LogsDirectory=</varname></entry>
+                <entry><filename>/var/log</filename></entry>
+                <entry><varname>$XDG_CONFIG_HOME</varname><filename>/log</filename></entry>
+              </row>
+              <row>
+                <entry><varname>ConfigurationDirectory=</varname></entry>
+                <entry><filename>/etc</filename></entry>
+                <entry><varname>$XDG_CONFIG_HOME</varname></entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
 
         <para>In case of <varname>RuntimeDirectory=</varname> the lowest subdirectories are removed when the unit is
         stopped. It is possible to preserve the specified directories in this case if
@@ -1077,8 +1115,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>ProtectKernelModules=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, explicit module loading will be denied. This allows to turn
-        off module load and unload operations on modular kernels. It is recommended to turn this on for most services
+        <listitem><para>Takes a boolean argument. If true, explicit module loading will be denied. This allows
+        module load and unload operations to be turned off on modular kernels. It is recommended to turn this on for most services
         that do not need special file systems or extra kernel modules to work. Defaults to off. Enabling this option
         removes <constant>CAP_SYS_MODULE</constant> from the capability bounding set for the unit, and installs a
         system call filter to block module system calls, also <filename>/usr/lib/modules</filename> is made
@@ -1152,7 +1190,9 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         prohibited (whitelisting). By prepending the list with a single tilde character (<literal>~</literal>) the
         effect may be inverted: only the listed namespace types will be made inaccessible, all unlisted ones are
         permitted (blacklisting). If the empty string is assigned, the default namespace restrictions are applied,
-        which is equivalent to false. Internally, this setting limits access to the
+        which is equivalent to false. This option may appear more than once, in which case the namespace types are
+        merged by <constant>OR</constant>, or by <constant>AND</constant> if the lines are prefixed with
+        <literal>~</literal> (see examples below). Internally, this setting limits access to the
         <citerefentry><refentrytitle>unshare</refentrytitle><manvolnum>2</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>clone</refentrytitle><manvolnum>2</manvolnum></citerefentry> and
         <citerefentry><refentrytitle>setns</refentrytitle><manvolnum>2</manvolnum></citerefentry> system calls, taking
@@ -1162,7 +1202,16 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         supported on x86, x86-64, mips, mips-le, mips64, mips64-le, mips64-n32, mips64-le-n32, ppc64, ppc64-le, s390
         and s390x, and enforces no restrictions on other architectures. If running in user mode, or in system mode, but
         without the <constant>CAP_SYS_ADMIN</constant> capability (e.g. setting <varname>User=</varname>),
-        <varname>NoNewPrivileges=yes</varname> is implied.  </para></listitem>
+        <varname>NoNewPrivileges=yes</varname> is implied.</para>
+
+        <para>Example: if a unit has the following,
+        <programlisting>RestrictNamespaces=cgroup ipc
+RestrictNamespaces=cgroup net</programlisting>
+        then <constant>cgroup</constant>, <constant>ipc</constant>, and <constant>net</constant> are set.
+        If the second line is prefixed with <literal>~</literal>, e.g.,
+        <programlisting>RestrictNamespaces=cgroup ipc
+RestrictNamespaces=~cgroup net</programlisting>
+        then, only <constant>ipc</constant> is set.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1692,8 +1741,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para>The <option>file:<replaceable>path</replaceable></option> option may be used to connect a specific file
         system object to standard output. The semantics are similar to the same option of
-        <varname>StandardInputText=</varname>, see above. If standard input and output are directed to the same file
-        path, it is opened only once, for reading as well as writing and duplicated. This is particular useful when the
+        <varname>StandardInput=</varname>, see above. If standard input and output are directed to the same file path,
+        it is opened only once, for reading as well as writing and duplicated. This is particular useful when the
         specified path refers to an <constant>AF_UNIX</constant> socket in the file system, as in that case only a
         single stream connection is created for both input and output.</para>
 
@@ -1750,7 +1799,7 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
 
         <para><varname>StandardInputText=</varname> accepts arbitrary textual data. C-style escapes for special
         characters as well as the usual <literal>%</literal>-specifiers are resolved. Each time this setting is used
-        the the specified text is appended to the per-unit data buffer, followed by a newline character (thus every use
+        the specified text is appended to the per-unit data buffer, followed by a newline character (thus every use
         appends a new line to the end of the buffer). Note that leading and trailing whitespace of lines configured
         with this option is removed. If an empty line is specified the buffer is cleared (hence, in order to insert an
         empty line, add an additional <literal>\n</literal> to the end or beginning of a line).</para>
@@ -1791,7 +1840,7 @@ StandardInputData=SWNrIHNpdHplIGRhIHVuJyBlc3NlIEtsb3BzLAp1ZmYgZWVtYWwga2xvcHAncy
         details. By default no filtering is applied (i.e. the default maximum log level is <option>debug</option>). Use
         this option to configure the logging system to drop log messages of a specific service above the specified
         level. For example, set <varname>LogLevelMax=</varname><option>info</option> in order to turn off debug logging
-        of a particularly chatty unit. Note that the the configured level is applied to any log messages written by any
+        of a particularly chatty unit. Note that the configured level is applied to any log messages written by any
         of the processes belonging to this unit, sent via any supported logging protocol. The filtering is applied
         early in the logging pipeline, before any kind of further processing is done. Moreover, messages which pass
         through this filter successfully might still be dropped by filters applied at a later stage in the logging

@@ -8,6 +8,7 @@
 #include <stdlib.h>
 
 #include "alloc-util.h"
+#include "all-units.h"
 #include "analyze-verify.h"
 #include "bus-error.h"
 #include "bus-util.h"

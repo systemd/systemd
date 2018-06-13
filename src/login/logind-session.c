@@ -365,7 +365,7 @@ int session_load(Session *s) {
 
         assert(s);
 
-        r = parse_env_file(s->state_file, NEWLINE,
+        r = parse_env_file(NULL, s->state_file, NEWLINE,
                            "REMOTE",         &remote,
                            "SCOPE",          &s->scope,
                            "SCOPE_JOB",      &s->scope_job,
@@ -615,8 +615,7 @@ int session_start(Session *s, sd_bus_message *properties) {
                    "SESSION_ID=%s", s->id,
                    "USER_ID=%s", s->user->name,
                    "LEADER="PID_FMT, s->leader,
-                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->name),
-                   NULL);
+                   LOG_MESSAGE("New session %s of user %s.", s->id, s->user->name));
 
         if (!dual_timestamp_is_set(&s->timestamp))
                 dual_timestamp_get(&s->timestamp);
@@ -671,8 +670,18 @@ static int session_stop_scope(Session *s, bool force) {
 
                 free(s->scope_job);
                 s->scope_job = job;
-        } else
+        } else {
                 s->scope_job = mfree(s->scope_job);
+
+                /* With no killing, this session is allowed to persist in "closing" state indefinitely.
+                 * Therefore session stop and session removal may be two distinct events.
+                 * Session stop is quite significant on its own, let's log it. */
+                log_struct(s->class == SESSION_BACKGROUND ? LOG_DEBUG : LOG_INFO,
+                           "SESSION_ID=%s", s->id,
+                           "USER_ID=%s", s->user->name,
+                           "LEADER="PID_FMT, s->leader,
+                           LOG_MESSAGE("Session %s logged out. Waiting for processes to exit.", s->id));
+        }
 
         return 0;
 }
@@ -720,8 +729,7 @@ int session_finalize(Session *s) {
                            "SESSION_ID=%s", s->id,
                            "USER_ID=%s", s->user->name,
                            "LEADER="PID_FMT, s->leader,
-                           LOG_MESSAGE("Removed session %s.", s->id),
-                           NULL);
+                           LOG_MESSAGE("Removed session %s.", s->id));
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
 

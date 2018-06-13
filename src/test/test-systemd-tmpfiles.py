@@ -67,7 +67,7 @@ def test_invalids(*, user):
     test_line('h - - -', user=user)
     test_line('H - - -', user=user)
 
-def test_unitialized_t():
+def test_uninitialized_t():
     if os.getuid() == 0:
         return
 
@@ -134,7 +134,7 @@ def test_valid_specifiers(*, user):
 if __name__ == '__main__':
     test_invalids(user=False)
     test_invalids(user=True)
-    test_unitialized_t()
+    test_uninitialized_t()
 
     test_valid_specifiers(user=False)
     test_valid_specifiers(user=True)

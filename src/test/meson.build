@@ -242,6 +242,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-os-util.c'],
+         [],
+         []],
+
         [['src/test/test-escape.c'],
          [],
          []],
@@ -652,6 +656,10 @@ tests += [
           'src/core/umount.h'],
          [],
          [libmount]],
+
+        [['src/test/test-bus-util.c'],
+         [],
+         []],
 ]
 
 ############################################################

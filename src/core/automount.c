@@ -172,16 +172,16 @@ static int automount_verify(Automount *a) {
 
         if (path_equal(a->where, "/")) {
                 log_unit_error(UNIT(a), "Cannot have an automount unit for the root directory. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         r = unit_name_from_path(a->where, ".automount", &e);
         if (r < 0)
-                return log_unit_error(UNIT(a), "Failed to generate unit name from path: %m");
+                return log_unit_error_errno(UNIT(a), r, "Failed to generate unit name from path: %m");
 
         if (!unit_has_name(UNIT(a), e)) {
                 log_unit_error(UNIT(a), "Where= setting doesn't match unit name. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;
@@ -199,7 +199,7 @@ static int automount_set_where(Automount *a) {
         if (r < 0)
                 return r;
 
-        path_kill_slashes(a->where);
+        path_simplify(a->where, false);
         return 1;
 }
 
@@ -252,7 +252,7 @@ static void automount_set_state(Automount *a, AutomountState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(a), "Changed %s -> %s", automount_state_to_string(old_state), automount_state_to_string(state));
 
-        unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state], true);
+        unit_notify(UNIT(a), state_translation_table[old_state], state_translation_table[state], 0);
 }
 
 static int automount_coldplug(Unit *u) {

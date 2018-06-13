@@ -251,7 +251,7 @@ static int condition_test_control_group_controller(Condition *c) {
                 return 1;
         }
 
-        return (system_mask & wanted_mask) == wanted_mask;
+        return FLAGS_SET(system_mask, wanted_mask);
 }
 
 static int condition_test_group(Condition *c) {
@@ -464,7 +464,7 @@ static int condition_test_needs_update(Condition *c) {
                 uint64_t timestamp;
                 int r;
 
-                r = parse_env_file(p, NULL, "TIMESTAMP_NSEC", &timestamp_str, NULL);
+                r = parse_env_file(NULL, p, NULL, "TIMESTAMP_NSEC", &timestamp_str, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to parse timestamp file '%s', using mtime: %m", p);
                         return true;

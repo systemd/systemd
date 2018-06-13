@@ -18,35 +18,58 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Exec.Boot,                    config_parse_boot,          0, 0
-Exec.ProcessTwo,              config_parse_pid2,          0, 0
-Exec.Parameters,              config_parse_strv,          0, offsetof(Settings, parameters)
-Exec.Environment,             config_parse_strv,          0, offsetof(Settings, environment)
-Exec.User,                    config_parse_string,        0, offsetof(Settings, user)
-Exec.Capability,              config_parse_capability,    0, offsetof(Settings, capability)
-Exec.DropCapability,          config_parse_capability,    0, offsetof(Settings, drop_capability)
-Exec.KillSignal,              config_parse_signal,        0, offsetof(Settings, kill_signal)
-Exec.Personality,             config_parse_personality,   0, offsetof(Settings, personality)
-Exec.MachineID,               config_parse_id128,         0, offsetof(Settings, machine_id)
-Exec.WorkingDirectory,        config_parse_path,          0, offsetof(Settings, working_directory)
-Exec.PivotRoot,               config_parse_pivot_root,    0, 0
-Exec.PrivateUsers,            config_parse_private_users, 0, 0
-Exec.NotifyReady,             config_parse_bool,          0, offsetof(Settings, notify_ready)
-Exec.SystemCallFilter,        config_parse_syscall_filter,0, 0,
-Files.ReadOnly,               config_parse_tristate,      0, offsetof(Settings, read_only)
-Files.Volatile,               config_parse_volatile_mode, 0, offsetof(Settings, volatile_mode)
-Files.Bind,                   config_parse_bind,          0, 0
-Files.BindReadOnly,           config_parse_bind,          1, 0
-Files.TemporaryFileSystem,    config_parse_tmpfs,         0, 0
-Files.Overlay,                config_parse_overlay,       0, 0
-Files.OverlayReadOnly,        config_parse_overlay,       1, 0
-Files.PrivateUsersChown,      config_parse_tristate,      0, offsetof(Settings, userns_chown)
-Network.Private,              config_parse_tristate,      0, offsetof(Settings, private_network)
-Network.Interface,            config_parse_strv,          0, offsetof(Settings, network_interfaces)
-Network.MACVLAN,              config_parse_strv,          0, offsetof(Settings, network_macvlan)
-Network.IPVLAN,               config_parse_strv,          0, offsetof(Settings, network_ipvlan)
-Network.VirtualEthernet,      config_parse_tristate,      0, offsetof(Settings, network_veth)
-Network.VirtualEthernetExtra, config_parse_veth_extra,    0, 0
-Network.Bridge,               config_parse_ifname,        0, offsetof(Settings, network_bridge)
-Network.Zone,                 config_parse_network_zone,  0, 0
-Network.Port,                 config_parse_expose_port,   0, 0
+Exec.Boot,                    config_parse_boot,           0,                 0
+Exec.ProcessTwo,              config_parse_pid2,           0,                 0
+Exec.Parameters,              config_parse_strv,           0,                 offsetof(Settings, parameters)
+Exec.Environment,             config_parse_strv,           0,                 offsetof(Settings, environment)
+Exec.User,                    config_parse_string,         0,                 offsetof(Settings, user)
+Exec.Capability,              config_parse_capability,     0,                 offsetof(Settings, capability)
+Exec.DropCapability,          config_parse_capability,     0,                 offsetof(Settings, drop_capability)
+Exec.KillSignal,              config_parse_signal,         0,                 offsetof(Settings, kill_signal)
+Exec.Personality,             config_parse_personality,    0,                 offsetof(Settings, personality)
+Exec.MachineID,               config_parse_id128,          0,                 offsetof(Settings, machine_id)
+Exec.WorkingDirectory,        config_parse_path,           0,                 offsetof(Settings, working_directory)
+Exec.PivotRoot,               config_parse_pivot_root,     0,                 0
+Exec.PrivateUsers,            config_parse_private_users,  0,                 0
+Exec.NotifyReady,             config_parse_bool,           0,                 offsetof(Settings, notify_ready)
+Exec.SystemCallFilter,        config_parse_syscall_filter, 0,                 0,
+Exec.LimitCPU,                config_parse_rlimit,         RLIMIT_CPU,        offsetof(Settings, rlimit)
+Exec.LimitFSIZE,              config_parse_rlimit,         RLIMIT_FSIZE,      offsetof(Settings, rlimit)
+Exec.LimitDATA,               config_parse_rlimit,         RLIMIT_DATA,       offsetof(Settings, rlimit)
+Exec.LimitSTACK,              config_parse_rlimit,         RLIMIT_STACK,      offsetof(Settings, rlimit)
+Exec.LimitCORE,               config_parse_rlimit,         RLIMIT_CORE,       offsetof(Settings, rlimit)
+Exec.LimitRSS,                config_parse_rlimit,         RLIMIT_RSS,        offsetof(Settings, rlimit)
+Exec.LimitNOFILE,             config_parse_rlimit,         RLIMIT_NOFILE,     offsetof(Settings, rlimit)
+Exec.LimitAS,                 config_parse_rlimit,         RLIMIT_AS,         offsetof(Settings, rlimit)
+Exec.LimitNPROC,              config_parse_rlimit,         RLIMIT_NPROC,      offsetof(Settings, rlimit)
+Exec.LimitMEMLOCK,            config_parse_rlimit,         RLIMIT_MEMLOCK,    offsetof(Settings, rlimit)
+Exec.LimitLOCKS,              config_parse_rlimit,         RLIMIT_LOCKS,      offsetof(Settings, rlimit)
+Exec.LimitSIGPENDING,         config_parse_rlimit,         RLIMIT_SIGPENDING, offsetof(Settings, rlimit)
+Exec.LimitMSGQUEUE,           config_parse_rlimit,         RLIMIT_MSGQUEUE,   offsetof(Settings, rlimit)
+Exec.LimitNICE,               config_parse_rlimit,         RLIMIT_NICE,       offsetof(Settings, rlimit)
+Exec.LimitRTPRIO,             config_parse_rlimit,         RLIMIT_RTPRIO,     offsetof(Settings, rlimit)
+Exec.LimitRTTIME,             config_parse_rlimit,         RLIMIT_RTTIME,     offsetof(Settings, rlimit)
+Exec.Hostname,                config_parse_hostname,       0,                 offsetof(Settings, hostname)
+Exec.NoNewPrivileges,         config_parse_tristate,       0,                 offsetof(Settings, no_new_privileges)
+Exec.OOMScoreAdjust,          config_parse_oom_score_adjust, 0,               0
+Exec.CPUAffinity,             config_parse_cpu_affinity,   0,                 0
+Exec.ResolvConf,              config_parse_resolv_conf,    0,                 offsetof(Settings, resolv_conf)
+Exec.LinkJournal,             config_parse_link_journal,   0,                 0
+Exec.Timezone,                config_parse_timezone,       0,                 offsetof(Settings, timezone)
+Files.ReadOnly,               config_parse_tristate,       0,                 offsetof(Settings, read_only)
+Files.Volatile,               config_parse_volatile_mode,  0,                 offsetof(Settings, volatile_mode)
+Files.Bind,                   config_parse_bind,           0,                 0
+Files.BindReadOnly,           config_parse_bind,           1,                 0
+Files.TemporaryFileSystem,    config_parse_tmpfs,          0,                 0
+Files.Overlay,                config_parse_overlay,        0,                 0
+Files.OverlayReadOnly,        config_parse_overlay,        1,                 0
+Files.PrivateUsersChown,      config_parse_tristate,       0,                 offsetof(Settings, userns_chown)
+Network.Private,              config_parse_tristate,       0,                 offsetof(Settings, private_network)
+Network.Interface,            config_parse_strv,           0,                 offsetof(Settings, network_interfaces)
+Network.MACVLAN,              config_parse_strv,           0,                 offsetof(Settings, network_macvlan)
+Network.IPVLAN,               config_parse_strv,           0,                 offsetof(Settings, network_ipvlan)
+Network.VirtualEthernet,      config_parse_tristate,       0,                 offsetof(Settings, network_veth)
+Network.VirtualEthernetExtra, config_parse_veth_extra,     0,                 0
+Network.Bridge,               config_parse_ifname,         0,                 offsetof(Settings, network_bridge)
+Network.Zone,                 config_parse_network_zone,   0,                 0
+Network.Port,                 config_parse_expose_port,    0,                 0

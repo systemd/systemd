@@ -10,7 +10,7 @@
   Copyright 2012 Lennart Poettering
 -->
 
-<refentry id="sd_journal_print">
+<refentry id="sd_journal_print" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_print</title>
@@ -203,15 +203,7 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
     not async signal safe.</para>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>The <function>sd_journal_print()</function>, <function>sd_journal_printv()</function>,
-    <function>sd_journal_send()</function>, <function>sd_journal_sendv()</function> and
-    <function>sd_journal_perror()</function> interfaces are available as a shared library, which can be compiled and
-    linked to with the <constant>libsystemd</constant> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

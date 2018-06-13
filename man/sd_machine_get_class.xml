@@ -10,7 +10,7 @@
   Copyright 2014 Lennart Poettering
 -->
 
-<refentry id="sd_machine_get_class">
+<refentry id="sd_machine_get_class" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_machine_get_class</title>
@@ -116,16 +116,7 @@
     </variablelist>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>The <function>sd_machine_get_class()</function> and
-    <function>sd_machine_get_ifindices()</function> interfaces are
-    available as a shared library, which can be compiled and linked to
-    with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

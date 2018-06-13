@@ -67,16 +67,16 @@ int open_terminal(const char *name, int mode);
 /* Flags for tweaking the way we become the controlling process of a terminal. */
 typedef enum AcquireTerminalFlags {
         /* Try to become the controlling process of the TTY. If we can't return -EPERM. */
-        ACQUIRE_TERMINAL_TRY = 0,
+        ACQUIRE_TERMINAL_TRY        = 0,
 
         /* Tell the kernel to forcibly make us the controlling process of the TTY. Returns -EPERM if the kernel doesn't allow that. */
-        ACQUIRE_TERMINAL_FORCE = 1,
+        ACQUIRE_TERMINAL_FORCE      = 1,
 
         /* If we can't become the controlling process of the TTY right-away, then wait until we can. */
-        ACQUIRE_TERMINAL_WAIT = 2,
+        ACQUIRE_TERMINAL_WAIT       = 2,
 
         /* Pick one of the above, and then OR this flag in, in order to request permissive behaviour, if we can't become controlling process then don't mind */
-        ACQUIRE_TERMINAL_PERMISSIVE = 4,
+        ACQUIRE_TERMINAL_PERMISSIVE = 1 << 2,
 } AcquireTerminalFlags;
 
 int acquire_terminal(const char *name, AcquireTerminalFlags flags, usec_t timeout);
@@ -162,7 +162,7 @@ int terminal_urlify(const char *url, const char *text, char **ret);
 int terminal_urlify_path(const char *path, const char *text, char **ret);
 
 typedef enum CatFlags {
-        CAT_FLAGS_MAIN_FILE_OPTIONAL = 1 << 1,
+        CAT_FLAGS_MAIN_FILE_OPTIONAL = 1 << 0,
 } CatFlags;
 
 int cat_files(const char *file, char **dropins, CatFlags flags);

@@ -241,7 +241,7 @@ int main(int argc, char *argv[]) {
                                                 goto finish;
                                         }
 
-                                        path_kill_slashes(j);
+                                        path_simplify(j, false);
                                         path = j;
                                 } else
                                         path = root;

@@ -11,7 +11,7 @@ project('systemd', 'c',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
         ],
-        meson_version : '>= 0.41',
+        meson_version : '>= 0.44',
        )
 
 libsystemd_version = '0.22.0'
@@ -138,6 +138,7 @@ testsdir = join_paths(prefixdir, 'lib/systemd/tests')
 systemdstatedir = join_paths(localstatedir, 'lib/systemd')
 catalogstatedir = join_paths(systemdstatedir, 'catalog')
 randomseeddir = join_paths(localstatedir, 'lib/systemd')
+profiledir = join_paths(rootlibexecdir, 'portable', 'profile')
 
 docdir = get_option('docdir')
 if docdir == ''
@@ -241,12 +242,14 @@ substs.set('userpresetdir',                                   userpresetdir)
 substs.set('udevhwdbdir',                                     udevhwdbdir)
 substs.set('udevrulesdir',                                    udevrulesdir)
 substs.set('udevlibexecdir',                                  udevlibexecdir)
+substs.set('environmentdir',                                  environmentdir)
 substs.set('catalogdir',                                      catalogdir)
 substs.set('tmpfilesdir',                                     tmpfilesdir)
 substs.set('sysusersdir',                                     sysusersdir)
 substs.set('sysctldir',                                       sysctldir)
 substs.set('binfmtdir',                                       binfmtdir)
 substs.set('modulesloaddir',                                  modulesloaddir)
+substs.set('modprobedir',                                     modprobedir)
 substs.set('systemgeneratordir',                              systemgeneratordir)
 substs.set('usergeneratordir',                                usergeneratordir)
 substs.set('systemenvgeneratordir',                           systemenvgeneratordir)
@@ -291,57 +294,79 @@ if want_ossfuzz
         fuzzing_engine = meson.get_compiler('cpp').find_library('FuzzingEngine')
 endif
 
-foreach arg : ['-Wextra',
-               '-Werror=undef',
-               '-Wlogical-op',
-               '-Wmissing-include-dirs',
-               '-Wold-style-definition',
-               '-Wpointer-arith',
-               '-Winit-self',
-               '-Wdeclaration-after-statement',
-               '-Wfloat-equal',
-               '-Wsuggest-attribute=noreturn',
-               '-Werror=missing-prototypes',
-               '-Werror=implicit-function-declaration',
-               '-Werror=missing-declarations',
-               '-Werror=return-type',
-               '-Werror=incompatible-pointer-types',
-               '-Werror=format=2',
-               '-Wstrict-prototypes',
-               '-Wredundant-decls',
-               '-Wmissing-noreturn',
-               '-Wimplicit-fallthrough=5',
-               '-Wshadow',
-               '-Wendif-labels',
-               '-Wstrict-aliasing=2',
-               '-Wwrite-strings',
-               '-Werror=overflow',
-               '-Wdate-time',
-               '-Wnested-externs',
-               '-ffast-math',
-               '-fno-common',
-               '-fdiagnostics-show-option',
-               '-fno-strict-aliasing',
-               '-fvisibility=hidden',
-               '-fstack-protector',
-               '-fstack-protector-strong',
-               '--param=ssp-buffer-size=4',
-              ]
-        if cc.has_argument(arg)
-                add_project_arguments(arg, language : 'c')
-        endif
-endforeach
+possible_cc_flags = [
+        '-Wextra',
+        '-Werror=undef',
+        '-Wlogical-op',
+        '-Wmissing-include-dirs',
+        '-Wold-style-definition',
+        '-Wpointer-arith',
+        '-Winit-self',
+        '-Wfloat-equal',
+        '-Wsuggest-attribute=noreturn',
+        '-Werror=missing-prototypes',
+        '-Werror=implicit-function-declaration',
+        '-Werror=missing-declarations',
+        '-Werror=return-type',
+        '-Werror=incompatible-pointer-types',
+        '-Werror=format=2',
+        '-Wstrict-prototypes',
+        '-Wredundant-decls',
+        '-Wmissing-noreturn',
+        '-Wimplicit-fallthrough=5',
+        '-Wshadow',
+        '-Wendif-labels',
+        '-Wstrict-aliasing=2',
+        '-Wwrite-strings',
+        '-Werror=overflow',
+        '-Werror=shift-count-overflow',
+        '-Werror=shift-overflow=2',
+        '-Wdate-time',
+        '-Wnested-externs',
+        '-ffast-math',
+        '-fno-common',
+        '-fdiagnostics-show-option',
+        '-fno-strict-aliasing',
+        '-fvisibility=hidden',
+        '-fstack-protector',
+        '-fstack-protector-strong',
+        '--param=ssp-buffer-size=4',
+]
+
+# --as-needed and --no-undefined are provided by meson by default,
+# run mesonconf to see what is enabled
+possible_link_flags = [
+        '-Wl,-z,relro',
+        '-Wl,-z,now',
+]
 
 # the oss-fuzz fuzzers are not built with -fPIE, so don't
 # enable it when we are linking against them
 if not fuzzer_build
-        if cc.has_argument('-fPIE')
-              add_project_arguments('-fPIE', language : 'c')
-        endif
+        possible_cc_flags += '-fPIE'
+        possible_link_flags += '-pie'
 endif
 
+if cc.get_id() == 'clang'
+        possible_cc_flags += [
+                '-Wno-typedef-redefinition',
+                '-Wno-gnu-variable-sized-type-not-at-end',
+        ]
+endif
+
+if get_option('buildtype') != 'debug'
+        possible_cc_flags += [
+                '-ffunction-sections',
+                '-fdata-sections',
+        ]
+
+        possible_link_flags += '-Wl,--gc-sections'
+endif
+
+add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
+
 # "negative" arguments: gcc on purpose does not return an error for "-Wno-"
-# arguments, just emits a warnings. So test for the "positive" version instead.
+# arguments, just emits a warning. So test for the "positive" version instead.
 foreach arg : ['unused-parameter',
                'missing-field-initializers',
                'unused-result',
@@ -366,52 +391,17 @@ if cc.compiles('''
         add_project_arguments('-Werror=shadow', language : 'c')
 endif
 
-if cc.get_id() == 'clang'
-        foreach arg : ['-Wno-typedef-redefinition',
-                       '-Wno-gnu-variable-sized-type-not-at-end',
-                      ]
-                if cc.has_argument(arg)
-                        add_project_arguments(arg, language : 'c')
-                endif
-        endforeach
-endif
-
 link_test_c = files('tools/meson-link-test.c')
 
-# --as-needed and --no-undefined are provided by meson by default,
-# run mesonconf to see what is enabled
-foreach arg : ['-Wl,-z,relro',
-               '-Wl,-z,now',
-               '-pie',
-              ]
-
+foreach arg : possible_link_flags
         have = run_command(check_compilation_sh,
                            cc.cmd_array(), '-x', 'c', arg,
                            '-include', link_test_c).returncode() == 0
         message('Linking with @0@ supported: @1@'.format(arg, have ? 'yes' : 'no'))
-        if have and (arg != '-pie' or not fuzzer_build)
+        if have
                 add_project_link_arguments(arg, language : 'c')
         endif
 endforeach
-
-if get_option('buildtype') != 'debug'
-        foreach arg : ['-ffunction-sections',
-                       '-fdata-sections']
-                if cc.has_argument(arg)
-                        add_project_arguments(arg, language : 'c')
-                endif
-        endforeach
-
-        foreach arg : ['-Wl,--gc-sections']
-                have = run_command(check_compilation_sh,
-                                   cc.cmd_array(), '-x', 'c', arg,
-                                   '-include', link_test_c).returncode() == 0
-                message('Linking with @0@ supported: @1@'.format(arg, have ? 'yes' : 'no'))
-                if have
-                        add_project_link_arguments(arg, language : 'c')
-                endif
-        endforeach
-endif
 
 cpp = ' '.join(cc.cmd_array()) + ' -E'
 
@@ -694,18 +684,18 @@ getent_result = run_command('getent', 'passwd', '65534')
 if getent_result.returncode() == 0
         name = getent_result.stdout().split(':')[0]
         if name != nobody_user
-                message('WARNING:\n' +
-                        '        The local user with the UID 65534 does not match the configured user name "@0@" of the nobody user (its name is @1@).\n'.format(nobody_user, name) +
-                        '        Your build will result in an user table setup that is incompatible with the local system.')
+                warning('\n' +
+                        'The local user with the UID 65534 does not match the configured user name "@0@" of the nobody user (its name is @1@).\n'.format(nobody_user, name) +
+                        'Your build will result in an user table setup that is incompatible with the local system.')
         endif
 endif
 id_result = run_command('id', '-u', nobody_user)
 if id_result.returncode() == 0
         id = id_result.stdout().to_int()
         if id != 65534
-                message('WARNING:\n' +
-                        '        The local user with the configured user name "@0@" of the nobody user does not have UID 65534 (it has @1@).\n'.format(nobody_user, id) +
-                        '        Your build will result in an user table setup that is incompatible with the local system.')
+                warning('\n' +
+                        'The local user with the configured user name "@0@" of the nobody user does not have UID 65534 (it has @1@).\n'.format(nobody_user, id) +
+                        'Your build will result in an user table setup that is incompatible with the local system.')
         endif
 endif
 
@@ -713,24 +703,24 @@ getent_result = run_command('getent', 'group', '65534')
 if getent_result.returncode() == 0
         name = getent_result.stdout().split(':')[0]
         if name != nobody_group
-                message('WARNING:\n' +
-                        '        The local group with the GID 65534 does not match the configured group name "@0@" of the nobody group (its name is @1@).\n'.format(nobody_group, name) +
-                        '        Your build will result in an group table setup that is incompatible with the local system.')
+                warning('\n' +
+                        'The local group with the GID 65534 does not match the configured group name "@0@" of the nobody group (its name is @1@).\n'.format(nobody_group, name) +
+                        'Your build will result in an group table setup that is incompatible with the local system.')
         endif
 endif
 id_result = run_command('id', '-g', nobody_group)
 if id_result.returncode() == 0
         id = id_result.stdout().to_int()
         if id != 65534
-                message('WARNING:\n' +
-                        '        The local group with the configured group name "@0@" of the nobody group does not have UID 65534 (it has @1@).\n'.format(nobody_group, id) +
-                        '        Your build will result in an group table setup that is incompatible with the local system.')
+                warning('\n' +
+                        'The local group with the configured group name "@0@" of the nobody group does not have UID 65534 (it has @1@).\n'.format(nobody_group, id) +
+                        'Your build will result in an group table setup that is incompatible with the local system.')
         endif
 endif
 if nobody_user != nobody_group and not (nobody_user == 'nobody' and nobody_group == 'nogroup')
-        message('WARNING:\n' +
-                '        The configured user name "@0@" and group name "@0@" of the nobody user/group are not equivalent.\n'.format(nobody_user, nobody_group) +
-                '        Please re-check that both "nobody-user" and "nobody-group" options are correctly set.')
+        warning('\n' +
+                'The configured user name "@0@" and group name "@0@" of the nobody user/group are not equivalent.\n'.format(nobody_user, nobody_group) +
+                'Please re-check that both "nobody-user" and "nobody-group" options are correctly set.')
 endif
 
 conf.set_quoted('NOBODY_USER_NAME', nobody_user)
@@ -774,22 +764,21 @@ conf.set_quoted('GETTEXT_PACKAGE', meson.project_name())
 substs.set('SUSHELL', get_option('debug-shell'))
 substs.set('DEBUGTTY', get_option('debug-tty'))
 
-debug = get_option('debug')
 enable_debug_hashmap = false
 enable_debug_mmap_cache = false
-if debug != ''
-        foreach name : debug.split(',')
-                if name == 'hashmap'
-                        enable_debug_hashmap = true
-                elif name == 'mmap-cache'
-                        enable_debug_mmap_cache = true
-                else
-                        message('unknown debug option "@0@", ignoring'.format(name))
-                endif
-        endforeach
-endif
+foreach name : get_option('debug')
+        if name == 'hashmap'
+                enable_debug_hashmap = true
+        elif name == 'mmap-cache'
+                enable_debug_mmap_cache = true
+        else
+                message('unknown debug option "@0@", ignoring'.format(name))
+        endif
+endforeach
 conf.set10('ENABLE_DEBUG_HASHMAP', enable_debug_hashmap)
 conf.set10('ENABLE_DEBUG_MMAP_CACHE', enable_debug_mmap_cache)
+
+conf.set10('VALGRIND', get_option('valgrind'))
 
 #####################################################################
 
@@ -1148,6 +1137,18 @@ conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
 substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
 
+default_private_dns = get_option('default-private-dns')
+if fuzzer_build
+        default_private_dns = 'no'
+endif
+if default_private_dns != 'no' and conf.get('HAVE_GNUTLS') == 0
+        message('default-private-dns cannot be set to strict or opportunistic when gnutls is disabled. Setting default-private-dns to no.')
+        default_private_dns = 'no'
+endif
+conf.set('DEFAULT_PRIVATE_DNS_MODE',
+         'PRIVATE_DNS_' + default_private_dns.underscorify().to_upper())
+substs.set('DEFAULT_PRIVATE_DNS_MODE', default_private_dns)
+
 want_importd = get_option('importd')
 if want_importd != 'false'
         have = (conf.get('HAVE_LIBCURL') == 1 and
@@ -1190,6 +1191,7 @@ foreach term : ['utmp',
                 'hostnamed',
                 'localed',
                 'machined',
+                'portabled',
                 'networkd',
                 'timedated',
                 'timesyncd',
@@ -1269,6 +1271,8 @@ includes = include_directories('src/basic',
                                'src/shared',
                                'src/systemd',
                                'src/journal',
+                               'src/journal-remote',
+                               'src/nspawn',
                                'src/resolve',
                                'src/timesync',
                                'src/time-wait-sync',
@@ -1368,6 +1372,7 @@ subdir('src/import')
 subdir('src/kernel-install')
 subdir('src/locale')
 subdir('src/machine')
+subdir('src/portable')
 subdir('src/nspawn')
 subdir('src/resolve')
 subdir('src/timedate')
@@ -1592,6 +1597,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                                 libbasic_gcrypt,
                                 libsystemd_resolve_core],
                    dependencies : [threads,
+                                   libgnutls,
                                    libgpg_error,
                                    libm,
                                    libidn],
@@ -1716,9 +1722,19 @@ exe = executable('systemd-socket-activate', 'src/activate/activate.c',
                  install : true)
 public_programs += [exe]
 
+
+if get_option('link-systemctl-shared')
+        systemctl_link_with = [libshared]
+else
+        systemctl_link_with = [libsystemd_static,
+                               libshared_static,
+                               libjournal_client,
+                               libbasic_gcrypt]
+endif
+
 exe = executable('systemctl', 'src/systemctl/systemctl.c',
                  include_directories : includes,
-                 link_with : [libshared],
+                 link_with : systemctl_link_with,
                  dependencies : [threads,
                                  libcap,
                                  libselinux,
@@ -1728,6 +1744,26 @@ exe = executable('systemctl', 'src/systemctl/systemctl.c',
                  install : true,
                  install_dir : rootbindir)
 public_programs += [exe]
+
+if conf.get('ENABLE_PORTABLED') == 1
+        executable('systemd-portabled',
+                   systemd_portabled_sources,
+                   include_directories : includes,
+                   link_with : [libshared],
+                   dependencies : [threads],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
+
+        exe = executable('portablectl', 'src/portable/portablectl.c',
+                         include_directories : includes,
+                         link_with : [libshared],
+                         dependencies : [threads],
+                         install_rpath : rootlibexecdir,
+                         install : true,
+                         install_dir : rootlibexecdir)
+        public_programs += [exe]
+endif
 
 foreach alias : ['halt', 'poweroff', 'reboot', 'runlevel', 'shutdown', 'telinit']
         meson.add_install_script(meson_make_symlink,
@@ -1996,7 +2032,8 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
         s_j_remote = executable('systemd-journal-remote',
                                 systemd_journal_remote_sources,
                                 include_directories : includes,
-                                link_with : [libshared],
+                                link_with : [libshared,
+                                             libsystemd_journal_remote],
                                 dependencies : [threads,
                                                 libmicrohttpd,
                                                 libgnutls,
@@ -2451,12 +2488,10 @@ exe = executable('systemd-nspawn',
                  'src/core/mount-setup.h',
                  'src/core/loopback-setup.c',
                  'src/core/loopback-setup.h',
-                 include_directories : [includes, include_directories('src/nspawn')],
-                 link_with : [libshared],
-                 dependencies : [libacl,
-                                 libblkid,
-                                 libseccomp,
-                                 libselinux],
+                 include_directories : includes,
+                 link_with : [libnspawn_core,
+                              libshared],
+                 dependencies : [libblkid],
                  install_rpath : rootlibexecdir,
                  install : true)
 public_programs += [exe]
@@ -2750,9 +2785,8 @@ if git.found()
                 'tags',
                 output : 'tags',
                 command : [env, 'etags', '-o', '@0@/TAGS'.format(meson.current_source_dir())] + all_files)
-        custom_target(
+        run_target(
                 'ctags',
-                output : 'ctags',
                 command : [env, 'ctags', '-o', '@0@/tags'.format(meson.current_source_dir())] + all_files)
 endif
 
@@ -2836,6 +2870,7 @@ status = [
         'symbolic gateway hostnames:        @0@'.format(', '.join(gateway_hostnames)),
 
         'default DNSSEC mode:               @0@'.format(default_dnssec),
+        'default private DNS mode:          @0@'.format(default_private_dns),
         'default cgroup hierarchy:          @0@'.format(default_hierarchy),
         'default KillUserProcesses setting: @0@'.format(kill_user_processes)]
 
@@ -2909,6 +2944,7 @@ foreach tuple : [
         ['rfkill'],
         ['logind'],
         ['machined'],
+        ['portabled'],
         ['importd'],
         ['hostnamed'],
         ['timedated'],
@@ -2942,6 +2978,7 @@ foreach tuple : [
         ['gshadow'],
         ['debug hashmap'],
         ['debug mmap cache'],
+        ['valgrind',         conf.get('VALGRIND') == 1],
 ]
 
         if tuple.length() >= 2
@@ -2967,8 +3004,8 @@ status += [
 message('\n         '.join(status))
 
 if rootprefixdir != rootprefix_default
-        message('WARNING:\n' +
-                '        Note that the installation prefix was changed to "@0@".\n'.format(rootprefixdir) +
-                '        systemd used fixed names for unit file directories and other paths, so anything\n' +
-                '        except the default ("@0@") is strongly discouraged.'.format(rootprefix_default))
+        warning('\n' +
+                'Note that the installation prefix was changed to "@0@".\n'.format(rootprefixdir) +
+                'systemd used fixed names for unit file directories and other paths, so anything\n' +
+                'except the default ("@0@") is strongly discouraged.'.format(rootprefix_default))
 endif

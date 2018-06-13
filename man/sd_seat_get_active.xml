@@ -10,7 +10,8 @@
   Copyright 2010 Lennart Poettering
 -->
 
-<refentry id="sd_seat_get_active" conditional='HAVE_PAM'>
+<refentry id="sd_seat_get_active" conditional='HAVE_PAM'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_seat_get_active</title>
@@ -175,19 +176,7 @@
     </variablelist>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>The <function>sd_seat_get_active()</function>,
-    <function>sd_seat_get_sessions()</function>,
-    <function>sd_seat_can_multi_session()</function>,
-    <function>sd_seat_can_tty()</function> and
-    <function>sd_seat_can_graphical()</function> interfaces are
-    available as a shared library, which can be compiled and linked to
-    with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

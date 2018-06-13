@@ -236,6 +236,7 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->llmnr = RESOLVE_SUPPORT_YES;
         network->mdns = RESOLVE_SUPPORT_NO;
         network->dnssec_mode = _DNSSEC_MODE_INVALID;
+        network->private_dns_mode = _PRIVATE_DNS_MODE_INVALID;
 
         network->link_local = ADDRESS_FAMILY_IPV6;
 
@@ -247,6 +248,8 @@ static int network_load_one(Manager *manager, const char *filename) {
         network->duid.type = _DUID_TYPE_INVALID;
         network->proxy_arp = -1;
         network->arp = -1;
+        network->multicast = -1;
+        network->allmulticast = -1;
         network->ipv6_accept_ra_use_dns = true;
         network->ipv6_accept_ra_route_table = RT_TABLE_MAIN;
         network->ipv6_mtu = 0;
@@ -270,7 +273,8 @@ static int network_load_one(Manager *manager, const char *filename) {
                               "BridgeFDB\0"
                               "BridgeVLAN\0"
                               "IPv6PrefixDelegation\0"
-                              "IPv6Prefix\0",
+                              "IPv6Prefix\0"
+                              "CAN\0",
                               config_item_perf_lookup, network_network_gperf_lookup,
                               CONFIG_PARSE_WARN, network);
         if (r < 0)
@@ -1012,7 +1016,7 @@ int config_parse_timezone(
         if (r < 0)
                 return r;
 
-        if (!timezone_is_valid(tz)) {
+        if (!timezone_is_valid(tz, LOG_ERR)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Timezone is not valid, ignoring assignment: %s", rvalue);
                 free(tz);
                 return 0;

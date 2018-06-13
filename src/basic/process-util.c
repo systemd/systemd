@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
@@ -75,20 +76,31 @@ int get_process_state(pid_t pid) {
         return (unsigned char) state;
 }
 
-int get_process_comm(pid_t pid, char **name) {
+int get_process_comm(pid_t pid, char **ret) {
+        _cleanup_free_ char *escaped = NULL, *comm = NULL;
         const char *p;
         int r;
 
-        assert(name);
+        assert(ret);
         assert(pid >= 0);
+
+        escaped = new(char, TASK_COMM_LEN);
+        if (!escaped)
+                return -ENOMEM;
 
         p = procfs_file_alloca(pid, "comm");
 
-        r = read_one_line_file(p, name);
+        r = read_one_line_file(p, &comm);
         if (r == -ENOENT)
                 return -ESRCH;
+        if (r < 0)
+                return r;
 
-        return r;
+        /* Escape unprintable characters, just in case, but don't grow the string beyond the underlying size */
+        cellescape(escaped, TASK_COMM_LEN, comm);
+
+        *ret = TAKE_PTR(escaped);
+        return 0;
 }
 
 int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char **line) {
@@ -246,15 +258,10 @@ int get_process_cmdline(pid_t pid, size_t max_length, bool comm_fallback, char *
                                 memcpy(ans, "[...]", max_length-1);
                                 ans[max_length-1] = 0;
                         } else {
-                                char *e;
-
                                 t[max_length - 6] = 0;
 
                                 /* Chop off final spaces */
-                                e = strchr(t, 0);
-                                while (e > t && isspace(e[-1]))
-                                        e--;
-                                *e = 0;
+                                delete_trailing_chars(t, WHITESPACE);
 
                                 ans = strjoin("[", t, "...]");
                         }
@@ -295,7 +302,7 @@ int rename_process(const char name[]) {
          * can use PR_SET_NAME, which sets the thread name for the calling thread. */
         if (prctl(PR_SET_NAME, name) < 0)
                 log_debug_errno(errno, "PR_SET_NAME failed: %m");
-        if (l > 15) /* Linux process names can be 15 chars at max */
+        if (l >= TASK_COMM_LEN) /* Linux process names can be 15 chars at max */
                 truncated = true;
 
         /* Second step, change glibc's ID of the process name. */
@@ -739,14 +746,17 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
 
 /*
  * Return values:
- * < 0 : wait_for_terminate_with_timeout() failed to get the state of the
- *       process, the process timed out, the process was terminated by a
- *       signal, or failed for an unknown reason.
+ *
+ * < 0 : wait_for_terminate_with_timeout() failed to get the state of the process, the process timed out, the process
+ *       was terminated by a signal, or failed for an unknown reason.
+ *
  * >=0 : The process terminated normally with no failures.
  *
- * Success is indicated by a return value of zero, a timeout is indicated
- * by ETIMEDOUT, and all other child failure states are indicated by error
- * is indicated by a non-zero value.
+ * Success is indicated by a return value of zero, a timeout is indicated by ETIMEDOUT, and all other child failure
+ * states are indicated by error is indicated by a non-zero value.
+ *
+ * This call assumes SIGCHLD has been blocked already, in particular before the child to wait for has been forked off
+ * to remain entirely race-free.
  */
 int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
         sigset_t mask;
@@ -1344,6 +1354,16 @@ int safe_fork_full(
                 }
         }
 
+        if (FLAGS_SET(flags, FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE)) {
+
+                /* Optionally, make sure we never propagate mounts to the host. */
+
+                if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0) {
+                        log_full_errno(prio, errno, "Failed to remount root directory as MS_SLAVE: %m");
+                        _exit(EXIT_FAILURE);
+                }
+        }
+
         if (flags & FORK_CLOSE_ALL_FDS) {
                 /* Close the logs here in case it got reopened above, as close_all_fds() would close them for us */
                 log_close();
@@ -1443,6 +1463,15 @@ int fork_agent(const char *name, const int except[], size_t n_except, pid_t *ret
 
         execv(path, l);
         _exit(EXIT_FAILURE);
+}
+
+int set_oom_score_adjust(int value) {
+        char t[DECIMAL_STR_MAX(int)];
+
+        sprintf(t, "%i", value);
+
+        return write_string_file("/proc/self/oom_score_adj", t,
+                                 WRITE_STRING_FILE_VERIFY_ON_FAILURE|WRITE_STRING_FILE_DISABLE_BUFFER);
 }
 
 static const char *const ioprio_class_table[] = {

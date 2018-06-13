@@ -233,7 +233,6 @@ static void release_busses(void) {
 }
 
 static void ask_password_agent_open_if_enabled(void) {
-
         /* Open the password agent as a child process if necessary */
 
         if (arg_dry_run)
@@ -297,7 +296,6 @@ static int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) 
 }
 
 static bool install_client_side(void) {
-
         /* Decides when to execute enable/disable/... operations
          * client-side rather than server-side. */
 
@@ -418,7 +416,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
 
                 if (!arg_no_legend &&
                     (streq(u->active_state, "failed") ||
-                     STR_IN_SET(u->load_state, "error", "not-found", "masked")))
+                     STR_IN_SET(u->load_state, "error", "not-found", "bad-setting", "masked")))
                         circle_len = 2;
         }
 
@@ -495,7 +493,7 @@ static int output_units_list(const UnitInfo *unit_infos, unsigned c) {
                         underline = true;
                 }
 
-                if (STR_IN_SET(u->load_state, "error", "not-found", "masked") && !arg_plain) {
+                if (STR_IN_SET(u->load_state, "error", "not-found", "bad-setting", "masked") && !arg_plain) {
                         on_circle = ansi_highlight_yellow();
                         off_circle = ansi_normal();
                         circle = true;
@@ -1612,7 +1610,6 @@ static int list_dependencies_print(const char *name, int level, unsigned int bra
 }
 
 static int list_dependencies_get_dependencies(sd_bus *bus, const char *name, char ***deps) {
-
         struct DependencyStatusInfo {
                 char **dep[5];
         } info = {};
@@ -3893,6 +3890,7 @@ typedef struct UnitStatusInfo {
         /* Socket */
         unsigned n_accepted;
         unsigned n_connections;
+        unsigned n_refused;
         bool accept;
 
         /* Pairs of type, path */
@@ -3948,8 +3946,8 @@ static void print_status_info(
                 UnitStatusInfo *i,
                 bool *ellipsized) {
 
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1, since2[FORMAT_TIMESTAMP_MAX], *s2;
-        const char *active_on, *active_off, *on, *off, *ss;
+        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], since2[FORMAT_TIMESTAMP_MAX];
+        const char *s1, *s2, *active_on, *active_off, *on, *off, *ss;
         _cleanup_free_ char *formatted_path = NULL;
         ExecStatusInfo *p;
         usec_t timestamp;
@@ -3981,7 +3979,7 @@ static void print_status_info(
         if (i->following)
                 printf("   Follow: unit currently follows state of %s\n", i->following);
 
-        if (streq_ptr(i->load_state, "error")) {
+        if (STRPTR_IN_SET(i->load_state, "error", "not-found", "bad-setting")) {
                 on = ansi_highlight_red();
                 off = ansi_normal();
         } else
@@ -3991,7 +3989,7 @@ static void print_status_info(
         if (path && terminal_urlify_path(path, NULL, &formatted_path) >= 0)
                 path = formatted_path;
 
-        if (i->load_error != 0)
+        if (!isempty(i->load_error))
                 printf("   Loaded: %s%s%s (Reason: %s)\n",
                        on, strna(i->load_state), off, i->load_error);
         else if (path && !isempty(i->unit_file_state) && !isempty(i->unit_file_preset) &&
@@ -4077,7 +4075,7 @@ static void print_status_info(
         if (endswith(i->id, ".timer")) {
                 char tstamp1[FORMAT_TIMESTAMP_RELATIVE_MAX],
                      tstamp2[FORMAT_TIMESTAMP_MAX];
-                char *next_rel_time, *next_time;
+                const char *next_rel_time, *next_time;
                 dual_timestamp nw, next = {i->next_elapse_real,
                                            i->next_elapse_monotonic};
                 usec_t next_elapse;
@@ -4086,12 +4084,8 @@ static void print_status_info(
 
                 dual_timestamp_get(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
-                next_rel_time = format_timestamp_relative(tstamp1,
-                                                          sizeof(tstamp1),
-                                                          next_elapse);
-                next_time = format_timestamp(tstamp2,
-                                             sizeof(tstamp2),
-                                             next_elapse);
+                next_rel_time = format_timestamp_relative(tstamp1, sizeof tstamp1, next_elapse);
+                next_time = format_timestamp(tstamp2, sizeof tstamp2, next_elapse);
 
                 if (next_time && next_rel_time)
                         printf("%s; %s\n", next_time, next_rel_time);
@@ -4162,8 +4156,13 @@ static void print_status_info(
         STRV_FOREACH_PAIR(t, t2, i->listen)
                 printf(" %*s %s (%s)\n", 9, t == i->listen ? "Listen:" : "", *t2, *t);
 
-        if (i->accept)
-                printf(" Accepted: %u; Connected: %u\n", i->n_accepted, i->n_connections);
+        if (i->accept) {
+                printf(" Accepted: %u; Connected: %u;", i->n_accepted, i->n_connections);
+                if (i->n_refused)
+                        printf(" Refused: %u", i->n_refused);
+                printf("\n");
+        }
+
 
         LIST_FOREACH(exec, p, i->exec) {
                 _cleanup_free_ char *argv = NULL;
@@ -4352,7 +4351,7 @@ static void print_status_info(
 
                         show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, extra, k, get_output_flags());
                 } else if (r < 0)
-                        log_warning_errno(r, "Failed to dump process list, ignoring: %s", bus_error_message(&error, r));
+                        log_warning_errno(r, "Failed to dump process list for '%s', ignoring: %s", i->id, bus_error_message(&error, r));
         }
 
         if (i->id && arg_transport == BUS_TRANSPORT_LOCAL)
@@ -4963,6 +4962,7 @@ static int show_one(
                 { "NextElapseUSecMonotonic",        "t",              NULL,           offsetof(UnitStatusInfo, next_elapse_monotonic)             },
                 { "NAccepted",                      "u",              NULL,           offsetof(UnitStatusInfo, n_accepted)                        },
                 { "NConnections",                   "u",              NULL,           offsetof(UnitStatusInfo, n_connections)                     },
+                { "NRefused",                       "u",              NULL,           offsetof(UnitStatusInfo, n_refused)                         },
                 { "Accept",                         "b",              NULL,           offsetof(UnitStatusInfo, accept)                            },
                 { "Listen",                         "a(ss)",          map_listen,     offsetof(UnitStatusInfo, listen)                            },
                 { "SysFSPath",                      "s",              NULL,           offsetof(UnitStatusInfo, sysfs_path)                        },
@@ -5664,7 +5664,7 @@ static int switch_root(int argc, char *argv[], void *userdata) {
         if (argc >= 3)
                 init = argv[2];
         else {
-                r = parse_env_file("/proc/cmdline", WHITESPACE,
+                r = parse_env_file(NULL, "/proc/cmdline", WHITESPACE,
                                    "init", &cmdline_init,
                                    NULL);
                 if (r < 0)
@@ -6501,7 +6501,6 @@ static int show_installation_targets(sd_bus *bus, const char *name) {
 }
 
 static int unit_is_enabled(int argc, char *argv[], void *userdata) {
-
         _cleanup_strv_free_ char **names = NULL;
         bool enabled;
         char **name;
@@ -7002,7 +7001,6 @@ end:
 }
 
 static void systemctl_help(void) {
-
         (void) pager_open(arg_no_pager, false);
 
         printf("%s [OPTIONS...] {COMMAND} ...\n\n"
@@ -7199,85 +7197,67 @@ static void runlevel_help(void) {
 }
 
 static void help_types(void) {
-        int i;
-
         if (!arg_no_legend)
                 puts("Available unit types:");
-        for (i = 0; i < _UNIT_TYPE_MAX; i++)
-                puts(unit_type_to_string(i));
+
+        DUMP_STRING_TABLE(unit_type, UnitType, _UNIT_TYPE_MAX);
 }
 
 static void help_states(void) {
-        int i;
-
         if (!arg_no_legend)
                 puts("Available unit load states:");
-        for (i = 0; i < _UNIT_LOAD_STATE_MAX; i++)
-                puts(unit_load_state_to_string(i));
+        DUMP_STRING_TABLE(unit_load_state, UnitLoadState, _UNIT_LOAD_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable unit active states:");
-        for (i = 0; i < _UNIT_ACTIVE_STATE_MAX; i++)
-                puts(unit_active_state_to_string(i));
+        DUMP_STRING_TABLE(unit_active_state, UnitActiveState, _UNIT_ACTIVE_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable automount unit substates:");
-        for (i = 0; i < _AUTOMOUNT_STATE_MAX; i++)
-                puts(automount_state_to_string(i));
+        DUMP_STRING_TABLE(automount_state, AutomountState, _AUTOMOUNT_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable device unit substates:");
-        for (i = 0; i < _DEVICE_STATE_MAX; i++)
-                puts(device_state_to_string(i));
+        DUMP_STRING_TABLE(device_state, DeviceState, _DEVICE_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable mount unit substates:");
-        for (i = 0; i < _MOUNT_STATE_MAX; i++)
-                puts(mount_state_to_string(i));
+        DUMP_STRING_TABLE(mount_state, MountState, _MOUNT_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable path unit substates:");
-        for (i = 0; i < _PATH_STATE_MAX; i++)
-                puts(path_state_to_string(i));
+        DUMP_STRING_TABLE(path_state, PathState, _PATH_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable scope unit substates:");
-        for (i = 0; i < _SCOPE_STATE_MAX; i++)
-                puts(scope_state_to_string(i));
+        DUMP_STRING_TABLE(scope_state, ScopeState, _SCOPE_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable service unit substates:");
-        for (i = 0; i < _SERVICE_STATE_MAX; i++)
-                puts(service_state_to_string(i));
+        DUMP_STRING_TABLE(service_state, ServiceState, _SERVICE_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable slice unit substates:");
-        for (i = 0; i < _SLICE_STATE_MAX; i++)
-                puts(slice_state_to_string(i));
+        DUMP_STRING_TABLE(slice_state, SliceState, _SLICE_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable socket unit substates:");
-        for (i = 0; i < _SOCKET_STATE_MAX; i++)
-                puts(socket_state_to_string(i));
+        DUMP_STRING_TABLE(socket_state, SocketState, _SOCKET_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable swap unit substates:");
-        for (i = 0; i < _SWAP_STATE_MAX; i++)
-                puts(swap_state_to_string(i));
+        DUMP_STRING_TABLE(swap_state, SwapState, _SWAP_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable target unit substates:");
-        for (i = 0; i < _TARGET_STATE_MAX; i++)
-                puts(target_state_to_string(i));
+        DUMP_STRING_TABLE(target_state, TargetState, _TARGET_STATE_MAX);
 
         if (!arg_no_legend)
                 puts("\nAvailable timer unit substates:");
-        for (i = 0; i < _TIMER_STATE_MAX; i++)
-                puts(timer_state_to_string(i));
+        DUMP_STRING_TABLE(timer_state, TimerState, _TIMER_STATE_MAX);
 }
 
 static int systemctl_parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_FAIL = 0x100,
                 ARG_REVERSE,
@@ -7569,6 +7549,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 's':
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(signal, int, _NSIG);
+                                return 0;
+                        }
+
                         arg_signal = signal_from_string(optarg);
                         if (arg_signal < 0) {
                                 log_error("Failed to parse signal string %s.", optarg);
@@ -7602,6 +7587,11 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
+                                return 0;
+                        }
+
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0) {
                                 log_error("Unknown output '%s'.", optarg);
@@ -7659,6 +7649,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PRESET_MODE:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MAX);
+                                return 0;
+                        }
 
                         arg_preset_mode = unit_file_preset_mode_from_string(optarg);
                         if (arg_preset_mode < 0) {
@@ -7694,11 +7688,15 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (arg_runtime && STRPTR_IN_SET(argv[optind], "disable", "unmask", "preset", "preset-all")) {
+                log_error("--runtime cannot be used with %s", argv[optind]);
+                return -EINVAL;
+        }
+
         return 1;
 }
 
 static int halt_parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_HELP = 0x100,
                 ARG_HALT,
@@ -7842,7 +7840,6 @@ static int parse_shutdown_time_spec(const char *t, usec_t *_u) {
 }
 
 static int shutdown_parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_HELP = 0x100,
                 ARG_NO_WALL
@@ -7949,7 +7946,6 @@ static int shutdown_parse_argv(int argc, char *argv[]) {
 }
 
 static int telinit_parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_HELP = 0x100,
                 ARG_NO_WALL
@@ -8036,7 +8032,6 @@ static int telinit_parse_argv(int argc, char *argv[]) {
 }
 
 static int runlevel_parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_HELP = 0x100,
         };
@@ -8138,7 +8133,6 @@ static int parse_argv(int argc, char *argv[]) {
 
 #if HAVE_SYSV_COMPAT
 _pure_ static int action_to_runlevel(void) {
-
         static const char table[_ACTION_MAX] = {
                 [ACTION_HALT] =      '0',
                 [ACTION_POWEROFF] =  '0',
@@ -8198,7 +8192,6 @@ static int talk_initctl(void) {
 }
 
 static int systemctl_main(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
                 { "list-units",            VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_units },
                 { "list-unit-files",       VERB_ANY, VERB_ANY, 0,                list_unit_files      },
@@ -8274,7 +8267,6 @@ static int systemctl_main(int argc, char *argv[]) {
 }
 
 static int reload_with_fallback(void) {
-
         /* First, try systemd via D-Bus. */
         if (daemon_reload(0, NULL, NULL) >= 0)
                 return 0;
@@ -8289,7 +8281,6 @@ static int reload_with_fallback(void) {
 }
 
 static int start_with_fallback(void) {
-
         /* First, try systemd via D-Bus. */
         if (start_unit(0, NULL, NULL) >= 0)
                 return 0;
@@ -8303,7 +8294,6 @@ static int start_with_fallback(void) {
 }
 
 static int halt_now(enum action a) {
-
         /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need to be
          * synce'd explicitly in advance. */
         if (!arg_no_sync && !arg_dry_run)

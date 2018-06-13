@@ -69,10 +69,10 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
 int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, uint32_t action);
 
 typedef enum SeccompParseFlags {
-        SECCOMP_PARSE_INVERT     = 1U << 0,
-        SECCOMP_PARSE_WHITELIST  = 1U << 1,
-        SECCOMP_PARSE_LOG        = 1U << 2,
-        SECCOMP_PARSE_PERMISSIVE = 1U << 3,
+        SECCOMP_PARSE_INVERT     = 1 << 0,
+        SECCOMP_PARSE_WHITELIST  = 1 << 1,
+        SECCOMP_PARSE_LOG        = 1 << 2,
+        SECCOMP_PARSE_PERMISSIVE = 1 << 3,
 } SeccompParseFlags;
 
 int seccomp_parse_syscall_filter_full(

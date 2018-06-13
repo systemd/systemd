@@ -14,6 +14,7 @@
 
 #include "alloc-util.h"
 #include "dbus-swap.h"
+#include "device.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
@@ -239,12 +240,12 @@ static int swap_verify(Swap *s) {
 
         if (!unit_has_name(UNIT(s), e)) {
                 log_unit_error(UNIT(s), "Value of What= and unit name do not match, not loading.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_unit_error(UNIT(s), "Unit has PAM enabled. Kill mode must be set to 'control-group'. Refusing to load.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;
@@ -254,15 +255,19 @@ static int swap_load_devnode(Swap *s) {
         _cleanup_(udev_device_unrefp) struct udev_device *d = NULL;
         struct stat st;
         const char *p;
+        int r;
 
         assert(s);
 
         if (stat(s->what, &st) < 0 || !S_ISBLK(st.st_mode))
                 return 0;
 
-        d = udev_device_new_from_devnum(UNIT(s)->manager->udev, 'b', st.st_rdev);
-        if (!d)
+        r = udev_device_new_from_stat_rdev(UNIT(s)->manager->udev, &st, &d);
+        if (r < 0) {
+                log_unit_full(UNIT(s), r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                              "Failed to allocate udev device for swap %s: %m", s->what);
                 return 0;
+        }
 
         p = udev_device_get_devnode(d);
         if (!p)
@@ -306,7 +311,7 @@ static int swap_load(Unit *u) {
                                 return -ENOMEM;
                 }
 
-                path_kill_slashes(s->what);
+                path_simplify(s->what, false);
 
                 if (!UNIT(s)->description) {
                         r = unit_set_description(u, s->what);
@@ -442,9 +447,12 @@ static int swap_process_new(Manager *m, const char *device, int prio, bool set_f
         if (stat(device, &st) < 0 || !S_ISBLK(st.st_mode))
                 return 0;
 
-        d = udev_device_new_from_devnum(m->udev, 'b', st.st_rdev);
-        if (!d)
+        r = udev_device_new_from_stat_rdev(m->udev, &st, &d);
+        if (r < 0) {
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to allocate udev device for swap %s: %m", device);
                 return 0;
+        }
 
         /* Add the main device node */
         dn = udev_device_get_devnode(d);
@@ -495,7 +503,7 @@ static void swap_set_state(Swap *s, SwapState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", swap_state_to_string(old_state), swap_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], 0);
 
         /* If there other units for the same device node have a job
            queued it might be worth checking again if it is runnable
@@ -1111,7 +1119,7 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
                 if (cunescape(dev, UNESCAPE_RELAX, &d) < 0)
                         return log_oom();
 
-                device_found_node(m, d, true, DEVICE_FOUND_SWAP, set_flags);
+                device_found_node(m, d, DEVICE_FOUND_SWAP, DEVICE_FOUND_SWAP);
 
                 k = swap_process_new(m, d, prio, set_flags);
                 if (k < 0)
@@ -1166,7 +1174,7 @@ static int swap_dispatch_io(sd_event_source *source, int fd, uint32_t revents, v
                         }
 
                         if (swap->what)
-                                device_found_node(m, swap->what, false, DEVICE_FOUND_SWAP, true);
+                                device_found_node(m, swap->what, 0, DEVICE_FOUND_SWAP);
 
                 } else if (swap->just_activated) {
 
@@ -1240,7 +1248,7 @@ static Unit *swap_following(Unit *u) {
 
 static int swap_following_set(Unit *u, Set **_set) {
         Swap *s = SWAP(u), *other;
-        Set *set;
+        _cleanup_set_free_ Set *set = NULL;
         int r;
 
         assert(s);
@@ -1258,24 +1266,18 @@ static int swap_following_set(Unit *u, Set **_set) {
         LIST_FOREACH_OTHERS(same_devnode, other, s) {
                 r = set_put(set, other);
                 if (r < 0)
-                        goto fail;
+                        return r;
         }
 
-        *_set = set;
+        *_set = TAKE_PTR(set);
         return 1;
-
-fail:
-        set_free(set);
-        return r;
 }
 
 static void swap_shutdown(Manager *m) {
         assert(m);
 
         m->swap_event_source = sd_event_source_unref(m->swap_event_source);
-
         m->proc_swaps = safe_fclose(m->proc_swaps);
-
         m->swaps_by_devnode = hashmap_free(m->swaps_by_devnode);
 }
 
@@ -1288,9 +1290,9 @@ static void swap_enumerate(Manager *m) {
                 m->proc_swaps = fopen("/proc/swaps", "re");
                 if (!m->proc_swaps) {
                         if (errno == ENOENT)
-                                log_debug("Not swap enabled, skipping enumeration");
+                                log_debug_errno(errno, "Not swap enabled, skipping enumeration.");
                         else
-                                log_error_errno(errno, "Failed to open /proc/swaps: %m");
+                                log_warning_errno(errno, "Failed to open /proc/swaps, ignoring: %m");
 
                         return;
                 }

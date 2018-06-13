@@ -255,7 +255,7 @@ int machine_load(Machine *m) {
         if (!m->state_file)
                 return 0;
 
-        r = parse_env_file(m->state_file, NEWLINE,
+        r = parse_env_file(NULL, m->state_file, NEWLINE,
                            "SCOPE",     &m->unit,
                            "SCOPE_JOB", &m->scope_job,
                            "SERVICE",   &m->service,
@@ -395,8 +395,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                    "MESSAGE_ID=" SD_MESSAGE_MACHINE_START_STR,
                    "NAME=%s", m->name,
                    "LEADER="PID_FMT, m->leader,
-                   LOG_MESSAGE("New machine %s.", m->name),
-                   NULL);
+                   LOG_MESSAGE("New machine %s.", m->name));
 
         if (!dual_timestamp_is_set(&m->timestamp))
                 dual_timestamp_get(&m->timestamp);
@@ -458,8 +457,7 @@ int machine_finalize(Machine *m) {
                            "MESSAGE_ID=" SD_MESSAGE_MACHINE_STOP_STR,
                            "NAME=%s", m->name,
                            "LEADER="PID_FMT, m->leader,
-                           LOG_MESSAGE("Machine %s terminated.", m->name),
-                           NULL);
+                           LOG_MESSAGE("Machine %s terminated.", m->name));
 
         machine_unlink(m);
         machine_add_to_gc_queue(m);

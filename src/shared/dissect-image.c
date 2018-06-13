@@ -30,6 +30,7 @@
 #include "linux-3.13/dm-ioctl.h"
 #include "missing.h"
 #include "mount-util.h"
+#include "os-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "raw-clone.h"
@@ -95,6 +96,7 @@ not_found:
 #endif
 }
 
+#if HAVE_BLKID
 /* Detect RPMB and Boot partitions, which are not listed by blkid.
  * See https://github.com/systemd/systemd/issues/5806. */
 static bool device_is_mmc_special_partition(struct udev_device *d) {
@@ -114,6 +116,7 @@ static bool device_is_block(struct udev_device *d) {
 
         return streq(ss, "block");
 }
+#endif
 
 int dissect_image(
                 int fd,
@@ -779,6 +782,14 @@ int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift,
                 r = mount_partition(m->partitions + PARTITION_ROOT, where, NULL, uid_shift, flags);
                 if (r < 0)
                         return r;
+
+                if (flags & DISSECT_IMAGE_VALIDATE_OS) {
+                        r = path_is_os_tree(where);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -EMEDIUMTYPE;
+                }
         }
 
         if ((flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY))
@@ -1270,15 +1281,11 @@ int dissected_image_acquire_metadata(DissectedImage *m) {
         if (r < 0)
                 goto finish;
 
-        r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_NEW_MOUNTNS, &child);
+        r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, &child);
         if (r < 0)
                 goto finish;
         if (r == 0) {
-                /* Make sure we never propagate to the host */
-                if (mount(NULL, "/", NULL, MS_SLAVE | MS_REC, NULL) < 0)
-                        _exit(EXIT_FAILURE);
-
-                r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_MOUNT_ROOT_ONLY);
+                r = dissected_image_mount(m, t, UID_INVALID, DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_MOUNT_ROOT_ONLY|DISSECT_IMAGE_VALIDATE_OS);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to mount dissected image: %m");
                         _exit(EXIT_FAILURE);

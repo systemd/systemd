@@ -240,6 +240,7 @@ static void test_dns_name_between(void) {
         test_dns_name_between_one("example", "example", "example", false);
         test_dns_name_between_one("example", "example", "yljkjljk.a.example", false);
         test_dns_name_between_one("example", "yljkjljk.a.example", "yljkjljk.a.example", false);
+        test_dns_name_between_one("hkps.pool.sks-keyservers.net", "_pgpkey-https._tcp.hkps.pool.sks-keyservers.net", "ipv4.pool.sks-keyservers.net", true);
 }
 
 static void test_dns_name_endswith_one(const char *a, const char *b, int ret) {

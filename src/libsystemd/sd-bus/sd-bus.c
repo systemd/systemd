@@ -262,19 +262,13 @@ _public_ int sd_bus_new(sd_bus **ret) {
 }
 
 _public_ int sd_bus_set_address(sd_bus *bus, const char *address) {
-        char *a;
-
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
         assert_return(bus->state == BUS_UNSET, -EPERM);
         assert_return(address, -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        a = strdup(address);
-        if (!a)
-                return -ENOMEM;
-
-        return free_and_replace(bus->address, a);
+        return free_and_strdup(&bus->address, address);
 }
 
 _public_ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
@@ -291,8 +285,8 @@ _public_ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
 }
 
 _public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) {
-        _cleanup_free_ char *p = NULL;
-        char **a;
+        _cleanup_strv_free_ char **a = NULL;
+        int r;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -301,17 +295,15 @@ _public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const argv[]) 
         assert_return(!strv_isempty(argv), -EINVAL);
         assert_return(!bus_pid_changed(bus), -ECHILD);
 
-        p = strdup(path);
-        if (!p)
-                return -ENOMEM;
-
         a = strv_copy(argv);
         if (!a)
                 return -ENOMEM;
 
-        free_and_replace(bus->exec_path, p);
-        strv_free_and_replace(bus->exec_argv, a);
-        return 0;
+        r = free_and_strdup(&bus->exec_path, path);
+        if (r < 0)
+                return r;
+
+        return strv_free_and_replace(bus->exec_argv, a);
 }
 
 _public_ int sd_bus_set_bus_client(sd_bus *bus, int b) {
@@ -535,7 +527,6 @@ void bus_set_state(sd_bus *bus, enum bus_state state) {
 
 static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *error) {
         const char *s;
-        char *t;
         sd_bus *bus;
         int r;
 
@@ -555,11 +546,9 @@ static int hello_callback(sd_bus_message *reply, void *userdata, sd_bus_error *e
         if (!service_name_is_valid(s) || s[0] != ':')
                 return -EBADMSG;
 
-        t = strdup(s);
-        if (!t)
-                return -ENOMEM;
-
-        free_and_replace(bus->unique_name, t);
+        r = free_and_strdup(&bus->unique_name, s);
+        if (r < 0)
+                return r;
 
         if (bus->state == BUS_HELLO) {
                 bus_set_state(bus, BUS_RUNNING);
@@ -3238,13 +3227,21 @@ static int bus_add_match_full(
                                 goto finish;
                         }
 
-                        if (asynchronous)
+                        if (asynchronous) {
                                 r = bus_add_match_internal_async(bus,
                                                                  &s->match_callback.install_slot,
                                                                  s->match_callback.match_string,
                                                                  add_match_callback,
                                                                  s);
-                        else
+
+                                if (r < 0)
+                                        return r;
+
+                                /* Make the slot of the match call floating now. We need the reference, but we don't
+                                 * want that this match pins the bus object, hence we first create it non-floating, but
+                                 * then make it floating. */
+                                r = sd_bus_slot_set_floating(s->match_callback.install_slot, true);
+                        } else
                                 r = bus_add_match_internal(bus, s->match_callback.match_string);
                         if (r < 0)
                                 goto finish;

@@ -427,6 +427,9 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
         return 0;
 }
 
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_time, "t", now(CLOCK_REALTIME));
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_ntp_sync, "b", ntp_synced());
+
 static int property_get_rtc_time(
                 sd_bus *bus,
                 const char *path,
@@ -454,30 +457,6 @@ static int property_get_rtc_time(
                 t = (usec_t) timegm(&tm) * USEC_PER_SEC;
 
         return sd_bus_message_append(reply, "t", t);
-}
-
-static int property_get_time(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        return sd_bus_message_append(reply, "t", now(CLOCK_REALTIME));
-}
-
-static int property_get_ntp_sync(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        return sd_bus_message_append(reply, "b", ntp_synced());
 }
 
 static int property_get_can_ntp(
@@ -542,13 +521,10 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         if (r < 0)
                 return r;
 
-        if (!timezone_is_valid(z))
+        if (!timezone_is_valid(z, LOG_DEBUG))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid time zone '%s'", z);
 
-        r = free_and_strdup(&c->zone, z);
-        if (r < 0)
-                return r;
-        if (r == 0)
+        if (streq_ptr(z, c->zone))
                 return sd_bus_reply_method_return(m, NULL);
 
         r = bus_verify_polkit_async(
@@ -565,6 +541,10 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
+        r = free_and_strdup(&c->zone, z);
+        if (r < 0)
+                return r;
+
         /* 1. Write new configuration file */
         r = context_write_data_timezone(c);
         if (r < 0) {
@@ -572,24 +552,33 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                 return sd_bus_error_set_errnof(error, r, "Failed to set time zone: %m");
         }
 
-        /* 2. Tell the kernel our timezone */
-        clock_set_timezone(NULL);
+        /* 2. Make glibc notice the new timezone */
+        tzset();
+
+        /* 3. Tell the kernel our timezone */
+        r = clock_set_timezone(NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to tell kernel about timezone, ignoring: %m");
 
         if (c->local_rtc) {
                 struct timespec ts;
                 struct tm *tm;
 
-                /* 3. Sync RTC from system clock, with the new delta */
+                /* 4. Sync RTC from system clock, with the new delta */
                 assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
                 assert_se(tm = localtime(&ts.tv_sec));
-                clock_set_hwclock(tm);
+
+                r = clock_set_hwclock(tm);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
         }
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TIMEZONE_CHANGE_STR,
                    "TIMEZONE=%s", c->zone,
-                   LOG_MESSAGE("Changed time zone to '%s'.", c->zone),
-                   NULL);
+                   "TIMEZONE_SHORTNAME=%s", tzname[daylight],
+                   "DAYLIGHT=%i", daylight,
+                   LOG_MESSAGE("Changed time zone to '%s' (%s).", c->zone, tzname[daylight]));
 
         (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "Timezone", NULL);
 
@@ -636,7 +625,9 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         }
 
         /* 2. Tell the kernel our timezone */
-        clock_set_timezone(NULL);
+        r = clock_set_timezone(NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to tell kernel about timezone, ignoring: %m");
 
         /* 3. Synchronize clocks */
         assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
@@ -644,27 +635,25 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
         if (fix_system) {
                 struct tm tm;
 
-                /* Sync system clock from RTC; first,
-                 * initialize the timezone fields of
-                 * struct tm. */
+                /* Sync system clock from RTC; first, initialize the timezone fields of struct tm. */
                 if (c->local_rtc)
                         tm = *localtime(&ts.tv_sec);
                 else
                         tm = *gmtime(&ts.tv_sec);
 
-                /* Override the main fields of
-                 * struct tm, but not the timezone
-                 * fields */
-                if (clock_get_hwclock(&tm) >= 0) {
-
-                        /* And set the system clock
-                         * with this */
+                /* Override the main fields of struct tm, but not the timezone fields */
+                r = clock_get_hwclock(&tm);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get hardware clock, ignoring: %m");
+                else {
+                        /* And set the system clock with this */
                         if (c->local_rtc)
                                 ts.tv_sec = mktime(&tm);
                         else
                                 ts.tv_sec = timegm(&tm);
 
-                        clock_settime(CLOCK_REALTIME, &ts);
+                        if (clock_settime(CLOCK_REALTIME, &ts) < 0)
+                                log_debug_errno(errno, "Failed to update system clock, ignoring: %m");
                 }
 
         } else {
@@ -676,7 +665,9 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                 else
                         tm = gmtime(&ts.tv_sec);
 
-                clock_set_hwclock(tm);
+                r = clock_set_hwclock(tm);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
         }
 
         log_info("RTC configured to %s time.", c->local_rtc ? "local" : "UTC");
@@ -765,13 +756,15 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
                 tm = localtime(&ts.tv_sec);
         else
                 tm = gmtime(&ts.tv_sec);
-        clock_set_hwclock(tm);
+
+        r = clock_set_hwclock(tm);
+        if (r < 0)
+                log_debug_errno(r, "Failed to update hardware clock, ignoring: %m");
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TIME_CHANGE_STR,
                    "REALTIME="USEC_FMT, timespec_load(&ts),
-                   LOG_MESSAGE("Changed local time to %s", ctime(&ts.tv_sec)),
-                   NULL);
+                   LOG_MESSAGE("Changed local time to %s", ctime(&ts.tv_sec)));
 
         return sd_bus_reply_method_return(m, NULL);
 }

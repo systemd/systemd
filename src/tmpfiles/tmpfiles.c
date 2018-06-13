@@ -179,10 +179,13 @@ static const Specifier specifier_table[] = {
         { 'U', specifier_user_id,         NULL },
         { 'u', specifier_user_name,       NULL },
         { 'h', specifier_user_home,       NULL },
+
         { 't', specifier_directory,       UINT_TO_PTR(DIRECTORY_RUNTIME) },
         { 'S', specifier_directory,       UINT_TO_PTR(DIRECTORY_STATE) },
         { 'C', specifier_directory,       UINT_TO_PTR(DIRECTORY_CACHE) },
         { 'L', specifier_directory,       UINT_TO_PTR(DIRECTORY_LOGS) },
+        { 'T', specifier_tmp_dir,         NULL },
+        { 'V', specifier_var_tmp_dir,     NULL },
         {}
 };
 
@@ -428,7 +431,7 @@ static void load_unix_sockets(void) {
                         goto fail;
                 }
 
-                path_kill_slashes(s);
+                path_simplify(s, false);
 
                 r = set_consume(unix_sockets, s);
                 if (r < 0 && r != -EEXIST) {
@@ -1242,7 +1245,7 @@ static int write_one_file(Item *i, const char *path) {
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
-                fd = open(path, flags|O_NDELAY|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+                fd = open(path, flags|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
                 mac_selinux_create_file_clear();
         }
 
@@ -1307,7 +1310,7 @@ static int item_do(Item *i, int fd, const struct stat *st, fdaction_t action) {
         r = action(i, fd, st);
 
         if (S_ISDIR(st->st_mode)) {
-                char procfs_path[strlen("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
+                char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
                 _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
 
@@ -2115,6 +2118,43 @@ static int specifier_expansion_from_arg(Item *i) {
         return 0;
 }
 
+static int patch_var_run(const char *fname, unsigned line, char **path) {
+        const char *k;
+        char *n;
+
+        assert(path);
+        assert(*path);
+
+        /* Optionally rewrites lines referencing /var/run/, to use /run/ instead. Why bother? tmpfiles merges lines in
+         * some cases and detects conflicts in others. If files/directories are specified through two equivalent lines
+         * this is problematic as neither case will be detected. Ideally we'd detect these cases by resolving symlinks
+         * early, but that's precisely not what we can do here as this code very likely is running very early on, at a
+         * time where the paths in question are not available yet, or even more importantly, our own tmpfiles rules
+         * might create the paths that are intermediary to the listed paths. We can't really cover the generic case,
+         * but the least we can do is cover the specific case of /var/run vs. /run, as /var/run is a legacy name for
+         * /run only, and we explicitly document that and require that on systemd systems the former is a symlink to
+         * the latter. Moreover files below this path are by far the primary usecase for tmpfiles.d/. */
+
+        k = path_startswith(*path, "/var/run/");
+        if (isempty(k)) /* Don't complain about other paths than /var/run, and not about /var/run itself either. */
+                return 0;
+
+        n = strjoin("/run/", k);
+        if (!n)
+                return log_oom();
+
+        /* Also log about this briefly. We do so at LOG_NOTICE level, as we fixed up the situation automatically, hence
+         * there's no immediate need for action by the user. However, in the interest of making things less confusing
+         * to the user, let's still inform the user that these snippets should really be updated. */
+
+        log_notice("[%s:%u] Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.", fname, line, *path, n);
+
+        free(*path);
+        *path = n;
+
+        return 0;
+}
+
 static int parse_line(const char *fname, unsigned line, const char *buffer, bool *invalid_config) {
 
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
@@ -2193,6 +2233,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 return log_error_errno(r, "[%s:%u] Failed to replace specifiers: %s", fname, line, path);
         }
 
+        r = patch_var_run(fname, line, &i.path);
+        if (r < 0)
+                return r;
+
         switch (i.type) {
 
         case CREATE_DIRECTORY:
@@ -2245,7 +2289,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                         return -EBADMSG;
                 }
 
-                path_kill_slashes(i.argument);
+                path_simplify(i.argument, false);
                 break;
 
         case CREATE_CHAR_DEVICE:
@@ -2318,7 +2362,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 return -EBADMSG;
         }
 
-        path_kill_slashes(i.path);
+        path_simplify(i.path, false);
 
         if (!should_include_path(i.path))
                 return 0;

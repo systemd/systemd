@@ -136,9 +136,22 @@ int mac_smack_fix(const char *path, LabelFixFlags flags) {
         if (!mac_smack_use())
                 return 0;
 
-        /* Path must be in /dev */
-        if (!path_startswith(path, "/dev"))
-                return 0;
+        /* Path must be in /dev. Note that this check is pretty sloppy, as we might be called with non-normalized paths
+         * and hence not detect all cases of /dev. */
+
+        if (path_is_absolute(path)) {
+                if (!path_startswith(path, "/dev"))
+                        return 0;
+        } else {
+                _cleanup_free_ char *cwd = NULL;
+
+                r = safe_getcwd(&cwd);
+                if (r < 0)
+                        return r;
+
+                if (!path_startswith(cwd, "/dev"))
+                        return 0;
+        }
 
         fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
         if (fd < 0) {

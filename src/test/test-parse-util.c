@@ -648,6 +648,54 @@ static void test_parse_percent_unbounded(void) {
         assert_se(parse_percent_unbounded("400%") == 400);
 }
 
+static void test_parse_permille(void) {
+        assert_se(parse_permille("") == -EINVAL);
+        assert_se(parse_permille("foo") == -EINVAL);
+        assert_se(parse_permille("0") == -EINVAL);
+        assert_se(parse_permille("50") == -EINVAL);
+        assert_se(parse_permille("100") == -EINVAL);
+        assert_se(parse_permille("-1") == -EINVAL);
+
+        assert_se(parse_permille("0‰") == 0);
+        assert_se(parse_permille("555‰") == 555);
+        assert_se(parse_permille("1000‰") == 1000);
+        assert_se(parse_permille("-7‰") == -ERANGE);
+        assert_se(parse_permille("1007‰") == -ERANGE);
+        assert_se(parse_permille("‰") == -EINVAL);
+        assert_se(parse_permille("‰‰") == -EINVAL);
+        assert_se(parse_permille("‰1") == -EINVAL);
+        assert_se(parse_permille("1‰‰") == -EINVAL);
+        assert_se(parse_permille("3.2‰") == -EINVAL);
+
+        assert_se(parse_permille("0%") == 0);
+        assert_se(parse_permille("55%") == 550);
+        assert_se(parse_permille("55.5%") == 555);
+        assert_se(parse_permille("100%") == 1000);
+        assert_se(parse_permille("-7%") == -ERANGE);
+        assert_se(parse_permille("107%") == -ERANGE);
+        assert_se(parse_permille("%") == -EINVAL);
+        assert_se(parse_permille("%%") == -EINVAL);
+        assert_se(parse_permille("%1") == -EINVAL);
+        assert_se(parse_permille("1%%") == -EINVAL);
+        assert_se(parse_permille("3.21%") == -EINVAL);
+}
+
+static void test_parse_permille_unbounded(void) {
+        assert_se(parse_permille_unbounded("1001‰") == 1001);
+        assert_se(parse_permille_unbounded("4000‰") == 4000);
+        assert_se(parse_permille_unbounded("2147483647‰") == 2147483647);
+        assert_se(parse_permille_unbounded("2147483648‰") == -ERANGE);
+        assert_se(parse_permille_unbounded("4294967295‰") == -ERANGE);
+        assert_se(parse_permille_unbounded("4294967296‰") == -ERANGE);
+
+        assert_se(parse_permille_unbounded("101%") == 1010);
+        assert_se(parse_permille_unbounded("400%") == 4000);
+        assert_se(parse_permille_unbounded("214748364.7%") == 2147483647);
+        assert_se(parse_permille_unbounded("214748364.8%") == -ERANGE);
+        assert_se(parse_permille_unbounded("429496729.5%") == -ERANGE);
+        assert_se(parse_permille_unbounded("429496729.6%") == -ERANGE);
+}
+
 static void test_parse_nice(void) {
         int n;
 
@@ -797,6 +845,8 @@ int main(int argc, char *argv[]) {
         test_safe_atod();
         test_parse_percent();
         test_parse_percent_unbounded();
+        test_parse_permille();
+        test_parse_permille_unbounded();
         test_parse_nice();
         test_parse_dev();
         test_parse_errno();

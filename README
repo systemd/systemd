@@ -161,7 +161,7 @@ REQUIREMENTS:
         docbook-xsl (optional, required for documentation)
         xsltproc    (optional, required for documentation)
         python-lxml (optional, required to build the indices)
-        python, meson, ninja
+        python >= 3.4, meson >= 0.44, ninja
         gcc, awk, sed, grep, m4, and similar tools
 
         During runtime, you need the following additional
@@ -303,13 +303,12 @@ WARNINGS:
         For more information on this issue consult
         https://www.freedesktop.org/wiki/Software/systemd/separate-usr-is-broken
 
-        To run systemd under valgrind, compile with VALGRIND defined
-        (e.g. CPPFLAGS='... -DVALGRIND=1' meson <options>) and have valgrind
-        development headers installed (i.e. valgrind-devel or
-        equivalent). Otherwise, false positives will be triggered by code which
-        violates some rules but is actually safe. Note that valgrind generates
-        nice output only on exit(), hence on shutdown we don't execve()
-        systemd-shutdown.
+        To run systemd under valgrind, compile with meson option
+        -Dvalgrind=true and have valgrind development headers installed
+        (i.e. valgrind-devel or equivalent). Otherwise, false positives will be
+        triggered by code which violates some rules but is actually safe. Note
+        that valgrind generates nice output only on exit(), hence on shutdown
+        we don't execve() systemd-shutdown.
 
 STABLE BRANCHES AND BACKPORTS
 

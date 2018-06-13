@@ -24,6 +24,7 @@
 #if HAVE_SECCOMP
 #include "seccomp-util.h"
 #endif
+#include "service.h"
 #include "stat-util.h"
 #include "test-helper.h"
 #include "tests.h"
@@ -175,6 +176,7 @@ static void test_exec_workingdirectory(Manager *m) {
         assert_se(mkdir_p("/tmp/test-exec_workingdirectory", 0755) >= 0);
 
         test(m, "exec-workingdirectory.service", 0, CLD_EXITED);
+        test(m, "exec-workingdirectory-trailing-dot.service", 0, CLD_EXITED);
 
         (void) rm_rf("/tmp/test-exec_workingdirectory", REMOVE_ROOT|REMOVE_PHYSICAL);
 }
@@ -358,6 +360,9 @@ static void test_exec_restrictnamespaces(Manager *m) {
         test(m, "exec-restrictnamespaces-yes.service", 1, CLD_EXITED);
         test(m, "exec-restrictnamespaces-mnt.service", 0, CLD_EXITED);
         test(m, "exec-restrictnamespaces-mnt-blacklist.service", 1, CLD_EXITED);
+        test(m, "exec-restrictnamespaces-merge-and.service", 0, CLD_EXITED);
+        test(m, "exec-restrictnamespaces-merge-or.service", 0, CLD_EXITED);
+        test(m, "exec-restrictnamespaces-merge-all.service", 0, CLD_EXITED);
 #endif
 }
 

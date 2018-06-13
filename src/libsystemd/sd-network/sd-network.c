@@ -30,7 +30,7 @@ _public_ int sd_network_get_operational_state(char **state) {
 
         assert_return(state, -EINVAL);
 
-        r = parse_env_file("/run/systemd/netif/state", NEWLINE, "OPER_STATE", &s, NULL);
+        r = parse_env_file(NULL, "/run/systemd/netif/state", NEWLINE, "OPER_STATE", &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -50,7 +50,7 @@ static int network_get_strv(const char *key, char ***ret) {
 
         assert_return(ret, -EINVAL);
 
-        r = parse_env_file("/run/systemd/netif/state", NEWLINE, key, &s, NULL);
+        r = parse_env_file(NULL, "/run/systemd/netif/state", NEWLINE, key, &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -98,7 +98,7 @@ static int network_link_get_string(int ifindex, const char *field, char **ret) {
 
         xsprintf(path, "/run/systemd/netif/links/%i", ifindex);
 
-        r = parse_env_file(path, NEWLINE, field, &s, NULL);
+        r = parse_env_file(NULL, path, NEWLINE, field, &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -121,7 +121,7 @@ static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
         assert_return(ret, -EINVAL);
 
         xsprintf(path, "/run/systemd/netif/links/%i", ifindex);
-        r = parse_env_file(path, NEWLINE, key, &s, NULL);
+        r = parse_env_file(NULL, path, NEWLINE, key, &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -178,6 +178,10 @@ _public_ int sd_network_link_get_mdns(int ifindex, char **mdns) {
         return network_link_get_string(ifindex, "MDNS", mdns);
 }
 
+_public_ int sd_network_link_get_private_dns(int ifindex, char **private_dns) {
+        return network_link_get_string(ifindex, "PRIVATE_DNS", private_dns);
+}
+
 _public_ int sd_network_link_get_dnssec(int ifindex, char **dnssec) {
         return network_link_get_string(ifindex, "DNSSEC", dnssec);
 }
@@ -218,7 +222,7 @@ static int network_link_get_ifindexes(int ifindex, const char *key, int **ret) {
         assert_return(ret, -EINVAL);
 
         xsprintf(path, "/run/systemd/netif/links/%i", ifindex);
-        r = parse_env_file(path, NEWLINE, key, &s, NULL);
+        r = parse_env_file(NULL, path, NEWLINE, key, &s, NULL);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)

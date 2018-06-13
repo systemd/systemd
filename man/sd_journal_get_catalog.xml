@@ -10,7 +10,7 @@
   Copyright 2012 Lennart Poettering
 -->
 
-<refentry id="sd_journal_get_catalog">
+<refentry id="sd_journal_get_catalog" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_get_catalog</title>
@@ -104,12 +104,7 @@
     single thread may operate on a given <structname>sd_journal</structname> object. Function
     <function>sd_journal_get_catalog_for_message_id()</function> is thread-safe.</para>
 
-    <para>The <function>sd_journal_get_catalog()</function> and
-    <function>sd_journal_get_catalog_for_message_id()</function>
-    interfaces are available as a shared library, which can be
-    compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>

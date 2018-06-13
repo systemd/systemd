@@ -632,6 +632,58 @@ int parse_percent(const char *p) {
         return v;
 }
 
+int parse_permille_unbounded(const char *p) {
+        const char *pc, *pm, *dot, *n;
+        int r, q, v;
+
+        pm = endswith(p, "‰");
+        if (pm) {
+                n = strndupa(p, pm - p);
+                r = safe_atoi(n, &v);
+                if (r < 0)
+                        return r;
+        } else {
+                pc = endswith(p, "%");
+                if (!pc)
+                        return -EINVAL;
+
+                dot = memchr(p, '.', pc - p);
+                if (dot) {
+                        if (dot + 2 != pc)
+                                return -EINVAL;
+                        if (dot[1] < '0' || dot[1] > '9')
+                                return -EINVAL;
+                        q = dot[1] - '0';
+                        n = strndupa(p, dot - p);
+                } else {
+                        q = 0;
+                        n = strndupa(p, pc - p);
+                }
+                r = safe_atoi(n, &v);
+                if (r < 0)
+                        return r;
+                if (v > ((INT_MAX - q) / 10))
+                        return -ERANGE;
+
+                v = v * 10 + q;
+        }
+
+        if (v < 0)
+                return -ERANGE;
+
+        return v;
+}
+
+int parse_permille(const char *p) {
+        int v;
+
+        v = parse_permille_unbounded(p);
+        if (v > 1000)
+                return -ERANGE;
+
+        return v;
+}
+
 int parse_nice(const char *p, int *ret) {
         int n, r;
 
@@ -674,5 +726,22 @@ int parse_dev(const char *s, dev_t *ret) {
                 return -EINVAL;
 
         *ret = d;
+        return 0;
+}
+
+int parse_oom_score_adjust(const char *s, int *ret) {
+        int r, v;
+
+        assert(s);
+        assert(ret);
+
+        r = safe_atoi(s, &v);
+        if (r < 0)
+                return r;
+
+        if (v < OOM_SCORE_ADJ_MIN || v > OOM_SCORE_ADJ_MAX)
+                return -ERANGE;
+
+        *ret = v;
         return 0;
 }

@@ -11,12 +11,7 @@ __systemctl() {
 }
 
 __systemd_properties() {
-        local mode=$1
-        { __systemctl $mode show --all;
-         @rootlibexecdir@/systemd --dump-configuration-items; } |
-        while IFS='=' read -r key value; do
-            [[ $value ]] && echo "$key"
-        done
+        @rootlibexecdir@/systemd --dump-bus-properties
 }
 
 __contains_word () {
@@ -67,6 +62,8 @@ __filter_units_by_properties () {
 }
 
 __get_all_units      () { { __systemctl $1 list-unit-files; __systemctl $1 list-units --all; } \
+        | { while read -r a b; do echo " $a"; done; }; }
+__get_non_template_units() { { __systemctl $1 list-unit-files; __systemctl $1 list-units --all; } \
         | { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }; }
 __get_template_names () { __systemctl $1 list-unit-files \
         | { while read -r a b; do [[ $a =~ @\. ]] && echo " ${a%%@.*}@"; done; }; }
@@ -154,7 +151,7 @@ _systemctl () {
                                 comps=$(compgen -A hostname)
                         ;;
                         --property|-p)
-                                comps=$(__systemd_properties $mode)
+                                comps=$(__systemd_properties)
                         ;;
                         --preset-mode)
                                 comps='full enable-only disable-only'
@@ -177,7 +174,8 @@ _systemctl () {
         fi
 
         local -A VERBS=(
-                [ALL_UNITS]='is-active is-failed is-enabled status show cat mask preset help list-dependencies edit set-property revert'
+                [ALL_UNITS]='cat mask'
+        [NONTEMPLATE_UNITS]='is-active is-failed is-enabled status show preset help list-dependencies edit set-property revert'
             [ENABLED_UNITS]='disable'
            [DISABLED_UNITS]='enable'
         [REENABLABLE_UNITS]='reenable'
@@ -215,6 +213,10 @@ _systemctl () {
 
         elif __contains_word "$verb" ${VERBS[ALL_UNITS]}; then
                 comps=$( __get_all_units $mode )
+                compopt -o filenames
+
+        elif __contains_word "$verb" ${VERBS[NONTEMPLATE_UNITS]}; then
+                comps=$( __get_non_template_units $mode )
                 compopt -o filenames
 
         elif __contains_word "$verb" ${VERBS[ENABLED_UNITS]}; then

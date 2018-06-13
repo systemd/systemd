@@ -93,6 +93,7 @@ static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",
         [UNIT_LOADED] = "loaded",
         [UNIT_NOT_FOUND] = "not-found",
+        [UNIT_BAD_SETTING] = "bad-setting",
         [UNIT_ERROR] = "error",
         [UNIT_MERGED] = "merged",
         [UNIT_MASKED] = "masked"

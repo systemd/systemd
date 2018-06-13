@@ -153,7 +153,7 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>These commands are implemented in a way that preserves compatiblity with
+    <para>These commands are implemented in a way that preserves compatibility with
     the original SysV commands.
     <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     verbs <command>halt</command>, <command>poweroff</command>,

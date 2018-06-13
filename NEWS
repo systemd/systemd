@@ -4,10 +4,308 @@ CHANGES WITH 239 in spe:
 
         * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"
           builtin may name network interfaces differently than in previous
-          versions.  SR-IOV virtual functions and NPAR partitions with PCI
-          function numbers of 8 and above will be named more predictably,
-          and udev may generate names based on PCI slot number in some cases
+          versions. SR-IOV virtual functions and NPAR partitions with PCI
+          function numbers of 8 and above will be named more predictably, and
+          udev may generate names based on the PCI slot number in some cases
           where it previously did not.
+
+        * AF_INET and AF_INET6 are dropped from RestrictAddressFamilies= in
+          systemd-logind.service. Since v235, IPAddressDeny=any has been set to
+          the unit. So, it is expected that the default behavior of systemd-logind
+          is not changed. However, if distribution packagers or administrators
+          disabled or modified IPAddressDeny= setting by a drop-in config file,
+          then it may be necessary to update the file to re-enable AF_INET and
+          AF_INET6 to support network user name services, e.g. NIS.
+
+        * When the RestrictNamespaces= unit property is specified multiple times,
+          then the specified types are merged now. Previously, only the last
+          assignment was used. So, if distribution packagers or administrators
+          modified the setting by a drop-in config file, then it may be necessary
+          to update the file.
+
+        * When OnFailure= is used in combination with Restart= on a service
+          unit, then the specified units will no longer be triggered on
+          failures that result in restarting. Previously, the specified units
+          would be activated each time the unit failed, even when the unit was
+          going to be restarted automatically. This behaviour contradicted the
+          documentation. With this release the code is adjusted to match the
+          documentation.
+
+        * systemd-tmpfiles will now print a notice whenever it encounters
+          tmpfiles.d/ lines referencing the /var/run/ directory. It will
+          recommend reworking them to use the /run/ directory instead (for
+          which /var/run/ is simply a symlinked compatibility alias). This way
+          systemd-tmpfiles can properly detect line conflicts and merge lines
+          referencing the same file by two paths, without having to access
+          them.
+
+        * systemctl disable/unmask/preset/preset-all cannot be used with
+          --runtime. Previously this was allowed, but resulted in unintuitive
+          behaviour that wasn't useful. systemctl disable/unmask will now
+          undo both runtime and persistent enablement/masking, i.e. it will
+          remove any relevant symlinks both in /run and /etc.
+
+        * sd-boot acquired new loader configuration settings to optionally turn
+          off Windows and MacOS boot partition discovery as well as
+          reboot-into-firmware menu items. It is also able to pick a better
+          screen resolution for HiDPI systems, and now provides loader
+          configuration settings to change the resolution explicitly.
+
+        * The systemd-resolve tool has been renamed to resolvectl (it also
+          remains available under the old name, for compatibility), and its
+          interface is now verb-based, similar in style to the other <xyz>ctl
+          tools, such as systemctl or loginctl.
+
+        * The resolvectl/systemd-resolve tool also provides 'resolveconf'
+          compatibility. It may be symlinked under the 'resolveconf' name, in
+          which case it will take arguments and input compatible with the
+          Debian and FreeBSD resolvconf tool.
+
+        * Support for suspend-then-hibernate has been added, i.e. a sleep mode
+          where the system initially suspends, and after a time-out resumes and
+          hibernates again.
+
+        * networkd's ClientIdentifier= now accepts a new option "duid-only". If
+          set the client will only send a DUID as client identifier.
+
+        * The nss-systemd glibc NSS module will now enumerate dynamic users and
+          groups in effect. Previously, it could resolve UIDs/GIDs to user
+          names/groups and vice versa, but did not support enumeration.
+
+        * journald's Compress= configuration setting now optionally accepts a
+          byte threshold value. All journal objects larger than this threshold
+          will be compressed, smaller ones will not. Previously this threshold
+          was not configurable and set to 512.
+
+        * A new system.conf setting NoNewPrivileges= is now available which may
+          be used to turn off acquisition of new privileges system-wide
+          (i.e. set Linux' PR_SET_NO_NEW_PRIVS for PID 1 itself, and thus also
+          for all its children). Note that turning this option on means setuid
+          binaries and file system capabilities lose their special powers.
+          While turning on this option is a big step towards a more secure
+          system, doing so is likely to break numerous pre-existing UNIX tools,
+          in particular su and sudo.
+
+        * A new service systemd-time-sync-wait.service has been added. If
+          enabled it will delay the time-sync.target unit at boot until time
+          synchronization has been received from the network. This
+          functionality is useful on systems lacking a local RTC or where it is
+          acceptable that the boot process shall be delayed by external network
+          services.
+
+        * When hibernating, systemd will now inform the kernel of the image
+          write offset, on kernels new enough to support this. This means swap
+          files should work for hibernation now.
+
+        * When loading unit files, systemd will now look for drop-in unit files
+          extensions in additional places. Previously, for a unit file name
+          "foo-bar-baz.service" it would look for dropin files in
+          "foo-bar-baz.service.d/*.conf". Now, it will also look in
+          "foo-bar-.service.d/*.conf" and "foo-.service.d/", i.e. at the
+          service name truncated after all inner dashes. This scheme allows
+          writing drop-ins easily that apply to a whole set of unit files at
+          once. It's particularly useful for mount and slice units (as their
+          naming is prefix based), but is also useful for service and other
+          units, for packages that install multiple unit files at once,
+          following a strict naming regime of beginning the unit file name with
+          the package's name. Two new specifiers are now supported in unit
+          files to match this: %j and %J are replaced by the part of the unit
+          name following the last dash.
+
+        * Unit files and other configuration files that support specifier
+          expansion now understand another two new specifiers: %T and %V will
+          resolve to /tmp and /var/tmp respectively, or whatever temporary
+          directory has been set for the calling user.
+
+        * The ExecStart= lines of unit files are no longer required to
+          reference absolute paths. If non-absolute paths are specified the
+          specified binary name is searched within the service manager's
+          built-in $PATH, which may be queried with 'systemd-path
+          search-binaries-default'. It's generally recommended to continue to
+          use absolute paths for all binaries specified in unit files.
+
+        * Units gained a new load state "bad-setting", which is used when a
+          unit file was loaded, but contained fatal errors which prevent it
+          from being started (for example, an ExecStart= path which references
+          a non-existent executable).
+
+        * coredumpctl's "gdb" verb has been renamed to "debug", in order to
+          support alternative debuggers, for example lldb. The old name
+          continues to be available however, for compatibility reasons. Use the
+          new --debugger= switch or the $SYSTEMD_DEBUGGER environment variable
+          to pick an alternative debugger instead of the default gdb.
+
+        * systemctl and the other tools will now output escape sequences that
+          generate proper clickable hyperlinks in various terminal emulators
+          where useful (for example, in the "systemctl status" output you can
+          now click on the unit file name to quickly open it in the
+          editor/viewer of your choice). Note that not all terminal emulators
+          support this functionality yet, but many do. Unfortunately, the
+          "less" pager doesn't support this yet, hence this functionality is
+          currently automatically turned off when a pager is started (which
+          happens quite often due to auto-paging). We hope to remove this
+          limitation as soon as "less" learns these escape sequences. This new
+          behaviour may also be turned off explicitly with the $SYSTEMD_URLIFY
+          environment variable. For details on these escape sequences see:
+          https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda
+
+        * networkd's .network files now support a new IPv6MTUBytes= option for
+          setting the MTU used by IPv6 explicitly as well as a new MTUBytes=
+          option in the [Route] section to configure the MTU to use for
+          specific routes. It also gained support for configuration of the DHCP
+          "UserClass" option through the new UserClass= setting. It gained
+          three new options in the new [CAN] section for configuring CAN
+          networks. The MULTICAST and ALLMULTI interface flags may now be
+          controlled explicitly with the new Multicast= and AllMulticast=
+          settings.
+
+        * networkd will now automatically make use of the kernel's route
+          expiration feature, if it is available.
+
+        * udevd's .link files now support setting the number of receive and
+          transmit channels, using the RxChannels=, TxChannels=,
+          OtherChannels=, CombinedChannels= settings.
+
+        * Support for UDPSegmentationOffload= has been removed, given its
+          limited support in hardware, and waning software support.
+
+        * networkd's .netdev files now support creating "netdevsim" interfaces.
+
+        * PID 1 learnt a new bus call GetUnitByControlGroup() which may be used
+          to query the unit belonging to a specific kernel control group.
+
+        * systemd-analyze gained a new verb "cat-config", which may be used to
+          dump the contents of any configuration file, with all its matching
+          drop-in files added in, and honouring the usual search and masking
+          logic applied to systemd configuration files. For example use
+          "systemd-analyze cat-config systemd/system.conf" to get the complete
+          system configuration file of systemd how it would be loaded by PID 1
+          itself. Similar to this, various tools such as systemd-tmpfiles or
+          systemd-sysusers, gained a new option "--cat-config", which does the
+          corresponding operation for their own configuration settings. For
+          example, "systemd-tmpfiles --cat-config" will now output the full
+          list of tmpfiles.d/ lines in place.
+
+        * timedatectl gained two new verbs "timesync-status" (to show the
+          current NTP synchronization state of systemd-timesyncd) and
+          "show-timesync" (to show bus properties of systemd-timesyncd).
+
+        * systemd-timesyncd gained a bus interface on which it exposes details
+          about its state.
+
+        * systemd-nspawn gained a new --rlimit= switch for setting initial
+          resource limits for the container payload. There's a new switch
+          --hostname= to explicitly override the container's hostname. A new
+          --no-new-privileges= switch may be used to control the
+          PR_SET_NO_NEW_PRIVS flag for the container payload. A new
+          --oom-score-adjust= switch controls the OOM scoring adjustment value
+          for the payload. The new --cpu-affinity= switch controls the CPU
+          affinity of the container payload. The new --resolv-conf= switch
+          allows more detailed control of /etc/resolv.conf handling of the
+          container. Similarly, the new --timezone= switch allows more detailed
+          control of /etc/localtime handling of the container.
+
+        * systemd-detect-virt gained a new --list switch, which will print a
+          list of all currently known VM and container environments.
+
+        * Support for "Portable Services" has been added, see
+          doc/PORTABLE_SERVICES.md for details. Currently, the support is still
+          experimental, but this is expected to change soon. Reflecting this
+          experimental state, the "portablectl" binary is not installed into
+          /usr/bin yet. The binary has to be called with the full path
+          /usr/lib/systemd/portablectl instead.
+
+        * journalctl's and systemctl's -o switch now knows a new log output
+          mode "with-unit". The output it generates is very similar to the
+          regular "short" mode, but displays the unit name instead of the
+          syslog tag for each log line. Also, the date is shown with timezone
+          information. This mode is probably more useful than the classic
+          "short" output mode for most purposes, except where pixel-perfect
+          compatibility with classic /var/log/messages formatting is required.
+
+        * A new --dump-bus-properties switch has been added to the systemd
+          binary, which may be used to dump all supported D-Bus properties.
+          (Options which are still supported, but are deprecated, are *not*
+          shown.)
+
+        * sd-bus gained a set of new calls:
+          sd_bus_slot_set_floating()/sd_bus_slot_get_floating() may be used to
+          enable/disable the "floating" state of a bus slot object,
+          i.e. whether the slot object pins the bus it is allocated for into
+          memory or if the bus slot object gets disconnected when the bus goes
+          away. sd_bus_open_with_description(),
+          sd_bus_open_user_with_description(),
+          sd_bus_open_system_with_description() may be used to allocate bus
+          objects and set their description string already during allocation.
+
+        * sd-event gained support for watching inotify events from the event
+          loop, in an efficient way, sharing inotify handles between multiple
+          users. For this a new function sd_event_add_inotify() has been added.
+
+        * sd-event and sd-bus gained support for calling special user-supplied
+          destructor functions for userdata pointers associated with
+          sd_event_source, sd_bus_slot, and sd_bus_track objects. For this new
+          functions sd_bus_slot_set_destroy_callback,
+          sd_bus_slot_get_destroy_callback, sd_bus_track_set_destroy_callback,
+          sd_bus_track_get_destroy_callback,
+          sd_event_source_set_destroy_callback,
+          sd_event_source_get_destroy_callback have been added.
+
+        * The "net.ipv4.tcp_ecn" sysctl will now be turned on by default.
+
+        * PID 1 will now automatically reschedule .timer units whenever the
+          local timezone changes. (They previously got rescheduled
+          automatically when the system clock changed.)
+
+        * New documentation has been added to document cgroups delegation,
+          portable services and the various code quality tools we have set up:
+
+          https://github.com/systemd/systemd/blob/master/doc/CGROUP_DELEGATION.md
+          https://github.com/systemd/systemd/blob/master/doc/PORTABLE_SERVICES.md
+          https://github.com/systemd/systemd/blob/master/doc/CODE_QUALITY.md
+
+        * pam_systemd will now look for PAM userdata fields systemd.memory_max,
+          systemd.tasks_max, systemd.cpu_weight, systemd.io_weight set by
+          earlier PAM modules. The data in these fields is used to initialize
+          the session scope's resource properties. Thus external PAM modules
+          may now configure per-session limits, for example sourced from
+          external user databases.
+
+        * socket units with Accept=yes will now maintain a "refused" counter in
+          addition to the existing "accepted" counter, counting connections
+          refused due to the enforced limits.
+
+        * The "systemd-path search-binaries-default" command may now be use to
+          query the default, built-in $PATH PID 1 will pass to the services it
+          manages.
+
+        Contributions from: Adam Duskett, Alan Jenkins, Alessandro Casale,
+        Alexander Kurtz, Alex Gartrell, Anssi Hannula, Antique, Arnaud
+        Rebillout, Brian J. Murrell, Bruno Vernay, Chris Lesiak, Christian
+        Brauner, Christian Hesse, Daniel Dao, Daniel Lin, Danylo Korostil,
+        Davide Cavalca, David Tardon, Dimitri John Ledkov, Dmitriy Geels,
+        Douglas Christman, Elia Geretto, emelenas, Evegeny Vereshchagin, Evgeny
+        Vereshchagin, Felipe Sateler, Feng Sun, Filipe Brandenburger, Franck
+        Bui, futpib, Giuseppe Scrivano, Guillem Jover, guixxx, Hans de Goede,
+        Henrique Dante de Almeida, Hiram van Paassen, Ian Miell, Igor Gnatenko,
+        Ivan Shapovalov, James Cowgill, Jan Janssen, Jan Synacek, Jared
+        Kazimir, João Paulo Rechi Vita, Joost Heitbrink, juergbi, Jui-Chi Ricky
+        Liang, Kai-Heng Feng, Karol Augustin, Krzysztof Nowicki, Lauri
+        Tirkkonen, Lennart Poettering, Leonard, Long Li, Luca Boccassi, Lucas
+        Werkmeister, Marcel Hoppe, Marc Kleine-Budde, Mario Limonciello, Martin
+        Jansa, Martin Wilck, Mathieu Malaterre, Matteo F. Vescovi, Michael
+        Biebl, Michael Olbrich, Michael Prokop, Michal Koutný, Michal Sekletar,
+        Mike Gilbert, Mikhail Kasimov, Milan, Milan Broz, mourikwa, Muhammet
+        Kara, Nicolas Boichat, Omer Katz, Paride Legovini, Paul Menzel, Paul
+        Milliken, Peter A. Bigot, Peter Hutterer, Peter Jones, Philip Sequeira,
+        Philip Withnall, Piotr Drąg, Radostin Stoyanov, Ricardo Salveti de
+        Araujo, Rosen Penev, rubensa, Ryan Gonzalez, Salvo 'LtWorf' Tomaselli,
+        Sebastian Reichel, Sergio Lindo Mansilla, Stefan Schweter, Stephen
+        Hemminger, Stuart Hayes, Susant Sahani, Sylvain Plantefève, Thomas
+        H. P. Andersen, Tobias Jungel, Tomasz Torcz, Vito Caputo, Will Dietz,
+        Will Thompson, xginn8, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
+
+        — Berlin, 2018-06-XX
 
 CHANGES WITH 238:
 
@@ -321,7 +619,7 @@ CHANGES WITH 237:
           systemd.service_watchdogs= for controlling the same.
 
         * Two new "log-level" and "log-target" options for systemd-analyze were
-          addded that merge the now deprecated get-log-level, set-log-level and
+          added that merge the now deprecated get-log-level, set-log-level and
           get-log-target, set-log-target pairs. The deprecated options are still
           understood for backwards compatibility. The two new options print the
           current value when no arguments are given, and set them when a
@@ -890,7 +1188,7 @@ CHANGES WITH 234:
           (domain search list).
 
         * systemd-networkd gained support for serving IPv6 address ranges using
-          the Router Advertisment protocol. The new .network configuration
+          the Router Advertisement protocol. The new .network configuration
           section [IPv6Prefix] may be used to configure the ranges to
           serve. This is implemented based on a new, minimal, native server
           implementation of RA.
@@ -1621,7 +1919,7 @@ CHANGES WITH 232:
           counted multiple times, if it takes multiple references.
 
         * sd-bus gained new API calls sd_bus_set_exit_on_disconnect() and
-          sd_bus_get_exit_on_disconnect(). They may be used to to make a
+          sd_bus_get_exit_on_disconnect(). They may be used to make a
           process using sd-bus automatically exit if the bus connection is
           severed.
 
@@ -1952,7 +2250,7 @@ CHANGES WITH 231:
           with future releases) that the components link to. This should
           decrease systemd footprint both in memory during runtime and on
           disk. Note that the shared library is not for public use, and is
-          neither API not ABI stable, but is likely to change with every new
+          neither API nor ABI stable, but is likely to change with every new
           released update. Packagers need to make sure that binaries
           linking to libsystemd-shared.so are updated in step with the
           library.

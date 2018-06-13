@@ -189,7 +189,7 @@ supported for the whole system, back in the days.
 assign has the lower 16bits all set to zero. That way, the upper 16bits become
 a container ID of some kind, while the lower 16bits directly encode the
 internal container UID. This is the way `systemd-nspawn` allocates UID ranges
-(see above). Following this allocation logic ensures best compability with
+(see above). Following this allocation logic ensures best compatibility with
 `systemd-nspawn` and all other container managers following the scheme, as it
 is sufficient then to check NSS for the first UID you pick regarding conflicts,
 as that's what they do, too. Moreover, it makes `chown()`ing container file

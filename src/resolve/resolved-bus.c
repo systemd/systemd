@@ -1258,7 +1258,6 @@ static int bus_property_get_dns_servers(
                 sd_bus_error *error) {
 
         Manager *m = userdata;
-        unsigned c = 0;
         DnsServer *s;
         Iterator i;
         Link *l;
@@ -1275,8 +1274,6 @@ static int bus_property_get_dns_servers(
                 r = bus_dns_server_append(reply, s, true);
                 if (r < 0)
                         return r;
-
-                c++;
         }
 
         HASHMAP_FOREACH(l, m->links, i) {
@@ -1284,16 +1281,35 @@ static int bus_property_get_dns_servers(
                         r = bus_dns_server_append(reply, s, true);
                         if (r < 0)
                                 return r;
-                        c++;
                 }
         }
 
-        if (c == 0) {
-                LIST_FOREACH(servers, s, m->fallback_dns_servers) {
-                        r = bus_dns_server_append(reply, s, true);
-                        if (r < 0)
-                                return r;
-                }
+        return sd_bus_message_close_container(reply);
+}
+
+static int bus_property_get_fallback_dns_servers(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        DnsServer *s, **f = userdata;
+        int r;
+
+        assert(reply);
+        assert(f);
+
+        r = sd_bus_message_open_container(reply, 'a', "(iiay)");
+        if (r < 0)
+                return r;
+
+        LIST_FOREACH(servers, s, *f) {
+                r = bus_dns_server_append(reply, s, true);
+                if (r < 0)
+                        return r;
         }
 
         return sd_bus_message_close_container(reply);
@@ -1422,40 +1438,6 @@ static int bus_property_get_dnssec_statistics(
                                      (uint64_t) m->n_dnssec_verdict[DNSSEC_INDETERMINATE]);
 }
 
-static int bus_property_get_dnssec_supported(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = userdata;
-
-        assert(reply);
-        assert(m);
-
-        return sd_bus_message_append(reply, "b", manager_dnssec_supported(m));
-}
-
-static int bus_property_get_dnssec_mode(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = userdata;
-
-        assert(reply);
-        assert(m);
-
-        return sd_bus_message_append(reply, "s", dnssec_mode_to_string(manager_get_dnssec_mode(m)));
-}
-
 static int bus_property_get_ntas(
                 sd_bus *bus,
                 const char *path,
@@ -1487,6 +1469,8 @@ static int bus_property_get_ntas(
 }
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
+static BUS_DEFINE_PROPERTY_GET(bus_property_get_dnssec_supported, "b", Manager, manager_dnssec_supported);
+static BUS_DEFINE_PROPERTY_GET2(bus_property_get_dnssec_mode, "s", Manager, manager_get_dnssec_mode, dnssec_mode_to_string);
 
 static int bus_method_reset_statistics(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
@@ -1848,6 +1832,7 @@ static const sd_bus_vtable resolve_vtable[] = {
         SD_BUS_PROPERTY("LLMNR", "s", bus_property_get_resolve_support, offsetof(Manager, llmnr_support), 0),
         SD_BUS_PROPERTY("MulticastDNS", "s", bus_property_get_resolve_support, offsetof(Manager, mdns_support), 0),
         SD_BUS_PROPERTY("DNS", "a(iiay)", bus_property_get_dns_servers, 0, 0),
+        SD_BUS_PROPERTY("FallbackDNS", "a(iiay)", bus_property_get_fallback_dns_servers, offsetof(Manager, fallback_dns_servers), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CurrentDNSServer", "(iiay)", bus_property_get_current_dns_server, offsetof(Manager, current_dns_server), 0),
         SD_BUS_PROPERTY("Domains", "a(isb)", bus_property_get_domains, 0, 0),
         SD_BUS_PROPERTY("TransactionStatistics", "(tt)", bus_property_get_transaction_statistics, 0, 0),
@@ -1933,7 +1918,7 @@ int manager_connect_bus(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register dnssd enumerator: %m");
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.resolve1", 0, NULL, NULL);
+        r = bus_request_name_async_may_reload_dbus(m->bus, NULL, "org.freedesktop.resolve1", 0, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 

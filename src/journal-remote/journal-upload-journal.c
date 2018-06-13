@@ -8,12 +8,14 @@
 #include <curl/curl.h>
 #include <stdbool.h>
 
+#include "sd-daemon.h"
+
 #include "alloc-util.h"
 #include "journal-upload.h"
 #include "log.h"
+#include "string-util.h"
 #include "utf8.h"
 #include "util.h"
-#include "sd-daemon.h"
 
 /**
  * Write up to size bytes to buf. Return negative on error, and number of
@@ -139,8 +141,12 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                                 continue;
                         }
 
-                        if (!utf8_is_printable_newline(u->field_data,
-                                                       u->field_length, false)) {
+                        /* We already printed the boot id from the data in
+                         * the header, hence let's suppress it here */
+                        if (memory_startswith(u->field_data, u->field_length, "_BOOT_ID="))
+                                continue;
+
+                        if (!utf8_is_printable_newline(u->field_data, u->field_length, false)) {
                                 u->entry_state = ENTRY_BINARY_FIELD_START;
                                 continue;
                         }

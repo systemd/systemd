@@ -86,6 +86,7 @@
 #include "selinux-util.h"
 #include "signal-util.h"
 #include "smack-util.h"
+#include "socket-util.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -1786,8 +1787,20 @@ static bool exec_needs_mount_namespace(
             context->protect_control_groups)
                 return true;
 
-        if (context->mount_apivfs && (context->root_image || context->root_directory))
-                return true;
+        if (context->root_directory) {
+                ExecDirectoryType t;
+
+                if (context->mount_apivfs)
+                        return true;
+
+                for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
+                        if (!params->prefix[t])
+                                continue;
+
+                        if (!strv_isempty(context->directories[t].paths))
+                                return true;
+                }
+        }
 
         if (context->dynamic_user &&
             (!strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
@@ -2088,10 +2101,10 @@ static int setup_exec_directory(
                         }
                 } else {
                         r = mkdir_label(p, context->directories[type].mode);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
+                        if (r < 0 && r != -EEXIST)
                                 goto fail;
+                        if (r == -EEXIST && !context->dynamic_user)
+                                continue;
                 }
 
                 /* Don't change the owner of the configuration directory, as in the common case it is not written to by
@@ -2219,7 +2232,8 @@ static int compile_bind_mounts(
                         continue;
 
                 if (context->dynamic_user &&
-                    !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION)) {
+                    !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION) &&
+                    !(context->root_directory || context->root_image)) {
                         char *private_root;
 
                         /* So this is for a dynamic user, and we need to make sure the process can access its own
@@ -2250,7 +2264,15 @@ static int compile_bind_mounts(
                                 goto finish;
                         }
 
-                        d = strdup(s);
+                        if (context->dynamic_user &&
+                            !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION) &&
+                            (context->root_directory || context->root_image))
+                                /* When RootDirectory= or RootImage= are set, then the symbolic link to the private
+                                 * directory is not created on the root directory. So, let's bind-mount the directory
+                                 * on the 'non-private' place. */
+                                d = strjoin(params->prefix[t], "/", *suffix);
+                        else
+                                d = strdup(s);
                         if (!d) {
                                 free(s);
                                 r = -ENOMEM;
@@ -2726,7 +2748,7 @@ static int exec_child(
 #endif
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
-        int i, r, ngids = 0;
+        int r, ngids = 0;
         size_t n_fds;
         ExecDirectoryType dt;
         int secure_bits;
@@ -2915,15 +2937,9 @@ static int exec_child(
         }
 
         if (context->oom_score_adjust_set) {
-                char t[DECIMAL_STR_MAX(context->oom_score_adjust)];
-
-                /* When we can't make this change due to EPERM, then
-                 * let's silently skip over it. User namespaces
-                 * prohibit write access to this file, and we
-                 * shouldn't trip up over that. */
-
-                sprintf(t, "%i", context->oom_score_adjust);
-                r = write_string_file("/proc/self/oom_score_adj", t, 0);
+                /* When we can't make this change due to EPERM, then let's silently skip over it. User namespaces
+                 * prohibit write access to this file, and we shouldn't trip up over that. */
+                r = set_oom_score_adjust(context->oom_score_adjust);
                 if (IN_SET(r, -EPERM, -EACCES))
                         log_unit_debug_errno(unit, r, "Failed to adjust OOM setting, assuming containerized execution, ignoring: %m");
                 else if (r < 0) {
@@ -3166,17 +3182,12 @@ static int exec_child(
 
         if (needs_sandboxing) {
                 uint64_t bset;
+                int which_failed;
 
-                for (i = 0; i < _RLIMIT_MAX; i++) {
-
-                        if (!context->rlimit[i])
-                                continue;
-
-                        r = setrlimit_closest(i, context->rlimit[i]);
-                        if (r < 0) {
-                                *exit_status = EXIT_LIMITS;
-                                return log_unit_error_errno(unit, r, "Failed to adjust resource limit %s: %m", rlimit_to_string(i));
-                        }
+                r = setrlimit_closest_all((const struct rlimit* const *) context->rlimit, &which_failed);
+                if (r < 0) {
+                        *exit_status = EXIT_LIMITS;
+                        return log_unit_error_errno(unit, r, "Failed to adjust resource limit RLIMIT_%s: %m", rlimit_to_string(which_failed));
                 }
 
                 /* Set the RTPRIO resource limit to 0, but only if nothing else was explicitly requested. */
@@ -3389,29 +3400,24 @@ static int exec_child(
                 _cleanup_free_ char *line;
 
                 line = exec_command_line(final_argv);
-                if (line) {
+                if (line)
                         log_struct(LOG_DEBUG,
                                    "EXECUTABLE=%s", command->path,
                                    LOG_UNIT_MESSAGE(unit, "Executing: %s", line),
                                    LOG_UNIT_ID(unit),
-                                   LOG_UNIT_INVOCATION_ID(unit),
-                                   NULL);
-                }
+                                   LOG_UNIT_INVOCATION_ID(unit));
         }
 
         execve(command->path, final_argv, accum_env);
 
         if (errno == ENOENT && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
-
                 log_struct_errno(LOG_INFO, errno,
                                  "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                  LOG_UNIT_ID(unit),
                                  LOG_UNIT_INVOCATION_ID(unit),
                                  LOG_UNIT_MESSAGE(unit, "Executable %s missing, skipping: %m",
                                                   command->path),
-                                 "EXECUTABLE=%s", command->path,
-                                 NULL);
-
+                                 "EXECUTABLE=%s", command->path);
                 return 0;
         }
 
@@ -3485,8 +3491,7 @@ int exec_spawn(Unit *unit,
                    LOG_UNIT_MESSAGE(unit, "About to execute: %s", line),
                    "EXECUTABLE=%s", command->path,
                    LOG_UNIT_ID(unit),
-                   LOG_UNIT_INVOCATION_ID(unit),
-                   NULL);
+                   LOG_UNIT_INVOCATION_ID(unit));
 
         pid = fork();
         if (pid < 0)
@@ -3511,7 +3516,7 @@ int exec_spawn(Unit *unit,
                                unit->manager->user_lookup_fds[1],
                                &exit_status);
 
-                if (r < 0) {
+                if (r < 0)
                         log_struct_errno(LOG_ERR, r,
                                          "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                          LOG_UNIT_ID(unit),
@@ -3519,9 +3524,7 @@ int exec_spawn(Unit *unit,
                                          LOG_UNIT_MESSAGE(unit, "Failed at step %s spawning %s: %m",
                                                           exit_status_to_string(exit_status, EXIT_STATUS_SYSTEMD),
                                                           command->path),
-                                         "EXECUTABLE=%s", command->path,
-                                         NULL);
-                }
+                                         "EXECUTABLE=%s", command->path);
 
                 _exit(exit_status);
         }
@@ -3558,7 +3561,8 @@ void exec_context_init(ExecContext *c) {
         for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
                 c->directories[i].mode = 0755;
         c->capability_bounding_set = CAP_ALL;
-        c->restrict_namespaces = NAMESPACE_FLAGS_ALL;
+        assert_cc(NAMESPACE_FLAGS_INITIAL != NAMESPACE_FLAGS_ALL);
+        c->restrict_namespaces = NAMESPACE_FLAGS_INITIAL;
         c->log_level_max = -1;
 }
 
@@ -3573,8 +3577,7 @@ void exec_context_done(ExecContext *c) {
         c->pass_environment = strv_free(c->pass_environment);
         c->unset_environment = strv_free(c->unset_environment);
 
-        for (l = 0; l < ELEMENTSOF(c->rlimit); l++)
-                c->rlimit[l] = mfree(c->rlimit[l]);
+        rlimit_free_all(c->rlimit);
 
         for (l = 0; l < 3; l++) {
                 c->stdio_fdname[l] = mfree(c->stdio_fdname[l]);
@@ -3974,9 +3977,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         for (i = 0; i < RLIM_NLIMITS; i++)
                 if (c->rlimit[i]) {
-                        fprintf(f, "%s%s: " RLIM_FMT "\n",
+                        fprintf(f, "Limit%s%s: " RLIM_FMT "\n",
                                 prefix, rlimit_to_string(i), c->rlimit[i]->rlim_max);
-                        fprintf(f, "%s%sSoft: " RLIM_FMT "\n",
+                        fprintf(f, "Limit%s%sSoft: " RLIM_FMT "\n",
                                 prefix, rlimit_to_string(i), c->rlimit[i]->rlim_cur);
                 }
 
@@ -4261,7 +4264,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         if (exec_context_restrict_namespaces_set(c)) {
                 _cleanup_free_ char *s = NULL;
 
-                r = namespace_flag_to_string_many(c->restrict_namespaces, &s);
+                r = namespace_flags_to_string(c->restrict_namespaces, &s);
                 if (r >= 0)
                         fprintf(f, "%sRestrictNamespaces: %s\n",
                                 prefix, s);

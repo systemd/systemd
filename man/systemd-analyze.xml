@@ -214,7 +214,7 @@ NAutoVTs=8
 ... some override from another package
 
 # /etc/systemd/logind.conf.d/50-override.conf
-... some adminstrator override
+... some administrator override
       </programlisting>
     </example>
 

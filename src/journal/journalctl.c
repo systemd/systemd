@@ -58,11 +58,12 @@
 #include "rlimit-util.h"
 #include "set.h"
 #include "sigbus.h"
+#include "string-table.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
-#include "udev.h"
 #include "udev-util.h"
+#include "udev.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -181,11 +182,11 @@ typedef struct BootId {
 } BootId;
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
-        int r;
         _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(udev_device_unrefp) struct udev_device *device = NULL;
         struct udev_device *d = NULL;
         struct stat st;
+        int r;
 
         assert(j);
         assert(devpath);
@@ -199,14 +200,14 @@ static int add_matches_for_device(sd_journal *j, const char *devpath) {
         if (!udev)
                 return log_oom();
 
-        r = stat(devpath, &st);
+        if (stat(devpath, &st) < 0)
+                return log_error_errno(errno, "Couldn't stat file: %m");
+
+        r = udev_device_new_from_stat_rdev(udev, &st, &device);
         if (r < 0)
-                log_error_errno(errno, "Couldn't stat file: %m");
+                return log_error_errno(r, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
 
-        d = device = udev_device_new_from_devnum(udev, S_ISBLK(st.st_mode) ? 'b' : 'c', st.st_rdev);
-        if (!device)
-                return log_error_errno(errno, "Failed to get udev device from devnum %u:%u: %m", major(st.st_rdev), minor(st.st_rdev));
-
+        d = device;
         while (d) {
                 _cleanup_free_ char *match = NULL;
                 const char *subsys, *sysname, *devnode;
@@ -333,7 +334,7 @@ static void help(void) {
                "  -o --output=STRING         Change journal output mode (short, short-precise,\n"
                "                               short-iso, short-iso-precise, short-full,\n"
                "                               short-monotonic, short-unix, verbose, export,\n"
-               "                               json, json-pretty, json-sse, cat)\n"
+               "                               json, json-pretty, json-sse, cat, with-unit)\n"
                "     --output-fields=LIST    Select fields to print in verbose/export/json modes\n"
                "     --utc                   Express time in Coordinated Universal Time (UTC)\n"
                "  -x --catalog               Add message explanations where available\n"
@@ -509,6 +510,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
+                                return 0;
+                        }
+
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0) {
                                 log_error("Unknown output format '%s'.", optarg);
@@ -2613,8 +2619,8 @@ int main(int argc, char *argv[]) {
                                 arg_utc * OUTPUT_UTC |
                                 arg_no_hostname * OUTPUT_NO_HOSTNAME;
 
-                        r = output_journal(stdout, j, arg_output, 0, flags,
-                                           arg_output_fields, highlight, &ellipsized);
+                        r = show_journal_entry(stdout, j, arg_output, 0, flags,
+                                               arg_output_fields, highlight, &ellipsized);
                         need_seek = true;
                         if (r == -EADDRNOTAVAIL)
                                 break;

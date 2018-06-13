@@ -46,8 +46,8 @@
     <title>Description</title>
 
     <para><command>systemd-resolved</command> is a system service that provides network name resolution to local
-    applications. It implements a caching and validating DNS/DNSSEC stub resolver, as well as an LLMNR resolver and
-    responder. Local applications may submit network name resolution requests via three interfaces:</para>
+    applications. It implements a caching and validating DNS/DNSSEC stub resolver, as well as an LLMNR and MulticastDNS
+    resolver and responder. Local applications may submit network name resolution requests via three interfaces:</para>
 
     <itemizedlist>
       <listitem><para>The native, fully-featured API <command>systemd-resolved</command> exposes on the bus. See the
@@ -77,8 +77,10 @@
 
     <para>The DNS servers contacted are determined from the global settings in
     <filename>/etc/systemd/resolved.conf</filename>, the per-link static settings in
-    <filename>/etc/systemd/network/*.network</filename> files, the per-link dynamic settings received over DHCP and any
-    DNS server information made available by other system services. See
+    <filename>/etc/systemd/network/*.network</filename> files (in case
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+    used), the per-link dynamic settings received over DHCP, and any DNS server information made available by other
+    system services. See
     <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> for details
     about systemd's own configuration files for DNS servers. To improve compatibility,
@@ -111,27 +113,31 @@
       non-address types (like MX).</para></listitem>
     </itemizedlist>
 
-    <para>Lookup requests are routed to the available DNS servers
-    and LLMNR interfaces according to the following rules:</para>
+    <para>Lookup requests are routed to the available DNS servers, LLMNR and MulticastDNS interfaces according to the
+    following rules:</para>
 
     <itemizedlist>
-      <listitem><para>Lookups for the special hostname
-      <literal>localhost</literal> are never routed to the
-      network. (A few other, special domains are handled the same way.)</para></listitem>
+      <listitem><para>Lookups for the special hostname <literal>localhost</literal> are never routed to the network. (A
+      few other, special domains are handled the same way.)</para></listitem>
 
-      <listitem><para>Single-label names are routed to all local
-      interfaces capable of IP multicasting, using the LLMNR
-      protocol. Lookups for IPv4 addresses are only sent via LLMNR on
-      IPv4, and lookups for IPv6 addresses are only sent via LLMNR on
-      IPv6. Lookups for the locally configured host name and the
-      <literal>_gateway</literal> host name are never routed to
-      LLMNR.</para></listitem>
+      <listitem><para>Single-label names are routed to all local interfaces capable of IP multicasting, using the LLMNR
+      protocol. Lookups for IPv4 addresses are only sent via LLMNR on IPv4, and lookups for IPv6 addresses are only
+      sent via LLMNR on IPv6. Lookups for the locally configured host name and the <literal>_gateway</literal> host
+      name are never routed to LLMNR.</para></listitem>
 
-      <listitem><para>Multi-label names are routed to all local
-      interfaces that have a DNS server configured, plus the globally
-      configured DNS server if there is one. Address lookups from the
-      link-local address range are never routed to
-      DNS.</para></listitem>
+      <listitem><para>Multi-label names with the domain suffix <literal>.local</literal> are routed to all local
+      interfaces capable of IP multicasting, using the MulticastDNS protocol. As with LLMNR IPv4 address lookups are
+      sent via IPv4 and IPv6 address lookups are sent via IPv6.</para></listitem>
+
+      <listitem><para>Other multi-label names are routed to all local interfaces that have a DNS server configured,
+      plus the globally configured DNS server if there is one. Address lookups from the link-local address range are
+      never routed to DNS. Note that by default lookups for domains with the <literal>.local</literal> suffix are not
+      routed to DNS servers, unless the domain is specified explicitly as routing or search domain for the DNS server
+      and interface. This means that on networks where the <literal>.local</literal> domain is defined in a
+      site-specific DNS server, explicit search or routing domains need to be configured to make lookups within this
+      DNS domain work. Note that today it's generally recommended to avoid defining <literal>.local</literal> in a DNS
+      server, as <ulink url="https://tools.ietf.org/html/rfc6762">RFC6762</ulink> reserves this domain for exclusive
+      MulticastDNS use.</para></listitem>
     </itemizedlist>
 
     <para>If lookups are routed to multiple interfaces, the first

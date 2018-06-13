@@ -316,6 +316,11 @@ mouse:usb:v17efp6045:name:Lenovo USB Laser Mouse:
 # model name. The usb vid/pid is the same for all those devices.
 # Until 3.19 is available, this list just has the Wireless PID entry.
 
+# Logitech Anywhere MX
+mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:1017:
+mouse:usb:v046dp1017:name:Logitech Anywhere MX:
+ MOUSE_WHEEL_CLICK_ANGLE=20
+
 # Logitech M-BJ58 Optical Mouse
 mouse:usb:v046dpc00e:name:Logitech USB-PS/2 Optical Mouse:
 # Logitech Mini Optical Mouse
@@ -377,7 +382,7 @@ mouse:usb:v046dp1025:name:Logitech M510:
 # Logitech M705 (marathon mouse)
 mouse:usb:v046dp101b:name:Logitech M705:
 mouse:usb:v046dpc52b:name:Logitech Unifying Device. Wireless PID:101b:
- MOUSE_DPI=800@166
+ MOUSE_DPI=1000@125
 
 # Logitech MX Revolution
 mouse:usb:v046dpc51a:name:Logitech USB Receiver:

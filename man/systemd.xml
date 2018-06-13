@@ -97,6 +97,13 @@
         understood in unit definition files.</para></listitem>
       </varlistentry>
       <varlistentry>
+        <term><option>--dump-bus-properties</option></term>
+
+        <listitem><para>Dump exposed bus properties. This outputs
+        a terse but complete list of properties exposed to dbus.
+        </para></listitem>
+      </varlistentry>
+      <varlistentry>
         <term><option>--unit=</option></term>
 
         <listitem><para>Set default unit to activate on startup. If

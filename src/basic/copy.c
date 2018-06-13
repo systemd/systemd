@@ -29,6 +29,7 @@
 #include "io-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "mount-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -36,7 +37,12 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
-#define COPY_BUFFER_SIZE (16*1024u)
+#define COPY_BUFFER_SIZE (16U*1024U)
+
+/* A safety net for descending recursively into file system trees to copy. On Linux PATH_MAX is 4096, which means the
+ * deepest valid path one can build is around 2048, which we hence use as a safety net here, to not spin endlessly in
+ * case of bind mount cycles and suchlike. */
+#define COPY_DEPTH_MAX 2048U
 
 static ssize_t try_copy_file_range(
                 int fd_in, loff_t *off_in,
@@ -81,7 +87,7 @@ static int fd_is_nonblock_pipe(int fd) {
         if (flags < 0)
                 return -errno;
 
-        return (flags & O_NONBLOCK) == O_NONBLOCK ? FD_IS_NONBLOCKING_PIPE : FD_IS_BLOCKING_PIPE;
+        return FLAGS_SET(flags, O_NONBLOCK) ? FD_IS_NONBLOCKING_PIPE : FD_IS_BLOCKING_PIPE;
 }
 
 int copy_bytes_full(
@@ -479,6 +485,7 @@ static int fd_copy_directory(
                 int dt,
                 const char *to,
                 dev_t original_device,
+                unsigned depth_left,
                 uid_t override_uid,
                 gid_t override_gid,
                 CopyFlags copy_flags) {
@@ -491,6 +498,9 @@ static int fd_copy_directory(
 
         assert(st);
         assert(to);
+
+        if (depth_left == 0)
+                return -ENAMETOOLONG;
 
         if (from)
                 fdf = openat(df, from, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
@@ -530,13 +540,40 @@ static int fd_copy_directory(
                         continue;
                 }
 
-                if (buf.st_dev != original_device)
-                        continue;
+                if (S_ISDIR(buf.st_mode)) {
+                        /*
+                         * Don't descend into directories on other file systems, if this is requested. We do a simple
+                         * .st_dev check here, which basically comes for free. Note that we do this check only on
+                         * directories, not other kind of file system objects, for two reason:
+                         *
+                         * • The kernel's overlayfs pseudo file system that overlays multiple real file systems
+                         *   propagates the .st_dev field of the file system a file originates from all the way up
+                         *   through the stack to stat(). It doesn't do that for directories however. This means that
+                         *   comparing .st_dev on non-directories suggests that they all are mount points. To avoid
+                         *   confusion we hence avoid relying on this check for regular files.
+                         *
+                         * • The main reason we do this check at all is to protect ourselves from bind mount cycles,
+                         *   where we really want to avoid descending down in all eternity. However the .st_dev check
+                         *   is usually not sufficient for this protection anyway, as bind mount cycles from the same
+                         *   file system onto itself can't be detected that way. (Note we also do a recursion depth
+                         *   check, which is probably the better protection in this regard, which is why
+                         *   COPY_SAME_MOUNT is optional).
+                         */
 
-                if (S_ISREG(buf.st_mode))
+                        if (FLAGS_SET(copy_flags, COPY_SAME_MOUNT)) {
+                                if (buf.st_dev != original_device)
+                                        continue;
+
+                                r = fd_is_mount_point(dirfd(d), de->d_name, 0);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        continue;
+                        }
+
+                        q = fd_copy_directory(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device, depth_left-1, override_uid, override_gid, copy_flags);
+                } else if (S_ISREG(buf.st_mode))
                         q = fd_copy_regular(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
-                else if (S_ISDIR(buf.st_mode))
-                        q = fd_copy_directory(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device, override_uid, override_gid, copy_flags);
                 else if (S_ISLNK(buf.st_mode))
                         q = fd_copy_symlink(dirfd(d), de->d_name, &buf, fdt, de->d_name, override_uid, override_gid, copy_flags);
                 else if (S_ISFIFO(buf.st_mode))
@@ -586,7 +623,7 @@ int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t overr
         if (S_ISREG(st.st_mode))
                 return fd_copy_regular(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags);
         else if (S_ISDIR(st.st_mode))
-                return fd_copy_directory(fdf, from, &st, fdt, to, st.st_dev, override_uid, override_gid, copy_flags);
+                return fd_copy_directory(fdf, from, &st, fdt, to, st.st_dev, COPY_DEPTH_MAX, override_uid, override_gid, copy_flags);
         else if (S_ISLNK(st.st_mode))
                 return fd_copy_symlink(fdf, from, &st, fdt, to, override_uid, override_gid, copy_flags);
         else if (S_ISFIFO(st.st_mode))
@@ -613,7 +650,7 @@ int copy_directory_fd(int dirfd, const char *to, CopyFlags copy_flags) {
         if (!S_ISDIR(st.st_mode))
                 return -ENOTDIR;
 
-        return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, UID_INVALID, GID_INVALID, copy_flags);
+        return fd_copy_directory(dirfd, NULL, &st, AT_FDCWD, to, st.st_dev, COPY_DEPTH_MAX, UID_INVALID, GID_INVALID, copy_flags);
 }
 
 int copy_directory(const char *from, const char *to, CopyFlags copy_flags) {
@@ -628,7 +665,7 @@ int copy_directory(const char *from, const char *to, CopyFlags copy_flags) {
         if (!S_ISDIR(st.st_mode))
                 return -ENOTDIR;
 
-        return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, UID_INVALID, GID_INVALID, copy_flags);
+        return fd_copy_directory(AT_FDCWD, from, &st, AT_FDCWD, to, st.st_dev, COPY_DEPTH_MAX, UID_INVALID, GID_INVALID, copy_flags);
 }
 
 int copy_file_fd(const char *from, int fdt, CopyFlags copy_flags) {

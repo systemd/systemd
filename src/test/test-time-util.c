@@ -13,6 +13,8 @@
 static void test_parse_sec(void) {
         usec_t u;
 
+        log_info("/* %s */", __func__);
+
         assert_se(parse_sec("5s", &u) >= 0);
         assert_se(u == 5 * USEC_PER_SEC);
         assert_se(parse_sec("5s500ms", &u) >= 0);
@@ -52,6 +54,8 @@ static void test_parse_sec(void) {
 static void test_parse_sec_fix_0(void) {
         usec_t u;
 
+        log_info("/* %s */", __func__);
+
         assert_se(parse_sec_fix_0("5s", &u) >= 0);
         assert_se(u == 5 * USEC_PER_SEC);
         assert_se(parse_sec_fix_0("0s", &u) >= 0);
@@ -64,6 +68,8 @@ static void test_parse_sec_fix_0(void) {
 
 static void test_parse_time(void) {
         usec_t u;
+
+        log_info("/* %s */", __func__);
 
         assert_se(parse_time("5", &u, 1) >= 0);
         assert_se(u == 5);
@@ -86,6 +92,8 @@ static void test_parse_time(void) {
 
 static void test_parse_nsec(void) {
         nsec_t u;
+
+        log_info("/* %s */", __func__);
 
         assert_se(parse_nsec("5s", &u) >= 0);
         assert_se(u == 5 * NSEC_PER_SEC);
@@ -120,19 +128,16 @@ static void test_parse_nsec(void) {
 }
 
 static void test_format_timespan_one(usec_t x, usec_t accuracy) {
-        char *r;
         char l[FORMAT_TIMESPAN_MAX];
+        const char *t;
         usec_t y;
 
         log_info(USEC_FMT"     (at accuracy "USEC_FMT")", x, accuracy);
 
-        r = format_timespan(l, sizeof(l), x, accuracy);
-        assert_se(r);
+        assert_se(t = format_timespan(l, sizeof l, x, accuracy));
+        log_info(" = <%s>", t);
 
-        log_info(" = <%s>", l);
-
-        assert_se(parse_sec(l, &y) >= 0);
-
+        assert_se(parse_sec(t, &y) >= 0);
         log_info(" = "USEC_FMT, y);
 
         if (accuracy <= 0)
@@ -142,6 +147,8 @@ static void test_format_timespan_one(usec_t x, usec_t accuracy) {
 }
 
 static void test_format_timespan(usec_t accuracy) {
+        log_info("/* %s accuracy="USEC_FMT" */", __func__, accuracy);
+
         test_format_timespan_one(0, accuracy);
         test_format_timespan_one(1, accuracy);
         test_format_timespan_one(1*USEC_PER_SEC, accuracy);
@@ -168,9 +175,11 @@ static void test_format_timespan(usec_t accuracy) {
 }
 
 static void test_timezone_is_valid(void) {
-        assert_se(timezone_is_valid("Europe/Berlin"));
-        assert_se(timezone_is_valid("Australia/Sydney"));
-        assert_se(!timezone_is_valid("Europe/Do not exist"));
+        log_info("/* %s */", __func__);
+
+        assert_se(timezone_is_valid("Europe/Berlin", LOG_ERR));
+        assert_se(timezone_is_valid("Australia/Sydney", LOG_ERR));
+        assert_se(!timezone_is_valid("Europe/Do not exist", LOG_ERR));
 }
 
 static void test_get_timezones(void) {
@@ -178,14 +187,18 @@ static void test_get_timezones(void) {
         int r;
         char **zone;
 
+        log_info("/* %s */", __func__);
+
         r = get_timezones(&zones);
         assert_se(r == 0);
 
         STRV_FOREACH(zone, zones)
-                assert_se(timezone_is_valid(*zone));
+                assert_se(timezone_is_valid(*zone, LOG_ERR));
 }
 
 static void test_usec_add(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(usec_add(0, 0) == 0);
         assert_se(usec_add(1, 4) == 5);
         assert_se(usec_add(USEC_INFINITY, 5) == USEC_INFINITY);
@@ -197,6 +210,8 @@ static void test_usec_add(void) {
 }
 
 static void test_usec_sub_unsigned(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(usec_sub_unsigned(0, 0) == 0);
         assert_se(usec_sub_unsigned(0, 2) == 0);
         assert_se(usec_sub_unsigned(0, USEC_INFINITY) == 0);
@@ -218,6 +233,8 @@ static void test_usec_sub_unsigned(void) {
 }
 
 static void test_usec_sub_signed(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(usec_sub_signed(0, 0) == 0);
         assert_se(usec_sub_signed(4, 1) == 3);
         assert_se(usec_sub_signed(4, 4) == 0);
@@ -231,6 +248,8 @@ static void test_usec_sub_signed(void) {
 
 static void test_format_timestamp(void) {
         unsigned i;
+
+        log_info("/* %s */", __func__);
 
         for (i = 0; i < 100; i++) {
                 char buf[MAX(FORMAT_TIMESTAMP_MAX, FORMAT_TIMESPAN_MAX)];
@@ -271,33 +290,37 @@ static void test_format_timestamp(void) {
         }
 }
 
-static void test_format_timestamp_utc_one(usec_t t, const char *result) {
+static void test_format_timestamp_utc_one(usec_t val, const char *result) {
         char buf[FORMAT_TIMESTAMP_MAX];
+        const char *t;
 
-        assert_se(!format_timestamp_utc(buf, sizeof(buf), t) == !result);
-
-        if (result)
-                assert_se(streq(result, buf));
+        t = format_timestamp_utc(buf, sizeof(buf), val);
+        assert_se(streq_ptr(t, result));
 }
 
 static void test_format_timestamp_utc(void) {
+        log_info("/* %s */", __func__);
+
         test_format_timestamp_utc_one(0, NULL);
         test_format_timestamp_utc_one(1, "Thu 1970-01-01 00:00:00 UTC");
         test_format_timestamp_utc_one(USEC_PER_SEC, "Thu 1970-01-01 00:00:01 UTC");
 
 #if SIZEOF_TIME_T == 8
         test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX, "Thu 9999-12-30 23:59:59 UTC");
+        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, "--- XXXX-XX-XX XX:XX:XX");
 #elif SIZEOF_TIME_T == 4
         test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX, "Tue 2038-01-19 03:14:07 UTC");
+        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX + 1, "--- XXXX-XX-XX XX:XX:XX");
 #endif
 
-        test_format_timestamp_utc_one(USEC_TIMESTAMP_FORMATTABLE_MAX+1, NULL);
         test_format_timestamp_utc_one(USEC_INFINITY, NULL);
 }
 
 static void test_dual_timestamp_deserialize(void) {
         int r;
         dual_timestamp t;
+
+        log_info("/* %s */", __func__);
 
         r = dual_timestamp_deserialize("1234 5678", &t);
         assert_se(r == 0);
@@ -346,6 +369,8 @@ static void assert_similar(usec_t a, usec_t b) {
 static void test_usec_shift_clock(void) {
         usec_t rt, mn, bt;
 
+        log_info("/* %s */", __func__);
+
         rt = now(CLOCK_REALTIME);
         mn = now(CLOCK_MONOTONIC);
         bt = now(clock_boottime_or_monotonic());
@@ -371,6 +396,8 @@ static void test_usec_shift_clock(void) {
 }
 
 static void test_in_utc_timezone(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(setenv("TZ", ":UTC", 1) >= 0);
         assert_se(in_utc_timezone());
         assert_se(streq(tzname[0], "UTC"));

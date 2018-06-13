@@ -700,7 +700,7 @@ int dnssec_verify_rrset(
                 usec_t realtime,
                 DnssecResult *result) {
 
-        uint8_t wire_format_name[DNS_WIRE_FOMAT_HOSTNAME_MAX];
+        uint8_t wire_format_name[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         DnsResourceRecord **list, *rr;
         const char *source, *name;
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
@@ -1153,7 +1153,7 @@ static int digest_to_gcrypt_md(uint8_t algorithm) {
 }
 
 int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds, bool mask_revoke) {
-        char owner_name[DNSSEC_CANONICAL_HOSTNAME_MAX];
+        uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         _cleanup_(gcry_md_closep) gcry_md_hd_t md = NULL;
         size_t hash_size;
         int md_algorithm, r;
@@ -1192,7 +1192,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (ds->ds.digest_size != hash_size)
                 return 0;
 
-        r = dnssec_canonicalize(dns_resource_key_name(dnskey->key), owner_name, sizeof(owner_name));
+        r = dns_name_to_wire_format(dns_resource_key_name(dnskey->key), wire_format, sizeof(wire_format), true);
         if (r < 0)
                 return r;
 
@@ -1200,7 +1200,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (!md)
                 return -EIO;
 
-        gcry_md_write(md, owner_name, r);
+        gcry_md_write(md, wire_format, r);
         if (mask_revoke)
                 md_add_uint16(md, dnskey->dnskey.flags & ~DNSKEY_FLAG_REVOKE);
         else
@@ -1213,7 +1213,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (!result)
                 return -EIO;
 
-        return memcmp(result, ds->ds.digest, ds->ds.digest_size) != 0;
+        return memcmp(result, ds->ds.digest, ds->ds.digest_size) == 0;
 }
 
 int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
@@ -1269,7 +1269,7 @@ static int nsec3_hash_to_gcrypt_md(uint8_t algorithm) {
 }
 
 int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
-        uint8_t wire_format[DNS_WIRE_FOMAT_HOSTNAME_MAX];
+        uint8_t wire_format[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         gcry_md_hd_t md = NULL;
         size_t hash_size;
         int algorithm;
@@ -1793,41 +1793,29 @@ static int dnssec_nsec_from_parent_zone(DnsResourceRecord *rr, const char *name)
 }
 
 static int dnssec_nsec_covers(DnsResourceRecord *rr, const char *name) {
-        const char *common_suffix, *p;
+        const char *signer;
         int r;
 
         assert(rr);
         assert(rr->key->type == DNS_TYPE_NSEC);
 
-        /* Checks whether the "Next Closer" is witin the space covered by the specified RR. */
+        /* Checks whether the name is covered by this NSEC RR. This means, that the name is somewhere below the NSEC's
+         * signer name, and between the NSEC's two names. */
 
-        r = dns_name_common_suffix(dns_resource_key_name(rr->key), rr->nsec.next_domain_name, &common_suffix);
+        r = dns_resource_record_signer(rr, &signer);
         if (r < 0)
                 return r;
 
-        for (;;) {
-                p = name;
-                r = dns_name_parent(&name);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 0;
+        r = dns_name_endswith(name, signer); /* this NSEC isn't suitable the name is not in the signer's domain */
+        if (r <= 0)
+                return r;
 
-                r = dns_name_equal(name, common_suffix);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        break;
-        }
-
-        /* p is now the "Next Closer". */
-
-        return dns_name_between(dns_resource_key_name(rr->key), p, rr->nsec.next_domain_name);
+        return dns_name_between(dns_resource_key_name(rr->key), name, rr->nsec.next_domain_name);
 }
 
 static int dnssec_nsec_covers_wildcard(DnsResourceRecord *rr, const char *name) {
         _cleanup_free_ char *wc = NULL;
-        const char *common_suffix;
+        const char *common_suffix, *signer;
         int r;
 
         assert(rr);
@@ -1842,16 +1830,27 @@ static int dnssec_nsec_covers_wildcard(DnsResourceRecord *rr, const char *name) 
          *     NSEC yyy.zzz.xoo.bar →             bar: indicates that a number of wildcards don#t exist either...
          */
 
-        r = dns_name_common_suffix(dns_resource_key_name(rr->key), rr->nsec.next_domain_name, &common_suffix);
+        r = dns_resource_record_signer(rr, &signer);
         if (r < 0)
                 return r;
 
-        /* If the common suffix is not shared by the name we are interested in, it has nothing to say for us. */
-        r = dns_name_endswith(name, common_suffix);
+        r = dns_name_endswith(name, signer); /* this NSEC isn't suitable the name is not in the signer's domain */
         if (r <= 0)
                 return r;
 
-        r = dns_name_concat("*", common_suffix, &wc);
+        r = dns_name_endswith(name, dns_resource_key_name(rr->key));
+        if (r < 0)
+                return r;
+        if (r > 0)  /* If the name we are interested in is a child of the NSEC RR, then append the asterisk to the NSEC
+                     * RR's name. */
+                r = dns_name_concat("*", dns_resource_key_name(rr->key), &wc);
+        else {
+                r = dns_name_common_suffix(dns_resource_key_name(rr->key), rr->nsec.next_domain_name, &common_suffix);
+                if (r < 0)
+                        return r;
+
+                r = dns_name_concat("*", common_suffix, &wc);
+        }
         if (r < 0)
                 return r;
 

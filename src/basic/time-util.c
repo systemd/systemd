@@ -21,11 +21,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -280,8 +282,11 @@ static char *format_timestamp_internal(
                 return NULL; /* Timestamp is unset */
 
         /* Let's not format times with years > 9999 */
-        if (t > USEC_TIMESTAMP_FORMATTABLE_MAX)
-                return NULL;
+        if (t > USEC_TIMESTAMP_FORMATTABLE_MAX) {
+                assert(l >= strlen("--- XXXX-XX-XX XX:XX:XX") + 1);
+                strcpy(buf, "--- XXXX-XX-XX XX:XX:XX");
+                return buf;
+        }
 
         sec = (time_t) (t / USEC_PER_SEC); /* Round down */
 
@@ -479,7 +484,7 @@ char *format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
                 /* Let's see if we should shows this in dot notation */
                 if (t < USEC_PER_MINUTE && b > 0) {
                         usec_t cc;
-                        int j;
+                        signed char j;
 
                         j = 0;
                         for (cc = table[i].usec; cc > 1; cc /= 10)
@@ -875,7 +880,7 @@ int parse_timestamp(const char *t, usec_t *usec) {
         int r;
 
         last_space = strrchr(t, ' ');
-        if (last_space != NULL && timezone_is_valid(last_space + 1))
+        if (last_space != NULL && timezone_is_valid(last_space + 1, LOG_DEBUG))
                 tz = last_space + 1;
 
         if (!tz || endswith_no_case(t, " UTC"))
@@ -1273,10 +1278,12 @@ int get_timezones(char ***ret) {
         return 0;
 }
 
-bool timezone_is_valid(const char *name) {
+bool timezone_is_valid(const char *name, int log_level) {
         bool slash = false;
         const char *p, *t;
-        struct stat st;
+        _cleanup_close_ int fd = -1;
+        char buf[4];
+        int r;
 
         if (isempty(name))
                 return false;
@@ -1304,12 +1311,34 @@ bool timezone_is_valid(const char *name) {
         if (slash)
                 return false;
 
-        t = strjoina("/usr/share/zoneinfo/", name);
-        if (stat(t, &st) < 0)
+        if (p - name >= PATH_MAX)
                 return false;
 
-        if (!S_ISREG(st.st_mode))
+        t = strjoina("/usr/share/zoneinfo/", name);
+
+        fd = open(t, O_RDONLY|O_CLOEXEC);
+        if (fd < 0) {
+                log_full_errno(log_level, errno, "Failed to open timezone file '%s': %m", t);
                 return false;
+        }
+
+        r = fd_verify_regular(fd);
+        if (r < 0) {
+                log_full_errno(log_level, r, "Timezone file '%s' is not  a regular file: %m", t);
+                return false;
+        }
+
+        r = loop_read_exact(fd, buf, 4, false);
+        if (r < 0) {
+                log_full_errno(log_level, r, "Failed to read from timezone file '%s': %m", t);
+                return false;
+        }
+
+        /* Magic from tzfile(5) */
+        if (memcmp(buf, "TZif", 4) != 0) {
+                log_full(log_level, "Timezone file '%s' has wrong magic bytes", t);
+                return false;
+        }
 
         return true;
 }
@@ -1380,7 +1409,7 @@ int get_timezone(char **tz) {
         if (!e)
                 return -EINVAL;
 
-        if (!timezone_is_valid(e))
+        if (!timezone_is_valid(e, LOG_DEBUG))
                 return -EINVAL;
 
         z = strdup(e);
@@ -1436,4 +1465,28 @@ bool in_utc_timezone(void) {
         tzset();
 
         return timezone == 0 && daylight == 0;
+}
+
+int time_change_fd(void) {
+
+        /* We only care for the cancellation event, hence we set the timeout to the latest possible value. */
+        static const struct itimerspec its = {
+                .it_value.tv_sec = TIME_T_MAX,
+        };
+
+        _cleanup_close_ int fd;
+
+        assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
+
+        /* Uses TFD_TIMER_CANCEL_ON_SET to get notifications whenever CLOCK_REALTIME makes a jump relative to
+         * CLOCK_MONOTONIC. */
+
+        fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        if (timerfd_settime(fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0)
+                return -errno;
+
+        return TAKE_FD(fd);
 }

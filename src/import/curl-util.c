@@ -37,7 +37,7 @@ static int curl_glue_on_io(sd_event_source *s, int fd, uint32_t revents, void *u
 
         translated_fd = PTR_TO_FD(hashmap_get(g->translate_fds, FD_TO_PTR(fd)));
 
-        if ((revents & (EPOLLIN|EPOLLOUT)) == (EPOLLIN|EPOLLOUT))
+        if (FLAGS_SET(revents, EPOLLIN | EPOLLOUT))
                 action = CURL_POLL_INOUT;
         else if (revents & EPOLLIN)
                 action = CURL_POLL_IN;
@@ -365,19 +365,14 @@ struct curl_slist *curl_slist_new(const char *first, ...) {
 }
 
 int curl_header_strdup(const void *contents, size_t sz, const char *field, char **value) {
-        const char *p = contents;
-        size_t l;
+        const char *p;
         char *s;
 
-        l = strlen(field);
-        if (sz < l)
+        p = memory_startswith(contents, sz, field);
+        if (!p)
                 return 0;
 
-        if (memcmp(p, field, l) != 0)
-                return 0;
-
-        p += l;
-        sz -= l;
+        sz -= p - (const char*) contents;
 
         if (memchr(p, 0, sz))
                 return 0;

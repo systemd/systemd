@@ -128,6 +128,16 @@
     core dumps and files can be set in files <filename>/etc/systemd/coredump.conf</filename> and snippets mentioned
     above. In addition the storage time of core dump files is restricted by <command>systemd-tmpfiles</command>,
     corresponding settings are by default in <filename>/usr/lib/tmpfiles.d/systemd.conf</filename>.</para>
+
+    <refsect2>
+      <title>Disabling coredump processing</title>
+
+      <para>To disable potentially resource-intensive processing by <command>systemd-coredump</command>,
+      set <programlisting>Storage=none
+ProcessSizeMax=0</programlisting> in
+      <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      </para>
+    </refsect2>
   </refsect1>
 
   <refsect1>

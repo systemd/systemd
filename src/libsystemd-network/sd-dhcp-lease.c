@@ -667,7 +667,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         return 0;
                 }
 
-                if (!timezone_is_valid(tz)) {
+                if (!timezone_is_valid(tz, LOG_DEBUG)) {
                         log_debug_errno(r, "Timezone is not valid, ignoring: %m");
                         return 0;
                 }
@@ -1034,7 +1034,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         if (r < 0)
                 return r;
 
-        r = parse_env_file(lease_file, NEWLINE,
+        r = parse_env_file(NULL, lease_file, NEWLINE,
                            "ADDRESS", &address,
                            "ROUTER", &router,
                            "NETMASK", &netmask,

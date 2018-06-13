@@ -61,7 +61,7 @@ static void print_overridden_variables(void) {
         if (detect_container() > 0 || arg_host)
                 return;
 
-        r = parse_env_file("/proc/cmdline", WHITESPACE,
+        r = parse_env_file(NULL, "/proc/cmdline", WHITESPACE,
                            "locale.LANG",              &variables[VARIABLE_LANG],
                            "locale.LANGUAGE",          &variables[VARIABLE_LANGUAGE],
                            "locale.LC_CTYPE",          &variables[VARIABLE_LC_CTYPE],
@@ -127,7 +127,6 @@ static void print_status_info(StatusInfo *i) {
 static int show_status(int argc, char **argv, void *userdata) {
         _cleanup_(status_info_clear) StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
-                { "VConsoleKeymap",       "s",  NULL, offsetof(StatusInfo, vconsole_keymap) },
                 { "VConsoleKeymap",       "s",  NULL, offsetof(StatusInfo, vconsole_keymap) },
                 { "VConsoleKeymapToggle", "s",  NULL, offsetof(StatusInfo, vconsole_keymap_toggle) },
                 { "X11Layout",            "s",  NULL, offsetof(StatusInfo, x11_layout) },

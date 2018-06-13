@@ -222,8 +222,8 @@ int config_parse_search_domains(
 int config_parse_dnssd_service_name(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata) {
         static const Specifier specifier_table[] = {
                 { 'b', specifier_boot_id,         NULL },
-                { 'H', specifier_host_name, NULL },
-                { 'm', specifier_machine_id, NULL },
+                { 'H', specifier_host_name,       NULL },
+                { 'm', specifier_machine_id,      NULL },
                 { 'v', specifier_kernel_release,  NULL },
                 {}
         };
@@ -394,6 +394,13 @@ int manager_parse_config_file(Manager *m) {
         if (m->dnssec_mode != DNSSEC_NO) {
                 log_warning("DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without gcrypt support. Turning off DNSSEC support.");
                 m->dnssec_mode = DNSSEC_NO;
+        }
+#endif
+
+#if ! HAVE_GNUTLS
+        if (m->private_dns_mode != PRIVATE_DNS_NO) {
+                log_warning("Private DNS option cannot be set to opportunistic when systemd-resolved is built without gnutls support. Turning off private DNS support.");
+                m->private_dns_mode = PRIVATE_DNS_NO;
         }
 #endif
         return 0;

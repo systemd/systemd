@@ -17,6 +17,8 @@
 #include "strv.h"
 #include "user-util.h"
 
+static BUS_DEFINE_PROPERTY_GET2(property_get_state, "s", User, user_get_state, user_state_to_string);
+
 static int property_get_display(
                 sd_bus *bus,
                 const char *path,
@@ -38,24 +40,6 @@ static int property_get_display(
                 return -ENOMEM;
 
         return sd_bus_message_append(reply, "(so)", u->display ? u->display->id : "", p);
-}
-
-static int property_get_state(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        User *u = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(u);
-
-        return sd_bus_message_append(reply, "s", user_state_to_string(user_get_state(u)));
 }
 
 static int property_get_sessions(

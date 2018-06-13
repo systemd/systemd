@@ -10,7 +10,8 @@
   Copyright 2012 Lennart Poettering
 -->
 
-<refentry id="sd_journal_get_realtime_usec">
+<refentry id="sd_journal_get_realtime_usec"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_get_realtime_usec</title>
@@ -101,16 +102,7 @@
     <function>sd_journal_get_monotonic_usec()</function>.</para>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>The <function>sd_journal_get_realtime_usec()</function> and
-    <function>sd_journal_get_monotonic_usec()</function> interfaces
-    are available as a shared library, which can be compiled and
-    linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

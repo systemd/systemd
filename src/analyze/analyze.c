@@ -106,6 +106,7 @@ struct boot_times {
 };
 
 struct unit_times {
+        bool has_data;
         char *name;
         usec_t activating;
         usec_t activated;
@@ -201,14 +202,15 @@ static int compare_unit_start(const void *a, const void *b) {
                        ((struct unit_times *)b)->activating);
 }
 
-static void free_unit_times(struct unit_times *t, unsigned n) {
+static void unit_times_free(struct unit_times *t) {
         struct unit_times *p;
 
-        for (p = t; p < t + n; p++)
+        for (p = t; p->has_data; p++)
                 free(p->name);
-
         free(t);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct unit_times *, unit_times_free);
 
 static void subtract_timestamp(usec_t *a, usec_t b) {
         assert(a);
@@ -353,13 +355,13 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r, c = 0;
         struct boot_times *boot_times = NULL;
-        struct unit_times *unit_times = NULL;
+        _cleanup_(unit_times_freep) struct unit_times *unit_times = NULL;
         size_t size = 0;
         UnitInfo u;
 
         r = acquire_boot_times(bus, &boot_times);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = sd_bus_call_method(
                         bus,
@@ -371,24 +373,21 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                         NULL);
         if (r < 0) {
                 log_error("Failed to list units: %s", bus_error_message(&error, -r));
-                goto fail;
+                return r;
         }
 
         r = sd_bus_message_enter_container(reply, SD_BUS_TYPE_ARRAY, "(ssssssouso)");
-        if (r < 0) {
-                bus_log_parse_error(r);
-                goto fail;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
                 struct unit_times *t;
 
-                if (!GREEDY_REALLOC(unit_times, size, c+1)) {
-                        r = log_oom();
-                        goto fail;
-                }
+                if (!GREEDY_REALLOC(unit_times, size, c+2))
+                        return log_oom();
 
-                t = unit_times+c;
+                unit_times[c+1].has_data = false;
+                t = &unit_times[c];
                 t->name = NULL;
 
                 assert_cc(sizeof(usec_t) == sizeof(uint64_t));
@@ -408,10 +407,8 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                     bus_get_uint64_property(bus, u.unit_path,
                                             "org.freedesktop.systemd1.Unit",
                                             "InactiveEnterTimestampMonotonic",
-                                            &t->deactivated) < 0) {
-                        r = -EIO;
-                        goto fail;
-                }
+                                            &t->deactivated) < 0)
+                        return -EIO;
 
                 subtract_timestamp(&t->activating, boot_times->reverse_offset);
                 subtract_timestamp(&t->activated, boot_times->reverse_offset);
@@ -429,23 +426,17 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
                         continue;
 
                 t->name = strdup(u.id);
-                if (!t->name) {
-                        r = log_oom();
-                        goto fail;
-                }
+                if (!t->name)
+                        return log_oom();
+
+                t->has_data = true;
                 c++;
         }
-        if (r < 0) {
-                bus_log_parse_error(r);
-                goto fail;
-        }
+        if (r < 0)
+                return bus_log_parse_error(r);
 
-        *out = unit_times;
+        *out = TAKE_PTR(unit_times);
         return c;
-
-fail:
-        free_unit_times(unit_times, (unsigned) c);
-        return r;
 }
 
 static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
@@ -600,7 +591,7 @@ static void svg_graph_box(double height, double begin, double end) {
 static int analyze_plot(int argc, char *argv[], void *userdata) {
         _cleanup_(free_host_infop) struct host_info *host = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        struct unit_times *times;
+        _cleanup_(unit_times_freep) struct unit_times *times = NULL;
         struct boot_times *boot;
         int n, m = 1, y = 0, r;
         bool use_full_bus = true;
@@ -648,7 +639,7 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         if (boot->kernel_time > 0)
                 m++;
 
-        for (u = times; u < times + n; u++) {
+        for (u = times; u->has_data; u++) {
                 double text_start, text_width;
 
                 if (u->activating < boot->userspace_time ||
@@ -762,7 +753,7 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         svg_text(true, boot->userspace_time, y, "systemd");
         y++;
 
-        for (u = times; u < times + n; u++) {
+        for (u = times; u->has_data; u++) {
                 char ts[FORMAT_TIMESPAN_MAX];
                 bool b;
 
@@ -811,10 +802,7 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
 
         svg("</svg>\n");
 
-        free_unit_times(times, (unsigned) n);
-
-        n = 0;
-        return n;
+        return 0;
 }
 
 static int list_dependencies_print(const char *name, unsigned int level, unsigned int branches,
@@ -1012,8 +1000,8 @@ static int list_dependencies(sd_bus *bus, const char *name) {
 
 static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        struct unit_times *times;
-        unsigned int i;
+        _cleanup_(unit_times_freep) struct unit_times *times = NULL;
+        struct unit_times *u;
         Hashmap *h;
         int n, r;
 
@@ -1029,8 +1017,8 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
         if (!h)
                 return log_oom();
 
-        for (i = 0; i < (unsigned) n; i++) {
-                r = hashmap_put(h, times[i].name, &times[i]);
+        for (u = times; u->has_data; u++) {
+                r = hashmap_put(h, u->name, u);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add entry to hashmap: %m");
         }
@@ -1049,14 +1037,13 @@ static int analyze_critical_chain(int argc, char *argv[], void *userdata) {
                 list_dependencies(bus, SPECIAL_DEFAULT_TARGET);
 
         h = hashmap_free(h);
-        free_unit_times(times, (unsigned) n);
         return 0;
 }
 
 static int analyze_blame(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        struct unit_times *times;
-        unsigned i;
+        _cleanup_(unit_times_freep) struct unit_times *times = NULL;
+        struct unit_times *u;
         int n, r;
 
         r = acquire_bus(&bus, NULL);
@@ -1071,14 +1058,13 @@ static int analyze_blame(int argc, char *argv[], void *userdata) {
 
         (void) pager_open(arg_no_pager, false);
 
-        for (i = 0; i < (unsigned) n; i++) {
+        for (u = times; u->has_data; u++) {
                 char ts[FORMAT_TIMESPAN_MAX];
 
-                if (times[i].time > 0)
-                        printf("%16s %s\n", format_timespan(ts, sizeof(ts), times[i].time, USEC_PER_MSEC), times[i].name);
+                if (u->time > 0)
+                        printf("%16s %s\n", format_timespan(ts, sizeof(ts), u->time, USEC_PER_MSEC), u->name);
         }
 
-        free_unit_times(times, (unsigned) n);
         return 0;
 }
 

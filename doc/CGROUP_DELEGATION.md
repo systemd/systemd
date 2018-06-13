@@ -232,7 +232,7 @@ delegated.
 Let's stress one thing: delegation is available on scope and service units
 only. It's expressly not available on slice units. Why? Because slice units are
 our *inner* nodes of the cgroup trees and we freely attach service and scopes
-to them. If we'd allow delegation on slice units then this would mean that that
+to them. If we'd allow delegation on slice units then this would mean that
 both systemd and your own manager would create/delete cgroups below the slice
 unit and that conflicts with the single-writer rule.
 
@@ -359,7 +359,7 @@ optional (but of course wise).
 
 Note one particular asymmetry here though: systemd will try to take possession
 of the root cgroup you pass to it *in* *full*, i.e. it will not only
-create/remove child cgroups below it it will also attempt to manage the
+create/remove child cgroups below it, it will also attempt to manage the
 attributes of it. OTOH as mentioned above, when delegating a cgroup tree to
 somebody else it only passes the rights to create/remove sub-cgroups, but will
 insist on managing the delegated cgroup tree's top-level attributes. Or in

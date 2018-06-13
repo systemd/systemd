@@ -16,11 +16,22 @@
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-util.h"
+#include "dbus-automount.h"
 #include "dbus-cgroup.h"
+#include "dbus-device.h"
 #include "dbus-execute.h"
 #include "dbus-job.h"
 #include "dbus-kill.h"
 #include "dbus-manager.h"
+#include "dbus-mount.h"
+#include "dbus-path.h"
+#include "dbus-scope.h"
+#include "dbus-service.h"
+#include "dbus-slice.h"
+#include "dbus-socket.h"
+#include "dbus-swap.h"
+#include "dbus-target.h"
+#include "dbus-timer.h"
 #include "dbus-unit.h"
 #include "dbus.h"
 #include "fd-util.h"
@@ -30,6 +41,7 @@
 #include "mkdir.h"
 #include "process-util.h"
 #include "selinux-access.h"
+#include "service.h"
 #include "special.h"
 #include "string-util.h"
 #include "strv.h"
@@ -229,7 +241,6 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
         path = sd_bus_message_get_path(message);
 
         if (object_path_startswith("/org/freedesktop/systemd1", path)) {
-
                 r = mac_selinux_access_check(message, verb, error);
                 if (r < 0)
                         return r;
@@ -257,7 +268,6 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
                 else
                         manager_load_unit_from_dbus_path(m, path, NULL, &u);
         }
-
         if (!u)
                 return 0;
 
@@ -1088,17 +1098,11 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 }
 
 void bus_done_api(Manager *m) {
-        assert(m);
-
-        if (m->api_bus)
-                destroy_bus(m, &m->api_bus);
+        destroy_bus(m, &m->api_bus);
 }
 
 void bus_done_system(Manager *m) {
-        assert(m);
-
-        if (m->system_bus)
-                destroy_bus(m, &m->system_bus);
+        destroy_bus(m, &m->system_bus);
 }
 
 void bus_done_private(Manager *m) {
@@ -1292,4 +1296,39 @@ uint64_t manager_bus_n_queued_write(Manager *m) {
         }
 
         return c;
+}
+
+static void vtable_dump_bus_properties(FILE *f, const sd_bus_vtable *table) {
+        const sd_bus_vtable *i;
+
+        for (i = table; i->type != _SD_BUS_VTABLE_END; i++) {
+                if (!IN_SET(i->type, _SD_BUS_VTABLE_PROPERTY, _SD_BUS_VTABLE_WRITABLE_PROPERTY) ||
+                    (i->flags & (SD_BUS_VTABLE_DEPRECATED | SD_BUS_VTABLE_HIDDEN)) != 0)
+                        continue;
+
+                fprintf(f, "%s\n", i->x.property.member);
+        }
+}
+
+void dump_bus_properties(FILE *f) {
+        assert(f);
+
+        vtable_dump_bus_properties(f, bus_automount_vtable);
+        vtable_dump_bus_properties(f, bus_cgroup_vtable);
+        vtable_dump_bus_properties(f, bus_device_vtable);
+        vtable_dump_bus_properties(f, bus_exec_vtable);
+        vtable_dump_bus_properties(f, bus_job_vtable);
+        vtable_dump_bus_properties(f, bus_kill_vtable);
+        vtable_dump_bus_properties(f, bus_manager_vtable);
+        vtable_dump_bus_properties(f, bus_mount_vtable);
+        vtable_dump_bus_properties(f, bus_path_vtable);
+        vtable_dump_bus_properties(f, bus_scope_vtable);
+        vtable_dump_bus_properties(f, bus_service_vtable);
+        vtable_dump_bus_properties(f, bus_slice_vtable);
+        vtable_dump_bus_properties(f, bus_socket_vtable);
+        vtable_dump_bus_properties(f, bus_swap_vtable);
+        vtable_dump_bus_properties(f, bus_target_vtable);
+        vtable_dump_bus_properties(f, bus_timer_vtable);
+        vtable_dump_bus_properties(f, bus_unit_vtable);
+        vtable_dump_bus_properties(f, bus_unit_cgroup_vtable);
 }

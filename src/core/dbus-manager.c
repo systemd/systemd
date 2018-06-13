@@ -26,6 +26,7 @@
 #include "fs-util.h"
 #include "install.h"
 #include "log.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-access.h"
@@ -46,35 +47,14 @@ static UnitFileFlags unit_file_bools_to_flags(bool runtime, bool force) {
                (force   ? UNIT_FILE_FORCE   : 0);
 }
 
-static int property_get_version(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", PACKAGE_VERSION);
-}
-
-static int property_get_features(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", SYSTEMD_FEATURES);
-}
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_version, "s", PACKAGE_VERSION);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_features, "s", SYSTEMD_FEATURES);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_architecture, "s", architecture_to_string(uname_architecture()));
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_log_target, "s", log_target_to_string(log_get_target()));
+static BUS_DEFINE_PROPERTY_GET2(property_get_system_state, "s", Manager, manager_state, manager_state_to_string);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_timer_slack_nsec, "t", (uint64_t) prctl(PR_GET_TIMERSLACK));
+static BUS_DEFINE_PROPERTY_GET_REF(property_get_hashmap_size, "u", Hashmap *, hashmap_size);
+static BUS_DEFINE_PROPERTY_GET_REF(property_get_set_size, "u", Set *, set_size);
 
 static int property_get_virtualization(
                 sd_bus *bus,
@@ -102,21 +82,6 @@ static int property_get_virtualization(
                         v == VIRTUALIZATION_NONE ? NULL : virtualization_to_string(v));
 }
 
-static int property_get_architecture(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", architecture_to_string(uname_architecture()));
-}
-
 static int property_get_tainted(
                 sd_bus *bus,
                 const char *path,
@@ -138,21 +103,6 @@ static int property_get_tainted(
                 return log_oom();
 
         return sd_bus_message_append(reply, "s", s);
-}
-
-static int property_get_log_target(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", log_target_to_string(log_get_target()));
 }
 
 static int property_set_log_target(
@@ -224,60 +174,6 @@ static int property_set_log_level(
         return r;
 }
 
-static int property_get_n_names(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(m);
-
-        return sd_bus_message_append(reply, "u", (uint32_t) hashmap_size(m->units));
-}
-
-static int property_get_n_failed_units(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(m);
-
-        return sd_bus_message_append(reply, "u", (uint32_t) set_size(m->failed_units));
-}
-
-static int property_get_n_jobs(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        Manager *m = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(m);
-
-        return sd_bus_message_append(reply, "u", (uint32_t) hashmap_size(m->jobs));
-}
-
 static int property_get_progress(
                 sd_bus *bus,
                 const char *path,
@@ -302,7 +198,7 @@ static int property_get_progress(
         return sd_bus_message_append(reply, "d", d);
 }
 
-static int property_get_system_state(
+static int property_get_show_status(
                 sd_bus *bus,
                 const char *path,
                 const char *interface,
@@ -312,12 +208,14 @@ static int property_get_system_state(
                 sd_bus_error *error) {
 
         Manager *m = userdata;
+        int b;
 
         assert(bus);
         assert(reply);
         assert(m);
 
-        return sd_bus_message_append(reply, "s", manager_state_to_string(manager_state(m)));
+        b = m->show_status > 0;
+        return sd_bus_message_append_basic(reply, 'b', &b);
 }
 
 static int property_set_runtime_watchdog(
@@ -342,21 +240,6 @@ static int property_set_runtime_watchdog(
                 return r;
 
         return watchdog_set_timeout(t);
-}
-
-static int property_get_timer_slack_nsec(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "t", (uint64_t) prctl(PR_GET_TIMERSLACK));
 }
 
 static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
@@ -727,7 +610,7 @@ static int method_set_unit_properties(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = bus_unit_check_load_state(u, error);
+        r = bus_unit_validate_load_state(u, error);
         if (r < 0)
                 return r;
 
@@ -751,7 +634,7 @@ static int method_ref_unit(sd_bus_message *message, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
-        r = bus_unit_check_load_state(u, error);
+        r = bus_unit_validate_load_state(u, error);
         if (r < 0)
                 return r;
 
@@ -775,7 +658,7 @@ static int method_unref_unit(sd_bus_message *message, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        r = bus_unit_check_load_state(u, error);
+        r = bus_unit_validate_load_state(u, error);
         if (r < 0)
                 return r;
 
@@ -2519,15 +2402,15 @@ const sd_bus_vtable bus_manager_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("UnitsLoadFinishTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_UNITS_LOAD_FINISH]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_WRITABLE_PROPERTY("LogLevel", "s", property_get_log_level, property_set_log_level, 0, 0),
         SD_BUS_WRITABLE_PROPERTY("LogTarget", "s", property_get_log_target, property_set_log_target, 0, 0),
-        SD_BUS_PROPERTY("NNames", "u", property_get_n_names, 0, 0),
-        SD_BUS_PROPERTY("NFailedUnits", "u", property_get_n_failed_units, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
-        SD_BUS_PROPERTY("NJobs", "u", property_get_n_jobs, 0, 0),
+        SD_BUS_PROPERTY("NNames", "u", property_get_hashmap_size, offsetof(Manager, units), 0),
+        SD_BUS_PROPERTY("NFailedUnits", "u", property_get_set_size, offsetof(Manager, failed_units), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("NJobs", "u", property_get_hashmap_size, offsetof(Manager, jobs), 0),
         SD_BUS_PROPERTY("NInstalledJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_installed_jobs), 0),
         SD_BUS_PROPERTY("NFailedJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_failed_jobs), 0),
         SD_BUS_PROPERTY("Progress", "d", property_get_progress, 0, 0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(Manager, environment), 0),
         SD_BUS_PROPERTY("ConfirmSpawn", "b", bus_property_get_bool, offsetof(Manager, confirm_spawn), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ShowStatus", "b", bus_property_get_bool, offsetof(Manager, show_status), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ShowStatus", "b", property_get_show_status, 0, 0),
         SD_BUS_PROPERTY("UnitPath", "as", NULL, offsetof(Manager, lookup_paths.search_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStandardOutput", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultStandardError", "s", bus_property_get_exec_output, offsetof(Manager, default_std_output), SD_BUS_VTABLE_PROPERTY_CONST),

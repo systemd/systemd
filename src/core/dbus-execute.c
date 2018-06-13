@@ -57,6 +57,12 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_exec_keyring_mode, exec_keyring
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_home, protect_home, ProtectHome);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_system, protect_system, ProtectSystem);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_personality, personality, unsigned long);
+static BUS_DEFINE_PROPERTY_GET(property_get_ioprio, "i", ExecContext, exec_context_get_effective_ioprio);
+static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_class, "i", ExecContext, exec_context_get_effective_ioprio, IOPRIO_PRIO_CLASS);
+static BUS_DEFINE_PROPERTY_GET2(property_get_ioprio_priority, "i", ExecContext, exec_context_get_effective_ioprio, IOPRIO_PRIO_DATA);
+static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_string, "s", NULL);
+static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_level, "i", int, LOG_PRI);
+static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_facility, "i", int, LOG_FAC);
 
 static int property_get_environment_files(
                 sd_bus *bus,
@@ -145,60 +151,6 @@ static int property_get_nice(
         }
 
         return sd_bus_message_append(reply, "i", n);
-}
-
-static int property_get_ioprio(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(c);
-
-        return sd_bus_message_append(reply, "i", exec_context_get_effective_ioprio(c));
-}
-
-static int property_get_ioprio_class(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(c);
-
-        return sd_bus_message_append(reply, "i", IOPRIO_PRIO_CLASS(exec_context_get_effective_ioprio(c)));
-}
-
-static int property_get_ioprio_priority(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(c);
-
-        return sd_bus_message_append(reply, "i", IOPRIO_PRIO_DATA(exec_context_get_effective_ioprio(c)));
 }
 
 static int property_get_cpu_sched_policy(
@@ -298,21 +250,6 @@ static int property_get_timer_slack_nsec(
                 u = (uint64_t) prctl(PR_GET_TIMERSLACK);
 
         return sd_bus_message_append(reply, "t", u);
-}
-
-static int property_get_empty_string(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        assert(bus);
-        assert(reply);
-
-        return sd_bus_message_append(reply, "s", NULL);
 }
 
 static int property_get_syscall_filter(
@@ -557,42 +494,6 @@ static int property_get_working_directory(
                 wd = strjoina("!", wd);
 
         return sd_bus_message_append(reply, "s", wd);
-}
-
-static int property_get_syslog_level(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        int *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "i", LOG_PRI(*s));
-}
-
-static int property_get_syslog_facility(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        int *s = userdata;
-
-        assert(bus);
-        assert(reply);
-        assert(s);
-
-        return sd_bus_message_append(reply, "i", LOG_FAC(*s));
 }
 
 static int property_get_stdio_fdname(
@@ -1034,7 +935,7 @@ int bus_set_transient_exec_command(
 
                         c->flags = b ? EXEC_COMMAND_IGNORE_FAILURE : 0;
 
-                        path_kill_slashes(c->path);
+                        path_simplify(c->path, false);
                         exec_command_append_list(exec_command, c);
                 }
 
@@ -1123,15 +1024,15 @@ static BUS_DEFINE_SET_TRANSIENT_IS_VALID(nice, "i", int32_t, int, "%" PRIi32, ni
 static BUS_DEFINE_SET_TRANSIENT_PARSE(std_input, ExecInput, exec_input_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(std_output, ExecOutput, exec_output_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(utmp_mode, ExecUtmpMode, exec_utmp_mode_from_string);
-static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_system, ProtectSystem, parse_protect_system_or_bool);
-static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_home, ProtectHome, parse_protect_home_or_bool);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_system, ProtectSystem, protect_system_or_bool_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_home, ProtectHome, protect_home_or_bool_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(keyring_mode, ExecKeyringMode, exec_keyring_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(preserve_mode, ExecPreserveMode, exec_preserve_mode_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(personality, unsigned long, parse_personality);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(secure_bits, "i", int32_t, int, "%" PRIi32, secure_bits_to_string_alloc_with_check);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(capability, "t", uint64_t, uint64_t, "%" PRIu64, capability_set_to_string_alloc);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(sched_policy, "i", int32_t, int, "%" PRIi32, sched_policy_to_string_alloc_with_check);
-static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(namespace_flag, "t", uint64_t, unsigned long, "%" PRIu64, namespace_flag_to_string_many_with_check);
+static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(namespace_flag, "t", uint64_t, unsigned long, "%" PRIu64, namespace_flags_to_string);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING(mount_flags, "t", uint64_t, unsigned long, "%" PRIu64, mount_propagation_flags_to_string_with_check);
 
 int bus_exec_context_set_transient_property(
@@ -1142,8 +1043,8 @@ int bus_exec_context_set_transient_property(
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
-        const char *soft = NULL;
-        int r, ri;
+        const char *suffix;
+        int r;
 
         assert(u);
         assert(c);
@@ -2150,7 +2051,7 @@ int bus_exec_context_set_transient_property(
                         if (!path_is_absolute(i + offset))
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
 
-                        path_kill_slashes(i + offset);
+                        path_simplify(i + offset, false);
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -2190,8 +2091,14 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 STRV_FOREACH(p, l) {
-                        if (!path_is_normalized(*p) || path_is_absolute(*p))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is not valid: %s", name, *p);
+                        if (!path_is_normalized(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is not normalized: %s", name, *p);
+
+                        if (path_is_absolute(*p))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is absolute: %s", name, *p);
+
+                        if (path_startswith(*p, "private"))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path can't be 'private': %s", name, *p);
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -2364,73 +2271,77 @@ int bus_exec_context_set_transient_property(
                 }
 
                 return 1;
-        }
 
-        ri = rlimit_from_string(name);
-        if (ri < 0) {
-                soft = endswith(name, "Soft");
-                if (soft) {
-                        const char *n;
+        } else if ((suffix = startswith(name, "Limit"))) {
+                const char *soft = NULL;
+                int ri;
 
-                        n = strndupa(name, soft - name);
-                        ri = rlimit_from_string(n);
-                        if (ri >= 0)
-                                name = n;
+                ri = rlimit_from_string(suffix);
+                if (ri < 0) {
+                        soft = endswith(suffix, "Soft");
+                        if (soft) {
+                                const char *n;
 
-                }
-        }
-
-        if (ri >= 0) {
-                uint64_t rl;
-                rlim_t x;
-
-                r = sd_bus_message_read(message, "t", &rl);
-                if (r < 0)
-                        return r;
-
-                if (rl == (uint64_t) -1)
-                        x = RLIM_INFINITY;
-                else {
-                        x = (rlim_t) rl;
-
-                        if ((uint64_t) x != rl)
-                                return -ERANGE;
+                                n = strndupa(suffix, soft - suffix);
+                                ri = rlimit_from_string(n);
+                                if (ri >= 0)
+                                        name = strjoina("Limit", n);
+                        }
                 }
 
-                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_free_ char *f = NULL;
-                        struct rlimit nl;
+                if (ri >= 0) {
+                        uint64_t rl;
+                        rlim_t x;
 
-                        if (c->rlimit[ri]) {
-                                nl = *c->rlimit[ri];
-
-                                if (soft)
-                                        nl.rlim_cur = x;
-                                else
-                                        nl.rlim_max = x;
-                        } else
-                                /* When the resource limit is not initialized yet, then assign the value to both fields */
-                                nl = (struct rlimit) {
-                                        .rlim_cur = x,
-                                        .rlim_max = x,
-                                };
-
-                        r = rlimit_format(&nl, &f);
+                        r = sd_bus_message_read(message, "t", &rl);
                         if (r < 0)
                                 return r;
 
-                        if (c->rlimit[ri])
-                                *c->rlimit[ri] = nl;
+                        if (rl == (uint64_t) -1)
+                                x = RLIM_INFINITY;
                         else {
-                                c->rlimit[ri] = newdup(struct rlimit, &nl, 1);
-                                if (!c->rlimit[ri])
-                                        return -ENOMEM;
+                                x = (rlim_t) rl;
+
+                                if ((uint64_t) x != rl)
+                                        return -ERANGE;
                         }
 
-                        unit_write_settingf(u, flags, name, "%s=%s", name, f);
+                        if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                _cleanup_free_ char *f = NULL;
+                                struct rlimit nl;
+
+                                if (c->rlimit[ri]) {
+                                        nl = *c->rlimit[ri];
+
+                                        if (soft)
+                                                nl.rlim_cur = x;
+                                        else
+                                                nl.rlim_max = x;
+                                } else
+                                        /* When the resource limit is not initialized yet, then assign the value to both fields */
+                                        nl = (struct rlimit) {
+                                                .rlim_cur = x,
+                                                .rlim_max = x,
+                                        };
+
+                                r = rlimit_format(&nl, &f);
+                                if (r < 0)
+                                        return r;
+
+                                if (c->rlimit[ri])
+                                        *c->rlimit[ri] = nl;
+                                else {
+                                        c->rlimit[ri] = newdup(struct rlimit, &nl, 1);
+                                        if (!c->rlimit[ri])
+                                                return -ENOMEM;
+                                }
+
+                                unit_write_settingf(u, flags, name, "%s=%s", name, f);
+                        }
+
+                        return 1;
                 }
 
-                return 1;
         }
 
         return 0;

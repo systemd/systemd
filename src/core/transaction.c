@@ -400,7 +400,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    j->unit->id,
                                    unit_id == array ? "ordering cycle" : "dependency",
                                    *unit_id, *job_type,
-                                   unit_ids, NULL);
+                                   unit_ids);
 
                 if (delete) {
                         const char *status;
@@ -409,7 +409,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    "MESSAGE=%s: Job %s/%s deleted to break ordering cycle starting with %s/%s",
                                    j->unit->id, delete->unit->id, job_type_to_string(delete->type),
                                    j->unit->id, job_type_to_string(j->type),
-                                   unit_ids, NULL);
+                                   unit_ids);
 
                         if (log_get_show_color())
                                 status = ANSI_HIGHLIGHT_RED " SKIP " ANSI_NORMAL;
@@ -425,7 +425,7 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                 log_struct(LOG_ERR,
                            "MESSAGE=%s: Unable to break cycle starting with %s/%s",
                            j->unit->id, j->unit->id, job_type_to_string(j->type),
-                           unit_ids, NULL);
+                           unit_ids);
 
                 return sd_bus_error_setf(e, BUS_ERROR_TRANSACTION_ORDER_IS_CYCLIC,
                                          "Transaction order is cyclic. See system logs for details.");
@@ -906,11 +906,13 @@ int transaction_add_job_and_dependencies(
         /*           by ? by->unit->id : "NA", */
         /*           by ? job_type_to_string(by->type) : "NA"); */
 
-        if (!IN_SET(unit->load_state, UNIT_LOADED, UNIT_ERROR, UNIT_NOT_FOUND, UNIT_MASKED))
+        /* Safety check that the unit is a valid state, i.e. not in UNIT_STUB or UNIT_MERGED which should only be set
+         * temporarily. */
+        if (!IN_SET(unit->load_state, UNIT_LOADED, UNIT_ERROR, UNIT_NOT_FOUND, UNIT_BAD_SETTING, UNIT_MASKED))
                 return sd_bus_error_setf(e, BUS_ERROR_LOAD_FAILED, "Unit %s is not loaded properly.", unit->id);
 
         if (type != JOB_STOP) {
-                r = bus_unit_check_load_state(unit, e);
+                r = bus_unit_validate_load_state(unit, e);
                 if (r < 0)
                         return r;
         }

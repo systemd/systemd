@@ -224,11 +224,6 @@ static int manager_clock_watch(sd_event_source *source, int fd, uint32_t revents
 
 /* wake up when the system time changes underneath us */
 static int manager_clock_watch_setup(Manager *m) {
-
-        struct itimerspec its = {
-                .it_value.tv_sec = TIME_T_MAX
-        };
-
         int r;
 
         assert(m);
@@ -236,12 +231,9 @@ static int manager_clock_watch_setup(Manager *m) {
         m->event_clock_watch = sd_event_source_unref(m->event_clock_watch);
         safe_close(m->clock_watch_fd);
 
-        m->clock_watch_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK|TFD_CLOEXEC);
+        m->clock_watch_fd = time_change_fd();
         if (m->clock_watch_fd < 0)
-                return log_error_errno(errno, "Failed to create timerfd: %m");
-
-        if (timerfd_settime(m->clock_watch_fd, TFD_TIMER_ABSTIME|TFD_TIMER_CANCEL_ON_SET, &its, NULL) < 0)
-                return log_error_errno(errno, "Failed to set up timerfd: %m");
+                return log_error_errno(m->clock_watch_fd, "Failed to create timerfd: %m");
 
         r = sd_event_add_io(m->event, &m->event_clock_watch, m->clock_watch_fd, EPOLLIN, manager_clock_watch, m);
         if (r < 0)
@@ -804,7 +796,7 @@ int manager_connect(Manager *m) {
         manager_disconnect(m);
 
         m->event_retry = sd_event_source_unref(m->event_retry);
-        if (!ratelimit_test(&m->ratelimit)) {
+        if (!ratelimit_below(&m->ratelimit)) {
                 log_debug("Slowing down attempts to contact servers.");
 
                 r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + RETRY_USEC, 0, manager_retry_connect, m);

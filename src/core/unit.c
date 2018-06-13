@@ -16,6 +16,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "all-units.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
@@ -566,8 +567,9 @@ void unit_free(Unit *u) {
 
         unit_done(u);
 
-        sd_bus_slot_unref(u->match_bus_slot);
+        unit_dequeue_rewatch_pids(u);
 
+        sd_bus_slot_unref(u->match_bus_slot);
         sd_bus_track_unref(u->bus_track);
         u->deserialized_refs = strv_free(u->deserialized_refs);
 
@@ -1052,7 +1054,7 @@ static void print_unit_dependency_mask(FILE *f, const char *kind, UnitDependency
                 if (mask == 0)
                         break;
 
-                if ((mask & table[i].mask) == table[i].mask) {
+                if (FLAGS_SET(mask, table[i].mask)) {
                         if (*space)
                                 fputc(' ', f);
                         else
@@ -1508,7 +1510,7 @@ int unit_load(Unit *u) {
 
                 if (u->on_failure_job_mode == JOB_ISOLATE && hashmap_size(u->dependencies[UNIT_ON_FAILURE]) > 1) {
                         log_unit_error(u, "More than one OnFailure= dependencies specified but OnFailureJobMode=isolate set. Refusing.");
-                        r = -EINVAL;
+                        r = -ENOEXEC;
                         goto fail;
                 }
 
@@ -1526,14 +1528,18 @@ int unit_load(Unit *u) {
         return 0;
 
 fail:
-        u->load_state = u->load_state == UNIT_STUB ? UNIT_NOT_FOUND : UNIT_ERROR;
+        /* We convert ENOEXEC errors to the UNIT_BAD_SETTING load state here. Configuration parsing code should hence
+         * return ENOEXEC to ensure units are placed in this state after loading */
+
+        u->load_state = u->load_state == UNIT_STUB ? UNIT_NOT_FOUND :
+                                     r == -ENOEXEC ? UNIT_BAD_SETTING :
+                                                     UNIT_ERROR;
         u->load_error = r;
+
         unit_add_to_dbus_queue(u);
         unit_add_to_gc_queue(u);
 
-        log_unit_debug_errno(u, r, "Failed to load configuration: %m");
-
-        return r;
+        return log_unit_debug_errno(u, r, "Failed to load configuration: %m");
 }
 
 static bool unit_condition_test_list(Unit *u, Condition *first, const char *(*to_string)(ConditionType t)) {
@@ -1679,8 +1685,7 @@ static void unit_status_log_starting_stopping_reloading(Unit *u, JobType t) {
                    LOG_MESSAGE("%s", buf),
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
-                   mid,
-                   NULL);
+                   mid);
 }
 
 void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
@@ -1695,7 +1700,7 @@ void unit_status_emit_starting_stopping_reloading(Unit *u, JobType t) {
 int unit_start_limit_test(Unit *u) {
         assert(u);
 
-        if (ratelimit_test(&u->start_limit)) {
+        if (ratelimit_below(&u->start_limit)) {
                 u->start_limit_hit = false;
                 return 0;
         }
@@ -1931,7 +1936,7 @@ int unit_reload(Unit *u) {
 
         if (!UNIT_VTABLE(u)->reload) {
                 /* Unit doesn't have a reload function, but we need to propagate the reload anyway */
-                unit_notify(u, unit_active_state(u), unit_active_state(u), true);
+                unit_notify(u, unit_active_state(u), unit_active_state(u), 0);
                 return 0;
         }
 
@@ -1988,7 +1993,7 @@ static void unit_check_unneeded(Unit *u) {
         /* If stopping a unit fails continuously we might enter a stop
          * loop here, hence stop acting on the service being
          * unnecessary after a while. */
-        if (!ratelimit_test(&u->auto_stop_ratelimit)) {
+        if (!ratelimit_below(&u->auto_stop_ratelimit)) {
                 log_unit_warning(u, "Unit not needed anymore, but not stopping since we tried this too often recently.");
                 return;
         }
@@ -2038,7 +2043,7 @@ static void unit_check_binds_to(Unit *u) {
         /* If stopping a unit fails continuously we might enter a stop
          * loop here, hence stop acting on the service being
          * unnecessary after a while. */
-        if (!ratelimit_test(&u->auto_stop_ratelimit)) {
+        if (!ratelimit_below(&u->auto_stop_ratelimit)) {
                 log_unit_warning(u, "Unit is bound to inactive unit %s, but not stopping since we tried this too often recently.", other->id);
                 return;
         }
@@ -2125,6 +2130,7 @@ void unit_start_on_failure(Unit *u) {
         Unit *other;
         Iterator i;
         void *v;
+        int r;
 
         assert(u);
 
@@ -2134,11 +2140,11 @@ void unit_start_on_failure(Unit *u) {
         log_unit_info(u, "Triggering OnFailure= dependencies.");
 
         HASHMAP_FOREACH_KEY(v, other, u->dependencies[UNIT_ON_FAILURE], i) {
-                int r;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, NULL, NULL);
+                r = manager_add_job(u->manager, JOB_START, other, u->on_failure_job_mode, &error, NULL);
                 if (r < 0)
-                        log_unit_error_errno(u, r, "Failed to enqueue OnFailure= job: %m");
+                        log_unit_warning_errno(u, r, "Failed to enqueue OnFailure= job, ignoring: %s", bus_error_message(&error, r));
         }
 }
 
@@ -2296,10 +2302,9 @@ static void unit_update_on_console(Unit *u) {
                 manager_ref_console(u->manager);
         else
                 manager_unref_console(u->manager);
-
 }
 
-void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success) {
+void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, UnitNotifyFlags flags) {
         bool unexpected;
         Manager *m;
 
@@ -2375,7 +2380,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                         if (u->job->state == JOB_RUNNING) {
                                 if (ns == UNIT_ACTIVE)
-                                        job_finish_and_invalidate(u->job, reload_success ? JOB_DONE : JOB_FAILED, true, false);
+                                        job_finish_and_invalidate(u->job, (flags & UNIT_NOTIFY_RELOAD_FAILURE) ? JOB_FAILED : JOB_DONE, true, false);
                                 else if (!IN_SET(ns, UNIT_ACTIVATING, UNIT_RELOADING)) {
                                         unexpected = true;
 
@@ -2428,7 +2433,9 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
                 if (ns != os && ns == UNIT_FAILED) {
                         log_unit_debug(u, "Unit entered failed state.");
-                        unit_start_on_failure(u);
+
+                        if (!(flags & UNIT_NOTIFY_WILL_AUTO_RESTART))
+                                unit_start_on_failure(u);
                 }
         }
 
@@ -2602,13 +2609,17 @@ void unit_unwatch_all_pids(Unit *u) {
         u->pids = set_free(u->pids);
 }
 
-void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
+static void unit_tidy_watch_pids(Unit *u) {
+        pid_t except1, except2;
         Iterator i;
         void *e;
 
         assert(u);
 
         /* Cleans dead PIDs from our list */
+
+        except1 = unit_main_pid(u);
+        except2 = unit_control_pid(u);
 
         SET_FOREACH(e, u->pids, i) {
                 pid_t pid = PTR_TO_PID(e);
@@ -2619,6 +2630,76 @@ void unit_tidy_watch_pids(Unit *u, pid_t except1, pid_t except2) {
                 if (!pid_is_unwaited(pid))
                         unit_unwatch_pid(u, pid);
         }
+}
+
+static int on_rewatch_pids_event(sd_event_source *s, void *userdata) {
+        Unit *u = userdata;
+
+        assert(s);
+        assert(u);
+
+        unit_tidy_watch_pids(u);
+        unit_watch_all_pids(u);
+
+        /* If the PID set is empty now, then let's finish this off. */
+        unit_synthesize_cgroup_empty_event(u);
+
+        return 0;
+}
+
+int unit_enqueue_rewatch_pids(Unit *u) {
+        int r;
+
+        assert(u);
+
+        if (!u->cgroup_path)
+                return -ENOENT;
+
+        r = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
+        if (r < 0)
+                return r;
+        if (r > 0) /* On unified we can use proper notifications */
+                return 0;
+
+        /* Enqueues a low-priority job that will clean up dead PIDs from our list of PIDs to watch and subscribe to new
+         * PIDs that might have appeared. We do this in a delayed job because the work might be quite slow, as it
+         * involves issuing kill(pid, 0) on all processes we watch. */
+
+        if (!u->rewatch_pids_event_source) {
+                _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+
+                r = sd_event_add_defer(u->manager->event, &s, on_rewatch_pids_event, u);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate event source for tidying watched PIDs: %m");
+
+                r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IDLE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to adjust priority of event source for tidying watched PIDs: m");
+
+                (void) sd_event_source_set_description(s, "tidy-watch-pids");
+
+                u->rewatch_pids_event_source = TAKE_PTR(s);
+        }
+
+        r = sd_event_source_set_enabled(u->rewatch_pids_event_source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable event source for tidying watched PIDs: %m");
+
+        return 0;
+}
+
+void unit_dequeue_rewatch_pids(Unit *u) {
+        int r;
+        assert(u);
+
+        if (!u->rewatch_pids_event_source)
+                return;
+
+        r = sd_event_source_set_enabled(u->rewatch_pids_event_source, SD_EVENT_OFF);
+        if (r < 0)
+                log_warning_errno(r, "Failed to disable event source for tidying watched PIDs, ignoring: %m");
+
+        u->rewatch_pids_event_source = sd_event_source_unref(u->rewatch_pids_event_source);
 }
 
 bool unit_job_is_applicable(Unit *u, JobType j) {
@@ -2694,8 +2775,8 @@ static int unit_add_dependency_hashmap(
         if (info.data) {
                 /* Entry already exists. Add in our mask. */
 
-                if ((info.origin_mask & origin_mask) == info.origin_mask &&
-                    (info.destination_mask & destination_mask) == info.destination_mask)
+                if (FLAGS_SET(origin_mask, info.origin_mask) &&
+                    FLAGS_SET(destination_mask, info.destination_mask))
                         return 0; /* NOP */
 
                 info.origin_mask |= origin_mask;
@@ -3652,8 +3733,7 @@ int unit_coldplug(Unit *u) {
 
         assert(u);
 
-        /* Make sure we don't enter a loop, when coldplugging
-         * recursively. */
+        /* Make sure we don't enter a loop, when coldplugging recursively. */
         if (u->coldplugged)
                 return 0;
 
@@ -3679,6 +3759,13 @@ int unit_coldplug(Unit *u) {
         }
 
         return r;
+}
+
+void unit_catchup(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->catchup)
+                UNIT_VTABLE(u)->catchup(u);
 }
 
 static bool fragment_mtime_newer(const char *path, usec_t mtime, bool path_masked) {
@@ -3815,7 +3902,7 @@ int unit_kill(Unit *u, KillWho w, int signo, sd_bus_error *error) {
 }
 
 static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
-        Set *pid_set;
+        _cleanup_set_free_ Set *pid_set = NULL;
         int r;
 
         pid_set = set_new(NULL);
@@ -3826,20 +3913,16 @@ static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
         if (main_pid > 0) {
                 r = set_put(pid_set, PID_TO_PTR(main_pid));
                 if (r < 0)
-                        goto fail;
+                        return NULL;
         }
 
         if (control_pid > 0) {
                 r = set_put(pid_set, PID_TO_PTR(control_pid));
                 if (r < 0)
-                        goto fail;
+                        return NULL;
         }
 
-        return pid_set;
-
-fail:
-        set_free(pid_set);
-        return NULL;
+        return TAKE_PTR(pid_set);
 }
 
 int unit_kill_common(
@@ -4554,7 +4637,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         if (!p)
                 return -ENOMEM;
 
-        path = path_kill_slashes(p);
+        path = path_simplify(p, false);
 
         if (!path_is_normalized(path))
                 return -EPERM;
@@ -4684,8 +4767,7 @@ void unit_warn_if_dir_nonempty(Unit *u, const char* where) {
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
                    LOG_UNIT_MESSAGE(u, "Directory %s to mount over is not empty, mounting anyway.", where),
-                   "WHERE=%s", where,
-                   NULL);
+                   "WHERE=%s", where);
 }
 
 int unit_fail_if_noncanonical(Unit *u, const char* where) {
@@ -4711,8 +4793,7 @@ int unit_fail_if_noncanonical(Unit *u, const char* where) {
                    LOG_UNIT_ID(u),
                    LOG_UNIT_INVOCATION_ID(u),
                    LOG_UNIT_MESSAGE(u, "Mount path %s is not canonical (contains a symlink).", where),
-                   "WHERE=%s", where,
-                   NULL);
+                   "WHERE=%s", where);
 
         return -ELOOP;
 }

@@ -13,7 +13,7 @@
 /* Modelled after Linux' lib/ratelimit.c by Dave Young
  * <hidave.darkstar@gmail.com>, which is licensed GPLv2. */
 
-bool ratelimit_test(RateLimit *r) {
+bool ratelimit_below(RateLimit *r) {
         usec_t ts;
 
         assert(r);

@@ -141,7 +141,12 @@ static int parse_config(void) {
 }
 
 static inline uint64_t storage_size_max(void) {
-        return arg_storage == COREDUMP_STORAGE_EXTERNAL ? arg_external_size_max : arg_journal_size_max;
+        if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
+                return arg_external_size_max;
+        if (arg_storage == COREDUMP_STORAGE_JOURNAL)
+                return arg_journal_size_max;
+        assert(arg_storage == COREDUMP_STORAGE_NONE);
+        return 0;
 }
 
 static int fix_acl(int fd, uid_t uid) {
@@ -323,7 +328,7 @@ static int save_external_coredump(
 
         _cleanup_free_ char *fn = NULL, *tmp = NULL;
         _cleanup_close_ int fd = -1;
-        uint64_t rlimit, max_size;
+        uint64_t rlimit, process_limit, max_size;
         struct stat st;
         uid_t uid;
         int r;
@@ -350,8 +355,14 @@ static int save_external_coredump(
                 return -EBADSLT;
         }
 
+        process_limit = MAX(arg_process_size_max, storage_size_max());
+        if (process_limit == 0) {
+                log_debug("Limits for coredump processing and storage are both 0, not dumping core.");
+                return -EBADSLT;
+        }
+
         /* Never store more than the process configured, or than we actually shall keep or process */
-        max_size = MIN(rlimit, MAX(arg_process_size_max, storage_size_max()));
+        max_size = MIN(rlimit, process_limit);
 
         r = make_filename(context, &fn);
         if (r < 0)
@@ -373,8 +384,7 @@ static int save_external_coredump(
                 log_struct(LOG_INFO,
                            LOG_MESSAGE("Core file was truncated to %zu bytes.", max_size),
                            "SIZE_LIMIT=%zu", max_size,
-                           "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR,
-                           NULL);
+                           "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR);
 
         if (fstat(fd, &st) < 0) {
                 log_error_errno(errno, "Failed to fstat core file %s: %m", coredump_tmpfile_name(tmp));
@@ -841,21 +851,18 @@ static void map_context_fields(const struct iovec *iovec, const char* context[])
         assert(context);
 
         for (i = 0; i < ELEMENTSOF(context_field_names); i++) {
-                size_t l;
+                char *p;
 
                 if (!context_field_names[i])
                         continue;
 
-                l = strlen(context_field_names[i]);
-                if (iovec->iov_len < l)
-                        continue;
-
-                if (memcmp(iovec->iov_base, context_field_names[i], l) != 0)
+                p = memory_startswith(iovec->iov_base, iovec->iov_len, context_field_names[i]);
+                if (!p)
                         continue;
 
                 /* Note that these strings are NUL terminated, because we made sure that a trailing NUL byte is in the
                  * buffer, though not included in the iov_len count. (see below) */
-                context[i] = (char*) iovec->iov_base + l;
+                context[i] = p;
                 break;
         }
 }

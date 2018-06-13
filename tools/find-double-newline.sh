@@ -1,26 +1,28 @@
 #!/bin/sh
 # SPDX-License-Identifier: LGPL-2.1+
 
+TOP=`git rev-parse --show-toplevel`
+
 case "$1" in
 
         recdiff)
                 if [ "$2" = "" ] ; then
-                        DIR="$PWD/.."
+                        DIR="$TOP"
                 else
                         DIR="$2"
                 fi
 
-                find $DIR -type f \( -name '*.c' -o -name '*.xml' \) -exec $0 diff \{\} \;
+                find $DIR -type f \( -name '*.[ch]' -o -name '*.xml' \) -exec $0 diff \{\} \;
                 ;;
 
         recpatch)
                 if [ "$2" = "" ] ; then
-                        DIR="$PWD/.."
+                        DIR="$TOP"
                 else
                         DIR="$2"
                 fi
 
-                find $DIR -type f \( -name '*.c' -o -name '*.xml' \) -exec $0 patch \{\} \;
+                find $DIR -type f \( -name '*.[ch]' -o -name '*.xml' \) -exec $0 patch \{\} \;
                 ;;
 
         diff)

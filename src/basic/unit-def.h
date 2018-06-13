@@ -30,8 +30,9 @@ typedef enum UnitType {
 typedef enum UnitLoadState {
         UNIT_STUB = 0,
         UNIT_LOADED,
-        UNIT_NOT_FOUND,
-        UNIT_ERROR,
+        UNIT_NOT_FOUND,    /* error condition #1: unit file not found */
+        UNIT_BAD_SETTING,  /* error condition #2: we couldn't parse some essential unit file setting */
+        UNIT_ERROR,        /* error condition #3: other "system" error, catchall for the rest */
         UNIT_MERGED,
         UNIT_MASKED,
         _UNIT_LOAD_STATE_MAX,

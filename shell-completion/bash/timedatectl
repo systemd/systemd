@@ -34,7 +34,8 @@ _timedatectl() {
         local i verb comps
         local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]}
         local OPTS='-h --help --version --adjust-system-clock --no-pager
-                    --no-ask-password -H --host -M --machine'
+                    --no-ask-password -H --host -M --machine --monitor
+                    -p --property -a --all --value'
 
         if __contains_word "$prev" $OPTS; then
                 case $prev in
@@ -56,7 +57,7 @@ _timedatectl() {
 
         local -A VERBS=(
                   [BOOLEAN]='set-local-rtc set-ntp'
-               [STANDALONE]='status list-timezones'
+               [STANDALONE]='status list-timezones timesync-status show-timesync'
                 [TIMEZONES]='set-timezone'
                      [TIME]='set-time'
         )

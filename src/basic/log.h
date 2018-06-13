@@ -245,7 +245,7 @@ int log_emergency_level(void);
 /* Structured logging */
 #define log_struct_errno(level, error, ...) \
         log_struct_internal(LOG_REALM_PLUS_LEVEL(LOG_REALM, level), \
-                            error, __FILE__, __LINE__, __func__, __VA_ARGS__)
+                            error, __FILE__, __LINE__, __func__, __VA_ARGS__, NULL)
 #define log_struct(level, ...) log_struct_errno(level, 0, __VA_ARGS__)
 
 #define log_struct_iovec_errno(level, error, iovec, n_iovec)            \
@@ -283,6 +283,8 @@ void log_set_open_when_needed(bool b);
 /* If turned on, then we'll never use IPC-based logging, i.e. never log to syslog or the journal. We'll only log to
  * stderr, the console or kmsg */
 void log_set_prohibit_ipc(bool b);
+
+int log_dup_console(void);
 
 int log_syntax_internal(
                 const char *unit,

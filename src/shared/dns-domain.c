@@ -353,10 +353,7 @@ int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded,
         if (encoded_size <= 0 || encoded_size > DNS_LABEL_MAX)
                 return -EINVAL;
 
-        if (encoded_size < sizeof(IDNA_ACE_PREFIX)-1)
-                return 0;
-
-        if (memcmp(encoded, IDNA_ACE_PREFIX, sizeof(IDNA_ACE_PREFIX) -1) != 0)
+        if (!memory_startswith(encoded, encoded_size, IDNA_ACE_PREFIX))
                 return 0;
 
         input = stringprep_utf8_to_ucs4(encoded, encoded_size, &input_size);

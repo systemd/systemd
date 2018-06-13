@@ -25,7 +25,7 @@
 #define DNS_HOSTNAME_MAX 253
 
 /* Maximum length of a full hostname, on the wire, including the final NUL byte */
-#define DNS_WIRE_FOMAT_HOSTNAME_MAX 255
+#define DNS_WIRE_FORMAT_HOSTNAME_MAX 255
 
 /* Maximum number of labels per valid hostname */
 #define DNS_N_LABELS_MAX 127

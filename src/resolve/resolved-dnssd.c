@@ -166,7 +166,7 @@ int dnssd_render_instance_name(DnssdService *s, char **ret_name) {
         static const Specifier specifier_table[] = {
                 { 'b', specifier_boot_id,         NULL },
                 { 'H', specifier_dnssd_host_name, NULL },
-                { 'm', specifier_machine_id, NULL },
+                { 'm', specifier_machine_id,      NULL },
                 { 'v', specifier_kernel_release,  NULL },
                 {}
         };

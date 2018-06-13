@@ -79,3 +79,5 @@ PathType path_type_from_string(const char *s) _pure_;
 
 const char* path_result_to_string(PathResult i) _const_;
 PathResult path_result_from_string(const char *s) _pure_;
+
+DEFINE_CAST(PATH, Path);

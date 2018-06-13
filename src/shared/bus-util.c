@@ -697,7 +697,8 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                  * should it turn out to not be sufficient */
 
                 if (endswith(name, "Timestamp") || STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec")) {
-                        char timestamp[FORMAT_TIMESTAMP_MAX], *t;
+                        char timestamp[FORMAT_TIMESTAMP_MAX];
+                        const char *t;
 
                         t = format_timestamp(timestamp, sizeof(timestamp), u);
                         if (t || all)
@@ -716,7 +717,7 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                         else if ((u & NAMESPACE_FLAGS_ALL) == NAMESPACE_FLAGS_ALL)
                                 result = "no";
                         else {
-                                r = namespace_flag_to_string_many(u, &s);
+                                r = namespace_flags_to_string(u, &s);
                                 if (r < 0)
                                         return r;
 
@@ -838,7 +839,7 @@ int bus_print_property(const char *name, sd_bus_message *m, bool value, bool all
                                         printf("%s=", name);
 
                                 /* This property has multiple space-separated values, so
-                                 * neither spaces not newlines can be allowed in a value. */
+                                 * neither spaces nor newlines can be allowed in a value. */
                                 good = str[strcspn(str, " \n")] == '\0';
 
                                 printf("%s%s", first ? "" : " ", good ? str : "[unprintable]");
@@ -1613,36 +1614,40 @@ int bus_property_get_rlimit(
                 void *userdata,
                 sd_bus_error *error) {
 
+        const char *is_soft;
         struct rlimit *rl;
         uint64_t u;
         rlim_t x;
-        const char *is_soft;
 
         assert(bus);
         assert(reply);
         assert(userdata);
 
         is_soft = endswith(property, "Soft");
+
         rl = *(struct rlimit**) userdata;
         if (rl)
                 x = is_soft ? rl->rlim_cur : rl->rlim_max;
         else {
                 struct rlimit buf = {};
+                const char *s, *p;
                 int z;
-                const char *s;
 
+                /* Chop off "Soft" suffix */
                 s = is_soft ? strndupa(property, is_soft - property) : property;
 
-                z = rlimit_from_string(strstr(s, "Limit"));
+                /* Skip over any prefix, such as "Default" */
+                assert_se(p = strstr(s, "Limit"));
+
+                z = rlimit_from_string(p + 5);
                 assert(z >= 0);
 
-                getrlimit(z, &buf);
+                (void) getrlimit(z, &buf);
                 x = is_soft ? buf.rlim_cur : buf.rlim_max;
         }
 
-        /* rlim_t might have different sizes, let's map
-         * RLIMIT_INFINITY to (uint64_t) -1, so that it is the same on
-         * all archs */
+        /* rlim_t might have different sizes, let's map RLIMIT_INFINITY to (uint64_t) -1, so that it is the same on all
+         * archs */
         u = x == RLIM_INFINITY ? (uint64_t) -1 : (uint64_t) x;
 
         return sd_bus_message_append(reply, "t", u);
@@ -1721,4 +1726,198 @@ int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *descri
         *ret = TAKE_PTR(bus);
 
         return 0;
+}
+
+struct request_name_data {
+        unsigned n_ref;
+
+        const char *name;
+        uint64_t flags;
+        void *userdata;
+};
+
+static void request_name_destroy_callback(void *userdata) {
+        struct request_name_data *data = userdata;
+
+        assert(data);
+        assert(data->n_ref > 0);
+
+        log_info("%s n_ref=%u", __func__, data->n_ref);
+
+        data->n_ref--;
+        if (data->n_ref == 0)
+                free(data);
+}
+
+static int reload_dbus_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        struct request_name_data *data = userdata;
+        const sd_bus_error *e;
+        int r;
+
+        assert(data);
+        assert(data->name);
+        assert(data->n_ref > 0);
+
+        e = sd_bus_message_get_error(m);
+        if (e) {
+                log_error_errno(sd_bus_error_get_errno(e), "Failed to reload DBus configuration: %s", e->message);
+                return 1;
+        }
+
+        /* Here, use the default request name handler to avoid an infinite loop of reloading and requesting. */
+        r = sd_bus_request_name_async(sd_bus_message_get_bus(m), NULL, data->name, data->flags, NULL, data->userdata);
+        if (r < 0)
+                log_error_errno(r, "Failed to request name: %m");
+
+        return 1;
+}
+
+static int request_name_handler_may_reload_dbus(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        struct request_name_data *data = userdata;
+        uint32_t ret;
+        int r;
+
+        assert(m);
+        assert(data);
+
+        if (sd_bus_message_is_method_error(m, NULL)) {
+                const sd_bus_error *e = sd_bus_message_get_error(m);
+                _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+
+                if (!sd_bus_error_has_name(e, SD_BUS_ERROR_ACCESS_DENIED)) {
+                        log_debug_errno(sd_bus_error_get_errno(e),
+                                        "Unable to request name, failing connection: %s",
+                                        e->message);
+
+                        bus_enter_closing(sd_bus_message_get_bus(m));
+                        return 1;
+                }
+
+                log_debug_errno(sd_bus_error_get_errno(e),
+                                "Unable to request name, will retry after reloading DBus configuration: %s",
+                                e->message);
+
+                /* If systemd-timesyncd.service enables DynamicUser= and dbus.service
+                 * started before the dynamic user is realized, then the DBus policy
+                 * about timesyncd has not been enabled yet. So, let's try to reload
+                 * DBus configuration, and after that request the name again. Note that it
+                 * seems that no privileges are necessary to call the following method. */
+
+                r = sd_bus_call_method_async(
+                                sd_bus_message_get_bus(m),
+                                &slot,
+                                "org.freedesktop.DBus",
+                                "/org/freedesktop/DBus",
+                                "org.freedesktop.DBus",
+                                "ReloadConfig",
+                                reload_dbus_handler,
+                                data, NULL);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to reload DBus configuration: %m");
+                        bus_enter_closing(sd_bus_message_get_bus(m));
+                        return 1;
+                }
+
+                data->n_ref ++;
+                assert_se(sd_bus_slot_set_destroy_callback(slot, request_name_destroy_callback) >= 0);
+
+                r = sd_bus_slot_set_floating(slot, true);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        r = sd_bus_message_read(m, "u", &ret);
+        if (r < 0)
+                return r;
+
+        switch (ret) {
+
+        case BUS_NAME_ALREADY_OWNER:
+                log_debug("Already owner of requested service name, ignoring.");
+                return 1;
+
+        case BUS_NAME_IN_QUEUE:
+                log_debug("In queue for requested service name.");
+                return 1;
+
+        case BUS_NAME_PRIMARY_OWNER:
+                log_debug("Successfully acquired requested service name.");
+                return 1;
+
+        case BUS_NAME_EXISTS:
+                log_debug("Requested service name already owned, failing connection.");
+                bus_enter_closing(sd_bus_message_get_bus(m));
+                return 1;
+        }
+
+        log_debug("Unexpected response from RequestName(), failing connection.");
+        bus_enter_closing(sd_bus_message_get_bus(m));
+        return 1;
+}
+
+int bus_request_name_async_may_reload_dbus(sd_bus *bus, sd_bus_slot **ret_slot, const char *name, uint64_t flags, void *userdata) {
+        _cleanup_free_ struct request_name_data *data = NULL;
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        int r;
+
+        data = new(struct request_name_data, 1);
+        if (!data)
+                return -ENOMEM;
+
+        *data = (struct request_name_data) {
+                .n_ref = 1,
+                .name = name,
+                .flags = flags,
+                .userdata = userdata,
+        };
+
+        r = sd_bus_request_name_async(bus, &slot, name, flags, request_name_handler_may_reload_dbus, data);
+        if (r < 0)
+                return r;
+
+        assert_se(sd_bus_slot_set_destroy_callback(slot, request_name_destroy_callback) >= 0);
+        TAKE_PTR(data);
+
+        if (ret_slot)
+                *ret_slot = TAKE_PTR(slot);
+        else {
+                r = sd_bus_slot_set_floating(slot, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int bus_reply_pair_array(sd_bus_message *m, char **l) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        char **k, **v;
+        int r;
+
+        assert(m);
+
+        /* Reply to the specified message with a message containing a dictionary put together from the specified
+         * strv */
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "{ss}");
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH_PAIR(k, v, l) {
+                r = sd_bus_message_append(reply, "{ss}", *k, *v);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
 }

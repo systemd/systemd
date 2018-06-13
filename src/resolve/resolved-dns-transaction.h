@@ -136,6 +136,7 @@ struct DnsTransaction {
         unsigned block_gc;
 
         LIST_FIELDS(DnsTransaction, transactions_by_scope);
+        LIST_FIELDS(DnsTransaction, transactions_by_stream);
 };
 
 int dns_transaction_new(DnsTransaction **ret, DnsScope *s, DnsResourceKey *key);

@@ -9,7 +9,11 @@
 ***/
 
 enum {
-        CONF_FILES_EXECUTABLE = 1,
+        CONF_FILES_EXECUTABLE    = 1 << 0,
+        CONF_FILES_REGULAR       = 1 << 1,
+        CONF_FILES_DIRECTORY     = 1 << 2,
+        CONF_FILES_BASENAME      = 1 << 3,
+        CONF_FILES_FILTER_MASKED = 1 << 4,
 };
 
 int conf_files_list(char ***ret, const char *suffix, const char *root, unsigned flags, const char *dir, ...);

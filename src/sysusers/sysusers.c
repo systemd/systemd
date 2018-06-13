@@ -1359,18 +1359,20 @@ static bool item_equal(Item *a, Item *b) {
 static int parse_line(const char *fname, unsigned line, const char *buffer) {
 
         static const Specifier specifier_table[] = {
-                { 'm', specifier_machine_id, NULL },
-                { 'b', specifier_boot_id, NULL },
-                { 'H', specifier_host_name, NULL },
+                { 'm', specifier_machine_id,     NULL },
+                { 'b', specifier_boot_id,        NULL },
+                { 'H', specifier_host_name,      NULL },
                 { 'v', specifier_kernel_release, NULL },
+                { 'T', specifier_tmp_dir,        NULL },
+                { 'V', specifier_var_tmp_dir,    NULL },
                 {}
         };
 
         _cleanup_free_ char *action = NULL,
                 *name = NULL, *resolved_name = NULL,
                 *id = NULL, *resolved_id = NULL,
-                *description = NULL,
-                *home = NULL,
+                *description = NULL, *resolved_description = NULL,
+                *home = NULL, *resolved_home = NULL,
                 *shell, *resolved_shell = NULL;
         _cleanup_(item_freep) Item *i = NULL;
         Item *existing;
@@ -1444,8 +1446,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 description = mfree(description);
 
         if (description) {
-                if (!valid_gecos(description)) {
-                        log_error("[%s:%u] '%s' is not a valid GECOS field.", fname, line, description);
+                r = specifier_printf(description, specifier_table, NULL, &resolved_description);
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, description);
+                        return r;
+                }
+
+                if (!valid_gecos(resolved_description)) {
+                        log_error("[%s:%u] '%s' is not a valid GECOS field.", fname, line, resolved_description);
                         return -EINVAL;
                 }
         }
@@ -1455,8 +1463,14 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 home = mfree(home);
 
         if (home) {
-                if (!valid_home(home)) {
-                        log_error("[%s:%u] '%s' is not a valid home directory field.", fname, line, home);
+                r = specifier_printf(home, specifier_table, NULL, &resolved_home);
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to replace specifiers: %s", fname, line, home);
+                        return r;
+                }
+
+                if (!valid_home(resolved_home)) {
+                        log_error("[%s:%u] '%s' is not a valid home directory field.", fname, line, resolved_home);
                         return -EINVAL;
                 }
         }
@@ -1585,8 +1599,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (resolved_id) {
                         if (path_is_absolute(resolved_id)) {
                                 i->uid_path = TAKE_PTR(resolved_id);
-
-                                path_kill_slashes(i->uid_path);
+                                path_simplify(i->uid_path, false);
                         } else {
                                 _cleanup_free_ char *uid = NULL, *gid = NULL;
                                 if (split_pair(resolved_id, ":", &uid, &gid) == 0) {
@@ -1606,8 +1619,8 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                         }
                 }
 
-                i->description = TAKE_PTR(description);
-                i->home = TAKE_PTR(home);
+                i->description = TAKE_PTR(resolved_description);
+                i->home = TAKE_PTR(resolved_home);
                 i->shell = TAKE_PTR(resolved_shell);
 
                 h = users;
@@ -1637,8 +1650,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer) {
                 if (resolved_id) {
                         if (path_is_absolute(resolved_id)) {
                                 i->gid_path = TAKE_PTR(resolved_id);
-
-                                path_kill_slashes(i->gid_path);
+                                path_simplify(i->gid_path, false);
                         } else {
                                 r = parse_gid(resolved_id, &i->gid);
                                 if (r < 0)
@@ -1746,7 +1758,6 @@ static void free_database(Hashmap *by_name, Hashmap *by_id) {
 
 static int cat_config(void) {
         _cleanup_strv_free_ char **files = NULL;
-        _cleanup_free_ char *replace_file = NULL;
         int r;
 
         r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, NULL);

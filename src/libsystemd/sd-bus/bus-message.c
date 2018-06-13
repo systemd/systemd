@@ -901,8 +901,7 @@ _public_ sd_bus_message* sd_bus_message_unref(sd_bus_message *m) {
         if (m->n_ref > 0)
                 return NULL;
 
-        message_free(m);
-        return NULL;
+        return message_free(m);
 }
 
 _public_ int sd_bus_message_get_type(sd_bus_message *m, uint8_t *type) {
@@ -1955,7 +1954,7 @@ _public_ int sd_bus_message_open_container(
 
         struct bus_container *c, *w;
         uint32_t *array_size = NULL;
-        char *signature;
+        _cleanup_free_ char *signature = NULL;
         size_t before, begin = 0;
         bool need_offsets = false;
         int r;
@@ -1994,16 +1993,13 @@ _public_ int sd_bus_message_open_container(
                 r = bus_message_open_dict_entry(m, c, contents, &begin, &need_offsets);
         else
                 r = -EINVAL;
-
-        if (r < 0) {
-                free(signature);
+        if (r < 0)
                 return r;
-        }
 
         /* OK, let's fill it in */
         w = m->containers + m->n_containers++;
         w->enclosing = type;
-        w->signature = signature;
+        w->signature = TAKE_PTR(signature);
         w->index = 0;
         w->array_size = array_size;
         w->before = before;
@@ -3975,9 +3971,9 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
                                             const char *contents) {
         struct bus_container *c, *w;
         uint32_t *array_size = NULL;
-        char *signature;
+        _cleanup_free_ char *signature = NULL;
         size_t before;
-        size_t *offsets = NULL;
+        _cleanup_free_ size_t *offsets = NULL;
         size_t n_offsets = 0, item_size = 0;
         int r;
 
@@ -4051,17 +4047,13 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
                 r = bus_message_enter_dict_entry(m, c, contents, &item_size, &offsets, &n_offsets);
         else
                 r = -EINVAL;
-
-        if (r <= 0) {
-                free(signature);
-                free(offsets);
+        if (r <= 0)
                 return r;
-        }
 
         /* OK, let's fill it in */
         w = m->containers + m->n_containers++;
         w->enclosing = type;
-        w->signature = signature;
+        w->signature = TAKE_PTR(signature);
         w->peeked_signature = NULL;
         w->index = 0;
 
@@ -4078,7 +4070,7 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
 
         w->array_size = array_size;
         w->item_size = item_size;
-        w->offsets = offsets;
+        w->offsets = TAKE_PTR(offsets);
         w->n_offsets = n_offsets;
         w->offset_index = 0;
 
@@ -5313,8 +5305,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
                         if (!c)
                                 return -ENOMEM;
 
-                        free(m->root_container.signature);
-                        m->root_container.signature = c;
+                        free_and_replace(m->root_container.signature, c);
                         break;
                 }
 
@@ -5515,7 +5506,7 @@ int bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
 }
 
 _public_ int sd_bus_message_read_strv(sd_bus_message *m, char ***l) {
-        char **strv = NULL;
+        _cleanup_strv_free_ char **strv = NULL;
         int r;
 
         assert_return(m, -EINVAL);
@@ -5523,12 +5514,10 @@ _public_ int sd_bus_message_read_strv(sd_bus_message *m, char ***l) {
         assert_return(l, -EINVAL);
 
         r = bus_message_read_strv_extend(m, &strv);
-        if (r <= 0) {
-                strv_free(strv);
+        if (r <= 0)
                 return r;
-        }
 
-        *l = strv;
+        *l = TAKE_PTR(strv);
         return 1;
 }
 

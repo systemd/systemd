@@ -612,49 +612,9 @@ r! /tmp/.X[0-9]*-lock</programlisting>
           </thead>
           <tbody>
             <row>
-              <entry><literal>%m</literal></entry>
-              <entry>Machine ID</entry>
-              <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
-            </row>
-            <row>
               <entry><literal>%b</literal></entry>
               <entry>Boot ID</entry>
               <entry>The boot ID of the running system, formatted as string. See <citerefentry><refentrytitle>random</refentrytitle><manvolnum>4</manvolnum></citerefentry> for more information.</entry>
-            </row>
-            <row>
-              <entry><literal>%H</literal></entry>
-              <entry>Host name</entry>
-              <entry>The hostname of the running system.</entry>
-            </row>
-            <row>
-              <entry><literal>%v</literal></entry>
-              <entry>Kernel release</entry>
-              <entry>Identical to <command>uname -r</command> output.</entry>
-            </row>
-            <row>
-              <entry><literal>%U</literal></entry>
-              <entry>User UID</entry>
-              <entry>This is the numeric UID of the user running the service manager instance. In case of the system manager this resolves to <constant>0</constant>.</entry>
-            </row>
-            <row>
-              <entry><literal>%u</literal></entry>
-              <entry>User name</entry>
-              <entry>This is the name of the user running the service manager instance. In case of the system manager this resolves to <literal>root</literal>.</entry>
-            </row>
-            <row>
-              <entry><literal>%h</literal></entry>
-              <entry>User home directory</entry>
-              <entry>This is the home directory of the user running the service manager instance. In case of the system manager this resolves to <literal>/root</literal>.</entry>
-            </row>
-            <row>
-              <entry><literal>%t</literal></entry>
-              <entry>System or user runtime directory</entry>
-              <entry>In --user mode, this is the same <varname>$XDG_RUNTIME_DIR</varname>, and <filename>/run</filename> otherwise.</entry>
-            </row>
-            <row>
-              <entry><literal>%S</literal></entry>
-              <entry>System or user state directory</entry>
-              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname>, and <filename>/var/lib</filename> otherwise.</entry>
             </row>
             <row>
               <entry><literal>%C</literal></entry>
@@ -662,9 +622,59 @@ r! /tmp/.X[0-9]*-lock</programlisting>
               <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CACHE_HOME</varname>, and <filename>/var/cache</filename> otherwise.</entry>
             </row>
             <row>
+              <entry><literal>%h</literal></entry>
+              <entry>User home directory</entry>
+              <entry>This is the home directory of the user running the command. In case of the system instance this resolves to <literal>/root</literal>.</entry>
+            </row>
+            <row>
+              <entry><literal>%H</literal></entry>
+              <entry>Host name</entry>
+              <entry>The hostname of the running system.</entry>
+            </row>
+            <row>
               <entry><literal>%L</literal></entry>
               <entry>System or user log directory</entry>
               <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname> with <filename noindex='true'>/log</filename> appended, and <filename>/var/log</filename> otherwise.</entry>
+            </row>
+            <row>
+              <entry><literal>%m</literal></entry>
+              <entry>Machine ID</entry>
+              <entry>The machine ID of the running system, formatted as string. See <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
+            </row>
+            <row>
+              <entry><literal>%S</literal></entry>
+              <entry>System or user state directory</entry>
+              <entry>In <option>--user</option> mode, this is the same as <varname>$XDG_CONFIG_HOME</varname>, and <filename>/var/lib</filename> otherwise.</entry>
+            </row>
+            <row>
+              <entry><literal>%t</literal></entry>
+              <entry>System or user runtime directory</entry>
+              <entry>In --user mode, this is the same <varname>$XDG_RUNTIME_DIR</varname>, and <filename>/run</filename> otherwise.</entry>
+            </row>
+            <row>
+              <entry><literal>%T</literal></entry>
+              <entry>Directory for temporary files</entry>
+              <entry>This is either <filename>/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
+            </row>
+            <row>
+              <entry><literal>%u</literal></entry>
+              <entry>User name</entry>
+              <entry>This is the name of the user running the command. In case of the system instance this resolves to <literal>root</literal>.</entry>
+            </row>
+            <row>
+              <entry><literal>%U</literal></entry>
+              <entry>User UID</entry>
+              <entry>This is the numeric UID of the user running the command. In case of the system instance this resolves to <constant>0</constant>.</entry>
+            </row>
+            <row>
+              <entry><literal>%v</literal></entry>
+              <entry>Kernel release</entry>
+              <entry>Identical to <command>uname -r</command> output.</entry>
+            </row>
+            <row>
+              <entry><literal>%V</literal></entry>
+              <entry>Directory for larger and persistent temporary files</entry>
+              <entry>This is either <filename>/var/tmp</filename> or the path <literal>$TMPDIR</literal>, <literal>$TEMP</literal> or <literal>$TMP</literal> are set to.</entry>
             </row>
             <row>
               <entry><literal>%%</literal></entry>

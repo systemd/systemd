@@ -16,6 +16,7 @@
 #include "env-util.h"
 #include "fileio-label.h"
 #include "hostname-util.h"
+#include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
@@ -88,7 +89,7 @@ static int context_read_data(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = parse_env_file("/etc/machine-info", NEWLINE,
+        r = parse_env_file(NULL, "/etc/machine-info", NEWLINE,
                            "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
                            "ICON_NAME", &c->data[PROP_ICON_NAME],
                            "CHASSIS", &c->data[PROP_CHASSIS],
@@ -98,18 +99,11 @@ static int context_read_data(Context *c) {
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        r = parse_env_file("/etc/os-release", NEWLINE,
-                           "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
-                           "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
-                           "HOME_URL", &c->data[PROP_HOME_URL],
-                           NULL);
-        if (r == -ENOENT)
-                r = parse_env_file("/usr/lib/os-release", NEWLINE,
-                                   "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
-                                   "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
-                                   "HOME_URL", &c->data[PROP_HOME_URL],
-                                   NULL);
-
+        r = parse_os_release(NULL,
+                             "PRETTY_NAME", &c->data[PROP_OS_PRETTY_NAME],
+                             "CPE_NAME", &c->data[PROP_OS_CPE_NAME],
+                             "HOME_URL", &c->data[PROP_HOME_URL],
+                             NULL);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -399,7 +393,6 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         Context *c = userdata;
         const char *name;
         int interactive;
-        char *h;
         int r;
 
         assert(m);
@@ -435,12 +428,9 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        h = strdup(name);
-        if (!h)
-                return -ENOMEM;
-
-        free(c->data[PROP_HOSTNAME]);
-        c->data[PROP_HOSTNAME] = h;
+        r = free_and_strdup(&c->data[PROP_HOSTNAME], name);
+        if (r < 0)
+                return r;
 
         r = context_update_kernel_hostname(c);
         if (r < 0) {
@@ -473,6 +463,9 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         if (streq_ptr(name, c->data[PROP_STATIC_HOSTNAME]))
                 return sd_bus_reply_method_return(m, NULL);
 
+        if (!isempty(name) && !hostname_is_valid(name, false))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid static hostname '%s'", name);
+
         r = bus_verify_polkit_async(
                         m,
                         CAP_SYS_ADMIN,
@@ -487,21 +480,9 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (isempty(name))
-                c->data[PROP_STATIC_HOSTNAME] = mfree(c->data[PROP_STATIC_HOSTNAME]);
-        else {
-                char *h;
-
-                if (!hostname_is_valid(name, false))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid static hostname '%s'", name);
-
-                h = strdup(name);
-                if (!h)
-                        return -ENOMEM;
-
-                free(c->data[PROP_STATIC_HOSTNAME]);
-                c->data[PROP_STATIC_HOSTNAME] = h;
-        }
+        r = free_and_strdup(&c->data[PROP_STATIC_HOSTNAME], name);
+        if (r < 0)
+                return r;
 
         r = context_update_kernel_hostname(c);
         if (r < 0) {
@@ -539,6 +520,22 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
         if (streq_ptr(name, c->data[prop]))
                 return sd_bus_reply_method_return(m, NULL);
 
+        if (!isempty(name)) {
+                /* The icon name might ultimately be used as file
+                 * name, so better be safe than sorry */
+
+                if (prop == PROP_ICON_NAME && !filename_is_valid(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
+                if (prop == PROP_PRETTY_HOSTNAME && string_has_cc(name, NULL))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty host name '%s'", name);
+                if (prop == PROP_CHASSIS && !valid_chassis(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
+                if (prop == PROP_DEPLOYMENT && !valid_deployment(name))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid deployment '%s'", name);
+                if (prop == PROP_LOCATION && string_has_cc(name, NULL))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid location '%s'", name);
+        }
+
         /* Since the pretty hostname should always be changed at the
          * same time as the static one, use the same policy action for
          * both... */
@@ -557,32 +554,9 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        if (isempty(name))
-                c->data[prop] = mfree(c->data[prop]);
-        else {
-                char *h;
-
-                /* The icon name might ultimately be used as file
-                 * name, so better be safe than sorry */
-
-                if (prop == PROP_ICON_NAME && !filename_is_valid(name))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid icon name '%s'", name);
-                if (prop == PROP_PRETTY_HOSTNAME && string_has_cc(name, NULL))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid pretty host name '%s'", name);
-                if (prop == PROP_CHASSIS && !valid_chassis(name))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid chassis '%s'", name);
-                if (prop == PROP_DEPLOYMENT && !valid_deployment(name))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid deployment '%s'", name);
-                if (prop == PROP_LOCATION && string_has_cc(name, NULL))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid location '%s'", name);
-
-                h = strdup(name);
-                if (!h)
-                        return -ENOMEM;
-
-                free(c->data[prop]);
-                c->data[prop] = h;
-        }
+        r = free_and_strdup(&c->data[prop], name);
+        if (r < 0)
+                return r;
 
         r = context_write_data_machine_info(c);
         if (r < 0) {

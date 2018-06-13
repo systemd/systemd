@@ -36,10 +36,12 @@
 #include "clock-util.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
+#include "dbus.h"
 #include "dbus-manager.h"
 #include "def.h"
 #include "emergency-action.h"
 #include "env-util.h"
+#include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
@@ -56,6 +58,7 @@
 #include "manager.h"
 #include "missing.h"
 #include "mount-setup.h"
+#include "os-util.h"
 #include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -87,7 +90,8 @@ static enum {
         ACTION_HELP,
         ACTION_VERSION,
         ACTION_TEST,
-        ACTION_DUMP_CONFIGURATION_ITEMS
+        ACTION_DUMP_CONFIGURATION_ITEMS,
+        ACTION_DUMP_BUS_PROPERTIES,
 } arg_action = ACTION_RUN;
 static char *arg_default_unit = NULL;
 static bool arg_system = false;
@@ -307,6 +311,7 @@ static int parse_confirm_spawn(const char *value, char **console) {
                 s = strjoin("/dev/", value);
         if (!s)
                 return -ENOMEM;
+
         *console = s;
         return 0;
 }
@@ -674,22 +679,22 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitIntervalSec",config_parse_sec,            0, &arg_default_start_limit_interval      },
                 { "Manager", "DefaultStartLimitBurst",    config_parse_unsigned,         0, &arg_default_start_limit_burst         },
                 { "Manager", "DefaultEnvironment",        config_parse_environ,          0, &arg_default_environment               },
-                { "Manager", "DefaultLimitCPU",           config_parse_limit,            RLIMIT_CPU, arg_default_rlimit            },
-                { "Manager", "DefaultLimitFSIZE",         config_parse_limit,            RLIMIT_FSIZE, arg_default_rlimit          },
-                { "Manager", "DefaultLimitDATA",          config_parse_limit,            RLIMIT_DATA, arg_default_rlimit           },
-                { "Manager", "DefaultLimitSTACK",         config_parse_limit,            RLIMIT_STACK, arg_default_rlimit          },
-                { "Manager", "DefaultLimitCORE",          config_parse_limit,            RLIMIT_CORE, arg_default_rlimit           },
-                { "Manager", "DefaultLimitRSS",           config_parse_limit,            RLIMIT_RSS, arg_default_rlimit            },
-                { "Manager", "DefaultLimitNOFILE",        config_parse_limit,            RLIMIT_NOFILE, arg_default_rlimit         },
-                { "Manager", "DefaultLimitAS",            config_parse_limit,            RLIMIT_AS, arg_default_rlimit             },
-                { "Manager", "DefaultLimitNPROC",         config_parse_limit,            RLIMIT_NPROC, arg_default_rlimit          },
-                { "Manager", "DefaultLimitMEMLOCK",       config_parse_limit,            RLIMIT_MEMLOCK, arg_default_rlimit        },
-                { "Manager", "DefaultLimitLOCKS",         config_parse_limit,            RLIMIT_LOCKS, arg_default_rlimit          },
-                { "Manager", "DefaultLimitSIGPENDING",    config_parse_limit,            RLIMIT_SIGPENDING, arg_default_rlimit     },
-                { "Manager", "DefaultLimitMSGQUEUE",      config_parse_limit,            RLIMIT_MSGQUEUE, arg_default_rlimit       },
-                { "Manager", "DefaultLimitNICE",          config_parse_limit,            RLIMIT_NICE, arg_default_rlimit           },
-                { "Manager", "DefaultLimitRTPRIO",        config_parse_limit,            RLIMIT_RTPRIO, arg_default_rlimit         },
-                { "Manager", "DefaultLimitRTTIME",        config_parse_limit,            RLIMIT_RTTIME, arg_default_rlimit         },
+                { "Manager", "DefaultLimitCPU",           config_parse_rlimit,           RLIMIT_CPU, arg_default_rlimit            },
+                { "Manager", "DefaultLimitFSIZE",         config_parse_rlimit,           RLIMIT_FSIZE, arg_default_rlimit          },
+                { "Manager", "DefaultLimitDATA",          config_parse_rlimit,           RLIMIT_DATA, arg_default_rlimit           },
+                { "Manager", "DefaultLimitSTACK",         config_parse_rlimit,           RLIMIT_STACK, arg_default_rlimit          },
+                { "Manager", "DefaultLimitCORE",          config_parse_rlimit,           RLIMIT_CORE, arg_default_rlimit           },
+                { "Manager", "DefaultLimitRSS",           config_parse_rlimit,           RLIMIT_RSS, arg_default_rlimit            },
+                { "Manager", "DefaultLimitNOFILE",        config_parse_rlimit,           RLIMIT_NOFILE, arg_default_rlimit         },
+                { "Manager", "DefaultLimitAS",            config_parse_rlimit,           RLIMIT_AS, arg_default_rlimit             },
+                { "Manager", "DefaultLimitNPROC",         config_parse_rlimit,           RLIMIT_NPROC, arg_default_rlimit          },
+                { "Manager", "DefaultLimitMEMLOCK",       config_parse_rlimit,           RLIMIT_MEMLOCK, arg_default_rlimit        },
+                { "Manager", "DefaultLimitLOCKS",         config_parse_rlimit,           RLIMIT_LOCKS, arg_default_rlimit          },
+                { "Manager", "DefaultLimitSIGPENDING",    config_parse_rlimit,           RLIMIT_SIGPENDING, arg_default_rlimit     },
+                { "Manager", "DefaultLimitMSGQUEUE",      config_parse_rlimit,           RLIMIT_MSGQUEUE, arg_default_rlimit       },
+                { "Manager", "DefaultLimitNICE",          config_parse_rlimit,           RLIMIT_NICE, arg_default_rlimit           },
+                { "Manager", "DefaultLimitRTPRIO",        config_parse_rlimit,           RLIMIT_RTPRIO, arg_default_rlimit         },
+                { "Manager", "DefaultLimitRTTIME",        config_parse_rlimit,           RLIMIT_RTTIME, arg_default_rlimit         },
                 { "Manager", "DefaultCPUAccounting",      config_parse_bool,             0, &arg_default_cpu_accounting            },
                 { "Manager", "DefaultIOAccounting",       config_parse_bool,             0, &arg_default_io_accounting             },
                 { "Manager", "DefaultIPAccounting",       config_parse_bool,             0, &arg_default_ip_accounting             },
@@ -727,6 +732,10 @@ static void set_manager_defaults(Manager *m) {
 
         assert(m);
 
+        /* Propagates the various default unit property settings into the manager object, i.e. properties that do not
+         * affect the manager itself, but are just what newly allocated units will have set if they haven't set
+         * anything else. (Also see set_manager_settings() for the settings that affect the manager's own behaviour) */
+
         m->default_timer_accuracy_usec = arg_default_timer_accuracy_usec;
         m->default_std_output = arg_default_std_output;
         m->default_std_error = arg_default_std_error;
@@ -751,6 +760,9 @@ static void set_manager_settings(Manager *m) {
 
         assert(m);
 
+        /* Propagates the various manager settings into the manager object, i.e. properties that effect the manager
+         * itself (as opposed to just being inherited into newly allocated units, see set_manager_defaults() above). */
+
         m->confirm_spawn = arg_confirm_spawn;
         m->service_watchdogs = arg_service_watchdogs;
         m->runtime_watchdog = arg_runtime_watchdog;
@@ -773,6 +785,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_PAGER,
                 ARG_VERSION,
                 ARG_DUMP_CONFIGURATION_ITEMS,
+                ARG_DUMP_BUS_PROPERTIES,
                 ARG_DUMP_CORE,
                 ARG_CRASH_CHVT,
                 ARG_CRASH_SHELL,
@@ -800,6 +813,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",                     no_argument,       NULL, 'h'                          },
                 { "version",                  no_argument,       NULL, ARG_VERSION                  },
                 { "dump-configuration-items", no_argument,       NULL, ARG_DUMP_CONFIGURATION_ITEMS },
+                { "dump-bus-properties",      no_argument,       NULL, ARG_DUMP_BUS_PROPERTIES      },
                 { "dump-core",                optional_argument, NULL, ARG_DUMP_CORE                },
                 { "crash-chvt",               required_argument, NULL, ARG_CRASH_CHVT               },
                 { "crash-shell",              optional_argument, NULL, ARG_CRASH_SHELL              },
@@ -917,6 +931,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DUMP_CONFIGURATION_ITEMS:
                         arg_action = ACTION_DUMP_CONFIGURATION_ITEMS;
+                        break;
+
+                case ARG_DUMP_BUS_PROPERTIES:
+                        arg_action = ACTION_DUMP_BUS_PROPERTIES;
                         break;
 
                 case ARG_DUMP_CORE:
@@ -1062,6 +1080,7 @@ static int help(void) {
                "     --test                      Determine startup sequence, dump it and exit\n"
                "     --no-pager                  Do not pipe output into a pager\n"
                "     --dump-configuration-items  Dump understood unit configuration items\n"
+               "     --dump-bus-properties       Dump exposed bus properties\n"
                "     --unit=UNIT                 Set default unit\n"
                "     --system                    Run a system instance, even if PID != 1\n"
                "     --user                      Run a user instance\n"
@@ -1125,10 +1144,7 @@ static int prepare_reexecute(Manager *m, FILE **_f, FDSet **_fds, bool switching
 }
 
 static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
-        struct rlimit nl;
-        int r;
-        int min_max;
-        _cleanup_free_ char *nr_open = NULL;
+        int r, nr;
 
         assert(saved_rlimit);
 
@@ -1149,17 +1165,9 @@ static int bump_rlimit_nofile(struct rlimit *saved_rlimit) {
                 arg_default_rlimit[RLIMIT_NOFILE] = rl;
         }
 
-        /* Get current RLIMIT_NOFILE maximum compiled into the kernel. */
-        r = read_one_line_file("/proc/sys/fs/nr_open", &nr_open);
-        if (r >= 0)
-                r = safe_atoi(nr_open, &min_max);
-        /* If we fail, fallback to the hard-coded kernel limit of 1024 * 1024. */
-        if (r < 0)
-                min_max = 1024 * 1024;
-
-        /* Bump up the resource limit for ourselves substantially */
-        nl.rlim_cur = nl.rlim_max = min_max;
-        r = setrlimit_closest(RLIMIT_NOFILE, &nl);
+        /* Bump up the resource limit for ourselves substantially, all the way to the maximum the kernel allows */
+        nr = read_nr_open();
+        r = setrlimit_closest(RLIMIT_NOFILE, &RLIMIT_MAKE_CONST(nr));
         if (r < 0)
                 return log_warning_errno(r, "Setting RLIMIT_NOFILE failed, ignoring: %m");
 
@@ -1214,23 +1222,18 @@ static int enforce_syscall_archs(Set *archs) {
 
 static int status_welcome(void) {
         _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
-        const char *fn;
         int r;
 
         if (arg_show_status <= 0)
                 return 0;
 
-        FOREACH_STRING(fn, "/etc/os-release", "/usr/lib/os-release") {
-                r = parse_env_file(fn, NEWLINE,
-                                   "PRETTY_NAME", &pretty_name,
-                                   "ANSI_COLOR", &ansi_color,
-                                   NULL);
-
-                if (r != -ENOENT)
-                        break;
-        }
-        if (r < 0 && r != -ENOENT)
-                log_warning_errno(r, "Failed to read os-release file, ignoring: %m");
+        r = parse_os_release(NULL,
+                             "PRETTY_NAME", &pretty_name,
+                             "ANSI_COLOR", &ansi_color,
+                             NULL);
+        if (r < 0)
+                log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to read os-release file, ignoring: %m");
 
         if (log_get_show_color())
                 return status_printf(NULL, false, false,
@@ -1264,10 +1267,9 @@ static int bump_unix_max_dgram_qlen(void) {
         unsigned long v;
         int r;
 
-        /* Let's bump the net.unix.max_dgram_qlen sysctl. The kernel
-         * default of 16 is simply too low. We set the value really
-         * really early during boot, so that it is actually applied to
-         * all our sockets, including the $NOTIFY_SOCKET one. */
+        /* Let's bump the net.unix.max_dgram_qlen sysctl. The kernel default of 16 is simply too low. We set the value
+         * really really early during boot, so that it is actually applied to all our sockets, including the
+         * $NOTIFY_SOCKET one. */
 
         r = read_one_line_file("/proc/sys/net/unix/max_dgram_qlen", &qlen);
         if (r < 0)
@@ -1275,16 +1277,12 @@ static int bump_unix_max_dgram_qlen(void) {
 
         r = safe_atolu(qlen, &v);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse AF_UNIX datagram queue length, ignoring: %m");
+                return log_warning_errno(r, "Failed to parse AF_UNIX datagram queue length '%s', ignoring: %m", qlen);
 
         if (v >= DEFAULT_UNIX_MAX_DGRAM_QLEN)
                 return 0;
 
-        qlen = mfree(qlen);
-        if (asprintf(&qlen, "%lu\n", DEFAULT_UNIX_MAX_DGRAM_QLEN) < 0)
-                return log_oom();
-
-        r = write_string_file("/proc/sys/net/unix/max_dgram_qlen", qlen, 0);
+        r = write_string_filef("/proc/sys/net/unix/max_dgram_qlen", 0, "%lu", DEFAULT_UNIX_MAX_DGRAM_QLEN);
         if (r < 0)
                 return log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
                                       "Failed to bump AF_UNIX datagram queue length, ignoring: %m");
@@ -1472,7 +1470,7 @@ static void initialize_clock(void) {
 }
 
 static void initialize_coredump(bool skip_setup) {
-
+#if ENABLE_COREDUMP
         if (getpid_cached() != 1)
                 return;
 
@@ -1485,6 +1483,7 @@ static void initialize_coredump(bool skip_setup) {
          * until the systemd-coredump tool is enabled via sysctl. */
         if (!skip_setup)
                 disable_coredumps();
+#endif
 }
 
 static void do_reexecute(
@@ -1927,12 +1926,9 @@ static int do_queue_default_job(
 }
 
 static void free_arguments(void) {
-        size_t j;
 
         /* Frees all arg_* variables, with the exception of arg_serialization */
-
-        for (j = 0; j < ELEMENTSOF(arg_default_rlimit); j++)
-                arg_default_rlimit[j] = mfree(arg_default_rlimit[j]);
+        rlimit_free_all(arg_default_rlimit);
 
         arg_default_unit = mfree(arg_default_unit);
         arg_confirm_spawn = mfree(arg_confirm_spawn);
@@ -2129,7 +2125,6 @@ static bool early_skip_setup_check(int argc, char *argv[]) {
          * anyway, even if in that case we also do deserialization. */
 
         for (i = 1; i < argc; i++) {
-
                 if (streq(argv[i], "--switched-root"))
                         return false; /* If we switched root, don't skip the setup. */
                 else if (streq(argv[i], "--deserialize"))
@@ -2181,8 +2176,8 @@ int main(int argc, char *argv[]) {
                 /* Disable the umask logic */
                 umask(0);
 
-                /* Make sure that at least initially we do not ever log to journald/syslogd, because it might not be activated
-                 * yet (even though the log socket for it exists). */
+                /* Make sure that at least initially we do not ever log to journald/syslogd, because it might not be
+                 * activated yet (even though the log socket for it exists). */
                 log_set_prohibit_ipc(true);
 
                 /* Always reopen /dev/console when running as PID 1 or one of its pre-execve() children. This is
@@ -2190,62 +2185,70 @@ int main(int argc, char *argv[]) {
                  * child process right before execve()'ing the actual binary, at a point in time where socket
                  * activation stderr/stdout area already set up. */
                 log_set_always_reopen_console(true);
-        }
 
-        if (getpid_cached() == 1 && detect_container() <= 0) {
+                if (detect_container() <= 0) {
 
-                /* Running outside of a container as PID 1 */
-                arg_system = true;
-                log_set_target(LOG_TARGET_KMSG);
-                log_open();
+                        /* Running outside of a container as PID 1 */
+                        arg_system = true;
+                        log_set_target(LOG_TARGET_KMSG);
+                        log_open();
 
-                if (in_initrd())
-                        initrd_timestamp = userspace_timestamp;
+                        if (in_initrd())
+                                initrd_timestamp = userspace_timestamp;
 
-                if (!skip_setup) {
-                        r = mount_setup_early();
-                        if (r < 0) {
-                                error_message = "Failed to mount early API filesystems";
+                        if (!skip_setup) {
+                                r = mount_setup_early();
+                                if (r < 0) {
+                                        error_message = "Failed to mount early API filesystems";
+                                        goto finish;
+                                }
+
+                                r = initialize_security(
+                                                &loaded_policy,
+                                                &security_start_timestamp,
+                                                &security_finish_timestamp,
+                                                &error_message);
+                                if (r < 0)
+                                        goto finish;
+                        }
+
+                        if (mac_selinux_init() < 0) {
+                                error_message = "Failed to initialize SELinux policy";
                                 goto finish;
                         }
 
-                        r = initialize_security(
-                                        &loaded_policy,
-                                        &security_start_timestamp,
-                                        &security_finish_timestamp,
-                                        &error_message);
-                        if (r < 0)
-                                goto finish;
+                        if (!skip_setup)
+                                initialize_clock();
+
+                        /* Set the default for later on, but don't actually open the logs like this for now. Note that
+                         * if we are transitioning from the initrd there might still be journal fd open, and we
+                         * shouldn't attempt opening that before we parsed /proc/cmdline which might redirect output
+                         * elsewhere. */
+                        log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
+
+                } else {
+                        /* Running inside a container, as PID 1 */
+                        arg_system = true;
+                        log_set_target(LOG_TARGET_CONSOLE);
+                        log_open();
+
+                        /* For later on, see above... */
+                        log_set_target(LOG_TARGET_JOURNAL);
+
+                        /* clear the kernel timestamp,
+                         * because we are in a container */
+                        kernel_timestamp = DUAL_TIMESTAMP_NULL;
                 }
 
-                if (mac_selinux_init() < 0) {
-                        error_message = "Failed to initialize SELinux policy";
+                initialize_coredump(skip_setup);
+
+                r = fixup_environment();
+                if (r < 0) {
+                        log_emergency_errno(r, "Failed to fix up PID 1 environment: %m");
+                        error_message = "Failed to fix up PID1 environment";
                         goto finish;
                 }
 
-                if (!skip_setup)
-                        initialize_clock();
-
-                /* Set the default for later on, but don't actually
-                 * open the logs like this for now. Note that if we
-                 * are transitioning from the initrd there might still
-                 * be journal fd open, and we shouldn't attempt
-                 * opening that before we parsed /proc/cmdline which
-                 * might redirect output elsewhere. */
-                log_set_target(LOG_TARGET_JOURNAL_OR_KMSG);
-
-        } else if (getpid_cached() == 1) {
-                /* Running inside a container, as PID 1 */
-                arg_system = true;
-                log_set_target(LOG_TARGET_CONSOLE);
-                log_open();
-
-                /* For later on, see above... */
-                log_set_target(LOG_TARGET_JOURNAL);
-
-                /* clear the kernel timestamp,
-                 * because we are in a container */
-                kernel_timestamp = DUAL_TIMESTAMP_NULL;
         } else {
                 /* Running as user instance */
                 arg_system = false;
@@ -2257,24 +2260,14 @@ int main(int argc, char *argv[]) {
                 kernel_timestamp = DUAL_TIMESTAMP_NULL;
         }
 
-        initialize_coredump(skip_setup);
-
-        r = fixup_environment();
-        if (r < 0) {
-                log_emergency_errno(r, "Failed to fix up PID 1 environment: %m");
-                error_message = "Failed to fix up PID1 environment";
-                goto finish;
-        }
-
         if (arg_system) {
-
-                /* Try to figure out if we can use colors with the console. No
-                 * need to do that for user instances since they never log
-                 * into the console. */
+                /* Try to figure out if we can use colors with the console. No need to do that for user instances since
+                 * they never log into the console. */
                 log_show_color(colors_enabled());
+
                 r = make_null_stdio();
                 if (r < 0)
-                        log_warning_errno(r, "Failed to redirect standard streams to /dev/null: %m");
+                        log_warning_errno(r, "Failed to redirect standard streams to /dev/null, ignoring: %m");
         }
 
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
@@ -2304,7 +2297,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
-        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS))
+        if (IN_SET(arg_action, ACTION_TEST, ACTION_HELP, ACTION_DUMP_CONFIGURATION_ITEMS, ACTION_DUMP_BUS_PROPERTIES))
                 (void) pager_open(arg_no_pager, false);
 
         if (arg_action != ACTION_RUN)
@@ -2318,6 +2311,10 @@ int main(int argc, char *argv[]) {
                 goto finish;
         } else if (arg_action == ACTION_DUMP_CONFIGURATION_ITEMS) {
                 unit_dump_config_items(stdout);
+                retval = EXIT_SUCCESS;
+                goto finish;
+        } else if (arg_action == ACTION_DUMP_BUS_PROPERTIES) {
+                dump_bus_properties(stdout);
                 retval = EXIT_SUCCESS;
                 goto finish;
         }
@@ -2418,10 +2415,10 @@ int main(int argc, char *argv[]) {
 finish:
         pager_close();
 
-        if (m)
+        if (m) {
                 arg_shutdown_watchdog = m->shutdown_watchdog;
-
-        m = manager_free(m);
+                m = manager_free(m);
+        }
 
         free_arguments();
         mac_selinux_finish();
@@ -2454,7 +2451,6 @@ finish:
 
         if (shutdown_verb) {
                 r = become_shutdown(shutdown_verb, retval);
-
                 log_error_errno(r, "Failed to execute shutdown binary, %s: %m", getpid_cached() == 1 ? "freezing" : "quitting");
                 error_message = "Failed to execute shutdown binary";
         }

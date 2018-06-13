@@ -21,6 +21,7 @@
 #include "ratelimit.h"
 
 struct libmnt_monitor;
+typedef struct Unit Unit;
 
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
@@ -169,6 +170,8 @@ struct Manager {
         int time_change_fd;
         sd_event_source *time_change_event_source;
 
+        sd_event_source *timezone_change_event_source;
+
         sd_event_source *jobs_in_progress_event_source;
 
         int user_lookup_fds[2];
@@ -249,6 +252,10 @@ struct Manager {
 
         unsigned gc_marker;
 
+        /* The stat() data the last time we saw /etc/localtime */
+        usec_t etc_localtime_mtime;
+        bool etc_localtime_accessible:1;
+
         /* Flags */
         ManagerExitCode exit_code:5;
 
@@ -299,6 +306,9 @@ struct Manager {
 
         /* non-zero if we are reloading or reexecuting, */
         int n_reloading;
+        /* A set which contains all jobs that started before reload and finished
+         * during it */
+        Set *pending_finished_jobs;
 
         unsigned n_installed_jobs;
         unsigned n_failed_jobs;

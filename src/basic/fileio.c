@@ -206,6 +206,25 @@ fail:
         return 0;
 }
 
+int write_string_filef(
+                const char *fn,
+                WriteStringFileFlags flags,
+                const char *format, ...) {
+
+        _cleanup_free_ char *p = NULL;
+        va_list ap;
+        int r;
+
+        va_start(ap, format);
+        r = vasprintf(&p, format, ap);
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        return write_string_file(fn, p, flags);
+}
+
 int read_one_line_file(const char *fn, char **line) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -263,29 +282,35 @@ int verify_file(const char *fn, const char *blob, bool accept_extra_nl) {
 }
 
 int read_full_stream(FILE *f, char **contents, size_t *size) {
-        size_t n, l;
         _cleanup_free_ char *buf = NULL;
         struct stat st;
+        size_t n, l;
+        int fd;
 
         assert(f);
         assert(contents);
 
-        if (fstat(fileno(f), &st) < 0)
-                return -errno;
-
         n = LINE_MAX;
 
-        if (S_ISREG(st.st_mode)) {
+        fd = fileno(f);
+        if (fd >= 0) { /* If the FILE* object is backed by an fd (as opposed to memory or such, see fmemopen(), let's
+                        * optimize our buffering) */
 
-                /* Safety check */
-                if (st.st_size > READ_FULL_BYTES_MAX)
-                        return -E2BIG;
+                if (fstat(fileno(f), &st) < 0)
+                        return -errno;
 
-                /* Start with the right file size, but be prepared for files from /proc which generally report a file
-                 * size of 0. Note that we increase the size to read here by one, so that the first read attempt
-                 * already makes us notice the EOF. */
-                if (st.st_size > 0)
-                        n = st.st_size + 1;
+                if (S_ISREG(st.st_mode)) {
+
+                        /* Safety check */
+                        if (st.st_size > READ_FULL_BYTES_MAX)
+                                return -E2BIG;
+
+                        /* Start with the right file size, but be prepared for files from /proc which generally report a file
+                         * size of 0. Note that we increase the size to read here by one, so that the first read attempt
+                         * already makes us notice the EOF. */
+                        if (st.st_size > 0)
+                                n = st.st_size + 1;
+                }
         }
 
         l = 0;
@@ -676,21 +701,41 @@ static int parse_env_file_push(
         return 0;
 }
 
-int parse_env_file(
+int parse_env_filev(
+                FILE *f,
                 const char *fname,
-                const char *newline, ...) {
+                const char *newline,
+                va_list ap) {
 
-        va_list ap;
         int r, n_pushed = 0;
+        va_list aq;
 
         if (!newline)
                 newline = NEWLINE;
 
+        va_copy(aq, ap);
+        r = parse_env_file_internal(f, fname, newline, parse_env_file_push, &aq, &n_pushed);
+        va_end(aq);
+        if (r < 0)
+                return r;
+
+        return n_pushed;
+}
+
+int parse_env_file(
+                FILE *f,
+                const char *fname,
+                const char *newline,
+                ...) {
+
+        va_list ap;
+        int r;
+
         va_start(ap, newline);
-        r = parse_env_file_internal(NULL, fname, newline, parse_env_file_push, &ap, &n_pushed);
+        r = parse_env_filev(f, fname, newline, ap);
         va_end(ap);
 
-        return r < 0 ? r : n_pushed;
+        return r;
 }
 
 static int load_env_file_push(
@@ -1208,7 +1253,7 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
 
         strcpy(stpcpy(stpcpy(stpcpy(mempcpy(t, p, fn - p), ".#"), extra), fn), "XXXXXX");
 
-        *ret = path_kill_slashes(t);
+        *ret = path_simplify(t, false);
         return 0;
 }
 
@@ -1249,7 +1294,7 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
 
         *x = 0;
 
-        *ret = path_kill_slashes(t);
+        *ret = path_simplify(t, false);
         return 0;
 }
 
@@ -1289,7 +1334,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
 
         *x = 0;
 
-        *ret = path_kill_slashes(t);
+        *ret = path_simplify(t, false);
         return 0;
 }
 

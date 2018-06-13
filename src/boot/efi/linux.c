@@ -128,7 +128,7 @@ EFI_STATUS linux_exec(EFI_HANDLE *image,
                 if (EFI_ERROR(err))
                         return err;
                 CopyMem((VOID *)(UINTN)addr, cmdline, cmdline_len);
-                ((CHAR8 *)addr)[cmdline_len] = 0;
+                ((CHAR8 *)(UINTN)addr)[cmdline_len] = 0;
                 boot_setup->cmd_line_ptr = (UINT32)addr;
         }
 

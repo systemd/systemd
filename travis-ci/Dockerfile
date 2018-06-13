@@ -1,8 +1,7 @@
 ## Create Dockerfile that builds container suitable for systemd build
 ## This container runs as non-root user by deafult
 
-# Use the latest stable version of fedora
-FROM fedora:latest
+FROM fedora:27
 
 # Demand the specification of non-root username
 ARG DOCKER_USER

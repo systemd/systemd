@@ -716,7 +716,7 @@ int config_parse_gateway(
 
         n->family = f;
         n->gw = buffer;
-        n = NULL;
+        TAKE_PTR(n);
 
         return 0;
 }
@@ -757,7 +757,7 @@ int config_parse_preferred_src(
 
         n->family = f;
         n->prefsrc = buffer;
-        n = NULL;
+        TAKE_PTR(n);
 
         return 0;
 }
@@ -813,8 +813,7 @@ int config_parse_destination(
         } else
                 assert_not_reached(lvalue);
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -832,7 +831,6 @@ int config_parse_route_priority(
 
         Network *network = userdata;
         _cleanup_(route_freep) Route *n = NULL;
-        uint32_t k;
         int r;
 
         assert(filename);
@@ -845,16 +843,14 @@ int config_parse_route_priority(
         if (r < 0)
                 return r;
 
-        r = safe_atou32(rvalue, &k);
+        r = safe_atou32(rvalue, &n->priority);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Could not parse route priority \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 
-        n->priority = k;
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -895,8 +891,7 @@ int config_parse_route_scope(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -914,7 +909,6 @@ int config_parse_route_table(
 
         _cleanup_(route_freep) Route *n = NULL;
         Network *network = userdata;
-        uint32_t k;
         int r;
 
         assert(filename);
@@ -927,16 +921,14 @@ int config_parse_route_table(
         if (r < 0)
                 return r;
 
-        r = safe_atou32(rvalue, &k);
+        r = safe_atou32(rvalue, &n->table);
         if (r < 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r,
                            "Could not parse route table number \"%s\", ignoring assignment: %m", rvalue);
                 return 0;
         }
 
-        n->table = k;
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -974,8 +966,7 @@ int config_parse_gateway_onlink(
         }
 
         SET_FLAG(n->flags, RTNH_F_ONLINK, r);
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1010,8 +1001,7 @@ int config_parse_ipv6_route_preference(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1049,8 +1039,7 @@ int config_parse_route_protocol(
                 }
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1087,8 +1076,7 @@ int config_parse_route_type(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1135,8 +1123,7 @@ int config_parse_tcp_window(
                 return 0;
         }
 
-        n = NULL;
-
+        TAKE_PTR(n);
         return 0;
 }
 
@@ -1173,7 +1160,40 @@ int config_parse_quickack(
         }
 
         n->quickack = !!k;
-        n = NULL;
+        TAKE_PTR(n);
+        return 0;
+}
 
+int config_parse_route_mtu(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(route_freep) Route *n = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        r = config_parse_mtu(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->mtu, userdata);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(n);
         return 0;
 }

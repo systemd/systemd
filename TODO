@@ -1,16 +1,8 @@
 Bugfixes:
 
-* Should systemctl status \* work on all unit types, not just .service?
+* the error paths in usbffs_dispatch_ep() leak memory
 
-* Dangling symlinks of .automount unit files in .wants/ directories, set up
-  automount points even when the original .automount file did not exist
-  anymore. Only the .mount unit was still around.
-
-* ExecStart with unicode characters fails in strv_split_extract:
-
-          [Service]
-          Environment=ONE='one' "TWO='two two' too" THREE=
-          ExecStart=/bin/python3 -c 'import sys;print(sys.argv)' $ONE $TWO $THREE
+* copy.c: set the right chattrs before copying files and others after
 
 External:
 
@@ -22,13 +14,20 @@ Janitorial Clean-ups:
 
 * Rearrange tests so that the various test-xyz.c match a specific src/basic/xyz.c again
 
+* rework mount.c and swap.c to follow proper state enumeration/deserialization
+  semantics, like we do for device.c now
+
 Features:
 
-* nspawn: greater control over hostname, resolv.conf, timezone, rlim
+* When reloading configuration PID 1 should reset all its properties to the
+  original defaults before calling parse_config()
 
-* nspawn: when operating in a scope, also create /payload subcrgoup
+* Add OnTimezoneChange= and OnTimeChange= stanzas to .timer units in order to
+  schedule events based on time and timezone changes.
 
-* the error paths in usbffs_dispatch_ep() leak memory
+* add O_TMPFILE support to copy_file_atomic()
+
+* nspawn: greater control over selinux label?
 
 * cgroups: figure out if we can somehow communicate in a cleaner way whether a
   systemd instance not running in the cgroup root shall or shall not manage the
@@ -36,6 +35,9 @@ Features:
   then might get EPERM due to permission porblems/userns, which is OK, but this
   should be revisited to make clearer and also work if the payload systemd runs
   with full privs and without userns.
+
+* portables: introduce a new unit file directory /etc/systemd/system.attached/
+  or so, where we attach portable services to
 
 * cgroups: use inotify to get notified when somebody else modifies cgroups
   owned by us, then log a friendly warning.
@@ -45,10 +47,27 @@ Features:
   that our log messages could contain clickable links for example for unit
   files and suchlike we operate on.
 
+* introduce a new SystemCallFilters= group called "@system-service" with a
+  sensible default set for system services, then make use of them in portable
+  profiles
+
+* add support for "portablectl attach http://foobar.com/waaa.raw (i.e. importd integration)
+
+* add attach --enable and attach --now (for attach+enable+start)
+
+* sync dynamic uids/gids between host+portable srvice (i.e. if DynamicUser=1 is set for a service, make sure that the
+  selected user is resolvable in the service even if it ships its own /etc/passwd)
+
 * Fix DECIMAL_STR_MAX or DECIMAL_STR_WIDTH. One includes a trailing NUL, the
   other doesn't. What a desaster. Probably to exclude it. Also
   DECIMAL_STR_WIDTH should probably add an extra "-" into account for negative
   numbers.
+
+* Check that users of inotify's IN_DELETE_SELF flag are using it properly, as
+  usually IN_ATTRIB is the right way to watch deleted files, as the former only
+  fires when a file is actually removed from disk, i.e. the link count drops to
+  zero and is not open anymore, while the latter happens when a file is
+  unlinked from any dir.
 
 * port systemctl, systemd-inhibit, busctl, … over to format-table.[ch]'s table formatters
 
@@ -329,8 +348,6 @@ Features:
 * rework fopen_temporary() to make use of open_tmpfile_linkable() (problem: the
   kernel doesn't support linkat() that replaces existing files, currently)
 
-* check if DeviceAllow= should split first, resolve specifiers later
-
 * transient units: don't bother with actually setting unit properties, we
   reload the unit file anyway
 
@@ -561,7 +578,7 @@ Features:
   - document chaining of signal handler for SIGCHLD and child handlers
   - define more intervals where we will shift wakeup intervals around in, 1h, 6h, 24h, ...
   - generate a failure of a default event loop is executed out-of-thread
-  - maybe add support for inotify events
+  - maybe add support for inotify events (which we can do safely now, with O_PATH)
 
 * investigate endianness issues of UUID vs. GUID
 

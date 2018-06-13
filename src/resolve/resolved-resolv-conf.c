@@ -179,7 +179,7 @@ static void write_resolv_conf_server(DnsServer *s, FILE *f, unsigned *count) {
         assert(count);
 
         if (!dns_server_string(s)) {
-                log_warning("Our of memory, or invalid DNS address. Ignoring server.");
+                log_warning("Out of memory, or invalid DNS address. Ignoring server.");
                 return;
         }
 

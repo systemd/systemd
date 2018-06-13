@@ -14,7 +14,7 @@ const struct ConfigPerfItem* timesyncd_gperf_lookup(const char *key, GPERF_LEN_T
 
 int manager_parse_server_string(Manager *m, ServerType type, const char *string);
 
-int config_parse_servers(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_servers);
 
 int manager_parse_config_file(Manager *m);
 int manager_parse_fallback_string(Manager *m, const char *string);

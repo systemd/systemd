@@ -17,12 +17,12 @@
 #include "time-util.h"
 
 typedef enum {
-        WRITE_STRING_FILE_CREATE            = 1<<0,
-        WRITE_STRING_FILE_ATOMIC            = 1<<1,
-        WRITE_STRING_FILE_AVOID_NEWLINE     = 1<<2,
-        WRITE_STRING_FILE_VERIFY_ON_FAILURE = 1<<3,
-        WRITE_STRING_FILE_SYNC              = 1<<4,
-        WRITE_STRING_FILE_DISABLE_BUFFER    = 1<<5,
+        WRITE_STRING_FILE_CREATE            = 1 << 0,
+        WRITE_STRING_FILE_ATOMIC            = 1 << 1,
+        WRITE_STRING_FILE_AVOID_NEWLINE     = 1 << 2,
+        WRITE_STRING_FILE_VERIFY_ON_FAILURE = 1 << 3,
+        WRITE_STRING_FILE_SYNC              = 1 << 4,
+        WRITE_STRING_FILE_DISABLE_BUFFER    = 1 << 5,
 
         /* And before you wonder, why write_string_file_atomic_label_ts() is a separate function instead of just one
            more flag here: it's about linking: we don't want to pull -lselinux into all users of write_string_file()
@@ -39,13 +39,16 @@ static inline int write_string_file(const char *fn, const char *line, WriteStrin
         return write_string_file_ts(fn, line, flags, NULL);
 }
 
+int write_string_filef(const char *fn, WriteStringFileFlags flags, const char *format, ...) _printf_(3, 4);
+
 int read_one_line_file(const char *fn, char **line);
 int read_full_file(const char *fn, char **contents, size_t *size);
 int read_full_stream(FILE *f, char **contents, size_t *size);
 
 int verify_file(const char *fn, const char *blob, bool accept_extra_nl);
 
-int parse_env_file(const char *fname, const char *separator, ...) _sentinel_;
+int parse_env_filev(FILE *f, const char *fname, const char *separator, va_list ap);
+int parse_env_file(FILE *f, const char *fname, const char *separator, ...) _sentinel_;
 int load_env_file(FILE *f, const char *fname, const char *separator, char ***l);
 int load_env_file_pairs(FILE *f, const char *fname, const char *separator, char ***l);
 

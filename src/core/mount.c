@@ -16,6 +16,7 @@
 
 #include "alloc-util.h"
 #include "dbus-mount.h"
+#include "device.h"
 #include "escape.h"
 #include "exit-status.h"
 #include "format-util.h"
@@ -516,23 +517,23 @@ static int mount_verify(Mount *m) {
 
         if (!unit_has_name(UNIT(m), e)) {
                 log_unit_error(UNIT(m), "Where= setting doesn't match unit name. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (mount_point_is_api(m->where) || mount_point_ignore(m->where)) {
                 log_unit_error(UNIT(m), "Cannot create mount unit for API file system %s. Refusing.", m->where);
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         p = get_mount_parameters_fragment(m);
         if (p && !p->what) {
                 log_unit_error(UNIT(m), "What= setting is missing. Refusing.");
-                return -EBADMSG;
+                return -ENOEXEC;
         }
 
         if (m->exec_context.pam_name && m->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_unit_error(UNIT(m), "Unit has PAM enabled. Kill mode must be set to control-group'. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;
@@ -553,7 +554,7 @@ static int mount_add_extras(Mount *m) {
                         return r;
         }
 
-        path_kill_slashes(m->where);
+        path_simplify(m->where, false);
 
         if (!u->description) {
                 r = unit_set_description(u, m->where);
@@ -656,7 +657,8 @@ static void mount_set_state(Mount *m, MountState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(m), "Changed %s -> %s", mount_state_to_string(old_state), mount_state_to_string(state));
 
-        unit_notify(UNIT(m), state_translation_table[old_state], state_translation_table[state], m->reload_result == MOUNT_SUCCESS);
+        unit_notify(UNIT(m), state_translation_table[old_state], state_translation_table[state],
+                    m->reload_result == MOUNT_SUCCESS ? 0 : UNIT_NOTIFY_RELOAD_FAILURE);
 }
 
 static int mount_coldplug(Unit *u) {
@@ -1632,7 +1634,7 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 if (cunescape(path, UNESCAPE_RELAX, &p) < 0)
                         return log_oom();
 
-                (void) device_found_node(m, d, true, DEVICE_FOUND_MOUNT, set_flags);
+                device_found_node(m, d, DEVICE_FOUND_MOUNT, DEVICE_FOUND_MOUNT);
 
                 k = mount_setup_unit(m, d, p, options, fstype, set_flags);
                 if (r == 0 && k < 0)
@@ -1669,7 +1671,7 @@ static int mount_get_timeout(Unit *u, usec_t *timeout) {
         return 1;
 }
 
-static int synthesize_root_mount(Manager *m) {
+static void mount_enumerate_perpetual(Manager *m) {
         Unit *u;
         int r;
 
@@ -1681,8 +1683,10 @@ static int synthesize_root_mount(Manager *m) {
         u = manager_get_unit(m, SPECIAL_ROOT_MOUNT);
         if (!u) {
                 r = unit_new_for_name(m, sizeof(Mount), SPECIAL_ROOT_MOUNT, &u);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to allocate the special " SPECIAL_ROOT_MOUNT " unit: %m");
+                if (r < 0) {
+                        log_error_errno(r, "Failed to allocate the special " SPECIAL_ROOT_MOUNT " unit: %m");
+                        return;
+                }
         }
 
         u->perpetual = true;
@@ -1690,8 +1694,6 @@ static int synthesize_root_mount(Manager *m) {
 
         unit_add_to_load_queue(u);
         unit_add_to_dbus_queue(u);
-
-        return 0;
 }
 
 static bool mount_is_mounted(Mount *m) {
@@ -1704,10 +1706,6 @@ static void mount_enumerate(Manager *m) {
         int r;
 
         assert(m);
-
-        r = synthesize_root_mount(m);
-        if (r < 0)
-                goto fail;
 
         mnt_init_debug(0);
 
@@ -1894,7 +1892,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
                         continue;
 
                 /* Let the device units know that the device is no longer mounted */
-                (void) device_found_node(m, what, false, DEVICE_FOUND_MOUNT, true);
+                device_found_node(m, what, 0, DEVICE_FOUND_MOUNT);
         }
 
         return 0;
@@ -1999,6 +1997,7 @@ const UnitVTable mount_vtable = {
 
         .can_transient = true,
 
+        .enumerate_perpetual = mount_enumerate_perpetual,
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown,
 

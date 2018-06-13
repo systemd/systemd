@@ -156,7 +156,14 @@ static inline bool _pure_ in_charset(const char *s, const char* charset) {
 bool string_has_cc(const char *p, const char *ok) _pure_;
 
 char *ellipsize_mem(const char *s, size_t old_length_bytes, size_t new_length_columns, unsigned percent);
-char *ellipsize(const char *s, size_t length, unsigned percent);
+static inline char *ellipsize(const char *s, size_t length, unsigned percent) {
+        return ellipsize_mem(s, strlen(s), length, percent);
+}
+
+char *cellescape(char *buf, size_t len, const char *s);
+
+/* This limit is arbitrary, enough to give some idea what the string contains */
+#define CELLESCAPE_DEFAULT_LENGTH 64
 
 bool nulstr_contains(const char *nulstr, const char *needle);
 
@@ -208,4 +215,22 @@ static inline size_t strlen_ptr(const char *s) {
                 return 0;
 
         return strlen(s);
+}
+
+/* Like startswith(), but operates on arbitrary memory blocks */
+static inline void *memory_startswith(const void *p, size_t sz, const char *token) {
+        size_t n;
+
+        assert(token);
+
+        n = strlen(token);
+        if (sz < n)
+                return NULL;
+
+        assert(p);
+
+        if (memcmp(p, token, n) != 0)
+                return NULL;
+
+        return (uint8_t*) p + n;
 }

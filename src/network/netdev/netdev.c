@@ -37,6 +37,7 @@
 #include "netdev/vcan.h"
 #include "netdev/vxcan.h"
 #include "netdev/wireguard.h"
+#include "netdev/netdevsim.h"
 
 const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_BRIDGE] = &bridge_vtable,
@@ -64,6 +65,7 @@ const NetDevVTable * const netdev_vtable[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_GENEVE] = &geneve_vtable,
         [NETDEV_KIND_VXCAN] = &vxcan_vtable,
         [NETDEV_KIND_WIREGUARD] = &wireguard_vtable,
+        [NETDEV_KIND_NETDEVSIM] = &netdevsim_vtable,
 };
 
 static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
@@ -92,6 +94,7 @@ static const char* const netdev_kind_table[_NETDEV_KIND_MAX] = {
         [NETDEV_KIND_GENEVE] = "geneve",
         [NETDEV_KIND_VXCAN] = "vxcan",
         [NETDEV_KIND_WIREGUARD] = "wireguard",
+        [NETDEV_KIND_NETDEVSIM] = "netdevsim",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
@@ -242,7 +245,7 @@ static int netdev_enslave_ready(NetDev *netdev, Link* link, sd_netlink_message_h
 
         r = sd_netlink_call_async(netdev->manager->rtnl, req, callback, link, 0, NULL);
         if (r < 0)
-                return log_netdev_error(netdev, "Could not send rtnetlink message: %m");
+                return log_netdev_error_errno(netdev, r, "Could not send rtnetlink message: %m");
 
         link_ref(link);
 

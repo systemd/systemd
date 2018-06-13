@@ -441,32 +441,32 @@ static int socket_verify(Socket *s) {
 
         if (!s->ports) {
                 log_unit_error(UNIT(s), "Unit has no Listen setting (ListenStream=, ListenDatagram=, ListenFIFO=, ...). Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->accept && have_non_accept_socket(s)) {
                 log_unit_error(UNIT(s), "Unit configured for accepting sockets, but sockets are non-accepting. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->accept && s->max_connections <= 0) {
                 log_unit_error(UNIT(s), "MaxConnection= setting too small. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->accept && UNIT_DEREF(s->service)) {
                 log_unit_error(UNIT(s), "Explicit service configuration for accepting socket units not supported. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (s->exec_context.pam_name && s->kill_context.kill_mode != KILL_CONTROL_GROUP) {
                 log_unit_error(UNIT(s), "Unit has PAM enabled. Kill mode must be set to 'control-group'. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         if (!strv_isempty(s->symlinks) && !socket_find_symlink_target(s)) {
                 log_unit_error(UNIT(s), "Unit has symlinks set but none or more than one node in the file system. Refusing.");
-                return -EINVAL;
+                return -ENOEXEC;
         }
 
         return 0;
@@ -786,27 +786,28 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sKeepAliveTimeSec: %s\n",
                         prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_time, USEC_PER_SEC));
 
-        if (s->keep_alive_interval)
+        if (s->keep_alive_interval > 0)
                 fprintf(f,
                         "%sKeepAliveIntervalSec: %s\n",
                         prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->keep_alive_interval, USEC_PER_SEC));
 
-        if (s->keep_alive_cnt)
+        if (s->keep_alive_cnt > 0)
                 fprintf(f,
                         "%sKeepAliveProbes: %u\n",
                         prefix, s->keep_alive_cnt);
 
-        if (s->defer_accept)
+        if (s->defer_accept > 0)
                 fprintf(f,
                         "%sDeferAcceptSec: %s\n",
                         prefix, format_timespan(time_string, FORMAT_TIMESPAN_MAX, s->defer_accept, USEC_PER_SEC));
 
         LIST_FOREACH(port, p, s->ports) {
 
-                if (p->type == SOCKET_SOCKET) {
+                switch (p->type) {
+                case SOCKET_SOCKET: {
+                        _cleanup_free_ char *k = NULL;
                         const char *t;
                         int r;
-                        char *k = NULL;
 
                         r = socket_address_print(&p->address, &k);
                         if (r < 0)
@@ -815,15 +816,20 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                                 t = k;
 
                         fprintf(f, "%s%s: %s\n", prefix, listen_lookup(socket_address_family(&p->address), p->address.type), t);
-                        free(k);
-                } else if (p->type == SOCKET_SPECIAL)
+                        break;
+                }
+                case SOCKET_SPECIAL:
                         fprintf(f, "%sListenSpecial: %s\n", prefix, p->path);
-                else if (p->type == SOCKET_USB_FUNCTION)
+                        break;
+                case SOCKET_USB_FUNCTION:
                         fprintf(f, "%sListenUSBFunction: %s\n", prefix, p->path);
-                else if (p->type == SOCKET_MQUEUE)
+                        break;
+                case SOCKET_MQUEUE:
                         fprintf(f, "%sListenMessageQueue: %s\n", prefix, p->path);
-                else
+                        break;
+                default:
                         fprintf(f, "%sListenFIFO: %s\n", prefix, p->path);
+                }
         }
 
         fprintf(f,
@@ -1033,43 +1039,43 @@ static void socket_apply_socket_options(Socket *s, int fd) {
         assert(fd >= 0);
 
         if (s->keep_alive) {
-                int b = s->keep_alive;
-                if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &b, sizeof(b)) < 0)
+                int one = 1;
+                if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &one, sizeof(one)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "SO_KEEPALIVE failed: %m");
         }
 
-        if (s->keep_alive_time) {
+        if (s->keep_alive_time > 0) {
                 int value = s->keep_alive_time / USEC_PER_SEC;
                 if (setsockopt(fd, SOL_TCP, TCP_KEEPIDLE, &value, sizeof(value)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPIDLE failed: %m");
         }
 
-        if (s->keep_alive_interval) {
+        if (s->keep_alive_interval > 0) {
                 int value = s->keep_alive_interval / USEC_PER_SEC;
                 if (setsockopt(fd, SOL_TCP, TCP_KEEPINTVL, &value, sizeof(value)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPINTVL failed: %m");
         }
 
-        if (s->keep_alive_cnt) {
+        if (s->keep_alive_cnt > 0) {
                 int value = s->keep_alive_cnt;
                 if (setsockopt(fd, SOL_TCP, TCP_KEEPCNT, &value, sizeof(value)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_KEEPCNT failed: %m");
         }
 
-        if (s->defer_accept) {
+        if (s->defer_accept > 0) {
                 int value = s->defer_accept / USEC_PER_SEC;
                 if (setsockopt(fd, SOL_TCP, TCP_DEFER_ACCEPT, &value, sizeof(value)) < 0)
                         log_unit_warning_errno(UNIT(s), errno, "TCP_DEFER_ACCEPT failed: %m");
         }
 
         if (s->no_delay) {
-                int b = s->no_delay;
+                int one = 1;
 
                 if (s->socket_protocol == IPPROTO_SCTP) {
-                        if (setsockopt(fd, SOL_SCTP, SCTP_NODELAY, &b, sizeof(b)) < 0)
+                        if (setsockopt(fd, SOL_SCTP, SCTP_NODELAY, &one, sizeof(one)) < 0)
                                 log_unit_warning_errno(UNIT(s), errno, "SCTP_NODELAY failed: %m");
                 } else {
-                        if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &b, sizeof(b)) < 0)
+                        if (setsockopt(fd, SOL_TCP, TCP_NODELAY, &one, sizeof(one)) < 0)
                                 log_unit_warning_errno(UNIT(s), errno, "TCP_NODELAY failed: %m");
                 }
         }
@@ -1100,7 +1106,6 @@ static void socket_apply_socket_options(Socket *s, int fd) {
                 int value = (int) s->receive_buffer;
 
                 /* We first try with SO_RCVBUFFORCE, in case we have the perms for that */
-
                 if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &value, sizeof(value)) < 0)
                         if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &value, sizeof(value)) < 0)
                                 log_unit_warning_errno(UNIT(s), errno, "SO_RCVBUF failed: %m");
@@ -1190,7 +1195,7 @@ static int fifo_address_create(
                 return r;
 
         /* Enforce the right access mode for the fifo */
-        old_mask = umask(~ socket_mode);
+        old_mask = umask(~socket_mode);
 
         /* Include the original umask in our mask */
         (void) umask(~socket_mode | old_mask);
@@ -1294,7 +1299,7 @@ static int mq_address_create(
         }
 
         /* Enforce the right access mode for the mq */
-        old_mask = umask(~ mq_mode);
+        old_mask = umask(~mq_mode);
 
         /* Include the original umask in our mask */
         (void) umask(~mq_mode | old_mask);
@@ -1388,7 +1393,7 @@ static int usbffs_dispatch_eps(SocketPort *p) {
                 if (!ep)
                         return -ENOMEM;
 
-                path_kill_slashes(ep);
+                path_simplify(ep, false);
 
                 r = usbffs_address_create(ep);
                 if (r < 0)
@@ -1790,7 +1795,7 @@ static void socket_set_state(Socket *s, SocketState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(s), "Changed %s -> %s", socket_state_to_string(old_state), socket_state_to_string(state));
 
-        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], true);
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state], 0);
 }
 
 static int socket_coldplug(Unit *u) {
@@ -2238,18 +2243,17 @@ static void socket_enter_running(Socket *s, int cfd) {
                 log_unit_debug(UNIT(s), "Suppressing connection request since unit stop is scheduled.");
 
                 if (cfd >= 0)
-                        cfd = safe_close(cfd);
+                        goto refuse;
                 else
                         flush_ports(s);
 
                 return;
         }
 
-        if (!ratelimit_test(&s->trigger_limit)) {
-                safe_close(cfd);
+        if (!ratelimit_below(&s->trigger_limit)) {
                 log_unit_warning(UNIT(s), "Trigger limit hit, refusing further activation.");
                 socket_enter_stop_pre(s, SOCKET_FAILURE_TRIGGER_LIMIT_HIT);
-                return;
+                goto refuse;
         }
 
         if (cfd < 0) {
@@ -2287,15 +2291,13 @@ static void socket_enter_running(Socket *s, int cfd) {
                 if (s->n_connections >= s->max_connections) {
                         log_unit_warning(UNIT(s), "Too many incoming connections (%u), dropping connection.",
                                          s->n_connections);
-                        safe_close(cfd);
-                        return;
+                        goto refuse;
                 }
 
                 if (s->max_connections_per_source > 0) {
                         r = socket_acquire_peer(s, cfd, &p);
                         if (r < 0) {
-                                safe_close(cfd);
-                                return;
+                                goto refuse;
                         } else if (r > 0 && p->n_ref > s->max_connections_per_source) {
                                 _cleanup_free_ char *t = NULL;
 
@@ -2304,8 +2306,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                                 log_unit_warning(UNIT(s),
                                                  "Too many incoming connections (%u) from source %s, dropping connection.",
                                                  p->n_ref, strnull(t));
-                                safe_close(cfd);
-                                return;
+                                goto refuse;
                         }
                 }
 
@@ -2321,8 +2322,7 @@ static void socket_enter_running(Socket *s, int cfd) {
                         /* ENOTCONN is legitimate if TCP RST was received.
                          * This connection is over, but the socket unit lives on. */
                         log_unit_debug(UNIT(s), "Got ENOTCONN on incoming socket, assuming aborted connection attempt, ignoring.");
-                        safe_close(cfd);
-                        return;
+                        goto refuse;
                 }
 
                 r = unit_name_to_prefix(UNIT(s)->id, &prefix);
@@ -2364,6 +2364,11 @@ static void socket_enter_running(Socket *s, int cfd) {
                 unit_add_to_dbus_queue(UNIT(s));
         }
 
+        return;
+
+refuse:
+        s->n_refused++;
+        safe_close(cfd);
         return;
 
 fail:
@@ -2509,6 +2514,7 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
         unit_serialize_item(u, f, "state", socket_state_to_string(s->state));
         unit_serialize_item(u, f, "result", socket_result_to_string(s->result));
         unit_serialize_item_format(u, f, "n-accepted", "%u", s->n_accepted);
+        unit_serialize_item_format(u, f, "n-refused", "%u", s->n_refused);
 
         if (s->control_pid > 0)
                 unit_serialize_item_format(u, f, "control-pid", PID_FMT, s->control_pid);
@@ -2589,6 +2595,13 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         log_unit_debug(u, "Failed to parse n-accepted value: %s", value);
                 else
                         s->n_accepted += k;
+        } else if (streq(key, "n-refused")) {
+                unsigned k;
+
+                if (safe_atou(value, &k) < 0)
+                        log_unit_debug(u, "Failed to parse n-refused value: %s", value);
+                else
+                        s->n_refused += k;
         } else if (streq(key, "control-pid")) {
                 pid_t pid;
 

@@ -413,7 +413,7 @@ int bind_remount_recursive_with_mountinfo(const char *prefix, bool ro, char **bl
         if (!cleaned)
                 return -ENOMEM;
 
-        path_kill_slashes(cleaned);
+        path_simplify(cleaned, false);
 
         done = set_new(&path_hash_ops);
         if (!done)

@@ -234,12 +234,25 @@
       <varlistentry>
         <term><varname>ARP=</varname></term>
         <listitem>
-          <para> A boolean. Enables or disables the ARP (low-level Address Resolution Protocol)
+          <para>A boolean. Enables or disables the ARP (low-level Address Resolution Protocol)
           for this interface. Defaults to unset, which means that the kernel default will be used.</para>
           <para> For example, disabling ARP is useful when creating multiple MACVLAN or VLAN virtual
           interfaces atop a single lower-level physical interface, which will then only serve as a
           link/"bridge" device aggregating traffic to the same physical link and not participate in
           the network otherwise.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Multicast=</varname></term>
+        <listitem>
+          <para>A boolean. Enables or disables the multicast flag on the device.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>AllMulticast=</varname></term>
+        <listitem>
+          <para>A boolean. When this flag is set the driver retrieves all multicast packets from the network.
+          This happens when multicast routing is enabled.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -372,6 +385,21 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>PrivateDNS=</varname></term>
+          <listitem>
+            <para>Takes false or
+            <literal>opportunistic</literal>. When set to <literal>opportunistic</literal>, enables
+            <ulink
+            url="https://tools.ietf.org/html/rfc7858">DNS-over-TLS</ulink>
+            support on the link. This option defines a
+            per-interface setting for
+            <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>'s
+            global <varname>PrivateDNS=</varname> option. Defaults to
+            false. This setting is read by
+            <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>DNSSEC=</varname></term>
           <listitem>
             <para>A boolean or
@@ -438,7 +466,7 @@
             connected bridge, <literal>non-tpmr-bridge</literal> permits propagation across Two-Port MAC Relays, but
             not any other bridges, and <literal>customer-bridge</literal> permits propagation until a customer bridge
             is reached. For details about these concepts, see <ulink
-            url="http://standards.ieee.org/getieee802/download/802.1AB-2009.pdf">IEEE 802.1AB-2009</ulink>. Note that
+            url="https://standards.ieee.org/findstds/standard/802.1AB-2016.html">IEEE 802.1AB-2016</ulink>. Note that
             configuring this setting to true is equivalent to <literal>nearest-bridge</literal>, the recommended and
             most restricted level of propagation. See <varname>LLDP=</varname> above for an option to enable LLDP
             reception.</para>
@@ -1099,7 +1127,16 @@
             </para>
           </listitem>
         </varlistentry>
-
+        <varlistentry>
+        <term><varname>MTUBytes=</varname></term>
+        <listitem>
+          <para>The maximum transmission unit in bytes to set for the
+          route. The usual suffixes K, M, G, are supported and are
+          understood to the base of 1024.</para>
+          <para>Note that if IPv6 is enabled on the interface, and the MTU is chosen
+          below 1280 (the minimum MTU for IPv6) it will automatically be increased to this value.</para>
+        </listitem>
+      </varlistentry>
       </variablelist>
   </refsect1>
 
@@ -1731,6 +1768,39 @@
         </varlistentry>
       </variablelist>
   </refsect1>
+
+  <refsect1>
+    <title>[CAN] Section Options</title>
+      <para>The <literal>[CAN]</literal> section manages the Controller Area Network (CAN bus) and accepts the
+      following keys.</para>
+      <variablelist class='network-directives'>
+        <varlistentry>
+          <term><varname>BitRate=</varname></term>
+          <listitem>
+            <para>The bitrate of CAN device in bits per second. The usual SI prefixes (K, M) with the base of 1000 can
+            be used here.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>SamplePoint=</varname></term>
+          <listitem>
+            <para>Optional sample point in percent with one decimal (e.g. <literal>75%</literal>,
+            <literal>87.5%</literal>) or permille (e.g. <literal>875‰</literal>).</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><varname>RestartSec=</varname></term>
+          <listitem>
+            <para>Automatic restart delay time. If set to a non-zero value, a restart of the CAN controller will be
+            triggered automatically in case of a bus-off condition after the specified delay time. Subsecond delays can
+            be specified using decimals (e.g. <literal>0.1s</literal>) or a <literal>ms</literal> or
+            <literal>us</literal> postfix. Using <literal>infinity</literal> or <literal>0</literal> will turn the
+            automatic restart off. By default automatic restart is disabled.</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+  </refsect1>
+
   <refsect1>
     <title>[BridgeVLAN] Section Options</title>
       <para>The <literal>[BridgeVLAN]</literal> section manages the VLAN ID configuration of a bridge port and accepts

@@ -1,6 +1,9 @@
 <?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY fedora_latest_version "28">
+<!ENTITY fedora_cloud_release "1.1">
+]>
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
@@ -374,6 +377,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--hostname=</option></term>
+
+        <listitem><para>Controls the hostname to set within the container, if different from the machine name. Expects
+        a valid hostname as argument. If this option is used, the kernel hostname of the container will be set to this
+        value, otherwise it will be initialized to the machine name as controlled by the <option>--machine=</option>
+        option described above. The machine name is used for various aspect of identification of the container from the
+        outside, the kernel hostname configurable with this option is useful for the container to identify itself from
+        the inside. It is usually a good idea to keep both forms of identification synchronized, in order to avoid
+        confusion. It is hence recommended to avoid usage of this option, and use <option>--machine=</option>
+        exclusively. Note that regardless whether the container's hostname is initialized from the name set with
+        <option>--hostname=</option> or the one set with <option>--machine=</option>, the container can later override
+        its kernel hostname freely on its own as well.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--uuid=</option></term>
 
         <listitem><para>Set the specified UUID for the container. The
@@ -718,12 +737,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--no-new-privileges=</option></term>
+
+        <listitem><para>Takes a boolean argument. Specifies the value of the <constant>PR_SET_NO_NEW_PRIVS</constant>
+        flag for the container payload. Defaults to off. When turned on the payload code of the container cannot
+        acquire new privileges, i.e. the "setuid" file bit as well as file system capabilities will not have an effect
+        anymore. See <citerefentry
+        project='man-pages'><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry> for details
+        about this flag. </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--system-call-filter=</option></term>
 
         <listitem><para>Alter the system call filter applied to containers. Takes a space-separated list of system call
         names or group names (the latter prefixed with <literal>@</literal>, as listed by the
-        <command>syscall-filter</command> command of <citerefentry
-        project='man-pages'><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>). Passed
+        <command>syscall-filter</command> command of
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>). Passed
         system calls will be permitted. The list may optionally be prefixed by <literal>~</literal>, in which case all
         listed system calls are prohibited. If this command line option is used multiple times the configured lists are
         combined. If both a positive and a negative list (that is one system call list without and one with the
@@ -735,15 +765,59 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--rlimit=</option></term>
+
+        <listitem><para>Sets the specified POSIX resource limit for the container payload. Expects an assignment of the
+        form
+        <literal><replaceable>LIMIT</replaceable>=<replaceable>SOFT</replaceable>:<replaceable>HARD</replaceable></literal>
+        or <literal><replaceable>LIMIT</replaceable>=<replaceable>VALUE</replaceable></literal>, where
+        <replaceable>LIMIT</replaceable> should refer to a resource limit type, such as
+        <constant>RLIMIT_NOFILE</constant> or <constant>RLIMIT_NICE</constant>. The <replaceable>SOFT</replaceable> and
+        <replaceable>HARD</replaceable> fields should refer to the numeric soft and hard resource limit values. If the
+        second form is used, <replaceable>VALUE</replaceable> may specify a value that is used both as soft and hard
+        limit. In place of a numeric value the special string <literal>infinity</literal> may be used to turn off
+        resource limiting for the specific type of resource. This command line option may be used multiple times to
+        control limits on multiple limit types. If used multiple times for the same limit type, the last use
+        wins. For details about resource limits see <citerefentry
+        project='man-pages'><refentrytitle>setrlimit</refentrytitle><manvolnum>2</manvolnum></citerefentry>. By default
+        resource limits for the container's init process (PID 1) are set to the same values the Linux kernel originally
+        passed to the host init system. Note that some resource limits are enforced on resources counted per user, in
+        particular <constant>RLIMIT_NPROC</constant>. This means that unless user namespacing is deployed
+        (i.e. <option>--private-users=</option> is used, see above), any limits set will be applied to the resource
+        usage of the same user on all local containers as well as the host. This means particular care needs to be
+        taken with these limits as they might be triggered by possibly less trusted code. Example:
+        <literal>--rlimit=RLIMIT_NOFILE=8192:16384</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--oom-score-adjust=</option></term>
+
+        <listitem><para>Changes the OOM ("Out Of Memory") score adjustment value for the container payload. This controls
+        <filename>/proc/self/oom_score_adj</filename> which influences the preference with which this container is
+        terminated when memory becomes scarce. For details see <citerefentry
+        project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Takes an
+        integer in the range -1000…1000.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cpu-affinity=</option></term>
+
+        <listitem><para>Controls the CPU affinity of the container payload. Takes a comma separated list of CPU numbers
+        or number ranges (the latter's start and end value separated by dashes). See <citerefentry
+        project='man-pages'><refentrytitle>sched_setaffinity</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+        details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--kill-signal=</option></term>
 
-        <listitem><para>Specify the process signal to send to the
-        container's PID 1 when nspawn itself receives SIGTERM, in
-        order to trigger an orderly shutdown of the
-        container. Defaults to SIGRTMIN+3 if <option>--boot</option>
-        is used (on systemd-compatible init systems SIGRTMIN+3
-        triggers an orderly shutdown). For a list of valid signals, see
-        <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+        <listitem><para>Specify the process signal to send to the container's PID 1 when nspawn itself receives
+        <constant>SIGTERM</constant>, in order to trigger an orderly shutdown of the container. Defaults to
+        <constant>SIGRTMIN+3</constant> if <option>--boot</option> is used (on systemd-compatible init systems
+        <constant>SIGRTMIN+3</constant> triggers an orderly shutdown). If <option>--boot</option> is not used and this
+        option is not specified the container's processes are terminated abrubtly via <constant>SIGKILL</constant>. For
+        a list of valid signals, see <citerefentry
+        project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -785,6 +859,54 @@
 
         <listitem><para>Equivalent to
         <option>--link-journal=try-guest</option>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--resolv-conf=</option></term>
+
+        <listitem><para>Configures how <filename>/etc/resolv.conf</filename> inside of the container (i.e. DNS
+        configuration synchronization from host to container) shall be handled. Takes one of <literal>off</literal>,
+        <literal>copy-host</literal>, <literal>copy-static</literal>, <literal>bind-host</literal>,
+        <literal>bind-static</literal>, <literal>delete</literal> or <literal>auto</literal>. If set to
+        <literal>off</literal> the <filename>/etc/resolv.conf</filename> file in the container is left as it is
+        included in the image, and neither modified nor bind mounted over. If set to <literal>copy-host</literal>, the
+        <filename>/etc/resolv.conf</filename> file from the host is copied into the container. Similar, if
+        <literal>bind-host</literal> is used, the file is bind mounted from the host into the container. If set to
+        <literal>copy-static</literal> the static <filename>resolv.conf</filename> file supplied with
+        <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
+        copied into the container, and correspondingly <literal>bind-static</literal> bind mounts it there. If set to
+        <literal>delete</literal> the <filename>/etc/resolv.conf</filename> file in the container is deleted if it
+        exists. Finally, if set to <literal>auto</literal> the file is left as it is if private networking is turned on
+        (see <option>--private-network</option>). Otherwise, if <filename>systemd-resolved.service</filename> is
+        connectible its static <filename>resolv.conf</filename> file is used, and if not the host's
+        <filename>/etc/resolv.conf</filename> file is used. In the latter cases the file is copied if the image is
+        writable, and bind mounted otherwise. It's recommended to use <literal>copy</literal> if the container shall be
+        able to make changes to the DNS configuration on its own, deviating from the host's settings. Otherwise
+        <literal>bind</literal> is preferable, as it means direct changes to <filename>/etc/resolv.conf</filename> in
+        the container are not allowed, as it is a read-only bind mount (but note that if the container has enough
+        privileges, it might simply go ahead and unmount the bind mount anyway). Note that both if the file is bind
+        mounted and if it is copied no further propagation of configuration is generally done after the one-time early
+        initialization (this is because the file is usually updated through copying and renaming). Defaults to
+        <literal>auto</literal>.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--timezone=</option></term>
+
+        <listitem><para>Configures how <filename>/etc/localtime</filename> inside of the container (i.e. local timezone
+        synchronization from host to container) shall be handled. Takes one of <literal>off</literal>,
+        <literal>copy</literal>, <literal>bind</literal>, <literal>symlink</literal>, <literal>delete</literal> or
+        <literal>auto</literal>. If set to <literal>off</literal> the <filename>/etc/localtime</filename> file in the
+        container is left as it is included in the image, and neither modified nor bind mounted over. If set to
+        <literal>copy</literal> the <filename>/etc/localtime</filename> file of the host is copied into the
+        container. Similar, if <literal>bind</literal> is used, it is bind mounted from the host into the container. If
+        set to <literal>symlink</literal> a symlink from <filename>/etc/localtime</filename> in the container is
+        created pointing to the matching the timezone file of the container that matches the timezone setting on the
+        host. If set to <literal>delete</literal> the file in the container is deleted, should it exist. If set to
+        <literal>auto</literal> and the <filename>/etc/localtime</filename> file of the host is a symlink, then
+        <literal>symlink</literal> mode is used, and <literal>copy</literal> otherwise, except if the image is
+        read-only in which case <literal>bind</literal> is used instead. Defaults to
+        <literal>auto</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1072,8 +1194,8 @@
       <ulink url="https://getfedora.org">Fedora</ulink> image and start a shell in it</title>
 
       <programlisting># machinectl pull-raw --verify=no \
-      https://download.fedoraproject.org/pub/fedora/linux/releases/25/CloudImages/x86_64/images/Fedora-Cloud-Base-25-1.3.x86_64.raw.xz
-# systemd-nspawn -M Fedora-Cloud-Base-25-1.3.x86_64.raw</programlisting>
+      https://download.fedoraproject.org/pub/fedora/linux/releases/&fedora_latest_version;/Cloud/x86_64/images/Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw.xz
+# systemd-nspawn -M Fedora-Cloud-Base-&fedora_latest_version;-&fedora_cloud_release;.x86_64.raw</programlisting>
 
       <para>This downloads an image using
       <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -1083,17 +1205,17 @@
     <example>
       <title>Build and boot a minimal Fedora distribution in a container</title>
 
-      <programlisting># dnf -y --releasever=27 --installroot=/var/lib/machines/f27container \
+      <programlisting># dnf -y --releasever=&fedora_latest_version; --installroot=/var/lib/machines/f&fedora_latest_version; \
       --disablerepo='*' --enablerepo=fedora --enablerepo=updates install \
       systemd passwd dnf fedora-release vim-minimal
-# systemd-nspawn -bD /var/lib/machines/f27container</programlisting>
+# systemd-nspawn -bD /var/lib/machines/f&fedora_latest_version;</programlisting>
 
       <para>This installs a minimal Fedora distribution into the
-      directory <filename noindex='true'>/var/lib/machines/f27container</filename>
+      directory <filename noindex='true'>/var/lib/machines/f&fedora_latest_version;</filename>
       and then boots an OS in a namespace container in it. Because the installation
       is located underneath the standard <filename>/var/lib/machines/</filename>
       directory, it is also possible to start the machine using
-      <command>systemd-nspawn -M f27container</command>.</para>
+      <command>systemd-nspawn -M f&fedora_latest_version;</command>.</para>
     </example>
 
     <example>

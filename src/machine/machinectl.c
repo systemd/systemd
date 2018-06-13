@@ -46,6 +46,7 @@
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-name.h"
@@ -555,8 +556,9 @@ static void machine_status_info_clear(MachineStatusInfo *info) {
 }
 
 static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
-        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
-        char since2[FORMAT_TIMESTAMP_MAX], *s2;
+        char since1[FORMAT_TIMESTAMP_RELATIVE_MAX];
+        char since2[FORMAT_TIMESTAMP_MAX];
+        const char *s1, *s2;
         int ifi = -1;
 
         assert(bus);
@@ -901,10 +903,11 @@ typedef struct ImageStatusInfo {
 } ImageStatusInfo;
 
 static void print_image_status_info(sd_bus *bus, ImageStatusInfo *i) {
-        char ts_relative[FORMAT_TIMESTAMP_RELATIVE_MAX], *s1;
-        char ts_absolute[FORMAT_TIMESTAMP_MAX], *s2;
-        char bs[FORMAT_BYTES_MAX], *s3;
-        char bs_exclusive[FORMAT_BYTES_MAX], *s4;
+        char ts_relative[FORMAT_TIMESTAMP_RELATIVE_MAX];
+        char ts_absolute[FORMAT_TIMESTAMP_MAX];
+        char bs[FORMAT_BYTES_MAX];
+        char bs_exclusive[FORMAT_BYTES_MAX];
+        const char *s1, *s2, *s3, *s4;
 
         assert(bus);
         assert(i);
@@ -2859,6 +2862,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
+                                return 0;
+                        }
+
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0) {
                                 log_error("Unknown output '%s'.", optarg);
@@ -2879,6 +2887,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 's':
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(signal, int, _NSIG);
+                                return 0;
+                        }
+
                         arg_signal = signal_from_string(optarg);
                         if (arg_signal < 0) {
                                 log_error("Failed to parse signal string %s.", optarg);
@@ -2913,6 +2926,11 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERIFY:
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
+                                return 0;
+                        }
+
                         arg_verify = import_verify_from_string(optarg);
                         if (arg_verify < 0) {
                                 log_error("Failed to parse --verify= setting: %s", optarg);

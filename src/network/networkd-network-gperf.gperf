@@ -33,6 +33,8 @@ Match.Architecture,                     config_parse_net_condition,             
 Link.MACAddress,                        config_parse_hwaddr,                            0,                             offsetof(Network, mac)
 Link.MTUBytes,                          config_parse_mtu,                               AF_UNSPEC,                     offsetof(Network, mtu)
 Link.ARP,                               config_parse_tristate,                          0,                             offsetof(Network, arp)
+Link.Multicast,                         config_parse_tristate,                          0,                             offsetof(Network, multicast)
+Link.AllMulticast,                      config_parse_tristate,                          0,                             offsetof(Network, allmulticast)
 Link.Unmanaged,                         config_parse_bool,                              0,                             offsetof(Network, unmanaged)
 Link.RequiredForOnline,                 config_parse_bool,                              0,                             offsetof(Network, required_for_online)
 Network.Description,                    config_parse_string,                            0,                             offsetof(Network, description)
@@ -58,6 +60,7 @@ Network.Domains,                        config_parse_domains,                   
 Network.DNS,                            config_parse_dns,                               0,                             0
 Network.LLMNR,                          config_parse_resolve_support,                   0,                             offsetof(Network, llmnr)
 Network.MulticastDNS,                   config_parse_resolve_support,                   0,                             offsetof(Network, mdns)
+Network.PrivateDNS,                     config_parse_private_dns_mode,                  0,                             offsetof(Network, private_dns_mode)
 Network.DNSSEC,                         config_parse_dnssec_mode,                       0,                             offsetof(Network, dnssec_mode)
 Network.DNSSECNegativeTrustAnchors,     config_parse_dnssec_negative_trust_anchors,     0,                             0
 Network.NTP,                            config_parse_ntp,                               0,                             offsetof(Network, ntp)
@@ -105,6 +108,7 @@ Route.Metric,                           config_parse_route_priority,            
 Route.Scope,                            config_parse_route_scope,                       0,                             0
 Route.PreferredSource,                  config_parse_preferred_src,                     0,                             0
 Route.Table,                            config_parse_route_table,                       0,                             0
+Route.MTUBytes,                         config_parse_route_mtu,                         AF_UNSPEC,                     0
 Route.GatewayOnlink,                    config_parse_gateway_onlink,                    0,                             0
 Route.IPv6Preference,                   config_parse_ipv6_route_preference,             0,                             0
 Route.Protocol,                         config_parse_route_protocol,                    0,                             0
@@ -175,6 +179,9 @@ IPv6Prefix.OnLink,                      config_parse_prefix_flags,              
 IPv6Prefix.AddressAutoconfiguration,    config_parse_prefix_flags,                      0,                             0
 IPv6Prefix.ValidLifetimeSec,            config_parse_prefix_lifetime,                   0,                             0
 IPv6Prefix.PreferredLifetimeSec,        config_parse_prefix_lifetime,                   0,                             0
+CAN.BitRate,                            config_parse_si_size,                           0,                             offsetof(Network, can_bitrate)
+CAN.SamplePoint,                        config_parse_permille,                          0,                             offsetof(Network, can_sample_point)
+CAN.RestartSec,                         config_parse_sec,                               0,                             offsetof(Network, can_restart_us)
 /* backwards compatibility: do not add new entries to this section */
 Network.IPv4LL,                         config_parse_ipv4ll,                            0,                             offsetof(Network, link_local)
 DHCPv4.UseDNS,                          config_parse_bool,                              0,                             offsetof(Network, dhcp_use_dns)

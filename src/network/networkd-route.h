@@ -7,6 +7,8 @@
   Copyright 2013 Tom Gundersen <teg@jklm.no>
 ***/
 
+#include "conf-parser.h"
+
 typedef struct Route Route;
 typedef struct NetworkConfigSection NetworkConfigSection;
 
@@ -61,15 +63,16 @@ int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Route*, route_free);
 
-int config_parse_gateway(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_preferred_src(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_destination(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_route_priority(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_route_scope(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_route_table(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_gateway_onlink(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_ipv6_route_preference(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_route_protocol(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_route_type(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_tcp_window(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
-int config_parse_quickack(const char *unit, const char *filename, unsigned line, const char *section, unsigned section_line, const char *lvalue, int ltype, const char *rvalue, void *data, void *userdata);
+CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
+CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
+CONFIG_PARSER_PROTOTYPE(config_parse_destination);
+CONFIG_PARSER_PROTOTYPE(config_parse_route_priority);
+CONFIG_PARSER_PROTOTYPE(config_parse_route_scope);
+CONFIG_PARSER_PROTOTYPE(config_parse_route_table);
+CONFIG_PARSER_PROTOTYPE(config_parse_gateway_onlink);
+CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_route_preference);
+CONFIG_PARSER_PROTOTYPE(config_parse_route_protocol);
+CONFIG_PARSER_PROTOTYPE(config_parse_route_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_tcp_window);
+CONFIG_PARSER_PROTOTYPE(config_parse_quickack);
+CONFIG_PARSER_PROTOTYPE(config_parse_route_mtu);
