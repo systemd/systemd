@@ -679,9 +679,8 @@ _public_ int sd_radv_set_dnssl(sd_radv *ra, uint32_t lifetime,
 
         assert_return(ra, -EINVAL);
 
-        if (!search_list || *search_list == NULL) {
+        if (strv_isempty(search_list)) {
                 ra->dnssl = mfree(ra->dnssl);
-
                 return 0;
         }
 
