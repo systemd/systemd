@@ -3337,6 +3337,77 @@ int config_parse_io_device_weight(
         return 0;
 }
 
+int config_parse_io_device_latency(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *path = NULL, *resolved = NULL;
+        CGroupIODeviceLatency *l;
+        CGroupContext *c = data;
+        const char *p = rvalue;
+        usec_t usec;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                while (c->io_device_latencies)
+                        cgroup_context_free_io_device_latency(c, c->io_device_latencies);
+
+                return 0;
+        }
+
+        r = extract_first_word(&p, &path, NULL, EXTRACT_QUOTES);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax, ignoring: %s", rvalue);
+                return 0;
+        }
+        if (r == 0 || isempty(p)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to extract device path and latency from '%s', ignoring.", rvalue);
+                return 0;
+        }
+
+        r = unit_full_printf(userdata, path, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m", path);
+                return 0;
+        }
+
+        r = path_simplify_and_warn(resolved, 0, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
+
+        if (parse_sec(p, &usec) < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Failed to parse timer value, ignoring: %s", p);
+                return 0;
+        }
+
+        l = new0(CGroupIODeviceLatency, 1);
+        if (!l)
+                return log_oom();
+
+        l->path = TAKE_PTR(resolved);
+        l->target_usec = usec;
+
+        LIST_PREPEND(device_latencies, c->io_device_latencies, l);
+        return 0;
+}
+
 int config_parse_io_limit(
                 const char *unit,
                 const char *filename,
@@ -4522,6 +4593,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_device_policy,         "POLICY" },
                 { config_parse_io_limit,              "LIMIT" },
                 { config_parse_io_device_weight,      "DEVICEWEIGHT" },
+                { config_parse_io_device_latency,     "DEVICELATENCY" },
                 { config_parse_blockio_bandwidth,     "BANDWIDTH" },
                 { config_parse_blockio_weight,        "WEIGHT" },
                 { config_parse_blockio_device_weight, "DEVICEWEIGHT" },
