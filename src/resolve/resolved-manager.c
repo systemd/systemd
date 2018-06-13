@@ -1391,7 +1391,7 @@ PrivateDnsMode manager_get_private_dns_mode(Manager *m) {
         if (m->private_dns_mode != _PRIVATE_DNS_MODE_INVALID)
                 return m->private_dns_mode;
 
-        return _PRIVATE_DNS_MODE_INVALID;
+        return PRIVATE_DNS_NO;
 }
 
 void manager_dnssec_verdict(Manager *m, DnssecVerdict verdict, const DnsResourceKey *key) {

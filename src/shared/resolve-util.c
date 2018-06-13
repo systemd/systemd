@@ -31,4 +31,4 @@ static const char* const private_dns_mode_table[_PRIVATE_DNS_MODE_MAX] = {
         [PRIVATE_DNS_NO] = "no",
         [PRIVATE_DNS_OPPORTUNISTIC] = "opportunistic",
 };
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_dns_mode, PrivateDnsMode, PRIVATE_DNS_OPPORTUNISTIC);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_dns_mode, PrivateDnsMode, _PRIVATE_DNS_MODE_INVALID);

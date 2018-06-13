@@ -467,9 +467,11 @@ static void on_transaction_stream_error(DnsTransaction *t, int error) {
                         /* If the LLMNR/TCP connection failed, the host doesn't support LLMNR, and we cannot answer the
                          * question on this scope. */
                         dns_transaction_complete(t, DNS_TRANSACTION_NOT_FOUND);
+                        return;
                 }
 
                 dns_transaction_retry(t, true);
+                return;
         }
         if (error != 0) {
                 t->answer_errno = error;
@@ -536,7 +538,7 @@ static int on_stream_complete(DnsStream *s, int error) {
                 if (s->transactions) {
                         t = s->transactions;
                         assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
-                        dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level, usec - t->start_usec);
+                        dns_server_packet_lost(t->server, IPPROTO_TCP, t->current_feature_level);
                 }
         }
 
@@ -1229,7 +1231,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
 
                 log_debug_errno(r, "Connection failure for DNS UDP packet: %m");
                 assert_se(sd_event_now(t->scope->manager->event, clock_boottime_or_monotonic(), &usec) >= 0);
-                dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level, usec - t->start_usec);
+                dns_server_packet_lost(t->server, IPPROTO_UDP, t->current_feature_level);
 
                 dns_transaction_retry(t, true);
                 return 0;
@@ -1322,7 +1324,7 @@ static int on_transaction_timeout(sd_event_source *s, usec_t usec, void *userdat
 
                 case DNS_PROTOCOL_DNS:
                         assert(t->server);
-                        dns_server_packet_lost(t->server, t->stream ? IPPROTO_TCP : IPPROTO_UDP, t->current_feature_level, usec - t->start_usec);
+                        dns_server_packet_lost(t->server, t->stream ? IPPROTO_TCP : IPPROTO_UDP, t->current_feature_level);
                         break;
 
                 case DNS_PROTOCOL_LLMNR:

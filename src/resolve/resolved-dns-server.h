@@ -110,7 +110,7 @@ void dns_server_unlink(DnsServer *s);
 void dns_server_move_back_and_unmark(DnsServer *s);
 
 void dns_server_packet_received(DnsServer *s, int protocol, DnsServerFeatureLevel level, size_t size);
-void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level, usec_t usec);
+void dns_server_packet_lost(DnsServer *s, int protocol, DnsServerFeatureLevel level);
 void dns_server_packet_truncated(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_rrsig_missing(DnsServer *s, DnsServerFeatureLevel level);
 void dns_server_packet_bad_opt(DnsServer *s, DnsServerFeatureLevel level);
