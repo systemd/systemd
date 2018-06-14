@@ -14,6 +14,7 @@
 #include "busctl-introspect.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "locale-util.h"
 #include "log.h"
 #include "pager.h"
@@ -1262,10 +1263,9 @@ static int verb_capture(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (ferror(stdout)) {
-                log_error("Couldn't write capture file.");
-                return -EIO;
-        }
+        r = fflush_and_check(stdout);
+        if (r < 0)
+                return log_error_errno(r, "Couldn't write capture file: %m");
 
         return r;
 }
