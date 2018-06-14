@@ -21,6 +21,9 @@
 #include "timesyncd-manager.h"
 #include "user-util.h"
 
+#define STATE_DIR   "/var/lib/systemd/timesync"
+#define CLOCK_FILE  STATE_DIR "/clock"
+
 static int load_clock_timestamp(uid_t uid, gid_t gid) {
         _cleanup_close_ int fd = -1;
         usec_t min = TIME_EPOCH * USEC_PER_SEC;
@@ -34,7 +37,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
          * systems lacking a battery backed RTC. We also will adjust
          * the time to at least the build time of systemd. */
 
-        fd = open("/var/lib/systemd/timesync/clock", O_RDWR|O_CLOEXEC, 0644);
+        fd = open(CLOCK_FILE, O_RDWR|O_CLOEXEC, 0644);
         if (fd >= 0) {
                 struct stat st;
                 usec_t stamp;
@@ -50,24 +53,26 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                 if (geteuid() == 0) {
                         /* Try to fix the access mode, so that we can still
                            touch the file after dropping priviliges */
-                        r = fchmod(fd, 0644);
+                        r = fchmod_and_chown(fd, 0644, uid, gid);
                         if (r < 0)
-                                return log_error_errno(errno, "Failed to change file access mode: %m");
-                        r = fchown(fd, uid, gid);
-                        if (r < 0)
-                                return log_error_errno(errno, "Failed to change file owner: %m");
+                                log_warning_errno(r, "Failed to chmod or chown %s, ignoring: %m", CLOCK_FILE);
                 }
 
         } else {
-                r = mkdir_safe_label("/var/lib/systemd/timesync", 0755, uid, gid,
+                r = mkdir_safe_label(STATE_DIR, 0755, uid, gid,
                                      MKDIR_FOLLOW_SYMLINK | MKDIR_WARN_MODE);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create state directory: %m");
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to create state directory, ignoring: %m");
+                        goto settime;
+                }
 
                 /* create stamp file with the compiled-in date */
-                (void) touch_file("/var/lib/systemd/timesync/clock", false, min, uid, gid, 0644);
+                r = touch_file(CLOCK_FILE, false, min, uid, gid, 0644);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to create %s, ignoring: %m", CLOCK_FILE);
         }
 
+settime:
         ct = now(CLOCK_REALTIME);
         if (ct < min) {
                 struct timespec ts;
@@ -77,7 +82,7 @@ static int load_clock_timestamp(uid_t uid, gid_t gid) {
                          format_timestamp(date, sizeof(date), min));
 
                 if (clock_settime(CLOCK_REALTIME, timespec_store(&ts, min)) < 0)
-                        log_error_errno(errno, "Failed to restore system clock: %m");
+                        log_error_errno(errno, "Failed to restore system clock, ignoring: %m");
         }
 
         return 0;
@@ -174,8 +179,11 @@ int main(int argc, char *argv[]) {
         }
 
         /* if we got an authoritative time, store it in the file system */
-        if (m->sync)
-                (void) touch("/var/lib/systemd/timesync/clock");
+        if (m->sync) {
+                r = touch(CLOCK_FILE);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to touch %s, ignoring: %m", CLOCK_FILE);
+        }
 
         sd_event_get_exit_code(m->event, &r);
 

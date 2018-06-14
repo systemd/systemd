@@ -212,11 +212,9 @@ static int make_backup(const char *target, const char *x) {
         backup = strjoina(x, "-");
 
         /* Copy over the access mask */
-        if (fchmod(fileno(dst), st.st_mode & 07777) < 0)
-                log_warning_errno(errno, "Failed to change mode on %s: %m", backup);
-
-        if (fchown(fileno(dst), st.st_uid, st.st_gid)< 0)
-                log_warning_errno(errno, "Failed to change ownership of %s: %m", backup);
+        r = fchmod_and_chown(fileno(dst), st.st_mode & 07777, st.st_uid, st.st_gid);
+        if (r < 0)
+                log_warning_errno(r, "Failed to change access mode or ownership of %s: %m", backup);
 
         ts[0] = st.st_atim;
         ts[1] = st.st_mtim;
@@ -335,13 +333,7 @@ static int sync_rights(FILE *from, FILE *to) {
         if (fstat(fileno(from), &st) < 0)
                 return -errno;
 
-        if (fchmod(fileno(to), st.st_mode & 07777) < 0)
-                return -errno;
-
-        if (fchown(fileno(to), st.st_uid, st.st_gid) < 0)
-                return -errno;
-
-        return 0;
+        return fchmod_and_chown(fileno(to), st.st_mode & 07777, st.st_uid, st.st_gid);
 }
 
 static int rename_and_apply_smack(const char *temp_path, const char *dest_path) {
