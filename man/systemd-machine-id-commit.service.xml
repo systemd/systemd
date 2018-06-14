@@ -11,15 +11,6 @@
   <refentryinfo>
     <title>systemd-machine-id-commit.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Didier</firstname>
-        <surname>Roche</surname>
-        <email>didrocks@ubuntu.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

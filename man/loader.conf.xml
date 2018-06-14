@@ -9,15 +9,6 @@
   <refentryinfo>
     <title>loader.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>I wrote this page</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

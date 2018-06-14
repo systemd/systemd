@@ -11,15 +11,6 @@
   <refentryinfo>
     <title>systemd.dnssd</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Dmitry</firstname>
-        <surname>Rozhkov</surname>
-        <email>dmitry.rozhkov@intel.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

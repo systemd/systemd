@@ -13,15 +13,6 @@
   <refentryinfo>
     <title>kernel-install</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Harald</firstname>
-        <surname>Hoyer</surname>
-        <email>harald@redhat.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

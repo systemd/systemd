@@ -17,15 +17,6 @@
   <refentryinfo>
     <title>udev_device_new_from_syspath</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>David</firstname>
-        <surname>Herrmann</surname>
-        <email>dh.herrmann@gmail.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

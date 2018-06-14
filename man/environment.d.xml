@@ -13,15 +13,6 @@
   <refentryinfo>
     <title>environment.d</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Ray</firstname>
-        <surname>Strode</surname>
-        <email>rstrode@redhat.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

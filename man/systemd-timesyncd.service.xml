@@ -13,15 +13,6 @@
   <refentryinfo>
     <title>systemd-timesyncd.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Kay</firstname>
-        <surname>Sievers</surname>
-        <email>kay@vrfy.org</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

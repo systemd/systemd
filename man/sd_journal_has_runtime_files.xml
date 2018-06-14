@@ -13,15 +13,6 @@
   <refentryinfo>
     <title>sd_journal_has_runtime_files</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Jan</firstname>
-        <surname>Synáček</surname>
-        <email>jan.synacek@gmail.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

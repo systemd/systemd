@@ -11,15 +11,6 @@
   <refentryinfo>
     <title>sd_event_source_unref</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Lennart</firstname>
-        <surname>Poettering</surname>
-        <email>lennart@poettering.net</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
