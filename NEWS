@@ -3,11 +3,24 @@ systemd System and Service Manager
 CHANGES WITH 239 in spe:
 
         * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"
-          builtin may name network interfaces differently than in previous
-          versions. SR-IOV virtual functions and NPAR partitions with PCI
-          function numbers of 8 and above will be named more predictably, and
-          udev may generate names based on the PCI slot number in some cases
-          where it previously did not.
+          builtin will name network interfaces differently than in previous
+          versions for virtual network interfaces created with SR-IOV and NPAR
+          and for devices where the PCI network controller device does not have
+          a slot number associated.
+
+          SR-IOV virtual devices are now named based on the name of the parent
+          interface, with a suffix of "v<N>", where <N> is the virtual device
+          number. Previously those virtual devices were named as if completely
+          independent.
+
+          The ninth and later NPAR virtual devices will be named following the
+          scheme used for the first eight NPAR partitions. Previously those
+          devices were not renamed and the kernel default (eth<n>) was used.
+
+          "net_id" will also generate names for PCI devices where the PCI
+          network controller device does not have an associated slot number
+          itself, but one of its parents does. Previously those devices were
+          not renamed and the kernel default (eth<n>) was used.
 
         * AF_INET and AF_INET6 are dropped from RestrictAddressFamilies= in
           systemd-logind.service. Since v235, IPAddressDeny=any has been set to
