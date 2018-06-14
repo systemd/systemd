@@ -50,7 +50,7 @@ jobs:
               - docker cp tools/coverity.sh travis_coverity_scan:/usr/local/bin
                 # Preconfigure with meson to prevent Coverity from capturing meson metadata
                 # Set compiler flag to prevent emit failure
-              - docker exec -it travis_coverity_scan sh -c "CFLAGS='-D_Float128=long\ double' meson cov-build -Dman=false"
+              - docker exec -it travis_coverity_scan sh -c "CFLAGS='-D_Float128=long\ double -D_Float64=double -D_Float64x=long\ double -D_Float32=float -D_Float32x=double' meson cov-build -Dman=false"
                 # Run Coverity Analysis
               - docker exec -it travis_coverity_scan coverity.sh build
               - docker exec -it travis_coverity_scan coverity.sh upload
