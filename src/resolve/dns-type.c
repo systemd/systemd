@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2014 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <sys/socket.h>
 #include <errno.h>

@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2016 Zbigniew Jędrzejewski-Szmek
-***/
-
 /* Missing glibc definitions to access certain kernel APIs */
 
 #include <sys/types.h>

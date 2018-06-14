@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2014 Zbigniew Jędrzejewski-Szmek
-***/
-
 #include "macro.h"
 
 /* DNS record types, taken from

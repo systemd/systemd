@@ -4,8 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  Copyright © 2015 Zbigniew Jędrzejewski-Szmek
 -->
 
 <refentry id="networkctl" conditional='ENABLE_NETWORKD'

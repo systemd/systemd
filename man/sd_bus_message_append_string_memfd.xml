@@ -4,8 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  Copyright © 2014 Zbigniew Jędrzejewski-Szmek
 -->
 
 <refentry id="sd_bus_message_append_string_memfd"

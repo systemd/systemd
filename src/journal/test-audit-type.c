@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2015 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include <stdio.h>
 #include <linux/audit.h>

@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2016 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include "alloc-util.h"
 #include "keymap-util.h"

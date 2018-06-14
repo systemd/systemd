@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright © 2017 Zbigniew Jędrzejewski-Szmek
 
 zshcompletiondir = get_option('zshcompletiondir')
 if zshcompletiondir == ''

@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2017 Zbigniew Jędrzejewski-Szmek
-***/
-
 #include <libkmod.h>
 
 #include "macro.h"

@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2012 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include "alloc-util.h"
 #include "journal-remote.h"

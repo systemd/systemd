@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2014 Zbigniew Jędrzejewski-Szmek
-***/
-
 #include "journal-file.h"
 #include "journal-importer.h"
 

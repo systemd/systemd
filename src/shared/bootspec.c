@@ -1,6 +1,4 @@
-/***
-  Copyright © 2017 Zbigniew Jędrzejewski-Szmek
-***/
+/* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include <stdio.h>
 #include <linux/magic.h>

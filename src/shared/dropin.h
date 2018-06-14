@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2014 Zbigniew Jędrzejewski-Szmek
-***/
-
 #include "hashmap.h"
 #include "macro.h"
 #include "set.h"
