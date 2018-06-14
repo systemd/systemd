@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2013 Marc-Antoine Perennou
+  Copyright © 2013 Marc-Antoine Perennou
 ***/
 
 #include <errno.h>
@@ -4162,7 +4159,6 @@ static void print_status_info(
                         printf(" Refused: %u", i->n_refused);
                 printf("\n");
         }
-
 
         LIST_FOREACH(exec, p, i->exec) {
                 _cleanup_free_ char *argv = NULL;

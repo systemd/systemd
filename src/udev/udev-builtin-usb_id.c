@@ -5,7 +5,7 @@
  * Copyright (c) 2005 SUSE Linux Products GmbH, Germany
  *   Author: Hannes Reinecke <hare@suse.de>
  *
- * Copyright (C) 2005-2011 Kay Sievers <kay@vrfy.org>
+ * Copyright © 2005-2011 Kay Sievers <kay@vrfy.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

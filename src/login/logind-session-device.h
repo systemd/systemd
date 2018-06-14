@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2013 David Herrmann
+  Copyright © 2013 David Herrmann
 ***/
 
 typedef enum DeviceType DeviceType;

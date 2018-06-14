@@ -2,11 +2,11 @@
 /*
  * expose input properties via udev
  *
- * Copyright (C) 2009 Martin Pitt <martin.pitt@ubuntu.com>
- * Portions Copyright (C) 2004 David Zeuthen, <david@fubar.dk>
- * Copyright (C) 2011 Kay Sievers <kay@vrfy.org>
- * Copyright (C) 2014 Carlos Garnacho <carlosg@gnome.org>
- * Copyright (C) 2014 David Herrmann <dh.herrmann@gmail.com>
+ * Copyright © 2009 Martin Pitt <martin.pitt@ubuntu.com>
+ * Portions Copyright © 2004 David Zeuthen, <david@fubar.dk>
+ * Copyright © 2011 Kay Sievers <kay@vrfy.org>
+ * Copyright © 2014 Carlos Garnacho <carlosg@gnome.org>
+ * Copyright © 2014 David Herrmann <dh.herrmann@gmail.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

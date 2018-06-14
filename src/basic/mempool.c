@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2010-2014 Lennart Poettering
-  Copyright 2014 Michal Schmidt
+  Copyright © 2014 Michal Schmidt
 ***/
 
 #include <stdint.h>

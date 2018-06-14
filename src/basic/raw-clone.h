@@ -2,10 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2016 Michael Karcher
+  Copyright © 2016 Michael Karcher
 ***/
 
 #include <errno.h>

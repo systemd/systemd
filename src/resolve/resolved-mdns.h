@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2015 Daniel Mack
+  Copyright © 2015 Daniel Mack
 ***/
 
 #include "resolved-manager.h"

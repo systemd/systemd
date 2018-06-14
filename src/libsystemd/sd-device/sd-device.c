@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright 2014 Tom Gundersen <teg@jklm.no>
+  Copyright © 2008-2012 Kay Sievers <kay@vrfy.org>
+  Copyright © 2014 Tom Gundersen <teg@jklm.no>
 ***/
 
 #include <ctype.h>

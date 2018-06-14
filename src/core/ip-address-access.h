@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2016 Daniel Mack
+  Copyright © 2016 Daniel Mack
 ***/
 
 #include "conf-parser.h"

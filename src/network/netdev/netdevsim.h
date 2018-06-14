@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2018 Susant Sahani
+  Copyright © 2018 Susant Sahani
 ***/
 
 typedef struct NetDevSim NetDevSim;

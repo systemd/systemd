@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
-  Copyright 2004-2012 Kay Sievers <kay@vrfy.org>
+  Copyright © 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
+  Copyright © 2004-2012 Kay Sievers <kay@vrfy.org>
 ***/
 
 #include <errno.h>

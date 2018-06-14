@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation
+  Copyright © 2013 Intel Corporation
   Authors:
         Nathaniel Chen <nathaniel.chen@intel.com>
 ***/

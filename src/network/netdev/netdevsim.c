@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2018 Susant Sahani
+  Copyright © 2018 Susant Sahani
 ***/
 
 #include "netdev/netdevsim.h"

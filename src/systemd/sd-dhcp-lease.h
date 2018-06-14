@@ -3,10 +3,8 @@
 #define foosddhcpleasehfoo
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2013 Intel Corporation. All rights reserved.
-  Copyright (C) 2014 Tom Gundersen
+  Copyright © 2013 Intel Corporation. All rights reserved.
+  Copyright © 2014 Tom Gundersen
 
   systemd is free software; you can redistribute it and/or modify it
   under the terms of the GNU Lesser General Public License as published by

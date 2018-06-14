@@ -2,10 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2013 Kay Sievers
+  Copyright © 2013 Kay Sievers
 ***/
 
 #include <sys/types.h>

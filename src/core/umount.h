@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010 ProFUSION embedded systems
+  Copyright © 2010 ProFUSION embedded systems
 ***/
 
 #include "list.h"

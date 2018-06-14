@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2014 Thomas Hindø Paabøl Andersen
+  Copyright © 2014 Thomas Hindø Paabøl Andersen
 ***/
 
 #include "sd-network.h"

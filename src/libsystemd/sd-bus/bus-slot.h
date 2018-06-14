@@ -2,9 +2,6 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
 ***/
 
 #include "sd-bus.h"

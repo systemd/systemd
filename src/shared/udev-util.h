@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2013 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include "udev.h"

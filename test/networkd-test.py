@@ -15,7 +15,7 @@
 # ATTENTION: This uses the *installed* networkd, not the one from the built
 # source tree.
 #
-# (C) 2015 Canonical Ltd.
+# © 2015 Canonical Ltd.
 # Author: Martin Pitt <martin.pitt@ubuntu.com>
 
 import errno

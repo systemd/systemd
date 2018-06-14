@@ -5,9 +5,7 @@
 <!--
   SPDX-License-Identifier: LGPL-2.1+
 
-  This file is part of systemd.
-
-  Copyright 2016 Julian Orth
+  Copyright © 2016 Julian Orth
 -->
 
 <refentry id="sd_bus_message_read_basic">

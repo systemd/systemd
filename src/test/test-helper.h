@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Holger Hans Peter Freyther
+  Copyright © 2013 Holger Hans Peter Freyther
 ***/
 
 #include "sd-daemon.h"

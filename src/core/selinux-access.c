@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2012 Dan Walsh
+  Copyright © 2012 Dan Walsh
 ***/
 
 #include "selinux-access.h"

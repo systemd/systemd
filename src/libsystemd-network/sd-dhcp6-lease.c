@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Tom Gundersen
-  Copyright (C) 2014-2015 Intel Corporation. All rights reserved.
+  Copyright © 2014 Tom Gundersen
+  Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
 #include <errno.h>

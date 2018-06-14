@@ -1,9 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
-#  This file is part of systemd.
-#
-#  Copyright 2012 Lennart Poettering
-#  Copyright 2015, 2016 Viktar Vaŭčkievič
+#  Copyright © 2015, 2016 Viktar Vaŭčkievič
 
 # Message catalog for systemd's own messages
 # Belarusian translation

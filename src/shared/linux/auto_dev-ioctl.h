@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright 2008 Red Hat, Inc. All rights reserved.
- * Copyright 2008 Ian Kent <raven@themaw.net>
+ * Copyright © 2008 Red Hat, Inc. All rights reserved.
+ * Copyright © 2008 Ian Kent <raven@themaw.net>
  *
  * This file is part of the Linux kernel and is made available under
  * the terms of the GNU General Public License, version 2, or at your

@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2014 Sebastian Thorarensen
+  Copyright © 2014 Sebastian Thorarensen
 ***/
 
 #include "journald-server.h"

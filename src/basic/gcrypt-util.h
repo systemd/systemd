@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
 
 /***
-  This file is part of systemd.
-
-  Copyright 2016 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2016 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #pragma once

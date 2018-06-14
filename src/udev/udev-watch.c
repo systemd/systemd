@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) 2004-2012 Kay Sievers <kay@vrfy.org>
- * Copyright (C) 2009 Canonical Ltd.
- * Copyright (C) 2009 Scott James Remnant <scott@netsplit.com>
+ * Copyright © 2004-2012 Kay Sievers <kay@vrfy.org>
+ * Copyright © 2009 Canonical Ltd.
+ * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

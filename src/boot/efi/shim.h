@@ -11,10 +11,10 @@
  * Lesser General Public License for more details.
  *
  * Port to systemd-boot
- * Copyright 2017 Max Resch <resch.max@gmail.com>
+ * Copyright © 2017 Max Resch <resch.max@gmail.com>
  *
  * Security Policy Handling
- * Copyright 2012 <James.Bottomley@HansenPartnership.com>
+ * Copyright © 2012 <James.Bottomley@HansenPartnership.com>
  * https://github.com/mjg59/efitools
  */
 

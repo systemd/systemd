@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2014 Kay Sievers
+  Copyright © 2014 Kay Sievers
 ***/
 
 #include "architecture.h"

@@ -2,10 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010-2012 Lennart Poettering
-  Copyright 2010-2012 Kay Sievers
+  Copyright © 2010-2012 Kay Sievers
 ***/
 
 enum {

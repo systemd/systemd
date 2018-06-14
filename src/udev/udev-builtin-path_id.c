@@ -2,7 +2,7 @@
 /*
  * compose persistent device path
  *
- * Copyright (C) 2009-2011 Kay Sievers <kay@vrfy.org>
+ * Copyright © 2009-2011 Kay Sievers <kay@vrfy.org>
  *
  * Logic based on Hannes Reinecke's shell script.
  *

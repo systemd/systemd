@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 int chattr_fd(int fd, unsigned value, unsigned mask);
 int chattr_path(const char *p, unsigned value, unsigned mask);
 

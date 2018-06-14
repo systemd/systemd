@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2005-2008 Lennart Poettering
-  Copyright 2014 Daniel Buch
+  Copyright © 2014 Daniel Buch
 ***/
 
 #include <arpa/inet.h>

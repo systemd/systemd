@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2015 Tom Gundersen
+  Copyright © 2015 Tom Gundersen
 ***/
 
 #include <stdbool.h>

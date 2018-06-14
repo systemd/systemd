@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2015 Tom Gundersen <teg@jklmen>
+  Copyright © 2015 Tom Gundersen <teg@jklmen>
 ***/
 
 #include "libudev.h"

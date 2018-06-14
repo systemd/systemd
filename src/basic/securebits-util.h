@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2017 Yu Watanabe
+  Copyright © 2017 Yu Watanabe
 ***/
 
 #include "securebits.h"

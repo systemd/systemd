@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2014 Michael Biebl
+  Copyright © 2014 Michael Biebl
 ***/
 
 #include <getopt.h>

@@ -2,10 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-  Copyright 2013 Kay Sievers
+  Copyright © 2013 Kay Sievers
 ***/
 
 #include <time-util.h>

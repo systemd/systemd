@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Kay Sievers
+  Copyright © 2013 Kay Sievers
 ***/
 
 #include <stddef.h>

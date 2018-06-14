@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2014 Kay Sievers, Lennart Poettering
+  Copyright © 2014 Kay Sievers
 ***/
 
 #include <sys/timex.h>

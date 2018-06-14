@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2016-2017 Jörg Thalheim <joerg@thalheim.io>
-  Copyright 2015-2017 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
+  Copyright © 2016-2017 Jörg Thalheim <joerg@thalheim.io>
+  Copyright © 2015-2017 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
 ***/
 
 #include <sys/ioctl.h>

@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2008-2011 Lennart Poettering
-  Copyright 2014 Tom Gundersen
+  Copyright © 2014 Tom Gundersen
 ***/
 
 #include "sd-netlink.h"

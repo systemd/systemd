@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Zbigniew Jędrzejewski-Szmek
-  Copyright 2018 Dell Inc.
+  Copyright © 2013 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2018 Dell Inc.
 ***/
 
 #include <errno.h>

@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2013 Intel Corporation
+  Copyright © 2013 Intel Corporation
 
   Author: Auke Kok <auke-jan.h.kok@intel.com>
 ***/

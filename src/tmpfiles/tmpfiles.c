@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering, Kay Sievers
-  Copyright 2015 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2010 Kay Sievers
+  Copyright © 2015 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include <errno.h>

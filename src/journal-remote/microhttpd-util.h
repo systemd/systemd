@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2012 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2012 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include <microhttpd.h>

@@ -2,10 +2,8 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright 2015 Tom Gundersen <teg@jklm.no>
+  Copyright © 2008-2012 Kay Sievers <kay@vrfy.org>
+  Copyright © 2015 Tom Gundersen <teg@jklm.no>
 ***/
 
 #include "libudev.h"

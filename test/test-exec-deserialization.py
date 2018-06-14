@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1+
 #
-#  Copyright 2017 Michal Sekletar <msekleta@redhat.com>
+#  Copyright © 2017 Michal Sekletar <msekleta@redhat.com>
 
 # ATTENTION: This uses the *installed* systemd, not the one from the built
 # source tree.

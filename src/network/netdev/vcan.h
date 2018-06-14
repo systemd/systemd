@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2016 Susant Sahani
+  Copyright © 2016 Susant Sahani
 ***/
 
 typedef struct VCan VCan;

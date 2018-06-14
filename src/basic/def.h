@@ -1,12 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-***/
-
 #include "util.h"
 
 #define DEFAULT_TIMEOUT_USEC (90*USEC_PER_SEC)

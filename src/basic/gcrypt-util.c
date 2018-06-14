@@ -1,11 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/*-*- Mode: C; c-basic-offset: 8; indent-tabs-mode: nil -*-*/
-
-/***
-  This file is part of systemd.
-
-  Copyright 2012 Lennart Poettering
-***/
 
 #if HAVE_GCRYPT
 #include <gcrypt.h>

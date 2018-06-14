@@ -2,10 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2016 Djalal Harouni
+  Copyright © 2016 Djalal Harouni
 ***/
 
 typedef struct NamespaceInfo NamespaceInfo;

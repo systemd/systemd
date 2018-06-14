@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2017 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2017 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include <libkmod.h>

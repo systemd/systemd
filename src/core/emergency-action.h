@@ -2,10 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2014 Lennart Poettering
-  Copyright 2012 Michael Olbrich
+  Copyright © 2012 Michael Olbrich
 ***/
 
 typedef enum EmergencyAction {

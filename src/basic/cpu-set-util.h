@@ -2,10 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010-2015 Lennart Poettering
-  Copyright 2015 Filipe Brandenburger
+  Copyright © 2015 Filipe Brandenburger
 ***/
 
 #include <sched.h>

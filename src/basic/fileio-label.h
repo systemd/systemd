@@ -2,10 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2010 Lennart Poettering
-  Copyright 2010 Harald Hoyer
+  Copyright © 2010 Harald Hoyer
 ***/
 
 #include <stdio.h>

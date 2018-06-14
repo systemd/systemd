@@ -2,7 +2,7 @@
 #pragma once
 
 /*
- * Copyright (C) IBM Corp. 2003
+ * Copyright © IBM Corp. 2003
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

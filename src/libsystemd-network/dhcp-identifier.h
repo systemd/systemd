@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2015 Tom Gundersen <teg@jklmen>
+  Copyright © 2015 Tom Gundersen <teg@jklmen>
 ***/
 
 #include "sd-id128.h"

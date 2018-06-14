@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2015 Ronny Chevalier
+  Copyright © 2015 Ronny Chevalier
 ***/
 
 #include <inttypes.h>

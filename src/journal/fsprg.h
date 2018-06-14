@@ -5,7 +5,7 @@
 
 /*
  * fsprg v0.1  -  (seekable) forward-secure pseudorandom generator
- * Copyright (C) 2012 B. Poettering
+ * Copyright © 2012 B. Poettering
  * Contact: fsprg@point-at-infinity.org
  *
  * This library is free software; you can redistribute it and/or

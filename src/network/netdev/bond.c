@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2014  Tom Gundersen <teg@jklm.no>
-  Copyright 2014  Susant Sahani
+  Copyright © 2014  Tom Gundersen <teg@jklm.no>
+  Copyright © 2014  Susant Sahani
 ***/
 
 #include <netinet/ether.h>

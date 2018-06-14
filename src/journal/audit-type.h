@@ -2,9 +2,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2015 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2015 Zbigniew Jędrzejewski-Szmek
 ***/
 
 #include "macro.h"

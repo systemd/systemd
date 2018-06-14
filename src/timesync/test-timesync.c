@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2017 Zbigniew Jędrzejewski-Szmek
+  Copyright © 2017 Zbigniew Jędrzejewski-Szmek
 ***/
 
 /* Some unit tests for the helper functions in timesyncd. */

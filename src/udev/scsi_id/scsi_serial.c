@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (C) IBM Corp. 2003
+ * Copyright © IBM Corp. 2003
  *
  * Author: Patrick Mansfield<patmans@us.ibm.com>
  *

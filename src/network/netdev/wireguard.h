@@ -1,9 +1,7 @@
 #pragma once
 
 /***
-  This file is part of systemd.
-
-  Copyright 2016 Jörg Thalheim <joerg@thalheim.io>
+  Copyright © 2016 Jörg Thalheim <joerg@thalheim.io>
 ***/
 
 typedef struct Wireguard Wireguard;

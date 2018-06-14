@@ -1,8 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright 2017 Lennart Poettering
 ***/
 
 #include <pthread.h>

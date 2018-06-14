@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  This file is part of systemd.
-
-  Copyright (C) 2014 Axis Communications AB. All rights reserved.
-  Copyright (C) 2015 Tom Gundersen
+  Copyright © 2014 Axis Communications AB. All rights reserved.
+  Copyright © 2015 Tom Gundersen
 ***/
 
 #include <linux/filter.h>
