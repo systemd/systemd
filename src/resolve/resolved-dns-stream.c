@@ -245,8 +245,11 @@ static ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t i
                                 r = -EAGAIN;
                 } else
                         s->tfo_salen = 0; /* connection is made */
-        } else
+        } else {
                 r = writev(s->fd, iov, iovcnt);
+                if (r < 0)
+                        r = -errno;
+        }
 
         return r;
 }
@@ -278,7 +281,11 @@ static ssize_t dns_stream_read(DnsStream *s, void *buf, size_t count) {
                 }
         } else
 #endif
+        {
                 ss = read(s->fd, buf, count);
+                if (ss < 0)
+                        ss = -errno;
+        }
 
         return ss;
 }
@@ -370,8 +377,8 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
                 ss = dns_stream_writev(s, iov, 2, 0);
                 if (ss < 0) {
-                        if (!IN_SET(errno, EINTR, EAGAIN))
-                                return dns_stream_complete(s, errno);
+                        if (!IN_SET(-ss, EINTR, EAGAIN))
+                                return dns_stream_complete(s, -ss);
                 } else
                         s->n_written += ss;
 
@@ -392,8 +399,8 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
                         ss = dns_stream_read(s, (uint8_t*) &s->read_size + s->n_read, sizeof(s->read_size) - s->n_read);
                         if (ss < 0) {
-                                if (!IN_SET(errno, EINTR, EAGAIN))
-                                        return dns_stream_complete(s, errno);
+                                if (!IN_SET(-ss, EINTR, EAGAIN))
+                                        return dns_stream_complete(s, -ss);
                         } else if (ss == 0)
                                 return dns_stream_complete(s, ECONNRESET);
                         else
