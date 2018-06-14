@@ -11,15 +11,6 @@
   <refentryinfo>
     <title>sd_event_add_signal</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>More text</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

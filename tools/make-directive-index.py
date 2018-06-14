@@ -14,15 +14,6 @@ TEMPLATE = '''\
         <refentryinfo>
                 <title>systemd.directives</title>
                 <productname>systemd</productname>
-
-                <authorgroup>
-                        <author>
-                                <contrib>Developer</contrib>
-                                <firstname>Zbigniew</firstname>
-                                <surname>Jędrzejewski-Szmek</surname>
-                                <email>zbyszek@in.waw.pl</email>
-                        </author>
-                </authorgroup>
         </refentryinfo>
 
         <refmeta>

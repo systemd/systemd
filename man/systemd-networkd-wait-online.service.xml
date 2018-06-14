@@ -13,15 +13,6 @@
   <refentryinfo>
     <title>systemd-networkd-wait-online.service</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Tom</firstname>
-        <surname>Gundersen</surname>
-        <email>teg@jklm.no</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

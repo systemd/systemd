@@ -12,15 +12,6 @@
   <refentryinfo>
     <title>sd_bus_message_append_array</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>A monkey with a typewriter</contrib>
-        <firstname>Zbigniew</firstname>
-        <surname>Jędrzejewski-Szmek</surname>
-        <email>zbyszek@in.waw.pl</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

@@ -10,15 +10,6 @@
   <refentryinfo>
     <title>tmpfiles.d</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Documentation</contrib>
-        <firstname>Brandon</firstname>
-        <surname>Philips</surname>
-        <email>brandon@ifup.org</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

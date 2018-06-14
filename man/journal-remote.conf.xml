@@ -13,15 +13,6 @@
   <refentryinfo>
     <title>journal-remote.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Chris</firstname>
-        <surname>Morgan</surname>
-        <email>chmorgan@gmail.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

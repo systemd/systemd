@@ -13,15 +13,6 @@
   <refentryinfo>
     <title>networkd.conf</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <contrib>Developer</contrib>
-        <firstname>Vinay</firstname>
-        <surname>Kulkarni</surname>
-        <email>kulkarniv@vmware.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>

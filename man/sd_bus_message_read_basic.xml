@@ -13,14 +13,6 @@
   <refentryinfo>
     <title>sd_bus_message_read_basic</title>
     <productname>systemd</productname>
-
-    <authorgroup>
-      <author>
-        <firstname>Julian</firstname>
-        <surname>Orth</surname>
-        <email>ju.orth@gmail.com</email>
-      </author>
-    </authorgroup>
   </refentryinfo>
 
   <refmeta>
