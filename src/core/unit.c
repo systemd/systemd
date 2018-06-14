@@ -937,7 +937,6 @@ Unit* unit_follow_merge(Unit *u) {
 
 int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         ExecDirectoryType dt;
-        char **dp;
         int r;
 
         assert(u);
@@ -962,13 +961,16 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         }
 
         for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
+                ExecDirectories *ed = &c->directories[dt];
+                size_t i;
+
                 if (!u->manager->prefix[dt])
                         continue;
 
-                STRV_FOREACH(dp, c->directories[dt].paths) {
+                for (i = 0; i < ed->n_directories; i++) {
                         _cleanup_free_ char *p;
 
-                        p = strjoin(u->manager->prefix[dt], "/", *dp);
+                        p = strjoin(u->manager->prefix[dt], "/", ed->directories[i].path);
                         if (!p)
                                 return -ENOMEM;
 

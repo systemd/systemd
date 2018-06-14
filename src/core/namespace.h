@@ -8,6 +8,8 @@
 typedef struct NamespaceInfo NamespaceInfo;
 typedef struct BindMount BindMount;
 typedef struct TemporaryFileSystem TemporaryFileSystem;
+typedef struct ExecDirectory ExecDirectory;
+typedef struct ExecDirectories ExecDirectories;
 
 #include <stdbool.h>
 
