@@ -114,6 +114,7 @@ static int property_set_log_target(
                 void *userdata,
                 sd_bus_error *error) {
 
+        Manager *m = userdata;
         const char *t;
         int r;
 
@@ -124,7 +125,19 @@ static int property_set_log_target(
         if (r < 0)
                 return r;
 
-        return log_set_target_from_string(t);
+        if (isempty(t))
+                manager_restore_original_log_target(m);
+        else {
+                LogTarget target;
+
+                target = log_target_from_string(t);
+                if (target < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid log target '%s'", t);
+
+                manager_override_log_target(m, target);
+        }
+
+        return 0;
 }
 
 static int property_get_log_level(
@@ -158,6 +171,7 @@ static int property_set_log_level(
                 void *userdata,
                 sd_bus_error *error) {
 
+        Manager *m = userdata;
         const char *t;
         int r;
 
@@ -168,10 +182,19 @@ static int property_set_log_level(
         if (r < 0)
                 return r;
 
-        r = log_set_max_level_from_string(t);
-        if (r == 0)
-                log_info("Setting log level to %s.", t);
-        return r;
+        if (isempty(t))
+                manager_restore_original_log_level(m);
+        else {
+                int level;
+
+                level = log_level_from_string(t);
+                if (level < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid log level '%s'", t);
+
+                manager_override_log_level(m, level);
+        }
+
+        return 0;
 }
 
 static int property_get_progress(

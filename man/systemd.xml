@@ -749,15 +749,18 @@
 
       <varlistentry>
         <term><constant>SIGRTMIN+22</constant></term>
+
+        <listitem><para>Sets the service manager's log level to <literal>debug</literal>, in a fashion equivalent to
+        <varname>systemd.log_level=debug</varname> on the kernel command line.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>SIGRTMIN+23</constant></term>
 
-        <listitem><para>Sets the log level to <literal>debug</literal>
-        (or <literal>info</literal> on
-        <constant>SIGRTMIN+23</constant>), as controlled via
-        <varname>systemd.log_level=debug</varname> (or
-        <varname>systemd.log_level=info</varname> on
-        <constant>SIGRTMIN+23</constant>) on the kernel command
-        line.</para></listitem>
+        <listitem><para>Restores the log level to its configured value. The configured value is derived from – in order
+        of priority – the value specified with <varname>systemd.log-level=</varname> on the kernel command line, or the
+        value specified with <option>LogLevel=</option> in the configuration file, or the built-in default of
+        <literal>info</literal>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -769,20 +772,21 @@
 
       <varlistentry>
         <term><constant>SIGRTMIN+26</constant></term>
+
+        <listitem><para>Restores the log target to its configured value. The configured value is derived from – in
+        order of priority – the value specified with <varname>systemd.log-target=</varname> on the kernel command line,
+        or the value specified with <option>LogTarget=</option> in the configuration file, or the built-in
+        default.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><constant>SIGRTMIN+27</constant></term>
         <term><constant>SIGRTMIN+28</constant></term>
 
-        <listitem><para>Sets the log target to
-        <literal>journal-or-kmsg</literal> (or
-        <literal>console</literal> on
-        <constant>SIGRTMIN+27</constant>, <literal>kmsg</literal> on
-        <constant>SIGRTMIN+28</constant>), as controlled via
-        <varname>systemd.log_target=journal-or-kmsg</varname> (or
-        <varname>systemd.log_target=console</varname> on
-        <constant>SIGRTMIN+27</constant> or
-        <varname>systemd.log_target=kmsg</varname> on
-        <constant>SIGRTMIN+28</constant>) on the kernel command
-        line.</para></listitem>
+        <listitem><para>Sets the log target to <literal>console</literal> on <constant>SIGRTMIN+27</constant> (or
+        <literal>kmsg</literal> on <constant>SIGRTMIN+28</constant>), in a fashion equivalent to
+        <varname>systemd.log_target=console</varname> (or <varname>systemd.log_target=kmsg</varname> on
+        <constant>SIGRTMIN+28</constant>) on the kernel command line.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
