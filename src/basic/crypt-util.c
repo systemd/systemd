@@ -1,4 +1,4 @@
-
+/* SPDX-License-Identifier: LGPL-2.1+ */
 
 #if HAVE_LIBCRYPTSETUP
 #include "crypt-util.h"
