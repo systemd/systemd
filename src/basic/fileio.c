@@ -1560,21 +1560,29 @@ int read_nul_string(FILE *f, char **ret) {
 }
 
 int mkdtemp_malloc(const char *template, char **ret) {
-        char *p;
+        _cleanup_free_ char *p = NULL;
+        int r;
 
-        assert(template);
         assert(ret);
 
-        p = strdup(template);
+        if (template)
+                p = strdup(template);
+        else {
+                const char *tmp;
+
+                r = tmp_dir(&tmp);
+                if (r < 0)
+                        return r;
+
+                p = strjoin(tmp, "/XXXXXX");
+        }
         if (!p)
                 return -ENOMEM;
 
-        if (!mkdtemp(p)) {
-                free(p);
+        if (!mkdtemp(p))
                 return -errno;
-        }
 
-        *ret = p;
+        *ret = TAKE_PTR(p);
         return 0;
 }
 

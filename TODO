@@ -14,6 +14,8 @@ Janitorial Clean-ups:
 
 * Rearrange tests so that the various test-xyz.c match a specific src/basic/xyz.c again
 
+* copy.c: set the right chattrs before copying files and others after
+
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 
@@ -24,8 +26,6 @@ Features:
 
 * Add OnTimezoneChange= and OnTimeChange= stanzas to .timer units in order to
   schedule events based on time and timezone changes.
-
-* add O_TMPFILE support to copy_file_atomic()
 
 * nspawn: greater control over selinux label?
 
