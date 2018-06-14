@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2017 Zbigniew Jędrzejewski-Szmek
-***/
 
 /* Some unit tests for the helper functions in timesyncd. */
 

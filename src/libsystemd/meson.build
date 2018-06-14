@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright © 2017 Zbigniew Jędrzejewski-Szmek
 
 id128_sources = files('''
         sd-id128/id128-util.c

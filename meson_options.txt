@@ -1,7 +1,5 @@
 # -*- mode: meson -*-
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright © 2017 Zbigniew Jędrzejewski-Szmek
 
 option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'],
        description : '''/bin, /sbin aren't symlinks into /usr''')

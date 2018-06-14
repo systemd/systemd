@@ -2,8 +2,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  Copyright © 2013 Zbigniew Jędrzejewski-Szmek
 -->
 
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"

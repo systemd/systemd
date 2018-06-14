@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2013 Zbigniew Jędrzejewski-Szmek
-***/
 
 #include "acl-util.h"
 #include "fs-util.h"

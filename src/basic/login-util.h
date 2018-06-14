@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2013 Zbigniew Jędrzejewski-Szmek
-***/
-
 #include <stdbool.h>
 #include <unistd.h>
 

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+
- * Copyright © 2018 Zbigniew Jędrzejewski-Szmek
+ *
  */
 
 #include "alloc-util.h"

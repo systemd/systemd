@@ -1,6 +1,4 @@
-/***
-  Copyright © 2017 Zbigniew Jędrzejewski-Szmek
-***/
+
 
 #if HAVE_LIBCRYPTSETUP
 #include "crypt-util.h"

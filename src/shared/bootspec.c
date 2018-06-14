@@ -1,6 +1,4 @@
-/***
-  Copyright © 2017 Zbigniew Jędrzejewski-Szmek
-***/
+
 
 #include <stdio.h>
 #include <linux/magic.h>

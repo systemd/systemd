@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright © 2017 Zbigniew Jędrzejewski-Szmek
 
 # This is lame, I know, but meson has no other include mechanism
 subdir('rules')

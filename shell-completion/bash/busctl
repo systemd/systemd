@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1+
 #
 # This file is part of systemd.
-#
-# Copyright © 2013 Zbigniew Jędrzejewski-Szmek
 # Copyright © 2014 Thomas H.P. Andersen
 #
 # systemd is free software; you can redistribute it and/or modify it
