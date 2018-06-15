@@ -4315,7 +4315,7 @@ _public_ int sd_bus_message_rewind(sd_bus_message *m, int complete) {
         return !isempty(c->signature);
 }
 
-static int message_read_ap(
+_public_ int sd_bus_message_readv(
                 sd_bus_message *m,
                 const char *types,
                 va_list ap) {
@@ -4326,7 +4326,9 @@ static int message_read_ap(
         unsigned n_loop = 0;
         int r;
 
-        assert(m);
+        assert_return(m, -EINVAL);
+        assert_return(m->sealed, -EPERM);
+        assert_return(types, -EINVAL);
 
         if (isempty(types))
                 return 0;
@@ -4522,7 +4524,7 @@ _public_ int sd_bus_message_read(sd_bus_message *m, const char *types, ...) {
         assert_return(types, -EINVAL);
 
         va_start(ap, types);
-        r = message_read_ap(m, types, ap);
+        r = sd_bus_message_readv(m, types, ap);
         va_end(ap);
 
         return r;

@@ -305,6 +305,7 @@ int sd_bus_message_close_container(sd_bus_message *m);
 int sd_bus_message_copy(sd_bus_message *m, sd_bus_message *source, int all);
 
 int sd_bus_message_read(sd_bus_message *m, const char *types, ...);
+int sd_bus_message_readv(sd_bus_message *m, const char *types, va_list ap);
 int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p);
 int sd_bus_message_read_array(sd_bus_message *m, char type, const void **ptr, size_t *size);
 int sd_bus_message_read_strv(sd_bus_message *m, char ***l); /* free the result! */
