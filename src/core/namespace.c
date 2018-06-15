@@ -1672,19 +1672,7 @@ static const char *const protect_home_table[_PROTECT_HOME_MAX] = {
         [PROTECT_HOME_TMPFS] = "tmpfs",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(protect_home, ProtectHome);
-
-ProtectHome protect_home_or_bool_from_string(const char *s) {
-        int r;
-
-        r = parse_boolean(s);
-        if (r > 0)
-                return PROTECT_HOME_YES;
-        if (r == 0)
-                return PROTECT_HOME_NO;
-
-        return protect_home_from_string(s);
-}
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_home, ProtectHome, PROTECT_HOME_YES);
 
 static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
         [PROTECT_SYSTEM_NO] = "no",
@@ -1693,19 +1681,7 @@ static const char *const protect_system_table[_PROTECT_SYSTEM_MAX] = {
         [PROTECT_SYSTEM_STRICT] = "strict",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(protect_system, ProtectSystem);
-
-ProtectSystem protect_system_or_bool_from_string(const char *s) {
-        int r;
-
-        r = parse_boolean(s);
-        if (r > 0)
-                return PROTECT_SYSTEM_YES;
-        if (r == 0)
-                return PROTECT_SYSTEM_NO;
-
-        return protect_system_from_string(s);
-}
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(protect_system, ProtectSystem, PROTECT_SYSTEM_YES);
 
 static const char* const namespace_type_table[] = {
         [NAMESPACE_MOUNT] = "mnt",

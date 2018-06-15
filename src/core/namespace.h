@@ -95,11 +95,9 @@ int setup_netns(int netns_storage_socket[2]);
 
 const char* protect_home_to_string(ProtectHome p) _const_;
 ProtectHome protect_home_from_string(const char *s) _pure_;
-ProtectHome protect_home_or_bool_from_string(const char *s);
 
 const char* protect_system_to_string(ProtectSystem p) _const_;
 ProtectSystem protect_system_from_string(const char *s) _pure_;
-ProtectSystem protect_system_or_bool_from_string(const char *s);
 
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);
