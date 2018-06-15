@@ -59,6 +59,15 @@ CHANGES WITH 239 in spe:
           both runtime and persistent enablement/masking, i.e. it will remove
           any relevant symlinks both in /run and /etc.
 
+        * Note that all long-running system services shipped with systemd will
+          now default to a system call whitelist (rather than a blacklist, as
+          before). In particular, systemd-udevd will now enforce one too. For
+          most cases this should be safe, however downstream distributions
+          which disabled sandboxing of systemd-udevd (specifically the
+          MountFlags= setting), might want to disable this security feature
+          too, as the default whitelisting will prohibit all mount, swap,
+          reboot and clock changing operations from udev rules.
+
         * sd-boot acquired new loader configuration settings to optionally turn
           off Windows and MacOS boot partition discovery as well as
           reboot-into-firmware menu items. It is also able to pick a better
