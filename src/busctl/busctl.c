@@ -14,6 +14,7 @@
 #include "busctl-introspect.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "locale-util.h"
 #include "log.h"
 #include "pager.h"
@@ -35,7 +36,7 @@ static bool arg_activatable = false;
 static bool arg_show_machine = false;
 static char **arg_matches = NULL;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static bool arg_user = false;
 static size_t arg_snaplen = 4096;
 static bool arg_list = false;
@@ -396,7 +397,7 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
                 if (many)
                         printf("Failed to introspect object %s of service %s: %s\n", path, service, bus_error_message(&error, r));
                 else
-                        log_error("Failed to introspect object %s of service %s: %s", path, service, bus_error_message(&error, r));
+                        log_error_errno(r, "Failed to introspect object %s of service %s: %s", path, service, bus_error_message(&error, r));
                 return r;
         }
 
@@ -1188,10 +1189,8 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, message, arg_timeout, &error, NULL);
-        if (r < 0) {
-                log_error("%s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "%s", bus_error_message(&error, r));
 
         r = sd_bus_get_unique_name(bus, &unique_name);
         if (r < 0)
@@ -1262,10 +1261,9 @@ static int verb_capture(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        if (ferror(stdout)) {
-                log_error("Couldn't write capture file.");
-                return -EIO;
-        }
+        r = fflush_and_check(stdout);
+        if (r < 0)
+                return log_error_errno(r, "Couldn't write capture file: %m");
 
         return r;
 }
@@ -1354,10 +1352,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                 case SD_BUS_TYPE_BOOLEAN:
 
                         r = parse_boolean(v);
-                        if (r < 0) {
-                                log_error("Failed to parse as boolean: %s", v);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse as boolean: %s", v);
 
                         r = sd_bus_message_append_basic(m, t, &r);
                         break;
@@ -1366,10 +1362,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         uint8_t z;
 
                         r = safe_atou8(v, &z);
-                        if (r < 0) {
-                                log_error("Failed to parse as byte (unsigned 8bit integer): %s", v);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse as byte (unsigned 8bit integer): %s", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1379,10 +1373,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         int16_t z;
 
                         r = safe_atoi16(v, &z);
-                        if (r < 0) {
-                                log_error("Failed to parse as signed 16bit integer: %s", v);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse as signed 16bit integer: %s", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1392,10 +1384,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         uint16_t z;
 
                         r = safe_atou16(v, &z);
-                        if (r < 0) {
-                                log_error("Failed to parse as unsigned 16bit integer: %s", v);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse as unsigned 16bit integer: %s", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1405,10 +1395,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         int32_t z;
 
                         r = safe_atoi32(v, &z);
-                        if (r < 0) {
-                                log_error("Failed to parse as signed 32bit integer: %s", v);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse as signed 32bit integer: %s", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1418,10 +1406,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         uint32_t z;
 
                         r = safe_atou32(v, &z);
-                        if (r < 0) {
-                                log_error("Failed to parse as unsigned 32bit integer: %s", v);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse as unsigned 32bit integer: %s", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1431,10 +1417,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         int64_t z;
 
                         r = safe_atoi64(v, &z);
-                        if (r < 0) {
-                                log_error("Failed to parse as signed 64bit integer: %s", v);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse as signed 64bit integer: %s", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1444,10 +1428,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         uint64_t z;
 
                         r = safe_atou64(v, &z);
-                        if (r < 0) {
-                                log_error("Failed to parse as unsigned 64bit integer: %s", v);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse as unsigned 64bit integer: %s", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1457,10 +1439,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         double z;
 
                         r = safe_atod(v, &z);
-                        if (r < 0) {
-                                log_error("Failed to parse as double precision floating point: %s", v);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse as double precision floating point: %s", v);
 
                         r = sd_bus_message_append_basic(m, t, &z);
                         break;
@@ -1478,16 +1458,12 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         size_t k;
 
                         r = safe_atou32(v, &n);
-                        if (r < 0) {
-                                log_error("Failed to parse number of array entries: %s", v);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse number of array entries: %s", v);
 
                         r = signature_element_length(signature, &k);
-                        if (r < 0) {
-                                log_error("Invalid array signature.");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid array signature.");
 
                         {
                                 unsigned i;
@@ -1532,10 +1508,8 @@ static int message_append_cmdline(sd_bus_message *m, const char *signature, char
                         p--;
 
                         r = signature_element_length(signature, &k);
-                        if (r < 0) {
-                                log_error("Invalid struct/dict entry signature.");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid struct/dict entry signature.");
 
                         {
                                 char s[k-1];
@@ -1617,19 +1591,15 @@ static int call(int argc, char **argv, void *userdata) {
 
         if (!arg_expect_reply) {
                 r = sd_bus_send(bus, m, NULL);
-                if (r < 0) {
-                        log_error("Failed to send message.");
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to send message: %m");
 
                 return 0;
         }
 
         r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
-        if (r < 0) {
-                log_error("%s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "%s", bus_error_message(&error, r));
 
         r = sd_bus_message_is_empty(reply);
         if (r < 0)
@@ -1675,10 +1645,8 @@ static int get_property(int argc, char **argv, void *userdata) {
                 char type;
 
                 r = sd_bus_call_method(bus, argv[1], argv[2], "org.freedesktop.DBus.Properties", "Get", &error, &reply, "ss", argv[3], *i);
-                if (r < 0) {
-                        log_error("%s", bus_error_message(&error, r));
-                        return r;
-                }
+                if (r < 0)
+                        return log_error_errno(r, "%s", bus_error_message(&error, r));
 
                 r = sd_bus_message_peek_type(reply, &type, &contents);
                 if (r < 0)
@@ -1751,10 +1719,8 @@ static int set_property(int argc, char **argv, void *userdata) {
         }
 
         r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
-        if (r < 0) {
-                log_error("%s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "%s", bus_error_message(&error, r));
 
         return 0;
 }
@@ -1924,10 +1890,8 @@ static int parse_argv(int argc, char *argv[]) {
                         uint64_t sz;
 
                         r = parse_size(optarg, 1024, &sz);
-                        if (r < 0) {
-                                log_error("Failed to parse size: %s", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse size: %s", optarg);
 
                         if ((uint64_t) (size_t) sz !=  sz) {
                                 log_error("Size out of range.");
@@ -1962,59 +1926,47 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_EXPECT_REPLY:
                         r = parse_boolean(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse --expect-reply= parameter.");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --expect-reply= parameter: %s", optarg);
 
                         arg_expect_reply = r;
                         break;
 
                 case ARG_AUTO_START:
                         r = parse_boolean(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse --auto-start= parameter.");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --auto-start= parameter: %s", optarg);
 
                         arg_auto_start = r;
                         break;
 
                 case ARG_ALLOW_INTERACTIVE_AUTHORIZATION:
                         r = parse_boolean(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse --allow-interactive-authorization= parameter.");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --allow-interactive-authorization= parameter: %s", optarg);
 
                         arg_allow_interactive_authorization = r;
                         break;
 
                 case ARG_TIMEOUT:
                         r = parse_sec(optarg, &arg_timeout);
-                        if (r < 0) {
-                                log_error("Failed to parse --timeout= parameter.");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --timeout= parameter: %s", optarg);
 
                         break;
 
                 case ARG_AUGMENT_CREDS:
                         r = parse_boolean(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse --augment-creds= parameter.");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --augment-creds= parameter: %s", optarg);
 
                         arg_augment_creds = r;
                         break;
 
                 case ARG_WATCH_BIND:
                         r = parse_boolean(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse --watch-bind= parameter.");
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --watch-bind= parameter: %s", optarg);
 
                         arg_watch_bind = r;
                         break;
