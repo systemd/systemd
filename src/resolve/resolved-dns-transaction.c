@@ -575,7 +575,7 @@ static int dns_stream_on_packet(DnsStream *s) {
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
         _cleanup_close_ int fd = -1;
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
-        union sockaddr_union sa;
+        union sockaddr_union sa, *p_sa = NULL;
         int r;
 #if HAVE_GNUTLS
         gnutls_session_t gs;
@@ -601,15 +601,17 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
                 if (t->server->stream && (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) == t->server->stream->encrypted))
                         s = dns_stream_ref(t->server->stream);
-                else
-                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) ? 853 : 53, &sa);
+                else {
+                        p_sa = DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) ? &sa : NULL;
+                        fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) ? 853 : 53, p_sa);
+                }
 
                 break;
 
         case DNS_PROTOCOL_LLMNR:
                 /* When we already received a reply to this (but it was truncated), send to its sender address */
                 if (t->received)
-                        fd = dns_scope_socket_tcp(t->scope, t->received->family, &t->received->sender, NULL, t->received->sender_port, &sa);
+                        fd = dns_scope_socket_tcp(t->scope, t->received->family, &t->received->sender, NULL, t->received->sender_port, NULL);
                 else {
                         union in_addr_union address;
                         int family = AF_UNSPEC;
@@ -626,7 +628,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         if (family != t->scope->family)
                                 return -ESRCH;
 
-                        fd = dns_scope_socket_tcp(t->scope, family, &address, NULL, LLMNR_PORT, &sa);
+                        fd = dns_scope_socket_tcp(t->scope, family, &address, NULL, LLMNR_PORT, NULL);
                 }
 
                 break;
@@ -639,7 +641,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (fd < 0)
                         return fd;
 
-                r = dns_stream_new(t->scope->manager, &s, t->scope->protocol, fd, &sa);
+                r = dns_stream_new(t->scope->manager, &s, t->scope->protocol, fd, p_sa);
                 if (r < 0)
                         return r;
 
