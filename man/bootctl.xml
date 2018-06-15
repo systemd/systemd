@@ -46,7 +46,7 @@
 
     <para><command>bootctl</command> can check the EFI boot loader status, list
     available entries, and install, update, or remove the
-    <citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     boot loader on the current system.</para>
 
     <para><command>bootctl status</command> shows the currently installed versions of
@@ -56,7 +56,7 @@
     </para>
 
     <para><command>bootctl update</command> updates all installed versions of
-    <citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
     if the current version is newer than the version installed in the EFI system
     partition. This also includes the EFI default/fallback loader at
     <filename><replaceable>ESP</replaceable>/EFI/BOOT/BOOT*.EFI</filename>. A
@@ -115,7 +115,7 @@
   <refsect1>
     <title>See Also</title>
     <para>
-      <citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <ulink url="https://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot Loader Specification</ulink>,
       <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader Interface</ulink>
     </para>
