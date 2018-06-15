@@ -570,3 +570,7 @@ global:
         sd_event_source_set_destroy_callback;
         sd_event_source_get_destroy_callback;
 } LIBSYSTEMD_238;
+
+LIBSYSTEMD_240 {
+        sd_bus_message_readv;
+} LIBSYSTEMD_239;
