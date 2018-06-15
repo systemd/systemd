@@ -4,19 +4,20 @@
 
 <!-- SPDX-License-Identifier: LGPL-2.1+ -->
 
-<refentry id="sd-boot" conditional='ENABLE_EFI'
+<refentry id="systemd-boot" conditional='ENABLE_EFI'
     xmlns:xi="http://www.w3.org/2001/XInclude">
   <refentryinfo>
-    <title>sd-boot</title>
+    <title>systemd-boot</title>
     <productname>systemd</productname>
   </refentryinfo>
 
   <refmeta>
-    <refentrytitle>sd-boot</refentrytitle>
+    <refentrytitle>systemd-boot</refentrytitle>
     <manvolnum>7</manvolnum>
   </refmeta>
 
   <refnamediv>
+    <refname>systemd-boot</refname>
     <refname>sd-boot</refname>
     <refpurpose>A simple UEFI boot manager</refpurpose>
   </refnamediv>
@@ -27,15 +28,15 @@
     <para><command>systemd-boot</command> or <command>sd-boot</command> is a simple
     UEFI boot manager, previously known as <command>gummiboot</command>. It provides
     a graphical menu to select the entry to boot and an editor for the kernel command
-    line. sd-boot is only useful on machines using UEFI.
+    line. systemd-boot is only useful on machines using UEFI.
     </para>
 
-    <para>sd-boot loads information from the EFI system partition (ESP), usually
+    <para>systemd-boot loads information from the EFI system partition (ESP), usually
     mounted at <filename>/boot</filename>, <filename>/efi</filename>, or
     <filename>/boot/efi</filename>. Configuration file fragments, kernels, initrds,
     other EFI images need to reside on the ESP. Linux kernels must be built with
     <option>CONFIG_EFI_STUB</option> to be able to be directly executed as an EFI
-    image. sd-boot will automatically list other boot entries registered as EFI boot
+    image. systemd-boot will automatically list other boot entries registered as EFI boot
     variables, and a list of kernels from configuration files following the <ulink
     url="https://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot Loader
     Specification</ulink> located under <filename>/loader/entries/</filename> on the
@@ -46,9 +47,9 @@
     with the Boot Loader Specification.
     <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     may be used from a running system to locate the ESP, list available entries, and
-    install sd-boot itself.</para>
+    install systemd-boot itself.</para>
 
-    <para>sd-boot will provide information about the time spent in UEFI firmware
+    <para>systemd-boot will provide information about the time spent in UEFI firmware
     using the
     <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader Interface</ulink>.
     This information can be displayed using
@@ -59,7 +60,7 @@
   <refsect1>
     <title>Configuration</title>
 
-    <para>sd-boot reads configuration like the timeout and default entry from
+    <para>systemd-boot reads configuration like the timeout and default entry from
     <filename>/loader/loader.conf</filename> on the ESP and from EFI variables. See
     <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
@@ -111,7 +112,7 @@
 
       <varlistentry>
         <term>v</term>
-        <listitem><para>Show sd-boot, UEFI, and firmware versions</para></listitem>
+        <listitem><para>Show systemd-boot, UEFI, and firmware versions</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -213,7 +214,7 @@
       </varlistentry>
     </variablelist>
 
-    <para>Note that unless configured otherwise in the UEFI firmware, sd-boot will
+    <para>Note that unless configured otherwise in the UEFI firmware, systemd-boot will
     use the US keyboard layout, so key labels might not match for keys like +/-.
     </para>
   </refsect1>

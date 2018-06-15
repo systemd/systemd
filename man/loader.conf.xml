@@ -18,7 +18,7 @@
 
   <refnamediv>
     <refname>loader.conf</refname>
-    <refpurpose>Configuration file for sd-boot</refpurpose>
+    <refpurpose>Configuration file for systemd-boot</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -31,7 +31,7 @@
     <title>Description</title>
 
     <para>
-    <citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>
     will read <filename>/loader/loader.conf</filename> and any files with the
     <literal>.conf</literal> extension under
     <filename>/loader/loader.conf.d/</filename> on the EFI system partition (ESP).
@@ -72,7 +72,7 @@
 
         <para>If the timeout is disabled, the default entry will be booted
         immediately. The menu can be shown by pressing and holding a key before
-        sd-boot is launched.</para>
+        systemd-boot is launched.</para>
         </listitem>
       </varlistentry>
 
@@ -178,7 +178,7 @@ editor no
   <refsect1>
       <title>See Also</title>
       <para>
-        <citerefentry><refentrytitle>sd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       </para>
   </refsect1>
