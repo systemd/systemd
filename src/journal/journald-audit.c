@@ -441,8 +441,8 @@ void server_process_audit_message(
         if (IN_SET(nl->nlmsg_type, NLMSG_NOOP, NLMSG_ERROR))
                 return;
 
-        /* Below AUDIT_FIRST_USER_MSG theer are only control messages, let's ignore those */
-        if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG)
+        /* Except AUDIT_USER, all messsages below AUDIT_FIRST_USER_MSG are control messages, let's ignore those */
+        if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG && nl->nlmsg_type != AUDIT_USER)
                 return;
 
         process_audit_string(s, nl->nlmsg_type, NLMSG_DATA(nl), nl->nlmsg_len - ALIGN(sizeof(struct nlmsghdr)));
