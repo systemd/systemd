@@ -321,7 +321,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         char id_field[sizeof("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
              type_field[sizeof("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)],
              source_time_field[sizeof("_SOURCE_REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t)];
-        char *m;
+        char *m, *type_field_name;
         int k;
 
         assert(s);
@@ -354,7 +354,7 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         if (isempty(p))
                 return;
 
-        n_iov_allocated = N_IOVEC_META_FIELDS + 7;
+        n_iov_allocated = N_IOVEC_META_FIELDS + 8;
         iov = new(struct iovec, n_iov_allocated);
         if (!iov) {
                 log_oom();
@@ -378,6 +378,9 @@ static void process_audit_string(Server *s, int type, const char *data, size_t s
         iov[n_iov++] = IOVEC_MAKE_STRING("SYSLOG_IDENTIFIER=audit");
 
         type_name = audit_type_name_alloca(type);
+
+        type_field_name = strjoina("_AUDIT_TYPE_NAME=", type_name);
+        iov[n_iov++] = IOVEC_MAKE_STRING(type_field_name);
 
         m = strjoina("MESSAGE=", type_name, " ", p);
         iov[n_iov++] = IOVEC_MAKE_STRING(m);
