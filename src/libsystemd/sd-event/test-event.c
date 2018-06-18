@@ -188,7 +188,7 @@ static void test_basic(void) {
 
         got_a = false, got_b = false, got_c = false, got_d = 0;
 
-        /* Add a oneshot handler, trigger it, re-enable it, and trigger
+        /* Add a oneshot handler, trigger it, reenable it, and trigger
          * it again. */
         assert_se(sd_event_add_io(e, &w, d[0], EPOLLIN, io_handler, INT_TO_PTR('d')) >= 0);
         assert_se(sd_event_source_set_enabled(w, SD_EVENT_ONESHOT) >= 0);

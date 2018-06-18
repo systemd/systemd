@@ -194,7 +194,7 @@ int config_parse_address_label(
         }
 
         if (k == 0xffffffffUL) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Adress label is invalid, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_ERR, filename, line, r, "Address label is invalid, ignoring: %s", rvalue);
                 return 0;
         }
 

@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
         log_open();
 
         assert_se(procfs_cpu_get_usage(&nsec) >= 0);
-        log_info("Current sytem CPU time: %s", format_timespan(buf, sizeof(buf), nsec/NSEC_PER_USEC, 1));
+        log_info("Current system CPU time: %s", format_timespan(buf, sizeof(buf), nsec/NSEC_PER_USEC, 1));
 
         assert_se(procfs_memory_get_current(&v) >= 0);
         log_info("Current memory usage: %s", format_bytes(buf, sizeof(buf), v));

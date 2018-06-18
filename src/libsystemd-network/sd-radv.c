@@ -276,7 +276,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
 
         r = radv_send(ra, &src, ra->lifetime);
         if (r < 0)
-                log_radv_warning_errno(r, "Unable to send solicited Router Advertisment to %s: %m", addr);
+                log_radv_warning_errno(r, "Unable to send solicited Router Advertisement to %s: %m", addr);
         else
                 log_radv("Sent solicited Router Advertisement to %s", addr);
 

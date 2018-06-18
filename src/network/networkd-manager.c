@@ -766,7 +766,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &from_prefixlen);
                         if (r < 0) {
-                                log_warning_errno(r, "rtnl: failed to retrive rule from prefix length, ignoring: %m");
+                                log_warning_errno(r, "rtnl: failed to retrieve rule from prefix length, ignoring: %m");
                                 return 0;
                         }
                 }
@@ -778,7 +778,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &to_prefixlen);
                         if (r < 0) {
-                                log_warning_errno(r, "rtnl: failed to retrive rule to prefix length, ignoring: %m");
+                                log_warning_errno(r, "rtnl: failed to retrieve rule to prefix length, ignoring: %m");
                                 return 0;
                         }
                 }
@@ -793,7 +793,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_src_prefixlen(message, &from_prefixlen);
                         if (r < 0) {
-                                log_warning_errno(r, "rtnl: failed to retrive rule from prefix length, ignoring: %m");
+                                log_warning_errno(r, "rtnl: failed to retrieve rule from prefix length, ignoring: %m");
                                 return 0;
                         }
                 }
@@ -805,7 +805,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, voi
                 } else if (r >= 0) {
                         r = sd_rtnl_message_routing_policy_rule_get_rtm_dst_prefixlen(message, &to_prefixlen);
                         if (r < 0) {
-                                log_warning_errno(r, "rtnl: failed to retrive rule to prefix length, ignoring: %m");
+                                log_warning_errno(r, "rtnl: failed to retrieve rule to prefix length, ignoring: %m");
                                 return 0;
                         }
                 }

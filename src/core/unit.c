@@ -5419,7 +5419,7 @@ int unit_pid_attachable(Unit *u, pid_t pid, sd_bus_error *error) {
 
         /* Some extra safety check */
         if (pid == 1 || pid == getpid_cached())
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a manager processs, refusing.", pid);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Process " PID_FMT " is a manager process, refusing.", pid);
 
         /* Don't even begin to bother with kernel threads */
         r = is_kernel_thread(pid);

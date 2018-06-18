@@ -1482,7 +1482,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
 
         if (available < RELOAD_DISK_SPACE_MIN) {
                 char fb_available[FORMAT_BYTES_MAX], fb_need[FORMAT_BYTES_MAX];
-                log_warning("Dangerously low amount of free space on /run/systemd, root switching operation might not complete successfuly. "
+                log_warning("Dangerously low amount of free space on /run/systemd, root switching operation might not complete successfully. "
                             "Currently, %s are free, but %s are suggested. Proceeding anyway.",
                             format_bytes(fb_available, sizeof(fb_available), available),
                             format_bytes(fb_need, sizeof(fb_need), RELOAD_DISK_SPACE_MIN));

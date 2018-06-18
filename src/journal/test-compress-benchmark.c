@@ -132,7 +132,7 @@ static void test_compress_decompress(const char* label, const char* type,
         dt = (n2-n) / 1e6;
 
         log_info("%s/%s: compressed & decompressed %zu bytes in %.2fs (%.2fMiB/s), "
-                 "mean compresion %.2f%%, skipped %zu bytes",
+                 "mean compression %.2f%%, skipped %zu bytes",
                  label, type, total, dt,
                  total / 1024. / 1024 / dt,
                  100 - compressed * 100. / total,
