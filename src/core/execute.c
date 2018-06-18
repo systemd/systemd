@@ -4841,7 +4841,7 @@ int exec_runtime_deserialize_compat(Unit *u, const char *key, const char *value,
         if (rt_create) {
                 r = hashmap_put(u->manager->exec_runtime_by_id, rt_create->id, rt_create);
                 if (r < 0) {
-                        log_unit_debug_errno(u, r, "Failed to put runtime paramter to manager's storage: %m");
+                        log_unit_debug_errno(u, r, "Failed to put runtime parameter to manager's storage: %m");
                         return 0;
                 }
 

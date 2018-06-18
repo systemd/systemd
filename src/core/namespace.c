@@ -67,7 +67,7 @@ typedef struct MountEntry {
 } MountEntry;
 
 /* If MountAPIVFS= is used, let's mount /sys and /proc into the it, but only as a fallback if the user hasn't mounted
- * something there already. These mounts are hence overriden by any other explicitly configured mounts. */
+ * something there already. These mounts are hence overridden by any other explicitly configured mounts. */
 static const MountEntry apivfs_table[] = {
         { "/proc",               PROCFS,       false },
         { "/dev",                BIND_DEV,     false },

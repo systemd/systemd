@@ -41,7 +41,7 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_radv sd_radv;
 typedef struct sd_radv_prefix sd_radv_prefix;
 
-/* Router Advertisment */
+/* Router Advertisement */
 int sd_radv_new(sd_radv **ret);
 sd_radv *sd_radv_ref(sd_radv *ra);
 sd_radv *sd_radv_unref(sd_radv *ra);

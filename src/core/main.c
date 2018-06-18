@@ -1641,7 +1641,7 @@ static int invoke_main_loop(
 
                         log_info("Reloading.");
 
-                        /* First, save any overriden log level/target, then parse the configuration file, which might
+                        /* First, save any overridden log level/target, then parse the configuration file, which might
                          * change the log level to new settings. */
 
                         saved_log_level = m->log_level_overridden ? log_get_max_level() : -1;

@@ -500,7 +500,7 @@ int image_from_path(const char *path, Image **ret) {
 
         /* Note that we don't set the 'discoverable' field of the returned object, because we don't check here whether
          * the image is in the image search path. And if it is we don't know if the path we used is actually not
-         * overriden by another, different image earlier in the search path */
+         * overridden by another, different image earlier in the search path */
 
         if (path_equal(path, "/"))
                 return image_make(".host", AT_FDCWD, NULL, "/", NULL, ret);
