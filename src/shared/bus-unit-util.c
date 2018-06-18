@@ -966,7 +966,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                for (p = eq;;) {
+                for (;;) {
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
