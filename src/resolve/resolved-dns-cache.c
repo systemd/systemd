@@ -649,12 +649,13 @@ int dns_cache_put(
          * short time.) */
 
         if (IN_SET(rcode, DNS_RCODE_SUCCESS, DNS_RCODE_NXDOMAIN)) {
-
                 if (dns_answer_size(answer) <= 0) {
-                        char key_str[DNS_RESOURCE_KEY_STRING_MAX];
+                        if (key) {
+                                char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
-                        log_debug("Not caching negative entry without a SOA record: %s",
-                                  dns_resource_key_to_string(key, key_str, sizeof key_str));
+                                log_debug("Not caching negative entry without a SOA record: %s",
+                                          dns_resource_key_to_string(key, key_str, sizeof key_str));
+                        }
                         return 0;
                 }
 
