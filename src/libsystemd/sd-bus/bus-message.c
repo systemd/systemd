@@ -4336,7 +4336,7 @@ static int message_read_ap(
         /* Ideally, we'd just call ourselves recursively on every
          * complex type. However, the state of a va_list that is
          * passed to a function is undefined after that function
-         * returns. This means we need to docode the va_list linearly
+         * returns. This means we need to decode the va_list linearly
          * in a single stackframe. We hence implement our own
          * home-grown stack in an array. */
 
