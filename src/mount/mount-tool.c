@@ -449,7 +449,7 @@ static int transient_mount_set_properties(sd_bus_message *m) {
                 r = asprintf(&options,
                              "uid=" UID_FMT ",gid=" GID_FMT "%s%s",
                              arg_uid, arg_gid,
-                             arg_mount_options ? "," : "", arg_mount_options);
+                             arg_mount_options ? "," : "", strempty(arg_mount_options));
                 if (r < 0)
                         return -ENOMEM;
         }
