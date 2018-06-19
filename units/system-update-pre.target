@@ -8,11 +8,9 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Offline System Update
+Description=Offline System Update (Pre)
 Documentation=man:systemd.offline-updates(7)
 Documentation=man:systemd.special(7) man:systemd-system-update-generator(8)
-Requires=sysinit.target
+RefuseManualStart=yes
 After=sysinit.target
-AllowIsolate=yes
-Wants=system-update-pre.target
-Wants=system-update-cleanup.service
+Before=system-update.target

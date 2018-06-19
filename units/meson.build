@@ -77,6 +77,7 @@ units = [
         ['sysinit.target',                      ''],
         ['syslog.socket',                       ''],
         ['system-update.target',                ''],
+        ['system-update-pre.target',            ''],
         ['system-update-cleanup.service',       ''],
         ['systemd-ask-password-console.path',   '',
          'sysinit.target.wants/'],
