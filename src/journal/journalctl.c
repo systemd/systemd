@@ -2392,11 +2392,13 @@ int main(int argc, char *argv[]) {
         /* Opening the fd now means the first sd_journal_wait() will actually wait */
         if (arg_follow) {
                 r = sd_journal_get_fd(j);
-                if (r == -EMEDIUMTYPE) {
+                if (r == -EMFILE) {
+                        log_warning("Insufficent watch descriptors available. Reverting to -n.");
+                        arg_follow = false;
+                } else if (r == -EMEDIUMTYPE) {
                         log_error_errno(r, "The --follow switch is not supported in conjunction with reading from STDIN.");
                         goto finish;
-                }
-                if (r < 0) {
+                } else if (r < 0) {
                         log_error_errno(r, "Failed to get journal fd: %m");
                         goto finish;
                 }
