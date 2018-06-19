@@ -331,7 +331,7 @@ char* dns_resource_key_to_string(const DnsResourceKey *key, char *buf, size_t bu
         snprintf(buf, buf_size, "%s %s%s%.0u %s%s%.0u",
                  dns_resource_key_name(key),
                  strempty(c), c ? "" : "CLASS", c ? 0 : key->class,
-                 strempty(t), t ? "" : "TYPE", t ? 0 : key->class);
+                 strempty(t), t ? "" : "TYPE", t ? 0 : key->type);
 
         return ans;
 }
