@@ -2682,6 +2682,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  enable NAME...              Enable automatic container start at boot\n"
                "  disable NAME...             Disable automatic container start at boot\n"
                "  poweroff NAME...            Power off one or more containers\n"
+               "  stop NAME...\n"
                "  reboot NAME...              Reboot one or more containers\n"
                "  terminate NAME...           Terminate one or more VMs/containers\n"
                "  kill NAME...                Send signal to processes of a VM/container\n"
