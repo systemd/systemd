@@ -226,10 +226,10 @@ static int list_users(int argc, char *argv[], void *userdata) {
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
 
         for (;;) {
-                const char *user, *object;
+                const char *user;
                 uint32_t uid;
 
-                r = sd_bus_message_read(reply, "(uso)", &uid, &user, &object);
+                r = sd_bus_message_read(reply, "(uso)", &uid, &user, NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)
@@ -281,9 +281,9 @@ static int list_seats(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         for (;;) {
-                const char *seat, *object;
+                const char *seat;
 
-                r = sd_bus_message_read(reply, "(so)", &seat, &object);
+                r = sd_bus_message_read(reply, "(so)", &seat, NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)

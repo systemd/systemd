@@ -510,13 +510,13 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         for (;;) {
-                const char *name, *type, *state, *object;
+                const char *name, *type, *state;
                 uint64_t crtime, mtime, usage;
                 TableCell *cell;
                 bool ro_bool;
                 int ro_int;
 
-                r = sd_bus_message_read(reply, "(ssbtttso)", &name, &type, &ro_int, &crtime, &mtime, &usage, &state, &object);
+                r = sd_bus_message_read(reply, "(ssbtttso)", &name, &type, &ro_int, &crtime, &mtime, &usage, &state, NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)

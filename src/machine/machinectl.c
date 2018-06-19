@@ -299,9 +299,9 @@ static int list_machines(int argc, char *argv[], void *userdata) {
 
         for (;;) {
                 _cleanup_free_ char *os = NULL, *version_id = NULL, *addresses = NULL;
-                const char *name, *class, *service, *object;
+                const char *name, *class, *service;
 
-                r = sd_bus_message_read(reply, "(ssso)", &name, &class, &service, &object);
+                r = sd_bus_message_read(reply, "(ssso)", &name, &class, &service, NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)
@@ -380,13 +380,13 @@ static int list_images(int argc, char *argv[], void *userdata) {
                 return bus_log_parse_error(r);
 
         for (;;) {
-                const char *name, *type, *object;
                 uint64_t crtime, mtime, size;
+                const char *name, *type;
                 TableCell *cell;
                 bool ro_bool;
                 int ro_int;
 
-                r = sd_bus_message_read(reply, "(ssbttto)", &name, &type, &ro_int, &crtime, &mtime, &size, &object);
+                r = sd_bus_message_read(reply, "(ssbttto)", &name, &type, &ro_int, &crtime, &mtime, &size, NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)
@@ -1413,7 +1413,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int master = -1, r;
         sd_bus *bus = userdata;
-        const char *pty, *match, *machine;
+        const char *match, *machine;
 
         assert(bus);
 
@@ -1464,7 +1464,7 @@ static int login_machine(int argc, char *argv[], void *userdata) {
                 return r;
         }
 
-        r = sd_bus_message_read(reply, "hs", &master, &pty);
+        r = sd_bus_message_read(reply, "hs", &master, NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -1479,7 +1479,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int master = -1, r;
         sd_bus *bus = userdata;
-        const char *pty, *match, *machine, *path;
+        const char *match, *machine, *path;
         _cleanup_free_ char *uid = NULL;
 
         assert(bus);
@@ -1555,7 +1555,7 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
                 return r;
         }
 
-        r = sd_bus_message_read(reply, "hs", &master, &pty);
+        r = sd_bus_message_read(reply, "hs", &master, NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -1799,7 +1799,6 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         UnitFileChange *changes = NULL;
         size_t n_changes = 0;
-        int carries_install_info = 0;
         const char *method = NULL;
         sd_bus *bus = userdata;
         int r, i;
@@ -1862,7 +1861,7 @@ static int enable_machine(int argc, char *argv[], void *userdata) {
         }
 
         if (streq(argv[0], "enable")) {
-                r = sd_bus_message_read(reply, "b", carries_install_info);
+                r = sd_bus_message_read(reply, "b", NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
         }
@@ -1999,7 +1998,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
                 return r;
         }
 
-        r = sd_bus_message_read(reply, "uo", &id, &path);
+        r = sd_bus_message_read(reply, "uo", &id, NULL);
         if (r < 0)
                 return bus_log_parse_error(r);
 
@@ -2415,7 +2414,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ TransferInfo *transfers = NULL;
         size_t n_transfers = 0, n_allocated = 0, j;
-        const char *type, *remote, *local, *object;
+        const char *type, *remote, *local;
         sd_bus *bus = userdata;
         uint32_t id, max_id = 0;
         double progress;
@@ -2440,7 +2439,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(reply, "(usssdo)", &id, &type, &remote, &local, &progress, &object)) > 0) {
+        while ((r = sd_bus_message_read(reply, "(usssdo)", &id, &type, &remote, &local, &progress, NULL)) > 0) {
                 size_t l;
 
                 if (!GREEDY_REALLOC(transfers, n_allocated, n_transfers + 1))
