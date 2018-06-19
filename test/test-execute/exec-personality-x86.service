@@ -1,7 +1,0 @@
-[Unit]
-Description=Test for Personality=x86
-
-[Service]
-ExecStart=/bin/sh -x -c 'c=$$(uname -m); test "$$c" = "i686"'
-Type=oneshot
-Personality=x86

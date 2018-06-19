@@ -1,6 +1,0 @@
-[Unit]
-Description=Sched idle with prio 0
-
-[Service]
-ExecStart=/bin/true
-CPUSchedulingPriority=0

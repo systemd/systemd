@@ -1,8 +1,0 @@
-[Unit]
-Description=Testsuite service
-After=multi-user.target
-
-[Service]
-WorkingDirectory=/testsuite
-ExecStart=/testsuite/run-tmpfiles-tests.sh
-Type=oneshot

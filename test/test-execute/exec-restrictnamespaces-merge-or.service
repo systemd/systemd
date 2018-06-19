@@ -1,9 +1,0 @@
-[Unit]
-Description=Test merging RestrictNamespaces= with OR
-
-[Service]
-RestrictNamespaces=mnt pid
-RestrictNamespaces=mnt uts
-ExecStart=unshare -m -u -p -f
-ExecStart=sh -c '! unshare -u -i -n'
-Type=oneshot
