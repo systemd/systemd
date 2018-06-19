@@ -32,12 +32,7 @@ The EFI specification provides a boot options logic that can offer similar funct
 
 ## Technical Details
 
-We define two directories:
-
-* `$BOOT/loader/` is the directory containing all files defined by this specification
-* `$BOOT/loader/entries/` is the directory containing the drop-in snippets. This directory contains one `.conf` file for each boot menu item.
-
-These directories are defined below the placeholder file system `$BOOT`. The installer program should pick `$BOOT` according to the following rules:
+Everything described below is located on a placeholder file system `$BOOT`. The installer program should pick `$BOOT` according to the following rules:
 
 * If the OS is installed on a disk with MBR disk label, and a partition with the MBR type id of 0xEA already exists it should be used as `$BOOT`.
 * Otherwise, if the the OS is installed on a disk with MBR disk label, a new partition with MBR type id of 0xEA shall be created, of a suitable size (let's say 500MB), and it should be used as `$BOOT`.
@@ -48,11 +43,18 @@ These directories are defined below the placeholder file system `$BOOT`. The ins
 
 This placeholder file system shall be determined during _installation time_, and an fstab entry maybe be created. It should be mounted to either /boot or /efi. Additional locations like /boot/efi, with /boot being a separate file system, might be supported by implementations. This is not recommended because the mounting of `$BOOT` is then dependent on and requires the mounting of the intermediate file system.
 
-**Note:** _In all cases the /loader directory should be located directly in the root of the file system. Specifically, if `$BOOT` is the ESP, then /loader directory should be located directly in the root directory of the ESP, and not in the EFI/ subdirectory._
-
 **Note:** _`$BOOT` should be considered **shared** among all OS installations of a system. Instead of maintaining one `$BOOT` per installed OS (as `/boot` was traditionally handled), all installed OS share the same place to drop in their boot-time configuration._
 
 `$BOOT` must be a VFAT (16 or 32) file system. Other file system types should not be used. Applications accessing `$BOOT` should hence not assume that fancier file system features such as symlinks, hardlinks, access control or case sensitivity are supported.
+
+### Boot loader specification entries
+
+We define two directories below `$BOOT`:
+
+* `$BOOT/loader/` is the directory containing all files defined by this specification
+* `$BOOT/loader/entries/` is the directory containing the drop-in snippets. This directory contains one `.conf` file for each boot menu item.
+
+**Note:** _In all cases the /loader directory should be located directly in the root of the file system. Specifically, if `$BOOT` is the ESP, then /loader directory should be located directly in the root directory of the ESP, and not in the EFI/ subdirectory._
 
 Inside the `$BOOT/loader/entries/` directory each OS vendor may drop one or more configuration snippets with the suffix ".conf", one for each boot menu item. The file name of the file is used for identification of the boot item, but shall never be presented to the user in the UI. The file name may be chosen freely but should be unique enough to avoid clashes between OS installations. More specifically it is suggested to include the machine ID (`/etc/machine-id` or the D-Bus machine ID for OSes that lack `/etc/machine-id`), the kernel version (as returned by `uname -r`) and an OS identifier (The ID field of `/etc/os-release`). Example: `$BOOT/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf`.
 
@@ -81,9 +83,22 @@ Each configuration drop-in snippet must include at least a `linux` or an `efi` k
 
 On EFI systems all kernel images shall be EFI images. In order to be compatible with EFI systems it is highly recommended only to install EFI kernel images, even on non-EFI systems, if that's applicable and supported on the specific architecture.
 
-Note that these configurations snippets do not need to be the only configuration source for a boot loader. It may extend this list of entries with additional items from other configuration files (for example its own native configuration files) or automatically detected other entries without explicit configuration.
-
 Note that these configuration snippets may only reference kernels (and EFI programs) that reside on the same file system as the configuration snippets, i.e. everything referenced must be contained in the same file system. This is by design, as referencing other partitions or devices would require a non-trivial language for denoting device paths. If kernels/initrds are to be read from other partitions/disks the boot loader can do this in its own native configuration, using its own specific device path language, and this is out of focus for this specification. More specifically, on non-EFI systems configuration snippets following this specification cannot be used to spawn other operating systems (such as Windows).
+
+### Unified kernel images
+
+A unified kernel image is a single UEFI executable combining an UEFI stub loader, a kernel image, an initramfs image, and the kernel command line. See the description of the `--uefi` option in [dracut(8)](http://man7.org/linux/man-pages/man8/dracut.8.html). Such images will be searched for under `$BOOT/EFI/Linux`, and must have the extension `.efi`.
+
+A valid unified kernel image must contain two PE sections:
+
+* `.osrel` section with an embedded copy of the [os-release](https://www.freedesktop.org/software/systemd/man/os-release.html) file describing the image
+* `.cmdline` section with the kernel command line
+
+Any such images shall be added to the list of valid boot entries.
+
+### Additional notes
+
+Note that these configurations snippets do not need to be the only configuration source for a boot loader. It may extend this list of entries with additional items from other configuration files (for example its own native configuration files) or automatically detected other entries without explicit configuration.
 
 To make this explicitly clear: this specification is designed with "free" operating systems in mind, starting Windows or MacOS is out of focus with these configuration snippets, use boot-loader specific solutions for that. In the text above, if we say "OS" we hence imply "free", i.e. primarily Linux (though this could be easily be extended to the BSDs and whatnot).
 
@@ -92,9 +107,11 @@ Note that all paths used in the configuration snippets use a Unix-style "/" as p
 
 ## Logic
 
-A _boot loader_ needs a file system driver to discover and read `$BOOT`, then simply reads all files `$BOOT/loader/entries/*.conf`, and populates its boot menu with this. Optionally it might sort the menu based on the `machine-id` and `version` fields, and possibly others. It uses the file name to identify specific items, for example in case it supports storing away default entry information somewhere. A boot loader should generally not modify these files.
+A _boot loader_ needs a file system driver to discover and read `$BOOT`, then simply reads all files `$BOOT/loader/entries/*.conf`, and populates its boot menu with this. It then extends this with any unified kernel images found in `$BOOT/EFI/Linux`. It may also add additional entries, for example "Reboot into firmware". Optionally it may sort the menu based on the `machine-id` and `version` fields, and possibly others. It uses the file name to identify specific items, for example in case it supports storing away default entry information somewhere. A boot loader should generally not modify these files.
 
-A _kernel installer package_ installs the kernel and initrd images to `$BOOT` (it is recommended to place these files in a vendor and OS and installation specific directory) and then generates a configuration snippet for it, placing this in `$BOOT/loader/entries/xyz.conf`, with xyz as concatenation of machine id and version information (see above). The files created by a kernel package are private property of the package, and should be deleted along with it.
+For "boot loader specification" entries, the _kernel package installer_ installs the kernel and initrd images to `$BOOT` (it is recommended to place these files in a vendor and OS and installation specific directory) and then generates a configuration snippet for it, placing this in `$BOOT/loader/entries/xyz.conf`, with xyz as concatenation of machine id and version information (see above). The files created by a kernel package are private property of the kernel package, and should be removed along with it.
+
+For "unified kernel images", the _kernel install_ creates the combined image and drops it into `$BOOT/EFI/Linux`. This file is also private property of the kernel package, and should be removed along with it.
 
 A _UI application_ intended to show available boot options shall operate similar to a boot loader, but might apply additional filters, for example by filtering out the booted OS via the machine ID, or by suppressing all but the newest kernel versions.
 
