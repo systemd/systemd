@@ -60,29 +60,29 @@ msgstr "systemdの状態の再読込"
 msgid "Authentication is required to reload the systemd state."
 msgstr "systemdの状態を再読込するには認証が必要です。"
 
-#: src/hostname/org.freedesktop.hostname1.policy:22
+#: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set host name"
 msgstr "ホスト名の設定"
 
-#: src/hostname/org.freedesktop.hostname1.policy:23
+#: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local host name."
 msgstr "ホスト名を設定するには認証が必要です。"
 
-#: src/hostname/org.freedesktop.hostname1.policy:32
+#: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static host name"
 msgstr "静的なホスト名の設定"
 
-#: src/hostname/org.freedesktop.hostname1.policy:33
+#: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local host name, "
 "as well as the pretty host name."
 msgstr "静的なホスト名を設定するには認証が必要です。"
 
-#: src/hostname/org.freedesktop.hostname1.policy:43
+#: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
 msgstr "マシン情報の設定"
 
-#: src/hostname/org.freedesktop.hostname1.policy:44
+#: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
 msgstr "マシン情報を設定するには認証が必要です。"
 
@@ -486,29 +486,30 @@ msgid ""
 msgstr "ローカルな仮想マシンやコンテナのイメージを管理するには認証が必要です。"
 
 #: src/portable/org.freedesktop.portable1.policy:13
-msgid "Inspect a portable service"
-msgstr "ポータブルサービスの検索"
+msgid "Inspect a portable service image"
+msgstr "ポータブルサービスイメージの読み込み"
 
 #: src/portable/org.freedesktop.portable1.policy:14
-msgid "Authentication is required to inspect a portable service."
-msgstr "ポータブルサービスの検索には認証が必要です。"
+msgid "Authentication is required to inspect a portable service image."
+msgstr "ポータブルサービスイメージを読み込むには認証が必要です。"
 
 #: src/portable/org.freedesktop.portable1.policy:23
-msgid "Attach or detach a portable service"
-msgstr "ポータブルサービスの接続もしくは切り離し"
+msgid "Attach or detach a portable service image"
+msgstr "ポータブルサービスイメージの接続もしくは切り離し"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-msgid "Authentication is required to attach or detach a portable service."
-msgstr "ポータブルサービスを接続もしくは切り離すには認証が必要です。"
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr "ポータブルサービスイメージを接続もしくは切り離すには認証が必要です。"
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
-msgstr "ポータブルサービスの削除もしくは修正"
+msgstr "ポータブルサービスイメージの削除もしくは修正"
 
 #: src/portable/org.freedesktop.portable1.policy:35
 msgid ""
 "Authentication is required to delete or modify a portable service image."
-msgstr "ポータブルサービスを削除もしくは修正するには認証が必要です。"
+msgstr "ポータブルサービスイメージを削除もしくは修正するには認証が必要です。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
@@ -562,30 +563,30 @@ msgid ""
 "shall be enabled."
 msgstr "ネットワーク経由の時刻同期を有効もしくは無効にするには認証が必要です。"
 
-#: src/core/dbus-unit.c:329
+#: src/core/dbus-unit.c:326
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)'を開始するには認証が必要です。"
 
-#: src/core/dbus-unit.c:330
+#: src/core/dbus-unit.c:327
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)'を停止するには認証が必要です。"
 
-#: src/core/dbus-unit.c:331
+#: src/core/dbus-unit.c:328
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)'を再読込するには認証が必要です。"
 
-#: src/core/dbus-unit.c:332 src/core/dbus-unit.c:333
+#: src/core/dbus-unit.c:329 src/core/dbus-unit.c:330
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)'を再起動するには認証が必要です。"
 
-#: src/core/dbus-unit.c:440
+#: src/core/dbus-unit.c:437
 msgid "Authentication is required to kill '$(unit)'."
 msgstr "'$(unit)'を強制停止するには認証が必要です。"
 
-#: src/core/dbus-unit.c:471
+#: src/core/dbus-unit.c:468
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)'の「失敗」状態をリセットするには認証が必要です。"
 
-#: src/core/dbus-unit.c:504
+#: src/core/dbus-unit.c:501
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)'のプロパティを設定するには認証が必要です。"
