@@ -91,8 +91,10 @@ A unified kernel image is a single UEFI executable combining an UEFI stub loader
 
 A valid unified kernel image must contain two PE sections:
 
-* `.osrel` section with an embedded copy of the [os-release](https://www.freedesktop.org/software/systemd/man/os-release.html) file describing the image
 * `.cmdline` section with the kernel command line
+* `.osrel` section with an embedded copy of the [os-release](https://www.freedesktop.org/software/systemd/man/os-release.html) file describing the image
+
+The `PRETTY_NAME=` and `VERSION_ID=` fields in the embedded os-release file are used the same as `title` and `version` in the "boot loader specification" entries. The `.cmdline` section is used instead of the `options` field. `linux` and `initrd` fields are not necessary, and there is no counterpart for the `machine-id` field.
 
 Any such images shall be added to the list of valid boot entries.
 
