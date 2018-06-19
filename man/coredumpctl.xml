@@ -271,9 +271,10 @@
       <varlistentry>
         <term><replaceable>MATCH</replaceable></term>
 
-        <listitem><para>General journalctl predicate (see
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>).
-        Must contain an equals sign (<literal>=</literal>).</para></listitem>
+        <listitem><para>General journalctl match filter, must contain an equals
+        sign (<literal>=</literal>). See
+        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
+        </para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
