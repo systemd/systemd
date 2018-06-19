@@ -10,8 +10,8 @@
         <vendor_url>http://www.freedesktop.org/wiki/Software/systemd</vendor_url>
 
         <action id="org.freedesktop.portable1.inspect-images">
-                <description gettext-domain="systemd">Inspect a portable service</description>
-                <message gettext-domain="systemd">Authentication is required to inspect a portable service.</message>
+                <description gettext-domain="systemd">Inspect a portable service image</description>
+                <message gettext-domain="systemd">Authentication is required to inspect a portable service image.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
@@ -20,8 +20,8 @@
         </action>
 
         <action id="org.freedesktop.portable1.attach-images">
-                <description gettext-domain="systemd">Attach or detach a portable service</description>
-                <message gettext-domain="systemd">Authentication is required to attach or detach a portable service.</message>
+                <description gettext-domain="systemd">Attach or detach a portable service image</description>
+                <message gettext-domain="systemd">Authentication is required to attach or detach a portable service image.</message>
                 <defaults>
                         <allow_any>auth_admin</allow_any>
                         <allow_inactive>auth_admin</allow_inactive>
