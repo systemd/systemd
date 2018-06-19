@@ -39,24 +39,24 @@ We define two directories:
 
 These directories are defined below the placeholder file system `$BOOT`. The installer program should pick `$BOOT` according to the following rules:
 
-* If the OS is installed on a disk with MBR disk label, and a partition with the MBR type id of 0xEA already exists it should be used as $BOOT.
-* Otherwise, if the the OS is installed on a disk with MBR disk label, a new partition with MBR type id of 0xEA shall be created, of a suitable size (let's say 500MB), and it should be used as $BOOT.
-* If the OS is installed on a disk with GPT disk label, and a partition with the GPT type GUID of bc13c2ff-59e6-4262-a352-b275fd6f7172 already exists, it should be used as $BOOT.
-* Otherwise, if the OS is installed on a disk with GPT disk label, and an ESP partition (i.e. with the GPT type UID of c12a7328-f81f-11d2-ba4b-00a0c93ec93b) already exists and is large enough (let's say 250MB) and otherwise qualifies, it should be used as $BOOT.
-* Otherwise, if the OS is installed on a disk with GPT disk label, and if the ESP partition already exists but is too small, a new suitably sized (let's say 500MB) partition with GPT type GUID of bc13c2ff-59e6-4262-a352-b275fd6f7172 shall be created and it should be used as $BOOT.
-* Otherwise, if the OS is installed on a disk with GPT disk label, and no ESP partition exists yet, a new suitably sized (let's say 500MB) ESP should be created and should be used as $BOOT.
+* If the OS is installed on a disk with MBR disk label, and a partition with the MBR type id of 0xEA already exists it should be used as `$BOOT`.
+* Otherwise, if the the OS is installed on a disk with MBR disk label, a new partition with MBR type id of 0xEA shall be created, of a suitable size (let's say 500MB), and it should be used as `$BOOT`.
+* If the OS is installed on a disk with GPT disk label, and a partition with the GPT type GUID of bc13c2ff-59e6-4262-a352-b275fd6f7172 already exists, it should be used as `$BOOT`.
+* Otherwise, if the OS is installed on a disk with GPT disk label, and an ESP partition (i.e. with the GPT type UID of c12a7328-f81f-11d2-ba4b-00a0c93ec93b) already exists and is large enough (let's say 250MB) and otherwise qualifies, it should be used as `$BOOT`.
+* Otherwise, if the OS is installed on a disk with GPT disk label, and if the ESP partition already exists but is too small, a new suitably sized (let's say 500MB) partition with GPT type GUID of bc13c2ff-59e6-4262-a352-b275fd6f7172 shall be created and it should be used as `$BOOT`.
+* Otherwise, if the OS is installed on a disk with GPT disk label, and no ESP partition exists yet, a new suitably sized (let's say 500MB) ESP should be created and should be used as `$BOOT`.
 
-This placeholder file system shall be determined during _installation time_, and an fstab entry maybe be created. It should be mounted to either /boot or /efi. Additional locations like /boot/efi, with /boot being a separate filesystem, might be supported by implementations. This is not recommded because the mounting of $BOOT is then dependent on and requires the mounting of the intermediate file system.
+This placeholder file system shall be determined during _installation time_, and an fstab entry maybe be created. It should be mounted to either /boot or /efi. Additional locations like /boot/efi, with /boot being a separate file system, might be supported by implementations. This is not recommended because the mounting of `$BOOT` is then dependent on and requires the mounting of the intermediate file system.
 
-**Note:** _In all cases the /loader directory should be located directly in the root of the file system. Specifically, if $BOOT is the ESP, then /loader directory should be located directly in the root directory of the ESP, and not in the EFI/ subdirectory._
+**Note:** _In all cases the /loader directory should be located directly in the root of the file system. Specifically, if `$BOOT` is the ESP, then /loader directory should be located directly in the root directory of the ESP, and not in the EFI/ subdirectory._
 
 **Note:** _`$BOOT` should be considered **shared** among all OS installations of a system. Instead of maintaining one `$BOOT` per installed OS (as `/boot` was traditionally handled), all installed OS share the same place to drop in their boot-time configuration._
 
 `$BOOT` must be a VFAT (16 or 32) file system. Other file system types should not be used. Applications accessing `$BOOT` should hence not assume that fancier file system features such as symlinks, hardlinks, access control or case sensitivity are supported.
 
-Inside the `$BOOT/loader/entries/` directory each OS vendor may drop one or more configuration snippets with the suffix ".conf", one for each boot menu item. The file name of the file is used for identification of the boot item, but shall never be presented to the user in the UI. The file name may be chosen freely but should be unique enough to avoid clashes between OS installations. More specifically it is suggested to include the machine ID (`/etc/machine-id` or the D-Bus machine ID for OSes that lack `/etc/machine-id`), the kernel version (as returned by `uname -r`) and an OS identifier (The ID field of `/etc/os-release`). Example: $BOOT/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf`.
+Inside the `$BOOT/loader/entries/` directory each OS vendor may drop one or more configuration snippets with the suffix ".conf", one for each boot menu item. The file name of the file is used for identification of the boot item, but shall never be presented to the user in the UI. The file name may be chosen freely but should be unique enough to avoid clashes between OS installations. More specifically it is suggested to include the machine ID (`/etc/machine-id` or the D-Bus machine ID for OSes that lack `/etc/machine-id`), the kernel version (as returned by `uname -r`) and an OS identifier (The ID field of `/etc/os-release`). Example: `$BOOT/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf`.
 
-These configuration snippets shall be Unix-style text files (i.e. line separation with a single newline character), in the UTF-8 character sets. The configuration snippets are loosely inspired on Grub1's configuration syntax. Lines beginning with '#' shall be ignored and used for commenting. The first word of a line is used as key, and shall be separated by a space from its value. The following keys are known:
+These configuration snippets shall be Unix-style text files (i.e. line separation with a single newline character), in the UTF-8 encoding. The configuration snippets are loosely inspired on Grub1's configuration syntax. Lines beginning with '#' shall be ignored and used for commenting. The first word of a line is used as key, and shall be separated by a space from its value. The following keys are known:
 
 * `title` shall contain a human readable title string for this menu item. This will be displayed in the boot menu for the item. It is a good idea to initialize this from the `PRETTY_NAME` of `/etc/os-release`. This name should be descriptive and does not have to be unique. If a boot loader discovers two entries with the same title it is a good idea to show more than just the raw title in the UI, for example by appending the `version` field. This field is optional. Example: "Fedora 18 (Spherical Cow)".
 * `version` shall contain a human readable version string for this menu item. This is usually the kernel version and is intended for use by OSes to install multiple kernel versions at the same time with the same `title` field. This field shall be in a syntax that is useful for Debian-style version sorts, so that the boot loader UI can determine the newest version easily and show it first or preselect it automatically. This field is optional. Example: `3.7.2-201.fc18.x86_64`
@@ -66,12 +66,12 @@ These configuration snippets shall be Unix-style text files (i.e. line separatio
 * `efi` to spawn arbitrary EFI programs. This also takes a path relative to `$BOOT`. This key is only available on EFI systems.
 * `options` shall contain kernel parameters to pass to the Linux kernel to spawn. This key is optional.
 * `devicetree` refers to the binary device tree to use when executing the
-kernel. This also shall be a path relative to the $BOOT directory. This
+kernel. This also shall be a path relative to the `$BOOT` directory. This
 key is optional. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.armv7hl/tegra20-paz00.dtb`
 
 Each configuration drop-in snippet must include at least a `linux` or an `efi` key, and is otherwise not valid. Here's an example for a complete drop-in file:
 
-    /boot/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf
+    # /boot/loader/entries/6a9857a393724b7a981ebb5b8495b9ea-3.8.0-2.fc19.x86_64.conf
     title      Fedora 19 (Rawhide)
     version    3.8.0-2.fc19.x86_64
     machine-id 6a9857a393724b7a981ebb5b8495b9ea
@@ -113,6 +113,6 @@ There are a couple of items that are out of focus for this specifications:
 ## Links
 
 <strike>http://www.freedesktop.org/wiki/Software/gummiboot/</strike><br>
-[[https://www.freedesktop.org/software/systemd/man/bootctl.html]]
+https://www.freedesktop.org/software/systemd/man/bootctl.html
 
-[[http://pkgs.fedoraproject.org/cgit/grub2.git/tree/0460-blscfg-add-blscfg-module-to-parse-Boot-Loader-Specif.patch?h=f20]]
+http://pkgs.fedoraproject.org/cgit/grub2.git/tree/0460-blscfg-add-blscfg-module-to-parse-Boot-Loader-Specif.patch?h=f20
