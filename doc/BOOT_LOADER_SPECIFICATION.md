@@ -130,6 +130,7 @@ There are a couple of items that are out of focus for this specifications:
 ## Links
 
 <strike>http://www.freedesktop.org/wiki/Software/gummiboot/</strike><br>
+https://www.freedesktop.org/software/systemd/man/systemd-boot.html<br>
 https://www.freedesktop.org/software/systemd/man/bootctl.html
 
 http://pkgs.fedoraproject.org/cgit/grub2.git/tree/0460-blscfg-add-blscfg-module-to-parse-Boot-Loader-Specif.patch?h=f20
