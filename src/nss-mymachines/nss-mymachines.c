@@ -489,7 +489,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        const char *machine, *object;
+        const char *machine;
         uint32_t mapped;
         int r;
 
@@ -525,7 +525,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
                 goto fail;
         }
 
-        r = sd_bus_message_read(reply, "sou", &machine, &object, &mapped);
+        r = sd_bus_message_read(reply, "sou", &machine, NULL, &mapped);
         if (r < 0)
                 goto fail;
 
@@ -663,7 +663,7 @@ enum nss_status _nss_mymachines_getgrgid_r(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message* reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        const char *machine, *object;
+        const char *machine;
         uint32_t mapped;
         int r;
 
@@ -699,7 +699,7 @@ enum nss_status _nss_mymachines_getgrgid_r(
                 goto fail;
         }
 
-        r = sd_bus_message_read(reply, "sou", &machine, &object, &mapped);
+        r = sd_bus_message_read(reply, "sou", &machine, NULL, &mapped);
         if (r < 0)
                 goto fail;
 

@@ -2145,7 +2145,7 @@ finish:
 static int output_waiting_jobs(sd_bus *bus, uint32_t id, const char *method, const char *prefix) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *name, *type, *state, *job_path, *unit_path;
+        const char *name, *type;
         uint32_t other_id;
         int r;
 
@@ -2167,7 +2167,7 @@ static int output_waiting_jobs(sd_bus *bus, uint32_t id, const char *method, con
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(reply, "(usssoo)", &other_id, &name, &type, &state, &job_path, &unit_path)) > 0)
+        while ((r = sd_bus_message_read(reply, "(usssoo)", &other_id, &name, &type, NULL, NULL, NULL)) > 0)
                 printf("%s %u (%s/%s)\n", prefix, other_id, name, type);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -2268,14 +2268,14 @@ static bool output_show_job(struct job_info *job, char **patterns) {
 static int list_jobs(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *name, *type, *state, *job_path, *unit_path;
         _cleanup_free_ struct job_info *jobs = NULL;
+        const char *name, *type, *state;
+        bool skipped = false;
         size_t size = 0;
         unsigned c = 0;
         sd_bus *bus;
         uint32_t id;
         int r;
-        bool skipped = false;
 
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
@@ -2297,7 +2297,7 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        while ((r = sd_bus_message_read(reply, "(usssoo)", &id, &name, &type, &state, &job_path, &unit_path)) > 0) {
+        while ((r = sd_bus_message_read(reply, "(usssoo)", &id, &name, &type, &state, NULL, NULL)) > 0) {
                 struct job_info job = { id, name, type, state };
 
                 if (!output_show_job(&job, strv_skip(argv, 1))) {
@@ -4401,11 +4401,10 @@ static int map_main_pid(sd_bus *bus, const char *member, sd_bus_message *m, sd_b
 }
 
 static int map_load_error(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
-        const char *n, *message;
-        const char **p = userdata;
+        const char *message, **p = userdata;
         int r;
 
-        r = sd_bus_message_read(m, "(ss)", &n, &message);
+        r = sd_bus_message_read(m, "(ss)", NULL, &message);
         if (r < 0)
                 return r;
 
