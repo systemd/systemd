@@ -139,6 +139,17 @@
         <varname>After=system-update-pre.target</varname>
         and explicitly pull in any other services it requires.</para>
       </listitem>
+
+      <listitem>
+        <para>It may be desirable to always run an auxiliary unit when booting
+        into offline-updates mode, which itself does not install updates. To
+        do this create a .service file with
+        <varname>Wants=system-update-pre.target</varname> and
+        <varname>Before=system-update-pre.target</varname> and add a symlink
+        to that file under
+        <filename noindex='true'>/usr/lib/systemd/system-update.target.wants</filename>
+        .</para>
+      </listitem>
     </orderedlist>
   </refsect1>
 
