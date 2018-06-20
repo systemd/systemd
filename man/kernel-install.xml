@@ -167,7 +167,7 @@
     <para>
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <ulink url="https://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot loader specification</ulink>
+      <ulink url="https://github.com/systemd/systemd/blob/master/doc/BOOT_LOADER_SPECIFICATION.md">Boot Loader Specification</ulink>
     </para>
   </refsect1>
 

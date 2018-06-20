@@ -224,9 +224,8 @@
     <para>
       <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <ulink url="https://www.freedesktop.org/wiki/Specifications/BootLoaderSpec">Boot Loader Specification</ulink>,
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader Interface</ulink>,
-      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/systemd-boot/">upstream wiki page</ulink>
+      <ulink url="https://github.com/systemd/systemd/blob/master/doc/BOOT_LOADER_SPECIFICATION.md">Boot Loader Specification</ulink>,
+      <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader Interface</ulink>
     </para>
   </refsect1>
 </refentry>
