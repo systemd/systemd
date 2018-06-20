@@ -16,6 +16,7 @@ ExecStart=test %t = /run
 ExecStart=test %S = /var/lib
 ExecStart=test %C = /var/cache
 ExecStart=test %L = /var/log
+ExecStart=test %E = /etc
 ExecStart=test %T = /tmp
 ExecStart=test %V = /var/tmp
 ExecStart=sh -c 'test %u = $$(id -un 0)'
