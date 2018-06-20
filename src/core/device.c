@@ -6,6 +6,7 @@
 #include "libudev.h"
 
 #include "alloc-util.h"
+#include "bus-error.h"
 #include "dbus-device.h"
 #include "device.h"
 #include "log.h"
@@ -107,6 +108,7 @@ static void device_done(Unit *u) {
         assert(d);
 
         device_unset_sysfs(d);
+        d->wants_property = strv_free(d->wants_property);
 }
 
 static void device_set_state(Device *d, DeviceState state) {
@@ -276,6 +278,14 @@ static void device_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, device_state_to_string(d->state),
                 prefix, strna(d->sysfs),
                 prefix, strna(s));
+
+        if (!strv_isempty(d->wants_property)) {
+                char **i;
+
+                STRV_FOREACH(i, d->wants_property)
+                        fprintf(f, "%sudev SYSTEMD_WANTS: %s\n",
+                                prefix, *i);
+        }
 }
 
 _pure_ static UnitActiveState device_active_state(Unit *u) {
@@ -331,10 +341,12 @@ static int device_update_description(Unit *u, struct udev_device *dev, const cha
 }
 
 static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
+        _cleanup_strv_free_ char **added = NULL;
         const char *wants, *property;
+        Device *d = DEVICE(u);
         int r;
 
-        assert(u);
+        assert(d);
         assert(dev);
 
         property = MANAGER_IS_USER(u->manager) ? "SYSTEMD_USER_WANTS" : "SYSTEMD_WANTS";
@@ -348,21 +360,21 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
 
                 r = extract_first_word(&wants, &word, NULL, EXTRACT_QUOTES);
                 if (r == 0)
-                        return 0;
+                        break;
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to parse property %s with value %s: %m", property, wants);
 
-                if (unit_name_is_valid(word, UNIT_NAME_TEMPLATE) && DEVICE(u)->sysfs) {
+                if (unit_name_is_valid(word, UNIT_NAME_TEMPLATE) && d->sysfs) {
                         _cleanup_free_ char *escaped = NULL;
 
                         /* If the unit name is specified as template, then automatically fill in the sysfs path of the
                          * device as instance name, properly escaped. */
 
-                        r = unit_name_path_escape(DEVICE(u)->sysfs, &escaped);
+                        r = unit_name_path_escape(d->sysfs, &escaped);
                         if (r < 0)
-                                return log_unit_error_errno(u, r, "Failed to escape %s: %m", DEVICE(u)->sysfs);
+                                return log_unit_error_errno(u, r, "Failed to escape %s: %m", d->sysfs);
 
                         r = unit_name_replace_instance(word, escaped, &k);
                         if (r < 0)
@@ -378,7 +390,43 @@ static int device_add_udev_wants(Unit *u, struct udev_device *dev) {
                 r = unit_add_dependency_by_name(u, UNIT_WANTS, k, NULL, true, UNIT_DEPENDENCY_UDEV);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to add Wants= dependency: %m");
+
+                r = strv_push(&added, k);
+                if (r < 0)
+                        return log_oom();
+
+                k = NULL;
         }
+
+        if (d->state != DEVICE_DEAD) {
+                char **i;
+
+                /* So here's a special hack, to compensate for the fact that the udev database's reload cycles are not
+                 * synchronized with our own reload cycles: when we detect that the SYSTEMD_WANTS property of a device
+                 * changes while the device unit is already up, let's manually trigger any new units listed in it not
+                 * seen before. This typically appens during the boot-time switch root transition, as udev devices
+                 * will generally already be up in the initrd, but SYSTEMD_WANTS properties get then added through udev
+                 * rules only available on the host system, and thus only when the initial udev coldplug trigger runs.
+                 *
+                 * We do this only if the device has been up already when we parse this, as otherwise the usual
+                 * dependency logic that is run from the dead → plugged transition will trigger these deps. */
+
+                STRV_FOREACH(i, added) {
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                        if (strv_contains(d->wants_property, *i)) /* Was this unit already listed before? */
+                                continue;
+
+                        r = manager_add_job_by_name(u->manager, JOB_START, *i, JOB_FAIL, &error, NULL);
+                        if (r < 0)
+                                log_unit_warning_errno(u, r, "Failed to enqueue SYSTEMD_WANTS= job, ignoring: %s", bus_error_message(&error, r));
+                }
+        }
+
+        strv_free(d->wants_property);
+        d->wants_property = TAKE_PTR(added);
+
+        return 0;
 }
 
 static bool device_is_bound_by_mounts(Device *d, struct udev_device *dev) {
