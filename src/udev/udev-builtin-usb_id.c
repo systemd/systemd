@@ -5,7 +5,6 @@
  * Copyright (c) 2005 SUSE Linux Products GmbH, Germany
  *   Author: Hannes Reinecke <hare@suse.de>
  *
- * Copyright © 2005-2011 Kay Sievers <kay@vrfy.org>
  *
  */
 

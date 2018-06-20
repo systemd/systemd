@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2013 Kay Sievers
-***/
 
 #include <sys/types.h>
 

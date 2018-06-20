@@ -2,7 +2,6 @@
 /*
  * manage device node user ACL
  *
- * Copyright © 2010-2012 Kay Sievers <kay@vrfy.org>
  *
  */
 

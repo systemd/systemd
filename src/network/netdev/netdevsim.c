@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2018 Susant Sahani
-***/
 
 #include "netdev/netdevsim.h"
 #include "missing.h"

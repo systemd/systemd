@@ -2,7 +2,6 @@
 /*
  * ata_id - reads product/serial number from ATA drives
  *
- * Copyright © 2005-2008 Kay Sievers <kay@vrfy.org>
  * Copyright © 2009-2010 David Zeuthen <zeuthen@gmail.com>
  *
  */

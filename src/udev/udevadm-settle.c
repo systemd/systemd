@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright © 2006-2009 Kay Sievers <kay@vrfy.org>
  * Copyright © 2009 Canonical Ltd.
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
  *

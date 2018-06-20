@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2014 David Herrmann <dh.herrmann@gmail.com>
-***/
 
 /*
  * IPC barrier tests

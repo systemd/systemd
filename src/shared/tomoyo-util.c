@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2017 Shawn Landden
-***/
 
 #include <unistd.h>
 

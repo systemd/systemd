@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2013 Kay Sievers
-***/
 
 /*
  * Concatenates/copies strings. In any case, terminates in all cases

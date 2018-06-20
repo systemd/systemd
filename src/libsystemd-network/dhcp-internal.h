@@ -3,7 +3,6 @@
 
 /***
   Copyright © 2013 Intel Corporation. All rights reserved.
-  Copyright © 2014 Tom Gundersen
 ***/
 
 #include <linux/if_packet.h>

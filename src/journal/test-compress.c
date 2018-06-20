@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2014 Ronny Chevalier
-***/
 
 #if HAVE_LZ4
 #include <lz4.h>

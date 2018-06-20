@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2014 Ronny Chevalier
-***/
 
 #include "locale-util.h"
 #include "macro.h"

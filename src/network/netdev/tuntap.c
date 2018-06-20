@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2014 Susant Sahani <susant@redhat.com>
-***/
 
 #include <errno.h>
 #include <fcntl.h>

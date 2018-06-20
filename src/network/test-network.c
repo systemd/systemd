@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2013 Tom Gundersen <teg@jklm.no>
-***/
 
 #include <sys/param.h>
 

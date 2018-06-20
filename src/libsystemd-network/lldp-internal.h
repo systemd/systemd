@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2014 Tom Gundersen
-  Copyright © 2014 Susant Sahani
-***/
 
 #include "sd-event.h"
 #include "sd-lldp.h"

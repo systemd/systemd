@@ -4,9 +4,7 @@
  *
  * Copyright © 2009 Martin Pitt <martin.pitt@ubuntu.com>
  * Portions Copyright © 2004 David Zeuthen, <david@fubar.dk>
- * Copyright © 2011 Kay Sievers <kay@vrfy.org>
  * Copyright © 2014 Carlos Garnacho <carlosg@gnome.org>
- * Copyright © 2014 David Herrmann <dh.herrmann@gmail.com>
  *
  */
 

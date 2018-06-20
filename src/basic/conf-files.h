@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2010-2012 Kay Sievers
-***/
 
 enum {
         CONF_FILES_EXECUTABLE    = 1 << 0,

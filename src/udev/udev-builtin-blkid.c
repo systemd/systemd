@@ -2,7 +2,6 @@
 /*
  * probe disks for filesystems and partitions
  *
- * Copyright © 2011 Kay Sievers <kay@vrfy.org>
  * Copyright © 2011 Karel Zak <kzak@redhat.com>
  *
  */

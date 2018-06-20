@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2014 Kay Sievers
-***/
 
 #include "sd-daemon.h"
 #include "sd-event.h"

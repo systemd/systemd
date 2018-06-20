@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2017 Susant Sahani
-***/
 
 #include <inttypes.h>
 #include <stdbool.h>

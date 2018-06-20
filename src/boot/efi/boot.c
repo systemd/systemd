@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /*
- * Copyright © 2012-2015 Kay Sievers <kay@vrfy.org>
  * Copyright © 2012-2015 Harald Hoyer <harald@redhat.com>
  */
 

@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2014 Kay Sievers
-***/
 
 #include "conf-parser.h"
 #include "timesyncd-manager.h"

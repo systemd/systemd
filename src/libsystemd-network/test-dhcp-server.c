@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
   Copyright © 2013 Intel Corporation. All rights reserved.
-  Copyright © 2014 Tom Gundersen
 ***/
 
 #include <errno.h>

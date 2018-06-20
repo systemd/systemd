@@ -3,7 +3,6 @@
 
 /*
  * Copyright © 2003 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright © 2003-2010 Kay Sievers <kay@vrfy.org>
  *
  */
 

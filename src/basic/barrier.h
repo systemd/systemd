@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2014 David Herrmann <dh.herrmann@gmail.com>
-***/
 
 #include <stdbool.h>
 #include <stdint.h>
