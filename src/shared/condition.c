@@ -21,6 +21,7 @@
 #include "cap-list.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "efivars.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -376,6 +377,8 @@ static int condition_test_security(Condition *c) {
                 return use_ima();
         if (streq(c->parameter, "tomoyo"))
                 return mac_tomoyo_use();
+        if (streq(c->parameter, "uefi-secureboot"))
+                return is_efi_secure_boot();
 
         return false;
 }

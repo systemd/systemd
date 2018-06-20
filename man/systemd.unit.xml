@@ -1107,15 +1107,13 @@
         kernels into older versions provided by distributions. Hence, this check is inherently unportable and should
         not be used for units which may be used on different distributions.</para>
 
-        <para><varname>ConditionSecurity=</varname> may be used to
-        check whether the given security module is enabled on the
+        <para><varname>ConditionSecurity=</varname> may be used to check
+        whether the given security technology is enabled on the
         system. Currently, the recognized values are
-        <varname>selinux</varname>,
-        <varname>apparmor</varname>,
-        <varname>tomoyo</varname>,
-        <varname>ima</varname>,
-        <varname>smack</varname> and
-        <varname>audit</varname>. The test may be negated by
+        <varname>selinux</varname>, <varname>apparmor</varname>,
+        <varname>tomoyo</varname>, <varname>ima</varname>,
+        <varname>smack</varname>, <varname>audit</varname> and
+        <varname>uefi-secureboot</varname>. The test may be negated by
         prepending an exclamation mark.</para>
 
         <para><varname>ConditionCapability=</varname> may be used to
