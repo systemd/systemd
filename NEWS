@@ -326,6 +326,12 @@ CHANGES WITH 239 in spe:
           system namespacing options. One such service is systemd-udevd.service
           wher this is now used by default.
 
+        * A new unit "system-update-pre.target" is added, which defines an
+          optional synchronization point for offline system updates, as
+          implemented by the pre-existing "system-update.target" unit. It
+          allows ordering services before the service that executes the actual
+          update process in a generic way.
+
         Contributions from: Adam Duskett, Alan Jenkins, Alessandro Casale,
         Alexander Kurtz, Alex Gartrell, Anssi Hannula, Arnaud Rebillout, Brian
         J. Murrell, Bruno Vernay, Chris Lesiak, Christian Brauner, Christian

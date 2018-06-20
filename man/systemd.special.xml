@@ -78,6 +78,7 @@
     <filename>swap.target</filename>,
     <filename>sysinit.target</filename>,
     <filename>system-update.target</filename>,
+    <filename>system-update-pre.target</filename>,
     <filename>time-sync.target</filename>,
     <filename>timers.target</filename>,
     <filename>umount.target</filename>,
@@ -658,6 +659,7 @@
       </varlistentry>
       <varlistentry>
         <term><filename>system-update.target</filename></term>
+        <term><filename>system-update-pre.target</filename></term>
         <term><filename>system-update-cleanup.service</filename></term>
         <listitem>
           <para>A special target unit that is used for offline system updates.
@@ -667,12 +669,13 @@
           <citerefentry><refentrytitle>systemd.offline-updates</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
           </para>
 
-          <para>Updates should happen before the <filename>system-update.target</filename> is
-          reached, and the services which implement them should cause the machine to reboot. As
-          a safety measure, if this does not happen, and <filename>/system-update</filename>
-          still exists after <filename>system-update.target</filename> is reached,
-          <filename>system-update-cleanup.service</filename> will remove this symlink and
-          reboot the machine.</para>
+          <para>Updates should happen before the <filename>system-update.target</filename> is reached, and the services
+          which implement them should cause the machine to reboot. The main units executing the update should order
+          themselves after <filename>system-update-pre.target</filename> but not pull it in. Services which want to run
+          during system updates only, but before the actual system update is executed should order themselves before
+          this unit and pull it in. As a safety measure, if this does not happen, and
+          <filename>/system-update</filename> still exists after <filename>system-update.target</filename> is reached,
+          <filename>system-update-cleanup.service</filename> will remove this symlink and reboot the machine.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
