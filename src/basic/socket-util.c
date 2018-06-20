@@ -1058,7 +1058,7 @@ int receive_one_fd(int transport_fd, int flags) {
          * combination with send_one_fd().
          */
 
-        if (recvmsg(transport_fd, &mh, MSG_NOSIGNAL | MSG_CMSG_CLOEXEC | flags) < 0)
+        if (recvmsg(transport_fd, &mh, MSG_CMSG_CLOEXEC | flags) < 0)
                 return -errno;
 
         CMSG_FOREACH(cmsg, &mh) {
