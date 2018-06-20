@@ -6163,7 +6163,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
-                                        log_notice("Unit %s does not exist, proceeding anyway.", *names);
+                                        log_notice("Unit %s does not exist, proceeding anyway.", *name);
                         }
                 }
 
