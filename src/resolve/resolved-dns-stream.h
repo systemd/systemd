@@ -9,7 +9,7 @@ typedef struct DnsStream DnsStream;
 #include "resolved-dns-transaction.h"
 #include "resolved-manager.h"
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
 #include <gnutls/gnutls.h>
 #endif
 
@@ -39,7 +39,7 @@ struct DnsStream {
         union sockaddr_union tfo_address;
         socklen_t tfo_salen;
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
         gnutls_session_t tls_session;
         int tls_handshake;
         bool tls_bye;
@@ -68,7 +68,7 @@ struct DnsStream {
 };
 
 int dns_stream_new(Manager *m, DnsStream **s, DnsProtocol protocol, int fd, const union sockaddr_union *tfo_address);
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
 int dns_stream_connect_tls(DnsStream *s, gnutls_session_t tls_session);
 #endif
 DnsStream *dns_stream_unref(DnsStream *s);

@@ -353,9 +353,9 @@ void link_set_dns_over_tls_mode(Link *l, DnsOverTlsMode mode) {
 
         assert(l);
 
-#if ! HAVE_GNUTLS
+#if ! ENABLE_DNS_OVER_TLS
         if (mode != DNS_OVER_TLS_NO)
-                log_warning("DNS-over-TLS option for the link cannot be set to opportunistic when systemd-resolved is built without gnutls support. Turning off DNS-over-TLS support.");
+                log_warning("DNS-over-TLS option for the link cannot be set to opportunistic when systemd-resolved is built without DNS-over-TLS support. Turning off DNS-over-TLS support.");
         return;
 #endif
 

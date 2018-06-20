@@ -80,7 +80,7 @@ int dns_server_new(
 
         s->linked = true;
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
         /* Do not verify cerificate */
         gnutls_certificate_allocate_credentials(&s->tls_cert_cred);
 #endif
@@ -121,7 +121,7 @@ DnsServer* dns_server_unref(DnsServer *s)  {
 
         dns_stream_unref(s->stream);
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
         if (s->tls_cert_cred)
                 gnutls_certificate_free_credentials(s->tls_cert_cred);
 

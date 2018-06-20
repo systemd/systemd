@@ -3,7 +3,7 @@
 
 #include "in-addr-util.h"
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
 #include <gnutls/gnutls.h>
 #endif
 
@@ -56,7 +56,7 @@ struct DnsServer {
         char *server_string;
         DnsStream *stream;
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
         gnutls_certificate_credentials_t tls_cert_cred;
         gnutls_datum_t tls_session_data;
 #endif

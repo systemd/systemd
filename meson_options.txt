@@ -195,6 +195,8 @@ option('default-dns-over-tls', type : 'combo',
        description : 'default DNS-over-TLS mode',
        choices : ['opportunistic', 'no'],
        value : 'no')
+option('dns-over-tls', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'DNS-over-TLS support')
 option('dns-servers', type : 'string',
        description : 'space-separated list of default DNS servers',
        value : '8.8.8.8 8.8.4.4 2001:4860:4860::8888 2001:4860:4860::8844')
