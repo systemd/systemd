@@ -968,7 +968,6 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
         UINTN pos = 0;
         CHAR8 *key, *value;
 
-        line = content;
         while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
                 if (strcmpa((CHAR8 *)"timeout", key) == 0) {
                         _cleanup_freepool_ CHAR16 *s = NULL;
@@ -1040,7 +1039,6 @@ static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR1
 
         entry = AllocateZeroPool(sizeof(ConfigEntry));
 
-        line = content;
         while ((line = line_get_key_value(content, (CHAR8 *)" \t", &pos, &key, &value))) {
                 if (strcmpa((CHAR8 *)"title", key) == 0) {
                         FreePool(entry->title);
@@ -1560,7 +1558,6 @@ static VOID config_entry_add_linux(Config *config, EFI_LOADED_IMAGE *loaded_imag
                         continue;
 
                 /* read properties from the embedded os-release file */
-                line = content;
                 while ((line = line_get_key_value(content, (CHAR8 *)"=", &pos, &key, &value))) {
                         if (strcmpa((CHAR8 *)"PRETTY_NAME", key) == 0) {
                                 FreePool(os_name);
