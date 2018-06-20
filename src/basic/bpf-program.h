@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  [Except for the stuff copy/pasted from the kernel sources, see below]
-***/
-
 #include <linux/bpf.h>
 #include <stdint.h>
 #include <sys/syscall.h>
