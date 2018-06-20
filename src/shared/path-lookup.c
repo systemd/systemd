@@ -260,7 +260,8 @@ static int acquire_generator_dirs(
                 prefix = tempdir;
         else if (scope == UNIT_FILE_SYSTEM)
                 prefix = "/run/systemd";
-        else if (scope == UNIT_FILE_USER) {
+        else {
+                /* UNIT_FILE_USER */
                 const char *e;
 
                 e = getenv("XDG_RUNTIME_DIR");
