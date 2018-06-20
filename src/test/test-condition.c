@@ -13,6 +13,7 @@
 #include "audit-util.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "efivars.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "ima-util.h"
@@ -23,6 +24,7 @@
 #include "smack-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tomoyo-util.h"
 #include "user-util.h"
 #include "util.h"
 #include "virt.h"
@@ -429,14 +431,19 @@ static void test_condition_test_security(void) {
         assert_se(condition_test(condition) != mac_selinux_use());
         condition_free(condition);
 
-        condition = condition_new(CONDITION_SECURITY, "ima", false, false);
-        assert_se(condition);
-        assert_se(condition_test(condition) == use_ima());
-        condition_free(condition);
-
         condition = condition_new(CONDITION_SECURITY, "apparmor", false, false);
         assert_se(condition);
         assert_se(condition_test(condition) == mac_apparmor_use());
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_SECURITY, "tomoyo", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition) == mac_tomoyo_use());
+        condition_free(condition);
+
+        condition = condition_new(CONDITION_SECURITY, "ima", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition) == use_ima());
         condition_free(condition);
 
         condition = condition_new(CONDITION_SECURITY, "smack", false, false);
@@ -448,6 +455,23 @@ static void test_condition_test_security(void) {
         assert_se(condition);
         assert_se(condition_test(condition) == use_audit());
         condition_free(condition);
+
+        condition = condition_new(CONDITION_SECURITY, "uefi-secureboot", false, false);
+        assert_se(condition);
+        assert_se(condition_test(condition) == is_efi_secure_boot());
+        condition_free(condition);
+}
+
+static void print_securities(void) {
+        log_info("------ enabled security technologies ------");
+        log_info("SELinux: %s", yes_no(mac_selinux_use()));
+        log_info("AppArmor: %s", yes_no(mac_apparmor_use()));
+        log_info("Tomoyo: %s", yes_no(mac_tomoyo_use()));
+        log_info("IMA: %s", yes_no(use_ima()));
+        log_info("SMACK: %s", yes_no(mac_smack_use()));
+        log_info("Audit: %s", yes_no(use_audit()));
+        log_info("UEFI secure boot: %s", yes_no(is_efi_secure_boot()));
+        log_info("-------------------------------------------");
 }
 
 static void test_condition_test_virtualization(void) {
@@ -663,6 +687,7 @@ int main(int argc, char *argv[]) {
         test_condition_test_kernel_version();
         test_condition_test_null();
         test_condition_test_security();
+        print_securities();
         test_condition_test_virtualization();
         test_condition_test_user();
         test_condition_test_group();
