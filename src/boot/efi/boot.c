@@ -851,11 +851,17 @@ static VOID config_add_entry(Config *config, ConfigEntry *entry) {
 }
 
 static VOID config_entry_free(ConfigEntry *entry) {
+        if (!entry)
+                return;
+
+        FreePool(entry->id);
         FreePool(entry->title_show);
         FreePool(entry->title);
+        FreePool(entry->version);
         FreePool(entry->machine_id);
         FreePool(entry->loader);
         FreePool(entry->options);
+        FreePool(entry);
 }
 
 static BOOLEAN is_digit(CHAR16 c) {
@@ -1151,7 +1157,6 @@ static VOID config_entry_add_from_file(
 
         if (entry->type == LOADER_UNDEFINED) {
                 config_entry_free(entry);
-                FreePool(entry);
                 return;
         }
 
