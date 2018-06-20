@@ -302,6 +302,13 @@ CHANGES WITH 239 in spe:
           https://github.com/systemd/systemd/blob/master/doc/PORTABLE_SERVICES.md
           https://github.com/systemd/systemd/blob/master/doc/CODE_QUALITY.md
 
+        * The Boot Loader Specification has been added to the source tree.
+
+          https://github.com/systemd/systemd/blob/master/doc/BOOT_LOADER_SPECIFICATION.md
+
+          While moving it into our source tree we have updated it and further
+          changes are now accepted through the usual github PR workflow.
+
         * pam_systemd will now look for PAM userdata fields systemd.memory_max,
           systemd.tasks_max, systemd.cpu_weight, systemd.io_weight set by
           earlier PAM modules. The data in these fields is used to initialize
