@@ -1644,15 +1644,16 @@ static VOID config_entry_add_linux(
                 }
 
                 if (os_name && os_id && (os_version || os_build)) {
-                        CHAR16 *conf;
-                        CHAR16 *path;
+                        _cleanup_freepool_ CHAR16 *conf = NULL, *path = NULL;
 
                         conf = PoolPrint(L"%s-%s", os_id, os_version ? : os_build);
                         path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
+
                         entry = config_entry_add_loader(config, loaded_image->DeviceHandle, LOADER_LINUX, conf, 'l', os_name, path);
 
                         FreePool(content);
                         content = NULL;
+
                         /* read the embedded cmdline file */
                         err = file_read(linux_dir, f->FileName, offs[1], szs[1], &content, NULL);
                         if (!EFI_ERROR(err)) {
@@ -1663,9 +1664,6 @@ static VOID config_entry_add_linux(
 
                                 entry->options = stra_to_str(content);
                         }
-
-                        FreePool(conf);
-                        FreePool(path);
                 }
 
                 FreePool(os_name);
