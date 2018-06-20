@@ -334,30 +334,33 @@ CHANGES WITH 239 in spe:
 
         Contributions from: Adam Duskett, Alan Jenkins, Alessandro Casale,
         Alexander Kurtz, Alex Gartrell, Anssi Hannula, Arnaud Rebillout, Brian
-        J. Murrell, Bruno Vernay, Chris Lesiak, Christian Brauner, Christian
-        Hesse, Daniel Dao, Daniel Lin, Danylo Korostil, Davide Cavalca, David
-        Tardon, Dimitri John Ledkov, Dmitriy Geels, Douglas Christman, Elia
-        Geretto, emelenas, Emil Velikov, Evgeny Vereshchagin, Felipe Sateler,
-        Feng Sun, Filipe Brandenburger, Franck Bui, futpib, Giuseppe Scrivano,
-        Guillem Jover, guixxx, Hans de Goede, Henrique Dante de Almeida, Hiram
-        van Paassen, Ian Miell, Igor Gnatenko, Ivan Shapovalov, Iwan Timmer,
-        James Cowgill, Jan Janssen, Jan Synacek, Jared Kazimir, João Paulo
-        Rechi Vita, Joost Heitbrink, Jui-Chi Ricky Liang, Jürg Billeter,
-        Kai-Heng Feng, Karol Augustin, Krzysztof Nowicki, Lauri Tirkkonen,
-        Lennart Poettering, Leonard König, Long Li, Luca Boccassi, Lucas
-        Werkmeister, Marcel Hoppe, Marc Kleine-Budde, Mario Limonciello, Martin
-        Jansa, Martin Wilck, Mathieu Malaterre, Matteo F. Vescovi, Matthew
-        McGinn, Matthias-Christian Ott, Michael Biebl, Michael Olbrich, Michael
-        Prokop, Michal Koutný, Michal Sekletar, Mike Gilbert, Mikhail Kasimov,
-        Milan Broz, Milan Pässler, Muhammet Kara, Nicolas Boichat, Omer Katz,
-        Paride Legovini, Paul Menzel, Paul Milliken, Pavel Hrdina, Peter
-        A. Bigot, Peter Hutterer, Peter Jones, Philip Sequeira, Philip
+        J. Murrell, Bruno Vernay, Chris Lamb, Chris Lesiak, Christian Brauner,
+        Christian Hesse, Christian Rebischke, Colin Guthrie, Daniel Dao, Daniel
+        Lin, Danylo Korostil, Davide Cavalca, David Tardon, Dimitri John
+        Ledkov, Dmitriy Geels, Douglas Christman, Elia Geretto, emelenas, Emil
+        Velikov, Evgeny Vereshchagin, Felipe Sateler, Feng Sun, Filipe
+        Brandenburger, Franck Bui, futpib, Giuseppe Scrivano, Guillem Jover,
+        guixxx, Hannes Reinecke, Hans de Goede, Harald Hoyer, Henrique Dante de
+        Almeida, Hiram van Paassen, Ian Miell, Igor Gnatenko, Ivan Shapovalov,
+        Iwan Timmer, James Cowgill, Jan Janssen, Jan Synacek, Jared Kazimir,
+        Jérémy Rosen, João Paulo Rechi Vita, Joost Heitbrink, Jui-Chi Ricky
+        Liang, Jürg Billeter, Kai-Heng Feng, Karol Augustin, Kay Sievers,
+        Krzysztof Nowicki, Lauri Tirkkonen, Lennart Poettering, Leonard König,
+        Long Li, Luca Boccassi, Lucas Werkmeister, Marcel Hoppe, Marc
+        Kleine-Budde, Mario Limonciello, Martin Jansa, Martin Wilck, Mathieu
+        Malaterre, Matteo F. Vescovi, Matthew McGinn, Matthias-Christian Ott,
+        Michael Biebl, Michael Olbrich, Michael Prokop, Michal Koutný, Michal
+        Sekletar, Mike Gilbert, Mikhail Kasimov, Milan Broz, Milan Pässler,
+        Mladen Pejaković, Muhammet Kara, Nicolas Boichat, Omer Katz, Paride
+        Legovini, Paul Menzel, Paul Milliken, Pavel Hrdina, Peter A. Bigot,
+        Peter D'Hoye, Peter Hutterer, Peter Jones, Philip Sequeira, Philip
         Withnall, Piotr Drąg, Radostin Stoyanov, Ricardo Salveti de Araujo,
-        Rosen Penev, Rubén Suárez Alvarez, Ryan Gonzalez, Salvo Tomaselli,
-        Sebastian Reichel, Sergio Lindo Mansilla, Stefan Schweter, Stephen
-        Hemminger, Stuart Hayes, Susant Sahani, Sylvain Plantefève, Thomas
-        H. P. Andersen, Tobias Jungel, Tomasz Torcz, Vito Caputo, Will Dietz,
-        Will Thompson, Wim van Mourik, Yu Watanabe, Zbigniew Jędrzejewski-Szmek
+        Ronny Chevalier, Rosen Penev, Rubén Suárez Alvarez, Ryan Gonzalez,
+        Salvo Tomaselli, Sebastian Reichel, Sergey Ptashnick, Sergio Lindo
+        Mansilla, Stefan Schweter, Stephen Hemminger, Stuart Hayes, Susant
+        Sahani, Sylvain Plantefève, Thomas H. P. Andersen, Tobias Jungel,
+        Tomasz Torcz, Vito Caputo, Will Dietz, Will Thompson, Wim van Mourik,
+        Yu Watanabe, Zbigniew Jędrzejewski-Szmek
 
         — Berlin, 2018-06-XX
 
