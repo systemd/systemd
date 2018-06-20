@@ -1,8 +1,5 @@
 #pragma once
 
-/***
-  Copyright © 2017 Dmitry Rozhkov
-***/
 
 #include "list.h"
 

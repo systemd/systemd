@@ -1,6 +1,3 @@
-/***
-  Copyright © 2017 Dmitry Rozhkov
-***/
 
 #include "alloc-util.h"
 #include "bus-util.h"

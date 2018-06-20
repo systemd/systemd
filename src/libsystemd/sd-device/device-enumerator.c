@@ -1,8 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright © 2014-2015 Tom Gundersen <teg@jklm.no>
-***/
 
 #include "sd-device.h"
 

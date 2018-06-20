@@ -1,5 +1,4 @@
 /* SPDX-License-Identifier: MIT */
-/* Copyright © 2014 Tom Gundersen */
 
 #include <stdlib.h>
 #include <glib.h>

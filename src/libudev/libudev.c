@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2008-2014 Kay Sievers <kay@vrfy.org>
-***/
 
 #include <ctype.h>
 #include <stdarg.h>

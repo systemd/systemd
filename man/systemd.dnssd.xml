@@ -3,7 +3,6 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <!--
-  Copyright © 2017 Dmitry Rozhkov
 -->
 
 <refentry id="systemd.dnssd" conditional='ENABLE_RESOLVE'>

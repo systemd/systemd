@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2017 Susant Sahani
-***/
 
 #include "netdev/vxcan.h"
 #include "missing.h"

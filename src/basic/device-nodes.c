@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2008-2011 Kay Sievers
-***/
 
 #include <errno.h>
 #include <stdio.h>

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
   Copyright © 2014 Axis Communications AB. All rights reserved.
-  Copyright © 2015 Tom Gundersen
 ***/
 
 #include <linux/filter.h>

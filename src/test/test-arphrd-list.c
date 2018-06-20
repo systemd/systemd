@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2015 Daniel Mack
-***/
 
 #include <net/if_arp.h>
 #include <string.h>

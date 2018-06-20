@@ -2,7 +2,6 @@
 /*
  * load kernel modules
  *
- * Copyright © 2011-2012 Kay Sievers <kay@vrfy.org>
  * Copyright © 2011 ProFUSION embedded systems
  *
  */

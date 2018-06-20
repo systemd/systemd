@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /***
-  Copyright © 2010 Kay Sievers
   Copyright © 2016 Michal Soltys <soltys@ziu.info>
 ***/
 

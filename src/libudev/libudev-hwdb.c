@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright Tom Gundersen <teg@jklm.no>
-***/
 
 #include "sd-hwdb.h"
 

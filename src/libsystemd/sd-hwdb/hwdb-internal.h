@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2012 Kay Sievers <kay@vrfy.org>
-***/
 
 #include "sparse-endian.h"
 #include "util.h"

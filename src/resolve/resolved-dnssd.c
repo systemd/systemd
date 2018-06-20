@@ -1,6 +1,3 @@
-/***
-  Copyright © 2017 Dmitry Rozhkov
-***/
 
 #include "conf-files.h"
 #include "conf-parser.h"

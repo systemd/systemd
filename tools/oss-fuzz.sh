@@ -1,7 +1,5 @@
 #!/bin/bash
 # SPDX-License-Identifier: LGPL-2.1+
-#
-# Copyright © 2017 Jonathan Rudenberg
 
 set -ex
 

@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2015 Tom Gundersen <teg@jklmen>
-***/
 
 #include "libudev.h"
 #include "sd-id128.h"

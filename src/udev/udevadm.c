@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright © 2007-2012 Kay Sievers <kay@vrfy.org>
  *
  */
 

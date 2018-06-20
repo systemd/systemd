@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/*
- * Copyright © 2015 Kay Sievers <kay@vrfy.org>
- */
 
 #ifndef __SDBOOT_kernel_H
 #define __SDBOOT_kernel_H

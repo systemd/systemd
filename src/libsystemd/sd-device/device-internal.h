@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2008-2012 Kay Sievers <kay@vrfy.org>
-  Copyright © 2014 Tom Gundersen <teg@jklm.no>
-***/
 
 #include "hashmap.h"
 #include "set.h"

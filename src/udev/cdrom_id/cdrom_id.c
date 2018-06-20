@@ -2,7 +2,6 @@
 /*
  * cdrom_id - optical drive and media information prober
  *
- * Copyright © 2008-2010 Kay Sievers <kay@vrfy.org>
  *
  */
 

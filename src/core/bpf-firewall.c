@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2016 Daniel Mack
-***/
 
 #include <arpa/inet.h>
 #include <assert.h>
