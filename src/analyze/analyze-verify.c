@@ -229,8 +229,6 @@ static int verify_unit(Unit *u, bool check_man) {
 int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
         _cleanup_free_ char *var = NULL;
         Manager *m = NULL;
-        FILE *serial = NULL;
-        FDSet *fdset = NULL;
         char **filename;
         int r = 0, k;
 
@@ -256,7 +254,7 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
 
         log_debug("Starting manager...");
 
-        r = manager_startup(m, serial, fdset);
+        r = manager_startup(m, NULL, NULL);
         if (r < 0) {
                 log_error_errno(r, "Failed to start manager: %m");
                 goto finish;
