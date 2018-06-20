@@ -17,8 +17,6 @@ int main(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *idle_ok, *idle_bad, *rr_ok, *rr_bad, *rr_sched;
         Service *ser;
-        FILE *serial = NULL;
-        FDSet *fdset = NULL;
         int r;
 
         r = enter_cgroup_subroot();
@@ -36,7 +34,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);
-        assert_se(manager_startup(m, serial, fdset) >= 0);
+        assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         /* load idle ok */
         assert_se(manager_load_startable_unit_or_warn(m, "sched_idle_ok.service", NULL, &idle_ok) >= 0);

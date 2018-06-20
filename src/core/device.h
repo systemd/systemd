@@ -30,6 +30,9 @@ struct Device {
         DeviceFound found, deserialized_found, enumerated_found;
 
         bool bind_mounts;
+
+        /* The SYSTEMD_WANTS udev property for this device the last time we saw it */
+        char **wants_property;
 };
 
 extern const UnitVTable device_vtable;

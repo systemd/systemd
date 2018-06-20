@@ -17,8 +17,6 @@ static int test_cgroup_mask(void) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *son, *daughter, *parent, *root, *grandchild, *parent_deep;
-        FILE *serial = NULL;
-        FDSet *fdset = NULL;
         int r;
 
         r = enter_cgroup_subroot();
@@ -48,7 +46,7 @@ static int test_cgroup_mask(void) {
         m->default_tasks_max = (uint64_t) -1;
 
         assert_se(r >= 0);
-        assert_se(manager_startup(m, serial, fdset) >= 0);
+        assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         /* Load units and verify hierarchy. */
         assert_se(manager_load_startable_unit_or_warn(m, "parent.slice", NULL, &parent) >= 0);

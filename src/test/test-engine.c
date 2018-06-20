@@ -15,8 +15,6 @@ int main(int argc, char *argv[]) {
         _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL, *h = NULL, *unit_with_multiple_dashes = NULL;
-        FILE *serial = NULL;
-        FDSet *fdset = NULL;
         Job *j;
         int r;
 
@@ -39,7 +37,7 @@ int main(int argc, char *argv[]) {
                 return EXIT_TEST_SKIP;
         }
         assert_se(r >= 0);
-        assert_se(manager_startup(m, serial, fdset) >= 0);
+        assert_se(manager_startup(m, NULL, NULL) >= 0);
 
         printf("Load1:\n");
         assert_se(manager_load_startable_unit_or_warn(m, "a.service", NULL, &a) >= 0);
