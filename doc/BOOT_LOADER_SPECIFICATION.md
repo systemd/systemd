@@ -72,6 +72,7 @@ These configuration snippets shall be Unix-style text files (i.e. line separatio
 * `devicetree` refers to the binary device tree to use when executing the
 kernel. This also shall be a path relative to the `$BOOT` directory. This
 key is optional. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.armv7hl/tegra20-paz00.dtb`
+* `architecture` refers to the UEFI architecture this entry is defined for. If specified and this does not match the local UEFI system architecture the entry is hidden.
 
 Each configuration drop-in snippet must include at least a `linux` or an `efi` key, and is otherwise not valid. Here's an example for a complete drop-in file:
 
