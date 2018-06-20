@@ -19,6 +19,13 @@ typedef struct Manager Manager;
 #include "logind-device.h"
 #include "logind-inhibit.h"
 
+typedef enum EnforceInhibitors {
+        ENFORCE_INHIBITORS_UNPRIVILEGED,
+        ENFORCE_INHIBITORS_GLOBAL,
+        _ENFORCE_INHIBITORS_MAX,
+        _ENFORCE_INHIBITORS_INVALID = -1
+} EnforceInhibitors;
+
 struct Manager {
         sd_event *event;
         sd_bus *bus;
@@ -63,6 +70,8 @@ struct Manager {
 
         usec_t inhibit_delay_max;
         usec_t user_stop_delay;
+
+        EnforceInhibitors enforce_inhibitors;
 
         /* If an action is currently being executed or is delayed,
          * this is != 0 and encodes what is being done */
@@ -191,3 +200,8 @@ int manager_setup_wall_message_timer(Manager *m);
 bool logind_wall_tty_filter(const char *tty, void *userdata);
 
 int manager_dispatch_delayed(Manager *manager, bool timeout);
+
+const char *enforce_inhibitors_to_string(EnforceInhibitors k);
+EnforceInhibitors enforce_inhibitors_from_string(const char *s);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_enforce_inhibitors);

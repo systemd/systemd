@@ -333,6 +333,15 @@
         are excluded from the effect of this setting. Defaults to <literal>yes</literal>.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>EnforceInhibitors=</varname></term>
+
+        <listitem><para>Controls how inhibitor locks are enforced for users with different privileges. Can be one of
+        <literal>unprivileged</literal>, <literal>global</literal>. If set to <literal>unprivileged</literal>, inhibitor
+        locks are respected only for unprivileged users. If set to <literal>global</literal>, they are respected for all
+        users, including root. Defaults to <literal>unprivileged</literal>.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

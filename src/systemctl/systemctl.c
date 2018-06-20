@@ -3357,6 +3357,7 @@ static int logind_check_inhibitors(enum action a) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **sessions = NULL;
         const char *what, *who, *why, *mode;
+        _cleanup_free_ char *enforce = NULL;
         uint32_t uid, pid;
         sd_bus *bus;
         unsigned c = 0;
@@ -3369,9 +3370,6 @@ static int logind_check_inhibitors(enum action a) {
         if (arg_when > 0)
                 return 0;
 
-        if (geteuid() == 0)
-                return 0;
-
         if (!on_tty())
                 return 0;
 
@@ -3381,6 +3379,18 @@ static int logind_check_inhibitors(enum action a) {
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
                 return r;
+
+        sd_bus_get_property_string(
+                        bus,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                        "EnforceInhibitors",
+                        NULL,
+                        &enforce);
+
+        if (!streq(enforce, "global") && geteuid() == 0)
+                return 0;
 
         r = sd_bus_call_method(
                         bus,

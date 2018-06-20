@@ -22,6 +22,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "string-table.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "user-util.h"
@@ -841,3 +842,11 @@ void manager_reconnect_utmp(Manager *m) {
         manager_connect_utmp(m);
 #endif
 }
+
+static const char* const enforce_inhibitors_table[_ENFORCE_INHIBITORS_MAX] = {
+        [ENFORCE_INHIBITORS_UNPRIVILEGED] = "unprivileged",
+        [ENFORCE_INHIBITORS_GLOBAL] = "global",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(enforce_inhibitors, EnforceInhibitors);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_enforce_inhibitors, enforce_inhibitors, EnforceInhibitors, "Failed to parse enforce inhibitors setting");
