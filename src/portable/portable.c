@@ -201,7 +201,7 @@ static int recv_item(
         assert(ret_name);
         assert(ret_fd);
 
-        n = recvmsg(socket_fd, &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
+        n = recvmsg(socket_fd, &mh, MSG_CMSG_CLOEXEC);
         if (n < 0)
                 return -errno;
 

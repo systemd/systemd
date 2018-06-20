@@ -912,7 +912,7 @@ static int process_socket(int fd) {
 
                 mh.msg_iov = iovec + n_iovec;
 
-                n = recvmsg(fd, &mh, MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
+                n = recvmsg(fd, &mh, MSG_CMSG_CLOEXEC);
                 if (n < 0)  {
                         free(iovec[n_iovec].iov_base);
                         r = log_error_errno(errno, "Failed to receive datagram: %m");

@@ -334,7 +334,7 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
         /* Read the UID and lock fd that is stored in the storage AF_UNIX socket. This should be called with the lock
          * on the socket taken. */
 
-        k = recvmsg(d->storage_socket[0], &mh, MSG_DONTWAIT|MSG_NOSIGNAL|MSG_CMSG_CLOEXEC);
+        k = recvmsg(d->storage_socket[0], &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
         if (k < 0)
                 return -errno;
 
