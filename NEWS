@@ -333,6 +333,9 @@ CHANGES WITH 239 in spe:
           system namespacing options. One such service is systemd-udevd.service
           wher this is now used by default.
 
+        * ConditionSecurity= gained a new value "uefi-secureboot" that is true
+          when the system is booted in UEFI "secure mode".
+
         * A new unit "system-update-pre.target" is added, which defines an
           optional synchronization point for offline system updates, as
           implemented by the pre-existing "system-update.target" unit. It
