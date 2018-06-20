@@ -3,6 +3,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#define __STDC_WANT_IEC_60559_TYPES_EXT__
+#include <float.h>
+
 #include "time-util.h"
 
 /* Print information about various types. Useful when diagnosing
@@ -44,7 +47,7 @@ int main(void) {
         info(double);
         info(long double);
 
-#ifdef __HAVE_DISTINCT_FLOAT128X
+#ifdef FLT128_MAX
         info(_Float128);
         info(_Float64);
         info(_Float64x);
