@@ -108,10 +108,8 @@ static int verify_socket(Unit *u) {
 
         /* This makes sure instance is created if necessary. */
         r = socket_instantiate_service(SOCKET(u));
-        if (r < 0) {
-                log_unit_error_errno(u, r, "Socket cannot be started, failed to create instance: %m");
-                return r;
-        }
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Socket cannot be started, failed to create instance: %m");
 
         /* This checks both type of sockets */
         if (UNIT_ISSET(SOCKET(u)->service)) {
