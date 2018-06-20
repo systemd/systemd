@@ -68,14 +68,24 @@ static VOID cursor_left(UINTN *cursor, UINTN *first) {
                 (*first)--;
 }
 
-static VOID cursor_right(UINTN *cursor, UINTN *first, UINTN x_max, UINTN len) {
+static VOID cursor_right(
+                UINTN *cursor,
+                UINTN *first,
+                UINTN x_max,
+                UINTN len) {
+
         if ((*cursor)+1 < x_max)
                 (*cursor)++;
         else if ((*first) + (*cursor) < len)
                 (*first)++;
 }
 
-static BOOLEAN line_edit(CHAR16 *line_in, CHAR16 **line_out, UINTN x_max, UINTN y_pos) {
+static BOOLEAN line_edit(
+                CHAR16 *line_in,
+                CHAR16 **line_out,
+                UINTN x_max,
+                UINTN y_pos) {
+
         _cleanup_freepool_ CHAR16 *line = NULL, *print = NULL;
         UINTN size, len, first, cursor, clear;
         BOOLEAN exit, enter;
@@ -442,7 +452,11 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
         uefi_call_wrapper(ST->ConOut->ClearScreen, 1, ST->ConOut);
 }
 
-static BOOLEAN menu_run(Config *config, ConfigEntry **chosen_entry, CHAR16 *loaded_image_path) {
+static BOOLEAN menu_run(
+                Config *config,
+                ConfigEntry **chosen_entry,
+                CHAR16 *loaded_image_path) {
+
         EFI_STATUS err;
         UINTN visible_max;
         UINTN idx_highlight;
@@ -901,7 +915,13 @@ static INTN str_verscmp(CHAR16 *s1, CHAR16 *s2) {
         return StrCmp(os1, os2);
 }
 
-static CHAR8 *line_get_key_value(CHAR8 *content, CHAR8 *sep, UINTN *pos, CHAR8 **key_ret, CHAR8 **value_ret) {
+static CHAR8 *line_get_key_value(
+                CHAR8 *content,
+                CHAR8 *sep,
+                UINTN *pos,
+                CHAR8 **key_ret,
+                CHAR8 **value_ret) {
+
         CHAR8 *line;
         UINTN linelen;
         CHAR8 *value;
@@ -1029,7 +1049,13 @@ static VOID config_defaults_load_from_file(Config *config, CHAR8 *content) {
         }
 }
 
-static VOID config_entry_add_from_file(Config *config, EFI_HANDLE *device, CHAR16 *file, CHAR8 *content, CHAR16 *loaded_image_path) {
+static VOID config_entry_add_from_file(
+                Config *config,
+                EFI_HANDLE *device,
+                CHAR16 *file,
+                CHAR8 *content,
+                CHAR16 *loaded_image_path) {
+
         ConfigEntry *entry;
         CHAR8 *line;
         UINTN pos = 0;
@@ -1175,7 +1201,12 @@ static VOID config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 config->timeout_sec_efivar = -1;
 }
 
-static VOID config_load_entries(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir, CHAR16 *loaded_image_path) {
+static VOID config_load_entries(
+                Config *config,
+                EFI_HANDLE *device,
+                EFI_FILE *root_dir,
+                CHAR16 *loaded_image_path) {
+
         EFI_FILE_HANDLE entries_dir;
         EFI_STATUS err;
 
@@ -1401,7 +1432,11 @@ static VOID config_title_generate(Config *config) {
         }
 }
 
-static BOOLEAN config_entry_add_call(Config *config, CHAR16 *title, EFI_STATUS (*call)(VOID)) {
+static BOOLEAN config_entry_add_call(
+                Config *config,
+                CHAR16 *title,
+                EFI_STATUS (*call)(VOID)) {
+
         ConfigEntry *entry;
 
         entry = AllocateZeroPool(sizeof(ConfigEntry));
@@ -1412,8 +1447,15 @@ static BOOLEAN config_entry_add_call(Config *config, CHAR16 *title, EFI_STATUS (
         return TRUE;
 }
 
-static ConfigEntry *config_entry_add_loader(Config *config, EFI_HANDLE *device,
-                                            enum loader_type type,CHAR16 *file, CHAR16 key, CHAR16 *title, CHAR16 *loader) {
+static ConfigEntry *config_entry_add_loader(
+                Config *config,
+                EFI_HANDLE *device,
+                enum loader_type type,
+                CHAR16 *file,
+                CHAR16 key,
+                CHAR16 *title,
+                CHAR16 *loader) {
+
         ConfigEntry *entry;
 
         entry = AllocateZeroPool(sizeof(ConfigEntry));
@@ -1429,8 +1471,16 @@ static ConfigEntry *config_entry_add_loader(Config *config, EFI_HANDLE *device,
         return entry;
 }
 
-static BOOLEAN config_entry_add_loader_auto(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir, CHAR16 *loaded_image_path,
-                                         CHAR16 *file, CHAR16 key, CHAR16 *title, CHAR16 *loader) {
+static BOOLEAN config_entry_add_loader_auto(
+                Config *config,
+                EFI_HANDLE *device,
+                EFI_FILE *root_dir,
+                CHAR16 *loaded_image_path,
+                CHAR16 *file,
+                CHAR16 key,
+                CHAR16 *title,
+                CHAR16 *loader) {
+
         EFI_FILE_HANDLE handle;
         ConfigEntry *entry;
         EFI_STATUS err;
@@ -1502,7 +1552,11 @@ static VOID config_entry_add_osx(Config *config) {
         }
 }
 
-static VOID config_entry_add_linux(Config *config, EFI_LOADED_IMAGE *loaded_image, EFI_FILE *root_dir) {
+static VOID config_entry_add_linux(
+                Config *config,
+                EFI_LOADED_IMAGE *loaded_image,
+                EFI_FILE *root_dir) {
+
         EFI_FILE_HANDLE linux_dir;
         EFI_STATUS err;
         ConfigEntry *entry;
@@ -1619,7 +1673,11 @@ static VOID config_entry_add_linux(Config *config, EFI_LOADED_IMAGE *loaded_imag
         uefi_call_wrapper(linux_dir->Close, 1, linux_dir);
 }
 
-static EFI_STATUS image_start(EFI_HANDLE parent_image, const Config *config, const ConfigEntry *entry) {
+static EFI_STATUS image_start(
+                EFI_HANDLE parent_image,
+                const Config *config,
+                const ConfigEntry *entry) {
+
         EFI_HANDLE image;
         _cleanup_freepool_ EFI_DEVICE_PATH *path = NULL;
         CHAR16 *options;
