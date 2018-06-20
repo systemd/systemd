@@ -34,12 +34,14 @@ The EFI specification provides a boot options logic that can offer similar funct
 
 Everything described below is located on a placeholder file system `$BOOT`. The installer program should pick `$BOOT` according to the following rules:
 
-* If the OS is installed on a disk with MBR disk label, and a partition with the MBR type id of 0xEA already exists it should be used as `$BOOT`.
-* Otherwise, if the the OS is installed on a disk with MBR disk label, a new partition with MBR type id of 0xEA shall be created, of a suitable size (let's say 500MB), and it should be used as `$BOOT`.
-* If the OS is installed on a disk with GPT disk label, and a partition with the GPT type GUID of bc13c2ff-59e6-4262-a352-b275fd6f7172 already exists, it should be used as `$BOOT`.
-* Otherwise, if the OS is installed on a disk with GPT disk label, and an ESP partition (i.e. with the GPT type UID of c12a7328-f81f-11d2-ba4b-00a0c93ec93b) already exists and is large enough (let's say 250MB) and otherwise qualifies, it should be used as `$BOOT`.
-* Otherwise, if the OS is installed on a disk with GPT disk label, and if the ESP partition already exists but is too small, a new suitably sized (let's say 500MB) partition with GPT type GUID of bc13c2ff-59e6-4262-a352-b275fd6f7172 shall be created and it should be used as `$BOOT`.
-* Otherwise, if the OS is installed on a disk with GPT disk label, and no ESP partition exists yet, a new suitably sized (let's say 500MB) ESP should be created and should be used as `$BOOT`.
+* On disks with MBR disk labels
+  * If the OS is installed on a disk with MBR disk label, and a partition with the MBR type id of 0xEA already exists it should be used as `$BOOT`.
+  * Otherwise, if the the OS is installed on a disk with MBR disk label, a new partition with MBR type id of 0xEA shall be created, of a suitable size (let's say 500MB), and it should be used as `$BOOT`.
+* On disks with GPT disk labels
+  * If the OS is installed on a disk with GPT disk label, and a partition with the GPT type GUID of bc13c2ff-59e6-4262-a352-b275fd6f7172 already exists, it should be used as `$BOOT`.
+  * Otherwise, if the OS is installed on a disk with GPT disk label, and an ESP partition (i.e. with the GPT type UID of c12a7328-f81f-11d2-ba4b-00a0c93ec93b) already exists and is large enough (let's say 250MB) and otherwise qualifies, it should be used as `$BOOT`.
+  * Otherwise, if the OS is installed on a disk with GPT disk label, and if the ESP partition already exists but is too small, a new suitably sized (let's say 500MB) partition with GPT type GUID of bc13c2ff-59e6-4262-a352-b275fd6f7172 shall be created and it should be used as `$BOOT`.
+  * Otherwise, if the OS is installed on a disk with GPT disk label, and no ESP partition exists yet, a new suitably sized (let's say 500MB) ESP should be created and should be used as `$BOOT`.
 
 This placeholder file system shall be determined during _installation time_, and an fstab entry maybe be created. It should be mounted to either /boot or /efi. Additional locations like /boot/efi, with /boot being a separate file system, might be supported by implementations. This is not recommended because the mounting of `$BOOT` is then dependent on and requires the mounting of the intermediate file system.
 
@@ -64,12 +66,13 @@ These configuration snippets shall be Unix-style text files (i.e. line separatio
 * `version` shall contain a human readable version string for this menu item. This is usually the kernel version and is intended for use by OSes to install multiple kernel versions at the same time with the same `title` field. This field shall be in a syntax that is useful for Debian-style version sorts, so that the boot loader UI can determine the newest version easily and show it first or preselect it automatically. This field is optional. Example: `3.7.2-201.fc18.x86_64`
 * `machine-id` shall contain the machine ID of the OS `/etc/machine-id`. This is useful for boot loaders and applications to filter out boot entries, for example to show only a single newest kernel per OS, or to group items by OS, or to maybe filter out the currently booted OS in UIs that want to show only other installed operating systems. This ID shall be formatted as 32 lower case hexadecimal characters (i.e. without any UUID formatting). This key is optional. Example: `4098b3f648d74c13b1f04ccfba7798e8`
 * `linux` refers to the kernel to spawn, and shall be a path relative to the `$BOOT` directory. It is recommended that every distribution creates a machine id and version specific subdirectory below `$BOOT` and places its kernels and initial RAM disk images there. Example: `/6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux`.
-* `initrd` refers to the initrd to use when executing the kernel. This also shall be a path relative to the `$BOOT` directory. This key is optional. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd`
+* `initrd` refers to the initrd to use when executing the kernel. This also shall be a path relative to the `$BOOT` directory. This key is optional. This key may appear more than once in which case all specified images are used, in the order they are listed. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd`
 * `efi` to spawn arbitrary EFI programs. This also takes a path relative to `$BOOT`. This key is only available on EFI systems.
 * `options` shall contain kernel parameters to pass to the Linux kernel to spawn. This key is optional.
 * `devicetree` refers to the binary device tree to use when executing the
 kernel. This also shall be a path relative to the `$BOOT` directory. This
 key is optional. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.armv7hl/tegra20-paz00.dtb`
+* `architecture` refers to the UEFI architecture this entry is defined for. If specified and this does not match the local UEFI system architecture the entry is hidden.
 
 Each configuration drop-in snippet must include at least a `linux` or an `efi` key, and is otherwise not valid. Here's an example for a complete drop-in file:
 
@@ -131,8 +134,7 @@ There are a couple of items that are out of focus for this specifications:
 
 ## Links
 
-<strike>http://www.freedesktop.org/wiki/Software/gummiboot/</strike><br>
-https://www.freedesktop.org/software/systemd/man/systemd-boot.html<br>
-https://www.freedesktop.org/software/systemd/man/bootctl.html
+[systemd-boot(7)](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
+[bootctl(1)](https://www.freedesktop.org/software/systemd/man/bootctl.html)
 
-http://pkgs.fedoraproject.org/cgit/grub2.git/tree/0460-blscfg-add-blscfg-module-to-parse-Boot-Loader-Specif.patch?h=f20
+[Obsolete patch adding Boot Loader Specification support to GNU grub 2](http://pkgs.fedoraproject.org/cgit/grub2.git/tree/0460-blscfg-add-blscfg-module-to-parse-Boot-Loader-Specif.patch?h=f20)
