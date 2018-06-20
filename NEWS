@@ -146,9 +146,10 @@ CHANGES WITH 239 in spe:
           name following the last dash.
 
         * Unit files and other configuration files that support specifier
-          expansion now understand another two new specifiers: %T and %V will
+          expansion now understand another three new specifiers: %T and %V will
           resolve to /tmp and /var/tmp respectively, or whatever temporary
-          directory has been set for the calling user.
+          directory has been set for the calling user. %E will expand to either
+          /etc (for system units) or $XDG_CONFIG_HOME (for user units).
 
         * The ExecStart= lines of unit files are no longer required to
           reference absolute paths. If non-absolute paths are specified the
