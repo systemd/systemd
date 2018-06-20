@@ -44,12 +44,23 @@ int main(void) {
         info(double);
         info(long double);
 
-#ifdef __HAVE_DISTINCT_FLOAT128X
+#if defined(__HAVE_DISTINCT_FLOAT128X) && __HAVE_DISTINCT_FLOAT128X
+        info(_Float128x);
+#endif
+#if defined(__HAVE_DISTINCT_FLOAT128) && __HAVE_DISTINCT_FLOAT128
         info(_Float128);
-        info(_Float64);
+#endif
+#if defined(__HAVE_DISTINCT_FLOAT64X) && __HAVE_DISTINCT_FLOAT64X
         info(_Float64x);
-        info(_Float32);
+#endif
+#if defined(__HAVE_DISTINCT_FLOAT64) && __HAVE_DISTINCT_FLOAT64
+        info(_Float64);
+#endif
+#if defined(__HAVE_DISTINCT_FLOAT32X) && __HAVE_DISTINCT_FLOAT32X
         info(_Float32x);
+#endif
+#if defined(__HAVE_DISTINCT_FLOAT32) && __HAVE_DISTINCT_FLOAT32
+        info(_Float32);
 #endif
 
         info(size_t);
