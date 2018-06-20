@@ -3108,8 +3108,9 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         assert(m->n_reloading > 0);
         m->n_reloading--;
 
-        if (ferror(f))
-                return -EIO;
+        r = fflush_and_check(f);
+        if (r < 0)
+                return r;
 
         r = bus_fdset_add_all(m, fds);
         if (r < 0)
