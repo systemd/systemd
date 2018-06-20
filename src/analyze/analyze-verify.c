@@ -225,16 +225,15 @@ static int verify_unit(Unit *u, bool check_man) {
 }
 
 int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run_generators) {
-        _cleanup_free_ char *var = NULL;
-        Manager *m = NULL;
-        char **filename;
-        int r = 0, k;
-
-        Unit *units[strv_length(filenames)];
-        int i, count = 0;
         const uint8_t flags = MANAGER_TEST_RUN_BASIC |
                               MANAGER_TEST_RUN_ENV_GENERATORS |
                               run_generators * MANAGER_TEST_RUN_GENERATORS;
+
+        _cleanup_(manager_freep) Manager *m = NULL;
+        Unit *units[strv_length(filenames)];
+        _cleanup_free_ char *var = NULL;
+        int r = 0, k, i, count = 0;
+        char **filename;
 
         if (strv_isempty(filenames))
                 return 0;
@@ -253,10 +252,8 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
         log_debug("Starting manager...");
 
         r = manager_startup(m, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r, "Failed to start manager: %m");
-                goto finish;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to start manager: %m");
 
         manager_clear_jobs(m);
 
@@ -287,9 +284,6 @@ int verify_units(char **filenames, UnitFileScope scope, bool check_man, bool run
                 if (k < 0 && r == 0)
                         r = k;
         }
-
-finish:
-        manager_free(m);
 
         return r;
 }
