@@ -13,4 +13,3 @@ Documentation=man:systemd.offline-updates(7)
 Documentation=man:systemd.special(7) man:systemd-system-update-generator(8)
 RefuseManualStart=yes
 After=sysinit.target
-Before=system-update.target
