@@ -28,7 +28,7 @@ enum loader_type {
 };
 
 typedef struct {
-        CHAR16 *file;
+        CHAR16 *id; /* The identifier for this entry (note that this id is not necessarily unique though!) */
         CHAR16 *title_show;
         CHAR16 *title;
         CHAR16 *version;
@@ -417,8 +417,8 @@ static VOID print_status(Config *config, CHAR16 *loaded_image_path) {
 
                 entry = config->entries[i];
                 Print(L"config entry:           %d/%d\n", i+1, config->entry_count);
-                if (entry->file)
-                        Print(L"file                    '%s'\n", entry->file);
+                if (entry->id)
+                        Print(L"id                      '%s'\n", entry->id);
                 Print(L"title show              '%s'\n", entry->title_show);
                 if (entry->title)
                         Print(L"title                   '%s'\n", entry->title);
@@ -727,7 +727,7 @@ static BOOLEAN menu_run(
                 case KEYPRESS(0, 0, 'd'):
                         if (config->idx_default_efivar != (INTN)idx_highlight) {
                                 /* store the selected entry in a persistent EFI variable */
-                                efivar_set(L"LoaderEntryDefault", config->entries[idx_highlight]->file, TRUE);
+                                efivar_set(L"LoaderEntryDefault", config->entries[idx_highlight]->id, TRUE);
                                 config->idx_default_efivar = idx_highlight;
                                 status = StrDuplicate(L"Default boot entry selected.");
                         } else {
@@ -1170,12 +1170,12 @@ static VOID config_entry_add_from_file(
         }
 
         entry->device = device;
-        entry->file = StrDuplicate(file);
-        len = StrLen(entry->file);
+        entry->id = StrDuplicate(file);
+        len = StrLen(entry->id);
         /* remove ".conf" */
         if (len > 5)
-                entry->file[len - 5] = '\0';
-        StrLwr(entry->file);
+                entry->id[len - 5] = '\0';
+        StrLwr(entry->id);
 
         config_add_entry(config, entry);
 }
@@ -1257,7 +1257,7 @@ static VOID config_sort_entries(Config *config) {
                 for (k = 0; k < config->entry_count - i; k++) {
                         ConfigEntry *entry;
 
-                        if (str_verscmp(config->entries[k]->file, config->entries[k+1]->file) <= 0)
+                        if (str_verscmp(config->entries[k]->id, config->entries[k+1]->id) <= 0)
                                 continue;
                         entry = config->entries[k];
                         config->entries[k] = config->entries[k+1];
@@ -1283,7 +1283,7 @@ static VOID config_default_entry_select(Config *config) {
                 BOOLEAN found = FALSE;
 
                 for (i = 0; i < config->entry_count; i++)
-                        if (StrCmp(config->entries[i]->file, entry_oneshot) == 0) {
+                        if (StrCmp(config->entries[i]->id, entry_oneshot) == 0) {
                                 config->idx_default = i;
                                 found = TRUE;
                                 break;
@@ -1304,7 +1304,7 @@ static VOID config_default_entry_select(Config *config) {
         err = efivar_get(L"LoaderEntryDefault", &entry_default);
         if (!EFI_ERROR(err)) {
                 for (i = 0; i < config->entry_count; i++)
-                        if (StrCmp(config->entries[i]->file, entry_default) == 0) {
+                        if (StrCmp(config->entries[i]->id, entry_default) == 0) {
                                 config->idx_default = i;
                                 config->idx_default_efivar = i;
                                 return;
@@ -1324,7 +1324,7 @@ static VOID config_default_entry_select(Config *config) {
                 while (i--) {
                         if (config->entries[i]->no_autoselect)
                                 continue;
-                        if (MetaiMatch(config->entries[i]->file, config->entry_default_pattern)) {
+                        if (MetaiMatch(config->entries[i]->id, config->entry_default_pattern)) {
                                 config->idx_default = i;
                                 return;
                         }
@@ -1375,7 +1375,7 @@ static VOID config_title_generate(Config *config) {
                 FreePool(config->entries[i]->title_show);
                 title = config->entries[i]->title;
                 if (!title)
-                        title = config->entries[i]->file;
+                        title = config->entries[i]->id;
                 config->entries[i]->title_show = StrDuplicate(title);
         }
 
@@ -1425,7 +1425,7 @@ static VOID config_title_generate(Config *config) {
 
                 if (!config->entries[i]->non_unique)
                         continue;
-                s = PoolPrint(L"%s (%s)", config->entries[i]->title_show, config->entries[i]->file);
+                s = PoolPrint(L"%s (%s)", config->entries[i]->title_show, config->entries[i]->id);
                 FreePool(config->entries[i]->title_show);
                 config->entries[i]->title_show = s;
                 config->entries[i]->non_unique = FALSE;
@@ -1451,7 +1451,7 @@ static ConfigEntry *config_entry_add_loader(
                 Config *config,
                 EFI_HANDLE *device,
                 enum loader_type type,
-                CHAR16 *file,
+                CHAR16 *id,
                 CHAR16 key,
                 CHAR16 *title,
                 CHAR16 *loader) {
@@ -1463,8 +1463,8 @@ static ConfigEntry *config_entry_add_loader(
         entry->title = StrDuplicate(title);
         entry->device = device;
         entry->loader = StrDuplicate(loader);
-        entry->file = StrDuplicate(file);
-        StrLwr(entry->file);
+        entry->id = StrDuplicate(id);
+        StrLwr(entry->id);
         entry->key = key;
         config_add_entry(config, entry);
 
@@ -1476,7 +1476,7 @@ static BOOLEAN config_entry_add_loader_auto(
                 EFI_HANDLE *device,
                 EFI_FILE *root_dir,
                 CHAR16 *loaded_image_path,
-                CHAR16 *file,
+                CHAR16 *id,
                 CHAR16 key,
                 CHAR16 *title,
                 CHAR16 *loader) {
@@ -1514,7 +1514,7 @@ static BOOLEAN config_entry_add_loader_auto(
                 return FALSE;
         uefi_call_wrapper(handle->Close, 1, handle);
 
-        entry = config_entry_add_loader(config, device, LOADER_UNDEFINED, file, key, title, loader);
+        entry = config_entry_add_loader(config, device, LOADER_UNDEFINED, id, key, title, loader);
         if (!entry)
                 return FALSE;
 
@@ -1907,7 +1907,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 }
 
                 /* export the selected boot entry to the system */
-                efivar_set(L"LoaderEntrySelected", entry->file, FALSE);
+                efivar_set(L"LoaderEntrySelected", entry->id, FALSE);
 
                 uefi_call_wrapper(BS->SetWatchdogTimer, 4, 5 * 60, 0x10000, 0, NULL);
                 err = image_start(image, &config, entry);
