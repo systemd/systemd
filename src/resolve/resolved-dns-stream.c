@@ -44,7 +44,7 @@ static int dns_stream_update_io(DnsStream *s) {
 static int dns_stream_complete(DnsStream *s, int error) {
         assert(s);
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
         if (s->tls_session && IN_SET(error, ETIMEDOUT, 0)) {
                 int r;
 
@@ -197,7 +197,7 @@ static ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t i
         assert(s);
         assert(iov);
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
         if (s->tls_session && !(flags & WRITE_TLS_DATA)) {
                 ssize_t ss;
                 size_t i;
@@ -257,7 +257,7 @@ static ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t i
 static ssize_t dns_stream_read(DnsStream *s, void *buf, size_t count) {
         ssize_t ss;
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
         if (s->tls_session) {
                 ss = gnutls_record_recv(s->tls_session, buf, count);
                 if (ss < 0) {
@@ -290,7 +290,7 @@ static ssize_t dns_stream_read(DnsStream *s, void *buf, size_t count) {
         return ss;
 }
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
 static ssize_t dns_stream_tls_writev(gnutls_transport_ptr_t p, const giovec_t * iov, int iovcnt) {
         int r;
 
@@ -320,7 +320,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
         assert(s);
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
         if (s->tls_bye) {
                 assert(s->tls_session);
 
@@ -505,7 +505,7 @@ DnsStream *dns_stream_unref(DnsStream *s) {
                 s->manager->n_dns_streams--;
         }
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
         if (s->tls_session)
                 gnutls_deinit(s->tls_session);
 #endif
@@ -586,7 +586,7 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, co
         return 0;
 }
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
 int dns_stream_connect_tls(DnsStream *s, gnutls_session_t tls_session) {
         gnutls_transport_set_ptr2(tls_session, (gnutls_transport_ptr_t) (long) s->fd, s);
         gnutls_transport_set_vec_push_function(tls_session, &dns_stream_tls_writev);

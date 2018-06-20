@@ -13,7 +13,7 @@
 #include "resolved-llmnr.h"
 #include "string-table.h"
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
 #include <gnutls/socket.h>
 #endif
 
@@ -504,7 +504,7 @@ static int dns_transaction_on_stream_packet(DnsTransaction *t, DnsPacket *p) {
 }
 
 static int on_stream_connection(DnsStream *s) {
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
         /* Store TLS Ticket for faster succesive TLS handshakes */
         if (s->tls_session && s->server) {
                 if (s->server->tls_session_data.data)
@@ -577,7 +577,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
         union sockaddr_union sa;
         int r;
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
         gnutls_session_t gs;
 #endif
 
@@ -651,7 +651,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         s->server = dns_server_ref(t->server);
                 }
 
-#if HAVE_GNUTLS
+#if ENABLE_DNS_OVER_TLS
                 if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level)) {
                         r = gnutls_init(&gs, GNUTLS_CLIENT | GNUTLS_ENABLE_FALSE_START | GNUTLS_NONBLOCK);
                         if (r < 0)

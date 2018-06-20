@@ -139,6 +139,11 @@ libsystemd_resolve_core = static_library(
 
 systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
 
+systemd_resolved_dependencies = [threads, libgpg_error, libm, libidn]
+if conf.get('ENABLE_DNS_OVER_TLS') == 1
+        systemd_resolved_dependencies += [libgnutls]
+endif
+
 if conf.get('ENABLE_RESOLVE') == 1
         install_data('org.freedesktop.resolve1.conf',
                      install_dir : dbuspolicydir)
