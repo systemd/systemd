@@ -890,7 +890,7 @@ static INTN str_verscmp(CHAR16 *s1, CHAR16 *s2) {
                         INTN order;
 
                         order = c_order(*s1) - c_order(*s2);
-                        if (order)
+                        if (order != 0)
                                 return order;
                         s1++;
                         s2++;
@@ -914,7 +914,7 @@ static INTN str_verscmp(CHAR16 *s1, CHAR16 *s2) {
                 if (is_digit(*s2))
                         return -1;
 
-                if (first)
+                if (first != 0)
                         return first;
         }
 
