@@ -57,7 +57,7 @@ _timedatectl() {
 
         local -A VERBS=(
                   [BOOLEAN]='set-local-rtc set-ntp'
-               [STANDALONE]='status list-timezones timesync-status show-timesync'
+               [STANDALONE]='status show list-timezones timesync-status show-timesync'
                 [TIMEZONES]='set-timezone'
                      [TIME]='set-time'
         )
