@@ -1481,11 +1481,6 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
         if (m->test_run_flags != 0)
                 return false;
 
-        /* If we are in the user instance, and the env var is already set for us, then this means D-Bus is ran
-         * somewhere outside of our own logic. Let's use it */
-        if (MANAGER_IS_USER(m) && getenv("DBUS_SESSION_BUS_ADDRESS"))
-                return true;
-
         u = manager_get_unit(m, SPECIAL_DBUS_SOCKET);
         if (!u)
                 return false;
