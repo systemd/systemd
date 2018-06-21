@@ -220,9 +220,10 @@ CHANGES WITH 239 in spe:
           example, "systemd-tmpfiles --cat-config" will now output the full
           list of tmpfiles.d/ lines in place.
 
-        * timedatectl gained two new verbs "timesync-status" (to show the
-          current NTP synchronization state of systemd-timesyncd) and
-          "show-timesync" (to show bus properties of systemd-timesyncd).
+        * timedatectl gained three new verbs: "show" shows bus properties of
+          systemd-timedated, "timesync-status" shows the current NTP
+          synchronization state of systemd-timesyncd, and "show-timesync"
+          shows bus properties of systemd-timesyncd.
 
         * systemd-timesyncd gained a bus interface on which it exposes details
           about its state.
