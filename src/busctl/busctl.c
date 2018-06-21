@@ -29,7 +29,7 @@
 
 static bool arg_no_pager = false;
 static bool arg_legend = true;
-static char *arg_address = NULL;
+static const char *arg_address = NULL;
 static bool arg_unique = false;
 static bool arg_acquired = false;
 static bool arg_activatable = false;
