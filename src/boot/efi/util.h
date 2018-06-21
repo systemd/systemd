@@ -38,3 +38,10 @@ static inline void FreePoolp(void *p) {
 
 #define _cleanup_(x) __attribute__((cleanup(x)))
 #define _cleanup_freepool_ _cleanup_(FreePoolp)
+
+static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
+        if (!*handle)
+                return;
+
+        uefi_call_wrapper((*handle)->Close, 1, *handle);
+}
