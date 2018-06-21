@@ -311,6 +311,18 @@ static int worker_send_message(int fd) {
         return loop_write(fd, &message, sizeof(message), false);
 }
 
+static bool shall_lock_device(struct udev_device *dev) {
+        const char *sysname;
+
+        if (!streq_ptr("block", udev_device_get_subsystem(dev)))
+                return false;
+
+        sysname = udev_device_get_sysname(dev);
+        return !startswith(sysname, "dm-") &&
+               !startswith(sysname, "md") &&
+               !startswith(sysname, "drbd");
+}
+
 static void worker_spawn(Manager *manager, struct event *event) {
         struct udev *udev = event->udev;
         _cleanup_(udev_monitor_unrefp) struct udev_monitor *worker_monitor = NULL;
@@ -412,9 +424,7 @@ static void worker_spawn(Manager *manager, struct event *event) {
                          * udev has finished its event handling.
                          */
                         if (!streq_ptr(udev_device_get_action(dev), "remove") &&
-                            streq_ptr("block", udev_device_get_subsystem(dev)) &&
-                            !startswith(udev_device_get_sysname(dev), "dm-") &&
-                            !startswith(udev_device_get_sysname(dev), "md")) {
+                            shall_lock_device(dev)) {
                                 struct udev_device *d = dev;
 
                                 if (streq_ptr("partition", udev_device_get_devtype(d)))
