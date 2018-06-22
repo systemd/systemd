@@ -377,13 +377,15 @@ int boot_entries_load_config(const char *esp_path, BootConfig *config) {
         if (r < 0)
                 return log_error_errno(r, "Failed to uniquify boot entries: %m");
 
-        r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &config->entry_oneshot);
-        if (r < 0 && r != -ENOENT)
-                return log_error_errno(r, "Failed to read EFI var \"LoaderEntryOneShot\": %m");
+        if (is_efi_boot()) {
+                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryOneShot", &config->entry_oneshot);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to read EFI var \"LoaderEntryOneShot\": %m");
 
-        r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryDefault", &config->entry_default);
-        if (r < 0 && r != -ENOENT)
-                return log_error_errno(r, "Failed to read EFI var \"LoaderEntryDefault\": %m");
+                r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderEntryDefault", &config->entry_default);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to read EFI var \"LoaderEntryDefault\": %m");
+        }
 
         config->default_entry = boot_entries_select_default(config);
         return 0;
