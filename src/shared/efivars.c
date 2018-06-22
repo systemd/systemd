@@ -75,6 +75,9 @@ static int read_flag(const char *varname) {
         size_t s;
         int r;
 
+        if (!is_efi_boot()) /* If this is not an EFI boot, assume the queried flags are zero */
+                return 0;
+
         r = efi_get_variable(EFI_VENDOR_GLOBAL, varname, NULL, &v, &s);
         if (r < 0)
                 return r;
@@ -347,6 +350,9 @@ int efi_get_boot_option(
         sd_id128_t p_uuid = SD_ID128_NULL;
         int r;
 
+        if (!is_efi_boot())
+                return -EOPNOTSUPP;
+
         xsprintf(boot_id, "Boot%04X", id);
         r = efi_get_variable(EFI_VENDOR_GLOBAL, boot_id, NULL, (void **)&buf, &l);
         if (r < 0)
@@ -458,16 +464,23 @@ static uint16_t *tilt_slashes(uint16_t *s) {
         return s;
 }
 
-int efi_add_boot_option(uint16_t id, const char *title,
-                        uint32_t part, uint64_t pstart, uint64_t psize,
-                        sd_id128_t part_uuid, const char *path) {
-        char boot_id[9];
-        size_t size;
-        size_t title_len;
-        size_t path_len;
+int efi_add_boot_option(
+                uint16_t id,
+                const char *title,
+                uint32_t part,
+                uint64_t pstart,
+                uint64_t psize,
+                sd_id128_t part_uuid,
+                const char *path) {
+
+        size_t size, title_len, path_len;
+        _cleanup_free_ char *buf = NULL;
         struct boot_option *option;
         struct device_path *devicep;
-        _cleanup_free_ char *buf = NULL;
+        char boot_id[9];
+
+        if (!is_efi_boot())
+                return -EOPNOTSUPP;
 
         title_len = (strlen(title)+1) * 2;
         path_len = (strlen(path)+1) * 2;
@@ -523,6 +536,9 @@ int efi_add_boot_option(uint16_t id, const char *title,
 int efi_remove_boot_option(uint16_t id) {
         char boot_id[9];
 
+        if (!is_efi_boot())
+                return -EOPNOTSUPP;
+
         xsprintf(boot_id, "Boot%04X", id);
         return efi_set_variable(EFI_VENDOR_GLOBAL, boot_id, NULL, 0);
 }
@@ -531,6 +547,9 @@ int efi_get_boot_order(uint16_t **order) {
         _cleanup_free_ void *buf = NULL;
         size_t l;
         int r;
+
+        if (!is_efi_boot())
+                return -EOPNOTSUPP;
 
         r = efi_get_variable(EFI_VENDOR_GLOBAL, "BootOrder", NULL, &buf, &l);
         if (r < 0)
@@ -548,6 +567,10 @@ int efi_get_boot_order(uint16_t **order) {
 }
 
 int efi_set_boot_order(uint16_t *order, size_t n) {
+
+        if (!is_efi_boot())
+                return -EOPNOTSUPP;
+
         return efi_set_variable(EFI_VENDOR_GLOBAL, "BootOrder", order, n * sizeof(uint16_t));
 }
 
@@ -578,6 +601,9 @@ int efi_get_boot_options(uint16_t **options) {
         int count = 0;
 
         assert(options);
+
+        if (!is_efi_boot())
+                return -EOPNOTSUPP;
 
         dir = opendir("/sys/firmware/efi/efivars/");
         if (!dir)
@@ -639,6 +665,9 @@ int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader) {
         assert(firmware);
         assert(loader);
 
+        if (!is_efi_boot())
+                return -EOPNOTSUPP;
+
         r = read_usec(EFI_VENDOR_LOADER, "LoaderTimeInitUSec", &x);
         if (r < 0)
                 return r;
@@ -662,6 +691,9 @@ int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader) {
 int efi_loader_get_device_part_uuid(sd_id128_t *u) {
         _cleanup_free_ char *p = NULL;
         int r, parsed[16];
+
+        if (!is_efi_boot())
+                return -EOPNOTSUPP;
 
         r = efi_get_variable_string(EFI_VENDOR_LOADER, "LoaderDevicePartUUID", &p);
         if (r < 0)
