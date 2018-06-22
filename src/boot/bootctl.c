@@ -264,20 +264,19 @@ static int status_variables(void) {
 }
 
 static int status_entries(const char *esp_path, sd_id128_t partition) {
-        int r;
-
         _cleanup_(boot_config_free) BootConfig config = {};
-
-        printf("Default Boot Entry:\n");
+        int r;
 
         r = boot_entries_load_config(esp_path, &config);
         if (r < 0)
                 return r;
 
         if (config.default_entry < 0)
-                printf("%zu entries, no entry suitable as default\n", config.n_entries);
+                printf("%zu entries, no entry could be determined as default.\n", config.n_entries);
         else {
                 const BootEntry *e = &config.entries[config.default_entry];
+
+                printf("Default Boot Entry:\n");
 
                 printf("        title: %s\n", boot_entry_title(e));
                 if (e->version)
