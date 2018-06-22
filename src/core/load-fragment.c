@@ -3904,7 +3904,7 @@ int config_parse_temporary_filesystems(
                 if (r < 0)
                         continue;
 
-                r = temporary_filesystem_add(&c->temporary_filesystems, &c->n_temporary_filesystems, path, w);
+                r = temporary_filesystem_add(&c->temporary_filesystems, &c->n_temporary_filesystems, resolved, w);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
