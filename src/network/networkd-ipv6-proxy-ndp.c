@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2017 Florian Klink <flokli@flokli.de>
-***/
 
 #include <netinet/ether.h>
 #include <linux/if.h>

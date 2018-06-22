@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 /*
- * Copyright © 2012 Harald Hoyer <harald@redhat.com>
  * Copyright © 2013 Intel Corporation
  *   Authored by Joonas Lahtinen <joonas.lahtinen@linux.intel.com>
  */

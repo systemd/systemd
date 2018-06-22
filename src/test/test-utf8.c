@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2013 Dave Reisner
-***/
 
 #include "alloc-util.h"
 #include "string-util.h"

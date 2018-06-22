@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2012 Dan Walsh
-***/
 
 #include "selinux-access.h"
 
