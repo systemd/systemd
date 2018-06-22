@@ -522,12 +522,12 @@
 
       <varlistentry>
         <term><varname>TimeoutStopSec=</varname></term>
-        <listitem><para>Configures the time to wait for stop. If a
-        service is asked to stop, but does not terminate in the
-        specified time, it will be terminated forcibly via
-        <constant>SIGTERM</constant>, and after another timeout of
-        equal duration with <constant>SIGKILL</constant> (see
-        <varname>KillMode=</varname> in
+        <listitem><para>This option serves two purposes. First, it configures the time to wait for each
+        <constant>ExecStop=</constant> command. If any of them times out, subsequent <constant>ExecStop=</constant> commands
+        are skipped and the service will be terminated by <constant>SIGTERM</constant>. If no <constant>ExecStop=</constant>
+        commands are specified, the service gets the <constant>SIGTERM</constant> immediately. Second, it configures the time
+        to wait for the service itself to stop. If it doesn't terminate in the specified time, it will be forcibly terminated
+        by <constant>SIGKILL</constant> (see <varname>KillMode=</varname> in
         <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
         Takes a unit-less value in seconds, or a time span value such
         as "5min 20s". Pass <literal>infinity</literal> to disable the
