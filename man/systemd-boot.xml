@@ -27,7 +27,7 @@
 
     <para><command>systemd-boot</command> (short: <command>sd-boot</command>) is a simple UEFI boot manager. It
     provides a graphical menu to select the entry to boot and an editor for the kernel command line. systemd-boot
-    supports systems with an UEFI firmware only.</para>
+    supports systems with UEFI firmware only.</para>
 
     <para>systemd-boot loads boot entry information from the EFI system partition (ESP), usually mounted at
     <filename>/boot</filename>, <filename>/efi</filename>, or <filename>/boot/efi</filename> during OS
@@ -44,9 +44,9 @@
       arbitrary other EFI executables.</para></listitem>
 
       <listitem><para>Unified kernel images following the <ulink
-      url="https://github.com/systemd/systemd/blob/master/doc/BOOT_LOADER_SPECIFICATION.md">Boot
-      Loader Specification</ulink>, as executable EFI binaries in
-      <filename>/EFI/Linux/</filename> on the ESP</para></listitem>
+      url="https://github.com/systemd/systemd/blob/master/doc/BOOT_LOADER_SPECIFICATION.md">Boot Loader
+      Specification</ulink>, as executable EFI binaries in <filename>/EFI/Linux/</filename> on the ESP.
+      </para></listitem>
 
       <listitem><para>The Microsoft Windows EFI boot manager, if installed</para></listitem>
 
