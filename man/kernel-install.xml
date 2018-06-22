@@ -63,49 +63,61 @@
       <varlistentry>
         <term><command>add <replaceable>KERNEL-VERSION</replaceable> <replaceable>KERNEL-IMAGE</replaceable></command></term>
         <listitem>
-          <para><command>kernel-install</command> creates the directory
+          <para>This command expects a kernel version string and a path to a kernel image file as
+          arguments. <command>kernel-install</command> creates the directory
           <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
-          and calls executables from
-          <filename>/usr/lib/kernel/install.d/*.install</filename> and
-          <filename>/etc/kernel/install.d/*.install</filename> with
-          the arguments
-          <programlisting>add <replaceable>KERNEL-VERSION</replaceable> \
-    <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable></programlisting>
+          and calls the executables from <filename>/usr/lib/kernel/install.d/*.install</filename> and
+          <filename>/etc/kernel/install.d/*.install</filename> with the following arguments:
+
+          <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable></programlisting>
           </para>
 
-          <para>The kernel-install plugin <filename>50-depmod.install</filename> runs depmod for the <replaceable>KERNEL-VERSION</replaceable>.</para>
+          <para>Two default plugins execute the following operations in this case:</para>
 
-          <para>The kernel-install plugin
-          <filename>90-loaderentry.install</filename> copies
-          <replaceable>KERNEL-IMAGE</replaceable> to
-          <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/linux</filename>.
-          It also creates a boot loader entry according to the boot
-          loader specification in
-          <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.
-          The title of the entry is the
-          <replaceable>PRETTY_NAME</replaceable> parameter specified
-          in <filename>/etc/os-release</filename> or
-          <filename>/usr/lib/os-release</filename> (if the former is
-          missing), or "Linux
-          <replaceable>KERNEL-VERSION</replaceable>", if unset.  If
-          the file <filename>initrd</filename> is found next to the
-          <filename>linux</filename> file, the initrd will be added to
-          the configuration.</para>
+          <itemizedlist>
+
+            <listitem><para><filename>50-depmod.install</filename> runs
+            <citerefentry><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry> for the
+            <replaceable>KERNEL-VERSION</replaceable>.</para></listitem>
+
+            <listitem><para><filename>90-loaderentry.install</filename> copies <replaceable>KERNEL-IMAGE</replaceable>
+            to
+            <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/linux</filename>.
+            It also creates a boot loader entry according to the <ulink
+            url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink> in
+            <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.
+            The title of the entry is the <replaceable>PRETTY_NAME</replaceable> parameter specified in
+            <filename>/etc/os-release</filename> or <filename>/usr/lib/os-release</filename> (if the former is
+            missing), or "Linux <replaceable>KERNEL-VERSION</replaceable>", if unset.  If the file
+            <filename>initrd</filename> is found next to the kernel image file, the initrd will be added to the
+            configuration.</para></listitem>
+          </itemizedlist>
         </listitem>
       </varlistentry>
       <varlistentry>
         <term><command>remove <replaceable>KERNEL-VERSION</replaceable></command></term>
         <listitem>
-          <para>Calls executables from <filename>/usr/lib/kernel/install.d/*.install</filename>
-          and <filename>/etc/kernel/install.d/*.install</filename> with the arguments
+          <para>This command expects a kernel version string as single argument. This calls executables from
+          <filename>/usr/lib/kernel/install.d/*.install</filename> and
+          <filename>/etc/kernel/install.d/*.install</filename> with the following arguments:
+
           <programlisting>remove <replaceable>KERNEL-VERSION</replaceable> <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></programlisting>
           </para>
 
-          <para><command>kernel-install</command> removes the entire directory
-          <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> afterwards.</para>
+          <para>Afterwards, <command>kernel-install</command> removes the directory
+          <filename>/boot/<replaceable>MACHINE-ID</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename>
+          and its contents.</para>
 
-          <para>The kernel-install plugin <filename>90-loaderentry.install</filename> removes the file
-          <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.</para>
+          <para>Two default plugins execute the following operations in this case:</para>
+
+          <itemizedlist>
+
+            <listitem><para><filename>50-depmod.install</filename> removes the files generated by <command>depmod</command> for this kernel again.</para></listitem>
+
+            <listitem><para><filename>90-loaderentry.install</filename> removes the file
+            <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.conf</filename>.</para></listitem>
+          </itemizedlist>
+
         </listitem>
       </varlistentry>
 
@@ -136,8 +148,22 @@
           <filename>/proc/cmdline</filename>
         </term>
           <listitem>
-            <para>The content of the file <filename>/etc/kernel/cmdline</filename> specifies the kernel command line to use.
-            If that file does not exist, <filename>/proc/cmdline</filename> is used.</para>
+            <para>Read by <filename>90-loaderentry.install</filename>. The content of the file
+            <filename>/etc/kernel/cmdline</filename> specifies the kernel command line to use.  If that file does not
+            exist, <filename>/proc/cmdline</filename> is used.</para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <filename>/etc/kernel/tries</filename>
+        </term>
+          <listitem>
+            <para>Read by <filename>90-loaderentry.install</filename>. If this file exists a numeric value is read from
+            it and the naming of the generated entry file is slightly altered to include it as
+            <filename>/boot/loader/entries/<replaceable>MACHINE-ID</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.conf</filename>. This
+            is useful for boot loaders such as
+            <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> which
+            implement boot attempt counting with a counter embedded in the entry file name.</para>
           </listitem>
       </varlistentry>
       <varlistentry>
@@ -165,6 +191,8 @@
     <para>
       <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>
     </para>
   </refsect1>
