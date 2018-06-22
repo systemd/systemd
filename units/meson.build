@@ -3,6 +3,7 @@
 units = [
         ['basic.target',                        ''],
         ['bluetooth.target',                    ''],
+        ['boot-complete.target',                ''],
         ['cryptsetup-pre.target',               'HAVE_LIBCRYPTSETUP'],
         ['cryptsetup.target',                   'HAVE_LIBCRYPTSETUP',
          'sysinit.target.wants/'],
