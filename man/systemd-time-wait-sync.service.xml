@@ -4,8 +4,6 @@
 
 <!--
   SPDX-License-Identifier: LGPL-2.1+
-
-  Copyright © 2018 Peter A. Bigot
 -->
 
 <refentry id="systemd-time-wait-sync.service" conditional='ENABLE_TIMESYNCD'>

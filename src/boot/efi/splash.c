@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/*
- * Copyright © 2012 Harald Hoyer <harald@redhat.com>
- */
 
 #include <efi.h>
 #include <efilib.h>

@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2013 Dave Reisner
-***/
 
 #include <sys/types.h>
 

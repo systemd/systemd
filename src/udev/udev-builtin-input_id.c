@@ -2,7 +2,6 @@
 /*
  * expose input properties via udev
  *
- * Copyright © 2009 Martin Pitt <martin.pitt@ubuntu.com>
  * Portions Copyright © 2004 David Zeuthen, <david@fubar.dk>
  * Copyright © 2014 Carlos Garnacho <carlosg@gnome.org>
  *

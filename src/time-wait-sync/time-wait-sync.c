@@ -1,7 +1,6 @@
 /*
  * systemd service to wait until kernel realtime clock is synchronized
  *
- * Copyright © 2018 Peter A. Bigot
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
