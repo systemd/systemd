@@ -1029,6 +1029,8 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                        ansi_highlight_green(),
                        n == (unsigned) config.default_entry ? " (default)" : "",
                        ansi_normal());
+                if (e->id)
+                        printf("           id: %s\n", e->id);
                 if (e->version)
                         printf("      version: %s\n", e->version);
                 if (e->machine_id)

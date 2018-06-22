@@ -23,7 +23,7 @@
 void boot_entry_free(BootEntry *entry) {
         assert(entry);
 
-        free(entry->filename);
+        free(entry->id);
         free(entry->title);
         free(entry->show_title);
         free(entry->version);
@@ -53,8 +53,8 @@ int boot_entry_load(const char *path, BootEntry *entry) {
         }
 
         b = basename(path);
-        tmp.filename = strndup(b, c - b);
-        if (!tmp.filename)
+        tmp.id = strndup(b, c - b);
+        if (!tmp.id)
                 return log_oom();
 
         f = fopen(path, "re");
@@ -203,7 +203,7 @@ int boot_loader_read_conf(const char *path, BootConfig *config) {
 }
 
 static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
-        return str_verscmp(a->filename, b->filename);
+        return str_verscmp(a->id, b->id);
 }
 
 int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_entries) {
@@ -300,7 +300,7 @@ static int boot_entries_uniquify(BootEntry *entries, size_t n_entries) {
         /* Add file name to non-unique titles */
         for (i = 0; i < n_entries; i++)
                 if (arr[i]) {
-                        r = asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].filename);
+                        r = asprintf(&s, "%s (%s)", boot_entry_title(entries + i), entries[i].id);
                         if (r < 0)
                                 return -ENOMEM;
 
@@ -317,30 +317,30 @@ static int boot_entries_select_default(const BootConfig *config) {
 
         if (config->entry_oneshot)
                 for (i = config->n_entries - 1; i >= 0; i--)
-                        if (streq(config->entry_oneshot, config->entries[i].filename)) {
-                                log_debug("Found default: filename \"%s\" is matched by LoaderEntryOneShot",
-                                          config->entries[i].filename);
+                        if (streq(config->entry_oneshot, config->entries[i].id)) {
+                                log_debug("Found default: id \"%s\" is matched by LoaderEntryOneShot",
+                                          config->entries[i].id);
                                 return i;
                         }
 
         if (config->entry_default)
                 for (i = config->n_entries - 1; i >= 0; i--)
-                        if (streq(config->entry_default, config->entries[i].filename)) {
-                                log_debug("Found default: filename \"%s\" is matched by LoaderEntryDefault",
-                                          config->entries[i].filename);
+                        if (streq(config->entry_default, config->entries[i].id)) {
+                                log_debug("Found default: id \"%s\" is matched by LoaderEntryDefault",
+                                          config->entries[i].id);
                                 return i;
                         }
 
         if (config->default_pattern)
                 for (i = config->n_entries - 1; i >= 0; i--)
-                        if (fnmatch(config->default_pattern, config->entries[i].filename, FNM_CASEFOLD) == 0) {
-                                log_debug("Found default: filename \"%s\" is matched by pattern \"%s\"",
-                                          config->entries[i].filename, config->default_pattern);
+                        if (fnmatch(config->default_pattern, config->entries[i].id, FNM_CASEFOLD) == 0) {
+                                log_debug("Found default: id \"%s\" is matched by pattern \"%s\"",
+                                          config->entries[i].id, config->default_pattern);
                                 return i;
                         }
 
         if (config->n_entries > 0)
-                log_debug("Found default: last entry \"%s\"", config->entries[config->n_entries - 1].filename);
+                log_debug("Found default: last entry \"%s\"", config->entries[config->n_entries - 1].id);
         else
                 log_debug("Found no default boot entry :(");
 
