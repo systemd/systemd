@@ -19,10 +19,11 @@ MACHINE_ID=$KERNEL_INSTALL_MACHINE_ID
 
 BOOT_DIR="/$MACHINE_ID/$KERNEL_VERSION"
 BOOT_ROOT=${BOOT_DIR_ABS%$BOOT_DIR}
-LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
 
 if [[ $COMMAND == remove ]]; then
-    exec rm -f "$LOADER_ENTRY"
+    rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
+    rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+"*".conf"
+    exit 0
 fi
 
 if ! [[ $COMMAND == add ]]; then
@@ -61,6 +62,17 @@ if ! [[ ${BOOT_OPTIONS[*]} ]]; then
     echo "Could not determine the kernel command line parameters." >&2
     echo "Please specify the kernel command line in /etc/kernel/cmdline!" >&2
     exit 1
+fi
+
+if [[ -f /etc/kernel/tries ]]; then
+    read -r TRIES </etc/kernel/tries
+    if ! [[ "$TRIES" =~ ^[0-9]+$ ]] ; then
+        echo "/etc/kernel/tries does not contain an integer." >&2
+        exit 1
+    fi
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+$TRIES.conf"
+else
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
 fi
 
 cp "$KERNEL_IMAGE" "$BOOT_DIR_ABS/linux" &&
