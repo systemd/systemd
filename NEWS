@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 239 in spe:
+CHANGES WITH 239:
 
         * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"
           builtin will name network interfaces differently than in previous
@@ -374,7 +374,7 @@ CHANGES WITH 239 in spe:
         Tomasz Torcz, Vito Caputo, Will Dietz, Will Thompson, Wim van Mourik,
         Yu Watanabe, Zbigniew Jędrzejewski-Szmek
 
-        — Berlin, 2018-06-XX
+        — Berlin, 2018-06-22
 
 CHANGES WITH 238:
 
