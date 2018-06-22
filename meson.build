@@ -1805,6 +1805,14 @@ if conf.get('ENABLE_EFI') == 1 and conf.get('HAVE_BLKID') == 1
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootlibexecdir)
+
+        executable('systemd-bless-boot-generator',
+                   'src/boot/bless-boot-generator.c',
+                   include_directories : includes,
+                   link_with : [libshared],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : systemgeneratordir)
 endif
 
 exe = executable('systemd-socket-activate', 'src/activate/activate.c',
