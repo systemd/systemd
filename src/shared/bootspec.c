@@ -153,8 +153,12 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
         assert(config);
 
         f = fopen(path, "re");
-        if (!f)
+        if (!f) {
+                if (errno == ENOENT)
+                        return 0;
+
                 return log_error_errno(errno, "Failed to open \"%s\": %m", path);
+        }
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL, *field = NULL;
@@ -204,7 +208,7 @@ static int boot_loader_read_conf(const char *path, BootConfig *config) {
                         return log_error_errno(r, "%s:%u: Error while reading: %m", path, line);
         }
 
-        return 0;
+        return 1;
 }
 
 static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
