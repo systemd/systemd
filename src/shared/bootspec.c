@@ -362,12 +362,12 @@ int boot_entries_load_config(const char *esp_path, BootConfig *config) {
         p = strjoina(esp_path, "/loader/loader.conf");
         r = boot_loader_read_conf(p, config);
         if (r < 0)
-                return log_error_errno(r, "Failed to read boot config from \"%s\": %m", p);
+                return r;
 
         p = strjoina(esp_path, "/loader/entries");
         r = boot_entries_find(p, &config->entries, &config->n_entries);
         if (r < 0)
-                return log_error_errno(r, "Failed to read boot entries from \"%s\": %m", p);
+                return r;
 
         r = boot_entries_uniquify(config->entries, config->n_entries);
         if (r < 0)

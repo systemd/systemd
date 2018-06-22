@@ -272,8 +272,7 @@ static int status_entries(const char *esp_path, sd_id128_t partition) {
 
         r = boot_entries_load_config(esp_path, &config);
         if (r < 0)
-                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m",
-                                       esp_path);
+                return r;
 
         if (config.default_entry < 0)
                 printf("%zu entries, no entry suitable as default\n", config.n_entries);
@@ -1013,8 +1012,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
         r = boot_entries_load_config(arg_path, &config);
         if (r < 0)
-                return log_error_errno(r, "Failed to load bootspec config from \"%s/loader\": %m",
-                                       arg_path);
+                return r;
 
         printf("Available boot entries:\n");
 
