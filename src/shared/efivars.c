@@ -86,7 +86,7 @@ static int read_flag(const char *varname) {
                 return -EINVAL;
 
         b = *(uint8_t *)v;
-        return b > 0;
+        return !!b;
 }
 
 bool is_efi_secure_boot(void) {
@@ -126,21 +126,18 @@ static int get_os_indications(uint64_t *os_indication) {
         size_t s;
         int r;
 
+        /* Let's verify general support first */
         r = efi_reboot_to_firmware_supported();
         if (r < 0)
                 return r;
 
         r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndications", NULL, &v, &s);
         if (r == -ENOENT) {
-                /* Some firmware implementations that do support
-                 * OsIndications and report that with
-                 * OsIndicationsSupported will remove the
-                 * OsIndications variable when it is unset. Let's
-                 * pretend it's 0 then, to hide this implementation
-                 * detail. Note that this call will return -ENOENT
-                 * then only if the support for OsIndications is
-                 * missing entirely, as determined by
-                 * efi_reboot_to_firmware_supported() above. */
+                /* Some firmware implementations that do support OsIndications and report that with
+                 * OsIndicationsSupported will remove the OsIndications variable when it is unset. Let's pretend it's 0
+                 * then, to hide this implementation detail. Note that this call will return -ENOENT then only if the
+                 * support for OsIndications is missing entirely, as determined by efi_reboot_to_firmware_supported()
+                 * above. */
                 *os_indication = 0;
                 return 0;
         } else if (r < 0)
@@ -485,9 +482,9 @@ int efi_add_boot_option(
         title_len = (strlen(title)+1) * 2;
         path_len = (strlen(path)+1) * 2;
 
-        buf = calloc(sizeof(struct boot_option) + title_len +
-                     sizeof(struct drive_path) +
-                     sizeof(struct device_path) + path_len, 1);
+        buf = malloc0(sizeof(struct boot_option) + title_len +
+                      sizeof(struct drive_path) +
+                      sizeof(struct device_path) + path_len);
         if (!buf)
                 return -ENOMEM;
 
@@ -575,8 +572,7 @@ int efi_set_boot_order(uint16_t *order, size_t n) {
 }
 
 static int boot_id_hex(const char s[4]) {
-        int i;
-        int id = 0;
+        int id = 0, i;
 
         for (i = 0; i < 4; i++)
                 if (s[i] >= '0' && s[i] <= '9')
@@ -595,8 +591,8 @@ static int cmp_uint16(const uint16_t *a, const uint16_t *b) {
 
 int efi_get_boot_options(uint16_t **options) {
         _cleanup_closedir_ DIR *dir = NULL;
-        struct dirent *de;
         _cleanup_free_ uint16_t *list = NULL;
+        struct dirent *de;
         size_t alloc = 0;
         int count = 0;
 
