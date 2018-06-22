@@ -20,7 +20,7 @@
 #include "strv.h"
 #include "virt.h"
 
-void boot_entry_free(BootEntry *entry) {
+static void boot_entry_free(BootEntry *entry) {
         assert(entry);
 
         free(entry->id);
@@ -37,7 +37,7 @@ void boot_entry_free(BootEntry *entry) {
         free(entry->device_tree);
 }
 
-int boot_entry_load(const char *path, BootEntry *entry) {
+static int boot_entry_load(const char *path, BootEntry *entry) {
         _cleanup_(boot_entry_free) BootEntry tmp = {};
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
@@ -144,7 +144,7 @@ void boot_config_free(BootConfig *config) {
         free(config->entries);
 }
 
-int boot_loader_read_conf(const char *path, BootConfig *config) {
+static int boot_loader_read_conf(const char *path, BootConfig *config) {
         _cleanup_fclose_ FILE *f = NULL;
         unsigned line = 1;
         int r;
@@ -211,7 +211,7 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         return str_verscmp(a->id, b->id);
 }
 
-int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_entries) {
+static int boot_entries_find(const char *dir, BootEntry **ret_entries, size_t *ret_n_entries) {
         _cleanup_strv_free_ char **files = NULL;
         char **f;
         int r;

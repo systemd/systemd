@@ -39,11 +39,6 @@ typedef struct BootConfig {
         ssize_t default_entry;
 } BootConfig;
 
-void boot_entry_free(BootEntry *entry);
-int boot_entry_load(const char *path, BootEntry *entry);
-int boot_entries_find(const char *dir, BootEntry **entries, size_t *n_entries);
-
-int boot_loader_read_conf(const char *path, BootConfig *config);
 void boot_config_free(BootConfig *config);
 int boot_entries_load_config(const char *esp_path, BootConfig *config);
 
