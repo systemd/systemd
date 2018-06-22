@@ -63,7 +63,10 @@ struct device_path {
 } _packed_;
 
 bool is_efi_boot(void) {
-        return access("/sys/firmware/efi", F_OK) >= 0;
+        if (detect_container() > 0)
+                return false;
+
+        return access("/sys/firmware/efi/", F_OK) >= 0;
 }
 
 static int read_flag(const char *varname) {
@@ -97,7 +100,7 @@ int efi_reboot_to_firmware_supported(void) {
         size_t s;
         int r;
 
-        if (!is_efi_boot() || detect_container() > 0)
+        if (!is_efi_boot())
                 return -EOPNOTSUPP;
 
         r = efi_get_variable(EFI_VENDOR_GLOBAL, "OsIndicationsSupported", NULL, &v, &s);
