@@ -155,7 +155,7 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        printf("         File: %s/%s/%s (%s)\n", special_glyph(TREE_RIGHT), path, de->d_name, v);
+                        printf("         File: %s/%s/%s (%s%s%s)\n", special_glyph(TREE_RIGHT), path, de->d_name, ansi_highlight(), v, ansi_normal());
                 else
                         printf("         File: %s/%s/%s\n", special_glyph(TREE_RIGHT), path, de->d_name);
                 c++;
@@ -213,7 +213,7 @@ static int print_efi_option(uint16_t id, bool in_order) {
 
         efi_tilt_backslashes(path);
 
-        printf("        Title: %s\n", strna(title));
+        printf("        Title: %s%s%s\n", ansi_highlight(), strna(title), ansi_normal());
         printf("           ID: 0x%04X\n", id);
         printf("       Status: %sactive%s\n", active ? "" : "in", in_order ? ", boot-order" : "");
         printf("    Partition: /dev/disk/by-partuuid/%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x\n", SD_ID128_FORMAT_VAL(partition));
@@ -971,13 +971,13 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         r = log_warning_errno(k, "Failed to read EFI variable LoaderDevicePartUUID: %m");
 
                 printf("System:\n");
-                printf("     Firmware: %s (%s)\n", strna(fw_type), strna(fw_info));
+                printf("     Firmware: %s%s (%s)%s\n", ansi_highlight(), strna(fw_type), strna(fw_info), ansi_normal());
                 printf("  Secure Boot: %sd\n", enable_disable(is_efi_secure_boot()));
                 printf("   Setup Mode: %s\n", is_efi_secure_boot_setup_mode() ? "setup" : "user");
                 printf("\n");
 
                 printf("Current Boot Loader:\n");
-                printf("      Product: %s\n", strna(loader));
+                printf("      Product: %s%s%s\n", ansi_highlight(), strna(loader), ansi_normal());
                 if (stub)
                         printf("         Stub: %s\n", stub);
                 if (!sd_id128_is_null(loader_part_uuid))
