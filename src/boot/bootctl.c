@@ -167,7 +167,7 @@ static int enumerate_binaries(const char *esp_path, const char *path, const char
 static int status_binaries(const char *esp_path, sd_id128_t partition) {
         int r;
 
-        printf("Boot Loader Binaries:\n");
+        printf("Available Boot Loaders on ESP:\n");
 
         if (!esp_path) {
                 printf("          ESP: Cannot find or access mount point of ESP.\n\n");
@@ -242,7 +242,7 @@ static int status_variables(void) {
                 return log_error_errno(n_order, "Failed to read EFI boot order.");
 
         /* print entries in BootOrder first */
-        printf("Boot Loader Entries in EFI Variables:\n");
+        printf("Boot Loaders Listed in EFI Variables:\n");
         for (i = 0; i < n_order; i++)
                 print_efi_option(order[i], true);
 
@@ -276,7 +276,7 @@ static int status_entries(const char *esp_path, sd_id128_t partition) {
         else {
                 const BootEntry *e = &config.entries[config.default_entry];
 
-                printf("Default Boot Entry:\n");
+                printf("Default Boot Loader Entry:\n");
 
                 printf("        title: %s\n", boot_entry_title(e));
                 if (e->version)
@@ -958,7 +958,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                 printf("   Setup Mode: %s\n", is_efi_secure_boot_setup_mode() ? "setup" : "user");
                 printf("\n");
 
-                printf("Current Loader:\n");
+                printf("Current Boot Loader:\n");
                 printf("      Product: %s\n", strna(loader));
                 if (stub)
                         printf("         Stub: %s\n", stub);
@@ -1013,7 +1013,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        printf("Available boot entries:\n");
+        printf("Boot Loader Entries:\n");
 
         for (n = 0; n < config.n_entries; n++) {
                 const BootEntry *e = &config.entries[n];
