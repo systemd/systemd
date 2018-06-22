@@ -33,7 +33,6 @@ option('halt-local', type : 'string',
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
-option('kill-path', type : 'string', description : 'path to kill')
 option('kmod-path', type : 'string', description : 'path to kmod')
 option('kexec-path', type : 'string', description : 'path to kexec')
 option('sulogin-path', type : 'string', description : 'path to sulogin')
