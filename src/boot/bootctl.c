@@ -224,9 +224,8 @@ static int print_efi_option(uint16_t id, bool in_order) {
 }
 
 static int status_variables(void) {
-        int n_options, n_order;
         _cleanup_free_ uint16_t *options = NULL, *order = NULL;
-        int i;
+        int n_options, n_order, i;
 
         n_options = efi_get_boot_options(&options);
         if (n_options == -ENOENT)
@@ -806,9 +805,9 @@ static int install_loader_config(const char *esp_path) {
                 return log_oom();
         }
 
-        fprintf(f, "#timeout 3\n");
-        fprintf(f, "#console-mode keep\n");
-        fprintf(f, "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
+        fprintf(f, "#timeout 3\n"
+                   "#console-mode keep\n"
+                   "default %s-*\n", sd_id128_to_string(machine_id, machine_string));
 
         r = fflush_sync_and_check(f);
         if (r < 0)
@@ -867,7 +866,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "path",         required_argument, NULL, ARG_PATH         },
                 { "print-path",   no_argument,       NULL, 'p'              },
                 { "no-variables", no_argument,       NULL, ARG_NO_VARIABLES },
-                { NULL,           0,                 NULL, 0                }
+                {}
         };
 
         int c, r;
