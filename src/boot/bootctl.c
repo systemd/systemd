@@ -181,13 +181,13 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
 
         r = enumerate_binaries(esp_path, "EFI/systemd", NULL);
         if (r == 0)
-                log_error("systemd-boot not installed in ESP.");
+                log_info("systemd-boot not installed in ESP.");
         else if (r < 0)
                 return r;
 
         r = enumerate_binaries(esp_path, "EFI/BOOT", "boot");
         if (r == 0)
-                log_error("No default/fallback boot loader installed in ESP.");
+                log_info("No default/fallback boot loader installed in ESP.");
         else if (r < 0)
                 return r;
 
