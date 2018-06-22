@@ -1234,6 +1234,8 @@ static void manager_clear_jobs_and_units(Manager *m) {
 
         m->n_on_console = 0;
         m->n_running_jobs = 0;
+        m->n_installed_jobs = 0;
+        m->n_failed_jobs = 0;
 }
 
 Manager* manager_free(Manager *m) {
