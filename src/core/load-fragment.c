@@ -3905,12 +3905,8 @@ int config_parse_temporary_filesystems(
                         continue;
 
                 r = temporary_filesystem_add(&c->temporary_filesystems, &c->n_temporary_filesystems, resolved, w);
-                if (r == -ENOMEM)
+                if (r < 0)
                         return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse mount options, ignoring: %s", word);
-                        continue;
-                }
         }
 }
 
