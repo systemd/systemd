@@ -195,7 +195,11 @@
         subsequently something else causes the file system to fill up,
         journald will stop using more space, but it will not be
         removing existing files to reduce the footprint again,
-        either.</para>
+        either. Also note that only archived files are deleted to reduce the
+        space occupied by journal files. This means that, in effect, there might
+        still be more space used than <varname>SystemMaxUse=</varname> or
+        <varname>RuntimeMaxUse=</varname> limit after a vacuuming operation is
+        complete.</para>
 
         <para><varname>SystemMaxFileSize=</varname> and
         <varname>RuntimeMaxFileSize=</varname> control how large
