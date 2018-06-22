@@ -45,8 +45,6 @@
     <para>The following options are understood:</para>
 
     <variablelist>
-      <xi:include href="standard-options.xml" xpointer="help" />
-      <xi:include href="standard-options.xml" xpointer="version" />
       <varlistentry>
         <term><option>--path=</option></term>
         <listitem><para>Path to the EFI System Partition (ESP). If not specified, <filename>/efi</filename>,
@@ -66,6 +64,10 @@
         <term><option>--no-variables</option></term>
         <listitem><para>Do not touch the EFI boot variables.</para></listitem>
       </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager"/>
+      <xi:include href="standard-options.xml" xpointer="help"/>
+      <xi:include href="standard-options.xml" xpointer="version"/>
     </variablelist>
   </refsect1>
 
