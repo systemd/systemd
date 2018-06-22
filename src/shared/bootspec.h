@@ -2,7 +2,11 @@
 
 #pragma once
 
-#include <stdlib.h>
+#include <inttypes.h>
+#include <stdbool.h>
+#include <sys/types.h>
+
+#include "sd-id128.h"
 
 typedef struct BootEntry {
         char *filename;
