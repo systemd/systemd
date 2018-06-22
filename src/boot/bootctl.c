@@ -29,6 +29,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "locale-util.h"
+#include "pager.h"
 #include "parse-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
@@ -43,6 +44,7 @@
 static char *arg_path = NULL;
 static bool arg_print_path = false;
 static bool arg_touch_variables = true;
+static bool arg_no_pager = false;
 
 static int acquire_esp(
                 bool unprivileged_mode,
@@ -855,6 +857,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --path=PATH     Path to the EFI System Partition (ESP)\n"
                "  -p --print-path    Print path to the EFI partition\n"
                "     --no-variables  Don't touch EFI variables\n"
+               "     --no-pager      Do not pipe output into a pager\n"
                "\nCommands:\n"
                "     status          Show status of installed systemd-boot and EFI variables\n"
                "     list            List boot entries\n"
@@ -874,6 +877,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PATH = 0x100,
                 ARG_VERSION,
                 ARG_NO_VARIABLES,
+                ARG_NO_PAGER,
         };
 
         static const struct option options[] = {
@@ -882,6 +886,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "path",         required_argument, NULL, ARG_PATH         },
                 { "print-path",   no_argument,       NULL, 'p'              },
                 { "no-variables", no_argument,       NULL, ARG_NO_VARIABLES },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
                 {}
         };
 
@@ -912,6 +917,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_VARIABLES:
                         arg_touch_variables = false;
+                        break;
+
+                case ARG_NO_PAGER:
+                        arg_no_pager = true;
                         break;
 
                 case '?':
@@ -952,6 +961,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
         r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just show what we
                 * can show */
+
+        (void) pager_open(arg_no_pager, false);
 
         if (is_efi_boot()) {
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL;
@@ -1034,6 +1045,8 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 log_info("No boot loader entries found.");
         else {
                 size_t n;
+
+                (void) pager_open(arg_no_pager, false);
 
                 printf("Boot Loader Entries:\n");
 
@@ -1157,6 +1170,8 @@ int main(int argc, char *argv[]) {
         r = bootctl_main(argc, argv);
 
  finish:
+        pager_close();
         free(arg_path);
+
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
