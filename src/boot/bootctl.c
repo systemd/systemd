@@ -1066,6 +1066,22 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int sync_esp(void) {
+        _cleanup_close_ int fd = -1;
+
+        if (!arg_path)
+                return 0;
+
+        fd = open(arg_path, O_CLOEXEC|O_DIRECTORY|O_RDONLY);
+        if (fd < 0)
+                return log_error_errno(errno, "Couldn't open ESP '%s' for synchronization: %m", arg_path);
+
+        if (syncfs(fd) < 0)
+                return log_error_errno(errno, "Failed to synchronize the ESP '%s': %m", arg_path);
+
+        return 1;
+}
+
 static int verb_install(int argc, char *argv[], void *userdata) {
 
         sd_id128_t uuid = SD_ID128_NULL;
@@ -1092,6 +1108,8 @@ static int verb_install(int argc, char *argv[], void *userdata) {
                 }
         }
 
+        (void) sync_esp();
+
         if (arg_touch_variables)
                 r = install_variables(arg_path,
                                       part, pstart, psize, uuid,
@@ -1110,6 +1128,8 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
                 return r;
 
         r = remove_binaries(arg_path);
+
+        (void) sync_esp();
 
         if (arg_touch_variables) {
                 int q;
