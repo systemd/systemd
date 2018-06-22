@@ -263,6 +263,51 @@ static int status_variables(void) {
         return 0;
 }
 
+static int boot_entry_show(const BootEntry *e, bool show_as_default) {
+        assert(e);
+
+        printf("        title: %s%s%s%s%s%s\n",
+               ansi_highlight(),
+               boot_entry_title(e),
+               ansi_normal(),
+               ansi_highlight_green(),
+               show_as_default ? " (default)" : "",
+               ansi_normal());
+
+        if (e->id)
+                printf("           id: %s\n", e->id);
+        if (e->version)
+                printf("      version: %s\n", e->version);
+        if (e->machine_id)
+                printf("   machine-id: %s\n", e->machine_id);
+        if (e->architecture)
+                printf(" architecture: %s\n", e->architecture);
+        if (e->kernel)
+                printf("        linux: %s\n", e->kernel);
+        if (!strv_isempty(e->initrd)) {
+                _cleanup_free_ char *t;
+
+                t = strv_join(e->initrd, " ");
+                if (!t)
+                        return log_oom();
+
+                printf("       initrd: %s\n", t);
+        }
+        if (!strv_isempty(e->options)) {
+                _cleanup_free_ char *t;
+
+                t = strv_join(e->options, " ");
+                if (!t)
+                        return log_oom();
+
+                printf("      options: %s\n", t);
+        }
+        if (e->device_tree)
+                printf("   devicetree: %s\n", e->device_tree);
+
+        return 0;
+}
+
 static int status_entries(const char *esp_path, sd_id128_t partition) {
         _cleanup_(boot_config_free) BootConfig config = {};
         int r;
@@ -274,36 +319,9 @@ static int status_entries(const char *esp_path, sd_id128_t partition) {
         if (config.default_entry < 0)
                 printf("%zu entries, no entry could be determined as default.\n", config.n_entries);
         else {
-                const BootEntry *e = &config.entries[config.default_entry];
-
                 printf("Default Boot Loader Entry:\n");
 
-                printf("        title: %s\n", boot_entry_title(e));
-                if (e->version)
-                        printf("      version: %s\n", e->version);
-                if (e->kernel)
-                        printf("        linux: %s\n", e->kernel);
-                if (!strv_isempty(e->initrd)) {
-                        _cleanup_free_ char *t;
-
-                        t = strv_join(e->initrd, " ");
-                        if (!t)
-                                return log_oom();
-
-                        printf("       initrd: %s\n", t);
-                }
-                if (!strv_isempty(e->options)) {
-                        _cleanup_free_ char *t;
-
-                        t = strv_join(e->options, " ");
-                        if (!t)
-                                return log_oom();
-
-                        printf("      options: %s\n", t);
-                }
-                if (e->device_tree)
-                        printf("   devicetree: %s\n", e->device_tree);
-                puts("");
+                boot_entry_show(config.entries + config.default_entry, false);
         }
 
         return 0;
@@ -996,7 +1014,6 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 static int verb_list(int argc, char *argv[], void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = {};
         sd_id128_t uuid = SD_ID128_NULL;
-        unsigned n;
         int r;
 
         /* If we lack privileges we invoke find_esp_and_warn() in "unprivileged mode" here, which does two things: turn
@@ -1013,50 +1030,20 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        printf("Boot Loader Entries:\n");
+        if (config.n_entries == 0)
+                log_info("No boot loader entries found.");
+        else {
+                size_t n;
 
-        for (n = 0; n < config.n_entries; n++) {
-                const BootEntry *e = &config.entries[n];
+                printf("Boot Loader Entries:\n");
 
-                printf("        title: %s%s%s%s%s%s\n",
-                       ansi_highlight(),
-                       boot_entry_title(e),
-                       ansi_normal(),
-                       ansi_highlight_green(),
-                       n == (unsigned) config.default_entry ? " (default)" : "",
-                       ansi_normal());
-                if (e->id)
-                        printf("           id: %s\n", e->id);
-                if (e->version)
-                        printf("      version: %s\n", e->version);
-                if (e->machine_id)
-                        printf("   machine-id: %s\n", e->machine_id);
-                if (e->architecture)
-                        printf(" architecture: %s\n", e->architecture);
-                if (e->kernel)
-                        printf("        linux: %s\n", e->kernel);
-                if (!strv_isempty(e->initrd)) {
-                        _cleanup_free_ char *t;
+                for (n = 0; n < config.n_entries; n++) {
+                        r = boot_entry_show(config.entries + n, n == (size_t) config.default_entry);
+                        if (r < 0)
+                                return r;
 
-                        t = strv_join(e->initrd, " ");
-                        if (!t)
-                                return log_oom();
-
-                        printf("       initrd: %s\n", t);
+                        puts("");
                 }
-                if (!strv_isempty(e->options)) {
-                        _cleanup_free_ char *t;
-
-                        t = strv_join(e->options, " ");
-                        if (!t)
-                                return log_oom();
-
-                        printf("      options: %s\n", t);
-                }
-                if (e->device_tree)
-                        printf("   devicetree: %s\n", e->device_tree);
-
-                puts("");
         }
 
         return 0;
