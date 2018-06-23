@@ -79,7 +79,7 @@ struct Manager {
         /* last change */
         bool jumped;
         bool sync;
-        long drift_freq;
+        int64_t drift_freq;
 
         /* watch for time changes */
         sd_event_source *event_clock_watch;
