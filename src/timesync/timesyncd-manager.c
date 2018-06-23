@@ -793,7 +793,7 @@ int manager_connect(Manager *m) {
 
         m->event_retry = sd_event_source_unref(m->event_retry);
         if (!ratelimit_below(&m->ratelimit)) {
-                log_debug("Slowing down attempts to contact servers.");
+                log_debug("Delaying attempts to contact servers.");
 
                 r = sd_event_add_time(m->event, &m->event_retry, clock_boottime_or_monotonic(), now(clock_boottime_or_monotonic()) + RETRY_USEC, 0, manager_retry_connect, m);
                 if (r < 0)
