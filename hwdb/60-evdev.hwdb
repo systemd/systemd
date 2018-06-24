@@ -476,6 +476,15 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnTOSHIBA:pnSATELLITER830*
  EVDEV_ABS_36=1045:4826:76
 
 #########################################
+# UGTablet
+#########################################
+
+# Trust Flex Graphics Tablet
+evdev:input:b0003v2179p0004*
+ EVDEV_ABS_00=::234
+ EVDEV_ABS_01=::328
+
+#########################################
 # Waltop
 #########################################
 
