@@ -266,12 +266,13 @@
         <varlistentry>
           <term><varname>MTUBytes=</varname></term>
           <listitem>
-            <para>The maximum transmission unit in bytes to set for
-            the device. The usual suffixes K, M, G, are supported and
-            are understood to the base of 1024. This key is not
-            currently supported for <literal>tun</literal> or
-            <literal>tap</literal> devices.
-            </para>
+            <para>The maximum transmission unit in bytes to set for the device. The usual suffixes K, M, G,
+            are supported and are understood to the base of 1024. For <literal>tun</literal> or
+            <literal>tap</literal> devices, <varname>MTUBytes=</varname> setting is not currently supported in
+            <literal>[NetDev]</literal> section. Please specify it in <literal>[Link]</literal> section of
+            corresponding
+            <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            files.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -281,9 +282,11 @@
             given, one is generated based on the interface name and
             the
             <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-            This key is not currently supported for
-            <literal>tun</literal> or <literal>tap</literal> devices.
-            </para>
+            For <literal>tun</literal> or <literal>tap</literal> devices, <varname>MACAddress=</varname> setting
+            is not currently supported in <literal>[NetDev]</literal> section. Please specify it in
+            <literal>[Link]</literal> section of corresponding
+            <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            files.</para>
           </listitem>
         </varlistentry>
       </variablelist>
@@ -1342,7 +1345,7 @@
   </refsect1>
 
   <refsect1>
-    <title>Example</title>
+    <title>Examples</title>
     <example>
       <title>/etc/systemd/network/25-bridge.netdev</title>
 
