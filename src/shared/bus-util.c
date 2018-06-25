@@ -937,7 +937,7 @@ int bus_message_print_all_properties(
                                 return log_oom();
 
                         r = set_put(*found_properties, name);
-                        if (r < 0 && r != EEXIST)
+                        if (r < 0 && r != -EEXIST)
                                 return log_oom();
                 }
 
