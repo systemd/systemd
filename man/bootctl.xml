@@ -85,14 +85,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>list</option></term>
-
-        <listitem><para>Shows all available boot loader entries implementing the <ulink
-        url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot Loader
-        Specification</ulink>.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><option>install</option></term>
 
         <listitem><para>Installs systemd-boot into the EFI system partition. A copy of <command>systemd-boot</command>
@@ -116,6 +108,23 @@
 
         <listitem><para>Removes all installed versions of <command>systemd-boot</command> from the EFI system partition
         and the firmware's boot loader list.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>list</option></term>
+
+        <listitem><para>Shows all available boot loader entries implementing the <ulink
+        url="https://github.com/systemd/systemd/blob/master/docs/BOOT_LOADER_SPECIFICATION.md">Boot Loader
+        Specification</ulink></para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>set-default</option> <replaceable>ID</replaceable></term>
+        <term><option>set-oneshot</option> <replaceable>ID</replaceable></term>
+
+        <listitem><para>Sets the default boot loader entry. Takes a single boot loader entry ID string as argument. The
+        <option>set-oneshot</option> command will set the default entry only for the next boot, the
+        <option>set-default</option> will set it persistently for all future boots.</para></listitem>
       </varlistentry>
 
     </variablelist>

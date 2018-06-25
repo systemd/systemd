@@ -37,6 +37,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "umask-util.h"
+#include "utf8.h"
 #include "util.h"
 #include "verbs.h"
 #include "virt.h"
@@ -858,16 +859,18 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -p --print-path    Print path to the EFI partition\n"
                "     --no-variables  Don't touch EFI variables\n"
                "     --no-pager      Do not pipe output into a pager\n"
-               "\nCommands:\n"
+               "\nBoot Loader Commands:\n"
                "     status          Show status of installed systemd-boot and EFI variables\n"
-               "     list            List boot entries\n"
                "     install         Install systemd-boot to the ESP and EFI variables\n"
                "     update          Update systemd-boot in the ESP and EFI variables\n"
                "     remove          Remove systemd-boot from the ESP and EFI variables\n"
+               "\nBoot Loader Entries Commands:\n"
+               "     list            List boot loader entries\n"
+               "     set-default ID  Set default boot loader entry\n"
+               "     set-oneshot ID  Set default boot loader entry, for next boot only\n"
                "\nSee the %s for details.\n"
                , program_invocation_short_name
-               , link
-        );
+               , link);
 
         return 0;
 }
@@ -1138,15 +1141,66 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int verb_set_default(int argc, char *argv[], void *userdata) {
+        const char *name;
+        int r;
+
+        if (!is_efi_boot()) {
+                log_error("Not booted with UEFI.");
+                return -EOPNOTSUPP;
+        }
+
+        if (access("/sys/firmware/efi/efivars/LoaderInfo-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f", F_OK) < 0) {
+                if (errno == ENOENT) {
+                        log_error_errno(errno, "Not booted with a supported boot loader.");
+                        return -EOPNOTSUPP;
+                }
+
+                return log_error_errno(errno, "Failed to detect whether boot loader supports '%s' operation: %m", argv[0]);
+        }
+
+        if (detect_container() > 0) {
+                log_error("'%s' operation not supported in a container.", argv[0]);
+                return -EOPNOTSUPP;
+        }
+
+        if (!arg_touch_variables) {
+                log_error("'%s' operation cannot be combined with --touch-variables=no.", argv[0]);
+                return -EINVAL;
+        }
+
+        name = streq(argv[0], "set-default") ? "LoaderEntryDefault" : "LoaderEntryOneShot";
+
+        if (isempty(argv[1])) {
+                r = efi_set_variable(EFI_VENDOR_LOADER, name, NULL, 0);
+                if (r < 0 && r != -ENOENT)
+                        return log_error_errno(r, "Failed to remove EFI variale: %m");
+        } else {
+                _cleanup_free_ char16_t *encoded = NULL;
+
+                encoded = utf8_to_utf16(argv[1], strlen(argv[1]));
+                if (!encoded)
+                        return log_oom();
+
+                r = efi_set_variable(EFI_VENDOR_LOADER, name, encoded, char16_strlen(encoded) * 2 + 2);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update EFI variable: %m");
+        }
+
+        return 0;
+}
+
 static int bootctl_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "help",            VERB_ANY, VERB_ANY, 0,                 help         },
-                { "status",          VERB_ANY, 1,        VERB_DEFAULT,      verb_status  },
-                { "list",            VERB_ANY, 1,        0,                 verb_list    },
-                { "install",         VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install },
-                { "update",          VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install },
-                { "remove",          VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_remove  },
+                { "help",        VERB_ANY, VERB_ANY, 0,                 help             },
+                { "status",      VERB_ANY, 1,        VERB_DEFAULT,      verb_status      },
+                { "install",     VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install     },
+                { "update",      VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_install     },
+                { "remove",      VERB_ANY, 1,        VERB_MUST_BE_ROOT, verb_remove      },
+                { "list",        VERB_ANY, 1,        0,                 verb_list        },
+                { "set-default", 2,        2,        VERB_MUST_BE_ROOT, verb_set_default },
+                { "set-oneshot", 2,        2,        VERB_MUST_BE_ROOT, verb_set_default },
                 {}
         };
 
