@@ -47,4 +47,14 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.hostname1.get-product-uuid">
+                <description gettext-domain="systemd">Get product UUID</description>
+                <message gettext-domain="systemd">Authentication is required to get product UUID.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
 </policyconfig>

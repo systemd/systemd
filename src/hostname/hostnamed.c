@@ -6,11 +6,13 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bus-common-errors.h"
 #include "bus-util.h"
 #include "def.h"
 #include "env-util.h"
 #include "fileio-label.h"
 #include "hostname-util.h"
+#include "id128-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -43,6 +45,8 @@ enum {
 typedef struct Context {
         char *data[_PROP_MAX];
         Hashmap *polkit_registry;
+        sd_id128_t uuid;
+        bool has_uuid;
 } Context;
 
 static void context_reset(Context *c) {
@@ -102,6 +106,11 @@ static int context_read_data(Context *c) {
                              NULL);
         if (r < 0 && r != -ENOENT)
                 return r;
+
+        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_UUID, &c->uuid);
+        if (r < 0)
+                log_info_errno(r, "Failed to read product UUID, ignoring: %m");
+        c->has_uuid = (r >= 0);
 
         return 0;
 }
@@ -598,6 +607,46 @@ static int method_set_location(sd_bus_message *m, void *userdata, sd_bus_error *
         return set_machine_info(userdata, m, PROP_LOCATION, method_set_location, error);
 }
 
+static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Context *c = userdata;
+        int interactive, r;
+
+        assert(m);
+        assert(c);
+
+        if (!c->has_uuid)
+                return sd_bus_error_set(error, BUS_ERROR_NO_PRODUCT_UUID, "Failed to read product UUID from /sys/class/dmi/id/product_uuid");
+
+        r = sd_bus_message_read(m, "b", &interactive);
+        if (r < 0)
+                return r;
+
+        r = bus_verify_polkit_async(
+                        m,
+                        CAP_SYS_ADMIN,
+                        "org.freedesktop.hostname1.get-product-uuid",
+                        NULL,
+                        interactive,
+                        UID_INVALID,
+                        &c->polkit_registry,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = sd_bus_message_new_method_return(m, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append_array(reply, 'y', &c->uuid, sizeof(c->uuid));
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Hostname", "s", NULL, offsetof(Context, data) + sizeof(char*) * PROP_HOSTNAME, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
@@ -620,6 +669,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_METHOD("SetChassis", "sb", NULL, method_set_chassis, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetDeployment", "sb", NULL, method_set_deployment, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD("SetLocation", "sb", NULL, method_set_location, SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD("GetProductUUID", "b", "ay", method_get_product_uuid, SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END,
 };
 
