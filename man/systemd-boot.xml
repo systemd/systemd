@@ -238,6 +238,106 @@
   </refsect1>
 
   <refsect1>
+    <title>EFI Variables</title>
+
+    <para>The following EFI variables are defined, set and read by <command>systemd-boot</command>, under the vendor
+    UUID <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4</literal>, for communication between the OS and the boot
+    loader:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>LoaderBootCountPath</varname></term>
+        <listitem><para>If boot counting is enabled, contains the path to the file in whose name the boot counters are
+        encoded. Set by the boot
+        loader. <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses this information to mark a boot as successful as determined by the successful activation of the
+        <filename>boot-complete.target</filename> target unit.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderConfigTimeout</varname></term>
+        <listitem><para>The menu time-out. Read by the boot loader. (Also, modified by it when the
+        <keycap>t</keycap>/<keycap>T</keycap> keys are used, see above.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderDevicePartUUID</varname></term>
+
+        <listitem><para>Contains the partition UUID of the EFI System Partition the boot loader was run from. Set by
+        the boot
+        loader. <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        uses this information to automatically find the disk booted from, in order to discover various other partitions
+        on the same disk automatically.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntries</varname></term>
+
+        <listitem><para>A list of the identifiers of all discovered boot loader entries. Set by the boot
+        loader.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntryDefault</varname></term>
+        <term><varname>LoaderEntryOneShot</varname></term>
+
+        <listitem><para>The identifier of the default boot loader entry. Set primarily by the OS and read by the boot
+        loader. <varname>LoaderEntryOneShot</varname> sets the default entry for the next boot only, while
+        <varname>LoaderEntryDefault</varname> sets it persistently for all future
+        boots. <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <option>set-default</option> and <option>set-oneshot</option> commands make use of these variables. The boot
+        loader modifies <varname>LoaderEntryDefault</varname> on request, when the <keycap>d</keycap> key is used, see
+        above.)</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderEntrySelected</varname></term>
+
+        <listitem><para>The identifier of the boot loader entry currently being booted. Set by the boot
+        loader.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderFirmwareInfo</varname></term>
+        <term><varname>LoaderFirmwareType</varname></term>
+
+        <listitem><para>Brief firmware information. Set by the boot loader. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderImageIdentifier</varname></term>
+
+        <listitem><para>The path of executable of the boot loader used for the current boot, relative to the EFI System
+        Partition's root directory. Set by the boot loader. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderInfo</varname></term>
+
+        <listitem><para>Brief information about the boot loader. Set by the boot loader. Use
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> to view this
+        data.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderTimeExecUSec</varname></term>
+        <term><varname>LoaderTimeInitUSec</varname></term>
+        <term><varname>LoaderTimeMenuUsec</varname></term>
+
+        <listitem><para>Information about the time spent in various parts of the boot loader. Set by the boot
+        loader. Use <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        to view this data. These variables are defined by the <ulink
+        url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader
+        Interface</ulink>.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
