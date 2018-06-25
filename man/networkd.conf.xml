@@ -67,7 +67,7 @@
         <para>The following values are understood:
         <variablelist>
           <varlistentry>
-            <term><option>vendor</option> </term>
+            <term><option>vendor</option></term>
             <listitem><para>If <literal>DUIDType=vendor</literal>, then the DUID value will be generated using
             <literal>43793</literal> as the vendor identifier (systemd) and hashed contents of
             <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
@@ -76,9 +76,19 @@
           </varlistentry>
 
           <varlistentry>
-            <term><option>link-layer-time</option> </term>
-            <term><option>link-layer</option> </term>
-            <term><option>uuid</option> </term>
+            <term><option>uuid</option></term>
+            <listitem><para>If <literal>DUIDType=uuid</literal>, and <varname>DUIDRawData=</varname> is not set,
+            then the product UUID is used as a DUID value. If a system does not have valid product UUID, then
+            an application-specific
+            <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+            is used as a DUID value. About the application-specific machine ID, see
+            <citerefentry><refentrytitle>sd_id128_get_machine_app_specific</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+            </para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>link-layer-time</option></term>
+            <term><option>link-layer</option></term>
             <listitem><para>Those values are parsed and can be used to set the DUID type
             field, but DUID contents must be provided using <varname>DUIDRawData=</varname>.
             </para></listitem>
@@ -96,8 +106,9 @@
         byte separated by <literal>:</literal>. The DUID that is sent is composed of the DUID type specified by
         <varname>DUIDType=</varname> and the value configured here.</para>
 
-        <para>The DUID value specified here overrides the DUID that systemd-networkd generates using the machine-id
-        from the <filename>/etc/machine-id</filename> file. To configure DUID per-network, see
+        <para>The DUID value specified here overrides the DUID that
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        generates from the machine ID. To configure DUID per-network, see
         <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         The configured DHCP DUID should conform to the specification in
         <ulink url="http://tools.ietf.org/html/rfc3315#section-9">RFC 3315</ulink>,
@@ -125,7 +136,9 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
       <para>
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_id128_get_machine_app_specific</refentrytitle><manvolnum>3</manvolnum></citerefentry>
       </para>
   </refsect1>
 
