@@ -372,7 +372,7 @@ JournalFile* journal_file_close(JournalFile *f) {
                  * reenable all the good bits COW usually provides
                  * (such as data checksumming). */
 
-                (void) chattr_fd(f->fd, 0, FS_NOCOW_FL);
+                (void) chattr_fd(f->fd, 0, FS_NOCOW_FL, NULL);
                 (void) btrfs_defrag_fd(f->fd);
         }
 
@@ -3563,7 +3563,7 @@ int journal_file_open_reliably(
         /* btrfs doesn't cope well with our write pattern and
          * fragments heavily. Let's defrag all files we rotate */
 
-        (void) chattr_path(p, 0, FS_NOCOW_FL);
+        (void) chattr_path(p, 0, FS_NOCOW_FL, NULL);
         (void) btrfs_defrag(p);
 
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);

@@ -1715,7 +1715,7 @@ int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlag
                                  * it: the IMMUTABLE bit. Let's use this here, if this is requested. */
 
                                 if (flags & BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE)
-                                        (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL);
+                                        (void) chattr_path(new_path, FS_IMMUTABLE_FL, FS_IMMUTABLE_FL, NULL);
                         } else {
                                 r = btrfs_subvol_set_read_only(new_path, true);
                                 if (r < 0)

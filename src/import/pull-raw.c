@@ -237,7 +237,7 @@ static int raw_pull_maybe_convert_qcow2(RawPull *i) {
         if (converted_fd < 0)
                 return log_error_errno(errno, "Failed to create %s: %m", t);
 
-        r = chattr_fd(converted_fd, FS_NOCOW_FL, FS_NOCOW_FL);
+        r = chattr_fd(converted_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
         if (r < 0)
                 log_warning_errno(r, "Failed to set file attributes on %s: %m", t);
 
@@ -353,7 +353,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
          * performance on COW file systems like btrfs, since it
          * reduces fragmentation caused by not allowing in-place
          * writes. */
-        r = chattr_fd(dfd, FS_NOCOW_FL, FS_NOCOW_FL);
+        r = chattr_fd(dfd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
         if (r < 0)
                 log_warning_errno(r, "Failed to set file attributes on %s: %m", tp);
 
@@ -595,7 +595,7 @@ static int raw_pull_job_on_open_disk_raw(PullJob *j) {
         if (r < 0)
                 return r;
 
-        r = chattr_fd(j->disk_fd, FS_NOCOW_FL, FS_NOCOW_FL);
+        r = chattr_fd(j->disk_fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
         if (r < 0)
                 log_warning_errno(r, "Failed to set file attributes on %s, ignoring: %m", i->temp_path);
 
