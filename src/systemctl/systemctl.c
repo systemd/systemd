@@ -6591,6 +6591,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
 }
 
 static int is_system_running(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *state = NULL;
         sd_bus *bus;
         int r;
@@ -6611,9 +6612,11 @@ static int is_system_running(int argc, char *argv[], void *userdata) {
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "SystemState",
-                        NULL,
+                        &error,
                         &state);
         if (r < 0) {
+                log_debug_errno(r, "Failed to query system state: %s", bus_error_message(&error, r));
+
                 if (!arg_quiet)
                         puts("unknown");
                 return 0;
