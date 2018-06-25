@@ -799,7 +799,7 @@ void dns_answer_dump(DnsAnswer *answer, FILE *f) {
         }
 }
 
-bool dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
+int dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
         DnsResourceRecord *rr;
         int r;
 
@@ -830,7 +830,6 @@ bool dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname) {
                         return r;
                 if (r > 0)
                         return 1;
-
         }
 
         return 0;
