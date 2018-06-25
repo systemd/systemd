@@ -1144,9 +1144,8 @@ static int client_receive_message(
                 return 0;
         }
 
-        if (r >= 0)
-                log_dhcp6_client(client, "Recv %s",
-                                 dhcp6_message_type_to_string(message->type));
+        log_dhcp6_client(client, "Recv %s",
+                         dhcp6_message_type_to_string(message->type));
 
         return 0;
 }
