@@ -1148,7 +1148,7 @@ substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
 
 dns_over_tls = get_option('dns-over-tls')
 if dns_over_tls != 'false'
-        have = conf.get('HAVE_GNUTLS') == 1
+        have = libgnutls != [] and libgnutls.version().version_compare('>=3.5.3')
         if dns_over_tls == 'true' and not have
                 error('DNS-over-TLS support was requested, but dependencies are not available')
         endif
