@@ -17,9 +17,9 @@ d /run/systemd/users 0755 root root -
 d /run/systemd/machines 0755 root root -
 d /run/systemd/shutdown 0755 root root -
 m4_ifdef(`ENABLE_NETWORKD',
-d /run/systemd/netif - - - -
-d /run/systemd/netif/links - - - -
-d /run/systemd/netif/leases - - - -
+d /run/systemd/netif 0755 - - -
+d /run/systemd/netif/links 0755 - - -
+d /run/systemd/netif/leases 0755 - - -
 )m4_dnl
 
 d /run/log 0755 root root -
