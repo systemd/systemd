@@ -632,9 +632,9 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
 
                 /* Sync system clock from RTC; first, initialize the timezone fields of struct tm. */
                 if (c->local_rtc)
-                        tm = *localtime(&ts.tv_sec);
+                        localtime_r(&ts.tv_sec, &tm);
                 else
-                        tm = *gmtime(&ts.tv_sec);
+                        gmtime_r(&ts.tv_sec, &tm);
 
                 /* Override the main fields of struct tm, but not the timezone fields */
                 r = clock_get_hwclock(&tm);
@@ -652,15 +652,15 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                 }
 
         } else {
-                struct tm *tm;
+                struct tm tm;
 
                 /* Sync RTC from system clock */
                 if (c->local_rtc)
-                        tm = localtime(&ts.tv_sec);
+                        localtime_r(&ts.tv_sec, &tm);
                 else
-                        tm = gmtime(&ts.tv_sec);
+                        gmtime_r(&ts.tv_sec, &tm);
 
-                r = clock_set_hwclock(tm);
+                r = clock_set_hwclock(&tm);
                 if (r < 0)
                         log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
         }
@@ -679,7 +679,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         int64_t utc;
         struct timespec ts;
         usec_t start;
-        struct tm* tm;
+        struct tm tm;
 
         assert(m);
         assert(c);
@@ -748,11 +748,11 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
         /* Sync down to RTC */
         if (c->local_rtc)
-                tm = localtime(&ts.tv_sec);
+                localtime_r(&ts.tv_sec, &tm);
         else
-                tm = gmtime(&ts.tv_sec);
+                gmtime_r(&ts.tv_sec, &tm);
 
-        r = clock_set_hwclock(tm);
+        r = clock_set_hwclock(&tm);
         if (r < 0)
                 log_debug_errno(r, "Failed to update hardware clock, ignoring: %m");
 
