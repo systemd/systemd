@@ -2260,7 +2260,7 @@ int manager_setup_cgroup(Manager *m) {
                 if (m->pin_cgroupfs_fd < 0)
                         return log_error_errno(errno, "Failed to open pin file: %m");
 
-        } else if (r < 0 && !m->test_run_flags)
+        } else if (!m->test_run_flags)
                 return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
 
         /* 7. Always enable hierarchical support if it exists... */
