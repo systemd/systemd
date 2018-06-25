@@ -48,7 +48,7 @@ else
   else
     WHEN=`echo $AUTH_RES | python -c "import sys, json; print(json.load(sys.stdin)['next_upload_permitted_at'])"`
     echo -e "\033[33;1mCoverity Scan analysis NOT authorized until $WHEN.\033[0m"
-    exit 0
+    exit 1
   fi
 fi
 
