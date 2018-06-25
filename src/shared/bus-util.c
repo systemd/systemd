@@ -500,7 +500,7 @@ int bus_verify_polkit_async(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(pk, "us", !!interactive, NULL);
+        r = sd_bus_message_append(pk, "us", interactive, NULL);
         if (r < 0)
                 return r;
 
