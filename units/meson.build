@@ -136,6 +136,7 @@ in_units = [
         ['systemd-backlight@.service',           'ENABLE_BACKLIGHT'],
         ['systemd-binfmt.service',               'ENABLE_BINFMT',
          'sysinit.target.wants/'],
+        ['systemd-bless-boot.service',           'ENABLE_EFI HAVE_BLKID'],
         ['systemd-coredump@.service',            'ENABLE_COREDUMP'],
         ['systemd-firstboot.service',            'ENABLE_FIRSTBOOT',
          'sysinit.target.wants/'],

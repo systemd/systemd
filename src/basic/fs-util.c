@@ -1235,6 +1235,34 @@ int fsync_directory_of_file(int fd) {
         return 0;
 }
 
+int fsync_path_at(int at_fd, const char *path) {
+        _cleanup_close_ int opened_fd = -1;
+        int fd;
+
+        if (isempty(path)) {
+                if (at_fd == AT_FDCWD) {
+                        opened_fd = open(".", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+                        if (opened_fd < 0)
+                                return -errno;
+
+                        fd = opened_fd;
+                } else
+                        fd = at_fd;
+        } else {
+
+                opened_fd = openat(at_fd, path, O_RDONLY|O_CLOEXEC);
+                if (opened_fd < 0)
+                        return -errno;
+
+                fd = opened_fd;
+        }
+
+        if (fsync(fd) < 0)
+                return -errno;
+
+        return 0;
+}
+
 int open_parent(const char *path, int flags, mode_t mode) {
         _cleanup_free_ char *parent = NULL;
         int fd;
