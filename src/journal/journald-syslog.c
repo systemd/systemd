@@ -117,7 +117,7 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
              header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t) + 1];
         int n = 0;
         time_t t;
-        struct tm *tm;
+        struct tm tm;
         _cleanup_free_ char *ident_buf = NULL;
 
         assert(s);
@@ -134,10 +134,9 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
 
         /* Second: timestamp */
         t = tv ? tv->tv_sec : ((time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC));
-        tm = localtime(&t);
-        if (!tm)
+        if (!localtime_r(&t, &tm))
                 return;
-        if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
+        if (strftime(header_time, sizeof(header_time), "%h %e %T ", &tm) <= 0)
                 return;
         iovec[n++] = IOVEC_MAKE_STRING(header_time);
 
