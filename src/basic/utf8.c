@@ -366,6 +366,79 @@ char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
         return r;
 }
 
+size_t utf16_encode_unichar(char16_t *out, char32_t c) {
+
+        /* Note that this encodes as little-endian. */
+
+        switch (c) {
+
+        case 0 ... 0xd7ffU:
+        case 0xe000U ... 0xffffU:
+                out[0] = htole16(c);
+                return 1;
+
+        case 0x10000U ... 0x10ffffU:
+                c -= 0x10000U;
+                out[0] = htole16((c >> 10) + 0xd800U);
+                out[1] = htole16((c & 0x3ffU) + 0xdc00U);
+                return 2;
+
+        default: /* A surrogate (invalid) */
+                return 0;
+        }
+}
+
+char16_t *utf8_to_utf16(const char *s, size_t length) {
+        char16_t *n, *p;
+        size_t i;
+        int r;
+
+        assert(s);
+
+        n = new(char16_t, length + 1);
+        if (!n)
+                return NULL;
+
+        p = n;
+
+        for (i = 0; i < length;) {
+                char32_t unichar;
+                size_t e;
+
+                e = utf8_encoded_expected_len(s + i);
+                if (e <= 1) /* Invalid and single byte characters are copied as they are */
+                        goto copy;
+
+                if (i + e > length) /* sequence longer than input buffer, then copy as-is */
+                        goto copy;
+
+                r = utf8_encoded_to_unichar(s + i, &unichar);
+                if (r < 0) /* sequence invalid, then copy as-is */
+                        goto copy;
+
+                p += utf16_encode_unichar(p, unichar);
+                i += e;
+                continue;
+
+        copy:
+                *(p++) = htole16(s[i++]);
+        }
+
+        *p = 0;
+        return n;
+}
+
+size_t char16_strlen(const char16_t *s) {
+        size_t n = 0;
+
+        assert(s);
+
+        while (*s != 0)
+                n++, s++;
+
+        return n;
+}
+
 /* expected size used to encode one unicode char */
 static int utf8_unichar_to_encoded_len(char32_t unichar) {
 
