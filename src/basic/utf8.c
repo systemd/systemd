@@ -314,18 +314,25 @@ size_t utf8_encode_unichar(char *out_utf8, char32_t g) {
         return 0;
 }
 
-char *utf16_to_utf8(const void *s, size_t length) {
+char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */) {
         const uint8_t *f;
         char *r, *t;
 
-        r = new(char, (length * 4 + 1) / 2 + 1);
+        assert(s);
+
+        /* Input length is in bytes, i.e. the shortest possible character takes 2 bytes. Each unicode character may
+         * take up to 4 bytes in UTF-8. Let's also account for a trailing NUL byte. */
+        if (length * 2 < length)
+                return NULL; /* overflow */
+
+        r = new(char, length * 2 + 1);
         if (!r)
                 return NULL;
 
-        f = s;
+        f = (const uint8_t*) s;
         t = r;
 
-        while (f < (const uint8_t*) s + length) {
+        while (f + 1 < (const uint8_t*) s + length) {
                 char16_t w1, w2;
 
                 /* see RFC 2781 section 2.2 */
@@ -335,13 +342,13 @@ char *utf16_to_utf8(const void *s, size_t length) {
 
                 if (!utf16_is_surrogate(w1)) {
                         t += utf8_encode_unichar(t, w1);
-
                         continue;
                 }
 
                 if (utf16_is_trailing_surrogate(w1))
-                        continue;
-                else if (f >= (const uint8_t*) s + length)
+                        continue; /* spurious trailing surrogate, ignore */
+
+                if (f + 1 >= (const uint8_t*) s + length)
                         break;
 
                 w2 = f[1] << 8 | f[0];
@@ -349,7 +356,7 @@ char *utf16_to_utf8(const void *s, size_t length) {
 
                 if (!utf16_is_trailing_surrogate(w2)) {
                         f -= 2;
-                        continue;
+                        continue; /* surrogate missing its trailing surrogate, ignore */
                 }
 
                 t += utf8_encode_unichar(t, utf16_surrogate_pair_to_unichar(w1, w2));

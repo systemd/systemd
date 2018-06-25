@@ -25,7 +25,7 @@ char *utf8_escape_invalid(const char *s);
 char *utf8_escape_non_printable(const char *str);
 
 size_t utf8_encode_unichar(char *out_utf8, char32_t g);
-char *utf16_to_utf8(const void *s, size_t length);
+char *utf16_to_utf8(const char16_t *s, size_t length /* bytes! */);
 
 int utf8_encoded_valid_unichar(const char *str);
 int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar);
