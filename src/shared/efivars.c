@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <linux/fs.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "chattr-util.h"
 #include "dirent-util.h"
 #include "efivars.h"
 #include "fd-util.h"
@@ -255,6 +257,9 @@ int efi_set_variable(
         } _packed_ * _cleanup_free_ buf = NULL;
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int fd = -1;
+        bool saved_flags_valid = false;
+        unsigned saved_flags;
+        int r;
 
         assert(name);
         assert(value || size == 0);
@@ -264,24 +269,60 @@ int efi_set_variable(
                      name, SD_ID128_FORMAT_VAL(vendor)) < 0)
                 return -ENOMEM;
 
+        /* Newer efivarfs protects variables that are not in a whitelist with FS_IMMUTABLE_FL by default, to protect
+         * them for accidental removal and modification. We are not changing these variables accidentally however,
+         * hence let's unset the bit first. */
+
+        r = chattr_path(p, 0, FS_IMMUTABLE_FL, &saved_flags);
+        if (r < 0 && r != -ENOENT)
+                log_debug_errno(r, "Failed to drop FS_IMMUTABLE_FL flag from '%s', ignoring: %m", p);
+
+        saved_flags_valid = r >= 0;
+
         if (size == 0) {
-                if (unlink(p) < 0)
-                        return -errno;
+                if (unlink(p) < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
                 return 0;
         }
 
         fd = open(p, O_WRONLY|O_CREAT|O_NOCTTY|O_CLOEXEC, 0644);
-        if (fd < 0)
-                return -errno;
+        if (fd < 0) {
+                r = -errno;
+                goto finish;
+        }
 
         buf = malloc(sizeof(uint32_t) + size);
-        if (!buf)
-                return -ENOMEM;
+        if (!buf) {
+                r = -ENOMEM;
+                goto finish;
+        }
 
         buf->attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
         memcpy(buf->buf, value, size);
 
-        return loop_write(fd, buf, sizeof(uint32_t) + size, false);
+        r = loop_write(fd, buf, sizeof(uint32_t) + size, false);
+        if (r < 0)
+                goto finish;
+
+        r = 0;
+
+finish:
+        if (saved_flags_valid) {
+                int q;
+
+                /* Restore the original flags field, just in case */
+                if (fd < 0)
+                        q = chattr_path(p, saved_flags, FS_IMMUTABLE_FL, NULL);
+                else
+                        q = chattr_fd(fd, saved_flags, FS_IMMUTABLE_FL, NULL);
+                if (q < 0)
+                        log_debug_errno(q, "Failed to restore FS_IMMUTABLE_FL on '%s', ignoring: %m", p);
+        }
+
+        return r;
 }
 
 int efi_get_variable_string(sd_id128_t vendor, const char *name, char **p) {
