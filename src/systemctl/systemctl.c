@@ -3673,13 +3673,20 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
 }
 
 static int check_unit_active(int argc, char *argv[], void *userdata) {
-        const UnitActiveState states[] = { UNIT_ACTIVE, UNIT_RELOADING };
+        static const UnitActiveState states[] = {
+                UNIT_ACTIVE,
+                UNIT_RELOADING,
+        };
+
         /* According to LSB: 3, "program is not running" */
         return check_unit_generic(EXIT_PROGRAM_NOT_RUNNING, states, ELEMENTSOF(states), strv_skip(argv, 1));
 }
 
 static int check_unit_failed(int argc, char *argv[], void *userdata) {
-        const UnitActiveState states[] = { UNIT_FAILED };
+        static const UnitActiveState states[] = {
+                UNIT_FAILED,
+        };
+
         return check_unit_generic(EXIT_PROGRAM_DEAD_AND_PID_EXISTS, states, ELEMENTSOF(states), strv_skip(argv, 1));
 }
 
@@ -6584,6 +6591,7 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
 }
 
 static int is_system_running(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *state = NULL;
         sd_bus *bus;
         int r;
@@ -6604,12 +6612,14 @@ static int is_system_running(int argc, char *argv[], void *userdata) {
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "SystemState",
-                        NULL,
+                        &error,
                         &state);
         if (r < 0) {
+                log_debug_errno(r, "Failed to query system state: %s", bus_error_message(&error, r));
+
                 if (!arg_quiet)
                         puts("unknown");
-                return 0;
+                return EXIT_FAILURE;
         }
 
         if (!arg_quiet)
