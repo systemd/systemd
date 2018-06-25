@@ -112,6 +112,13 @@ systemd-timedated:
   first existing unit listed in the environment variable, and
   `timedatectl set-ntp off` disables and stops all listed units.
 
+bootctl and other tools that access the EFI System Partition (ESP):
+
+* `$SYSTEMD_RELAX_ESP_CHECKS=1` — if set, the ESP validation checks are
+  relaxed. Specifically, validation checks that ensure the specified ESP path
+  is a FAT file system are turned off, as are checks that the path is located
+  on a GPT partition with the correct type UUID.
+
 systemd itself:
 
 * `$SYSTEMD_ACTIVATION_UNIT` — set for all NSS and PAM module invocations that

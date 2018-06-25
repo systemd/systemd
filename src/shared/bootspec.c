@@ -12,6 +12,7 @@
 #include "def.h"
 #include "device-nodes.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "parse-util.h"
@@ -412,28 +413,33 @@ static int verify_esp(
         struct statfs sfs;
         sd_id128_t uuid = SD_ID128_NULL;
         uint32_t part = 0;
+        bool relax_checks;
         int r;
 
         assert(p);
 
+        relax_checks = getenv_bool("SYSTEMD_RELAX_ESP_CHECKS") > 0;
+
         /* Non-root user can only check the status, so if an error occured in the following, it does not cause any
          * issues. Let's also, silence the error messages. */
 
-        if (statfs(p, &sfs) < 0) {
-                /* If we are searching for the mount point, don't generate a log message if we can't find the path */
-                if (errno == ENOENT && searching)
-                        return -ENOENT;
+        if (!relax_checks) {
+                if (statfs(p, &sfs) < 0) {
+                        /* If we are searching for the mount point, don't generate a log message if we can't find the path */
+                        if (errno == ENOENT && searching)
+                                return -ENOENT;
 
-                return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to check file system type of \"%s\": %m", p);
-        }
+                        return log_full_errno(unprivileged_mode && errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                                              "Failed to check file system type of \"%s\": %m", p);
+                }
 
-        if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC)) {
-                if (searching)
-                        return -EADDRNOTAVAIL;
+                if (!F_TYPE_EQUAL(sfs.f_type, MSDOS_SUPER_MAGIC)) {
+                        if (searching)
+                                return -EADDRNOTAVAIL;
 
-                log_error("File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
-                return -ENODEV;
+                        log_error("File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
+                        return -ENODEV;
+                }
         }
 
         if (stat(p, &st) < 0)
@@ -458,7 +464,7 @@ static int verify_esp(
 
         /* In a container we don't have access to block devices, skip this part of the verification, we trust the
          * container manager set everything up correctly on its own. Also skip the following verification for non-root user. */
-        if (detect_container() > 0 || unprivileged_mode)
+        if (detect_container() > 0 || unprivileged_mode || relax_checks)
                 goto finish;
 
 #if HAVE_BLKID

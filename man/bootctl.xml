@@ -127,6 +127,13 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+    <para>If <varname>$SYSTEMD_RELAX_ESP_CHECKS=1</varname> is set the validation checks for the ESP are relaxed, and
+    the path specified with <option>--path=</option> may refer to any kind of file system on any kind of
+    partition.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
