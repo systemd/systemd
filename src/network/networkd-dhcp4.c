@@ -122,7 +122,7 @@ static int link_set_dhcp_routes(Link *link) {
 
         r = sd_dhcp_lease_get_router(link->dhcp_lease, &gateway);
         if (r == -ENODATA)
-                log_link_info_errno(link, r, "DHCP: No routes received from DHCP server: %m");
+                log_link_info_errno(link, r, "DHCP: No gateway received from DHCP server: %m");
         else if (r < 0)
                 log_link_warning_errno(link, r, "DHCP error: could not get gateway: %m");
 
