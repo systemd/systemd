@@ -50,3 +50,5 @@ static inline void FileHandleClosep(EFI_FILE_HANDLE *handle) {
 
         uefi_call_wrapper((*handle)->Close, 1, *handle);
 }
+
+const EFI_GUID loader_guid;

@@ -2028,6 +2028,29 @@ static VOID config_free(Config *config) {
         FreePool(config->entry_oneshot);
 }
 
+static VOID config_write_entries_to_variable(Config *config) {
+        _cleanup_freepool_ CHAR16 *buffer = NULL;
+        UINTN i, sz = 0;
+        CHAR16 *p;
+
+        for (i = 0; i < config->entry_count; i++)
+                sz += StrLen(config->entries[i]->id) + 1;
+
+        p = buffer = AllocatePool(sz * sizeof(CHAR16));
+
+        for (i = 0; i < config->entry_count; i++) {
+                UINTN l;
+
+                l = StrLen(config->entries[i]->id) + 1;
+                CopyMem(p, config->entries[i]->id, l * sizeof(CHAR16));
+
+                p += l;
+        }
+
+        /* Store the full list of discovered entries. */
+        (void) efivar_set_raw(&loader_guid, L"LoaderEntries", buffer, (UINT8*) p - (UINT8*) buffer, FALSE);
+}
+
 EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
         _cleanup_freepool_ CHAR16 *infostr = NULL, *typestr = NULL;
         CHAR8 *b;
@@ -2118,6 +2141,8 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 uefi_call_wrapper(BS->Stall, 1, 3 * 1000 * 1000);
                 goto out;
         }
+
+        config_write_entries_to_variable(&config);
 
         config_title_generate(&config);
 
