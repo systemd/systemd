@@ -18,7 +18,7 @@
 %_sysctldir @sysctldir@
 %_sysusersdir @sysusersdir@
 %_tmpfilesdir @tmpfilesdir@
-%_environmnentdir @environmentdir@
+%_environmentdir @environmentdir@
 %_modulesloaddir @modulesloaddir@
 %_modprobedir @modprobedir@
 %_systemdgeneratordir @systemgeneratordir@
