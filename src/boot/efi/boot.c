@@ -1590,7 +1590,6 @@ static VOID config_entry_add_linux(Config *config, EFI_LOADED_IMAGE *loaded_imag
                 if (os_name && os_id && (os_version || os_build)) {
                         CHAR16 *conf;
                         CHAR16 *path;
-                        CHAR16 *cmdline;
 
                         conf = PoolPrint(L"%s-%s", os_id, os_version ? : os_build);
                         path = PoolPrint(L"\\EFI\\Linux\\%s", f->FileName);
@@ -1599,13 +1598,16 @@ static VOID config_entry_add_linux(Config *config, EFI_LOADED_IMAGE *loaded_imag
                         FreePool(content);
                         content = NULL;
                         /* read the embedded cmdline file */
-                        err = file_read(linux_dir, f->FileName, offs[1], szs[1] - 1, &content, NULL);
+                        err = file_read(linux_dir, f->FileName, offs[1], szs[1], &content, NULL);
                         if (!EFI_ERROR(err)) {
-                                cmdline = stra_to_str(content);
-                                entry->options = cmdline;
-                                cmdline = NULL;
+
+                                /* chomp the newline */
+                                if (content[szs[1]-1] == '\n')
+                                        content[szs[1]-1] = '\0';
+
+                                entry->options = stra_to_str(content);
                         }
-                        FreePool(cmdline);
+
                         FreePool(conf);
                         FreePool(path);
                 }
