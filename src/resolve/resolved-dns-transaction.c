@@ -1380,10 +1380,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 
         dns_transaction_stop_timeout(t);
 
-        r = dns_scope_network_good(t->scope);
-        if (r < 0)
-                return r;
-        if (r == 0) {
+        if (!dns_scope_network_good(t->scope)) {
                 dns_transaction_complete(t, DNS_TRANSACTION_NETWORK_DOWN);
                 return 0;
         }

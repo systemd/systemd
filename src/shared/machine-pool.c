@@ -314,8 +314,7 @@ fail:
                 loop = safe_close(loop);
         }
 
-        if (control >= 0 && nr >= 0)
-                (void) ioctl(control, LOOP_CTL_REMOVE, nr);
+        (void) ioctl(control, LOOP_CTL_REMOVE, nr);
 
         return r;
 }

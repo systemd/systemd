@@ -950,18 +950,8 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
                 printf("System:\n");
                 printf("     Firmware: %s (%s)\n", strna(fw_type), strna(fw_info));
-
-                k = is_efi_secure_boot();
-                if (k < 0)
-                        r = log_warning_errno(k, "Failed to query secure boot status: %m");
-                else
-                        printf("  Secure Boot: %sd\n", enable_disable(k));
-
-                k = is_efi_secure_boot_setup_mode();
-                if (k < 0)
-                        r = log_warning_errno(k, "Failed to query secure boot mode: %m");
-                else
-                        printf("   Setup Mode: %s\n", k ? "setup" : "user");
+                printf("  Secure Boot: %sd\n", enable_disable(is_efi_secure_boot()));
+                printf("   Setup Mode: %s\n", is_efi_secure_boot_setup_mode() ? "setup" : "user");
                 printf("\n");
 
                 printf("Current Loader:\n");

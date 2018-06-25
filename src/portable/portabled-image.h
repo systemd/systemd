@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
+#pragma once
 
 #include "hashmap.h"
 #include "machine-image.h"

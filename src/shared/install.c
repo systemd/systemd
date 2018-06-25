@@ -681,7 +681,7 @@ static int remove_marked_symlinks(
         return r;
 }
 
-static bool is_symlink_with_known_name(const UnitFileInstallInfo *i, const char *name) {
+static int is_symlink_with_known_name(const UnitFileInstallInfo *i, const char *name) {
         int r;
 
         if (streq(name, i->name))

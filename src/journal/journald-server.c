@@ -309,7 +309,7 @@ static int system_journal_open(Server *s, bool flush_requested) {
                         server_add_acls(s->system_journal, 0);
                         (void) cache_space_refresh(s, &s->system_storage);
                         patch_min_use(&s->system_storage);
-                } else if (r < 0) {
+                } else {
                         if (!IN_SET(r, -ENOENT, -EROFS))
                                 log_warning_errno(r, "Failed to open system journal: %m");
 

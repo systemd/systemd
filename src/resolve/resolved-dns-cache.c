@@ -680,13 +680,8 @@ int dns_cache_put(
 
         /* Second, add in positive entries for all contained RRs */
         DNS_ANSWER_FOREACH_FULL(rr, ifindex, flags, answer) {
-                if ((flags & DNS_ANSWER_CACHEABLE) == 0)
-                        continue;
-
-                r = rr_eligible(rr);
-                if (r < 0)
-                        return r;
-                if (r == 0)
+                if ((flags & DNS_ANSWER_CACHEABLE) == 0 ||
+                    !rr_eligible(rr))
                         continue;
 
                 r = dns_cache_put_positive(
