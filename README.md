@@ -5,7 +5,8 @@
 [![Build Status](https://semaphoreci.com/api/v1/projects/28a5a3ca-3c56-4078-8b5e-7ed6ef912e14/443470/shields_badge.svg)](https://semaphoreci.com/systemd/systemd)<br/>
 [![Coverity Scan Status](https://scan.coverity.com/projects/350/badge.svg)](https://scan.coverity.com/projects/350)<br/>
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1369/badge)](https://bestpractices.coreinfrastructure.org/projects/1369)<br/>
-[![Build Status](https://travis-ci.org/systemd/systemd.svg?branch=master)](https://travis-ci.org/systemd/systemd)
+[![Build Status](https://travis-ci.org/systemd/systemd.svg?branch=master)](https://travis-ci.org/systemd/systemd)<br/>
+[![Language Grade: C/C++](https://img.shields.io/lgtm/grade/cpp/g/systemd/systemd.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/systemd/systemd/context:cpp)
 
 ## Details
 
