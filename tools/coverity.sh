@@ -46,7 +46,7 @@ else
   if [ "$AUTH" = "True" ]; then
     echo -e "\033[33;1mCoverity Scan analysis authorized per quota.\033[0m"
   else
-    WHEN=`echo $AUTH_RES | python -c "import sys; json; print(json.load(sys.stdin)['next_upload_permitted_at'])"`
+    WHEN=`echo $AUTH_RES | python -c "import sys, json; print(json.load(sys.stdin)['next_upload_permitted_at'])"`
     echo -e "\033[33;1mCoverity Scan analysis NOT authorized until $WHEN.\033[0m"
     exit 0
   fi
