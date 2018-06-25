@@ -401,7 +401,7 @@ static int write_to_syslog(
                 .msg_iovlen = ELEMENTSOF(iovec),
         };
         time_t t;
-        struct tm *tm;
+        struct tm tm;
 
         if (syslog_fd < 0)
                 return 0;
@@ -409,11 +409,10 @@ static int write_to_syslog(
         xsprintf(header_priority, "<%i>", level);
 
         t = (time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC);
-        tm = localtime(&t);
-        if (!tm)
+        if (!localtime_r(&t, &tm))
                 return -EINVAL;
 
-        if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
+        if (strftime(header_time, sizeof(header_time), "%h %e %T ", &tm) <= 0)
                 return -EINVAL;
 
         xsprintf(header_pid, "["PID_FMT"]: ", getpid_cached());

@@ -557,13 +557,13 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
 
         if (c->local_rtc) {
                 struct timespec ts;
-                struct tm *tm;
+                struct tm tm;
 
                 /* 4. Sync RTC from system clock, with the new delta */
                 assert_se(clock_gettime(CLOCK_REALTIME, &ts) == 0);
-                assert_se(tm = localtime(&ts.tv_sec));
+                assert_se(localtime_r(&ts.tv_sec, &tm));
 
-                r = clock_set_hwclock(tm);
+                r = clock_set_hwclock(&tm);
                 if (r < 0)
                         log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
         }
