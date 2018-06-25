@@ -1684,6 +1684,7 @@ static VOID config_title_generate(Config *config) {
 
 static BOOLEAN config_entry_add_call(
                 Config *config,
+                CHAR16 *id,
                 CHAR16 *title,
                 EFI_STATUS (*call)(VOID)) {
 
@@ -1691,6 +1692,7 @@ static BOOLEAN config_entry_add_call(
 
         entry = AllocatePool(sizeof(ConfigEntry));
         *entry = (ConfigEntry) {
+                .id = StrDuplicate(id),
                 .title = StrDuplicate(title),
                 .call = call,
                 .no_autoselect = TRUE,
@@ -2132,7 +2134,7 @@ EFI_STATUS efi_main(EFI_HANDLE image, EFI_SYSTEM_TABLE *sys_table) {
                 UINT64 osind = (UINT64)*b;
 
                 if (osind & EFI_OS_INDICATIONS_BOOT_TO_FW_UI)
-                        config_entry_add_call(&config, L"Reboot Into Firmware Interface", reboot_into_firmware);
+                        config_entry_add_call(&config, L"auto-reboot-into-firmware-ui", L"Reboot Into Firmware Interface", reboot_into_firmware);
                 FreePool(b);
         }
 
