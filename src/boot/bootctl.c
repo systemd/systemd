@@ -1027,6 +1027,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
 static int verb_list(int argc, char *argv[], void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = {};
+        _cleanup_free_ char **found_by_loader = NULL;
         sd_id128_t uuid = SD_ID128_NULL;
         int r;
 
@@ -1044,6 +1045,10 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        r = efi_loader_get_entries(&found_by_loader);
+        if (r < 0 && !IN_SET(r, -ENOENT, -EOPNOTSUPP))
+                log_debug_errno(r, "Failed to acquire boot loader discovered entries: %m");
+
         if (config.n_entries == 0)
                 log_info("No boot loader entries found.");
         else {
@@ -1059,7 +1064,18 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                                 return r;
 
                         puts("");
+
+                        strv_remove(found_by_loader, config.entries[n].id);
                 }
+        }
+
+        if (!strv_isempty(found_by_loader)) {
+                char **i;
+
+                printf("Automatic/Other Entries Found by Boot Loader:\n\n");
+
+                STRV_FOREACH(i, found_by_loader)
+                        puts(*i);
         }
 
         return 0;

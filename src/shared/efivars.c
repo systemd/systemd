@@ -22,6 +22,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "stdio-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "utf8.h"
 #include "util.h"
@@ -750,6 +751,56 @@ int efi_loader_get_device_part_uuid(sd_id128_t *u) {
                         u->bytes[i] = parsed[i];
         }
 
+        return 0;
+}
+
+int efi_loader_get_entries(char ***ret) {
+        _cleanup_free_ char16_t *entries = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        size_t size, i, start;
+        int r;
+
+        assert(ret);
+
+        if (!is_efi_boot())
+                return -EOPNOTSUPP;
+
+        r = efi_get_variable(EFI_VENDOR_LOADER, "LoaderEntries", NULL, (void**) &entries, &size);
+        if (r < 0)
+                return r;
+
+        /* The variable contains a series of individually NUL terminated UTF-16 strings. */
+
+        for (i = 0, start = 0;; i++) {
+                char *decoded;
+                bool end;
+
+                /* Is this the end of the variable's data? */
+                end = i * sizeof(char16_t) >= size;
+
+                /* Are we in the middle of a string? (i.e. not at the end of the variable, nor at a NUL terminator?) If
+                 * so, let's go to the next entry. */
+                if (!end && entries[i] != 0)
+                        continue;
+
+                /* We reached the end of a string, let's decode it into UTF-8 */
+                decoded = utf16_to_utf8(entries + start, (i - start) * sizeof(char16_t));
+                if (!decoded)
+                        return -ENOMEM;
+
+                r = strv_consume(&l, decoded);
+                if (r < 0)
+                        return r;
+
+                /* We reached the end of the variable */
+                if (end)
+                        break;
+
+                /* Continue after the NUL byte */
+                start = i + 1;
+        }
+
+        *ret = TAKE_PTR(l);
         return 0;
 }
 

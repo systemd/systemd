@@ -41,6 +41,8 @@ int efi_get_boot_options(uint16_t **options);
 int efi_loader_get_device_part_uuid(sd_id128_t *u);
 int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader);
 
+int efi_loader_get_entries(char ***ret);
+
 #else
 
 static inline bool is_efi_boot(void) {
@@ -108,6 +110,10 @@ static inline int efi_loader_get_device_part_uuid(sd_id128_t *u) {
 }
 
 static inline int efi_loader_get_boot_usec(usec_t *firmware, usec_t *loader) {
+        return -EOPNOTSUPP;
+}
+
+static inline int efi_loader_get_entries(char ***ret) {
         return -EOPNOTSUPP;
 }
 
