@@ -2007,7 +2007,7 @@ static EFI_STATUS reboot_into_firmware(VOID) {
         if (!EFI_ERROR(err))
                 osind |= (UINT64)*b;
 
-        err = efivar_set_raw(&global_guid, L"OsIndications", (CHAR8 *)&osind, sizeof(UINT64), TRUE);
+        err = efivar_set_raw(&global_guid, L"OsIndications", &osind, sizeof(UINT64), TRUE);
         if (EFI_ERROR(err))
                 return err;
 

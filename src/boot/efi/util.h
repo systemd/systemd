@@ -18,7 +18,7 @@ UINT64 ticks_freq(void);
 UINT64 time_usec(void);
 
 EFI_STATUS efivar_set(CHAR16 *name, CHAR16 *value, BOOLEAN persistent);
-EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, CHAR16 *name, CHAR8 *buf, UINTN size, BOOLEAN persistent);
+EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, CHAR16 *name, VOID *buf, UINTN size, BOOLEAN persistent);
 EFI_STATUS efivar_set_int(CHAR16 *name, UINTN i, BOOLEAN persistent);
 VOID efivar_set_time_usec(CHAR16 *name, UINT64 usec);
 
