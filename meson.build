@@ -1815,6 +1815,15 @@ if conf.get('ENABLE_EFI') == 1 and conf.get('HAVE_BLKID') == 1
                    install_dir : systemgeneratordir)
 endif
 
+executable('systemd-boot-check-no-failures',
+           'src/boot/boot-check-no-failures.c',
+           include_directories : includes,
+           link_with : [libshared],
+           dependencies : [libblkid],
+           install_rpath : rootlibexecdir,
+           install : true,
+           install_dir : rootlibexecdir)
+
 exe = executable('systemd-socket-activate', 'src/activate/activate.c',
                  include_directories : includes,
                  link_with : [libshared],
