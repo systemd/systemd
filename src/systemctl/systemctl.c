@@ -6619,7 +6619,7 @@ static int is_system_running(int argc, char *argv[], void *userdata) {
 
                 if (!arg_quiet)
                         puts("unknown");
-                return 0;
+                return EXIT_FAILURE;
         }
 
         if (!arg_quiet)
