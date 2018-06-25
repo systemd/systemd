@@ -3673,13 +3673,20 @@ static int check_unit_generic(int code, const UnitActiveState good_states[], int
 }
 
 static int check_unit_active(int argc, char *argv[], void *userdata) {
-        const UnitActiveState states[] = { UNIT_ACTIVE, UNIT_RELOADING };
+        static const UnitActiveState states[] = {
+                UNIT_ACTIVE,
+                UNIT_RELOADING,
+        };
+
         /* According to LSB: 3, "program is not running" */
         return check_unit_generic(EXIT_PROGRAM_NOT_RUNNING, states, ELEMENTSOF(states), strv_skip(argv, 1));
 }
 
 static int check_unit_failed(int argc, char *argv[], void *userdata) {
-        const UnitActiveState states[] = { UNIT_FAILED };
+        static const UnitActiveState states[] = {
+                UNIT_FAILED,
+        };
+
         return check_unit_generic(EXIT_PROGRAM_DEAD_AND_PID_EXISTS, states, ELEMENTSOF(states), strv_skip(argv, 1));
 }
 
