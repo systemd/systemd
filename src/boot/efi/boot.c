@@ -1519,10 +1519,20 @@ static VOID config_sort_entries(Config *config) {
         }
 }
 
+static INTN config_entry_find(Config *config, CHAR16 *id) {
+        UINTN i;
+
+        for (i = 0; i < config->entry_count; i++)
+                if (StrCmp(config->entries[i]->id, id) == 0)
+                        return (INTN) i;
+
+        return -1;
+}
+
 static VOID config_default_entry_select(Config *config) {
         _cleanup_freepool_ CHAR16 *entry_oneshot = NULL, *entry_default = NULL;
         EFI_STATUS err;
-        UINTN i;
+        INTN i;
 
         /*
          * The EFI variable to specify a boot entry for the next, and only the
@@ -1530,19 +1540,15 @@ static VOID config_default_entry_select(Config *config) {
          */
         err = efivar_get(L"LoaderEntryOneShot", &entry_oneshot);
         if (!EFI_ERROR(err)) {
-                BOOLEAN found = FALSE;
-
-                for (i = 0; i < config->entry_count; i++)
-                        if (StrCmp(config->entries[i]->id, entry_oneshot) == 0) {
-                                config->idx_default = i;
-                                found = TRUE;
-                                break;
-                        }
 
                 config->entry_oneshot = StrDuplicate(entry_oneshot);
                 efivar_set(L"LoaderEntryOneShot", NULL, TRUE);
-                if (found)
+
+                i = config_entry_find(config, entry_oneshot);
+                if (i >= 0) {
+                        config->idx_default = i;
                         return;
+                }
         }
 
         /*
@@ -1553,12 +1559,13 @@ static VOID config_default_entry_select(Config *config) {
          */
         err = efivar_get(L"LoaderEntryDefault", &entry_default);
         if (!EFI_ERROR(err)) {
-                for (i = 0; i < config->entry_count; i++)
-                        if (StrCmp(config->entries[i]->id, entry_default) == 0) {
-                                config->idx_default = i;
-                                config->idx_default_efivar = i;
-                                return;
-                        }
+
+                i = config_entry_find(config, entry_default);
+                if (i >= 0) {
+                        config->idx_default = i;
+                        config->idx_default_efivar = i;
+                        return;
+                }
         }
         config->idx_default_efivar = -1;
 
