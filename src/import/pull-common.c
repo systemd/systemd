@@ -520,8 +520,7 @@ int pull_verify(PullJob *main_job,
         }
 
 finish:
-        if (sig_file >= 0)
-                (void) unlink(sig_file_path);
+        (void) unlink(sig_file_path);
 
         if (gpg_home_created)
                 (void) rm_rf(gpg_home, REMOVE_ROOT|REMOVE_PHYSICAL);
