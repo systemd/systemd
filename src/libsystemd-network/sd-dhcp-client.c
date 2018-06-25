@@ -381,12 +381,21 @@ static int dhcp_client_set_iaid_duid(
                 client->client_id.ns.duid.type = htobe16(duid_type);
                 memcpy(&client->client_id.ns.duid.raw.data, duid, duid_len);
                 len = sizeof(client->client_id.ns.duid.type) + duid_len;
-        } else if (duid_type == DUID_TYPE_EN) {
-                r = dhcp_identifier_set_duid_en(&client->client_id.ns.duid, &len);
-                if (r < 0)
-                        return r;
         } else
-                return -EOPNOTSUPP;
+                switch (duid_type) {
+                case DUID_TYPE_EN:
+                        r = dhcp_identifier_set_duid_en(&client->client_id.ns.duid, &len);
+                        if (r < 0)
+                                return r;
+                        break;
+                case DUID_TYPE_UUID:
+                        r = dhcp_identifier_set_duid_uuid(&client->client_id.ns.duid, &len);
+                        if (r < 0)
+                                return r;
+                        break;
+                default:
+                        return -EOPNOTSUPP;
+                }
 
         client->client_id_len = sizeof(client->client_id.type) + len +
                                 (append_iaid ? sizeof(client->client_id.ns.iaid) : 0);

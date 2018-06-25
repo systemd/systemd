@@ -11,8 +11,9 @@
 #include "udev-util.h"
 #include "virt.h"
 
-#define SYSTEMD_PEN 43793
-#define HASH_KEY SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
+#define SYSTEMD_PEN    43793
+#define HASH_KEY       SD_ID128_MAKE(80,11,8c,c2,fe,4a,03,ee,3e,d6,0c,6f,36,39,14,09)
+#define APPLICATION_ID SD_ID128_MAKE(a5,0a,d1,12,bf,60,45,77,a2,fb,74,1a,b1,95,5b,03)
 
 int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len) {
         struct duid d;
@@ -63,9 +64,28 @@ int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len) {
         *len = sizeof(duid->type) + sizeof(duid->en);
 
         /* a bit of snake-oil perhaps, but no need to expose the machine-id
-           directly; duid->en.id might not be aligned, so we need to copy */
+         * directly; duid->en.id might not be aligned, so we need to copy */
         hash = htole64(siphash24(&machine_id, sizeof(machine_id), HASH_KEY.bytes));
         memcpy(duid->en.id, &hash, sizeof(duid->en.id));
+
+        return 0;
+}
+
+int dhcp_identifier_set_duid_uuid(struct duid *duid, size_t *len) {
+        sd_id128_t machine_id;
+        int r;
+
+        assert(duid);
+        assert(len);
+
+        r = sd_id128_get_machine_app_specific(APPLICATION_ID, &machine_id);
+        if (r < 0)
+                return r;
+
+        unaligned_write_be16(&duid->type, DUID_TYPE_UUID);
+        memcpy(&duid->raw.data, &machine_id, sizeof(machine_id));
+
+        *len = sizeof(duid->type) + sizeof(machine_id);
 
         return 0;
 }

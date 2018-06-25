@@ -187,8 +187,8 @@ int sd_dhcp6_client_set_duid(
                 uint16_t duid_type,
                 const void *duid,
                 size_t duid_len) {
-
         int r;
+
         assert_return(client, -EINVAL);
         assert_return(duid_len == 0 || duid != NULL, -EINVAL);
         assert_return(IN_SET(client->state, DHCP6_STATE_STOPPED), -EBUSY);
@@ -197,18 +197,25 @@ int sd_dhcp6_client_set_duid(
                 r = dhcp_validate_duid_len(duid_type, duid_len);
                 if (r < 0)
                         return r;
-        }
 
-        if (duid != NULL) {
                 client->duid.type = htobe16(duid_type);
                 memcpy(&client->duid.raw.data, duid, duid_len);
                 client->duid_len = sizeof(client->duid.type) + duid_len;
-        } else if (duid_type == DUID_TYPE_EN) {
-                r = dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
-                if (r < 0)
-                        return r;
         } else
-                return -EOPNOTSUPP;
+                switch (duid_type) {
+                case DUID_TYPE_EN:
+                        r = dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
+                        if (r < 0)
+                                return r;
+                        break;
+                case DUID_TYPE_UUID:
+                        r = dhcp_identifier_set_duid_uuid(&client->duid, &client->duid_len);
+                        if (r < 0)
+                                return r;
+                        break;
+                default:
+                        return -EOPNOTSUPP;
+                }
 
         return 0;
 }

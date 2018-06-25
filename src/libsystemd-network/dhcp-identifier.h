@@ -53,4 +53,5 @@ struct duid {
 
 int dhcp_validate_duid_len(uint16_t duid_type, size_t duid_len);
 int dhcp_identifier_set_duid_en(struct duid *duid, size_t *len);
+int dhcp_identifier_set_duid_uuid(struct duid *duid, size_t *len);
 int dhcp_identifier_set_iaid(int ifindex, uint8_t *mac, size_t mac_len, void *_id);
