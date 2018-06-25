@@ -47,7 +47,7 @@ This placeholder file system shall be determined during _installation time_, and
 
 **Note:** _`$BOOT` should be considered **shared** among all OS installations of a system. Instead of maintaining one `$BOOT` per installed OS (as `/boot` was traditionally handled), all installed OS share the same place to drop in their boot-time configuration._
 
-`$BOOT` must be a VFAT (16 or 32) file system. Other file system types should not be used. Applications accessing `$BOOT` should hence not assume that fancier file system features such as symlinks, hardlinks, access control or case sensitivity are supported.
+For systems where the firmware is able to read file systems directly, `$BOOT` must be a file system readable by the firmware. For other systems, `$BOOT` must be a VFAT (16 or 32) file system. Applications accessing `$BOOT` should hence not assume that fancier file system features such as symlinks, hardlinks, access control or case sensitivity are supported.
 
 ### Boot loader specification entries
 
