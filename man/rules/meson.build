@@ -617,6 +617,7 @@ manpages = [
  ['systemd-ask-password', '1', [], ''],
  ['systemd-backlight@.service', '8', ['systemd-backlight'], 'ENABLE_BACKLIGHT'],
  ['systemd-binfmt.service', '8', ['systemd-binfmt'], 'ENABLE_BINFMT'],
+ ['systemd-bless-boot-generator', '8', [], 'ENABLE_EFI'],
  ['systemd-bless-boot.service', '8', [], 'ENABLE_EFI'],
  ['systemd-boot-check-no-failures.service', '8', [], ''],
  ['systemd-boot', '7', ['sd-boot'], 'ENABLE_EFI'],
