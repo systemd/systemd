@@ -151,8 +151,13 @@ static int create_disk(
                         fputs("Before=dev-mapper-%i.swap\n",
                               f);
         } else
+                /* For loopback devices, add systemd-tmpfiles-setup-dev.service
+                   dependency to ensure that loopback support is available in
+                   the kernel (/dev/loop-control needs to exist) */
                 fprintf(f,
-                        "RequiresMountsFor=%s\n",
+                        "RequiresMountsFor=%s\n"
+                        "Requires=systemd-tmpfiles-setup-dev.service\n"
+                        "After=systemd-tmpfiles-setup-dev.service\n",
                         u_escaped);
 
         r = generator_write_timeouts(arg_dest, device, name, options, &filtered);
