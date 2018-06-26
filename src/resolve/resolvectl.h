@@ -5,10 +5,6 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-extern int arg_ifindex;
-extern const char *arg_ifname;
-extern bool arg_ifindex_permissive;
-
 typedef enum ExecutionMode {
         MODE_RESOLVE_HOST,
         MODE_RESOLVE_RECORD,
@@ -26,6 +22,8 @@ typedef enum ExecutionMode {
 } ExecutionMode;
 
 extern ExecutionMode arg_mode;
-
 extern char **arg_set_dns;
 extern char **arg_set_domain;
+extern bool arg_ifindex_permissive;
+
+int ifname_mangle(const char *s, bool allow_loopback);
