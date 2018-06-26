@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <inttypes.h>
 #include <linux/fiemap.h>
 #include <stdio.h>
 
@@ -32,11 +33,11 @@ static int test_fiemap(const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Unable to read extent map for '%s': %m", path);
         log_info("extent map information for %s:", path);
-        log_info("\t start: %llu", fiemap->fm_start);
-        log_info("\t length: %llu", fiemap->fm_length);
-        log_info("\t flags: %u", fiemap->fm_flags);
-        log_info("\t number of mapped extents: %u", fiemap->fm_mapped_extents);
-        log_info("\t extent count: %u", fiemap->fm_extent_count);
+        log_info("\t start: %" PRIu64, (uint64_t) fiemap->fm_start);
+        log_info("\t length: %" PRIu64, (uint64_t) fiemap->fm_length);
+        log_info("\t flags: %" PRIu32, fiemap->fm_flags);
+        log_info("\t number of mapped extents: %" PRIu32, fiemap->fm_mapped_extents);
+        log_info("\t extent count: %" PRIu32, fiemap->fm_extent_count);
         if (fiemap->fm_extent_count > 0)
                 log_info("\t first extent location: %llu",
                          fiemap->fm_extents[0].fe_physical / page_size());
