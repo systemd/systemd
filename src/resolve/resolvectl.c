@@ -3090,7 +3090,7 @@ int main(int argc, char **argv) {
                 goto finish;
         }
 
-        if (streq(program_invocation_short_name, "systemd-resolve"))
+        if (STR_IN_SET(program_invocation_short_name, "systemd-resolve", "resolvconf"))
                 r = compat_main(argc, argv, bus);
         else
                 r = native_main(argc, argv, bus);
