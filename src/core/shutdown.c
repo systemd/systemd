@@ -146,6 +146,9 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int switch_root_initramfs(void) {
+        if (mount(NULL, "/run", NULL, MS_REMOUNT, NULL) < 0)
+                return log_error_errno(errno, "Failed to remount /run: %m");
+
         if (mount("/run/initramfs", "/run/initramfs", NULL, MS_BIND, NULL) < 0)
                 return log_error_errno(errno, "Failed to mount bind /run/initramfs on /run/initramfs: %m");
 
