@@ -338,10 +338,67 @@
   </refsect1>
 
   <refsect1>
+    <title>Boot Counting</title>
+
+    <para><command>systemd-boot</command> implements a simple boot counting mechanism on top of the <ulink
+    url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>, for automatic and unattended
+    fallback to older kernel versions/boot loader entries when a specific entry continously fails. Any boot loader
+    entry file and unified kernel image file that contains a <literal>+</literal> followed by one or two numbers (if
+    two they need to be separated by a <literal>-</literal>), before the <filename>.conf</filename> or
+    <filename>.efi</filename> suffix is subject to boot counting: the first of the two numbers ('tries left') is
+    decreased by one on every boot attempt, the second of the two numbers ('tries done') is increased by one (if 'tries
+    done' is absent it is considered equivalent to 0). Depending on the current value of these two counters the boot
+    entry is considered to be in one of three states:</para>
+
+    <orderedlist>
+      <listitem><para>If the 'tries left' counter of an entry is greater than zero the entry is considered to be in
+      'indeterminate' state. This means the entry has not completed booting successfully yet, but also hasn't been
+      determined not to work.</para></listitem>
+
+      <listitem><para>If the 'tries left' counter of an entry is zero it is considered to be in 'bad' state. This means
+      no further attempts to boot this item will be made (that is, unless all other boot entries are also in 'bad'
+      state), as all attempts to boot this entry have not completed successfully.</para></listitem>
+
+      <listitem><para>If the 'tries left' and 'tries done' counters of an entry are absent it is considered to be in
+      'good' state. This means further boot counting for the entry is turned off, as it successfully booted at least
+      once. The
+      <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      service moves the currently booted entry from 'indeterminate' into 'good' state when a boot attempt completed
+      successfully.</para></listitem>
+    </orderedlist>
+
+    <para>Generally, when new entries are added to the boot loader, they first start out in 'indeterminate' state,
+    i.e. with a 'tries left' counter greater than zero. The boot entry remains in this state until either it managed to
+    complete a full boot successfully at least once (in which case it will be in 'good' state) — or the 'tries left'
+    counter reaches zero (in which case it will be in 'bad' state).</para>
+
+    <para>Example: let's say a boot loader entry file <filename>foo.conf</filename> is set up for 3 boot tries. The
+    installer will hence create it under the name <filename>foo+3.conf</filename>. On first boot, the boot loader will
+    rename it to <filename>foo+2-1.conf</filename>. If that boot does not complete successfully, the boot loader will
+    rename it to <filename>foo+1-2.conf</filename> on the following boot. If that fails too, it will finally be renamed
+    <filename>foo+0-3.conf</filename> by the boot loader on next boot, after which it will be considered 'bad'. If the
+    boot succeeds however the entry file will be renamed to <filename>foo.conf</filename> by the OS, so that it is
+    considered 'good' from then on.</para>
+
+    <para>The boot menu takes the 'tries left' counter into account when sorting the menu entries: entries in 'bad'
+    state are ordered at the end of the list, and entries in 'good' or 'indeterminate' at the beginning. The user can
+    freely choose to boot any entry of the menu, including those already marked 'bad'. If the menu entry to boot is
+    automatically determined, this means that 'good' or 'indeterminate' entries are generally preferred (as the top item of
+    the menu is the one booted by default), and 'bad' entries will only be considered if there are no 'good' or
+    'indeterminate' entries left.</para>
+
+    <para>The <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry> kernel
+    install framework optionally sets the initial 'tries left' counter to the value specified in
+    <filename>/etc/kernel/tries</filename> when a boot loader entry is first created.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para>
       <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <ulink url="https://systemd.io/BOOT_LOADER_SPECIFICATION">Boot Loader Specification</ulink>,
       <ulink url="https://www.freedesktop.org/wiki/Software/systemd/BootLoaderInterface">Boot Loader Interface</ulink>
     </para>
