@@ -618,6 +618,7 @@ manpages = [
  ['systemd-backlight@.service', '8', ['systemd-backlight'], 'ENABLE_BACKLIGHT'],
  ['systemd-binfmt.service', '8', ['systemd-binfmt'], 'ENABLE_BINFMT'],
  ['systemd-bless-boot.service', '8', [], 'ENABLE_EFI'],
+ ['systemd-boot-check-no-failures.service', '8', [], ''],
  ['systemd-boot', '7', ['sd-boot'], 'ENABLE_EFI'],
  ['systemd-cat', '1', [], ''],
  ['systemd-cgls', '1', [], ''],

@@ -1,0 +1,54 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+-->
+
+<refentry id="systemd-boot-check-no-failures.service"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-boot-check-no-failures.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-boot-check-no-failures.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-boot-check-no-failures.service</refname>
+    <refpurpose>verify that the system booted up cleanly</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-boot-check-no-failures.service</filename></para>
+    <para><filename>/usr/lib/systemd/system-boot-check-no-failures</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-boot-check-no-failures.service</filename> is a system service that checks whether the
+    system booted up successfully. This service implements a very minimal test only: whether there are any failed units on
+    the system. This service is disabled by default. When enabled, it is ordered before
+    <filename>boot-complete.target</filename>, thus ensuring the target cannot be reached when the system booted up
+    with failed services.</para>
+
+    <para>Note that due the simple nature of this check this service is probably not suitable for deployment in most
+    scenarios. It is primarily useful only as example for developing more fine-grained checks to order before
+    <filename>boot-complete.target</filename>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
