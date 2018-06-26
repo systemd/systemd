@@ -51,7 +51,7 @@ static int parse_nameserver(const char *string) {
                 if (r == 0)
                         break;
 
-                if (strv_push(&arg_set_dns, word) < 0)
+                if (strv_push(&arg_set_dns, TAKE_PTR(word)) < 0)
                         return log_oom();
         }
 
@@ -72,10 +72,8 @@ static int parse_search_domain(const char *string) {
                 if (r == 0)
                         break;
 
-                if (strv_push(&arg_set_domain, word) < 0)
+                if (strv_push(&arg_set_domain, TAKE_PTR(word)) < 0)
                         return log_oom();
-
-                word = NULL;
         }
 
         return 0;
@@ -202,7 +200,7 @@ int resolvconf_parse_argv(int argc, char *argv[]) {
 
         dot = strchr(argv[optind], '.');
         if (dot) {
-                iface = strndupa(argv[optind], dot - argv[optind]);
+                iface = strndup(argv[optind], dot - argv[optind]);
                 log_debug("Ignoring protocol specifier '%s'.", dot + 1);
         } else
                 iface = argv[optind];
