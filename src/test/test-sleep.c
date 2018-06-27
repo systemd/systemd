@@ -39,8 +39,8 @@ static int test_fiemap(const char *path) {
         log_info("\t number of mapped extents: %" PRIu32, fiemap->fm_mapped_extents);
         log_info("\t extent count: %" PRIu32, fiemap->fm_extent_count);
         if (fiemap->fm_extent_count > 0)
-                log_info("\t first extent location: %llu",
-                         fiemap->fm_extents[0].fe_physical / page_size());
+                log_info("\t first extent location: %" PRIu64,
+                         (uint64_t) (fiemap->fm_extents[0].fe_physical / page_size()));
 
         return 0;
 }
