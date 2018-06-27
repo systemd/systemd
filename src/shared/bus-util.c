@@ -1738,7 +1738,7 @@ static void request_name_destroy_callback(void *userdata) {
         assert(data);
         assert(data->n_ref > 0);
 
-        log_info("%s n_ref=%u", __func__, data->n_ref);
+        log_debug("%s n_ref=%u", __func__, data->n_ref);
 
         data->n_ref--;
         if (data->n_ref == 0)
