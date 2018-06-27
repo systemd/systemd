@@ -75,67 +75,67 @@
 
     <variablelist>
       <varlistentry>
-        <term>↑ (Up)</term>
-        <term>↓ (Down)</term>
-        <term>j</term>
-        <term>k</term>
-        <term>PageUp</term>
-        <term>PageDown</term>
-        <term>Home</term>
-        <term>End</term>
+        <term><keycap>↑</keycap> (Up)</term>
+        <term><keycap>↓</keycap> (Down)</term>
+        <term><keycap>j</keycap></term>
+        <term><keycap>k</keycap></term>
+        <term><keycap>PageUp</keycap></term>
+        <term><keycap>PageDown</keycap></term>
+        <term><keycap>Home</keycap></term>
+        <term><keycap>End</keycap></term>
         <listitem><para>Navigate up/down in the entry list</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>↵ (Enter)</term>
+        <term><keycap>↵</keycap> (Enter)</term>
         <listitem><para>Boot selected entry</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>d</term>
+        <term><keycap>d</keycap></term>
         <listitem><para>Make selected entry the default</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>e</term>
+        <term><keycap>e</keycap></term>
         <listitem><para>Edit the kernel command line for selected entry</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>+</term>
-        <term>t</term>
+        <term><keycap>+</keycap></term>
+        <term><keycap>t</keycap></term>
         <listitem><para>Increase the timeout before default entry is booted</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>-</term>
-        <term>T</term>
+        <term><keycap>-</keycap></term>
+        <term><keycap>T</keycap></term>
         <listitem><para>Decrease the timeout</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>v</term>
+        <term><keycap>v</keycap></term>
         <listitem><para>Show systemd-boot, UEFI, and firmware versions</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>P</term>
+        <term><keycap>P</keycap></term>
         <listitem><para>Print status</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Q</term>
+        <term><keycap>Q</keycap></term>
         <listitem><para>Quit</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>h</term>
-        <term>?</term>
+        <term><keycap>h</keycap></term>
+        <term><keycap>?</keycap></term>
         <listitem><para>Show a help screen</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Ctrl + l</term>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>l</keycap></keycombo></term>
         <listitem><para>Reprint the screen</para></listitem>
       </varlistentry>
     </variablelist>
@@ -145,35 +145,35 @@
 
     <variablelist>
       <varlistentry>
-        <term>l</term>
+        <term><keycap>l</keycap></term>
         <listitem><para>Linux</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>w</term>
+        <term><keycap>w</keycap></term>
         <listitem><para>Windows</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>a</term>
+        <term><keycap>a</keycap></term>
         <listitem><para>OS X</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>s</term>
+        <term><keycap>s</keycap></term>
         <listitem><para>EFI shell</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>1</term>
-        <term>2</term>
-        <term>3</term>
-        <term>4</term>
-        <term>5</term>
-        <term>6</term>
-        <term>7</term>
-        <term>8</term>
-        <term>9</term>
+        <term><keycap>1</keycap></term>
+        <term><keycap>2</keycap></term>
+        <term><keycap>3</keycap></term>
+        <term><keycap>4</keycap></term>
+        <term><keycap>5</keycap></term>
+        <term><keycap>6</keycap></term>
+        <term><keycap>7</keycap></term>
+        <term><keycap>8</keycap></term>
+        <term><keycap>9</keycap></term>
         <listitem><para>Boot entry number 1 … 9</para></listitem>
       </varlistentry>
     </variablelist>
@@ -183,36 +183,36 @@
 
     <variablelist>
       <varlistentry>
-        <term>← (Left)</term>
-        <term>→ (Right)</term>
-        <term>Home</term>
-        <term>End</term>
+        <term><keycap>←</keycap> (Left)</term>
+        <term><keycap>→</keycap> (Right)</term>
+        <term><keycap>Home</keycap></term>
+        <term><keycap>End</keycap></term>
         <listitem><para>Navigate left/right</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Esc</term>
+        <term><keycap>Esc</keycap></term>
         <listitem><para>Abort the edit and quit the editor</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Ctrl + k</term>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>k</keycap></keycombo></term>
         <listitem><para>Clear the command line</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Ctrl + w</term>
-        <term>Alt + Backspace</term>
+        <term><keycombo><keycap>Ctrl</keycap><keycap>w</keycap></keycombo></term>
+        <term><keycombo><keycap>Alt</keycap><keycap>Backspace</keycap></keycombo></term>
         <listitem><para>Delete word backwards</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>Alt + d </term>
+        <term><keycombo><keycap>Alt</keycap><keycap>d</keycap></keycombo></term>
         <listitem><para>Delete word forwards</para></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term>↵ (Enter)</term>
+        <term><keycap>↵</keycap> (Enter)</term>
         <listitem><para>Boot entry with the edited command line</para></listitem>
       </varlistentry>
     </variablelist>
