@@ -208,7 +208,7 @@ static void help(void) {
         (void) pager_open(false, false);
 
         printf("%s [OPTIONS...] [PATH] [ARGUMENTS...]\n\n"
-               "Spawn a minimal namespace container for debugging, testing and building.\n\n"
+               "Spawn a command or OS in a light-weight container.\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Print version string\n"
                "  -q --quiet                Do not show status information\n"

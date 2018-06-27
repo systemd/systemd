@@ -24,7 +24,7 @@
 
   <refnamediv>
     <refname>systemd-nspawn</refname>
-    <refpurpose>Spawn a namespace container for debugging, testing and building</refpurpose>
+    <refpurpose>Spawn a command or OS in a light-weight container</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -55,7 +55,7 @@
     <para><command>systemd-nspawn</command> may be invoked on any directory tree containing an operating system tree,
     using the <option>--directory=</option> command line option. By using the <option>--machine=</option> option an OS
     tree is automatically searched for in a couple of locations, most importantly in
-    <filename>/var/lib/machines</filename>, the suggested directory to place container images installed on the
+    <filename>/var/lib/machines</filename>, the suggested directory to place OS container images installed on the
     system.</para>
 
     <para>In contrast to <citerefentry
