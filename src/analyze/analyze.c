@@ -890,11 +890,8 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned int lev
         STRV_FOREACH(c, deps) {
                 times = hashmap_get(unit_times_hashmap, *c);
                 if (times_in_range(times, boot) &&
-                    (times->activated >= service_longest
-                     || service_longest == 0)) {
+                    times->activated >= service_longest)
                         service_longest = times->activated;
-                        break;
-                }
         }
 
         if (service_longest == 0)
