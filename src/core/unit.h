@@ -352,7 +352,7 @@ typedef struct Unit {
 
         /* When writing transient unit files, stores which section we stored last. If < 0, we didn't write any yet. If
          * == 0 we are in the [Unit] section, if > 0 we are in the unit type-specific section. */
-        int last_section_private:2;
+        signed int last_section_private:2;
 } Unit;
 
 typedef struct UnitStatusMessageFormats {
