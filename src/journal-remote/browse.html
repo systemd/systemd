@@ -236,10 +236,12 @@
 
                 function entriesLoad(range) {
 
-                        if (range == null)
-                                range = localStorage["cursor"] + ":0";
-                        if (range == null)
-                                range = "";
+                        if (range == null) {
+                                if (localStorage["cursor"] != null && localStorage["cursor"] != "")
+                                        range = localStorage["cursor"] + ":0";
+                                else
+                                        range = "";
+                        }
 
                         var url = "/entries";
 
