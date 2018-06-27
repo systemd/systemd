@@ -60,7 +60,7 @@ static inline pid_t raw_clone(unsigned long flags) {
                              "mov %%o0, %1" :
                              "=r"(in_child), "=r"(child_pid), "=r"(error) :
                              "i"(__NR_clone), "r"(flags) :
-                             "%o1", "%o0", "%g1" "cc" );
+                             "%o1", "%o0", "%g1", "cc" );
 
                 if (error) {
                         errno = child_pid;
