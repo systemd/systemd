@@ -1033,7 +1033,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                 if (r < 0)
                         return r;
 
-                /* Let's validate security: if the sender is root, then all is OK. If the sender is is any other unit,
+                /* Let's validate security: if the sender is root, then all is OK. If the sender is any other unit,
                  * then the process' UID and the target unit's UID have to match the sender's UID */
                 if (sender_uid != 0 && sender_uid != getuid()) {
                         r = get_process_uid(pid, &process_uid);
