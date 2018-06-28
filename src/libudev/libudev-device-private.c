@@ -338,6 +338,13 @@ int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink
         return 0;
 }
 
+void udev_device_remove_devlink(struct udev_device *udev_device, const char *devlink) {
+
+        assert(udev_device);
+
+        device_remove_devlink(udev_device->device, devlink);
+}
+
 int udev_device_add_property(struct udev_device *udev_device, const char *property, const char *value) {
         int r;
 

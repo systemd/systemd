@@ -1115,6 +1115,20 @@ int device_add_devlink(sd_device *device, const char *devlink) {
         return 0;
 }
 
+void device_remove_devlink(sd_device *device, const char *devlink) {
+        _cleanup_free_ char *p;
+
+        assert(device);
+        assert(devlink);
+
+        p = set_remove(device->devlinks, devlink);
+        if (!p)
+                return;
+
+        device->devlinks_generation++;
+        device->property_devlinks_outdated = true;
+}
+
 static int device_add_property_internal_from_string(sd_device *device, const char *str) {
         _cleanup_free_ char *key = NULL;
         char *value;
