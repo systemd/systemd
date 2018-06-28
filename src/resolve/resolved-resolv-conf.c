@@ -21,8 +21,48 @@
 /* A resolv.conf file containing the domain data we learnt from uplink, but our own DNS server address. */
 #define PRIVATE_STUB_RESOLV_CONF "/run/systemd/resolve/stub-resolv.conf"
 
-/* A static resolv.conf file containing no domains, but only our own DNS sever address */
+/* A static resolv.conf file containing no domains, but only our own DNS server address */
 #define PRIVATE_STATIC_RESOLV_CONF ROOTLIBEXECDIR "/resolv.conf"
+
+int manager_check_resolv_conf(const Manager *m) {
+        const char *path;
+        struct stat st;
+        int r;
+
+        assert(m);
+
+        /* This warns only when our stub listener is disabled and /etc/resolv.conf is a symlink to
+         * PRIVATE_STATIC_RESOLV_CONF or PRIVATE_STUB_RESOLV_CONF. */
+
+        if (m->dns_stub_listener_mode != DNS_STUB_LISTENER_NO)
+                return 0;
+
+        r = stat("/etc/resolv.conf", &st);
+        if (r < 0) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_warning_errno(errno, "Failed to stat /etc/resolv.conf: %m");
+        }
+
+        FOREACH_STRING(path,
+                       PRIVATE_STUB_RESOLV_CONF,
+                       PRIVATE_STATIC_RESOLV_CONF) {
+
+                struct stat own;
+
+                /* Is it symlinked to our own uplink file? */
+                if (stat(path, &own) >= 0 &&
+                    st.st_dev == own.st_dev &&
+                    st.st_ino == own.st_ino) {
+                        log_warning("In spite of DNSStubListner= is disabled, /etc/resolv.conf is a symlink to %s, "
+                                    "which expects DNSStubListner= is enabled.", path);
+                        return -EOPNOTSUPP;
+                }
+        }
+
+        return 0;
+}
 
 static bool file_is_our_own(const struct stat *st) {
         const char *path;

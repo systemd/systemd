@@ -80,6 +80,8 @@ int main(int argc, char *argv[]) {
         /* Write finish default resolv.conf to avoid a dangling symlink */
         (void) manager_write_resolv_conf(m);
 
+        (void) manager_check_resolv_conf(m);
+
         /* Let's drop the remaining caps now */
         r = capability_bounding_set_drop(0, true);
         if (r < 0) {
