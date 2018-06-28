@@ -720,8 +720,10 @@ int config_parse_tmpfs_size(
                 /* If the passed argument was not a percentage, or out of range, parse as byte size */
 
                 r = parse_size(rvalue, 1024, &k);
-                if (r < 0 || k <= 0 || (uint64_t) (size_t) k != k) {
-                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value, ignoring: %s", rvalue);
+                if (r >= 0 && (k <= 0 || (uint64_t) (size_t) k != k))
+                        r = -ERANGE;
+                if (r < 0) {
+                        log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
                         return 0;
                 }
 

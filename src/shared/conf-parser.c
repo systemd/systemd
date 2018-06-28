@@ -532,8 +532,10 @@ int config_parse_iec_size(const char* unit,
         assert(data);
 
         r = parse_size(rvalue, 1024, &v);
-        if (r < 0 || (uint64_t) (size_t) v != v) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value, ignoring: %s", rvalue);
+        if (r >= 0 && (uint64_t) (size_t) v != v)
+                r = -ERANGE;
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
@@ -563,8 +565,10 @@ int config_parse_si_size(
         assert(data);
 
         r = parse_size(rvalue, 1000, &v);
-        if (r < 0 || (uint64_t) (size_t) v != v) {
-                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value, ignoring: %s", rvalue);
+        if (r >= 0 && (uint64_t) (size_t) v != v)
+                r = -ERANGE;
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to parse size value '%s', ignoring: %m", rvalue);
                 return 0;
         }
 
