@@ -81,12 +81,48 @@ static void test_fd_is_network_ns(void) {
         assert_se(IN_SET(fd_is_network_ns(fd), 1, -EUCLEAN));
 }
 
+static void test_device_major_minor_valid(void) {
+        /* on glibc dev_t is 64bit, even though in the kernel it is only 32bit */
+        assert_cc(sizeof(dev_t) == sizeof(uint64_t));
+
+        assert_se(DEVICE_MAJOR_VALID(0U));
+        assert_se(DEVICE_MINOR_VALID(0U));
+
+        assert_se(DEVICE_MAJOR_VALID(1U));
+        assert_se(DEVICE_MINOR_VALID(1U));
+
+        assert_se(!DEVICE_MAJOR_VALID(-1U));
+        assert_se(!DEVICE_MINOR_VALID(-1U));
+
+        assert_se(DEVICE_MAJOR_VALID(1U << 10));
+        assert_se(DEVICE_MINOR_VALID(1U << 10));
+
+        assert_se(DEVICE_MAJOR_VALID((1U << 12) - 1));
+        assert_se(DEVICE_MINOR_VALID((1U << 20) - 1));
+
+        assert_se(!DEVICE_MAJOR_VALID((1U << 12)));
+        assert_se(!DEVICE_MINOR_VALID((1U << 20)));
+
+        assert_se(!DEVICE_MAJOR_VALID(1U << 25));
+        assert_se(!DEVICE_MINOR_VALID(1U << 25));
+
+        assert_se(!DEVICE_MAJOR_VALID(UINT32_MAX));
+        assert_se(!DEVICE_MINOR_VALID(UINT32_MAX));
+
+        assert_se(!DEVICE_MAJOR_VALID(UINT64_MAX));
+        assert_se(!DEVICE_MINOR_VALID(UINT64_MAX));
+
+        assert_se(DEVICE_MAJOR_VALID(major(0)));
+        assert_se(DEVICE_MINOR_VALID(minor(0)));
+}
+
 int main(int argc, char *argv[]) {
         test_files_same();
         test_is_symlink();
         test_path_is_fs_type();
         test_path_is_temporary_fs();
         test_fd_is_network_ns();
+        test_device_major_minor_valid();
 
         return 0;
 }
