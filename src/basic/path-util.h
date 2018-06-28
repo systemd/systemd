@@ -50,6 +50,9 @@ int path_compare(const char *a, const char *b) _pure_;
 bool path_equal(const char *a, const char *b) _pure_;
 bool path_equal_or_files_same(const char *a, const char *b, int flags);
 char* path_join(const char *root, const char *path, const char *rest);
+char* path_join_many_internal(const char *first, ...) _sentinel_;
+#define path_join_many(x, ...) path_join_many_internal(x, __VA_ARGS__, NULL)
+
 char* path_simplify(char *path, bool kill_dots);
 
 static inline bool path_equal_ptr(const char *a, const char *b) {
