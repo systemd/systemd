@@ -131,6 +131,9 @@ if conf.get('ENABLE_NETWORKD') == 1
                              install_dir : polkitpkladir)
         endif
 
+        install_data('networkd.conf',
+                     install_dir : pkgsysconfdir)
+
         tests += [
     [['src/network/test-networkd-conf.c'],
      [libnetworkd_core,
