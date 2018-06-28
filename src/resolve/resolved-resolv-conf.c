@@ -55,8 +55,8 @@ int manager_check_resolv_conf(const Manager *m) {
                 if (stat(path, &own) >= 0 &&
                     st.st_dev == own.st_dev &&
                     st.st_ino == own.st_ino) {
-                        log_warning("In spite of DNSStubListner= is disabled, /etc/resolv.conf is a symlink to %s, "
-                                    "which expects DNSStubListner= is enabled.", path);
+                        log_warning("DNSStubListner= is disabled, but /etc/resolv.conf is a symlink to %s "
+                                    "which expects DNSStubListner= to be enabled.", path);
                         return -EOPNOTSUPP;
                 }
         }
