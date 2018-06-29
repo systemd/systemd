@@ -1,6 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-***/
 
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
