@@ -11,6 +11,7 @@
 #include "missing.h"
 #include "mount-util.h"
 #include "stat-util.h"
+#include "path-util.h"
 
 static void test_files_same(void) {
         _cleanup_close_ int fd = -1;
@@ -116,6 +117,44 @@ static void test_device_major_minor_valid(void) {
         assert_se(DEVICE_MINOR_VALID(minor(0)));
 }
 
+static void test_device_path_make_canonical_one(const char *path) {
+        _cleanup_free_ char *resolved = NULL, *raw = NULL;
+        struct stat st;
+        dev_t devno;
+        mode_t mode;
+        int r;
+
+        assert_se(stat(path, &st) >= 0);
+        r = device_path_make_canonical(st.st_mode, st.st_rdev, &resolved);
+        if (r == -ENOENT) /* maybe /dev/char/x:y and /dev/block/x:y are missing in this test environment, because we
+                           * run in a container or so? */
+                return;
+
+        assert_se(r >= 0);
+        assert_se(path_equal(path, resolved));
+
+        assert_se(device_path_make_major_minor(st.st_mode, st.st_rdev, &raw) >= 0);
+        assert_se(device_path_parse_major_minor(raw, &mode, &devno) >= 0);
+
+        assert_se(st.st_rdev == devno);
+        assert_se((st.st_mode & S_IFMT) == (mode & S_IFMT));
+}
+
+static void test_device_path_make_canonical(void) {
+
+        test_device_path_make_canonical_one("/dev/null");
+        test_device_path_make_canonical_one("/dev/zero");
+        test_device_path_make_canonical_one("/dev/full");
+        test_device_path_make_canonical_one("/dev/random");
+        test_device_path_make_canonical_one("/dev/urandom");
+        test_device_path_make_canonical_one("/dev/tty");
+
+        if (is_device_node("/run/systemd/inaccessible/chr") > 0) {
+                test_device_path_make_canonical_one("/run/systemd/inaccessible/chr");
+                test_device_path_make_canonical_one("/run/systemd/inaccessible/blk");
+        }
+}
+
 int main(int argc, char *argv[]) {
         test_files_same();
         test_is_symlink();
@@ -123,6 +162,7 @@ int main(int argc, char *argv[]) {
         test_path_is_temporary_fs();
         test_fd_is_network_ns();
         test_device_major_minor_valid();
+        test_device_path_make_canonical();
 
         return 0;
 }

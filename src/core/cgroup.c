@@ -408,56 +408,8 @@ static int lookup_block_device(const char *p, dev_t *ret) {
         return 0;
 }
 
-static int shortcut_special_device_path(const char *p, struct stat *ret) {
-        const char *w;
-        mode_t mode;
-        dev_t devt;
-        int r;
-
-        assert(p);
-        assert(ret);
-
-        if (path_equal(p, "/run/systemd/inaccessible/chr")) {
-                *ret = (struct stat) {
-                        .st_mode = S_IFCHR,
-                        .st_rdev = makedev(0, 0),
-                };
-                return 0;
-        }
-
-        if (path_equal(p, "/run/systemd/inaccessible/blk")) {
-                *ret = (struct stat) {
-                        .st_mode = S_IFBLK,
-                        .st_rdev = makedev(0, 0),
-                };
-                return 0;
-        }
-
-        w = path_startswith(p, "/dev/block/");
-        if (w)
-                mode = S_IFBLK;
-        else {
-                w = path_startswith(p, "/dev/char/");
-                if (!w)
-                        return -ENODEV;
-
-                mode = S_IFCHR;
-        }
-
-        r = parse_dev(w, &devt);
-        if (r < 0)
-                return r;
-
-        *ret = (struct stat) {
-                .st_mode = mode,
-                .st_rdev = devt,
-        };
-
-        return 0;
-}
-
 static int whitelist_device(BPFProgram *prog, const char *path, const char *node, const char *acc) {
-        struct stat st;
+        struct stat st = {};
         int r;
 
         assert(path);
@@ -466,7 +418,7 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
         /* Some special handling for /dev/block/%u:%u, /dev/char/%u:%u, /run/systemd/inaccessible/chr and
          * /run/systemd/inaccessible/blk paths. Instead of stat()ing these we parse out the major/minor directly. This
          * means clients can use these path without the device node actually around */
-        r = shortcut_special_device_path(node, &st);
+        r = device_path_parse_major_minor(node, &st.st_mode, &st.st_rdev);
         if (r < 0) {
                 if (r != -ENODEV)
                         return log_warning_errno(r, "Couldn't parse major/minor from device path '%s': %m", node);

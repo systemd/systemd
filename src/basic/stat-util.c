@@ -10,11 +10,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "macro.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 
@@ -318,4 +320,100 @@ int fd_verify_directory(int fd) {
                 return -errno;
 
         return stat_verify_directory(&st);
+}
+
+int device_path_make_major_minor(mode_t mode, dev_t devno, char **ret) {
+        const char *t;
+
+        /* Generates the /dev/{char|block}/MAJOR:MINOR path for a dev_t */
+
+        if (S_ISCHR(mode))
+                t = "char";
+        else if (S_ISBLK(mode))
+                t = "block";
+        else
+                return -ENODEV;
+
+        if (asprintf(ret, "/dev/%s/%u:%u", t, major(devno), minor(devno)) < 0)
+                return -ENOMEM;
+
+        return 0;
+
+}
+
+int device_path_make_canonical(mode_t mode, dev_t devno, char **ret) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        /* Finds the canonical path for a device, i.e. resolves the /dev/{char|block}/MAJOR:MINOR path to the end. */
+
+        assert(ret);
+
+        if (major(devno) == 0 && minor(devno) == 0) {
+                char *s;
+
+                /* A special hack to make sure our 'inaccessible' device nodes work. They won't have symlinks in
+                 * /dev/block/ and /dev/char/, hence we handle them specially here. */
+
+                if (S_ISCHR(mode))
+                        s = strdup("/run/systemd/inaccessible/chr");
+                else if (S_ISBLK(mode))
+                        s = strdup("/run/systemd/inaccessible/blk");
+                else
+                        return -ENODEV;
+
+                if (!s)
+                        return -ENOMEM;
+
+                *ret = s;
+                return 0;
+        }
+
+        r = device_path_make_major_minor(mode, devno, &p);
+        if (r < 0)
+                return r;
+
+        return chase_symlinks(p, NULL, 0, ret);
+}
+
+int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret_devno) {
+        mode_t mode;
+        dev_t devno;
+        int r;
+
+        /* Tries to extract the major/minor directly from the device path if we can. Handles /dev/block/ and /dev/char/
+         * paths, as well out synthetic inaccessible device nodes. Never goes to disk. Returns -ENODEV if the device
+         * path cannot be parsed like this.  */
+
+        if (path_equal(path, "/run/systemd/inaccessible/chr")) {
+                mode = S_IFCHR;
+                devno = makedev(0, 0);
+        } else if (path_equal(path, "/run/systemd/inaccessible/blk")) {
+                mode = S_IFBLK;
+                devno = makedev(0, 0);
+        } else {
+                const char *w;
+
+                w = path_startswith(path, "/dev/block/");
+                if (w)
+                        mode = S_IFBLK;
+                else {
+                        w = path_startswith(path, "/dev/char/");
+                        if (!w)
+                                return -ENODEV;
+
+                        mode = S_IFCHR;
+                }
+
+                r = parse_dev(w, &devno);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_mode)
+                *ret_mode = mode;
+        if (ret_devno)
+                *ret_devno = devno;
+
+        return 0;
 }

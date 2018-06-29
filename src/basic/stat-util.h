@@ -81,3 +81,7 @@ int fd_verify_directory(int fd);
                 typeof(x) _x = (x), _y = 0;                             \
                 _x >= _y && _x < (UINT32_C(1) << 20);                   \
         })
+
+int device_path_make_major_minor(mode_t mode, dev_t devno, char **ret);
+int device_path_make_canonical(mode_t mode, dev_t devno, char **ret);
+int device_path_parse_major_minor(const char *path, mode_t *ret_mode, dev_t *ret_devno);
