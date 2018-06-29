@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-
 #include "conf-parser.h"
 #include "list.h"
 #include "macro.h"

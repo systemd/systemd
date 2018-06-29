@@ -1,6 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
- ***/
 
 #if HAVE_LIBIDN2
 #  include <idn2.h>

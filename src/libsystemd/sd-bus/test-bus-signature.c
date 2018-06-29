@@ -1,6 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-***/
 
 #include "bus-internal.h"
 #include "bus-signature.h"

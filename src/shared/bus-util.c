@@ -500,7 +500,7 @@ int bus_verify_polkit_async(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(pk, "us", !!interactive, NULL);
+        r = sd_bus_message_append(pk, "us", interactive, NULL);
         if (r < 0)
                 return r;
 
@@ -1793,11 +1793,10 @@ static int request_name_handler_may_reload_dbus(sd_bus_message *m, void *userdat
                                 "Unable to request name, will retry after reloading DBus configuration: %s",
                                 e->message);
 
-                /* If systemd-timesyncd.service enables DynamicUser= and dbus.service
-                 * started before the dynamic user is realized, then the DBus policy
-                 * about timesyncd has not been enabled yet. So, let's try to reload
-                 * DBus configuration, and after that request the name again. Note that it
-                 * seems that no privileges are necessary to call the following method. */
+                /* If a service enables DynamicUser= and dbus.service started before the dynamic user is realized,
+                 * then the DBus policy about the service has not been enabled yet. So, let's try to reload DBus
+                 * configuration, and after that request the name again. Note that it seems that no privileges are
+                 * necessary to call the following method. */
 
                 r = sd_bus_call_method_async(
                                 sd_bus_message_get_bus(m),

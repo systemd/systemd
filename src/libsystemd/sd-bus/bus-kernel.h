@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-***/
-
 #include "sd-bus.h"
 
 #define MEMFD_CACHE_MAX 32

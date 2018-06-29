@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-
 #include <sys/timex.h>
 
 #include "sd-bus.h"

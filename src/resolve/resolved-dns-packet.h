@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
- ***/
-
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 

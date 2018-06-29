@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-***/
-
 #include <stdbool.h>
 
 bool signature_is_single(const char *s, bool allow_dict_entry);

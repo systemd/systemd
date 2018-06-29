@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-
 #include "util.h"
 
 #define FOREACH_DEVICE_PROPERTY(device, key, value)                \
