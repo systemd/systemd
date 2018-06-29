@@ -509,13 +509,56 @@ static int whitelist_device(BPFProgram *prog, const char *path, const char *node
 
 static int whitelist_major(BPFProgram *prog, const char *path, const char *name, char type, const char *acc) {
         _cleanup_fclose_ FILE *f = NULL;
-        char *p, *w;
+        char buf[2+DECIMAL_STR_MAX(unsigned)+3+4];
         bool good = false;
+        unsigned maj;
         int r;
 
         assert(path);
         assert(acc);
         assert(IN_SET(type, 'b', 'c'));
+
+        if (streq(name, "*")) {
+                /* If the name is a wildcard, then apply this list to all devices of this type */
+
+                if (cg_all_unified() > 0) {
+                        if (!prog)
+                                return 0;
+
+                        (void) cgroup_bpf_whitelist_class(prog, type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK, acc);
+                } else {
+                        xsprintf(buf, "%c *:* %s", type, acc);
+
+                        r = cg_set_attribute("devices", path, "devices.allow", buf);
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to set devices.allow on %s: %m", path);
+                        return 0;
+                }
+        }
+
+        if (safe_atou(name, &maj) >= 0 && DEVICE_MAJOR_VALID(maj)) {
+                /* The name is numeric and suitable as major. In that case, let's take is major, and create the entry
+                 * directly */
+
+                if (cg_all_unified() > 0) {
+                        if (!prog)
+                                return 0;
+
+                        (void) cgroup_bpf_whitelist_major(prog,
+                                                          type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
+                                                          maj, acc);
+                } else {
+                        xsprintf(buf, "%c %u:* %s", type, maj, acc);
+
+                        r = cg_set_attribute("devices", path, "devices.allow", buf);
+                        if (r < 0)
+                                log_full_errno(IN_SET(r, -ENOENT, -EROFS, -EINVAL, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to set devices.allow on %s: %m", path);
+                }
+
+                return 0;
+        }
 
         f = fopen("/proc/devices", "re");
         if (!f)
@@ -523,7 +566,7 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                unsigned maj;
+                char *w, *p;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
@@ -576,8 +619,6 @@ static int whitelist_major(BPFProgram *prog, const char *path, const char *name,
                                                           type == 'c' ? BPF_DEVCG_DEV_CHAR : BPF_DEVCG_DEV_BLOCK,
                                                           maj, acc);
                 } else {
-                        char buf[2+DECIMAL_STR_MAX(unsigned)+3+4];
-
                         sprintf(buf,
                                 "%c %u:* %s",
                                 type,
@@ -1179,7 +1220,7 @@ static void cgroup_context_apply(
                         else if ((val = startswith(a->path, "char-")))
                                 (void) whitelist_major(prog, path, val, 'c', acc);
                         else
-                                log_unit_debug(u, "Ignoring device %s while writing cgroup attribute.", a->path);
+                                log_unit_debug(u, "Ignoring device '%s' while writing cgroup attribute.", a->path);
                 }
 
                 r = cgroup_apply_device_bpf(u, prog, c->device_policy, c->device_allow);
