@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-
 typedef struct VLan VLan;
 
 #include "netdev/netdev.h"

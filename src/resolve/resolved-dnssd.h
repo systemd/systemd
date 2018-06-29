@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "list.h"
 
 typedef struct DnssdService DnssdService;

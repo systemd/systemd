@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-
 enum {
         CONF_FILES_EXECUTABLE    = 1 << 0,
         CONF_FILES_REGULAR       = 1 << 1,

@@ -1,6 +1,5 @@
 #pragma once
 
-
 typedef struct Wireguard Wireguard;
 
 #include "netdev.h"

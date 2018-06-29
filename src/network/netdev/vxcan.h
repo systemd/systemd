@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-
 typedef struct VxCan VxCan;
 
 #if HAVE_VXCAN_INFO_PEER

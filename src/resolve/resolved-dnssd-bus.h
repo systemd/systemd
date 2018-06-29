@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "sd-bus.h"
 
 extern const sd_bus_vtable dnssd_vtable[];

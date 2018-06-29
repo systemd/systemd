@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-
 #include "sd-device.h"
 
 int device_enumerator_scan_devices(sd_device_enumerator *enumeartor);

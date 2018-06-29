@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-
 #include <inttypes.h>
 
 #if SIZEOF_PID_T == 4
