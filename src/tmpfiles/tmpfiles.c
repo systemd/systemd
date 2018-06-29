@@ -1052,7 +1052,7 @@ static int fd_set_acls(Item *item, int fd, const struct stat *st) {
 
 static int path_set_acls(Item *item, const char *path) {
         int r = 0;
-#ifdef HAVE_ACL
+#if HAVE_ACL
         _cleanup_close_ int fd = -1;
         struct stat st;
 
@@ -1067,9 +1067,9 @@ static int path_set_acls(Item *item, const char *path) {
                 return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
 
         r = fd_set_acls(item, fd, &st);
- #endif
-         return r;
- }
+#endif
+        return r;
+}
 
 #define ATTRIBUTES_ALL                          \
         (FS_NOATIME_FL      |                   \

@@ -11,7 +11,7 @@ const char* const dnssd_service_dirs[] = {
         "/etc/systemd/dnssd",
         "/run/systemd/dnssd",
         "/usr/lib/systemd/dnssd",
-#ifdef HAVE_SPLIT_USR
+#if HAVE_SPLIT_USR
         "/lib/systemd/dnssd",
 #endif
     NULL
