@@ -102,7 +102,7 @@ int fgetgrent_sane(FILE *stream, struct group **gr);
 int putpwent_sane(const struct passwd *pw, FILE *stream);
 int putspent_sane(const struct spwd *sp, FILE *stream);
 int putgrent_sane(const struct group *gr, FILE *stream);
-#ifdef ENABLE_GSHADOW
+#if ENABLE_GSHADOW
 int fgetsgent_sane(FILE *stream, struct sgrp **sg);
 int putsgent_sane(const struct sgrp *sg, FILE *stream);
 #endif
