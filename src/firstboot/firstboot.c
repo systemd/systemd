@@ -4,7 +4,7 @@
 #include <getopt.h>
 #include <unistd.h>
 
-#ifdef HAVE_CRYPT_H
+#if HAVE_CRYPT_H
 /* libxcrypt is a replacement for glibc's libcrypt, and libcrypt might be
  * removed from glibc at some point. As part of the removal, defines for
  * crypt(3) are dropped from unistd.h, and we must include crypt.h instead.
