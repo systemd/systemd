@@ -19,6 +19,7 @@
 #include "process-util.h"
 #include "procfs-util.h"
 #include "special.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -407,31 +408,76 @@ static int lookup_block_device(const char *p, dev_t *ret) {
         return 0;
 }
 
+static int shortcut_special_device_path(const char *p, struct stat *ret) {
+        const char *w;
+        mode_t mode;
+        dev_t devt;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        if (path_equal(p, "/run/systemd/inaccessible/chr")) {
+                *ret = (struct stat) {
+                        .st_mode = S_IFCHR,
+                        .st_rdev = makedev(0, 0),
+                };
+                return 0;
+        }
+
+        if (path_equal(p, "/run/systemd/inaccessible/blk")) {
+                *ret = (struct stat) {
+                        .st_mode = S_IFBLK,
+                        .st_rdev = makedev(0, 0),
+                };
+                return 0;
+        }
+
+        w = path_startswith(p, "/dev/block/");
+        if (w)
+                mode = S_IFBLK;
+        else {
+                w = path_startswith(p, "/dev/char/");
+                if (!w)
+                        return -ENODEV;
+
+                mode = S_IFCHR;
+        }
+
+        r = parse_dev(w, &devt);
+        if (r < 0)
+                return r;
+
+        *ret = (struct stat) {
+                .st_mode = mode,
+                .st_rdev = devt,
+        };
+
+        return 0;
+}
+
 static int whitelist_device(BPFProgram *prog, const char *path, const char *node, const char *acc) {
         struct stat st;
-        bool ignore_notfound;
         int r;
 
         assert(path);
         assert(acc);
 
-        if (node[0] == '-') {
-                /* Non-existent paths starting with "-" must be silently ignored */
-                node++;
-                ignore_notfound = true;
-        } else
-                ignore_notfound = false;
+        /* Some special handling for /dev/block/%u:%u, /dev/char/%u:%u, /run/systemd/inaccessible/chr and
+         * /run/systemd/inaccessible/blk paths. Instead of stat()ing these we parse out the major/minor directly. This
+         * means clients can use these path without the device node actually around */
+        r = shortcut_special_device_path(node, &st);
+        if (r < 0) {
+                if (r != -ENODEV)
+                        return log_warning_errno(r, "Couldn't parse major/minor from device path '%s': %m", node);
 
-        if (stat(node, &st) < 0) {
-                if (errno == ENOENT && ignore_notfound)
-                        return 0;
+                if (stat(node, &st) < 0)
+                        return log_warning_errno(errno, "Couldn't stat device %s: %m", node);
 
-                return log_warning_errno(errno, "Couldn't stat device %s: %m", node);
-        }
-
-        if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
-                log_warning("%s is not a device.", node);
-                return -ENODEV;
+                if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode)) {
+                        log_warning("%s is not a device.", node);
+                        return -ENODEV;
+                }
         }
 
         if (cg_all_unified() > 0) {
@@ -1098,8 +1144,8 @@ static void cgroup_context_apply(
                                 "/dev/tty\0" "rwm\0"
                                 "/dev/ptmx\0" "rwm\0"
                                 /* Allow /run/systemd/inaccessible/{chr,blk} devices for mapping InaccessiblePaths */
-                                "-/run/systemd/inaccessible/chr\0" "rwm\0"
-                                "-/run/systemd/inaccessible/blk\0" "rwm\0";
+                                "/run/systemd/inaccessible/chr\0" "rwm\0"
+                                "/run/systemd/inaccessible/blk\0" "rwm\0";
 
                         const char *x, *y;
 
