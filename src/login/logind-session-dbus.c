@@ -12,6 +12,7 @@
 #include "logind-session.h"
 #include "logind.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "util.h"
 
@@ -380,6 +381,9 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
+        if (!DEVICE_MAJOR_VALID(major) || !DEVICE_MINOR_VALID(minor))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Device major/minor is not valid.");
+
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
                 return sd_bus_error_setf(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
 
@@ -427,6 +431,9 @@ static int method_release_device(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 return r;
 
+        if (!DEVICE_MAJOR_VALID(major) || !DEVICE_MINOR_VALID(minor))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Device major/minor is not valid.");
+
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
                 return sd_bus_error_setf(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
 
@@ -454,6 +461,9 @@ static int method_pause_device_complete(sd_bus_message *message, void *userdata,
         r = sd_bus_message_read(message, "uu", &major, &minor);
         if (r < 0)
                 return r;
+
+        if (!DEVICE_MAJOR_VALID(major) || !DEVICE_MINOR_VALID(minor))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Device major/minor is not valid.");
 
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
                 return sd_bus_error_setf(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
