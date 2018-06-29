@@ -79,7 +79,7 @@
     for <parameter>slot</parameter> in the <parameter>callback</parameter> parameter.</para>
 
     <para><function>sd_bus_track_set_destroy_callback()</function> and
-    <function>sd_bus_track_get_destroy_callback</function> provide equivalent functionality for the
+    <function>sd_bus_track_get_destroy_callback()</function> provide equivalent functionality for the
     <parameter>userdata</parameter> pointer associated with bus peer tracking objects. For details about bus peer
     tracking objects, see
     <citerefentry><refentrytitle>sd_bus_track_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
@@ -93,7 +93,7 @@
     negative errno-style error code.</para>
 
     <para><function>sd_bus_slot_get_destroy_callback()</function> and
-    <function>sd_bus_track_get_destroy_callback</function> return positive if the destroy callback function is set, 0
+    <function>sd_bus_track_get_destroy_callback()</function> return positive if the destroy callback function is set, 0
     if not. On failure, they return a negative errno-style error code.</para>
   </refsect1>
 
