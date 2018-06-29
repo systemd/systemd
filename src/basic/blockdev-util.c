@@ -10,12 +10,13 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "missing.h"
+#include "parse-util.h"
 #include "stat-util.h"
 
 int block_get_whole_disk(dev_t d, dev_t *ret) {
         char p[SYS_BLOCK_PATH_MAX("/partition")];
         _cleanup_free_ char *s = NULL;
-        unsigned n, m;
+        dev_t devt;
         int r;
 
         assert(ret);
@@ -38,16 +39,16 @@ int block_get_whole_disk(dev_t d, dev_t *ret) {
         if (r < 0)
                 return r;
 
-        r = sscanf(s, "%u:%u", &m, &n);
-        if (r != 2)
-                return -EINVAL;
+        r = parse_dev(s, &devt);
+        if (r < 0)
+                return r;
 
         /* Only return this if it is really good enough for us. */
-        xsprintf_sys_block_path(p, "/queue", makedev(m, n));
+        xsprintf_sys_block_path(p, "/queue", devt);
         if (access(p, F_OK) < 0)
                 return -ENOENT;
 
-        *ret = makedev(m, n);
+        *ret = devt;
         return 0;
 }
 
@@ -85,8 +86,8 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         _cleanup_free_ char *t = NULL;
         char p[SYS_BLOCK_PATH_MAX("/slaves")];
         struct dirent *de, *found = NULL;
-        unsigned maj, min;
         const char *q;
+        dev_t devt;
         int r;
 
         /* For the specified block device tries to chase it through the layers, in case LUKS-style DM stacking is used,
@@ -148,13 +149,14 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         if (r < 0)
                 return r;
 
-        if (sscanf(t, "%u:%u", &maj, &min) != 2)
+        r = parse_dev(t, &devt);
+        if (r < 0)
                 return -EINVAL;
 
-        if (maj == 0)
+        if (major(devt) == 0)
                 return -ENOENT;
 
-        *ret = makedev(maj, min);
+        *ret = devt;
         return 1;
 }
 

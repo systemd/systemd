@@ -2636,24 +2636,21 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
                 break;
 
         case CREATE_CHAR_DEVICE:
-        case CREATE_BLOCK_DEVICE: {
-                unsigned major, minor;
-
+        case CREATE_BLOCK_DEVICE:
                 if (!i.argument) {
                         *invalid_config = true;
                         log_error("[%s:%u] Device file requires argument.", fname, line);
                         return -EBADMSG;
                 }
 
-                if (sscanf(i.argument, "%u:%u", &major, &minor) != 2) {
+                r = parse_dev(i.argument, &i.major_minor);
+                if (r < 0) {
                         *invalid_config = true;
-                        log_error("[%s:%u] Can't parse device file major/minor '%s'.", fname, line, i.argument);
+                        log_error_errno(r, "[%s:%u] Can't parse device file major/minor '%s'.", fname, line, i.argument);
                         return -EBADMSG;
                 }
 
-                i.major_minor = makedev(major, minor);
                 break;
-        }
 
         case SET_XATTR:
         case RECURSIVE_SET_XATTR:

@@ -594,16 +594,17 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
 
         switch (id[0]) {
         case 'b':
-        case 'c':
-        {
-                char type;
-                int maj, min;
+        case 'c': {
+                dev_t devt;
 
-                r = sscanf(id, "%c%i:%i", &type, &maj, &min);
-                if (r != 3)
+                if (isempty(id))
                         return -EINVAL;
 
-                return sd_device_new_from_devnum(ret, type, makedev(maj, min));
+                r = parse_dev(id + 1, &devt);
+                if (r < 0)
+                        return r;
+
+                return sd_device_new_from_devnum(ret, id[0], devt);
         }
         case 'n':
         {
