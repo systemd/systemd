@@ -160,6 +160,12 @@ sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/28/201
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
+# Connect
+#########################################
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnConnect:pnTablet9:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+#########################################
 # Cube
 #########################################
 
