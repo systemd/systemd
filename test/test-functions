@@ -359,14 +359,18 @@ install_missing_libraries() {
 }
 
 create_empty_image() {
+    local _size=500
+    if [[ "$STRIP_BINARIES" = "no" ]]; then
+        _size=$((2*_size))
+    fi
     rm -f "$TESTDIR/rootdisk.img"
     # Create the blank file to use as a root filesystem
-    dd if=/dev/null of="$TESTDIR/rootdisk.img" bs=1M seek=400
+    dd if=/dev/null of="$TESTDIR/rootdisk.img" bs=1M seek="$_size"
     LOOPDEV=$(losetup --show -P -f $TESTDIR/rootdisk.img)
     [ -b "$LOOPDEV" ] || return 1
     echo "LOOPDEV=$LOOPDEV" >> $STATEFILE
     sfdisk "$LOOPDEV" <<EOF
-,390M
+,$((_size-10))M
 ,
 EOF
 
