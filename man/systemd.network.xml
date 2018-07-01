@@ -724,6 +724,14 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>IPVLAN=</varname></term>
+          <listitem>
+            <para>The name of a IPVLAN to create on the link. See
+            <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+            This option may be specified more than once.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>MACVLAN=</varname></term>
           <listitem>
             <para>The name of a MACVLAN to create on the link. See
