@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2014 Sebastian Thorarensen
-***/
 
 #include "alloc-util.h"
 #include "format-util.h"
