@@ -125,6 +125,7 @@ typedef struct Link {
 } Link;
 
 DUID *link_get_duid(Link *link);
+int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error);
 
 Link *link_unref(Link *link);
 Link *link_ref(Link *link);

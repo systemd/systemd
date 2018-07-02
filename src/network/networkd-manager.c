@@ -114,6 +114,8 @@ static int on_connected(sd_bus_message *message, void *userdata, sd_bus_error *r
                 (void) manager_set_hostname(m, m->dynamic_hostname);
         if (m->dynamic_timezone)
                 (void) manager_set_timezone(m, m->dynamic_timezone);
+        if (m->links_requesting_uuid)
+                (void) manager_request_product_uuid(m, NULL);
 
         return 0;
 }
@@ -1459,6 +1461,9 @@ void manager_free(Manager *m) {
                 link_unref(link);
         hashmap_free(m->links);
 
+        set_free(m->links_requesting_uuid);
+        set_free(m->duids_requesting_uuid);
+
         hashmap_free(m->networks_by_name);
 
         while ((netdev = hashmap_first(m->netdevs)))
@@ -1828,6 +1833,60 @@ int manager_set_timezone(Manager *m, const char *tz) {
                         false);
         if (r < 0)
                 return log_error_errno(r, "Could not set timezone: %m");
+
+        return 0;
+}
+
+int manager_request_product_uuid(Manager *m, Link *link) {
+        int r;
+
+        assert(m);
+
+        if (m->has_product_uuid)
+                return 0;
+
+        log_debug("Requesting product UUID");
+
+        if (link) {
+                DUID *duid;
+
+                assert_se(duid = link_get_duid(link));
+
+                r = set_ensure_allocated(&m->links_requesting_uuid, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_ensure_allocated(&m->duids_requesting_uuid, NULL);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put(m->links_requesting_uuid, link);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put(m->duids_requesting_uuid, duid);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (!m->bus || sd_bus_is_ready(m->bus) <= 0) {
+                log_debug("Not connected to system bus, requesting product UUID later.");
+                return 0;
+        }
+
+        r = sd_bus_call_method_async(
+                        m->bus,
+                        NULL,
+                        "org.freedesktop.hostname1",
+                        "/org/freedesktop/hostname1",
+                        "org.freedesktop.hostname1",
+                        "GetProductUUID",
+                        get_product_uuid_handler,
+                        m,
+                        "b",
+                        false);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to get product UUID: %m");
 
         return 0;
 }

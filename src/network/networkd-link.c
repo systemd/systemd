@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "bus-util.h"
+#include "dhcp-identifier.h"
 #include "dhcp-lease-internal.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -546,8 +547,10 @@ static void link_free(Link *link) {
         sd_ndisc_unref(link->ndisc);
         sd_radv_unref(link->radv);
 
-        if (link->manager)
+        if (link->manager) {
                 hashmap_remove(link->manager->links, INT_TO_PTR(link->ifindex));
+                set_remove(link->manager->links_requesting_uuid, link);
+        }
 
         free(link->ifname);
 
@@ -2891,6 +2894,134 @@ static int link_configure(Link *link) {
         return link_enter_join_netdev(link);
 }
 
+static int duid_set_uuid(DUID *duid, sd_id128_t uuid) {
+        assert(duid);
+
+        if (duid->raw_data_len > 0)
+                return 0;
+
+        if (duid->type != DUID_TYPE_UUID)
+                return -EINVAL;
+
+        memcpy(&duid->raw_data, &uuid, sizeof(sd_id128_t));
+        duid->raw_data_len = sizeof(sd_id128_t);
+
+        return 1;
+}
+
+int get_product_uuid_handler(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+        Manager *manager = userdata;
+        const sd_bus_error *e;
+        const void *a;
+        size_t sz;
+        DUID *duid;
+        Link *link;
+        int r;
+
+        assert(m);
+        assert(manager);
+
+        e = sd_bus_message_get_error(m);
+        if (e) {
+                log_error_errno(sd_bus_error_get_errno(e),
+                                "Could not get product UUID. Fallback to use application specific machine ID as DUID-UUID: %s",
+                                e->message);
+                goto configure;
+        }
+
+        r = sd_bus_message_read_array(m, 'y', &a, &sz);
+        if (r < 0)
+                goto configure;
+
+        if (sz != sizeof(sd_id128_t)) {
+                log_error("Invalid product UUID. Fallback to use application specific machine ID as DUID-UUID.");
+                goto configure;
+        }
+
+        memcpy(&manager->product_uuid, a, sz);
+        while ((duid = set_steal_first(manager->duids_requesting_uuid)))
+                (void) duid_set_uuid(duid, manager->product_uuid);
+
+        manager->duids_requesting_uuid = set_free(manager->duids_requesting_uuid);
+
+configure:
+        while ((link = set_steal_first(manager->links_requesting_uuid))) {
+                r = link_configure(link);
+                if (r < 0)
+                        log_link_error_errno(link, r, "Failed to configure link: %m");
+        }
+
+        manager->links_requesting_uuid = set_free(manager->links_requesting_uuid);
+
+        /* To avoid calling GetProductUUID() bus method so frequently, set the flag below
+         * even if the method fails. */
+        manager->has_product_uuid = true;
+
+        return 1;
+}
+
+static bool link_requires_uuid(Link *link) {
+        const DUID *duid;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        duid = link_get_duid(link);
+        if (duid->type != DUID_TYPE_UUID || duid->raw_data_len != 0)
+                return false;
+
+        if (link_dhcp4_enabled(link) && IN_SET(link->network->dhcp_client_identifier, DHCP_CLIENT_ID_DUID, DHCP_CLIENT_ID_DUID_ONLY))
+                return true;
+
+        if (link_dhcp6_enabled(link) || link_ipv6_accept_ra_enabled(link))
+                return true;
+
+        return false;
+}
+
+static int link_configure_duid(Link *link) {
+        Manager *m;
+        DUID *duid;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        m = link->manager;
+        duid = link_get_duid(link);
+
+        if (!link_requires_uuid(link))
+                return 1;
+
+        if (m->has_product_uuid) {
+                (void) duid_set_uuid(duid, m->product_uuid);
+                return 1;
+        }
+
+        if (!m->links_requesting_uuid) {
+                r = manager_request_product_uuid(m, link);
+                if (r < 0) {
+                        if (r == -ENOMEM)
+                                return r;
+
+                        log_link_warning_errno(link, r, "Failed to get product UUID. Fallback to use application specific machine ID as DUID-UUID: %m");
+                        return 1;
+                }
+        } else {
+                r = set_put(m->links_requesting_uuid, link);
+                if (r < 0)
+                        return log_oom();
+
+                r = set_put(m->duids_requesting_uuid, duid);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
                                        void *userdata) {
         _cleanup_(link_unrefp) Link *link = userdata;
@@ -2944,6 +3075,12 @@ static int link_initialized_and_synced(sd_netlink *rtnl, sd_netlink_message *m,
 
         r = link_new_bound_to_list(link);
         if (r < 0)
+                return r;
+
+        /* link_configure_duid() returns 0 if it requests product UUID. In that case,
+         * link_configure() is called later asynchronously. */
+        r = link_configure_duid(link);
+        if (r <= 0)
                 return r;
 
         r = link_configure(link);

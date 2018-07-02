@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
+#include "sd-id128.h"
 #include "sd-netlink.h"
 #include "sd-resolve.h"
 #include "udev.h"
@@ -48,6 +49,11 @@ struct Manager {
         usec_t network_dirs_ts_usec;
 
         DUID duid;
+        sd_id128_t product_uuid;
+        bool has_product_uuid;
+        Set *links_requesting_uuid;
+        Set *duids_requesting_uuid;
+
         char* dynamic_hostname;
         char* dynamic_timezone;
 
@@ -85,6 +91,7 @@ Link* manager_find_uplink(Manager *m, Link *exclude);
 
 int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *timezone);
+int manager_request_product_uuid(Manager *m, Link *link);
 
 Link *manager_dhcp6_prefix_get(Manager *m, struct in6_addr *addr);
 int manager_dhcp6_prefix_add(Manager *m, struct in6_addr *addr, Link *link);
