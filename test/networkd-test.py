@@ -54,6 +54,11 @@ def setUpModule():
     # Ensure the unit directory exists so tests can dump files into it.
     os.makedirs(NETWORK_UNITDIR, exist_ok=True)
 
+    # create static systemd-network user for networkd-test-router.service (it
+    # needs to do some stuff as root and can't start as user; but networkd
+    # still insists on the user)
+    subprocess.check_call(['adduser', '--system', '--no-create-home', 'systemd-network'])
+
 
 class NetworkdTestingUtilities:
     """Provide a set of utility functions to facilitate networkd tests.
@@ -172,6 +177,7 @@ Name=mybridge
 DNS=192.168.250.1
 Address=192.168.250.33/24
 Gateway=192.168.250.1''')
+        subprocess.check_call(['systemctl', 'reset-failed', 'systemd-networkd'])
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
 
     def tearDown(self):
@@ -256,6 +262,8 @@ class ClientTestBase(NetworkdTestingUtilities):
                                       universal_newlines=True)
         self.assertTrue(out.startswith('-- cursor:'))
         self.journal_cursor = out.split()[-1]
+
+        subprocess.check_call(['systemctl', 'reset-failed', 'systemd-networkd'])
 
     def tearDown(self):
         self.shutdown_iface()
