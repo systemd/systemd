@@ -3013,13 +3013,13 @@ int config_parse_cpu_quota(
                 return 0;
         }
 
-        r = parse_percent_unbounded(rvalue);
+        r = parse_permille_unbounded(rvalue);
         if (r <= 0) {
                 log_syntax(unit, LOG_ERR, filename, line, r, "Invalid CPU quota '%s', ignoring.", rvalue);
                 return 0;
         }
 
-        c->cpu_quota_per_sec_usec = ((usec_t) r * USEC_PER_SEC) / 100U;
+        c->cpu_quota_per_sec_usec = ((usec_t) r * USEC_PER_SEC) / 1000U;
         return 0;
 }
 
@@ -3041,7 +3041,7 @@ int config_parse_memory_limit(
 
         if (!isempty(rvalue) && !streq(rvalue, "infinity")) {
 
-                r = parse_percent(rvalue);
+                r = parse_permille(rvalue);
                 if (r < 0) {
                         r = parse_size(rvalue, 1024, &bytes);
                         if (r < 0) {
@@ -3049,7 +3049,7 @@ int config_parse_memory_limit(
                                 return 0;
                         }
                 } else
-                        bytes = physical_memory_scale(r, 100U);
+                        bytes = physical_memory_scale(r, 1000U);
 
                 if (bytes >= UINT64_MAX ||
                     (bytes <= 0 && !streq(lvalue, "MemorySwapMax"))) {
@@ -3102,7 +3102,7 @@ int config_parse_tasks_max(
                 return 0;
         }
 
-        r = parse_percent(rvalue);
+        r = parse_permille(rvalue);
         if (r < 0) {
                 r = safe_atou64(rvalue, &v);
                 if (r < 0) {
@@ -3110,7 +3110,7 @@ int config_parse_tasks_max(
                         return 0;
                 }
         } else
-                v = system_tasks_max_scale(r, 100U);
+                v = system_tasks_max_scale(r, 1000U);
 
         if (v <= 0 || v >= UINT64_MAX) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Maximum tasks value '%s' out of range, ignoring.", rvalue);

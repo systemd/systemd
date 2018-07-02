@@ -208,9 +208,9 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
                         return r;
                 }
         } else {
-                r = parse_percent(limit);
+                r = parse_permille(limit);
                 if (r >= 0) {
-                        r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", (uint32_t) (((uint64_t) UINT32_MAX * r) / 100U));
+                        r = sd_bus_message_append(m, "(sv)", "MemoryMaxScale", "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 1000U));
                         if (r < 0) {
                                 pam_syslog(handle, LOG_ERR, "Failed to append to bus message: %s", strerror(-r));
                                 return r;
