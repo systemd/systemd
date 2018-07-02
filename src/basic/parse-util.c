@@ -637,6 +637,8 @@ int parse_permille_unbounded(const char *p) {
                 r = safe_atoi(n, &v);
                 if (r < 0)
                         return r;
+                if (v < 0)
+                        return -ERANGE;
         } else {
                 pc = endswith(p, "%");
                 if (!pc)
@@ -657,14 +659,13 @@ int parse_permille_unbounded(const char *p) {
                 r = safe_atoi(n, &v);
                 if (r < 0)
                         return r;
+                if (v < 0)
+                        return -ERANGE;
                 if (v > (INT_MAX - q) / 10)
                         return -ERANGE;
 
                 v = v * 10 + q;
         }
-
-        if (v < 0)
-                return -ERANGE;
 
         return v;
 }
