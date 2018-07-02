@@ -100,7 +100,7 @@
         <paramdef>sd_bus_error *<parameter>e</parameter></paramdef>
         <paramdef>int <parameter>error</parameter></paramdef>
         <paramdef>const char *<parameter>format</parameter></paramdef>
-        <paramdef>va_list ap</paramdef>
+        <paramdef>va_list <parameter>ap</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>

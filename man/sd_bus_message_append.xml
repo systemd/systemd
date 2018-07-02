@@ -94,13 +94,12 @@
     values for each entry matching the element type of
     the dictionary entries.</para>
 
-    <para>The <function>sd_bus_message_appendv()</function> is equivalent to
-    the function <function>sd_bus_message_append()</function>,
-    except that it is called with a <literal>va_list</literal> instead of
-    a variable number of arguments. This function does not call the
-    <function>va_end()</function> macro. Because it invokes the
-    <function>va_arg()</function> macro, the value of ap
-    is undefined after the call.</para>
+    <para>The <function>sd_bus_message_appendv()</function> is equivalent to the
+    <function>sd_bus_message_append()</function>, except that it is called with
+    a <literal>va_list</literal> instead of a variable number of arguments. This
+    function does not call the <function>va_end()</function> macro. Because it
+    invokes the <function>va_arg()</function> macro, the value of
+    <parameter>ap</parameter> is undefined after the call.</para>
 
     <para>For further details on the D-Bus type system, please consult
     the <ulink
