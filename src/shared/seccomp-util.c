@@ -651,6 +651,7 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "rt_sigqueueinfo\0"
                 "rt_tgsigqueueinfo\0"
                 "setns\0"
+                "swapcontext\0" /* Some archs e.g. powerpc32 are using it to do userspace context switches */
                 "tgkill\0"
                 "times\0"
                 "tkill\0"
