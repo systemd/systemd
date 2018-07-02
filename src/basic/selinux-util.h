@@ -23,6 +23,7 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
 char* mac_selinux_free(char *label);
 
 int mac_selinux_create_file_prepare(const char *path, mode_t mode);
+int mac_selinux_create_file_prepare_at(int dirfd, const char *path, mode_t mode);
 void mac_selinux_create_file_clear(void);
 
 int mac_selinux_create_socket_prepare(const char *label);
