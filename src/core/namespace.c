@@ -31,6 +31,7 @@
 #include "umask-util.h"
 #include "user-util.h"
 #include "util.h"
+#include "virt.h"
 
 #define DEV_MOUNT_OPTIONS (MS_NOSUID|MS_STRICTATIME|MS_NOEXEC)
 
@@ -630,7 +631,7 @@ static int mount_private_dev(MountEntry *m) {
 
         char temporary_mount[] = "/tmp/namespace-dev-XXXXXX";
         const char *d, *dev = NULL, *devpts = NULL, *devshm = NULL, *devhugepages = NULL, *devmqueue = NULL, *devlog = NULL, *devptmx = NULL;
-        bool can_mknod = true;
+        bool can_mknod = true, in_userns;
         _cleanup_umask_ mode_t u;
         int r;
 
@@ -654,6 +655,18 @@ static int mount_private_dev(MountEntry *m) {
                 r = -errno;
                 goto fail;
         }
+
+
+        /* Starting with kernel 4.18 mknod() is enabled for user namespaces.
+         * These devices nodes however, will be unusable since open() will fail.
+         * Conceptually, this means that open() is now a more privileged
+         * operation for device nodes than mknod(). See
+         * https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=55956b59df336f6738da916dbb520b6e37df9fbd
+         * for the actual patch.
+         */
+        in_userns = running_in_userns() >= 1;
+        if (in_userns)
+                can_mknod = false;
 
         /* /dev/ptmx can either be a device node or a symlink to /dev/pts/ptmx
          * when /dev/ptmx a device node, /dev/pts/ptmx has 000 permissions making it inaccessible
