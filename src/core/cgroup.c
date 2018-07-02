@@ -376,16 +376,23 @@ int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode)
 }
 
 static int lookup_block_device(const char *p, dev_t *ret) {
-        struct stat st;
+        struct stat st = {};
         int r;
 
         assert(p);
         assert(ret);
 
-        if (stat(p, &st) < 0)
-                return log_warning_errno(errno, "Couldn't stat device '%s': %m", p);
+        r = device_path_parse_major_minor(p, &st.st_mode, &st.st_rdev);
+        if (r == -ENODEV) { /* not a parsable device node, need to go to disk */
+                if (stat(p, &st) < 0)
+                        return log_warning_errno(errno, "Couldn't stat device '%s': %m", p);
+        } else if (r < 0)
+                return log_warning_errno(r, "Failed to parse major/minor from path '%s': %m", p);
 
-        if (S_ISBLK(st.st_mode))
+        if (S_ISCHR(st.st_mode)) {
+                log_warning("Device node '%s' is a character device, but block device needed.", p);
+                return -ENOTBLK;
+        } else if (S_ISBLK(st.st_mode))
                 *ret = st.st_rdev;
         else if (major(st.st_dev) != 0)
                 *ret = st.st_dev; /* If this is not a device node then use the block device this file is stored on */
