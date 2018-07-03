@@ -304,8 +304,7 @@ static void disk_identify_fixup_uint16 (uint8_t identify[512], unsigned int offs
  * device represented by @fd. If successful, then the result will be
  * copied into @out_identify and @out_is_packet_device.
  *
- * This routine is based on code from libatasmart, Copyright © 2008
- * Lennart Poettering, LGPL v2.1.
+ * This routine is based on code from libatasmart, LGPL v2.1.
  *
  * Returns: 0 if the data was successfully obtained, otherwise
  * non-zero with errno set.
