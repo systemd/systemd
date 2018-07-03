@@ -28,7 +28,7 @@
 
 # Because we had one release with a typo...
 # This is temporary (Remove after systemd 240 is released)
-%_environmnentdir %_environmentdir
+%_environmnentdir %{warn:Use %%_environmentdir instead}%_environmentdir
 
 %systemd_requires \
 Requires(post): systemd \
