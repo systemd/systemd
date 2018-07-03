@@ -479,7 +479,7 @@ static int enumerator_scan_dir_and_add_devices(sd_device_enumerator *enumerator,
                 if (!match_sysname(enumerator, dent->d_name))
                         continue;
 
-                (void)sprintf(syspath, "%s%s", path, dent->d_name);
+                (void) sprintf(syspath, "%s%s", path, dent->d_name);
 
                 k = sd_device_new_from_syspath(&device, syspath);
                 if (k < 0) {

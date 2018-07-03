@@ -413,7 +413,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
         /* check for link kind */
         r = sd_netlink_message_enter_container(message, IFLA_LINKINFO);
         if (r == 0) {
-                (void)sd_netlink_message_read_string(message, IFLA_INFO_KIND, &kind);
+                (void) sd_netlink_message_read_string(message, IFLA_INFO_KIND, &kind);
                 r = sd_netlink_message_exit_container(message);
                 if (r < 0)
                         return r;
@@ -537,7 +537,7 @@ static void link_free(Link *link) {
 
         free(link->kind);
 
-        (void)unlink(link->state_file);
+        (void) unlink(link->state_file);
         free(link->state_file);
 
         udev_device_unref(link->udev_device);
@@ -2257,7 +2257,7 @@ void link_drop(Link *link) {
 
         log_link_debug(link, "Link removed");
 
-        (void)unlink(link->state_file);
+        (void) unlink(link->state_file);
         link_unref(link);
 
         return;

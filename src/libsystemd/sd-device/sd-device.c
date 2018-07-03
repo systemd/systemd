@@ -647,7 +647,7 @@ _public_ int sd_device_new_from_device_id(sd_device **ret, const char *id) {
                 char subsys[PATH_MAX];
                 char *sysname;
 
-                (void)strscpy(subsys, sizeof(subsys), id + 1);
+                (void) strscpy(subsys, sizeof(subsys), id + 1);
                 sysname = strchr(subsys, ':');
                 if (!sysname)
                         return -EINVAL;
@@ -717,7 +717,7 @@ _public_ int sd_device_get_parent(sd_device *child, sd_device **ret) {
         if (!child->parent_set) {
                 child->parent_set = true;
 
-                (void)device_new_from_child(&child->parent, child);
+                (void) device_new_from_child(&child->parent, child);
         }
 
         if (!child->parent)
@@ -864,12 +864,12 @@ _public_ int sd_device_get_parent_with_subsystem_devtype(sd_device *child, const
                 const char *parent_subsystem = NULL;
                 const char *parent_devtype = NULL;
 
-                (void)sd_device_get_subsystem(parent, &parent_subsystem);
+                (void) sd_device_get_subsystem(parent, &parent_subsystem);
                 if (streq_ptr(parent_subsystem, subsystem)) {
                         if (!devtype)
                                 break;
 
-                        (void)sd_device_get_devtype(parent, &parent_devtype);
+                        (void) sd_device_get_devtype(parent, &parent_devtype);
                         if (streq_ptr(parent_devtype, devtype))
                                 break;
                 }
