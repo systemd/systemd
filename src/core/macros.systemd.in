@@ -18,13 +18,17 @@
 %_sysctldir @sysctldir@
 %_sysusersdir @sysusersdir@
 %_tmpfilesdir @tmpfilesdir@
-%_environmnentdir @environmentdir@
+%_environmentdir @environmentdir@
 %_modulesloaddir @modulesloaddir@
 %_modprobedir @modprobedir@
 %_systemdgeneratordir @systemgeneratordir@
 %_systemdusergeneratordir @usergeneratordir@
 %_systemd_system_env_generator_dir @systemenvgeneratordir@
 %_systemd_user_env_generator_dir @userenvgeneratordir@
+
+# Because we had one release with a typo...
+# This is temporary (Remove after systemd 240 is released)
+%_environmnentdir %_environmentdir
 
 %systemd_requires \
 Requires(post): systemd \
