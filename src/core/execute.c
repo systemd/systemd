@@ -687,7 +687,7 @@ static int setup_output(
                 if (rw)
                         return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
 
-                fd = acquire_path(context->stdio_file[fileno], O_WRONLY, 0666 & ~context->umask);
+                fd = acquire_path(context->stdio_file[fileno], O_WRONLY | O_TRUNC, 0666 & ~context->umask);
                 if (fd < 0)
                         return fd;
 

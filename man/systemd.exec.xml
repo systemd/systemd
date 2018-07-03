@@ -1784,7 +1784,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         <varname>StandardInput=</varname>, see above. If standard input and output are directed to the same file path,
         it is opened only once, for reading as well as writing and duplicated. This is particular useful when the
         specified path refers to an <constant>AF_UNIX</constant> socket in the file system, as in that case only a
-        single stream connection is created for both input and output.</para>
+        single stream connection is created for both input and output. If standard input and output are not directed to
+        the same file, the output file is truncated, as in a regular shell redirection.</para>
 
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>

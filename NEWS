@@ -22,6 +22,8 @@ CHANGES WITH 239:
           itself, but one of its parents does. Previously those devices were
           not renamed and the kernel default (eth<n>) was used.
 
+        * INCOMPATIBILITY: StandardOutput=file: now truncates the output file.
+
         * AF_INET and AF_INET6 are dropped from RestrictAddressFamilies= in
           systemd-logind.service. Since v235, IPAddressDeny=any has been set to
           the unit. So, it is expected that the default behavior of
