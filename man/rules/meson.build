@@ -209,6 +209,7 @@ manpages = [
   '3',
   ['sd_bus_message_get_realtime_usec', 'sd_bus_message_get_seqnum'],
   ''],
+ ['sd_bus_message_read', '3', ['sd_bus_message_readv'], ''],
  ['sd_bus_message_read_basic', '3', [], ''],
  ['sd_bus_message_set_destination', '3', ['sd_bus_message_set_sender'], ''],
  ['sd_bus_negotiate_fds',
