@@ -1731,7 +1731,10 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
 
-        } else if (STR_IN_SET(name, "StandardInputFile", "StandardOutputFile", "StandardErrorFile")) {
+        } else if (STR_IN_SET(name,
+                              "StandardInputFile",
+                              "StandardOutputFile", "StandardOutputFileToCreate", "StandardOutputFileToAppend",
+                              "StandardErrorFile", "StandardErrorFileToCreate", "StandardErrorFileToAppend")) {
                 const char *s;
 
                 r = sd_bus_message_read(message, "s", &s);
@@ -1755,23 +1758,34 @@ int bus_exec_context_set_transient_property(
                                 c->std_input = EXEC_INPUT_FILE;
                                 unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardInput=file:%s", s);
 
-                        } else if (streq(name, "StandardOutputFile")) {
+                        } else if (STR_IN_SET(name, "StandardOutputFile", "StandardOutputFileToAppend")) {
                                 r = free_and_strdup(&c->stdio_file[STDOUT_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
-                                c->std_output = EXEC_OUTPUT_FILE;
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=file:%s", s);
-
+                                if (streq(name, "StandardOutputFile")) {
+                                        c->std_output = EXEC_OUTPUT_FILE;
+                                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=file:%s", s);
+                                } else {
+                                        assert(streq(name, "StandardOutputFileToAppend"));
+                                        c->std_output = EXEC_OUTPUT_FILE_APPEND;
+                                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=append:%s", s);
+                                }
                         } else {
-                                assert(streq(name, "StandardErrorFile"));
+                                assert(STR_IN_SET(name, "StandardErrorFile", "StandardErrorFileToAppend"));
 
                                 r = free_and_strdup(&c->stdio_file[STDERR_FILENO], empty_to_null(s));
                                 if (r < 0)
                                         return r;
 
-                                c->std_error = EXEC_OUTPUT_FILE;
-                                unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardError=file:%s", s);
+                                if (streq(name, "StandardErrorFile")) {
+                                        c->std_error = EXEC_OUTPUT_FILE;
+                                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=file:%s", s);
+                                } else {
+                                      assert(streq(name, "StandardErrorFileToAppend"));
+                                      c->std_error = EXEC_OUTPUT_FILE_APPEND;
+                                      unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "StandardOutput=append:%s", s);
+                                }
                         }
                 }
 

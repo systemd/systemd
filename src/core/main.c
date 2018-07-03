@@ -604,8 +604,8 @@ static int config_parse_output_restricted(
                 return 0;
         }
 
-        if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE)) {
-                log_syntax(unit, LOG_ERR, filename, line, 0, "Standard output types socket, fd:, file: are not supported as defaults, ignoring: %s", rvalue);
+        if (IN_SET(t, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND)) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Standard output types socket, fd:, file:, append: are not supported as defaults, ignoring: %s", rvalue);
                 return 0;
         }
 
