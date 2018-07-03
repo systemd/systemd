@@ -343,6 +343,12 @@ echo DefaultEnvironment=\$DEFAULT_ENVIRONMENT >>/etc/systemd/system.conf
 # ASAN and syscall filters aren't compatible with each other.
 find / -name '*.service' -type f | xargs sed -i 's/^\\(MemoryDeny\\|SystemCall\\)/#\\1/'
 
+# The redirection of ASAN reports to a file prevents them from ending up in /dev/null.
+# But, apparently, sometimes it doesn't work: https://github.com/google/sanitizers/issues/886.
+JOURNALD_CONF_DIR=/etc/systemd/system/systemd-journald.service.d
+mkdir -p "\$JOURNALD_CONF_DIR"
+printf "[Service]\nEnvironment=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd-journald.asan.log\n" >"\$JOURNALD_CONF_DIR/env.conf"
+
 export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log
 exec  $ROOTLIBDIR/systemd "\$@"
 EOF
