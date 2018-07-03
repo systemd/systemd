@@ -21,7 +21,7 @@ if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     ROOTLIBDIR=/usr/lib/systemd
 fi
 
-BASICTOOLS="test sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe sed cmp tee rm true false chmod chown ln"
+BASICTOOLS="test sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe sed cmp tee rm true false chmod chown ln xargs"
 DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname find"
 
 STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
@@ -315,6 +315,39 @@ mount -t proc proc /proc
 exec valgrind --leak-check=full --log-file=/valgrind.out $ROOTLIBDIR/systemd "\$@"
 EOF
     chmod 0755 $_valgrind_wrapper
+}
+
+create_asan_wrapper() {
+    local _asan_wrapper=$initdir/$ROOTLIBDIR/systemd-under-asan
+    ddebug "Create $_asan_wrapper"
+    cat >$_asan_wrapper <<EOF
+#!/bin/bash
+
+set -x
+
+DEFAULT_ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
+DEFAULT_ENVIRONMENT=ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS
+
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -o remount,rw /
+
+PATH_TO_ASAN=\$(find / -name '*libasan*' | sed 1q)
+if [[ "\$PATH_TO_ASAN" ]]; then
+  # A lot of services (most notably dbus) won't start without preloading libasan
+  # See https://github.com/systemd/systemd/issues/5004
+  DEFAULT_ENVIRONMENT="\$DEFAULT_ENVIRONMENT LD_PRELOAD=\$PATH_TO_ASAN"
+fi
+echo DefaultEnvironment=\$DEFAULT_ENVIRONMENT >>/etc/systemd/system.conf
+
+# ASAN and syscall filters aren't compatible with each other.
+find / -name '*.service' -type f | xargs sed -i 's/^\\(MemoryDeny\\|SystemCall\\)/#\\1/'
+
+export ASAN_OPTIONS=\$DEFAULT_ASAN_OPTIONS:log_path=/systemd.asan.log
+exec  $ROOTLIBDIR/systemd "\$@"
+EOF
+
+    chmod 0755 $_asan_wrapper
 }
 
 create_strace_wrapper() {
