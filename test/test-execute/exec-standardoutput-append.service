@@ -1,0 +1,13 @@
+[Unit]
+Description=Test for StandardOutput=append:
+
+[Service]
+ExecStartPre=sh -c 'printf "hello\n" > /tmp/test-exec-standardoutput-output'
+ExecStartPre=sh -c 'printf "hello\nhello\n" > /tmp/test-exec-standardoutput-expected'
+StandardInput=data
+StandardInputText=hello
+StandardOutput=append:/tmp/test-exec-standardoutput-output
+StandardError=null
+ExecStart=cat
+ExecStart=cmp /tmp/test-exec-standardoutput-output /tmp/test-exec-standardoutput-expected
+Type=oneshot

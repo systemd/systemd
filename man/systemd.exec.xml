@@ -1792,8 +1792,8 @@ SystemCallErrorNumber=EPERM</programlisting>
         of <option>inherit</option>, <option>null</option>, <option>tty</option>, <option>journal</option>,
         <option>syslog</option>, <option>kmsg</option>, <option>journal+console</option>,
         <option>syslog+console</option>, <option>kmsg+console</option>,
-        <option>file:<replaceable>path</replaceable></option>, <option>socket</option> or
-        <option>fd:<replaceable>name</replaceable></option>.</para>
+        <option>file:<replaceable>path</replaceable></option>, <option>append:<replaceable>path</replaceable></option>,
+        <option>socket</option> or<option>fd:<replaceable>name</replaceable></option>.</para>
 
         <para><option>inherit</option> duplicates the file descriptor of standard input for standard output.</para>
 
@@ -1824,10 +1824,16 @@ SystemCallErrorNumber=EPERM</programlisting>
 
         <para>The <option>file:<replaceable>path</replaceable></option> option may be used to connect a specific file
         system object to standard output. The semantics are similar to the same option of
-        <varname>StandardInput=</varname>, see above. If standard input and output are directed to the same file path,
-        it is opened only once, for reading as well as writing and duplicated. This is particular useful when the
-        specified path refers to an <constant>AF_UNIX</constant> socket in the file system, as in that case only a
+        <varname>StandardInput=</varname>, see above. If <replaceable>path</replaceable> refers to a regular file
+        on the filesystem, it is opened (created if it doesn't exist yet) for writing at the beginning of the file,
+        but without truncating it.
+        If standard input and output are directed to the same file path, it is opened only once, for reading as well
+        as writing and duplicated. This is particularly useful when the specified path refers to an
+        <constant>AF_UNIX</constant> socket in the file system, as in that case only a
         single stream connection is created for both input and output.</para>
+
+        <para><option>append:<replaceable>path</replaceable></option> is similar to <option>file:<replaceable>path
+        </replaceable></option> above, but it opens the file in append mode.</para>
 
         <para><option>socket</option> connects standard output to a socket acquired via socket activation. The
         semantics are similar to the same option of <varname>StandardInput=</varname>, see above.</para>

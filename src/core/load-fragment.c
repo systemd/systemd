@@ -1016,6 +1016,17 @@ int config_parse_exec_output(
 
                 eo = EXEC_OUTPUT_FILE;
 
+        } else if ((n = startswith(rvalue, "append:"))) {
+
+                r = unit_full_printf(u, n, &resolved);
+                if (r < 0)
+                        return log_syntax(unit, LOG_ERR, filename, line, r, "Failed to resolve unit specifiers in %s: %m", n);
+
+                r = path_simplify_and_warn(resolved, PATH_CHECK_ABSOLUTE | PATH_CHECK_FATAL, unit, filename, line, lvalue);
+                if (r < 0)
+                        return -ENOEXEC;
+
+                eo = EXEC_OUTPUT_FILE_APPEND;
         } else {
                 eo = exec_output_from_string(rvalue);
                 if (eo < 0) {
