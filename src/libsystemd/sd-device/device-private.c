@@ -425,7 +425,7 @@ static int device_amend(sd_device *device, const char *key, const char *value) {
                 FOREACH_WORD_SEPARATOR(word, l, value, ":", state) {
                         char tag[l + 1];
 
-                        (void)strncpy(tag, word, l);
+                        (void) strncpy(tag, word, l);
                         tag[l] = '\0';
 
                         r = device_add_tag(device, tag);
