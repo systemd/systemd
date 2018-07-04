@@ -63,6 +63,20 @@ static int count_addresses(sd_bus_message *m, int af, unsigned *ret) {
         return 0;
 }
 
+static bool avoid_deadlock(void) {
+
+        /* Check whether this lookup might have a chance of deadlocking because we are called from the service manager
+         * code activating systemd-machined.service. After all, we shouldn't synchronously do lookups to
+         * systemd-machined if we are required to finish before it can be started. This of course won't detect all
+         * possible dead locks of this kind, but it should work for the most obvious cases. */
+
+        if (geteuid() != 0) /* Ignore the env vars unless we are privileged. */
+                return false;
+
+        return streq_ptr(getenv("SYSTEMD_ACTIVATION_UNIT"), "systemd-machined.service") &&
+               streq_ptr(getenv("SYSTEMD_ACTIVATION_SCOPE"), "system");
+}
+
 enum nss_status _nss_mymachines_gethostbyname4_r(
                 const char *name,
                 struct gaih_addrtuple **pat,
@@ -99,6 +113,11 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         n_ifindices = sd_machine_get_ifindices(name, &ifindices);
         if (n_ifindices < 0) {
                 r = n_ifindices;
+                goto fail;
+        }
+
+        if (avoid_deadlock()) {
+                r = -EDEADLK;
                 goto fail;
         }
 
@@ -251,6 +270,11 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
                 goto fail;
         if (!streq(class, "container")) {
                 r = -ENOTTY;
+                goto fail;
+        }
+
+        if (avoid_deadlock()) {
+                r = -EDEADLK;
                 goto fail;
         }
 
@@ -424,6 +448,11 @@ enum nss_status _nss_mymachines_getpwnam_r(
                  * running on the host. */
                 goto not_found;
 
+        if (avoid_deadlock()) {
+                r = -EDEADLK;
+                goto fail;
+        }
+
         r = sd_bus_open_system(&bus);
         if (r < 0)
                 goto fail;
@@ -504,6 +533,11 @@ enum nss_status _nss_mymachines_getpwuid_r(
 
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
                 goto not_found;
+
+        if (avoid_deadlock()) {
+                r = -EDEADLK;
+                goto fail;
+        }
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
@@ -601,6 +635,11 @@ enum nss_status _nss_mymachines_getgrnam_r(
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
                 goto not_found;
 
+        if (avoid_deadlock()) {
+                r = -EDEADLK;
+                goto fail;
+        }
+
         r = sd_bus_open_system(&bus);
         if (r < 0)
                 goto fail;
@@ -678,6 +717,11 @@ enum nss_status _nss_mymachines_getgrgid_r(
 
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
                 goto not_found;
+
+        if (avoid_deadlock()) {
+                r = -EDEADLK;
+                goto fail;
+        }
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
