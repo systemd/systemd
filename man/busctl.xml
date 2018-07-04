@@ -144,6 +144,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--json=</option><replaceable>MODE</replaceable></term>
+
+        <listitem>
+          <para>When used with the <command>call</command> or <command>get-property</command> command, shows output
+          formatted as JSON. Expects one of <literal>short</literal> (for the shortest possible output without any
+          redundant whitespace or line breaks) or <literal>pretty</literal> (for a pretty version of the same, with
+          indentation and line breaks). Note that transformation from D-Bus marshalling to JSON is done in a loss-less
+          way, which means type information is embedded into the JSON object tree.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-j</option></term>
+
+        <listitem>
+          <para>Equivalent to <option>--json=pretty</option> when invoked interactively from a terminal. Otherwise
+          equivalent to <option>--json=short</option>, in particular when the output is piped to some other
+          program.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--expect-reply=</option><replaceable>BOOL</replaceable></term>
 
         <listitem>
