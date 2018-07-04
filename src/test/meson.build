@@ -191,6 +191,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-json.c'],
+         [],
+         []],
+
         [['src/test/test-mount-util.c'],
          [],
          []],
