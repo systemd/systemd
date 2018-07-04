@@ -103,13 +103,13 @@
         <term><varname>SYSLOG_FACILITY=</varname></term>
         <term><varname>SYSLOG_IDENTIFIER=</varname></term>
         <term><varname>SYSLOG_PID=</varname></term>
+        <term><varname>SYSLOG_TIMESTAMP=</varname></term>
         <listitem>
-          <para>Syslog compatibility fields containing the facility
-          (formatted as decimal string), the identifier string (i.e.
-          "tag"), and the client PID. (Note that the tag is usually
-          derived from glibc's
-          <varname>program_invocation_short_name</varname> variable,
-          see
+          <para>Syslog compatibility fields containing the facility (formatted as
+          decimal string), the identifier string (i.e.  "tag"), the client PID, and
+          the timestamp as specified in the original datagram. (Note that the tag is
+          usually derived from glibc's
+          <varname>program_invocation_short_name</varname> variable, see
           <citerefentry project='die-net'><refentrytitle>program_invocation_short_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>.)</para>
         </listitem>
       </varlistentry>
@@ -119,14 +119,17 @@
         <listitem>
           <para>The original contents of the syslog line as received in the syslog
           datagram. This field is only included if the <varname>MESSAGE=</varname>
-          field was modified compared to the original payload. This happens when the
-          message contains leading or trailing whitespace (trailing and leading
+          field was modified compared to the original payload or the timestamp could
+          not be located properly and is not included in
+          <varname>SYSLOG_TIMESTAMP=</varname>. Message truncation occurs when when
+          the message contains leading or trailing whitespace (trailing and leading
           whitespace is stripped), or it contains an embedded
           <constant>NUL</constant> byte (the <constant>NUL</constant> byte and
           anything after it is not included). Thus, the original syslog line is
           either stored as <varname>SYSLOG_RAW=</varname> or it can be recreated
-          based on the stored priority, timestamp, hostname, and the message payload
-          stored in <varname>MESSAGE=</varname>.</para>
+          based on the stored priority and facility, timestamp, identifier, and the
+          message payload in <varname>MESSAGE=</varname>.
+          </para>
         </listitem>
       </varlistentry>
     </variablelist>

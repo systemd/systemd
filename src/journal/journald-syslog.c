@@ -225,7 +225,7 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         return e;
 }
 
-static void syslog_skip_date(const char **buf) {
+static int syslog_skip_timestamp(const char **buf) {
         enum {
                 LETTER,
                 SPACE,
@@ -245,24 +245,21 @@ static void syslog_skip_date(const char **buf) {
                 SPACE
         };
 
-        const char *p;
+        const char *p, *t;
         unsigned i;
 
         assert(buf);
         assert(*buf);
 
-        p = *buf;
-
-        for (i = 0; i < ELEMENTSOF(sequence); i++, p++) {
-
+        for (i = 0, p = *buf; i < ELEMENTSOF(sequence); i++, p++) {
                 if (!*p)
-                        return;
+                        return 0;
 
                 switch (sequence[i]) {
 
                 case SPACE:
                         if (*p != ' ')
-                                return;
+                                return 0;
                         break;
 
                 case SPACE_OR_NUMBER:
@@ -272,26 +269,28 @@ static void syslog_skip_date(const char **buf) {
                         _fallthrough_;
                 case NUMBER:
                         if (*p < '0' || *p > '9')
-                                return;
+                                return 0;
 
                         break;
 
                 case LETTER:
                         if (!(*p >= 'A' && *p <= 'Z') &&
                             !(*p >= 'a' && *p <= 'z'))
-                                return;
+                                return 0;
 
                         break;
 
                 case COLON:
                         if (*p != ':')
-                                return;
+                                return 0;
                         break;
 
                 }
         }
 
+        t = *buf;
         *buf = p;
+        return p - t;
 }
 
 void server_process_syslog_message(
@@ -303,14 +302,14 @@ void server_process_syslog_message(
                 const char *label,
                 size_t label_len) {
 
-        char syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
-             syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
-        const char *message = NULL, *syslog_identifier = NULL, *syslog_pid = NULL, *msg;
+        char *t, syslog_priority[sizeof("PRIORITY=") + DECIMAL_STR_MAX(int)],
+                 syslog_facility[sizeof("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
+        const char *msg, *syslog_ts, *a;
         _cleanup_free_ char *identifier = NULL, *pid = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
         struct iovec *iovec;
-        size_t n = 0, m, i, leading_ws;
+        size_t n = 0, m, i, leading_ws, syslog_ts_len;
         bool store_raw;
 
         assert(s);
@@ -339,8 +338,6 @@ void server_process_syslog_message(
                 /* Nice! No need to strip anything on the end, let's optimize this a bit */
                 msg = buf + leading_ws;
         else {
-                char *t;
-
                 msg = t = newa(char, i - leading_ws + 1);
                 memcpy(t, buf + leading_ws, i - leading_ws);
                 t[i - leading_ws] = 0;
@@ -355,7 +352,12 @@ void server_process_syslog_message(
         if (!client_context_test_priority(context, priority))
                 return;
 
-        syslog_skip_date(&msg);
+        syslog_ts = msg;
+        syslog_ts_len = syslog_skip_timestamp(&msg);
+        if (syslog_ts_len == 0)
+                /* We failed to parse the full timestamp, store the raw message too */
+                store_raw = true;
+
         syslog_parse_identifier(&msg, &identifier, &pid);
 
         if (s->forward_to_syslog)
@@ -370,7 +372,7 @@ void server_process_syslog_message(
         if (s->forward_to_wall)
                 server_forward_wall(s, priority, identifier, msg, ucred);
 
-        m = N_IOVEC_META_FIELDS + 7 + client_context_extra_fields_n_iovec(context);
+        m = N_IOVEC_META_FIELDS + 8 + client_context_extra_fields_n_iovec(context);
         iovec = newa(struct iovec, m);
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=syslog");
@@ -384,21 +386,30 @@ void server_process_syslog_message(
         }
 
         if (identifier) {
-                syslog_identifier = strjoina("SYSLOG_IDENTIFIER=", identifier);
-                iovec[n++] = IOVEC_MAKE_STRING(syslog_identifier);
+                a = strjoina("SYSLOG_IDENTIFIER=", identifier);
+                iovec[n++] = IOVEC_MAKE_STRING(a);
         }
 
         if (pid) {
-                syslog_pid = strjoina("SYSLOG_PID=", pid);
-                iovec[n++] = IOVEC_MAKE_STRING(syslog_pid);
+                a = strjoina("SYSLOG_PID=", pid);
+                iovec[n++] = IOVEC_MAKE_STRING(a);
         }
 
-        message = strjoina("MESSAGE=", msg);
-        iovec[n++] = IOVEC_MAKE_STRING(message);
+        if (syslog_ts_len > 0) {
+                const size_t hlen = strlen("SYSLOG_TIMESTAMP=");
+
+                t = newa(char, hlen + raw_len);
+                memcpy(t, "SYSLOG_TIMESTAMP=", hlen);
+                memcpy(t + hlen, syslog_ts, syslog_ts_len);
+
+                iovec[n++] = IOVEC_MAKE(t, hlen + syslog_ts_len);
+        }
+
+        a = strjoina("MESSAGE=", msg);
+        iovec[n++] = IOVEC_MAKE_STRING(a);
 
         if (store_raw) {
                 const size_t hlen = strlen("SYSLOG_RAW=");
-                char *t;
 
                 t = newa(char, hlen + raw_len);
                 memcpy(t, "SYSLOG_RAW=", hlen);
