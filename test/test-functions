@@ -28,6 +28,27 @@ STATEDIR="${BUILD_DIR:-.}/test/$(basename $(dirname $(realpath $0)))"
 STATEFILE="$STATEDIR/.testdir"
 TESTLOG="$STATEDIR/test.log"
 
+is_built_with_asan() {
+    if ! type -P objdump >/dev/null; then
+        ddebug "Failed to find objdump. Assuming systemd hasn't been built with ASAN."
+        return 1
+    fi
+
+    # Borrowed from https://github.com/google/oss-fuzz/blob/cd9acd02f9d3f6e80011cc1e9549be526ce5f270/infra/base-images/base-runner/bad_build_check#L182
+    local _asan_calls=$(objdump -dC $BUILD_DIR/systemd | egrep "callq\s+[0-9a-f]+\s+<__asan" -c)
+    if (( $_asan_calls < 1000 )); then
+        return 1
+    else
+        return 0
+    fi
+}
+
+IS_BUILT_WITH_ASAN=$(is_built_with_asan && echo yes || echo no)
+
+if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+    STRIP_BINARIES=no
+fi
+
 function find_qemu_bin() {
     # SUSE and Red Hat call the binary qemu-kvm. Debian and Gentoo call it kvm.
     # Either way, only use this version if we aren't running in KVM, because
@@ -217,6 +238,9 @@ setup_basic_environment() {
     strip_binaries
     install_depmod_files
     generate_module_dependencies
+    if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
+         create_asan_wrapper
+    fi
 }
 
 setup_selinux() {
