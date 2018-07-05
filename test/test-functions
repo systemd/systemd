@@ -21,6 +21,8 @@ if ! ROOTLIBDIR=$(pkg-config --variable=systemdutildir systemd); then
     ROOTLIBDIR=/usr/lib/systemd
 fi
 
+PATH_TO_INIT=$ROOTLIBDIR/systemd
+
 BASICTOOLS="test sh bash setsid loadkeys setfont login sulogin gzip sleep echo mount umount cryptsetup date dmsetup modprobe sed cmp tee rm true false chmod chown ln xargs"
 DEBUGTOOLS="df free ls stty cat ps ln ip route dmesg dhclient mkdir cp ping dhclient strace less grep id tty touch du sort hostname find"
 
@@ -47,6 +49,8 @@ IS_BUILT_WITH_ASAN=$(is_built_with_asan && echo yes || echo no)
 
 if [[ "$IS_BUILT_WITH_ASAN" = "yes" ]]; then
     STRIP_BINARIES=no
+    SKIP_INITRD=yes
+    PATH_TO_INIT=$ROOTLIBDIR/systemd-under-asan
 fi
 
 function find_qemu_bin() {
@@ -142,7 +146,7 @@ KERNEL_APPEND="$PARAMS \
 root=/dev/sda1 \
 raid=noautodetect \
 loglevel=2 \
-init=$ROOTLIBDIR/systemd \
+init=$PATH_TO_INIT \
 console=ttyS0 \
 selinux=0 \
 printk.devkmsg=on \
@@ -186,7 +190,7 @@ $KERNEL_APPEND \
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
 
-    local _nspawn_cmd="$BUILD_DIR/systemd-nspawn --register=no --kill-signal=SIGKILL --directory=$TESTDIR/nspawn-root $ROOTLIBDIR/systemd $KERNEL_APPEND"
+    local _nspawn_cmd="$BUILD_DIR/systemd-nspawn --register=no --kill-signal=SIGKILL --directory=$TESTDIR/nspawn-root $PATH_TO_INIT $KERNEL_APPEND"
     if [[ "$NSPAWN_TIMEOUT" != "infinity" ]]; then
         _nspawn_cmd="timeout --foreground $NSPAWN_TIMEOUT $_nspawn_cmd"
     fi
