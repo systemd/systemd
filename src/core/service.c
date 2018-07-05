@@ -1178,21 +1178,23 @@ static int service_coldplug(Unit *u) {
         return 0;
 }
 
-static int service_collect_fds(Service *s,
-                               int **fds,
-                               char ***fd_names,
-                               unsigned *n_storage_fds,
-                               unsigned *n_socket_fds) {
+static int service_collect_fds(
+                Service *s,
+                int **fds,
+                char ***fd_names,
+                size_t *n_socket_fds,
+                size_t *n_storage_fds) {
 
         _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
-        unsigned rn_socket_fds = 0, rn_storage_fds = 0;
+        size_t rn_socket_fds = 0, rn_storage_fds = 0;
         int r;
 
         assert(s);
         assert(fds);
         assert(fd_names);
         assert(n_socket_fds);
+        assert(n_storage_fds);
 
         if (s->socket_fd >= 0) {
 
@@ -1256,7 +1258,7 @@ static int service_collect_fds(Service *s,
 
         if (s->n_fd_store > 0) {
                 ServiceFDStore *fs;
-                unsigned n_fds;
+                size_t n_fds;
                 char **nl;
                 int *t;
 
@@ -1325,9 +1327,10 @@ static int service_spawn(
                 .stdin_fd   = -1,
                 .stdout_fd  = -1,
                 .stderr_fd  = -1,
+                .exec_fd    = -1,
         };
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL, **fd_names = NULL;
-        unsigned n_storage_fds = 0, n_socket_fds = 0, n_env = 0;
+        size_t n_socket_fds = 0, n_storage_fds = 0, n_env = 0;
         _cleanup_free_ int *fds = NULL;
         pid_t pid;
         int r;
@@ -1353,11 +1356,11 @@ static int service_spawn(
             s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
             s->exec_context.std_error == EXEC_OUTPUT_SOCKET) {
 
-                r = service_collect_fds(s, &fds, &fd_names, &n_storage_fds, &n_socket_fds);
+                r = service_collect_fds(s, &fds, &fd_names, &n_socket_fds, &n_storage_fds);
                 if (r < 0)
                         return r;
 
-                log_unit_debug(UNIT(s), "Passing %i fds to service", n_storage_fds + n_socket_fds);
+                log_unit_debug(UNIT(s), "Passing %zu fds to service", n_socket_fds + n_storage_fds);
         }
 
         r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), timeout));
@@ -1450,8 +1453,8 @@ static int service_spawn(
         exec_params.environment = final_env;
         exec_params.fds = fds;
         exec_params.fd_names = fd_names;
-        exec_params.n_storage_fds = n_storage_fds;
         exec_params.n_socket_fds = n_socket_fds;
+        exec_params.n_storage_fds = n_storage_fds;
         exec_params.watchdog_usec = s->watchdog_usec;
         exec_params.selinux_context_net = s->socket_fd_selinux_context_net;
         if (s->type == SERVICE_IDLE)

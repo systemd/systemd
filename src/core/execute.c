@@ -148,11 +148,11 @@ static int shift_fds(int fds[], size_t n_fds) {
         return 0;
 }
 
-static int flags_fds(const int fds[], size_t n_storage_fds, size_t n_socket_fds, bool nonblock) {
+static int flags_fds(const int fds[], size_t n_socket_fds, size_t n_storage_fds, bool nonblock) {
         size_t i, n_fds;
         int r;
 
-        n_fds = n_storage_fds + n_socket_fds;
+        n_fds = n_socket_fds + n_storage_fds;
         if (n_fds <= 0)
                 return 0;
 
@@ -2725,8 +2725,8 @@ static int exec_child(
                 int socket_fd,
                 int named_iofds[3],
                 int *fds,
-                size_t n_storage_fds,
                 size_t n_socket_fds,
+                size_t n_storage_fds,
                 char **files_env,
                 int user_lookup_fd,
                 int *exit_status) {
@@ -3178,7 +3178,7 @@ static int exec_child(
         if (r >= 0)
                 r = shift_fds(fds, n_fds);
         if (r >= 0)
-                r = flags_fds(fds, n_storage_fds, n_socket_fds, context->non_blocking);
+                r = flags_fds(fds, n_socket_fds, n_storage_fds, context->non_blocking);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_unit_error_errno(unit, r, "Failed to adjust passed file descriptors: %m");
@@ -3456,7 +3456,7 @@ int exec_spawn(Unit *unit,
         assert(context);
         assert(ret);
         assert(params);
-        assert(params->fds || (params->n_storage_fds + params->n_socket_fds <= 0));
+        assert(params->fds || (params->n_socket_fds + params->n_storage_fds <= 0));
 
         if (context->std_input == EXEC_INPUT_SOCKET ||
             context->std_output == EXEC_OUTPUT_SOCKET ||
@@ -3476,8 +3476,8 @@ int exec_spawn(Unit *unit,
         } else {
                 socket_fd = -1;
                 fds = params->fds;
-                n_storage_fds = params->n_storage_fds;
                 n_socket_fds = params->n_socket_fds;
+                n_storage_fds = params->n_storage_fds;
         }
 
         r = exec_context_named_iofds(context, params, named_iofds);
@@ -3516,8 +3516,8 @@ int exec_spawn(Unit *unit,
                                socket_fd,
                                named_iofds,
                                fds,
-                               n_storage_fds,
                                n_socket_fds,
+                               n_storage_fds,
                                files_env,
                                unit->manager->user_lookup_fds[1],
                                &exit_status);
