@@ -81,6 +81,9 @@
   <refsect1>
     <title>Paths</title>
 
+    <para>The following settings may be used to change a service's view of the filesystem. Please note that the paths
+    must be absolute and must not contain a <literal>..</literal> path component.</para>
+
     <variablelist class='unit-directives'>
 
       <varlistentry>
