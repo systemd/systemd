@@ -76,13 +76,15 @@ int kmod_setup(void) {
                 bool warn_if_module:1;
                 bool (*condition_fn)(void);
         } kmod_table[] = {
-                /* auto-loading on use doesn't work before udev is up */
+                /* This one we need to load explicitly, since auto-loading on use doesn't work
+                 * before udev created the ghost device nodes, and we need it earlier than that. */
                 { "autofs4",   "/sys/class/misc/autofs",    true,   false,   NULL      },
 
-                /* early configure of ::1 on the loopback device */
+                /* This one we need to load explicitly, since auto-loading of IPv6 is not done when
+                 * we try to configure ::1 on the loopback device. */
                 { "ipv6",      "/sys/module/ipv6",          false,  true,    NULL      },
 
-                /* this should never be a module */
+                /* This should never be a module */
                 { "unix",      "/proc/net/unix",            true,   true,    NULL      },
 
 #if HAVE_LIBIPTC
