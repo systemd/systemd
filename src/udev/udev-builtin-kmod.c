@@ -18,41 +18,11 @@
 
 static struct kmod_ctx *ctx = NULL;
 
-static int load_module(struct udev *udev, const char *alias) {
-        _cleanup_(kmod_module_unref_listp) struct kmod_list *list = NULL;
-        struct kmod_list *l;
-        int err;
-
-        err = kmod_module_new_from_lookup(ctx, alias, &list);
-        if (err < 0)
-                return err;
-
-        if (list == NULL)
-                log_debug("No module matches '%s'", alias);
-
-        kmod_list_foreach(l, list) {
-                _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
-
-                mod = kmod_module_get_module(l);
-
-                err = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST, NULL, NULL, NULL, NULL);
-                if (err == KMOD_PROBE_APPLY_BLACKLIST)
-                        log_debug("Module '%s' is blacklisted", kmod_module_get_name(mod));
-                else if (err == 0)
-                        log_debug("Inserted '%s'", kmod_module_get_name(mod));
-                else
-                        log_debug("Failed to insert '%s'", kmod_module_get_name(mod));
-        }
-
-        return err;
-}
-
 _printf_(6,0) static void udev_kmod_log(void *data, int priority, const char *file, int line, const char *fn, const char *format, va_list args) {
         log_internalv(priority, 0, file, line, fn, format, args);
 }
 
 static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool test) {
-        struct udev *udev = udev_device_get_udev(dev);
         int i;
 
         if (!ctx)
@@ -65,7 +35,7 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
 
         for (i = 2; argv[i]; i++) {
                 log_debug("Execute '%s' '%s'", argv[1], argv[i]);
-                load_module(udev, argv[i]);
+                (void) module_load_and_warn(ctx, argv[i], false);
         }
 
         return EXIT_SUCCESS;

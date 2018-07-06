@@ -92,7 +92,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
                 if (strchr(COMMENTS "\n", *l))
                         continue;
 
-                k = module_load_and_warn(ctx, l);
+                k = module_load_and_warn(ctx, l, true);
                 if (k < 0 && r == 0)
                         r = k;
         }
@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
                 char **fn, **i;
 
                 STRV_FOREACH(i, arg_proc_cmdline_modules) {
-                        k = module_load_and_warn(ctx, *i);
+                        k = module_load_and_warn(ctx, *i, true);
                         if (k < 0 && r == 0)
                                 r = k;
                 }
