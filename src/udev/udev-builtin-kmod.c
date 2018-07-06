@@ -29,14 +29,12 @@ static int builtin_kmod(struct udev_device *dev, int argc, char *argv[], bool te
                 return 0;
 
         if (argc < 3 || !streq(argv[1], "load")) {
-                log_error("expect: %s load <module>", argv[0]);
+                log_error("%s: expected: load <module>", argv[0]);
                 return EXIT_FAILURE;
         }
 
-        for (i = 2; argv[i]; i++) {
-                log_debug("Execute '%s' '%s'", argv[1], argv[i]);
+        for (i = 2; argv[i]; i++)
                 (void) module_load_and_warn(ctx, argv[i], false);
-        }
 
         return EXIT_SUCCESS;
 }
