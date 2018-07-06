@@ -63,6 +63,8 @@ shared_sources = files('''
         machine-image.h
         machine-pool.c
         machine-pool.h
+        module-util.h
+        module-util.c
         nsflags.c
         nsflags.h
         output-mode.c
@@ -132,6 +134,7 @@ libshared_deps = [threads,
                   libcryptsetup,
                   libgcrypt,
                   libiptc,
+                  libkmod,
                   libseccomp,
                   libselinux,
                   libidn,
