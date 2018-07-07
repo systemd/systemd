@@ -124,7 +124,7 @@ bool net_match_config(Set *match_mac,
         if (match_arch && condition_test(match_arch) <= 0)
                 return false;
 
-        if (match_mac && dev_mac && !set_contains(match_mac, dev_mac))
+        if (match_mac && (!dev_mac || !set_contains(match_mac, dev_mac)))
                 return false;
 
         if (!net_condition_test_strv(match_paths, dev_path))
