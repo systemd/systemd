@@ -35,8 +35,10 @@ fi
 meson $build -D$fuzzflag -Db_lundef=false
 ninja -C $build fuzzers
 
-for d in "$(dirname "$0")/../test/fuzz-corpus/"*; do
-        zip -jqr $OUT/fuzz-$(basename "$d")_seed_corpus.zip "$d"
+# The seed corpus is a separate flat archive for each fuzzer,
+# with a fixed name ${fuzzer}_seed_corpus.zip.
+for d in "$(dirname "$0")/../test/fuzz/fuzz-"*; do
+        zip -jqr $OUT/$(basename "$d")_seed_corpus.zip "$d"
 done
 
 # get fuzz-dns-packet corpus
