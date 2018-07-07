@@ -244,4 +244,4 @@ if conf.get('ENABLE_HWDB') == 1
              timeout : 90)
 endif
 
-subdir('fuzz-regressions')
+subdir('fuzz')
