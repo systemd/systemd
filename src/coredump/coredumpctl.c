@@ -654,7 +654,8 @@ static int dump_list(int argc, char **argv, void *userdata) {
          * pick a fairly low data threshold here */
         sd_journal_set_data_threshold(j, 4096);
 
-        if (arg_one) {
+        /* "info" without pattern implies "-1" */
+        if (arg_one || (verb_is_info && argc == 1)) {
                 r = focus(j);
                 if (r < 0)
                         return r;

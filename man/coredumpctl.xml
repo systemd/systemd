@@ -210,7 +210,8 @@
       <varlistentry>
         <term><command>info</command></term>
 
-        <listitem><para>Show detailed information about core dumps
+        <listitem><para>Show detailed information about the last core dump
+        or core dumps matching specified characteristics
         captured in the journal.</para></listitem>
       </varlistentry>
 
