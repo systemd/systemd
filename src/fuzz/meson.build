@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1+
 
 fuzzers += [
+        [['src/fuzz/fuzz-bus-message.c'],
+         [libshared],
+         []],
+
         [['src/fuzz/fuzz-dns-packet.c',
           dns_type_headers],
          [libsystemd_resolve_core,
