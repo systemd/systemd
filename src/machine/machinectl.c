@@ -1998,7 +1998,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
                 return r;
         }
 
-        r = sd_bus_message_read(reply, "uo", &id, NULL);
+        r = sd_bus_message_read(reply, "uo", &id, &path);
         if (r < 0)
                 return bus_log_parse_error(r);
 
