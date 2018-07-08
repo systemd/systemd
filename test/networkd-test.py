@@ -177,7 +177,7 @@ Name=mybridge
 DNS=192.168.250.1
 Address=192.168.250.33/24
 Gateway=192.168.250.1''')
-        subprocess.check_call(['systemctl', 'reset-failed', 'systemd-networkd'])
+        subprocess.call(['systemctl', 'reset-failed', 'systemd-networkd', 'systemd-resolved'])
         subprocess.check_call(['systemctl', 'start', 'systemd-networkd'])
 
     def tearDown(self):
@@ -263,7 +263,7 @@ class ClientTestBase(NetworkdTestingUtilities):
         self.assertTrue(out.startswith('-- cursor:'))
         self.journal_cursor = out.split()[-1]
 
-        subprocess.check_call(['systemctl', 'reset-failed', 'systemd-networkd'])
+        subprocess.call(['systemctl', 'reset-failed', 'systemd-networkd', 'systemd-resolved'])
 
     def tearDown(self):
         self.shutdown_iface()
