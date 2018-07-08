@@ -71,6 +71,7 @@
 <citerefentry><refentrytitle>sd_bus_reply_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_request_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_set_connected_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+<citerefentry><refentrytitle>sd_bus_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_set_sender</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
 <citerefentry><refentrytitle>sd_bus_set_watch_bind</refentrytitle><manvolnum>3</manvolnum></citerefentry>
 <citerefentry><refentrytitle>sd_bus_set_slot_destroy_callback</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
