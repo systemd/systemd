@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
+#include "gcrypt-util.h"
 #include "hexdecoct.h"
 #include "import-util.h"
 #include "io-util.h"
@@ -317,6 +318,8 @@ static int pull_job_open_disk(PullJob *j) {
         }
 
         if (j->calc_checksum) {
+                initialize_libgcrypt(false);
+
                 if (gcry_md_open(&j->checksum_context, GCRY_MD_SHA256, 0) != 0) {
                         log_error("Failed to initialize hash context.");
                         return -EIO;
