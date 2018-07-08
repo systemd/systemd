@@ -79,7 +79,10 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                         (void) bus_remove_match_internal(slot->bus, slot->match_callback.match_string);
 
                 if (slot->match_callback.install_slot) {
-                        bus_slot_disconnect(slot->match_callback.install_slot);
+                        if (slot->match_callback.install_slot->bus) {
+                                bus_slot_disconnect(slot->match_callback.install_slot);
+                                sd_bus_slot_unref(slot->match_callback.install_slot);
+                        }
                         slot->match_callback.install_slot = sd_bus_slot_unref(slot->match_callback.install_slot);
                 }
 
