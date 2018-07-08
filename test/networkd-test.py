@@ -37,16 +37,36 @@ NETWORKD_WAIT_ONLINE = shutil.which('systemd-networkd-wait-online',
 
 RESOLV_CONF = '/run/systemd/resolve/resolv.conf'
 
+tmpmounts = []
+running_units = []
+stopped_units = []
+
 
 def setUpModule():
+    global tmpmounts
+
     """Initialize the environment, and perform sanity checks on it."""
     if NETWORKD_WAIT_ONLINE is None:
         raise OSError(errno.ENOENT, 'systemd-networkd-wait-online not found')
 
-    # Do not run any tests if the system is using networkd already.
-    if subprocess.call(['systemctl', 'is-active', '--quiet',
-                        'systemd-networkd.service']) == 0:
-        raise unittest.SkipTest('networkd is already active')
+    # Do not run any tests if the system is using networkd already and it's not virtualized
+    if (subprocess.call(['systemctl', 'is-active', '--quiet', 'systemd-networkd.service']) == 0 and
+            subprocess.call(['systemd-detect-virt', '--quiet']) != 0):
+        raise unittest.SkipTest('not virtualized and networkd is already active')
+    # Ensure we don't mess with an existing networkd config
+    for u in ['systemd-networkd.socket', 'systemd-networkd', 'systemd-resolved']:
+        if subprocess.call(['systemctl', 'is-active', '--quiet', u]) == 0:
+            subprocess.call(['systemctl', 'stop', u])
+            running_units.append(u)
+        else:
+            stopped_units.append(u)
+    for d in ['/etc/systemd/network', '/run/systemd/network',
+              '/run/systemd/netif', '/run/systemd/resolve']:
+        if os.path.isdir(d):
+            subprocess.check_call(["mount", "-t", "tmpfs", "none", d])
+            tmpmounts.append(d)
+    if os.path.isdir('/run/systemd/resolve'):
+        os.chmod('/run/systemd/resolve', 0o755)
 
     # Avoid "Failed to open /dev/tty" errors in containers.
     os.environ['SYSTEMD_LOG_TARGET'] = 'journal'
@@ -58,6 +78,16 @@ def setUpModule():
     # needs to do some stuff as root and can't start as user; but networkd
     # still insists on the user)
     subprocess.check_call(['adduser', '--system', '--no-create-home', 'systemd-network'])
+
+
+def tearDownModule():
+    global tmpmounts
+    for d in tmpmounts:
+        subprocess.check_call(["umount", d])
+    for u in stopped_units:
+        subprocess.call(["systemctl", "stop", u])
+    for u in running_units:
+        subprocess.call(["systemctl", "restart", u])
 
 
 class NetworkdTestingUtilities:
