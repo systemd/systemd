@@ -1051,7 +1051,7 @@
         hybrid or full legacy cgroup hierarchy.</para>
 
         <para>If this option is not specified, the default behaviour is determined
-        during compilation (the <option>--with-default-hierarchy=</option>
+        during compilation (the <option>-Ddefault-hierarchy=</option> meson
         option). If the kernel does not support unified cgroup hierarchy, the legacy
         hierarchy will be used even if this option is specified.</para>
         </listitem>
@@ -1070,7 +1070,7 @@
         the use of "hybrid" hierarchy.</para>
 
         <para>If this option is not specified, the default behaviour is determined
-        during compilation (the <option>--with-default-hierarchy=</option>
+        during compilation (the <option>-Ddefault-hierarchy=</option> meson
         option). If the kernel does not support unified cgroup hierarchy, the legacy
         hierarchy will be used  even if this option is specified.</para>
         </listitem>
