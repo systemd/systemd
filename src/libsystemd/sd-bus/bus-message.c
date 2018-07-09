@@ -1924,7 +1924,7 @@ _public_ int sd_bus_message_open_container(
                 char type,
                 const char *contents) {
 
-        struct bus_container *c, *w;
+        struct bus_container *c;
         uint32_t *array_size = NULL;
         _cleanup_free_ char *signature = NULL;
         size_t before, begin = 0;
@@ -1969,16 +1969,14 @@ _public_ int sd_bus_message_open_container(
                 return r;
 
         /* OK, let's fill it in */
-        w = m->containers + m->n_containers++;
-        w->enclosing = type;
-        w->signature = TAKE_PTR(signature);
-        w->index = 0;
-        w->array_size = array_size;
-        w->before = before;
-        w->begin = begin;
-        w->n_offsets = w->offsets_allocated = 0;
-        w->offsets = NULL;
-        w->need_offsets = need_offsets;
+        m->containers[m->n_containers++] = (struct bus_container) {
+                .enclosing = type,
+                .signature = TAKE_PTR(signature),
+                .array_size = array_size,
+                .before = before,
+                .begin = begin,
+                .need_offsets = need_offsets,
+        };
 
         return 0;
 }
@@ -3941,10 +3939,10 @@ static int bus_message_enter_dict_entry(
 _public_ int sd_bus_message_enter_container(sd_bus_message *m,
                                             char type,
                                             const char *contents) {
-        struct bus_container *c, *w;
+        struct bus_container *c;
         uint32_t *array_size = NULL;
         _cleanup_free_ char *signature = NULL;
-        size_t before;
+        size_t before, end;
         _cleanup_free_ size_t *offsets = NULL;
         size_t n_offsets = 0, item_size = 0;
         int r;
@@ -4023,28 +4021,26 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
                 return r;
 
         /* OK, let's fill it in */
-        w = m->containers + m->n_containers++;
-        w->enclosing = type;
-        w->signature = TAKE_PTR(signature);
-        w->peeked_signature = NULL;
-        w->index = 0;
-
-        w->before = before;
-        w->begin = m->rindex;
-
-        /* Unary type has fixed size of 1, but virtual size of 0 */
         if (BUS_MESSAGE_IS_GVARIANT(m) &&
             type == SD_BUS_TYPE_STRUCT &&
             isempty(signature))
-                w->end = m->rindex + 0;
+                end = m->rindex + 0;
         else
-                w->end = m->rindex + c->item_size;
+                end = m->rindex + c->item_size;
+        
+        m->containers[m->n_containers++] = (struct bus_container) {
+                 .enclosing = type,
+                 .signature = TAKE_PTR(signature),
 
-        w->array_size = array_size;
-        w->item_size = item_size;
-        w->offsets = TAKE_PTR(offsets);
-        w->n_offsets = n_offsets;
-        w->offset_index = 0;
+                 .before = before,
+                 .begin = m->rindex,
+                 /* Unary type has fixed size of 1, but virtual size of 0 */
+                 .end = end,
+                 .array_size = array_size,
+                 .item_size = item_size,
+                 .offsets = TAKE_PTR(offsets),
+                 .n_offsets = n_offsets,
+        };
 
         return 1;
 }
