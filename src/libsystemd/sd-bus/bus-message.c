@@ -5385,6 +5385,8 @@ int bus_message_parse_fields(sd_bus_message *m) {
                                 &m->root_container.item_size,
                                 &m->root_container.offsets,
                                 &m->root_container.n_offsets);
+                if (r == -EINVAL)
+                        return -EBADMSG;
                 if (r < 0)
                         return r;
         }
