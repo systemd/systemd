@@ -4144,20 +4144,19 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
 
                 if (contents) {
                         size_t l;
-                        char *sig;
 
                         r = signature_element_length(c->signature+c->index+1, &l);
                         if (r < 0)
                                 return r;
 
-                        assert(l >= 1);
+                        /* signature_element_length does verification internally */
 
-                        sig = strndup(c->signature + c->index + 1, l);
-                        if (!sig)
+                        assert(l >= 1);
+                        if (free_and_strndup(&c->peeked_signature,
+                                             c->signature + c->index + 1, l) < 0)
                                 return -ENOMEM;
 
-                        free(c->peeked_signature);
-                        *contents = c->peeked_signature = sig;
+                        *contents = c->peeked_signature;
                 }
 
                 if (type)
@@ -4170,19 +4169,17 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
 
                 if (contents) {
                         size_t l;
-                        char *sig;
 
                         r = signature_element_length(c->signature+c->index, &l);
                         if (r < 0)
                                 return r;
 
                         assert(l >= 2);
-                        sig = strndup(c->signature + c->index + 1, l - 2);
-                        if (!sig)
+                        if (free_and_strndup(&c->peeked_signature,
+                                             c->signature + c->index + 1, l - 2) < 0)
                                 return -ENOMEM;
 
-                        free(c->peeked_signature);
-                        *contents = c->peeked_signature = sig;
+                        *contents = c->peeked_signature;
                 }
 
                 if (type)
@@ -4222,9 +4219,8 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                                 if (k > c->item_size)
                                         return -EBADMSG;
 
-                                free(c->peeked_signature);
-                                c->peeked_signature = strndup((char*) q + 1, k - 1);
-                                if (!c->peeked_signature)
+                                if (free_and_strndup(&c->peeked_signature,
+                                                     (char*) q + 1, k - 1) < 0)
                                         return -ENOMEM;
 
                                 if (!signature_is_valid(c->peeked_signature, true))
@@ -5056,25 +5052,21 @@ int bus_message_parse_fields(sd_bus_message *m) {
 
                         if (*p == 0) {
                                 size_t l;
-                                char *c;
 
                                 /* We found the beginning of the signature
                                  * string, yay! We require the body to be a
                                  * structure, so verify it and then strip the
                                  * opening/closing brackets. */
 
-                                l = ((char*) m->footer + m->footer_accessible) - p - (1 + sz);
+                                l = (char*) m->footer + m->footer_accessible - p - (1 + sz);
                                 if (l < 2 ||
                                     p[1] != SD_BUS_TYPE_STRUCT_BEGIN ||
                                     p[1 + l - 1] != SD_BUS_TYPE_STRUCT_END)
                                         return -EBADMSG;
 
-                                c = strndup(p + 1 + 1, l - 2);
-                                if (!c)
+                                if (free_and_strndup(&m->root_container.signature,
+                                                     p + 1 + 1, l - 2) < 0)
                                         return -ENOMEM;
-
-                                free(m->root_container.signature);
-                                m->root_container.signature = c;
                                 break;
                         }
 
