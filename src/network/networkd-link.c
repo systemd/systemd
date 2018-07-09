@@ -1087,7 +1087,7 @@ static int link_enter_set_addresses(Link *link) {
 
         /* now that we can figure out a default address for the dhcp server,
            start it */
-        if (link_dhcp4_server_enabled(link)) {
+        if (link_dhcp4_server_enabled(link) && (link->flags & IFF_UP)) {
                 Address *address;
                 Link *uplink = NULL;
                 bool acquired_uplink = false;
