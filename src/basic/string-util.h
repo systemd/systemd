@@ -176,6 +176,7 @@ char *strrep(const char *s, unsigned n);
 int split_pair(const char *s, const char *sep, char **l, char **r);
 
 int free_and_strdup(char **p, const char *s);
+int free_and_strndup(char **p, const char *s, size_t l);
 
 /* Normal memmem() requires haystack to be nonnull, which is annoying for zero-length buffers */
 static inline void *memmem_safe(const void *haystack, size_t haystacklen, const void *needle, size_t needlelen) {
