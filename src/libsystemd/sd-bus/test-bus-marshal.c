@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
         assert_se(r >= 0);
 
         r = sd_bus_message_append(m, "()");
-        assert_se(r >= 0);
+        assert_se(r == -EINVAL);
 
         r = sd_bus_message_append(m, "ba(ss)", 255, 3, "aaa", "1", "bbb", "2", "ccc", "3");
         assert_se(r >= 0);
@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
         assert_se(v == 10);
 
         r = sd_bus_message_read(m, "()");
-        assert_se(r > 0);
+        assert_se(r < 0);
 
         r = sd_bus_message_read(m, "ba(ss)", &boolean, 3, &x, &y, &a, &b, &c, &d);
         assert_se(r > 0);
@@ -374,7 +374,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sd_bus_message_verify_type(m, 'a', "{yv}") > 0);
 
-        r = sd_bus_message_skip(m, "a{yv}y(ty)y(yt)y()");
+        r = sd_bus_message_skip(m, "a{yv}y(ty)y(yt)y");
         assert_se(r >= 0);
 
         assert_se(sd_bus_message_verify_type(m, 'b', NULL) > 0);
