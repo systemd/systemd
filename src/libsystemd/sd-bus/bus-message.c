@@ -3292,6 +3292,12 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
                 if (IN_SET(type, SD_BUS_TYPE_STRING, SD_BUS_TYPE_OBJECT_PATH, SD_BUS_TYPE_SIGNATURE)) {
                         bool ok;
 
+                        /* D-Bus spec: The marshalling formats for the string-like types all end
+                         * with a single zero (NUL) byte, but that byte is not considered to be part
+                         * of the text. */
+                        if (c->item_size == 0)
+                                return -EBADMSG;
+
                         r = message_peek_body(m, &rindex, 1, c->item_size, &q);
                         if (r < 0)
                                 return r;
