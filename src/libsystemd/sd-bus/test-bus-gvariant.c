@@ -18,7 +18,7 @@
 
 static void test_bus_gvariant_is_fixed_size(void) {
         assert_se(bus_gvariant_is_fixed_size("") > 0);
-        assert_se(bus_gvariant_is_fixed_size("()") > 0);
+        assert_se(bus_gvariant_is_fixed_size("()") == -EINVAL);
         assert_se(bus_gvariant_is_fixed_size("y") > 0);
         assert_se(bus_gvariant_is_fixed_size("u") > 0);
         assert_se(bus_gvariant_is_fixed_size("b") > 0);
@@ -43,7 +43,7 @@ static void test_bus_gvariant_is_fixed_size(void) {
 
 static void test_bus_gvariant_get_size(void) {
         assert_se(bus_gvariant_get_size("") == 0);
-        assert_se(bus_gvariant_get_size("()") == 1);
+        assert_se(bus_gvariant_get_size("()") == -EINVAL);
         assert_se(bus_gvariant_get_size("y") == 1);
         assert_se(bus_gvariant_get_size("u") == 4);
         assert_se(bus_gvariant_get_size("b") == 1);
@@ -75,7 +75,7 @@ static void test_bus_gvariant_get_size(void) {
 
 static void test_bus_gvariant_get_alignment(void) {
         assert_se(bus_gvariant_get_alignment("") == 1);
-        assert_se(bus_gvariant_get_alignment("()") == 1);
+        assert_se(bus_gvariant_get_alignment("()") == -EINVAL);
         assert_se(bus_gvariant_get_alignment("y") == 1);
         assert_se(bus_gvariant_get_alignment("b") == 1);
         assert_se(bus_gvariant_get_alignment("u") == 4);

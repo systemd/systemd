@@ -4147,6 +4147,7 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
 
                         /* signature_element_length does verification internally */
 
+                        /* The array element must not be empty */
                         assert(l >= 1);
                         if (free_and_strndup(&c->peeked_signature,
                                              c->signature + c->index + 1, l) < 0)
@@ -4170,7 +4171,7 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
                         if (r < 0)
                                 return r;
 
-                        assert(l >= 2);
+                        assert(l >= 3);
                         if (free_and_strndup(&c->peeked_signature,
                                              c->signature + c->index + 1, l - 2) < 0)
                                 return -ENOMEM;
