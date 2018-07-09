@@ -111,8 +111,22 @@ static int user_remove_runtime_path(const char *runtime_path) {
         return r;
 }
 
-static int do_mount(const char *runtime_path, uid_t uid, gid_t gid) {
+static int do_mount(const char *user) {
+        char runtime_path[sizeof("/run/user") + DECIMAL_STR_MAX(uid_t)];
         size_t runtime_dir_size;
+        uid_t uid;
+        gid_t gid;
+        int r;
+
+        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+        if (r < 0)
+                return log_error_errno(r,
+                                       r == -ESRCH ? "No such user \"%s\"" :
+                                       r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group"
+                                                    : "Failed to look up user \"%s\": %m",
+                                       user);
+
+        xsprintf(runtime_path, "/run/user/" UID_FMT, uid);
 
         assert_se(gather_configuration(&runtime_dir_size) == 0);
 
@@ -120,16 +134,30 @@ static int do_mount(const char *runtime_path, uid_t uid, gid_t gid) {
         return user_mkdir_runtime_path(runtime_path, uid, gid, runtime_dir_size);
 }
 
-static int do_umount(const char *runtime_path) {
+static int do_umount(const char *user) {
+        char runtime_path[sizeof("/run/user") + DECIMAL_STR_MAX(uid_t)];
+        uid_t uid;
+        int r;
+
+        /* The user may be already removed. So, first try to parse the string by parse_uid(),
+         * and if it fails, fallback to get_user_creds().*/
+        if (parse_uid(user, &uid) < 0) {
+                r = get_user_creds(&user, &uid, NULL, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r,
+                                               r == -ESRCH ? "No such user \"%s\"" :
+                                               r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group"
+                                                            : "Failed to look up user \"%s\": %m",
+                                               user);
+        }
+
+        xsprintf(runtime_path, "/run/user/" UID_FMT, uid);
+
         log_debug("Will remove %s", runtime_path);
         return user_remove_runtime_path(runtime_path);
 }
 
 int main(int argc, char *argv[]) {
-        const char *user;
-        uid_t uid;
-        gid_t gid;
-        char runtime_path[sizeof("/run/user") + DECIMAL_STR_MAX(uid_t)];
         int r;
 
         log_parse_environment();
@@ -146,23 +174,10 @@ int main(int argc, char *argv[]) {
 
         umask(0022);
 
-        user = argv[2];
-        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
-        if (r < 0) {
-                log_error_errno(r,
-                                r == -ESRCH ? "No such user \"%s\"" :
-                                r == -ENOMSG ? "UID \"%s\" is invalid or has an invalid main group"
-                                             : "Failed to look up user \"%s\": %m",
-                                user);
-                return EXIT_FAILURE;
-        }
-
-        xsprintf(runtime_path, "/run/user/" UID_FMT, uid);
-
         if (streq(argv[1], "start"))
-                r = do_mount(runtime_path, uid, gid);
+                r = do_mount(argv[2]);
         else if (streq(argv[1], "stop"))
-                r = do_umount(runtime_path);
+                r = do_umount(argv[2]);
         else
                 assert_not_reached("Unknown verb!");
 
