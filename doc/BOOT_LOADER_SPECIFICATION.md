@@ -68,7 +68,7 @@ These configuration snippets shall be Unix-style text files (i.e. line separatio
 * `linux` refers to the kernel to spawn, and shall be a path relative to the `$BOOT` directory. It is recommended that every distribution creates a machine id and version specific subdirectory below `$BOOT` and places its kernels and initial RAM disk images there. Example: `/6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/linux`.
 * `initrd` refers to the initrd to use when executing the kernel. This also shall be a path relative to the `$BOOT` directory. This key is optional. This key may appear more than once in which case all specified images are used, in the order they are listed. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.x86_64/initrd`
 * `efi` to spawn arbitrary EFI programs. This also takes a path relative to `$BOOT`. This key is only available on EFI systems.
-* `options` shall contain kernel parameters to pass to the Linux kernel to spawn. This key is optional.
+* `options` shall contain kernel parameters to pass to the Linux kernel to spawn. This key is optional and may appear more than once in which case all specified parameters are used in the order they are listed.
 * `devicetree` refers to the binary device tree to use when executing the
 kernel. This also shall be a path relative to the `$BOOT` directory. This
 key is optional. Example: `6a9857a393724b7a981ebb5b8495b9ea/3.8.0-2.fc19.armv7hl/tegra20-paz00.dtb`
