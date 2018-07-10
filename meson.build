@@ -9,7 +9,7 @@ project('systemd', 'c',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
         ],
-        meson_version : '>= 0.46',
+        meson_version : '>= 0.47',
        )
 
 libsystemd_version = '0.23.0'
@@ -604,13 +604,10 @@ gateway_hostnames = ['_gateway'] + (conf.get('ENABLE_COMPAT_GATEWAY_HOSTNAME') =
 default_hierarchy = get_option('default-hierarchy')
 conf.set_quoted('DEFAULT_HIERARCHY_NAME', default_hierarchy,
                 description : 'default cgroup hierarchy as string')
-if default_hierarchy == 'legacy'
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_NONE')
-elif default_hierarchy == 'hybrid'
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_SYSTEMD')
-else
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_ALL')
-endif
+conf.set('DEFAULT_HIERARCHY',
+         {'legacy': 'CGROUP_UNIFIED_NONE',
+          'hybrid': 'CGROUP_UNIFIED_SYSTEMD',
+          'unified': 'CGROUP_UNIFIED_ALL'}.get(default_hierarchy))
 
 time_epoch = get_option('time-epoch')
 if time_epoch == -1
@@ -1229,27 +1226,14 @@ conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 if get_option('efi')
         efi_arch = host_machine.cpu_family()
 
-        if efi_arch == 'x86'
-                EFI_MACHINE_TYPE_NAME = 'ia32'
-                gnu_efi_arch = 'ia32'
-        elif efi_arch == 'x86_64'
-                EFI_MACHINE_TYPE_NAME = 'x64'
-                gnu_efi_arch = 'x86_64'
-        elif efi_arch == 'arm'
-                EFI_MACHINE_TYPE_NAME = 'arm'
-                gnu_efi_arch = 'arm'
-        elif efi_arch == 'aarch64'
-                EFI_MACHINE_TYPE_NAME = 'aa64'
-                gnu_efi_arch = 'aarch64'
-        else
-                EFI_MACHINE_TYPE_NAME = ''
-                gnu_efi_arch = ''
-        endif
+        efi_arch_to_machine_type = {'x86': 'ia32', 'x86_64': 'x64',    'arm': 'arm', 'aarch64': 'aa64'}
+        efi_arch_to_gnu_efi_arch = {'x86': 'ia32', 'x86_64': 'x86_64', 'arm': 'arm', 'aarch64': 'aarch64'}
+        EFI_MACHINE_TYPE_NAME = efi_arch_to_machine_type.get(efi_arch, '')
+        gnu_efi_arch = efi_arch_to_gnu_efi_arch.get(efi_arch, '')
 
-        have = true
         conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
-
         conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
+        have = true
 else
         have = false
 endif
