@@ -47,6 +47,9 @@ SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x014001*", TAG+="uaccess"
 # DRI video devices
 SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"
 
+# KVM
+SUBSYSTEM=="misc", KERNEL=="kvm", TAG+="uaccess"
+
 # smart-card readers
 ENV{ID_SMARTCARD_READER}=="?*", TAG+="uaccess"
 
