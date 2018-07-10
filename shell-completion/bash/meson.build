@@ -8,8 +8,6 @@ if bashcompletiondir == ''
         else
                 bashcompletiondir = join_paths(datadir, 'bash-completion/completions')
         endif
-
-        message('bash completions: @0@'.format(bashcompletiondir))
 endif
 
 if bashcompletiondir != 'no'
