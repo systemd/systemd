@@ -3,12 +3,10 @@
 # This is lame, I know, but meson has no other include mechanism
 subdir('rules')
 
-want_man = get_option('man')
-want_html = get_option('html')
 xsltproc = find_program('xsltproc',
-                        required : want_man == 'true' or want_html == 'true')
-want_man = want_man != 'false' and xsltproc.found()
-want_html = want_html != 'false' and xsltproc.found()
+                        required : get_option('man').enabled() or get_option('html').enabled())
+want_man  = xsltproc.found() and not get_option('man').disabled()
+want_html = xsltproc.found() and not get_option('html').disabled()
 
 xsltproc_flags = [
         '--nonet',
