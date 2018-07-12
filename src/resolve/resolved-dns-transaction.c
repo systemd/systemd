@@ -518,12 +518,13 @@ static int on_stream_connection(DnsStream *s) {
 }
 
 static int on_stream_complete(DnsStream *s, int error) {
+        _cleanup_(dns_stream_unrefp) DnsStream *p = NULL;
         DnsTransaction *t, *n;
         int r = 0;
 
         /* Do not let new transactions use this stream */
         if (s->server && s->server->stream == s)
-                s->server->stream = dns_stream_unref(s->server->stream);
+                p = TAKE_PTR(s->server->stream);
 
         if (ERRNO_IS_DISCONNECT(error) && s->protocol != DNS_PROTOCOL_LLMNR) {
                 usec_t usec;
