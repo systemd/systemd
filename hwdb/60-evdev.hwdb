@@ -265,7 +265,7 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHP:pnHPLaptop15-bs0xx:*
  EVDEV_ABS_36=1029:4916:78
 
 # HP Spectre
-evdev:name:SynPS/2 Synaptics TouchPad:dmi:i*svnHP:pnHPSpectreNotebook*
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHP:pnHPSpectreNotebook*
  EVDEV_ABS_00=1205:5691:47
  EVDEV_ABS_01=1083:4808:65
  EVDEV_ABS_35=1205:5691:47
