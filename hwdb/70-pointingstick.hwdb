@@ -43,7 +43,7 @@
 #   udevadm info /dev/input/eventXX.
 #
 # Allowed properties are:
-#   POINTINGSTICK_CONST_ACCEL
+#   POINTINGSTICK_CONST_ACCEL (deprecated)
 #   POINTINGSTICK_SENSITIVITY
 #
 # Entries should be sorted with growing _SENSITIVITY and _CONST_ACCEL.
@@ -51,6 +51,11 @@
 #########################################
 #      POINTINGSTICK_CONST_ACCEL        #
 #########################################
+#
+# DO NOT USE THIS PROPERTY. This property is kept for backwards
+# compatibility. The only known consumer, libinput, stopped reading this
+# property in version 1.9.0. No new entries for this property should be
+# added.
 #
 # Trackpoint const accel settings are specified as
 #    POINTINGSTICK_CONST_ACCEL=<accel>
