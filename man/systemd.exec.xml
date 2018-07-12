@@ -1046,9 +1046,13 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         Defaults to false. It is possible to run two or more units within the same private network namespace by using
         the <varname>JoinsNamespaceOf=</varname> directive, see
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
-        details. Note that this option will disconnect all socket families from the host, this includes AF_NETLINK and
-        AF_UNIX.  The latter has the effect that AF_UNIX sockets in the abstract socket namespace will become
-        unavailable to the processes (however, those located in the file system will continue to be accessible).</para>
+        details. Note that this option will disconnect all socket families from the host, including
+        <constant>AF_NETLINK</constant> and <constant>AF_UNIX</constant>. Effectively, for
+        <constant>AF_NETLINK</constant> this means that device configuration events received from
+        <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> are
+        not delivered to the unit's processes. And for <constant>AF_UNIX</constant> this has the effect that
+        <constant>AF_UNIX</constant> sockets in the abstract socket namespace of the host will become unavailable to
+        the unit's processes (however, those located in the file system will continue to be accessible).</para>
 
         <para>Note that the implementation of this setting might be impossible (for example if network namespaces are
         not available), and the unit should be written in a way that does not solely rely on this setting for
