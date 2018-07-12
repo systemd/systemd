@@ -324,36 +324,54 @@ static int dns_scope_socket(
 
                 ifindex = dns_server_ifindex(server);
 
-                sa.sa.sa_family = server->family;
-                if (server->family == AF_INET) {
-                        sa.in.sin_port = htobe16(port);
-                        sa.in.sin_addr = server->address.in;
+                switch (server->family) {
+                case AF_INET:
+                        sa = (union sockaddr_union) {
+                                .in.sin_family = server->family,
+                                .in.sin_port = htobe16(port),
+                                .in.sin_addr = server->address.in,
+                        };
                         salen = sizeof(sa.in);
-                } else if (server->family == AF_INET6) {
-                        sa.in6.sin6_port = htobe16(port);
-                        sa.in6.sin6_addr = server->address.in6;
-                        sa.in6.sin6_scope_id = ifindex;
+                        break;
+                case AF_INET6:
+                        sa = (union sockaddr_union) {
+                                .in6.sin6_family = server->family,
+                                .in6.sin6_port = htobe16(port),
+                                .in6.sin6_addr = server->address.in6,
+                                .in6.sin6_scope_id = ifindex,
+                        };
                         salen = sizeof(sa.in6);
-                } else
+                        break;
+                default:
                         return -EAFNOSUPPORT;
+                }
         } else {
                 assert(family != AF_UNSPEC);
                 assert(address);
 
-                sa.sa.sa_family = family;
                 ifindex = s->link ? s->link->ifindex : 0;
 
-                if (family == AF_INET) {
-                        sa.in.sin_port = htobe16(port);
-                        sa.in.sin_addr = address->in;
+                switch (family) {
+                case AF_INET:
+                        sa = (union sockaddr_union) {
+                                .in.sin_family = family,
+                                .in.sin_port = htobe16(port),
+                                .in.sin_addr = address->in,
+                        };
                         salen = sizeof(sa.in);
-                } else if (family == AF_INET6) {
-                        sa.in6.sin6_port = htobe16(port);
-                        sa.in6.sin6_addr = address->in6;
-                        sa.in6.sin6_scope_id = ifindex;
+                        break;
+                case AF_INET6:
+                        sa = (union sockaddr_union) {
+                                .in6.sin6_family = family,
+                                .in6.sin6_port = htobe16(port),
+                                .in6.sin6_addr = address->in6,
+                                .in6.sin6_scope_id = ifindex,
+                        };
                         salen = sizeof(sa.in6);
-                } else
+                        break;
+                default:
                         return -EAFNOSUPPORT;
+                }
         }
 
         fd = socket(sa.sa.sa_family, type|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
