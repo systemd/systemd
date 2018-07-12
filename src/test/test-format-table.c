@@ -5,6 +5,30 @@
 #include "string-util.h"
 #include "time-util.h"
 
+static void test_issue_9549(void) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free_ char *formatted = NULL;
+
+        assert_se(table = table_new("NAME", "TYPE", "RO", "USAGE", "CREATED", "MODIFIED"));
+        assert_se(table_set_align_percent(table, TABLE_HEADER_CELL(3), 100) >= 0);
+        assert_se(table_add_many(table,
+                                 TABLE_STRING, "foooo",
+                                 TABLE_STRING, "raw",
+                                 TABLE_BOOLEAN, false,
+                                 TABLE_SIZE, (uint64_t) (673.7*1024*1024),
+                                 TABLE_STRING, "Wed 2018-07-11 00:10:33 JST",
+                                 TABLE_STRING, "Wed 2018-07-11 00:16:00 JST") >= 0);
+
+        table_set_width(table, 75);
+        assert_se(table_format(table, &formatted) >= 0);
+
+        printf("%s\n", formatted);
+        assert_se(streq(formatted,
+                        "NAME  TYPE RO  USAGE CREATED                    MODIFIED                   \n"
+                        "foooo raw  no 673.6M Wed 2018-07-11 00:10:33 J… Wed 2018-07-11 00:16:00 JST\n"
+                        ));
+}
+
 int main(int argc, char *argv[]) {
 
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -134,6 +158,8 @@ int main(int argc, char *argv[]) {
                         " yes fäää       yes fäää      fäää      \n"
                         " yes xxx        yes xxx       xxx       \n"
                         "5min           5min                     \n"));
+
+        test_issue_9549();
 
         return 0;
 }
