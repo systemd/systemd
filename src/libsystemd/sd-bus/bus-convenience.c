@@ -122,6 +122,48 @@ fail:
         return sd_bus_error_set_errno(error, r);
 }
 
+_public_ int sd_bus_call_method_timeout(
+                sd_bus *bus,
+                const char *destination,
+                const char *path,
+                const char *interface,
+                const char *member,
+                const usec_t timeout,
+                sd_bus_error *error,
+                sd_bus_message **reply,
+                const char *types, ...) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        bus_assert_return(bus, -EINVAL, error);
+        bus_assert_return(!bus_pid_changed(bus), -ECHILD, error);
+
+        if (!BUS_IS_OPEN(bus->state)) {
+                r = -ENOTCONN;
+                goto fail;
+        }
+
+        r = sd_bus_message_new_method_call(bus, &m, destination, path, interface, member);
+        if (r < 0)
+                goto fail;
+
+        if (!isempty(types)) {
+                va_list ap;
+
+                va_start(ap, types);
+                r = sd_bus_message_appendv(m, types, ap);
+                va_end(ap);
+                if (r < 0)
+                        goto fail;
+        }
+
+        return sd_bus_call(bus, m, timeout, error, reply);
+
+fail:
+        return sd_bus_error_set_errno(error, r);
+}
+
 _public_ int sd_bus_reply_method_return(
                 sd_bus_message *call,
                 const char *types, ...) {

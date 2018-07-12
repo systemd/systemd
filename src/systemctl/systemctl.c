@@ -133,6 +133,7 @@ static const char *arg_kill_who = NULL;
 static int arg_signal = SIGTERM;
 static char *arg_root = NULL;
 static usec_t arg_when = 0;
+static usec_t arg_timeout = 0;
 static char *arg_esp_path = NULL;
 static char *argv_cmdline = NULL;
 static enum action {
@@ -606,7 +607,7 @@ static int get_unit_list(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
+        r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
         if (r < 0 && (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD) ||
                       sd_bus_error_has_name(&error, SD_BUS_ERROR_ACCESS_DENIED))) {
                 /* Fallback to legacy ListUnitsFiltered method */
@@ -629,7 +630,7 @@ static int get_unit_list(
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, 0, &error, &reply);
+                r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to list units: %s", bus_error_message(&error, r));
@@ -1504,7 +1505,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, 0, &error, &reply);
+                r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
                 if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
                         /* Fallback to legacy ListUnitFiles method */
                         fallback = true;
@@ -1522,7 +1523,7 @@ static int list_unit_files(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return bus_log_create_error(r);
 
-                        r = sd_bus_call(bus, m, 0, &error, &reply);
+                        r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to list unit files: %s", bus_error_message(&error, r));
@@ -2060,12 +2061,13 @@ static int get_default(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = sd_bus_call_method(
+                r = sd_bus_call_method_timeout(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "GetDefaultTarget",
+                                arg_timeout,
                                 &error,
                                 &reply,
                                 NULL);
@@ -2113,12 +2115,13 @@ static int set_default(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return r;
 
-                r = sd_bus_call_method(
+                r = sd_bus_call_method_timeout(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "SetDefaultTarget",
+                                arg_timeout,
                                 &error,
                                 &reply,
                                 "sb", unit, 1);
@@ -2151,12 +2154,13 @@ static int output_waiting_jobs(sd_bus *bus, uint32_t id, const char *method, con
 
         assert(bus);
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         method,
+                        arg_timeout,
                         &error,
                         &reply,
                         "u", id);
@@ -2281,12 +2285,13 @@ static int list_jobs(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "ListJobs",
+                        arg_timeout,
                         &error,
                         &reply,
                         NULL);
@@ -2346,12 +2351,13 @@ static int cancel_job(int argc, char *argv[], void *userdata) {
                 if (q < 0)
                         return log_error_errno(q, "Failed to parse job id \"%s\": %m", *name);
 
-                q = sd_bus_call_method(
+                q = sd_bus_call_method_timeout(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "CancelJob",
+                                arg_timeout,
                                 &error,
                                 NULL,
                                 "u", id);
@@ -2376,12 +2382,13 @@ static int need_daemon_reload(sd_bus *bus, const char *unit) {
         /* We don't use unit_dbus_path_from_name() directly since we
          * don't want to load the unit if it isn't loaded. */
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "GetUnit",
+                        arg_timeout,
                         NULL,
                         &reply,
                         "s", unit);
@@ -2823,12 +2830,13 @@ static int start_unit_one(
                 _cleanup_free_ char *unit_path = NULL;
 
                 log_debug("Watching for property changes of %s", name);
-                r = sd_bus_call_method(
+                r = sd_bus_call_method_timeout(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "RefUnit",
+                                arg_timeout,
                                 error,
                                 NULL,
                                 "s", name);
@@ -2860,12 +2868,13 @@ static int start_unit_one(
         if (arg_dry_run)
                 return 0;
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         method,
+                        arg_timeout,
                         error,
                         &reply,
                         "ss", name, mode);
@@ -3159,12 +3168,13 @@ static int logind_set_wall_message(void) {
         if (arg_dry_run)
                 return 0;
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "SetWallMessage",
+                        arg_timeout,
                         &error,
                         NULL,
                         "sb",
@@ -3238,12 +3248,13 @@ static int logind_reboot(enum action a) {
         if (arg_dry_run)
                 return 0;
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         method,
+                        arg_timeout,
                         &error,
                         NULL,
                         "b", arg_ask_password);
@@ -3286,12 +3297,13 @@ static int logind_check_inhibitors(enum action a) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "ListInhibitors",
+                        arg_timeout,
                         NULL,
                         &reply,
                         NULL);
@@ -3387,12 +3399,13 @@ static int logind_prepare_firmware_setup(void) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "SetRebootToFirmwareSetup",
+                        arg_timeout,
                         &error,
                         NULL,
                         "b", true);
@@ -3510,12 +3523,13 @@ static int set_exit_code(uint8_t code) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "SetExitCode",
+                        arg_timeout,
                         &error,
                         NULL,
                         "y", code);
@@ -3709,12 +3723,13 @@ static int kill_unit(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                q = sd_bus_call_method(
+                q = sd_bus_call_method_timeout(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "KillUnit",
+                                arg_timeout,
                                 &error,
                                 NULL,
                                 "ssi", *name, kill_who ? kill_who : arg_kill_who, arg_signal);
@@ -5072,12 +5087,13 @@ static int get_unit_dbus_path_by_pid(
         char *u;
         int r;
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "GetUnitByPID",
+                        arg_timeout,
                         &error,
                         &reply,
                         "u", pid);
@@ -5423,7 +5439,7 @@ static int set_property(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set unit properties on %s: %s", n, bus_error_message(&error, r));
 
@@ -5476,7 +5492,7 @@ static int daemon_reload(int argc, char *argv[], void *userdata) {
          * are timed out after DEFAULT_TIMEOUT_USEC. Let's use twice that time here, so that the generators can have
          * their timeout, and for everything else there's the same time budget in place. */
 
-        r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC * 2, &error, NULL);
+        r = sd_bus_call(bus, m, MAX(arg_timeout, DEFAULT_TIMEOUT_USEC * 2), &error, NULL);
 
         /* On reexecution, we expect a disconnect, not a reply */
         if (IN_SET(r, -ETIMEDOUT, -ECONNRESET) && streq(method, "Reexecute"))
@@ -5516,12 +5532,13 @@ static int trivial_method(int argc, char *argv[], void *userdata) {
                 streq(argv[0], "exit")          ? "Exit" :
                              /* poweroff */       "PowerOff";
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         method,
+                        arg_timeout,
                         &error,
                         NULL,
                         NULL);
@@ -5556,12 +5573,13 @@ static int reset_failed(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(name, names) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                q = sd_bus_call_method(
+                q = sd_bus_call_method_timeout(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "ResetFailedUnit",
+                                arg_timeout,
                                 &error,
                                 NULL,
                                 "s", *name);
@@ -5700,12 +5718,13 @@ static int switch_root(int argc, char *argv[], void *userdata) {
 
         log_debug("Switching root - root: %s; init: %s", root, strna(init));
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "SwitchRoot",
+                        arg_timeout,
                         &error,
                         NULL,
                         "ss", root, init);
@@ -5752,7 +5771,7 @@ static int set_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set environment: %s", bus_error_message(&error, r));
 
@@ -5817,7 +5836,7 @@ static int import_environment(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_call(bus, m, 0, &error, NULL);
+        r = sd_bus_call(bus, m, arg_timeout, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to import environment: %s", bus_error_message(&error, r));
 
@@ -6237,7 +6256,7 @@ static int enable_unit(int argc, char *argv[], void *userdata) {
                                 return bus_log_create_error(r);
                 }
 
-                r = sd_bus_call(bus, m, 0, &error, &reply);
+                r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
                 if (r < 0)
                         return log_error_errno(r, "Failed to %s unit: %s", verb, bus_error_message(&error, r));
 
@@ -6361,7 +6380,7 @@ static int add_dependency(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_call(bus, m, 0, &error, &reply);
+                r = sd_bus_call(bus, m, arg_timeout, &error, &reply);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add dependency: %s", bus_error_message(&error, r));
 
@@ -6405,12 +6424,13 @@ static int preset_all(int argc, char *argv[], void *userdata) {
 
                 polkit_agent_open_maybe();
 
-                r = sd_bus_call_method(
+                r = sd_bus_call_method_timeout(
                                 bus,
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1.Manager",
                                 "PresetAllUnitFiles",
+                                arg_timeout,
                                 &error,
                                 &reply,
                                 "sbb",
@@ -6466,12 +6486,13 @@ static int show_installation_targets(sd_bus *bus, const char *name) {
         const char *link;
         int r;
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.systemd1",
                         "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager",
                         "GetUnitFileLinks",
+                        arg_timeout,
                         &error,
                         &reply,
                         "sb", name, arg_runtime);
@@ -6550,12 +6571,13 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
                         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                         const char *s;
 
-                        r = sd_bus_call_method(
+                        r = sd_bus_call_method_timeout(
                                         bus,
                                         "org.freedesktop.systemd1",
                                         "/org/freedesktop/systemd1",
                                         "org.freedesktop.systemd1.Manager",
                                         "GetUnitFileState",
+                                        arg_timeout,
                                         &error,
                                         &reply,
                                         "s", *name);
@@ -7028,6 +7050,7 @@ static void systemctl_help(void) {
                "  -s --signal=SIGNAL  Which signal to send\n"
                "     --now            Start or stop unit in addition to enabling or disabling it\n"
                "     --dry-run        Only print what would be done\n"
+               "     --timeout=SECS   Override the default timeout when using dbus calls\n"
                "  -q --quiet          Suppress output\n"
                "     --wait           For (re)start, wait until service stopped again\n"
                "     --no-block       Do not wait until operation finished\n"
@@ -7285,6 +7308,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NOW,
                 ARG_MESSAGE,
                 ARG_WAIT,
+                ARG_TIMEOUT,
         };
 
         static const struct option options[] = {
@@ -7333,6 +7357,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "firmware-setup",      no_argument,       NULL, ARG_FIRMWARE_SETUP      },
                 { "now",                 no_argument,       NULL, ARG_NOW                 },
                 { "message",             required_argument, NULL, ARG_MESSAGE             },
+                { "timeout",             required_argument, NULL, ARG_TIMEOUT             },
                 {}
         };
 
@@ -7664,6 +7689,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 case ARG_MESSAGE:
                         if (strv_extend(&arg_wall, optarg) < 0)
                                 return log_oom();
+                        break;
+
+                case ARG_TIMEOUT:
+                        r = parse_sec(optarg, &arg_timeout);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --timeout option: %m");
                         break;
 
                 case '?':
@@ -8364,12 +8395,13 @@ static int logind_schedule_shutdown(void) {
 
         (void) logind_set_wall_message();
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "ScheduleShutdown",
+                        arg_timeout,
                         &error,
                         NULL,
                         "st",
@@ -8474,12 +8506,13 @@ static int logind_cancel_shutdown(void) {
 
         (void) logind_set_wall_message();
 
-        r = sd_bus_call_method(
+        r = sd_bus_call_method_timeout(
                         bus,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
                         "CancelScheduledShutdown",
+                        arg_timeout,
                         &error,
                         NULL, NULL);
         if (r < 0)
