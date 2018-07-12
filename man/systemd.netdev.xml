@@ -1005,9 +1005,12 @@
             generated using the <command>wg genkey</command> command
             (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
             This option is mandatory to use WireGuard.
-            Note that because this information is secret, you may want to set
-            the permissions of the .netdev file to be owned by <literal>root:systemd-networkd</literal>
-            with a <literal>0640</literal> file mode.</para>
+            Note that because this information is secret, you may want to hide the .netdev file from non-privileged users.
+            Then, a recommended way is locating the .netdev file under <filename>/var/lib/systemd/network</filename>, which
+            should be a symbolic link to <filename>/var/lib/private/systemd/network</filename>, and creating a symbolic link
+            to <filename>/etc/systemd/network</filename>. Or, if there exists the static group <literal>systemd-network</literal>,
+            an alternative way is setting the .netdev file to be owned by <literal>root:systemd-network</literal> with a
+            <literal>0640</literal> file mode.</para>
         </listitem>
       </varlistentry>
       <varlistentry>
