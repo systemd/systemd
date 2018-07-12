@@ -173,6 +173,7 @@ All execution-related settings are available for transient units.
 ✓ TemporaryFileSystem=
 ✓ PrivateTmp=
 ✓ PrivateDevices=
+✓ PrivateMounts=
 ✓ ProtectKernelTunables=
 ✓ ProtectKernelModules=
 ✓ ProtectControlGroups=
