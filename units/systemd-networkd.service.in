@@ -41,6 +41,7 @@ SystemCallArchitectures=native
 LockPersonality=yes
 RuntimeDirectory=systemd/netif
 RuntimeDirectoryPreserve=yes
+StateDirectory=systemd/network
 
 [Install]
 WantedBy=multi-user.target
