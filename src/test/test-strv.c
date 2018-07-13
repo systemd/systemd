@@ -180,12 +180,31 @@ static void test_strv_split(void) {
         const char str[] = "one,two,three";
 
         l = strv_split(str, ",");
-
         assert_se(l);
-
-        STRV_FOREACH(s, l) {
+        STRV_FOREACH(s, l)
                 assert_se(streq(*s, input_table_multiple[i++]));
-        }
+
+        i = 0;
+        strv_free(l);
+
+        l = strv_split("    one    two\t three", WHITESPACE);
+        assert_se(l);
+        STRV_FOREACH(s, l)
+                assert_se(streq(*s, input_table_multiple[i++]));
+}
+
+static void test_strv_split_empty(void) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        l = strv_split("", WHITESPACE);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+
+        strv_free(l);
+        l = strv_split("    ", WHITESPACE);
+        assert_se(l);
+        assert_se(strv_isempty(l));
+
 }
 
 static void test_strv_split_extract(void) {
@@ -733,6 +752,7 @@ int main(int argc, char *argv[]) {
         test_invalid_unquote("'x'y'g");
 
         test_strv_split();
+        test_strv_split_empty();
         test_strv_split_extract();
         test_strv_split_newlines();
         test_strv_split_nulstr();

@@ -253,6 +253,10 @@ char **strv_split(const char *s, const char *separator) {
 
         assert(s);
 
+        s += strspn(s, separator);
+        if (isempty(s))
+                return new0(char*, 1);
+
         n = 0;
         FOREACH_WORD_SEPARATOR(word, l, s, separator, state)
                 n++;

@@ -43,6 +43,7 @@ _noreturn_ static void pager_fallback(void) {
 
 int pager_open(bool no_pager, bool jump_to_end) {
         _cleanup_close_pair_ int fd[2] = { -1, -1 };
+        _cleanup_strv_free_ char **pager_args = NULL;
         const char *pager;
         int r;
 
@@ -62,9 +63,15 @@ int pager_open(bool no_pager, bool jump_to_end) {
         if (!pager)
                 pager = getenv("PAGER");
 
-        /* If the pager is explicitly turned off, honour it */
-        if (pager && STR_IN_SET(pager, "", "cat"))
-                return 0;
+        if (pager) {
+                pager_args = strv_split(pager, WHITESPACE);
+                if (!pager_args)
+                        return -ENOMEM;
+
+                /* If the pager is explicitly turned off, honour it */
+                if (strv_isempty(pager_args) || strv_equal(pager_args, STRV_MAKE("cat")))
+                        return 0;
+        }
 
         /* Determine and cache number of columns/lines before we spawn the pager so that we get the value from the
          * actual tty */
@@ -104,10 +111,8 @@ int pager_open(bool no_pager, bool jump_to_end) {
                     setenv("LESSCHARSET", less_charset, 1) < 0)
                         _exit(EXIT_FAILURE);
 
-                if (pager) {
-                        execlp(pager, pager, NULL);
-                        execl("/bin/sh", "sh", "-c", pager, NULL);
-                }
+                if (pager_args)
+                        execvp(pager_args[0], pager_args);
 
                 /* Debian's alternatives command for pagers is
                  * called 'pager'. Note that we do not call
