@@ -55,8 +55,8 @@
     </para>
 
     <para>By default, <command>systemd-coredump</command> will log the core dump including a backtrace
-    if possible to the journal and store the core dump itself in an external file in
-    <filename>/var/lib/systemd/coredump</filename>.</para>
+    if possible to the journal and store the core dump itself in an external file configured via the
+    <varname>Path=</varname> Parameter in <filename>coredump.conf</filename>.</para>
 
     <para>The behavior of a specific program upon reception of a signal is governed by a few
     factors which are described in detail in
