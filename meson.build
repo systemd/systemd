@@ -741,7 +741,9 @@ substs.set('USERS_GID', users_gid)
 conf.set10('ENABLE_ADM_GROUP', get_option('adm-group'))
 conf.set10('ENABLE_WHEEL_GROUP', get_option('wheel-group'))
 
-substs.set('DEV_KVM_MODE', get_option('dev-kvm-mode'))
+dev_kvm_mode = get_option('dev-kvm-mode')
+substs.set('DEV_KVM_MODE', dev_kvm_mode)
+conf.set10('DEV_KVM_UACCESS', dev_kvm_mode != '0666')
 substs.set('GROUP_RENDER_MODE', get_option('group-render-mode'))
 
 kill_user_processes = get_option('default-kill-user-processes')
