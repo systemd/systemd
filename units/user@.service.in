@@ -10,8 +10,7 @@
 [Unit]
 Description=User Manager for UID %i
 Documentation=man:user@.service(5)
-After=systemd-user-sessions.service
-After=user-runtime-dir@%i.service
+After=systemd-user-sessions.service user-runtime-dir@%i.service dbus.service
 Requires=user-runtime-dir@%i.service
 
 [Service]
