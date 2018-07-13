@@ -81,7 +81,8 @@
         some.service, the automatic ordering will not be added.</para></listitem>
 
         <listitem><para>Target units automatically gain <varname>Conflicts=</varname>
-        dependency against <filename>shutdown.target</filename>.</para></listitem>
+        and <varname>Before=</varname> dependencies against
+        <filename>shutdown.target</filename>.</para></listitem>
       </itemizedlist>
     </refsect2>
   </refsect1>
