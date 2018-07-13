@@ -1609,8 +1609,11 @@ static int bus_seal_message(sd_bus *b, sd_bus_message *m, usec_t timeout) {
                 return 0;
         }
 
-        if (timeout == 0)
-                timeout = BUS_DEFAULT_TIMEOUT;
+        if (timeout == 0) {
+                r = sd_bus_get_method_call_timeout(b, &timeout);
+                if (r < 0)
+                        return r;
+        }
 
         if (!m->sender && b->patch_sender) {
                 r = sd_bus_message_set_sender(m, b->patch_sender);
@@ -4071,5 +4074,38 @@ _public_ int sd_bus_get_n_queued_write(sd_bus *bus, uint64_t *ret) {
         assert_return(ret, -EINVAL);
 
         *ret = bus->wqueue_size;
+        return 0;
+}
+
+_public_ int sd_bus_set_method_call_timeout(sd_bus *bus, uint64_t usec) {
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+
+        bus->method_call_timeout = usec;
+        return 0;
+}
+
+_public_ int sd_bus_get_method_call_timeout(sd_bus *bus, uint64_t *ret) {
+        const char *e;
+        usec_t usec;
+
+        assert_return(bus, -EINVAL);
+        assert_return(bus = bus_resolve(bus), -ENOPKG);
+        assert_return(ret, -EINVAL);
+
+        if (bus->method_call_timeout != 0) {
+                *ret = bus->method_call_timeout;
+                return 0;
+        }
+
+        e = secure_getenv("SYSTEMD_BUS_TIMEOUT");
+        if (e && parse_sec(e, &usec) >= 0 && usec != 0) {
+                /* Save the parsed value to avoid multiple parsing. To change the timeout value,
+                 * use sd_bus_set_method_call_timeout() instead of setenv(). */
+                *ret = bus->method_call_timeout = usec;
+                return 0;
+        }
+
+        *ret = bus->method_call_timeout = BUS_DEFAULT_TIMEOUT;
         return 0;
 }

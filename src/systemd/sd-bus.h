@@ -205,6 +205,9 @@ sd_event *sd_bus_get_event(sd_bus *bus);
 int sd_bus_get_n_queued_read(sd_bus *bus, uint64_t *ret);
 int sd_bus_get_n_queued_write(sd_bus *bus, uint64_t *ret);
 
+int sd_bus_set_method_call_timeout(sd_bus *bus, uint64_t usec);
+int sd_bus_get_method_call_timeout(sd_bus *bus, uint64_t *ret);
+
 int sd_bus_add_filter(sd_bus *bus, sd_bus_slot **slot, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_add_match(sd_bus *bus, sd_bus_slot **slot, const char *match, sd_bus_message_handler_t callback, void *userdata);
 int sd_bus_add_match_async(sd_bus *bus, sd_bus_slot **slot, const char *match, sd_bus_message_handler_t callback, sd_bus_message_handler_t install_callback, void *userdata);

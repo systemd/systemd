@@ -5809,8 +5809,11 @@ int bus_message_remarshal(sd_bus *bus, sd_bus_message **m) {
                 return r;
 
         timeout = (*m)->timeout;
-        if (timeout == 0 && !((*m)->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED))
-                timeout = BUS_DEFAULT_TIMEOUT;
+        if (timeout == 0 && !((*m)->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)) {
+                r = sd_bus_get_method_call_timeout(bus, &timeout);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_bus_message_seal(n, BUS_MESSAGE_COOKIE(*m), timeout);
         if (r < 0)

@@ -316,6 +316,9 @@ struct sd_bus {
 
         int *inotify_watches;
         size_t n_inotify_watches;
+
+        /* zero means use value specified by $SYSTEMD_BUS_TIMEOUT= environment variable or built-in default */
+        usec_t method_call_timeout;
 };
 
 /* For method calls we time-out at 25s, like in the D-Bus reference implementation */
@@ -333,8 +336,7 @@ struct sd_bus {
 
 #define BUS_CONTAINER_DEPTH 128
 
-/* Defined by the specification as maximum size of an array in
- * bytes */
+/* Defined by the specification as maximum size of an array in bytes */
 #define BUS_ARRAY_MAX_SIZE 67108864
 
 #define BUS_FDS_MAX 1024
@@ -385,8 +387,7 @@ void bus_close_io_fds(sd_bus *b);
              _slash = streq((prefix), "/") ? NULL : strrchr((prefix), '/'))
 
 /* If we are invoking callbacks of a bus object, ensure unreffing the
- * bus from the callback doesn't destroy the object we are working
- * on */
+ * bus from the callback doesn't destroy the object we are working on */
 #define BUS_DONT_DESTROY(bus) \
         _cleanup_(sd_bus_unrefp) _unused_ sd_bus *_dont_destroy_##bus = sd_bus_ref(bus)
 

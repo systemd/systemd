@@ -37,6 +37,11 @@ All tools:
   useful for debugging, in order to test generators and other code against
   specific kernel command lines.
 
+* `$SYSTEMD_BUS_TIMEOUT=SECS` — specifies the maximum time to wait for method call
+  completion. If no time unit is specified, assumes seconds. The usual other units
+  are understood, too (us, ms, s, min, h, d, w, month, y). If it is not set or set
+  to 0, then the built-in default is used.
+
 systemctl:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID1's private D-Bus
