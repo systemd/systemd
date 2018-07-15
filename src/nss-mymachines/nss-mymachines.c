@@ -80,6 +80,7 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         char *r_name;
         int n_ifindices, r;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
@@ -126,7 +127,6 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
                 goto fail;
 
         if (c <= 0) {
-                *errnop = ESRCH;
                 *h_errnop = HOST_NOT_FOUND;
                 return NSS_STATUS_NOTFOUND;
         }
@@ -200,8 +200,8 @@ enum nss_status _nss_mymachines_gethostbyname4_r(
         if (ttlp)
                 *ttlp = 0;
 
-        /* Explicitly reset all error variables */
-        *errnop = 0;
+        /* Explicitly reset both *h_errnop and h_errno to work around
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1125975 */
         *h_errnop = NETDB_SUCCESS;
         h_errno = 0;
 
@@ -230,6 +230,7 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         size_t l, idx, ms, alen;
         int r;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
@@ -278,7 +279,6 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
                 goto fail;
 
         if (c <= 0) {
-                *errnop = ENOENT;
                 *h_errnop = HOST_NOT_FOUND;
                 return NSS_STATUS_NOTFOUND;
         }
@@ -364,8 +364,8 @@ enum nss_status _nss_mymachines_gethostbyname3_r(
         if (canonp)
                 *canonp = r_name;
 
-        /* Explicitly reset all error variables */
-        *errnop = 0;
+        /* Explicitly reset both *h_errnop and h_errno to work around
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1125975 */
         *h_errnop = NETDB_SUCCESS;
         h_errno = 0;
 
@@ -394,6 +394,7 @@ enum nss_status _nss_mymachines_getpwnam_r(
         size_t l;
         int r;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
@@ -401,28 +402,28 @@ enum nss_status _nss_mymachines_getpwnam_r(
 
         p = startswith(name, "vu-");
         if (!p)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         e = strrchr(p, '-');
         if (!e || e == p)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         if (e - p > HOST_NAME_MAX - 1) /* -1 for the last dash */
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         r = parse_uid(e + 1, &uid);
         if (r < 0)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         machine = strndupa(p, e - p);
         if (!machine_name_is_valid(machine))
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
                 /* Make sure we can't deadlock if we are invoked by dbus-daemon. This way, it won't be able to resolve
                  * these UIDs, but that should be unproblematic as containers should never be able to connect to a bus
                  * running on the host. */
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
@@ -439,7 +440,7 @@ enum nss_status _nss_mymachines_getpwnam_r(
                                machine, (uint32_t) uid);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_USER_MAPPING))
-                        goto not_found;
+                        return NSS_STATUS_NOTFOUND;
 
                 goto fail;
         }
@@ -450,7 +451,7 @@ enum nss_status _nss_mymachines_getpwnam_r(
 
         /* Refuse to work if the mapped address is in the host UID range, or if there was no mapping at all. */
         if (mapped < HOST_UID_LIMIT || mapped == uid)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         l = strlen(name);
         if (buflen < l+1) {
@@ -468,12 +469,7 @@ enum nss_status _nss_mymachines_getpwnam_r(
         pwd->pw_dir = (char*) "/";
         pwd->pw_shell = (char*) "/sbin/nologin";
 
-        *errnop = 0;
         return NSS_STATUS_SUCCESS;
-
-not_found:
-        *errnop = 0;
-        return NSS_STATUS_NOTFOUND;
 
 fail:
         *errnop = -r;
@@ -493,17 +489,18 @@ enum nss_status _nss_mymachines_getpwuid_r(
         uint32_t mapped;
         int r;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         if (!uid_is_valid(uid))
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         /* We consider all uids < 65536 host uids */
         if (uid < HOST_UID_LIMIT)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
@@ -520,7 +517,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
                                (uint32_t) uid);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_USER_MAPPING))
-                        goto not_found;
+                        return NSS_STATUS_NOTFOUND;
 
                 goto fail;
         }
@@ -530,7 +527,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
                 goto fail;
 
         if (mapped == uid)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         if (snprintf(buffer, buflen, "vu-%s-" UID_FMT, machine, (uid_t) mapped) >= (int) buflen) {
                 *errnop = ERANGE;
@@ -545,12 +542,7 @@ enum nss_status _nss_mymachines_getpwuid_r(
         pwd->pw_dir = (char*) "/";
         pwd->pw_shell = (char*) "/sbin/nologin";
 
-        *errnop = 0;
         return NSS_STATUS_SUCCESS;
-
-not_found:
-        *errnop = 0;
-        return NSS_STATUS_NOTFOUND;
 
 fail:
         *errnop = -r;
@@ -574,6 +566,7 @@ enum nss_status _nss_mymachines_getgrnam_r(
         size_t l;
         int r;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
@@ -581,25 +574,25 @@ enum nss_status _nss_mymachines_getgrnam_r(
 
         p = startswith(name, "vg-");
         if (!p)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         e = strrchr(p, '-');
         if (!e || e == p)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         if (e - p > HOST_NAME_MAX - 1)  /* -1 for the last dash */
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         r = parse_gid(e + 1, &gid);
         if (r < 0)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         machine = strndupa(p, e - p);
         if (!machine_name_is_valid(machine))
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
@@ -616,7 +609,7 @@ enum nss_status _nss_mymachines_getgrnam_r(
                                machine, (uint32_t) gid);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_GROUP_MAPPING))
-                        goto not_found;
+                        return NSS_STATUS_NOTFOUND;
 
                 goto fail;
         }
@@ -626,7 +619,7 @@ enum nss_status _nss_mymachines_getgrnam_r(
                 goto fail;
 
         if (mapped < HOST_GID_LIMIT || mapped == gid)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         l = sizeof(char*) + strlen(name) + 1;
         if (buflen < l) {
@@ -642,12 +635,7 @@ enum nss_status _nss_mymachines_getgrnam_r(
         gr->gr_passwd = (char*) "*"; /* locked */
         gr->gr_mem = (char**) buffer;
 
-        *errnop = 0;
         return NSS_STATUS_SUCCESS;
-
-not_found:
-        *errnop = 0;
-        return NSS_STATUS_NOTFOUND;
 
 fail:
         *errnop = -r;
@@ -667,17 +655,18 @@ enum nss_status _nss_mymachines_getgrgid_r(
         uint32_t mapped;
         int r;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         if (!gid_is_valid(gid))
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         /* We consider all gids < 65536 host gids */
         if (gid < HOST_GID_LIMIT)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS") > 0)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
@@ -694,7 +683,7 @@ enum nss_status _nss_mymachines_getgrgid_r(
                                (uint32_t) gid);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_GROUP_MAPPING))
-                        goto not_found;
+                        return NSS_STATUS_NOTFOUND;
 
                 goto fail;
         }
@@ -704,7 +693,7 @@ enum nss_status _nss_mymachines_getgrgid_r(
                 goto fail;
 
         if (mapped == gid)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         if (buflen < sizeof(char*) + 1) {
                 *errnop = ERANGE;
@@ -722,12 +711,7 @@ enum nss_status _nss_mymachines_getgrgid_r(
         gr->gr_passwd = (char*) "*"; /* locked */
         gr->gr_mem = (char**) buffer;
 
-        *errnop = 0;
         return NSS_STATUS_SUCCESS;
-
-not_found:
-        *errnop = 0;
-        return NSS_STATUS_NOTFOUND;
 
 fail:
         *errnop = -r;
