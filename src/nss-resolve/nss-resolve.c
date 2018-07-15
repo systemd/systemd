@@ -108,6 +108,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         char *r_name;
         int c, r, i = 0;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
@@ -140,20 +141,15 @@ enum nss_status _nss_resolve_gethostbyname4_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN")) {
-                        *errnop = ESRCH;
-                        *h_errnop = HOST_NOT_FOUND;
-                        return NSS_STATUS_NOTFOUND;
-                }
+                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
+                    !bus_error_shall_fallback(&error))
+                        goto not_found;
 
                 /* Return NSS_STATUS_UNAVAIL when communication with systemd-resolved fails,
                    allowing falling back to other nss modules. Treat all other error conditions as
                    NOTFOUND. This includes DNSSEC errors and suchlike. (We don't use UNAVAIL in this
                    case so that the nsswitch.conf configuration can distuingish such executed but
                    negative replies from complete failure to talk to resolved). */
-                if (!bus_error_shall_fallback(&error))
-                        ret = NSS_STATUS_NOTFOUND;
-
                 goto fail;
         }
 
@@ -162,11 +158,8 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 r = c;
                 goto fail;
         }
-        if (c == 0) {
-                *errnop = ESRCH;
-                *h_errnop = HOST_NOT_FOUND;
-                return NSS_STATUS_NOTFOUND;
-        }
+        if (c == 0)
+                goto not_found;
 
         if (isempty(canonical))
                 canonical = name;
@@ -247,8 +240,8 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         if (ttlp)
                 *ttlp = 0;
 
-        /* Explicitly reset all error variables */
-        *errnop = 0;
+        /* Explicitly reset both *h_errnop and h_errno to work around
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1125975 */
         *h_errnop = NETDB_SUCCESS;
         h_errno = 0;
 
@@ -258,6 +251,10 @@ fail:
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
         return ret;
+
+not_found:
+        *h_errnop = HOST_NOT_FOUND;
+        return NSS_STATUS_NOTFOUND;
 }
 
 enum nss_status _nss_resolve_gethostbyname3_r(
@@ -278,6 +275,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         const char *canonical;
         int c, r, i = 0;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
@@ -318,14 +316,9 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN")) {
-                        *errnop = ESRCH;
-                        *h_errnop = HOST_NOT_FOUND;
-                        return NSS_STATUS_NOTFOUND;
-                }
-
-                if (!bus_error_shall_fallback(&error))
-                        ret = NSS_STATUS_NOTFOUND;
+                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
+                    !bus_error_shall_fallback(&error))
+                        goto not_found;
 
                 goto fail;
         }
@@ -335,11 +328,8 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 r = c;
                 goto fail;
         }
-        if (c == 0) {
-                *errnop = ESRCH;
-                *h_errnop = HOST_NOT_FOUND;
-                return NSS_STATUS_NOTFOUND;
-        }
+        if (c == 0)
+                goto not_found;
 
         if (isempty(canonical))
                 canonical = name;
@@ -427,16 +417,16 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         result->h_length = alen;
         result->h_addr_list = (char**) r_addr_list;
 
-        /* Explicitly reset all error variables */
-        *errnop = 0;
-        *h_errnop = NETDB_SUCCESS;
-        h_errno = 0;
-
         if (ttlp)
                 *ttlp = 0;
 
         if (canonp)
                 *canonp = r_name;
+
+        /* Explicitly reset both *h_errnop and h_errno to work around
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1125975 */
+        *h_errnop = NETDB_SUCCESS;
+        h_errno = 0;
 
         return NSS_STATUS_SUCCESS;
 
@@ -444,6 +434,10 @@ fail:
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
         return ret;
+
+not_found:
+        *h_errnop = HOST_NOT_FOUND;
+        return NSS_STATUS_NOTFOUND;
 }
 
 enum nss_status _nss_resolve_gethostbyaddr2_r(
@@ -464,6 +458,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         const char *n;
         int r, ifindex;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(addr);
@@ -516,14 +511,9 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         r = sd_bus_call(bus, req, SD_RESOLVED_QUERY_TIMEOUT_USEC, &error, &reply);
         if (r < 0) {
-                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN")) {
-                        *errnop = ESRCH;
-                        *h_errnop = HOST_NOT_FOUND;
-                        return NSS_STATUS_NOTFOUND;
-                }
-
-                if (!bus_error_shall_fallback(&error))
-                        ret = NSS_STATUS_NOTFOUND;
+                if (sd_bus_error_has_name(&error, _BUS_ERROR_DNS "NXDOMAIN") ||
+                    !bus_error_shall_fallback(&error))
+                        goto not_found;
 
                 goto fail;
         }
@@ -549,11 +539,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (r < 0)
                 return r;
 
-        if (c <= 0) {
-                *errnop = ESRCH;
-                *h_errnop = HOST_NOT_FOUND;
-                return NSS_STATUS_NOTFOUND;
-        }
+        if (c <= 0)
+                goto not_found;
 
         ms += ALIGN(len) +              /* the address */
               2 * sizeof(char*) +       /* pointers to the address, plus trailing NULL */
@@ -612,8 +599,8 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         if (ttlp)
                 *ttlp = 0;
 
-        /* Explicitly reset all error variables */
-        *errnop = 0;
+        /* Explicitly reset both *h_errnop and h_errno to work around
+         * https://bugzilla.redhat.com/show_bug.cgi?id=1125975 */
         *h_errnop = NETDB_SUCCESS;
         h_errno = 0;
 
@@ -623,6 +610,10 @@ fail:
         *errnop = -r;
         *h_errnop = NO_RECOVERY;
         return ret;
+
+not_found:
+        *h_errnop = HOST_NOT_FOUND;
+        return NSS_STATUS_NOTFOUND;
 }
 
 NSS_GETHOSTBYNAME_FALLBACKS(resolve);

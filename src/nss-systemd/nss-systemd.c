@@ -145,6 +145,7 @@ enum nss_status _nss_systemd_getpwnam_r(
         size_t l;
         int bypass, r;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
@@ -153,26 +154,24 @@ enum nss_status _nss_systemd_getpwnam_r(
         /* If the username is not valid, then we don't know it. Ideally libc would filter these for us anyway. We don't
          * generate EINVAL here, because it isn't really out business to complain about invalid user names. */
         if (!valid_user_group_name(name))
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         /* Synthesize entries for the root and nobody users, in case they are missing in /etc/passwd */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
                 if (streq(name, root_passwd.pw_name)) {
                         *pwd = root_passwd;
-                        *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
                 if (synthesize_nobody() &&
                     streq(name, nobody_passwd.pw_name)) {
                         *pwd = nobody_passwd;
-                        *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
         }
 
         /* Make sure that we don't go in circles when allocating a dynamic UID by checking our own database */
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         bypass = getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS");
         if (bypass <= 0) {
@@ -184,7 +183,7 @@ enum nss_status _nss_systemd_getpwnam_r(
         if (bypass > 0) {
                 r = direct_lookup_name(name, (uid_t*) &translated);
                 if (r == -ENOENT)
-                        goto not_found;
+                        return NSS_STATUS_NOTFOUND;
                 if (r < 0)
                         goto fail;
         } else {
@@ -199,7 +198,7 @@ enum nss_status _nss_systemd_getpwnam_r(
                                        name);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
-                                goto not_found;
+                                return NSS_STATUS_NOTFOUND;
 
                         goto fail;
                 }
@@ -225,12 +224,7 @@ enum nss_status _nss_systemd_getpwnam_r(
         pwd->pw_dir = (char*) DYNAMIC_USER_DIR;
         pwd->pw_shell = (char*) DYNAMIC_USER_SHELL;
 
-        *errnop = 0;
         return NSS_STATUS_SUCCESS;
-
-not_found:
-        *errnop = 0;
-        return NSS_STATUS_NOTFOUND;
 
 fail:
         *errnop = -r;
@@ -251,31 +245,30 @@ enum nss_status _nss_systemd_getpwuid_r(
         size_t l;
         int bypass, r;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         if (!uid_is_valid(uid))
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         /* Synthesize data for the root user and for nobody in case they are missing from /etc/passwd */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
                 if (uid == root_passwd.pw_uid) {
                         *pwd = root_passwd;
-                        *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
                 if (synthesize_nobody() &&
                     uid == nobody_passwd.pw_uid) {
                         *pwd = nobody_passwd;
-                        *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
         }
 
         if (!uid_is_dynamic(uid))
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         bypass = getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS");
         if (bypass <= 0) {
@@ -287,7 +280,7 @@ enum nss_status _nss_systemd_getpwuid_r(
         if (bypass > 0) {
                 r = direct_lookup_uid(uid, &direct);
                 if (r == -ENOENT)
-                        goto not_found;
+                        return NSS_STATUS_NOTFOUND;
                 if (r < 0)
                         goto fail;
 
@@ -305,7 +298,7 @@ enum nss_status _nss_systemd_getpwuid_r(
                                        (uint32_t) uid);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
-                                goto not_found;
+                                return NSS_STATUS_NOTFOUND;
 
                         goto fail;
                 }
@@ -331,12 +324,7 @@ enum nss_status _nss_systemd_getpwuid_r(
         pwd->pw_dir = (char*) DYNAMIC_USER_DIR;
         pwd->pw_shell = (char*) DYNAMIC_USER_SHELL;
 
-        *errnop = 0;
         return NSS_STATUS_SUCCESS;
-
-not_found:
-        *errnop = 0;
-        return NSS_STATUS_NOTFOUND;
 
 fail:
         *errnop = -r;
@@ -358,31 +346,30 @@ enum nss_status _nss_systemd_getgrnam_r(
         size_t l;
         int bypass, r;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(name);
         assert(gr);
 
         if (!valid_user_group_name(name))
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         /* Synthesize records for root and nobody, in case they are missing form /etc/group */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
                 if (streq(name, root_group.gr_name)) {
                         *gr = root_group;
-                        *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
                 if (synthesize_nobody() &&
                     streq(name, nobody_group.gr_name)) {
                         *gr = nobody_group;
-                        *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
         }
 
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         bypass = getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS");
         if (bypass <= 0) {
@@ -394,7 +381,7 @@ enum nss_status _nss_systemd_getgrnam_r(
         if (bypass > 0) {
                 r = direct_lookup_name(name, (uid_t*) &translated);
                 if (r == -ENOENT)
-                        goto not_found;
+                        return NSS_STATUS_NOTFOUND;
                 if (r < 0)
                         goto fail;
         } else {
@@ -409,7 +396,7 @@ enum nss_status _nss_systemd_getgrnam_r(
                                        name);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
-                                goto not_found;
+                                return NSS_STATUS_NOTFOUND;
 
                         goto fail;
                 }
@@ -433,12 +420,7 @@ enum nss_status _nss_systemd_getgrnam_r(
         gr->gr_passwd = (char*) DYNAMIC_USER_PASSWD;
         gr->gr_mem = (char**) buffer;
 
-        *errnop = 0;
         return NSS_STATUS_SUCCESS;
-
-not_found:
-        *errnop = 0;
-        return NSS_STATUS_NOTFOUND;
 
 fail:
         *errnop = -r;
@@ -459,31 +441,30 @@ enum nss_status _nss_systemd_getgrgid_r(
         size_t l;
         int bypass, r;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         if (!gid_is_valid(gid))
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         /* Synthesize records for root and nobody, in case they are missing from /etc/group */
         if (getenv_bool_secure("SYSTEMD_NSS_BYPASS_SYNTHETIC") <= 0) {
                 if (gid == root_group.gr_gid) {
                         *gr = root_group;
-                        *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
                 if (synthesize_nobody() &&
                     gid == nobody_group.gr_gid) {
                         *gr = nobody_group;
-                        *errnop = 0;
                         return NSS_STATUS_SUCCESS;
                 }
         }
 
         if (!gid_is_dynamic(gid))
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         if (getenv_bool_secure("SYSTEMD_NSS_DYNAMIC_BYPASS") > 0)
-                goto not_found;
+                return NSS_STATUS_NOTFOUND;
 
         bypass = getenv_bool_secure("SYSTEMD_NSS_BYPASS_BUS");
         if (bypass <= 0) {
@@ -495,7 +476,7 @@ enum nss_status _nss_systemd_getgrgid_r(
         if (bypass > 0) {
                 r = direct_lookup_uid(gid, &direct);
                 if (r == -ENOENT)
-                        goto not_found;
+                        return NSS_STATUS_NOTFOUND;
                 if (r < 0)
                         goto fail;
 
@@ -513,7 +494,7 @@ enum nss_status _nss_systemd_getgrgid_r(
                                        (uint32_t) gid);
                 if (r < 0) {
                         if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_DYNAMIC_USER))
-                                goto not_found;
+                                return NSS_STATUS_NOTFOUND;
 
                         goto fail;
                 }
@@ -537,12 +518,7 @@ enum nss_status _nss_systemd_getgrgid_r(
         gr->gr_passwd = (char*) DYNAMIC_USER_PASSWD;
         gr->gr_mem = (char**) buffer;
 
-        *errnop = 0;
         return NSS_STATUS_SUCCESS;
-
-not_found:
-        *errnop = 0;
-        return NSS_STATUS_NOTFOUND;
 
 fail:
         *errnop = -r;
@@ -598,6 +574,7 @@ static void systemd_endent(GetentData *data) {
 }
 
 static enum nss_status nss_systemd_endent(GetentData *p) {
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert_se(pthread_mutex_lock(&p->mutex) == 0);
@@ -668,6 +645,7 @@ static enum nss_status systemd_setent(GetentData *p) {
         uid_t id;
         int bypass, r;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(p);
@@ -750,6 +728,7 @@ enum nss_status _nss_systemd_getpwent_r(struct passwd *result, char *buffer, siz
         UserEntry *p;
         size_t len;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(result);
@@ -778,7 +757,6 @@ enum nss_status _nss_systemd_getpwent_r(struct passwd *result, char *buffer, siz
                 break;
         }
         if (!p) {
-                *errnop = ENOENT;
                 ret = NSS_STATUS_NOTFOUND;
                 goto finalize;
         }
@@ -801,6 +779,7 @@ enum nss_status _nss_systemd_getgrent_r(struct group *result, char *buffer, size
         UserEntry *p;
         size_t len;
 
+        PROTECT_ERRNO;
         BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);
 
         assert(result);
@@ -827,7 +806,6 @@ enum nss_status _nss_systemd_getgrent_r(struct group *result, char *buffer, size
                 break;
         }
         if (!p) {
-                *errnop = ENOENT;
                 ret = NSS_STATUS_NOTFOUND;
                 goto finalize;
         }
