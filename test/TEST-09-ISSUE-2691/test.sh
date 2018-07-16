@@ -6,7 +6,6 @@ TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/2691"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
-SKIP_INITRD=yes
 QEMU_TIMEOUT=90
 
 test_setup() {

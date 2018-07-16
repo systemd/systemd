@@ -4,7 +4,7 @@
 set -e
 TEST_DESCRIPTION="/etc/machine-id testing"
 TEST_NO_NSPAWN=1
-SKIP_INITRD=yes
+
 . $TEST_BASE_DIR/test-functions
 
 test_setup() {
