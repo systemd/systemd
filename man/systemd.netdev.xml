@@ -1006,7 +1006,7 @@
             (see <citerefentry project="wireguard"><refentrytitle>wg</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
             This option is mandatory to use WireGuard.
             Note that because this information is secret, you may want to set
-            the permissions of the .netdev file to be owned by <literal>root:systemd-networkd</literal>
+            the permissions of the .netdev file to be owned by <literal>root:systemd-network</literal>
             with a <literal>0640</literal> file mode.</para>
         </listitem>
       </varlistentry>
