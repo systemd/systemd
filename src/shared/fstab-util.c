@@ -157,7 +157,7 @@ answer:
         return !!n;
 }
 
-int fstab_extract_values(const char *opts, const char *name, char ***values) {
+int fstab_extract_values(const char *opts, const char *name, const char *default_value, char ***values) {
         _cleanup_strv_free_ char **optsv = NULL, **res = NULL;
         char **s;
 
@@ -174,8 +174,18 @@ int fstab_extract_values(const char *opts, const char *name, char ***values) {
                 int r;
 
                 arg = startswith(*s, name);
-                if (!arg || *arg != '=')
+                if (!arg)
                         continue;
+
+                if (*arg != '=') {
+                        if (default_value && !*arg) {
+                            r = strv_extend(&res, default_value);
+                            if (r < 0)
+                                    return r;
+                        }
+                        continue;
+                }
+
                 r = strv_extend(&res, arg + 1);
                 if (r < 0)
                         return r;

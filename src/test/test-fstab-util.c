@@ -4,6 +4,7 @@
 #include "fstab-util.h"
 #include "log.h"
 #include "string-util.h"
+#include "strv.h"
 #include "util.h"
 
 /*
@@ -90,6 +91,49 @@ static void test_fstab_filter_options(void) {
         do_fstab_filter_options("", "opt\0", 0, NULL, NULL, "");
 }
 
+static void test_fstab_extract_values(void) {
+        _cleanup_strv_free_ char **v = NULL;
+
+        assert_se(fstab_extract_values("", "opt", NULL, &v) == 0);
+        assert_se(strv_equal(v, STRV_MAKE_EMPTY));
+
+        assert_se(fstab_extract_values("opt", "opt", NULL, &v) == 0);
+        assert_se(strv_equal(v, STRV_MAKE_EMPTY));
+
+        assert_se(fstab_extract_values("tpo", "opt", NULL, &v) == 0);
+        assert_se(strv_equal(v, STRV_MAKE_EMPTY));
+
+        assert_se(fstab_extract_values("optnot", "opt", "value", &v) == 0);
+        assert_se(strv_equal(v, STRV_MAKE_EMPTY));
+
+        assert_se(fstab_extract_values("opt=value", "opt", NULL, &v) == 1);
+        assert_se(strv_equal(v, STRV_MAKE("value")));
+        v = strv_free(v);
+
+        assert_se(fstab_extract_values("opt", "opt", "value", &v) == 1);
+        assert_se(strv_equal(v, STRV_MAKE("value")));
+        v = strv_free(v);
+
+        assert_se(fstab_extract_values("opt=value", "opt", "other", &v) == 1);
+        assert_se(strv_equal(v, STRV_MAKE("value")));
+        v = strv_free(v);
+
+        assert_se(fstab_extract_values("first,opt=value,last", "opt", NULL, &v) == 1);
+        assert_se(strv_equal(v, STRV_MAKE("value")));
+        v = strv_free(v);
+
+        assert_se(fstab_extract_values("opt=value,last", "opt", NULL, &v) == 1);
+        assert_se(strv_equal(v, STRV_MAKE("value")));
+        v = strv_free(v);
+
+        assert_se(fstab_extract_values("first,opt=value1,middle,opt,opt=value2,last", "opt", NULL, &v) == 1);
+        assert_se(strv_equal(v, STRV_MAKE("value1", "value2")));
+        v = strv_free(v);
+
+        assert_se(fstab_extract_values("opt=value1,opt,opt=value3", "opt", "value2", &v) == 1);
+        assert_se(strv_equal(v, STRV_MAKE("value1", "value2", "value3")));
+}
+
 static void test_fstab_find_pri(void) {
         int pri = -1;
 
@@ -150,6 +194,7 @@ static void test_fstab_node_to_udev_node(void) {
 
 int main(void) {
         test_fstab_filter_options();
+        test_fstab_extract_values();
         test_fstab_find_pri();
         test_fstab_yes_no_option();
         test_fstab_node_to_udev_node();
