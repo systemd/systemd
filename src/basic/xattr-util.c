@@ -2,7 +2,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/stat.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
