@@ -11,12 +11,12 @@
 
 #include "sd-messages.h"
 
-#include "parse-util.h"
 #include "def.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "parse-util.h"
 #include "sleep-config.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -40,21 +40,27 @@ static int write_hibernate_location_info(void) {
                 return log_debug_errno(r, "Unable to find hibernation location: %m");
 
         /* if it's a swap partition, we just write the disk to /sys/power/resume */
-        if (streq(type, "partition"))
-                return write_string_file("/sys/power/resume", device, 0);
-        else if (!streq(type, "file"))
-                return log_debug_errno(EINVAL, "Invalid hibernate type %s: %m",
-                                       type);
+        if (streq(type, "partition")) {
+                r = write_string_file("/sys/power/resume", device, 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Faileed to write partitoin device to /sys/power/resume: %m");
+
+                return r;
+        }
+        if (!streq(type, "file")) {
+                log_debug("Invalid hibernate type: %s", type);
+                return -EINVAL;
+        }
 
         /* Only available in 4.17+ */
         if (access("/sys/power/resume_offset", F_OK) < 0) {
                 if (errno == ENOENT)
                         return 0;
+
                 return log_debug_errno(errno, "/sys/power/resume_offset unavailable: %m");
         }
 
-        r = access("/sys/power/resume_offset", W_OK);
-        if (r < 0)
+        if (access("/sys/power/resume_offset", W_OK) < 0)
                 return log_debug_errno(errno, "/sys/power/resume_offset not writeable: %m");
 
         fd = open(device, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
@@ -63,26 +69,26 @@ static int write_hibernate_location_info(void) {
         r = fstat(fd, &stb);
         if (r < 0)
                 return log_debug_errno(errno, "Unable to stat %s: %m", device);
+
         r = read_fiemap(fd, &fiemap);
         if (r < 0)
-                return log_debug_errno(r, "Unable to read extent map for '%s': %m",
-                                       device);
+                return log_debug_errno(r, "Unable to read extent map for '%s': %m", device);
         if (fiemap->fm_mapped_extents == 0) {
                 log_debug("No extents found in '%s'", device);
                 return -EINVAL;
         }
+
         offset = fiemap->fm_extents[0].fe_physical / page_size();
         xsprintf(offset_str, "%" PRIu64, offset);
         r = write_string_file("/sys/power/resume_offset", offset_str, 0);
         if (r < 0)
-                return log_debug_errno(r, "Failed to write offset '%s': %m",
-                                       offset_str);
+                return log_debug_errno(r, "Failed to write offset '%s': %m", offset_str);
 
         xsprintf(device_str, "%lx", (unsigned long)stb.st_dev);
         r = write_string_file("/sys/power/resume", device_str, 0);
         if (r < 0)
-                return log_debug_errno(r, "Failed to write device '%s': %m",
-                                       device_str);
+                return log_debug_errno(r, "Failed to write device '%s': %m", device_str);
+
         return 0;
 }
 
@@ -94,12 +100,11 @@ static int write_mode(char **modes) {
                 int k;
 
                 k = write_string_file("/sys/power/disk", *mode, 0);
-                if (k == 0)
+                if (k >= 0)
                         return 0;
 
-                log_debug_errno(k, "Failed to write '%s' to /sys/power/disk: %m",
-                                *mode);
-                if (r == 0)
+                log_debug_errno(k, "Failed to write '%s' to /sys/power/disk: %m", *mode);
+                if (r >= 0)
                         r = k;
         }
 
@@ -114,11 +119,10 @@ static int write_state(FILE **f, char **states) {
                 int k;
 
                 k = write_string_stream(*f, *state, 0);
-                if (k == 0)
+                if (k >= 0)
                         return 0;
-                log_debug_errno(k, "Failed to write '%s' to /sys/power/state: %m",
-                                *state);
-                if (r == 0)
+                log_debug_errno(k, "Failed to write '%s' to /sys/power/state: %m", *state);
+                if (r >= 0)
                         r = k;
 
                 fclose(*f);
@@ -315,10 +319,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         arg_verb = argv[optind];
 
-        if (!streq(arg_verb, "suspend") &&
-            !streq(arg_verb, "hibernate") &&
-            !streq(arg_verb, "hybrid-sleep") &&
-            !streq(arg_verb, "suspend-then-hibernate")) {
+        if (!STR_IN_SET(arg_verb, "suspend", "hibernate", "hybrid-sleep", "suspend-then-hibernate")) {
                 log_error("Unknown command '%s'.", arg_verb);
                 return -EINVAL;
         }
@@ -347,6 +348,7 @@ int main(int argc, char *argv[]) {
                 r = execute_s2h(delay);
         else
                 r = execute(modes, states);
+
 finish:
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }
