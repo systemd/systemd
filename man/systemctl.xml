@@ -343,6 +343,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--timeout=</option></term>
+
+        <listitem>
+          <para>Override the timeout in seconds for dbus calls invoked.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 

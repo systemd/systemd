@@ -26,6 +26,7 @@
 #include "sd-id128.h"
 
 #include "_sd-common.h"
+#include "time-util.h"
 
 _SD_BEGIN_DECLARATIONS;
 
@@ -334,6 +335,7 @@ int sd_bus_get_name_machine_id(sd_bus *bus, const char *name, sd_id128_t *machin
 /* Convenience calls */
 
 int sd_bus_call_method(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, sd_bus_message **reply, const char *types, ...);
+int sd_bus_call_method_timeout(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, usec_t timeout, sd_bus_error *ret_error, sd_bus_message **reply, const char *types, ...);
 int sd_bus_call_method_async(sd_bus *bus, sd_bus_slot **slot, const char *destination, const char *path, const char *interface, const char *member, sd_bus_message_handler_t callback, void *userdata, const char *types, ...);
 int sd_bus_get_property(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, sd_bus_message **reply, const char *type);
 int sd_bus_get_property_trivial(sd_bus *bus, const char *destination, const char *path, const char *interface, const char *member, sd_bus_error *ret_error, char type, void *ret_ptr);
