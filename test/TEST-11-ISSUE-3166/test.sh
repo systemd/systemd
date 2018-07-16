@@ -6,7 +6,6 @@ TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/3166"
 TEST_NO_NSPAWN=1
 
 . $TEST_BASE_DIR/test-functions
-SKIP_INITRD=yes
 
 test_setup() {
     create_empty_image
