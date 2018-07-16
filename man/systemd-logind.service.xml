@@ -45,8 +45,10 @@
       a session, then this ID is reused as the session ID. Otherwise, an independent session counter is
       used.</para></listitem>
 
-      <listitem><para>Providing PolicyKit-based access for users for
-      operations such as system shutdown or sleep</para></listitem>
+      <listitem><para>Providing <ulink
+      url="http://www.freedesktop.org/wiki/Software/polkit">polkit</ulink>-based
+      access for users for operations such as system shutdown or sleep</para>
+      </listitem>
 
       <listitem><para>Implementing a shutdown/sleep inhibition logic
       for applications</para></listitem>

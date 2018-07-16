@@ -173,7 +173,7 @@ REQUIREMENTS:
                 NOTE: If using dbus < 1.9.18, you should override the default
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
         dracut (optional)
-        PolicyKit (optional)
+        polkit (optional)
 
         To build in directory build/:
           meson build/ && ninja -C build
