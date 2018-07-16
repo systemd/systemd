@@ -36,7 +36,7 @@
    that. The first row is always the header row. If header display is turned off we simply skip outputting the first
    row. Also, when sorting rows we always leave the first row where it is, as the header shouldn't move.
 
- - Note because there's no row and no column object some properties that might be approproate as row/column properties
+ - Note because there's no row and no column object some properties that might be appropriate as row/column properties
    are exposed as cell properties instead. For example, the "weight" of a column (which is used to determine where to
    add/remove space preferable when expanding/compressing tables horizontally) is actually made the "weight" of a
    cell. Given that we usually need it per-column though we will calculate the average across every cell of the column
@@ -1134,14 +1134,12 @@ int table_print(Table *t, FILE *f) {
                                 assert(weight_sum >= column_weight[j]);
                                 weight_sum -= column_weight[j];
 
-                                if (restart)
+                                if (restart && !finalize)
                                         break;
                         }
 
-                        if (finalize) {
-                                assert(!restart);
+                        if (finalize)
                                 break;
-                        }
 
                         if (!restart)
                                 finalize = true;
