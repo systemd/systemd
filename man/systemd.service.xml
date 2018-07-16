@@ -318,7 +318,7 @@
 
               <row>
                 <entry><literal>-</literal></entry>
-                <entry>If the executable path is prefixed with <literal>-</literal>, an exit code of the command normally considered a failure (i.e. non-zero exit status or abnormal exit due to signal) is ignored and considered success.</entry>
+                <entry>If the executable path is prefixed with <literal>-</literal>, an exit code of the command normally considered a failure (i.e. non-zero exit status or abnormal exit due to signal) is recorded, but has no further effect and is considered equivalent to success.</entry>
               </row>
 
               <row>
