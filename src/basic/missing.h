@@ -15,7 +15,6 @@
 #include <linux/neighbour.h>
 #include <linux/oom.h>
 #include <linux/rtnetlink.h>
-#include <linux/stat.h>
 #include <net/ethernet.h>
 #include <stdlib.h>
 #include <sys/resource.h>
@@ -24,6 +23,10 @@
 #include <sys/syscall.h>
 #include <uchar.h>
 #include <unistd.h>
+
+#if !HAVE_STRUCT_STATX_IN_SYS_STAT_H
+#include <linux/stat.h>
+#endif
 
 #if HAVE_AUDIT
 #include <libaudit.h>
