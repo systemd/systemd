@@ -1035,7 +1035,8 @@ static int fd_set_acls(Item *item, int fd, const struct stat *st) {
         if (item->acl_access)
                 r = path_set_acl(procfs_path, path, ACL_TYPE_ACCESS, item->acl_access, item->force);
 
-        if (r == 0 && item->acl_default)
+        /* set only default acls to folders */
+        if (r == 0 && item->acl_default && S_ISDIR(st->st_mode))
                 r = path_set_acl(procfs_path, path, ACL_TYPE_DEFAULT, item->acl_default, item->force);
 
         if (r > 0)
