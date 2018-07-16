@@ -1930,28 +1930,32 @@ static int verb_dns(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        STRV_FOREACH(p, argv + 2) {
-                struct in_addr_data data;
+        /* If only argument is the empty string, then call SetLinkDNS() with an
+         * empty list, which will clear the list of domains for an interface. */
+        if (!strv_equal(argv + 2, STRV_MAKE(""))) {
+                STRV_FOREACH(p, argv + 2) {
+                        struct in_addr_data data;
 
-                r = in_addr_from_string_auto(*p, &data.family, &data.address);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse DNS server address: %s", *p);
+                        r = in_addr_from_string_auto(*p, &data.family, &data.address);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse DNS server address: %s", *p);
 
-                r = sd_bus_message_open_container(req, 'r', "iay");
-                if (r < 0)
-                        return bus_log_create_error(r);
+                        r = sd_bus_message_open_container(req, 'r', "iay");
+                        if (r < 0)
+                                return bus_log_create_error(r);
 
-                r = sd_bus_message_append(req, "i", data.family);
-                if (r < 0)
-                        return bus_log_create_error(r);
+                        r = sd_bus_message_append(req, "i", data.family);
+                        if (r < 0)
+                                return bus_log_create_error(r);
 
-                r = sd_bus_message_append_array(req, 'y', &data.address, FAMILY_ADDRESS_SIZE(data.family));
-                if (r < 0)
-                        return bus_log_create_error(r);
+                        r = sd_bus_message_append_array(req, 'y', &data.address, FAMILY_ADDRESS_SIZE(data.family));
+                        if (r < 0)
+                                return bus_log_create_error(r);
 
-                r = sd_bus_message_close_container(req);
-                if (r < 0)
-                        return bus_log_create_error(r);
+                        r = sd_bus_message_close_container(req);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
         }
 
         r = sd_bus_message_close_container(req);
@@ -2010,22 +2014,26 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        STRV_FOREACH(p, argv + 2) {
-                const char *n;
+        /* If only argument is the empty string, then call SetLinkDomains() with an
+         * empty list, which will clear the list of domains for an interface. */
+        if (!strv_equal(argv + 2, STRV_MAKE(""))) {
+                STRV_FOREACH(p, argv + 2) {
+                        const char *n;
 
-                n = **p == '~' ? *p + 1 : *p;
+                        n = **p == '~' ? *p + 1 : *p;
 
-                r = dns_name_is_valid(n);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to validate specified domain %s: %m", n);
-                if (r == 0) {
-                        log_error("Domain not valid: %s", n);
-                        return -EINVAL;
+                        r = dns_name_is_valid(n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate specified domain %s: %m", n);
+                        if (r == 0) {
+                                log_error("Domain not valid: %s", n);
+                                return -EINVAL;
+                        }
+
+                        r = sd_bus_message_append(req, "(sb)", n, **p == '~');
+                        if (r < 0)
+                                return bus_log_create_error(r);
                 }
-
-                r = sd_bus_message_append(req, "(sb)", n, **p == '~');
-                if (r < 0)
-                        return bus_log_create_error(r);
         }
 
         r = sd_bus_message_close_container(req);
@@ -2209,6 +2217,7 @@ static int verb_nta(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         char **p;
         int r;
+        bool clear;
 
         assert(bus);
 
@@ -2222,15 +2231,20 @@ static int verb_nta(int argc, char **argv, void *userdata) {
         if (argc == 2)
                 return status_ifindex(bus, arg_ifindex, NULL, STATUS_NTA, NULL);
 
-        STRV_FOREACH(p, argv + 2) {
-                r = dns_name_is_valid(*p);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to validate specified domain %s: %m", *p);
-                if (r == 0) {
-                        log_error("Domain not valid: %s", *p);
-                        return -EINVAL;
+        /* If only argument is the empty string, then call SetLinkDNSSECNegativeTrustAnchors()
+         * with an empty list, which will clear the list of domains for an interface. */
+        clear = strv_equal(argv + 2, STRV_MAKE(""));
+
+        if (!clear)
+                STRV_FOREACH(p, argv + 2) {
+                        r = dns_name_is_valid(*p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to validate specified domain %s: %m", *p);
+                        if (r == 0) {
+                                log_error("Domain not valid: %s", *p);
+                                return -EINVAL;
+                        }
                 }
-        }
 
         r = sd_bus_message_new_method_call(
                         bus,
@@ -2246,7 +2260,7 @@ static int verb_nta(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return bus_log_create_error(r);
 
-        r = sd_bus_message_append_strv(req, argv + 2);
+        r = sd_bus_message_append_strv(req, clear ? NULL : argv + 2);
         if (r < 0)
                 return bus_log_create_error(r);
 

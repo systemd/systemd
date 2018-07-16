@@ -258,8 +258,12 @@
         <literal>~</literal>, and configures a per-interface search or route-only domain. The <option>llmnr</option>,
         <option>mdns</option>, <option>dnssec</option> and <option>dnsovertls</option> commands may be used to configure
         the per-interface LLMNR, MulticastDNS, DNSSEC and DNSOverTLS settings. Finally, <option>nta</option> command
-        may be used to configure additional per-interface DNSSEC NTA domains. For details about these settings, their
-        possible values and their effect, see the corresponding options in
+        may be used to configure additional per-interface DNSSEC NTA domains.</para></listitem>
+
+        <listitem><para>Options <option>dns</option>, <option>domain</option> and <option>nta</option> can take
+        a single empty string argument to clear their respective value lists.</para></listitem>
+
+        <listitem><para>For details about these settings, their possible values and their effect, see the corresponding options in
         <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
         </listitem>
       </varlistentry>
