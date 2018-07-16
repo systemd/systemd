@@ -3327,11 +3327,10 @@ CHANGES WITH 226:
           correct dequeuing of real-time signals, without losing
           signal events.
 
-        * When systemd requests a PolicyKit decision when managing
-          units it will now add additional fields to the request,
-          including unit name and desired operation. This enables more
-          powerful PolicyKit policies, that make decisions depending
-          on these parameters.
+        * When systemd requests a polkit decision when managing units it
+          will now add additional fields to the request, including unit
+          name and desired operation. This enables more powerful polkit
+          policies, that make decisions depending on these parameters.
 
         * nspawn learnt support for .nspawn settings files, that may
           accompany the image files or directories of containers, and
@@ -3366,13 +3365,12 @@ CHANGES WITH 225:
           options and allows other programs to query the values.
 
         * SELinux access control when enabling/disabling units is no
-          longer enforced with this release. The previous
-          implementation was incorrect, and a new corrected
-          implementation is not yet available. As unit file operations
-          are still protected via PolicyKit and D-Bus policy this is
-          not a security problem. Yet, distributions which care about
-          optimal SELinux support should probably not stabilize on
-          this release.
+          longer enforced with this release. The previous implementation
+          was incorrect, and a new corrected implementation is not yet
+          available. As unit file operations are still protected via
+          polkit and D-Bus policy this is not a security problem. Yet,
+          distributions which care about optimal SELinux support should
+          probably not stabilize on this release.
 
         * sd-bus gained support for matches of type "arg0has=", that
           test for membership of strings in string arrays sent in bus
@@ -3744,11 +3742,10 @@ CHANGES WITH 220:
         * systemd-importd gained support for verifying downloaded
           images with gpg2 (previously only gpg1 was supported).
 
-        * systemd-machined, systemd-logind, systemd: most bus calls
-          are now accessible to unprivileged processes via
-          PolicyKit. Also, systemd-logind will now allow users to kill
-          their own sessions without further privileges or
-          authorization.
+        * systemd-machined, systemd-logind, systemd: most bus calls are
+          now accessible to unprivileged processes via polkit. Also,
+          systemd-logind will now allow users to kill their own sessions
+          without further privileges or authorization.
 
         * systemd-shutdownd has been removed. This service was
           previously responsible for implementing scheduled shutdowns
@@ -4530,11 +4527,11 @@ CHANGES WITH 217:
           directly from now on, again.
 
         * Support for the new ALLOW_INTERACTIVE_AUTHORIZATION D-Bus
-          message flag has been added for all of systemd's PolicyKit
-          authenticated method calls has been added. In particular
-          this now allows optional interactive authorization via
-          PolicyKit for many of PID1's privileged operations such as
-          unit file enabling and disabling.
+          message flag has been added for all of systemd's polkit
+          authenticated method calls has been added. In particular this
+          now allows optional interactive authorization via polkit for
+          many of PID1's privileged operations such as unit file
+          enabling and disabling.
 
         * "udevadm hwdb --update" learnt a new switch "--usr" for
           placing the rebuilt hardware database in /usr instead of
@@ -4613,11 +4610,11 @@ CHANGES WITH 216:
           well as the user/group databases, which should enhance
           compatibility with certain tools like grpck.
 
-        * A number of bus APIs of PID 1 now optionally consult
-          PolicyKit to permit access for otherwise unprivileged
-          clients under certain conditions. Note that this currently
-          doesn't support interactive authentication yet, but this is
-          expected to be added eventually, too.
+        * A number of bus APIs of PID 1 now optionally consult polkit to
+          permit access for otherwise unprivileged clients under certain
+          conditions. Note that this currently doesn't support
+          interactive authentication yet, but this is expected to be
+          added eventually, too.
 
         * /etc/machine-info now has new fields for configuring the
           deployment environment of the machine, as well as the
@@ -7090,8 +7087,8 @@ CHANGES WITH 198:
           the rest of the package. It also has been updated to work
           correctly in initrds.
 
-        * Policykit previously has been runtime optional, and is now
-          also compile time optional via a configure switch.
+        * polkit previously has been runtime optional, and is now also
+          compile time optional via a configure switch.
 
         * systemd-analyze has been reimplemented in C. Also "systemctl
           dot" has moved into systemd-analyze.
@@ -7259,9 +7256,9 @@ CHANGES WITH 197:
           user/vendor or is automatically determined from ACPI and DMI
           information if possible.
 
-        * A number of PolicyKit actions are now bound together with
-          "imply" rules. This should simplify creating UIs because
-          many actions will now authenticate similar ones as well.
+        * A number of polkit actions are now bound together with "imply"
+          rules. This should simplify creating UIs because many actions
+          will now authenticate similar ones as well.
 
         * Unit files learnt a new condition ConditionACPower= which
           may be used to conditionalize a unit depending on whether an
@@ -7400,14 +7397,13 @@ CHANGES WITH 196:
           to maintain the necessary patches downstream, or find a
           different solution. (Talk to us if you have questions!)
 
-        * Various systemd components will now bypass PolicyKit checks
-          for root and otherwise handle properly if PolicyKit is not
-          found to be around. This should fix most issues for
-          PolicyKit-less systems. Quite frankly this should have been
-          this way since day one. It is absolutely our intention to
-          make systemd work fine on PolicyKit-less systems, and we
-          consider it a bug if something does not work as it should if
-          PolicyKit is not around.
+        * Various systemd components will now bypass polkit checks for
+          root and otherwise handle properly if polkit is not found to
+          be around. This should fix most issues for polkit-less
+          systems. Quite frankly this should have been this way since
+          day one. It is absolutely our intention to make systemd work
+          fine on polkit-less systems, and we consider it a bug if
+          something does not work as it should if polkit is not around.
 
         * For embedded systems it is now possible to build udev and
           systemd without blkid and/or kmod support.

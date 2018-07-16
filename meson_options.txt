@@ -220,7 +220,7 @@ option('smack', type : 'boolean',
 option('smack-run-label', type : 'string',
        description : 'run systemd --system itself with a specific SMACK label')
 option('polkit', type : 'combo', choices : ['auto', 'true', 'false'],
-       description : 'PolicyKit support')
+       description : 'polkit support')
 option('ima', type : 'boolean',
        description : 'IMA support')
 

@@ -3178,7 +3178,7 @@ static int logind_set_wall_message(void) {
 #endif
 
 /* Ask systemd-logind, which might grant access to unprivileged users
- * through PolicyKit */
+ * through polkit */
 static int logind_reboot(enum action a) {
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -8419,7 +8419,7 @@ static int halt_main(void) {
                 }
 
                 /* Try logind if we are a normal user and no special
-                 * mode applies. Maybe PolicyKit allows us to shutdown
+                 * mode applies. Maybe polkit allows us to shutdown
                  * the machine. */
                 if (IN_SET(arg_action, ACTION_POWEROFF, ACTION_REBOOT, ACTION_HALT)) {
                         r = logind_reboot(arg_action);
