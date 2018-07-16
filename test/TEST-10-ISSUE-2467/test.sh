@@ -5,7 +5,6 @@ set -e
 TEST_DESCRIPTION="https://github.com/systemd/systemd/issues/2467"
 
 . $TEST_BASE_DIR/test-functions
-SKIP_INITRD=yes
 
 test_setup() {
     create_empty_image
