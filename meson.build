@@ -9,7 +9,7 @@ project('systemd', 'c',
                 'sysconfdir=/etc',
                 'localstatedir=/var',
         ],
-        meson_version : '>= 0.44',
+        meson_version : '>= 0.47',
        )
 
 libsystemd_version = '0.23.0'
@@ -37,18 +37,18 @@ endif
 
 #####################################################################
 
-if get_option('split-usr') == 'auto'
+if get_option('split-usr').auto()
         split_usr = run_command('test', '-L', '/bin').returncode() != 0
 else
-        split_usr = get_option('split-usr') == 'true'
+        split_usr = get_option('split-usr').enabled()
 endif
 conf.set10('HAVE_SPLIT_USR', split_usr,
            description : '/usr/bin and /bin directories are separate')
 
-if get_option('split-bin') == 'auto'
+if get_option('split-bin').auto()
         split_bin = run_command('test', '-L', '/usr/sbin').returncode() != 0
 else
-        split_bin = get_option('split-bin') == 'true'
+        split_bin = get_option('split-bin').enabled()
 endif
 conf.set10('HAVE_SPLIT_BIN', split_bin,
            description : 'bin and sbin directories are separate')
@@ -362,6 +362,7 @@ if get_option('buildtype') != 'debug'
 endif
 
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
+add_project_link_arguments(cc.get_supported_link_arguments(possible_link_flags), language : 'c')
 
 # "negative" arguments: gcc on purpose does not return an error for "-Wno-"
 # arguments, just emits a warning. So test for the "positive" version instead.
@@ -388,18 +389,6 @@ if cc.compiles('''
 ''', name : '-Werror=shadow with local shadowing')
         add_project_arguments('-Werror=shadow', language : 'c')
 endif
-
-link_test_c = files('tools/meson-link-test.c')
-
-foreach arg : possible_link_flags
-        have = run_command(check_compilation_sh,
-                           cc.cmd_array(), '-x', 'c', arg,
-                           '-include', link_test_c).returncode() == 0
-        message('Linking with @0@ supported: @1@'.format(arg, have ? 'yes' : 'no'))
-        if have
-                add_project_link_arguments(arg, language : 'c')
-        endif
-endforeach
 
 cpp = ' '.join(cc.cmd_array()) + ' -E'
 
@@ -620,61 +609,59 @@ gateway_hostnames = ['_gateway'] + (conf.get('ENABLE_COMPAT_GATEWAY_HOSTNAME') =
 default_hierarchy = get_option('default-hierarchy')
 conf.set_quoted('DEFAULT_HIERARCHY_NAME', default_hierarchy,
                 description : 'default cgroup hierarchy as string')
-if default_hierarchy == 'legacy'
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_NONE')
-elif default_hierarchy == 'hybrid'
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_SYSTEMD')
-else
-        conf.set('DEFAULT_HIERARCHY', 'CGROUP_UNIFIED_ALL')
-endif
+conf.set('DEFAULT_HIERARCHY',
+         {'legacy': 'CGROUP_UNIFIED_NONE',
+          'hybrid': 'CGROUP_UNIFIED_SYSTEMD',
+          'unified': 'CGROUP_UNIFIED_ALL'}.get(default_hierarchy))
 
 time_epoch = get_option('time-epoch')
-if time_epoch == ''
+if time_epoch == -1
         NEWS = files('NEWS')
-        time_epoch = run_command(stat, '-c', '%Y', NEWS).stdout()
+        time_epoch = run_command(stat, '-c', '%Y', NEWS).stdout().to_int()
 endif
-time_epoch = time_epoch.to_int()
 conf.set('TIME_EPOCH', time_epoch)
 
 system_uid_max = get_option('system-uid-max')
-if system_uid_max == ''
+if system_uid_max == -1
         system_uid_max = run_command(
                 awk,
                 '/^\s*SYS_UID_MAX\s+/ { uid=$2 } END { print uid }',
                 '/etc/login.defs').stdout().strip()
         if system_uid_max == ''
-                system_uid_max = '999'
+                system_uid_max = 999
+        else
+                system_uid_max = system_uid_max.to_int()
         endif
 endif
-system_uid_max = system_uid_max.to_int()
 conf.set('SYSTEM_UID_MAX', system_uid_max)
 substs.set('systemuidmax', system_uid_max)
 message('maximum system UID is @0@'.format(system_uid_max))
 
 system_gid_max = get_option('system-gid-max')
-if system_gid_max == ''
+if system_gid_max == -1
         system_gid_max = run_command(
                 awk,
                 '/^\s*SYS_GID_MAX\s+/ { gid=$2 } END { print gid }',
                 '/etc/login.defs').stdout().strip()
         if system_gid_max == ''
-                system_gid_max = '999'
+                system_gid_max = 999
+        else
+                system_gid_max = system_gid_max.to_int()
         endif
 endif
-system_gid_max = system_gid_max.to_int()
 conf.set('SYSTEM_GID_MAX', system_gid_max)
 substs.set('systemgidmax', system_gid_max)
 message('maximum system GID is @0@'.format(system_gid_max))
 
-dynamic_uid_min = get_option('dynamic-uid-min').to_int()
-dynamic_uid_max = get_option('dynamic-uid-max').to_int()
+dynamic_uid_min = get_option('dynamic-uid-min')
+dynamic_uid_max = get_option('dynamic-uid-max')
 conf.set('DYNAMIC_UID_MIN', dynamic_uid_min)
 conf.set('DYNAMIC_UID_MAX', dynamic_uid_max)
 substs.set('dynamicuidmin', dynamic_uid_min)
 substs.set('dynamicuidmax', dynamic_uid_max)
 
-container_uid_base_min = get_option('container-uid-base-min').to_int()
-container_uid_base_max = get_option('container-uid-base-max').to_int()
+container_uid_base_min = get_option('container-uid-base-min')
+container_uid_base_max = get_option('container-uid-base-max')
 conf.set('CONTAINER_UID_BASE_MIN', container_uid_base_min)
 conf.set('CONTAINER_UID_BASE_MAX', container_uid_base_max)
 substs.set('containeruidbasemin', container_uid_base_min)
@@ -736,12 +723,8 @@ conf.set('TTY_GID', tty_gid)
 substs.set('TTY_GID', tty_gid)
 
 # Ensure provided GID argument is numeric, otherwise fallback to default assignment
-if get_option('users-gid') != ''
-        users_gid = get_option('users-gid').to_int()
-else
-        users_gid = '-'
-endif
-substs.set('USERS_GID', users_gid)
+users_gid = get_option('users-gid')
+substs.set('USERS_GID', users_gid < 0 ? '-' : users_gid)
 
 conf.set10('ENABLE_ADM_GROUP', get_option('adm-group'))
 conf.set10('ENABLE_WHEEL_GROUP', get_option('wheel-group'))
@@ -800,11 +783,10 @@ endif
 libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30')
 
-want_seccomp = get_option('seccomp')
-if want_seccomp != 'false' and not fuzzer_build
+if not fuzzer_build
         libseccomp = dependency('libseccomp',
                                 version : '>= 2.3.1',
-                                required : want_seccomp == 'true')
+                                required : get_option('seccomp'))
         have = libseccomp.found()
 else
         have = false
@@ -812,11 +794,10 @@ else
 endif
 conf.set10('HAVE_SECCOMP', have)
 
-want_selinux = get_option('selinux')
-if want_selinux != 'false' and not fuzzer_build
+if not fuzzer_build
         libselinux = dependency('libselinux',
                                 version : '>= 2.1.9',
-                                required : want_selinux == 'true')
+                                required : get_option('selinux'))
         have = libselinux.found()
 else
         have = false
@@ -824,10 +805,9 @@ else
 endif
 conf.set10('HAVE_SELINUX', have)
 
-want_apparmor = get_option('apparmor')
-if want_apparmor != 'false' and not fuzzer_build
+if not fuzzer_build
         libapparmor = dependency('libapparmor',
-                                 required : want_apparmor == 'true')
+                                 required : get_option('apparmor'))
         have = libapparmor.found()
 else
         have = false
@@ -840,10 +820,9 @@ if smack_run_label != ''
         conf.set_quoted('SMACK_RUN_LABEL', smack_run_label)
 endif
 
-want_polkit = get_option('polkit')
 install_polkit = false
 install_polkit_pkla = false
-if want_polkit != 'false' and not fuzzer_build
+if not get_option('polkit').disabled() and not fuzzer_build
         install_polkit = true
 
         libpolkit = dependency('polkit-gobject-1',
@@ -855,9 +834,8 @@ if want_polkit != 'false' and not fuzzer_build
 endif
 conf.set10('ENABLE_POLKIT', install_polkit)
 
-want_acl = get_option('acl')
-if want_acl != 'false' and not fuzzer_build
-        libacl = cc.find_library('acl', required : want_acl == 'true')
+if not fuzzer_build
+        libacl = cc.find_library('acl', required : get_option('acl'))
         have = libacl.found()
 else
         have = false
@@ -865,9 +843,8 @@ else
 endif
 conf.set10('HAVE_ACL', have)
 
-want_audit = get_option('audit')
-if want_audit != 'false' and not fuzzer_build
-        libaudit = dependency('audit', required : want_audit == 'true')
+if not fuzzer_build
+        libaudit = dependency('audit', required : get_option('audit'))
         have = libaudit.found()
 else
         have = false
@@ -875,9 +852,8 @@ else
 endif
 conf.set10('HAVE_AUDIT', have)
 
-want_blkid = get_option('blkid')
-if want_blkid != 'false' and not fuzzer_build
-        libblkid = dependency('blkid', required : want_blkid == 'true')
+if not fuzzer_build
+        libblkid = dependency('blkid', required : get_option('blkid'))
         have = libblkid.found()
 else
         have = false
@@ -885,11 +861,10 @@ else
 endif
 conf.set10('HAVE_BLKID', have)
 
-want_kmod = get_option('kmod')
-if want_kmod != 'false' and not fuzzer_build
+if not fuzzer_build
         libkmod = dependency('libkmod',
                              version : '>= 15',
-                             required : want_kmod == 'true')
+                             required : get_option('kmod'))
         have = libkmod.found()
 else
         have = false
@@ -897,10 +872,9 @@ else
 endif
 conf.set10('HAVE_KMOD', have)
 
-want_pam = get_option('pam')
-if want_pam != 'false' and not fuzzer_build
-        libpam = cc.find_library('pam', required : want_pam == 'true')
-        libpam_misc = cc.find_library('pam_misc', required : want_pam == 'true')
+if not fuzzer_build
+        libpam = cc.find_library('pam', required : get_option('pam'))
+        libpam_misc = cc.find_library('pam_misc', required : get_option('pam'))
         have = libpam.found() and libpam_misc.found()
 else
         have = false
@@ -909,11 +883,10 @@ else
 endif
 conf.set10('HAVE_PAM', have)
 
-want_microhttpd = get_option('microhttpd')
-if want_microhttpd != 'false' and not fuzzer_build
+if not fuzzer_build
         libmicrohttpd = dependency('libmicrohttpd',
                                    version : '>= 0.9.33',
-                                   required : want_microhttpd == 'true')
+                                   required : get_option('microhttpd'))
         have = libmicrohttpd.found()
 else
         have = false
@@ -921,11 +894,10 @@ else
 endif
 conf.set10('HAVE_MICROHTTPD', have)
 
-want_libcryptsetup = get_option('libcryptsetup')
-if want_libcryptsetup != 'false' and not fuzzer_build
+if not fuzzer_build
         libcryptsetup = dependency('libcryptsetup',
                                    version : '>= 1.6.0',
-                                   required : want_libcryptsetup == 'true')
+                                   required : get_option('libcryptsetup'))
         have = libcryptsetup.found()
 else
         have = false
@@ -933,11 +905,10 @@ else
 endif
 conf.set10('HAVE_LIBCRYPTSETUP', have)
 
-want_libcurl = get_option('libcurl')
-if want_libcurl != 'false' and not fuzzer_build
+if not fuzzer_build
         libcurl = dependency('libcurl',
                              version : '>= 7.32.0',
-                             required : want_libcurl == 'true')
+                             required : get_option('libcurl'))
         have = libcurl.found()
 else
         have = false
@@ -945,35 +916,33 @@ else
 endif
 conf.set10('HAVE_LIBCURL', have)
 
-want_libidn = get_option('libidn')
-want_libidn2 = get_option('libidn2')
-if want_libidn == 'true' and want_libidn2 == 'true'
-        error('libidn and libidn2 cannot be requested simultaneously')
-endif
+if not fuzzer_build
+        if get_option('libidn').enabled() and get_option('libidn2').enabled()
+                error('libidn and libidn2 cannot be requested simultaneously')
+        endif
 
-if want_libidn != 'false' and want_libidn2 != 'true' and not fuzzer_build
-        libidn = dependency('libidn',
-                            required : want_libidn == 'true')
-        have = libidn.found()
-else
         have = false
+        if not get_option('libidn2').enabled()
+                libidn = dependency('libidn',
+                                    required : get_option('libidn'))
+                have = libidn.found()
+        endif
+        if not have
+                # libidn is used for both libidn and libidn2 objects
+                libidn = dependency('libidn2',
+                                    required : get_option('libidn2'))
+        endif
+        conf.set10('HAVE_LIBIDN', have)
+        conf.set10('HAVE_LIBIDN2', libidn.found())
+else
         libidn = []
+        conf.set10('HAVE_LIBIDN', false)
+        conf.set10('HAVE_LIBIDN2', false)
 endif
-conf.set10('HAVE_LIBIDN', have)
-if not have and want_libidn2 != 'false' and not fuzzer_build
-        # libidn is used for both libidn and libidn2 objects
-        libidn = dependency('libidn2',
-                            required : want_libidn2 == 'true')
-        have = libidn.found()
-else
-        have = false
-endif
-conf.set10('HAVE_LIBIDN2', have)
 
-want_libiptc = get_option('libiptc')
-if want_libiptc != 'false' and not fuzzer_build
+if not fuzzer_build
         libiptc = dependency('libiptc',
-                             required : want_libiptc == 'true')
+                             required : get_option('libiptc'))
         have = libiptc.found()
 else
         have = false
@@ -981,10 +950,9 @@ else
 endif
 conf.set10('HAVE_LIBIPTC', have)
 
-want_qrencode = get_option('qrencode')
-if want_qrencode != 'false' and not fuzzer_build
+if not fuzzer_build
         libqrencode = dependency('libqrencode',
-                                 required : want_qrencode == 'true')
+                                 required : get_option('qrencode'))
         have = libqrencode.found()
 else
         have = false
@@ -992,10 +960,9 @@ else
 endif
 conf.set10('HAVE_QRENCODE', have)
 
-want_gcrypt = get_option('gcrypt')
-if want_gcrypt != 'false' and not fuzzer_build
-        libgcrypt = cc.find_library('gcrypt', required : want_gcrypt == 'true')
-        libgpg_error = cc.find_library('gpg-error', required : want_gcrypt == 'true')
+if not fuzzer_build
+        libgcrypt = cc.find_library('gcrypt', required : get_option('gcrypt'))
+        libgpg_error = cc.find_library('gpg-error', required : get_option('gcrypt'))
         have = libgcrypt.found() and libgpg_error.found()
 else
         have = false
@@ -1007,11 +974,10 @@ if not have
 endif
 conf.set10('HAVE_GCRYPT', have)
 
-want_gnutls = get_option('gnutls')
-if want_gnutls != 'false' and not fuzzer_build
+if not fuzzer_build
         libgnutls = dependency('gnutls',
                                version : '>= 3.1.4',
-                               required : want_gnutls == 'true')
+                               required : get_option('gnutls'))
         have = libgnutls.found()
 else
         have = false
@@ -1019,10 +985,9 @@ else
 endif
 conf.set10('HAVE_GNUTLS', have)
 
-want_elfutils = get_option('elfutils')
-if want_elfutils != 'false' and not fuzzer_build
+if not fuzzer_build
         libdw = dependency('libdw',
-                           required : want_elfutils == 'true')
+                           required : get_option('elfutils'))
         have = libdw.found()
 else
         have = false
@@ -1030,10 +995,9 @@ else
 endif
 conf.set10('HAVE_ELFUTILS', have)
 
-want_zlib = get_option('zlib')
-if want_zlib != 'false' and not fuzzer_build
+if not fuzzer_build
         libz = dependency('zlib',
-                          required : want_zlib == 'true')
+                          required : get_option('zlib'))
         have = libz.found()
 else
         have = false
@@ -1041,10 +1005,9 @@ else
 endif
 conf.set10('HAVE_ZLIB', have)
 
-want_bzip2 = get_option('bzip2')
-if want_bzip2 != 'false' and not fuzzer_build
+if not fuzzer_build
         libbzip2 = cc.find_library('bz2',
-                                   required : want_bzip2 == 'true')
+                                   required : get_option('bzip2'))
         have = libbzip2.found()
 else
         have = false
@@ -1052,10 +1015,9 @@ else
 endif
 conf.set10('HAVE_BZIP2', have)
 
-want_xz = get_option('xz')
-if want_xz != 'false' and not fuzzer_build
+if not fuzzer_build
         libxz = dependency('liblzma',
-                           required : want_xz == 'true')
+                           required : get_option('xz'))
         have = libxz.found()
 else
         have = false
@@ -1063,10 +1025,9 @@ else
 endif
 conf.set10('HAVE_XZ', have)
 
-want_lz4 = get_option('lz4')
-if want_lz4 != 'false' and not fuzzer_build
+if not fuzzer_build
         liblz4 = dependency('liblz4',
-                            required : want_lz4 == 'true')
+                            required : get_option('lz4'))
         have = liblz4.found()
 else
         have = false
@@ -1074,11 +1035,10 @@ else
 endif
 conf.set10('HAVE_LZ4', have)
 
-want_xkbcommon = get_option('xkbcommon')
-if want_xkbcommon != 'false' and not fuzzer_build
+if not fuzzer_build
         libxkbcommon = dependency('xkbcommon',
                                   version : '>= 0.3.0',
-                                  required : want_xkbcommon == 'true')
+                                  required : get_option('xkbcommon'))
         have = libxkbcommon.found()
 else
         have = false
@@ -1086,27 +1046,20 @@ else
 endif
 conf.set10('HAVE_XKBCOMMON', have)
 
-want_pcre2 = get_option('pcre2')
-if want_pcre2 != 'false'
-        libpcre2 = dependency('libpcre2-8',
-                              required : want_pcre2 == 'true')
-        have = libpcre2.found()
-else
-        have = false
-        libpcre2 = []
-endif
-conf.set10('HAVE_PCRE2', have)
+libpcre2 = dependency('libpcre2-8',
+                      required : get_option('pcre2'))
+conf.set10('HAVE_PCRE2', libpcre2.found())
 
 want_glib = get_option('glib')
-if want_glib != 'false' and not fuzzer_build
+if not fuzzer_build
         libglib =    dependency('glib-2.0',
                                 version : '>= 2.22.0',
-                                required : want_glib == 'true')
+                                required : want_glib)
         libgobject = dependency('gobject-2.0',
                                 version : '>= 2.22.0',
-                                required : want_glib == 'true')
+                                required : want_glib)
         libgio =     dependency('gio-2.0',
-                                required : want_glib == 'true')
+                                required : want_glib)
         have = libglib.found() and libgobject.found() and libgio.found()
 else
         have = false
@@ -1116,11 +1069,10 @@ else
 endif
 conf.set10('HAVE_GLIB', have)
 
-want_dbus = get_option('dbus')
-if want_dbus != 'false' and not fuzzer_build
+if not fuzzer_build
         libdbus = dependency('dbus-1',
                              version : '>= 1.3.2',
-                             required : want_dbus == 'true')
+                             required : get_option('dbus'))
         have = libdbus.found()
 else
         have = false
@@ -1141,10 +1093,10 @@ conf.set('DEFAULT_DNSSEC_MODE',
 substs.set('DEFAULT_DNSSEC_MODE', default_dnssec)
 
 dns_over_tls = get_option('dns-over-tls')
-if dns_over_tls != 'false'
+if not dns_over_tls.disabled()
         have = (conf.get('HAVE_GNUTLS') == 1 and
                 libgnutls.version().version_compare('>=3.5.3'))
-        if dns_over_tls == 'true' and not have
+        if dns_over_tls.enabled() and not have
                 error('DNS-over-TLS support was requested, but dependencies are not available')
         endif
 else
@@ -1165,13 +1117,13 @@ conf.set('DEFAULT_DNS_OVER_TLS_MODE',
 substs.set('DEFAULT_DNS_OVER_TLS_MODE', default_dns_over_tls)
 
 want_importd = get_option('importd')
-if want_importd != 'false'
+if not want_importd.disabled()
         have = (conf.get('HAVE_LIBCURL') == 1 and
                 conf.get('HAVE_ZLIB') == 1 and
                 conf.get('HAVE_BZIP2') == 1 and
                 conf.get('HAVE_XZ') == 1 and
                 conf.get('HAVE_GCRYPT') == 1)
-        if want_importd == 'true' and not have
+        if want_importd.enabled() and not have
                 error('importd support was requested, but dependencies are not available')
         endif
 else
@@ -1180,14 +1132,14 @@ endif
 conf.set10('ENABLE_IMPORTD', have)
 
 want_remote = get_option('remote')
-if want_remote != 'false'
+if not want_remote.disabled()
         have_deps = [conf.get('HAVE_MICROHTTPD') == 1,
                      conf.get('HAVE_LIBCURL') == 1]
         # sd-j-remote requires µhttpd, and sd-j-upload requires libcurl, so
         # it's possible to build one without the other. Complain only if
         # support was explictly requested. The auxiliary files like sysusers
         # config should be installed when any of the programs are built.
-        if want_remote == 'true' and not (have_deps[0] and have_deps[1])
+        if want_remote.enabled() and not (have_deps[0] and have_deps[1])
                 error('remote support was requested, but dependencies are not available')
         endif
         have = have_deps[0] or have_deps[1]
@@ -1248,27 +1200,14 @@ conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', slow_tests)
 if get_option('efi')
         efi_arch = host_machine.cpu_family()
 
-        if efi_arch == 'x86'
-                EFI_MACHINE_TYPE_NAME = 'ia32'
-                gnu_efi_arch = 'ia32'
-        elif efi_arch == 'x86_64'
-                EFI_MACHINE_TYPE_NAME = 'x64'
-                gnu_efi_arch = 'x86_64'
-        elif efi_arch == 'arm'
-                EFI_MACHINE_TYPE_NAME = 'arm'
-                gnu_efi_arch = 'arm'
-        elif efi_arch == 'aarch64'
-                EFI_MACHINE_TYPE_NAME = 'aa64'
-                gnu_efi_arch = 'aarch64'
-        else
-                EFI_MACHINE_TYPE_NAME = ''
-                gnu_efi_arch = ''
-        endif
+        efi_arch_to_machine_type = {'x86': 'ia32', 'x86_64': 'x64',    'arm': 'arm', 'aarch64': 'aa64'}
+        efi_arch_to_gnu_efi_arch = {'x86': 'ia32', 'x86_64': 'x86_64', 'arm': 'arm', 'aarch64': 'aarch64'}
+        EFI_MACHINE_TYPE_NAME = efi_arch_to_machine_type.get(efi_arch, '')
+        gnu_efi_arch = efi_arch_to_gnu_efi_arch.get(efi_arch, '')
 
-        have = true
         conf.set_quoted('EFI_MACHINE_TYPE_NAME', EFI_MACHINE_TYPE_NAME)
-
-        conf.set('SD_TPM_PCR', get_option('tpm-pcrindex').to_int())
+        conf.set('SD_TPM_PCR', get_option('tpm-pcrindex'))
+        have = true
 else
         have = false
 endif
@@ -2737,13 +2676,7 @@ foreach tuple : sanitizers
         sanitizer = tuple[0]
         build = tuple[1]
 
-        have = run_command(check_compilation_sh,
-                           cc.cmd_array(), '-x', 'c',
-                           '-fsanitize=@0@'.format(sanitizer),
-                           '-include', link_test_c).returncode() == 0
-        message('@0@ sanitizer supported: @1@'.format(sanitizer, have ? 'yes' : 'no'))
-
-        if have
+        if cc.has_link_argument('-fsanitize=@0@'.format(sanitizer))
                 prev = ''
                 foreach p : fuzz_regression_tests
                         b = p.split('/')[-2]
@@ -2864,7 +2797,7 @@ status = [
         'debug shell:                       @0@ @ @1@'.format(get_option('debug-shell'),
                                                               get_option('debug-tty')),
         'TTY GID:                           @0@'.format(tty_gid),
-        'users GID:                         @0@'.format(users_gid),
+        'users GID:                         @0@'.format(substs.get('USERS_GID')),
         'maximum system UID:                @0@'.format(system_uid_max),
         'maximum system GID:                @0@'.format(system_gid_max),
         'minimum dynamic UID:               @0@'.format(dynamic_uid_min),

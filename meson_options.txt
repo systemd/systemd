@@ -1,9 +1,9 @@
 # -*- mode: meson -*-
 # SPDX-License-Identifier: LGPL-2.1+
 
-option('split-usr', type : 'combo', choices : ['auto', 'true', 'false'],
+option('split-usr', type : 'feature', value : 'auto',
        description : '''/bin, /sbin aren't symlinks into /usr''')
-option('split-bin', type : 'combo', choices : ['auto', 'true', 'false'],
+option('split-bin', type : 'feature', value : 'auto',
        description : '''sbin is not a symlink to bin''')
 option('rootlibdir', type : 'string',
        description : '''[/usr]/lib/x86_64-linux-gnu or such''')
@@ -86,7 +86,7 @@ option('timedated', type : 'boolean',
        description : 'install the systemd-timedated daemon')
 option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
-option('remote', type : 'combo', choices : ['auto', 'true', 'false'],
+option('remote', type : 'feature', value : 'auto',
        description : 'support for "journal over the network"')
 option('myhostname', type : 'boolean',
        description : 'nss-myhostname support')
@@ -104,16 +104,15 @@ option('sysusers', type : 'boolean',
        description : 'support for the sysusers configuration')
 option('tmpfiles', type : 'boolean',
        description : 'support for tmpfiles.d')
-option('importd', type : 'combo', choices : ['auto', 'true', 'false'],
+option('importd', type : 'feature', value : 'auto',
        description : 'install the systemd-importd daemon')
 option('hwdb', type : 'boolean',
        description : 'support for the hardware database')
 option('rfkill', type : 'boolean',
        description : 'support for the rfkill tools')
-option('man', type : 'combo', choices : ['auto', 'true', 'false'],
+option('man', type : 'feature', value : 'auto',
        description : 'build and install man pages')
-option('html', type : 'combo', choices : ['auto', 'true', 'false'],
-       value : 'false',
+option('html', type : 'feature', value : 'disabled',
        description : 'build and install html pages')
 
 option('certificate-root', type : 'string', value : '/etc/ssl',
@@ -144,28 +143,23 @@ option('compat-gateway-hostname', type : 'boolean', value : 'false',
 option('default-hierarchy', type : 'combo',
        choices : ['legacy', 'hybrid', 'unified'], value : 'hybrid',
        description : 'default cgroup hierarchy')
-option('time-epoch', type : 'string',
+option('time-epoch', type : 'integer', value : '-1',
        description : 'time epoch for time clients')
-option('system-uid-max', type : 'string',
+option('system-uid-max', type : 'integer', value : '-1',
        description : 'maximum system UID')
-option('system-gid-max', type : 'string',
+option('system-gid-max', type : 'integer', value : '-1',
        description : 'maximum system GID')
-option('dynamic-uid-min', type : 'string',
-       description : 'minimum dynamic UID',
-       value : '61184') # That's → 0x0000EF00 in hex
-option('dynamic-uid-max', type : 'string',
-       description : 'maximum dynamic UID',
-       value : '65519') # That's → 0x0000FFEF in hex
-option('container-uid-base-min', type : 'string',
-       description : 'minimum container UID base',
-       value : '524288') # That's → 0x00080000 in hex
-option('container-uid-base-max', type : 'string',
-       description : 'maximum container UID base',
-       value : '1878982656') # That's → 0x6FFF0000 in hex
-option('tty-gid', type : 'string',
-       description : 'the numeric GID of the "tty" group',
-       value : '5')
-option('users-gid', type : 'string',
+option('dynamic-uid-min', type : 'integer', value : 0x0000EF00,
+       description : 'minimum dynamic UID')
+option('dynamic-uid-max', type : 'integer', value : 0x0000FFEF,
+       description : 'maximum dynamic UID')
+option('container-uid-base-min', type : 'integer', value : 0x00080000,
+       description : 'minimum container UID base')
+option('container-uid-base-max', type : 'integer', value : 0x6FFF0000,
+       description : 'maximum container UID base')
+option('tty-gid', type : 'integer', value : 5,
+       description : 'the numeric GID of the "tty" group')
+option('users-gid', type : 'integer', value : '-1',
        description : 'the numeric GID of the "users" group')
 option('adm-group', type : 'boolean',
        description : 'the ACL for adm group should be added')
@@ -194,7 +188,7 @@ option('default-dns-over-tls', type : 'combo',
        description : 'default DNS-over-TLS mode',
        choices : ['opportunistic', 'no'],
        value : 'no')
-option('dns-over-tls', type : 'combo', choices : ['auto', 'true', 'false'],
+option('dns-over-tls', type : 'feature', value : 'auto',
        description : 'DNS-over-TLS support')
 option('dns-servers', type : 'string',
        description : 'space-separated list of default DNS servers',
@@ -209,73 +203,73 @@ option('www-target', type : 'string',
        description : 'the address and dir to upload docs too',
        value : 'www.freedesktop.org:/srv/www.freedesktop.org/www/software/systemd')
 
-option('seccomp', type : 'combo', choices : ['auto', 'true', 'false'],
+option('seccomp', type : 'feature', value : 'auto',
        description : 'SECCOMP support')
-option('selinux', type : 'combo', choices : ['auto', 'true', 'false'],
+option('selinux', type : 'feature', value : 'auto',
        description : 'SELinux support')
-option('apparmor', type : 'combo', choices : ['auto', 'true', 'false'],
+option('apparmor', type : 'feature', value : 'auto',
        description : 'AppArmor support')
 option('smack', type : 'boolean',
        description : 'SMACK support')
 option('smack-run-label', type : 'string',
        description : 'run systemd --system itself with a specific SMACK label')
-option('polkit', type : 'combo', choices : ['auto', 'true', 'false'],
+option('polkit', type : 'feature', value : 'auto',
        description : 'PolicyKit support')
 option('ima', type : 'boolean',
        description : 'IMA support')
 
-option('acl', type : 'combo', choices : ['auto', 'true', 'false'],
+option('acl', type : 'feature', value : 'auto',
        description : 'libacl support')
-option('audit', type : 'combo', choices : ['auto', 'true', 'false'],
+option('audit', type : 'feature', value : 'auto',
        description : 'libaudit support')
-option('blkid', type : 'combo', choices : ['auto', 'true', 'false'],
+option('blkid', type : 'feature', value : 'auto',
        description : 'libblkid support')
-option('kmod', type : 'combo', choices : ['auto', 'true', 'false'],
+option('kmod', type : 'feature', value : 'auto',
        description : 'support for loadable modules')
-option('pam', type : 'combo', choices : ['auto', 'true', 'false'],
+option('pam', type : 'feature', value : 'auto',
        description : 'PAM support')
-option('microhttpd', type : 'combo', choices : ['auto', 'true', 'false'],
+option('microhttpd', type : 'feature', value : 'auto',
        description : 'libµhttpd support')
-option('libcryptsetup', type : 'combo', choices : ['auto', 'true', 'false'],
+option('libcryptsetup', type : 'feature', value : 'auto',
        description : 'libcryptsetup support')
-option('libcurl', type : 'combo', choices : ['auto', 'true', 'false'],
+option('libcurl', type : 'feature', value : 'auto',
        description : 'libcurl support')
 option('idn', type : 'boolean',
        description : 'use IDN when printing host names')
-option('libidn2', type : 'combo', choices : ['auto', 'true', 'false'],
+option('libidn2', type : 'feature', value : 'auto',
        description : 'libidn2 support')
-option('libidn', type : 'combo', choices : ['auto', 'true', 'false'],
+option('libidn', type : 'feature', value : 'auto',
        description : 'libidn support')
 option('nss-systemd', type : 'boolean',
        description : 'enable nss-systemd')
-option('libiptc', type : 'combo', choices : ['auto', 'true', 'false'],
+option('libiptc', type : 'feature', value : 'auto',
        description : 'libiptc support')
-option('qrencode', type : 'combo', choices : ['auto', 'true', 'false'],
+option('qrencode', type : 'feature', value : 'auto',
        description : 'libqrencode support')
-option('gcrypt', type : 'combo', choices : ['auto', 'true', 'false'],
+option('gcrypt', type : 'feature', value : 'auto',
        description : 'gcrypt support')
-option('gnutls', type : 'combo', choices : ['auto', 'true', 'false'],
+option('gnutls', type : 'feature', value : 'auto',
        description : 'gnutls support')
-option('elfutils', type : 'combo', choices : ['auto', 'true', 'false'],
+option('elfutils', type : 'feature', value : 'auto',
        description : 'elfutils support')
-option('zlib', type : 'combo', choices : ['auto', 'true', 'false'],
+option('zlib', type : 'feature', value : 'auto',
        description : 'zlib compression support')
-option('bzip2', type : 'combo', choices : ['auto', 'true', 'false'],
+option('bzip2', type : 'feature', value : 'auto',
        description : 'bzip2 compression support')
-option('xz', type : 'combo', choices : ['auto', 'true', 'false'],
+option('xz', type : 'feature', value : 'auto',
        description : 'xz compression support')
-option('lz4', type : 'combo', choices : ['auto', 'true', 'false'],
+option('lz4', type : 'feature', value : 'auto',
        description : 'lz4 compression support')
-option('xkbcommon', type : 'combo', choices : ['auto', 'true', 'false'],
+option('xkbcommon', type : 'feature', value : 'auto',
        description : 'xkbcommon keymap support')
-option('pcre2', type : 'combo', choices : ['auto', 'true', 'false'],
+option('pcre2', type : 'feature', value : 'auto',
        description : 'regexp matching support using pcre2')
-option('glib', type : 'combo', choices : ['auto', 'true', 'false'],
+option('glib', type : 'feature', value : 'auto',
        description : 'libglib support (for tests only)')
-option('dbus', type : 'combo', choices : ['auto', 'true', 'false'],
+option('dbus', type : 'feature', value : 'auto',
        description : 'libdbus support (for tests only)')
 
-option('gnu-efi', type : 'combo', choices : ['auto', 'true', 'false'],
+option('gnu-efi', type : 'feature', value : 'auto',
        description : 'gnu-efi support for sd-boot')
 option('efi-cc', type : 'string', value : 'gcc',
        description : 'the compiler to use for EFI modules')
@@ -287,7 +281,7 @@ option('efi-ldsdir', type : 'string',
        description : 'path to the EFI lds directory')
 option('efi-includedir', type : 'string', value : '/usr/include/efi',
        description : 'path to the EFI header directory')
-option('tpm-pcrindex', type : 'string', value : '8',
+option('tpm-pcrindex', type : 'integer', value : 8,
        description : 'TPM PCR register number to use')
 
 option('bashcompletiondir', type : 'string',
