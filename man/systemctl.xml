@@ -314,18 +314,13 @@
         <term><option>--ignore-inhibitors</option></term>
 
         <listitem>
-          <para>When system shutdown or a sleep state is requested,
-          ignore inhibitor locks. Applications can establish inhibitor
-          locks to avoid that certain important operations (such as CD
-          burning or suchlike) are interrupted by system shutdown or a
-          sleep state. Any user may take these locks and privileged
-          users may override these locks. If any locks are taken,
-          shutdown and sleep state requests will normally fail
-          (regardless of whether privileged or not) and a list of active locks
-          is printed. However, if <option>--ignore-inhibitors</option>
-          is specified, the locks are ignored and not printed, and the
-          operation attempted anyway, possibly requiring additional
-          privileges.</para>
+          <para>When system shutdown or a sleep state is requested, ignore inhibitor locks. Applications can establish
+          inhibitor locks to avoid that certain important operations (such as CD burning or suchlike) are interrupted
+          by system shutdown or a sleep state. Any user may take these locks and privileged users may override these
+          locks. If any locks are taken, shutdown and sleep state requests will normally fail (unless privileged) and a
+          list of active locks is printed. However, if <option>--ignore-inhibitors</option> is specified, the
+          established locks are ignored and not shown, and the operation attempted anyway, possibly requiring
+          additional privileges.</para>
         </listitem>
       </varlistentry>
 
