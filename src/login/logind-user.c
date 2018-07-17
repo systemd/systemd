@@ -753,7 +753,7 @@ int config_parse_compat_user_tasks_max(
         log_syntax(unit, LOG_NOTICE, filename, line, 0,
                    "Support for option %s= has been removed.",
                    lvalue);
-        log_info("Hint: try creating /etc/systemd/system/user-.slice/50-limits.conf with:\n"
+        log_info("Hint: try creating /etc/systemd/system/user-.slice.d/50-limits.conf with:\n"
                  "        [Slice]\n"
                  "        TasksMax=%s",
                  rvalue);
