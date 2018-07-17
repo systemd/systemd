@@ -292,7 +292,6 @@ typedef enum ExecFlags {
 } ExecFlags;
 
 struct ExecParameters {
-        char **argv;
         char **environment;
 
         int *fds;

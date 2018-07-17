@@ -2721,7 +2721,6 @@ static int exec_child(
                 const ExecParameters *params,
                 ExecRuntime *runtime,
                 DynamicCreds *dcreds,
-                char **argv,
                 int socket_fd,
                 int named_iofds[3],
                 int *fds,
@@ -2817,7 +2816,7 @@ static int exec_child(
                 const char *vc = params->confirm_spawn;
                 _cleanup_free_ char *cmdline = NULL;
 
-                cmdline = exec_command_line(argv);
+                cmdline = exec_command_line(command->argv);
                 if (!cmdline) {
                         *exit_status = EXIT_MEMORY;
                         return log_oom();
@@ -3396,7 +3395,7 @@ static int exec_child(
                 strv_free_and_replace(accum_env, ee);
         }
 
-        final_argv = replace_env_argv(argv, accum_env);
+        final_argv = replace_env_argv(command->argv, accum_env);
         if (!final_argv) {
                 *exit_status = EXIT_MEMORY;
                 return log_oom();
@@ -3442,13 +3441,10 @@ int exec_spawn(Unit *unit,
                DynamicCreds *dcreds,
                pid_t *ret) {
 
+        int socket_fd, r, named_iofds[3] = { -1, -1, -1 }, *fds = NULL;
         _cleanup_strv_free_ char **files_env = NULL;
-        int *fds = NULL;
         size_t n_storage_fds = 0, n_socket_fds = 0;
         _cleanup_free_ char *line = NULL;
-        int socket_fd, r;
-        int named_iofds[3] = { -1, -1, -1 };
-        char **argv;
         pid_t pid;
 
         assert(unit);
@@ -3488,8 +3484,7 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to load environment files: %m");
 
-        argv = params->argv ?: command->argv;
-        line = exec_command_line(argv);
+        line = exec_command_line(command->argv);
         if (!line)
                 return log_oom();
 
@@ -3512,7 +3507,6 @@ int exec_spawn(Unit *unit,
                                params,
                                runtime,
                                dcreds,
-                               argv,
                                socket_fd,
                                named_iofds,
                                fds,
@@ -3662,7 +3656,6 @@ static void exec_command_done(ExecCommand *c) {
         assert(c);
 
         c->path = mfree(c->path);
-
         c->argv = strv_free(c->argv);
 }
 
