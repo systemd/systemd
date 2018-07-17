@@ -48,7 +48,7 @@ _public_ sd_bus_slot* sd_bus_slot_ref(sd_bus_slot *slot) {
         return slot;
 }
 
-void bus_slot_disconnect(sd_bus_slot *slot) {
+void bus_slot_disconnect(sd_bus_slot *slot, bool unref) {
         sd_bus *bus;
 
         assert(slot);
@@ -79,10 +79,7 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
                         (void) bus_remove_match_internal(slot->bus, slot->match_callback.match_string);
 
                 if (slot->match_callback.install_slot) {
-                        if (slot->match_callback.install_slot->bus) {
-                                bus_slot_disconnect(slot->match_callback.install_slot);
-                                sd_bus_slot_unref(slot->match_callback.install_slot);
-                        }
+                        bus_slot_disconnect(slot->match_callback.install_slot, true);
                         slot->match_callback.install_slot = sd_bus_slot_unref(slot->match_callback.install_slot);
                 }
 
@@ -186,6 +183,8 @@ void bus_slot_disconnect(sd_bus_slot *slot) {
 
         if (!slot->floating)
                 sd_bus_unref(bus);
+        else if (unref)
+                sd_bus_slot_unref(slot);
 }
 
 _public_ sd_bus_slot* sd_bus_slot_unref(sd_bus_slot *slot) {
@@ -200,7 +199,7 @@ _public_ sd_bus_slot* sd_bus_slot_unref(sd_bus_slot *slot) {
                 return NULL;
         }
 
-        bus_slot_disconnect(slot);
+        bus_slot_disconnect(slot, false);
 
         if (slot->destroy_callback)
                 slot->destroy_callback(slot->userdata);
