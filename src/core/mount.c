@@ -747,10 +747,11 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
 
         ExecParameters exec_params = {
-                .flags      = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
-                .stdin_fd   = -1,
-                .stdout_fd  = -1,
-                .stderr_fd  = -1,
+                .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
+                .stdin_fd  = -1,
+                .stdout_fd = -1,
+                .stderr_fd = -1,
+                .exec_fd   = -1,
         };
         pid_t pid;
         int r;

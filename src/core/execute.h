@@ -316,6 +316,9 @@ struct ExecParameters {
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
+
+        /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done */
+        int exec_fd;
 };
 
 #include "unit.h"

@@ -30,6 +30,7 @@ typedef enum ServiceType {
         SERVICE_DBUS,     /* we fork and wait until a specific D-Bus name appears on the bus */
         SERVICE_NOTIFY,   /* we fork and wait until a daemon sends us a ready message with sd_notify() */
         SERVICE_IDLE,     /* much like simple, but delay exec() until all jobs are dispatched. */
+        SERVICE_EXEC,     /* we fork and wait until we execute exec() (this means our own setup is waited for) */
         _SERVICE_TYPE_MAX,
         _SERVICE_TYPE_INVALID = -1
 } ServiceType;
@@ -165,6 +166,8 @@ struct Service {
         NotifyAccess notify_access;
         NotifyState notify_state;
 
+        sd_event_source *exec_fd_event_source;
+
         ServiceFDStore *fd_store;
         size_t n_fd_store;
         unsigned n_fd_store_max;
@@ -179,6 +182,7 @@ struct Service {
 
         unsigned n_restarts;
         bool flush_n_restarts;
+        bool exec_fd_hot;
 };
 
 extern const UnitVTable service_vtable;
