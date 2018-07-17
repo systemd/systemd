@@ -26,8 +26,6 @@ struct Manager {
         sd_event *event;
         sd_resolve *resolve;
         sd_bus *bus;
-        sd_bus_slot *prepare_for_sleep_slot;
-        sd_bus_slot *connected_slot;
         struct udev *udev;
         struct udev_monitor *udev_monitor;
         sd_event_source *udev_event_source;

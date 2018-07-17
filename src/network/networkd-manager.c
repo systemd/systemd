@@ -160,7 +160,7 @@ int manager_connect_bus(Manager *m) {
 
         r = sd_bus_match_signal_async(
                         m->bus,
-                        &m->connected_slot,
+                        NULL,
                         "org.freedesktop.DBus.Local",
                         NULL,
                         "org.freedesktop.DBus.Local",
@@ -171,7 +171,7 @@ int manager_connect_bus(Manager *m) {
 
         r = sd_bus_match_signal_async(
                         m->bus,
-                        &m->prepare_for_sleep_slot,
+                        NULL,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
@@ -1477,8 +1477,6 @@ void manager_free(Manager *m) {
         udev_unref(m->udev);
 
         sd_bus_unref(m->bus);
-        sd_bus_slot_unref(m->prepare_for_sleep_slot);
-        sd_bus_slot_unref(m->connected_slot);
 
         free(m->dynamic_timezone);
         free(m->dynamic_hostname);
