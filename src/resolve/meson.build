@@ -63,6 +63,7 @@ systemd_resolved_sources = files('''
         resolved-dns-stub.c
         resolved-etc-hosts.h
         resolved-etc-hosts.c
+        resolved-dnstls.h
 '''.split())
 
 resolvectl_sources = files('''
@@ -141,6 +142,7 @@ systemd_resolved_sources += [resolved_gperf_c, resolved_dnssd_gperf_c]
 
 systemd_resolved_dependencies = [threads, libgpg_error, libm, libidn]
 if conf.get('ENABLE_DNS_OVER_TLS') == 1
+        systemd_resolved_sources += [files(['resolved-dnstls-gnutls.c', 'resolved-dnstls-gnutls.h'])]
         systemd_resolved_dependencies += [libgnutls]
 endif
 

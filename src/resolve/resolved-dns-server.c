@@ -81,8 +81,7 @@ int dns_server_new(
         s->linked = true;
 
 #if ENABLE_DNS_OVER_TLS
-        /* Do not verify cerificate */
-        gnutls_certificate_allocate_credentials(&s->tls_cert_cred);
+        dnstls_server_init(s);
 #endif
 
         /* A new DNS server that isn't fallback is added and the one
@@ -122,11 +121,7 @@ DnsServer* dns_server_unref(DnsServer *s)  {
         dns_stream_unref(s->stream);
 
 #if ENABLE_DNS_OVER_TLS
-        if (s->tls_cert_cred)
-                gnutls_certificate_free_credentials(s->tls_cert_cred);
-
-        if (s->tls_session_data.data)
-                gnutls_free(s->tls_session_data.data);
+        dnstls_server_free(s);
 #endif
 
         free(s->server_string);

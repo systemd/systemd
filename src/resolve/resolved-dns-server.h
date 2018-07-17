@@ -3,10 +3,6 @@
 
 #include "in-addr-util.h"
 
-#if ENABLE_DNS_OVER_TLS
-#include <gnutls/gnutls.h>
-#endif
-
 typedef struct DnsServer DnsServer;
 
 typedef enum DnsServerType {
@@ -41,6 +37,9 @@ int dns_server_feature_level_from_string(const char *s) _pure_;
 
 #include "resolved-link.h"
 #include "resolved-manager.h"
+#if ENABLE_DNS_OVER_TLS
+#include "resolved-dnstls.h"
+#endif
 
 struct DnsServer {
         Manager *manager;
@@ -58,8 +57,7 @@ struct DnsServer {
         DnsStream *stream;
 
 #if ENABLE_DNS_OVER_TLS
-        gnutls_certificate_credentials_t tls_cert_cred;
-        gnutls_datum_t tls_session_data;
+        DnsTlsServerData dnstls_data;
 #endif
 
         DnsServerFeatureLevel verified_feature_level;
