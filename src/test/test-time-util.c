@@ -42,6 +42,12 @@ static void test_parse_sec(void) {
         assert_se(parse_sec(" . ", &u) < 0);
         assert_se(parse_sec(" 5. ", &u) < 0);
         assert_se(parse_sec(".s ", &u) < 0);
+        assert_se(parse_sec("-5s ", &u) < 0);
+        assert_se(parse_sec("-0.3s ", &u) < 0);
+        assert_se(parse_sec("-0.0s ", &u) < 0);
+        assert_se(parse_sec("-0.-0s ", &u) < 0);
+        assert_se(parse_sec("0.-0s ", &u) < 0);
+        assert_se(parse_sec("3.-0s ", &u) < 0);
         assert_se(parse_sec(" infinity .7", &u) < 0);
         assert_se(parse_sec(".3 infinity", &u) < 0);
 }
