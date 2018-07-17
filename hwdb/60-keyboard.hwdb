@@ -220,6 +220,16 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*BenQ*:pn*Joybook*R22*:pvr*
  KEYBOARD_KEY_6e=wlan
 
 ###########################################################
+# Clevo
+###########################################################
+
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnNotebook:pnW65_67SZ:pvr*
+ KEYBOARD_KEY_a0=!mute
+ KEYBOARD_KEY_a2=!playpause
+ KEYBOARD_KEY_ae=!volumedown
+ KEYBOARD_KEY_b0=!volumeup
+
+###########################################################
 # Compal
 ###########################################################
 
