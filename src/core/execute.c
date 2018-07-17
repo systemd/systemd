@@ -3685,6 +3685,24 @@ void exec_command_free_array(ExecCommand **c, size_t n) {
                 c[i] = exec_command_free_list(c[i]);
 }
 
+void exec_command_reset_status_array(ExecCommand *c, size_t n) {
+        size_t i;
+
+        for (i = 0; i < n; i++)
+                exec_status_reset(&c[i].exec_status);
+}
+
+void exec_command_reset_status_list_array(ExecCommand **c, size_t n) {
+        size_t i;
+
+        for (i = 0; i < n; i++) {
+                ExecCommand *z;
+
+                LIST_FOREACH(command, z, c[i])
+                        exec_status_reset(&z->exec_status);
+        }
+}
+
 typedef struct InvalidEnvInfo {
         const Unit *unit;
         const char *path;
@@ -4362,6 +4380,12 @@ void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int 
 
                 exec_context_tty_reset(context, NULL);
         }
+}
+
+void exec_status_reset(ExecStatus *s) {
+        assert(s);
+
+        *s = (ExecStatus) {};
 }
 
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix) {

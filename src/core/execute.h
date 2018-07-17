@@ -340,10 +340,10 @@ int exec_spawn(Unit *unit,
                pid_t *ret);
 
 void exec_command_done_array(ExecCommand *c, size_t n);
-
 ExecCommand* exec_command_free_list(ExecCommand *c);
 void exec_command_free_array(ExecCommand **c, size_t n);
-
+void exec_command_reset_status_array(ExecCommand *c, size_t n);
+void exec_command_reset_status_list_array(ExecCommand **c, size_t n);
 void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_append_list(ExecCommand **l, ExecCommand *e);
 int exec_command_set(ExecCommand *c, const char *path, ...);
@@ -367,6 +367,7 @@ void exec_context_free_log_extra_fields(ExecContext *c);
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
+void exec_status_reset(ExecStatus *s);
 
 int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecRuntime **ret);
 ExecRuntime *exec_runtime_unref(ExecRuntime *r, bool destroy);

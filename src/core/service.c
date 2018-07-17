@@ -1673,7 +1673,6 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
                 s->result = f;
 
         service_unwatch_control_pid(s);
-
         (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST];
@@ -2252,8 +2251,6 @@ static int service_start(Unit *u) {
         s->main_pid_alien = false;
         s->forbid_restart = false;
 
-        u->reset_accounting = true;
-
         s->status_text = mfree(s->status_text);
         s->status_errno = 0;
 
@@ -2262,11 +2259,16 @@ static int service_start(Unit *u) {
         s->watchdog_override_enable = false;
         s->watchdog_override_usec = 0;
 
+        exec_command_reset_status_list_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
+        exec_status_reset(&s->main_exec_status);
+
         /* This is not an automatic restart? Flush the restart counter then */
         if (s->flush_n_restarts) {
                 s->n_restarts = 0;
                 s->flush_n_restarts = false;
         }
+
+        u->reset_accounting = true;
 
         service_enter_start_pre(s);
         return 1;

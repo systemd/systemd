@@ -853,6 +853,7 @@ static int swap_start(Unit *u) {
                 return r;
 
         s->result = SWAP_SUCCESS;
+        exec_command_reset_status_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
 
         u->reset_accounting = true;
 

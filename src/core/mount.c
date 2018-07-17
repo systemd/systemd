@@ -1074,6 +1074,7 @@ static int mount_start(Unit *u) {
 
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
+        exec_command_reset_status_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
 
         u->reset_accounting = true;
 
