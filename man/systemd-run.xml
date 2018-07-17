@@ -83,6 +83,16 @@
     <replaceable>COMMAND</replaceable> may be omitted. In this case, <command>systemd-run</command> creates only a
     <filename>.path</filename>, <filename>.socket</filename>, or <filename>.timer</filename> unit that triggers the
     specified unit.</para>
+
+    <para>By default, services created with <command>systemd-run</command> default to the <option>simple</option> type,
+    see the description of <varname>Type=</varname> in
+    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details. Note that when this type is used the service manager (and thus the <command>systemd-run</command> command)
+    considers service start-up successful as soon as the <function>fork()</function> for the main service process
+    succeeded, i.e. before the <function>execve()</function> is invoked, and thus even if the specified command cannot
+    be started. Consider using the <option>exec</option> service type (i.e. <option>--property=Type=exec</option>) to
+    ensure that <command>systemd-run</command> returns successfully only if the specified command line has been
+    successfully started.</para>
   </refsect1>
 
   <refsect1>
