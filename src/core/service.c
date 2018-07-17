@@ -79,9 +79,10 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING
 };
 
-static int service_dispatch_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
+static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata);
+static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
 
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
 static void service_enter_reload_by_notify(Service *s);
@@ -389,6 +390,7 @@ static void service_done(Unit *u) {
         service_stop_watchdog(s);
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
 
         service_release_resources(u);
 }
@@ -1066,6 +1068,9 @@ static void service_set_state(Service *s, ServiceState state) {
             !(state == SERVICE_DEAD && UNIT(s)->job))
                 service_close_socket_fd(s);
 
+        if (state != SERVICE_START)
+                s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
+
         if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD))
                 service_stop_watchdog(s);
 
@@ -1296,6 +1301,63 @@ static int service_collect_fds(
         return 0;
 }
 
+static int service_allocate_exec_fd_event_source(
+                Service *s,
+                int fd,
+                sd_event_source **ret_event_source) {
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+        int r;
+
+        assert(s);
+        assert(fd >= 0);
+        assert(ret_event_source);
+
+        r = sd_event_add_io(UNIT(s)->manager->event, &source, fd, 0, service_dispatch_exec_io, s);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Failed to allocate exec_fd event source: %m");
+
+        /* This is a bit lower priority than SIGCHLD, as that carries a lot more interesting failure information */
+
+        r = sd_event_source_set_priority(source, SD_EVENT_PRIORITY_NORMAL-3);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Failed to adjust priority of exec_fd event source: %m");
+
+        (void) sd_event_source_set_description(source, "service event_fd");
+
+        r = sd_event_source_set_io_fd_own(source, true);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Failed to pass ownership of fd to event source: %m");
+
+        *ret_event_source = TAKE_PTR(source);
+        return 0;
+}
+
+static int service_allocate_exec_fd(
+                Service *s,
+                sd_event_source **ret_event_source,
+                int* ret_exec_fd) {
+
+        _cleanup_close_pair_ int p[2] = { -1, -1 };
+        int r;
+
+        assert(s);
+        assert(ret_event_source);
+        assert(ret_exec_fd);
+
+        if (pipe2(p, O_CLOEXEC|O_NONBLOCK) < 0)
+                return log_unit_error_errno(UNIT(s), errno, "Failed to allocate exec_fd pipe: %m");
+
+        r = service_allocate_exec_fd_event_source(s, p[0], ret_event_source);
+        if (r < 0)
+                return r;
+
+        p[0] = -1;
+        *ret_exec_fd = TAKE_FD(p[1]);
+
+        return 0;
+}
+
 static bool service_exec_needs_notify_socket(Service *s, ExecFlags flags) {
         assert(s);
 
@@ -1330,7 +1392,9 @@ static int service_spawn(
                 .exec_fd    = -1,
         };
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL, **fd_names = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *exec_fd_source = NULL;
         size_t n_socket_fds = 0, n_storage_fds = 0, n_env = 0;
+        _cleanup_close_ int exec_fd = -1;
         _cleanup_free_ int *fds = NULL;
         pid_t pid;
         int r;
@@ -1361,6 +1425,14 @@ static int service_spawn(
                         return r;
 
                 log_unit_debug(UNIT(s), "Passing %zu fds to service", n_socket_fds + n_storage_fds);
+        }
+
+        if (!FLAGS_SET(flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
+                assert(!s->exec_fd_event_source);
+
+                r = service_allocate_exec_fd(s, &exec_fd_source, &exec_fd);
+                if (r < 0)
+                        return r;
         }
 
         r = service_arm_timer(s, usec_add(now(CLOCK_MONOTONIC), timeout));
@@ -1462,6 +1534,7 @@ static int service_spawn(
         exec_params.stdin_fd = s->stdin_fd;
         exec_params.stdout_fd = s->stdout_fd;
         exec_params.stderr_fd = s->stderr_fd;
+        exec_params.exec_fd = exec_fd;
 
         r = exec_spawn(UNIT(s),
                        c,
@@ -1472,6 +1545,9 @@ static int service_spawn(
                        &pid);
         if (r < 0)
                 return r;
+
+        s->exec_fd_event_source = TAKE_PTR(exec_fd_source);
+        s->exec_fd_hot = false;
 
         r = unit_watch_pid(UNIT(s), pid);
         if (r < 0) /* FIXME: we need to do something here */
@@ -1984,14 +2060,12 @@ static void service_enter_start(Service *s) {
                 s->control_pid = pid;
                 service_set_state(s, SERVICE_START);
 
-        } else if (IN_SET(s->type, SERVICE_ONESHOT, SERVICE_DBUS, SERVICE_NOTIFY)) {
+        } else if (IN_SET(s->type, SERVICE_ONESHOT, SERVICE_DBUS, SERVICE_NOTIFY, SERVICE_EXEC)) {
 
-                /* For oneshot services we wait until the start
-                 * process exited, too, but it is our main process. */
+                /* For oneshot services we wait until the start process exited, too, but it is our main process. */
 
-                /* For D-Bus services we know the main pid right away,
-                 * but wait for the bus name to appear on the
-                 * bus. Notify services are similar. */
+                /* For D-Bus services we know the main pid right away, but wait for the bus name to appear on the
+                 * bus. 'notify' and 'exec' services are similar. */
 
                 service_set_main_pid(s, pid);
                 service_set_state(s, SERVICE_START);
@@ -2444,6 +2518,13 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (r < 0)
                 return r;
 
+        if (s->exec_fd_event_source) {
+                r = unit_serialize_item_fd(u, f, fds, "exec-fd", sd_event_source_get_io_fd(s->exec_fd_event_source));
+                if (r < 0)
+                        return r;
+                unit_serialize_item(u, f, "exec-fd-hot", yes_no(s->exec_fd_hot));
+        }
+
         if (UNIT_ISSET(s->accept_socket)) {
                 r = unit_serialize_item(u, f, "accept-socket", UNIT_DEREF(s->accept_socket)->id);
                 if (r < 0)
@@ -2777,6 +2858,18 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         s->stderr_fd = fdset_remove(fds, fd);
                         s->exec_context.stdio_as_fds = true;
                 }
+        } else if (streq(key, "exec-fd")) {
+                int fd;
+
+                if (safe_atoi(value, &fd) < 0 || fd < 0 || !fdset_contains(fds, fd))
+                        log_unit_debug(u, "Failed to parse exec-fd value: %s", value);
+                else {
+                        s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
+
+                        fd = fdset_remove(fds, fd);
+                        if (service_allocate_exec_fd_event_source(s, fd, &s->exec_fd_event_source) < 0)
+                                safe_close(fd);
+                }
         } else if (streq(key, "watchdog-override-usec")) {
                 usec_t watchdog_override_usec;
                 if (timestamp_deserialize(value, &watchdog_override_usec) < 0)
@@ -2860,7 +2953,7 @@ static int service_watch_pid_file(Service *s) {
 
         log_unit_debug(UNIT(s), "Setting watch for PID file %s", s->pid_file_pathspec->path);
 
-        r = path_spec_watch(s->pid_file_pathspec, service_dispatch_io);
+        r = path_spec_watch(s->pid_file_pathspec, service_dispatch_inotify_io);
         if (r < 0)
                 goto fail;
 
@@ -2904,7 +2997,7 @@ static int service_demand_pid_file(Service *s) {
         return service_watch_pid_file(s);
 }
 
-static int service_dispatch_io(sd_event_source *source, int fd, uint32_t events, void *userdata) {
+static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata) {
         PathSpec *p = userdata;
         Service *s;
 
@@ -2934,6 +3027,59 @@ static int service_dispatch_io(sd_event_source *source, int fd, uint32_t events,
 fail:
         service_unwatch_pid_file(s);
         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
+        return 0;
+}
+
+static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t events, void *userdata) {
+        Service *s = SERVICE(userdata);
+
+        assert(s);
+
+        log_unit_debug(UNIT(s), "got exec-fd event");
+
+        /* If Type=exec is set, we'll consider a service started successfully the instant we invoked execve()
+         * successfully for it. We implement this through a pipe() towards the child, which the kernel automatically
+         * closes for us due to O_CLOEXEC on execve() in the child, which then triggers EOF on the pipe in the
+         * parent. We need to be careful however, as there are other reasons that we might cause the child's side of
+         * the pipe to be closed (for example, a simple exit()). To deal with that we'll ignore EOFs on the pipe unless
+         * the child signalled us first that it is about to call the execve(). It does so by sending us a simple
+         * non-zero byte via the pipe. We also provide the child with a way to inform us in case execve() failed: if it
+         * sends a zero byte we'll ignore POLLHUP on the fd again. */
+
+        for (;;) {
+                uint8_t x;
+                ssize_t n;
+
+                n = read(fd, &x, sizeof(x));
+                if (n < 0) {
+                        if (errno == EAGAIN) /* O_NONBLOCK in effect → everything queued has now been processed. */
+                                return 0;
+
+                        return log_unit_error_errno(UNIT(s), errno, "Failed to read from exec_fd: %m");
+                }
+                if (n == 0) { /* EOF → the event we are waiting for */
+
+                        s->exec_fd_event_source = sd_event_source_unref(s->exec_fd_event_source);
+
+                        if (s->exec_fd_hot) { /* Did the child tell us to expect EOF now? */
+                                log_unit_debug(UNIT(s), "Got EOF on exec-fd");
+
+                                s->exec_fd_hot = false;
+
+                                /* Nice! This is what we have been waiting for. Transition to next state. */
+                                if (s->type == SERVICE_EXEC && s->state == SERVICE_START)
+                                        service_enter_start_post(s);
+                        } else
+                                log_unit_debug(UNIT(s), "Got EOF on exec-fd while it was disabled, ignoring.");
+
+                        return 0;
+                }
+
+                /* A byte was read → this turns on/off the exec fd logic */
+                assert(n == sizeof(x));
+                s->exec_fd_hot = x;
+        }
+
         return 0;
 }
 
@@ -3846,7 +3992,8 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
         [SERVICE_ONESHOT] = "oneshot",
         [SERVICE_DBUS] = "dbus",
         [SERVICE_NOTIFY] = "notify",
-        [SERVICE_IDLE] = "idle"
+        [SERVICE_IDLE] = "idle",
+        [SERVICE_EXEC] = "exec",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
