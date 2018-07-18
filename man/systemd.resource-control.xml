@@ -192,7 +192,7 @@
           <literal>cpu.max</literal> attribute on the unified control group hierarchy and
           <literal>cpu.cfs_quota_us</literal> on legacy. For details about these control group attributes, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink> and <ulink
-          url="https://www.kernel.org/doc/Documentation/scheduler/sched-design-CFS.txt">sched-design-CFS.txt</ulink>.</para>
+          url="https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt">sched-bwc.txt</ulink>.</para>
 
           <para>Example: <varname>CPUQuota=20%</varname> ensures that the executed processes will never get more than
           20% CPU time on one CPU.</para>
@@ -900,6 +900,7 @@
       <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/cpuacct.txt">cpuacct.txt</ulink>,
       <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/memory.txt">memory.txt</ulink>,
       <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/blkio-controller.txt">blkio-controller.txt</ulink>.
+      <ulink url="https://www.kernel.org/doc/Documentation/scheduler/sched-bwc.txt">sched-bwc.txt</ulink>.
     </para>
   </refsect1>
 </refentry>
