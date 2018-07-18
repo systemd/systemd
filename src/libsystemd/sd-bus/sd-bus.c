@@ -2884,7 +2884,6 @@ finish:
 }
 
 static int bus_process_internal(sd_bus *bus, bool hint_priority, int64_t priority, sd_bus_message **ret) {
-        BUS_DONT_DESTROY(bus);
         int r;
 
         /* Returns 0 when we didn't do anything. This should cause the
@@ -2899,6 +2898,8 @@ static int bus_process_internal(sd_bus *bus, bool hint_priority, int64_t priorit
         /* We don't allow recursively invoking sd_bus_process(). */
         assert_return(!bus->current_message, -EBUSY);
         assert(!bus->current_slot);
+
+        BUS_DONT_DESTROY(bus);
 
         switch (bus->state) {
 
