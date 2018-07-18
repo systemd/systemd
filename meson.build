@@ -1214,7 +1214,6 @@ foreach term : ['utmp',
                 'networkd',
                 'timedated',
                 'timesyncd',
-                'myhostname',
                 'firstboot',
                 'randomseed',
                 'backlight',
@@ -1231,11 +1230,38 @@ foreach term : ['utmp',
                 'smack',
                 'gshadow',
                 'idn',
+                'nss-myhostname',
                 'nss-systemd']
         have = get_option(term)
         name = 'ENABLE_' + term.underscorify().to_upper()
         conf.set10(name, have)
 endforeach
+
+foreach tuple : [['nss-mymachines', 'machined'],
+                 ['nss-resolve',    'resolve']]
+        want = get_option(tuple[0])
+        if want != 'false'
+                have = get_option(tuple[1])
+                if want == 'true' and not have
+                        error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
+                endif
+        else
+                have = false
+        endif
+        name = 'ENABLE_' + tuple[0].underscorify().to_upper()
+        conf.set10(name, have)
+endforeach
+
+enable_nss = false
+foreach term : ['ENABLE_NSS_MYHOSTNAME',
+                'ENABLE_NSS_MYMACHINES',
+                'ENABLE_NSS_RESOLVE',
+                'ENABLE_NSS_SYSTEMD']
+        if conf.get(term) == 1
+                enable_nss = true
+        endif
+endforeach
+conf.set10('ENABLE_NSS', enable_nss)
 
 conf.set10('ENABLE_TIMEDATECTL', get_option('timedated') or get_option('timesyncd'))
 
@@ -1415,10 +1441,10 @@ test_dlopen = executable(
         link_with : [libbasic],
         dependencies : [libdl])
 
-foreach tuple : [['myhostname', 'ENABLE_MYHOSTNAME'],
+foreach tuple : [['myhostname', 'ENABLE_NSS_MYHOSTNAME'],
                  ['systemd',    'ENABLE_NSS_SYSTEMD'],
-                 ['mymachines', 'ENABLE_MACHINED'],
-                 ['resolve',    'ENABLE_RESOLVE']]
+                 ['mymachines', 'ENABLE_NSS_MYMACHINES'],
+                 ['resolve',    'ENABLE_NSS_RESOLVE']]
 
         condition = tuple[1] == '' or conf.get(tuple[1]) == 1
         if condition
@@ -2944,7 +2970,6 @@ foreach tuple : [
         ['idn'],
         ['libidn2'],
         ['libidn'],
-        ['nss-systemd'],
         ['libiptc'],
         ['elfutils'],
         ['binfmt'],
@@ -2979,7 +3004,10 @@ foreach tuple : [
         ['blkid'],
         ['dbus'],
         ['glib'],
-        ['nss-myhostname',   conf.get('ENABLE_MYHOSTNAME') == 1],
+        ['nss-myhostname',   conf.get('ENABLE_NSS_MYHOSTNAME') == 1],
+        ['nss-mymachines',   conf.get('ENABLE_NSS_MYMACHINES') == 1],
+        ['nss-resolve',      conf.get('ENABLE_NSS_RESOLVE') == 1],
+        ['nss-systemd',      conf.get('ENABLE_NSS_SYSTEMD') == 1],
         ['hwdb'],
         ['tpm'],
         ['man pages',        want_man],

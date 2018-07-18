@@ -88,8 +88,14 @@ option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
 option('remote', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'support for "journal over the network"')
-option('myhostname', type : 'boolean',
-       description : 'nss-myhostname support')
+option('nss-myhostname', type : 'boolean',
+       description : 'install nss-myhostname module')
+option('nss-mymachines', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'install nss-mymachines module')
+option('nss-resolve', type : 'combo', choices : ['auto', 'true', 'false'],
+       description : 'install nss-resolve module')
+option('nss-systemd', type : 'boolean',
+       description : 'install nss-systemd module')
 option('firstboot', type : 'boolean',
        description : 'support for firstboot mechanism')
 option('randomseed', type : 'boolean',
@@ -246,8 +252,6 @@ option('libidn2', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libidn2 support')
 option('libidn', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libidn support')
-option('nss-systemd', type : 'boolean',
-       description : 'enable nss-systemd')
 option('libiptc', type : 'combo', choices : ['auto', 'true', 'false'],
        description : 'libiptc support')
 option('qrencode', type : 'combo', choices : ['auto', 'true', 'false'],

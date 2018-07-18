@@ -6,7 +6,7 @@
   SPDX-License-Identifier: LGPL-2.1+
 -->
 
-<refentry id="nss-myhostname" conditional='ENABLE_MYHOSTNAME'>
+<refentry id="nss-myhostname" conditional='ENABLE_NSS_MYHOSTNAME'>
 
   <refentryinfo>
     <title>nss-myhostname</title>
