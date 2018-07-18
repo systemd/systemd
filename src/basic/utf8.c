@@ -61,12 +61,12 @@ static bool unichar_is_control(char32_t ch) {
 }
 
 /* count of characters used to encode one unicode char */
-static int utf8_encoded_expected_len(const char *str) {
-        unsigned char c;
+static size_t utf8_encoded_expected_len(const char *str) {
+        uint8_t c;
 
         assert(str);
 
-        c = (unsigned char) str[0];
+        c = (uint8_t) str[0];
         if (c < 0x80)
                 return 1;
         if ((c & 0xe0) == 0xc0)
@@ -86,7 +86,7 @@ static int utf8_encoded_expected_len(const char *str) {
 /* decode one unicode char */
 int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         char32_t unichar;
-        int len, i;
+        size_t len, i;
 
         assert(str);
 
@@ -118,6 +118,7 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         for (i = 1; i < len; i++) {
                 if (((char32_t)str[i] & 0xc0) != 0x80)
                         return -EINVAL;
+
                 unichar <<= 6;
                 unichar |= (char32_t)str[i] & 0x3f;
         }
@@ -377,8 +378,9 @@ static int utf8_unichar_to_encoded_len(char32_t unichar) {
 
 /* validate one encoded unicode char and return its length */
 int utf8_encoded_valid_unichar(const char *str) {
-        int len, i, r;
         char32_t unichar;
+        size_t len, i;
+        int r;
 
         assert(str);
 
@@ -400,14 +402,14 @@ int utf8_encoded_valid_unichar(const char *str) {
                 return r;
 
         /* check if encoded length matches encoded value */
-        if (utf8_unichar_to_encoded_len(unichar) != len)
+        if (utf8_unichar_to_encoded_len(unichar) != (int) len)
                 return -EINVAL;
 
         /* check if value has valid range */
         if (!unichar_is_valid(unichar))
                 return -EINVAL;
 
-        return len;
+        return (int) len;
 }
 
 size_t utf8_n_codepoints(const char *str) {
