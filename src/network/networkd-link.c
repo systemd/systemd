@@ -497,14 +497,13 @@ static void link_free(Link *link) {
         if (!link)
                 return;
 
-        while (!set_isempty(link->addresses))
-                address_free(set_first(link->addresses));
+        while ((address = set_first(link->addresses)))
+                address_free(address);
 
-        while (!set_isempty(link->addresses_foreign))
-                address_free(set_first(link->addresses_foreign));
+        while ((address = set_first(link->addresses_foreign)))
+                address_free(address);
 
         link->addresses = set_free(link->addresses);
-
         link->addresses_foreign = set_free(link->addresses_foreign);
 
         while ((address = link->pool_addresses)) {
