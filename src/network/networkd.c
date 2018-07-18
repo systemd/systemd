@@ -10,7 +10,6 @@
 #include "user-util.h"
 
 int main(int argc, char *argv[]) {
-        sd_event *event = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
         const char *user = "systemd-network";
         uid_t uid;
@@ -71,15 +70,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
 
-        r = sd_event_default(&event);
-        if (r < 0)
-                goto out;
-
-        sd_event_set_watchdog(event, true);
-        sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
-        sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
-
-        r = manager_new(&m, event);
+        r = manager_new(&m);
         if (r < 0) {
                 log_error_errno(r, "Could not create manager: %m");
                 goto out;
@@ -137,7 +128,7 @@ int main(int argc, char *argv[]) {
                   "READY=1\n"
                   "STATUS=Processing requests...");
 
-        r = sd_event_loop(event);
+        r = sd_event_loop(m->event);
         if (r < 0) {
                 log_error_errno(r, "Event loop failed: %m");
                 goto out;
@@ -146,8 +137,6 @@ out:
         sd_notify(false,
                   "STOPPING=1\n"
                   "STATUS=Shutting down...");
-
-        sd_event_unref(event);
 
         return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

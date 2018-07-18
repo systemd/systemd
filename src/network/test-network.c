@@ -219,7 +219,6 @@ static void test_dhcp_hostname_shorten_overlong(void) {
 
 int main(void) {
         _cleanup_(manager_freep) Manager *manager = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(udev_unrefp) struct udev *udev = NULL;
         _cleanup_(udev_device_unrefp) struct udev_device *loopback = NULL;
         int r;
@@ -229,9 +228,7 @@ int main(void) {
         test_address_equality();
         test_dhcp_hostname_shorten_overlong();
 
-        assert_se(sd_event_default(&event) >= 0);
-
-        assert_se(manager_new(&manager, event) >= 0);
+        assert_se(manager_new(&manager) >= 0);
 
         r = test_load_config(manager);
         if (r == -EPERM)
