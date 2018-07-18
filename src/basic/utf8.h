@@ -14,7 +14,7 @@
 
 bool unichar_is_valid(char32_t c);
 
-const char *utf8_is_valid(const char *s) _pure_;
+char *utf8_is_valid(const char *s) _pure_;
 char *ascii_is_valid(const char *s) _pure_;
 char *ascii_is_valid_n(const char *str, size_t len);
 

@@ -154,22 +154,23 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool newline) {
         return true;
 }
 
-const char *utf8_is_valid(const char *str) {
-        const uint8_t *p;
+char *utf8_is_valid(const char *str) {
+        const char *p;
 
         assert(str);
 
-        for (p = (const uint8_t*) str; *p; ) {
+        p = str;
+        while (*p) {
                 int len;
 
-                len = utf8_encoded_valid_unichar((const char *)p);
+                len = utf8_encoded_valid_unichar(p);
                 if (len < 0)
                         return NULL;
 
                 p += len;
         }
 
-        return str;
+        return (char*) str;
 }
 
 char *utf8_escape_invalid(const char *str) {
