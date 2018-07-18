@@ -24,7 +24,7 @@
 #include <uchar.h>
 #include <unistd.h>
 
-#if !HAVE_STRUCT_STATX_IN_SYS_STAT_H
+#if WANT_LINUX_STAT_H
 #include <linux/stat.h>
 #endif
 
