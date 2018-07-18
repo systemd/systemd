@@ -492,10 +492,20 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
 static void link_free(Link *link) {
         Address *address;
         Link *carrier;
+        Route *route;
         Iterator i;
 
         if (!link)
                 return;
+
+        while ((route = set_first(link->routes)))
+                route_free(route);
+
+        while ((route = set_first(link->routes_foreign)))
+                route_free(route);
+
+        link->routes = set_free(link->routes);
+        link->routes_foreign = set_free(link->routes_foreign);
 
         while ((address = set_first(link->addresses)))
                 address_free(address);
