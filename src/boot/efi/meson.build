@@ -94,10 +94,6 @@ if have_gnu_efi
                 endif
         endif
 
-        message('efi-libdir: "@0@"'.format(efi_libdir))
-        message('efi-ldsdir: "@0@"'.format(efi_ldsdir))
-        message('efi-includedir: "@0@"'.format(efi_incdir))
-
         compile_args = ['-Wall',
                         '-Wextra',
                         '-std=gnu90',

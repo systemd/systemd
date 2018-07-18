@@ -655,7 +655,6 @@ endif
 system_uid_max = system_uid_max.to_int()
 conf.set('SYSTEM_UID_MAX', system_uid_max)
 substs.set('systemuidmax', system_uid_max)
-message('maximum system UID is @0@'.format(system_uid_max))
 
 system_gid_max = get_option('system-gid-max')
 if system_gid_max == ''
@@ -670,7 +669,6 @@ endif
 system_gid_max = system_gid_max.to_int()
 conf.set('SYSTEM_GID_MAX', system_gid_max)
 substs.set('systemgidmax', system_gid_max)
-message('maximum system GID is @0@'.format(system_gid_max))
 
 dynamic_uid_min = get_option('dynamic-uid-min').to_int()
 dynamic_uid_max = get_option('dynamic-uid-max').to_int()
