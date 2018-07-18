@@ -2436,7 +2436,7 @@ static int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **un
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        return log_error_errno(r, "Failed to access path '%s': %m", path);
+                        return log_error_errno(r, "Failed to access path \"%s\": %m", path);
 
                 if (unit_path)
                         *unit_path = TAKE_PTR(lpath);
@@ -2544,12 +2544,16 @@ static int unit_find_paths(
                 if (r < 0)
                         return r;
 
-                if (r > 0)
+                if (r > 0) {
+                        if (null_or_empty_path(path))
+                                /* The template is masked. Let's cut the process short. */
+                                return -ERFKILL;
+
                         /* We found the unit file. If we followed symlinks, this name might be
                          * different then the unit_name with started with. Look for dropins matching
                          * that "final" name. */
                         r = set_put(names, basename(path));
-                else if (!template)
+                } else if (!template)
                         /* No unit file, let's look for dropins matching the original name.
                          * systemd has fairly complicated rules (based on unit type and provenience),
                          * which units are allowed not to have the main unit file. We err on the
@@ -2623,9 +2627,23 @@ static int get_state_one_unit(sd_bus *bus, const char *name, UnitActiveState *ac
         return 0;
 }
 
-static int unit_is_masked(sd_bus *bus, const char *name) {
+static int unit_is_masked(sd_bus *bus, LookupPaths *lp, const char *name) {
         _cleanup_free_ char *load_state = NULL;
         int r;
+
+        if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
+                _cleanup_free_ char *path = NULL;
+
+                /* A template cannot be loaded, but it can be still masked, so
+                 * we need to use a different method. */
+
+                r = unit_file_find_path(lp, name, &path);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return false;
+                return null_or_empty_path(path);
+        }
 
         r = unit_load_state(bus, name, &load_state);
         if (r < 0)
@@ -2636,7 +2654,7 @@ static int unit_is_masked(sd_bus *bus, const char *name) {
 
 static int check_triggering_units(sd_bus *bus, const char *name) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_free_ char *n = NULL, *path = NULL;
+        _cleanup_free_ char *n = NULL, *path = NULL, *load_state = NULL;
         _cleanup_strv_free_ char **triggered_by = NULL;
         bool print_warning_label = true;
         UnitActiveState active_state;
@@ -2647,9 +2665,12 @@ static int check_triggering_units(sd_bus *bus, const char *name) {
         if (r < 0)
                 return log_error_errno(r, "Failed to mangle unit name: %m");
 
-        r = unit_is_masked(bus, n);
-        if (r != 0)
-                return r < 0 ? r : 0;
+        r = unit_load_state(bus, name, &load_state);
+        if (r < 0)
+                return r;
+
+        if (streq(load_state, "masked"))
+                return 0;
 
         path = unit_dbus_path_from_name(n);
         if (!path)
@@ -3125,7 +3146,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                  * another active unit (socket, path, timer) */
                 if (!arg_quiet && streq(method, "StopUnit"))
                         STRV_FOREACH(name, names)
-                                check_triggering_units(bus, *name);
+                                (void) check_triggering_units(bus, *name);
         }
 
         if (r >= 0 && arg_wait) {
@@ -5355,6 +5376,13 @@ static int cat(int argc, char *argv[], void *userdata) {
                 _cleanup_strv_free_ char **dropin_paths = NULL;
 
                 r = unit_find_paths(bus, *name, &lp, &fragment_path, &dropin_paths);
+                if (r == -ERFKILL) {
+                        printf("%s# unit %s is masked%s\n",
+                               ansi_highlight_magenta(),
+                               *name,
+                               ansi_normal());
+                        continue;
+                }
                 if (r < 0)
                         return r;
                 else if (r == 0)
@@ -6921,6 +6949,7 @@ static int find_paths_to_edit(sd_bus *bus, char **names, char ***paths) {
 }
 
 static int edit(int argc, char *argv[], void *userdata) {
+        _cleanup_(lookup_paths_free) LookupPaths lp = {};
         _cleanup_strv_free_ char **names = NULL;
         _cleanup_strv_free_ char **paths = NULL;
         char **original, **tmp;
@@ -6937,6 +6966,10 @@ static int edit(int argc, char *argv[], void *userdata) {
                 return -EINVAL;
         }
 
+        r = lookup_paths_init(&lp, arg_scope, 0, arg_root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine unit paths: %m");
+
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
@@ -6946,7 +6979,7 @@ static int edit(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(tmp, names) {
-                r = unit_is_masked(bus, *tmp);
+                r = unit_is_masked(bus, &lp, *tmp);
                 if (r < 0)
                         return r;
 
