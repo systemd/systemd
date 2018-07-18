@@ -106,9 +106,6 @@ struct Manager {
         int hostname_fd;
         sd_event_source *hostname_event_source;
 
-        /* Watch for system suspends */
-        sd_bus_slot *prepare_for_sleep_slot;
-
         sd_event_source *sigusr1_event_source;
         sd_event_source *sigusr2_event_source;
         sd_event_source *sigrtmin1_event_source;

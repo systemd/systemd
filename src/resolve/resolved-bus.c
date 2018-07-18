@@ -1930,7 +1930,7 @@ int manager_connect_bus(Manager *m) {
 
         r = sd_bus_match_signal_async(
                         m->bus,
-                        &m->prepare_for_sleep_slot,
+                        NULL,
                         "org.freedesktop.login1",
                         "/org/freedesktop/login1",
                         "org.freedesktop.login1.Manager",
