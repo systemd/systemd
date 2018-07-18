@@ -1370,7 +1370,7 @@ static const struct hash_ops dhcp6_prefixes_hash_ops = {
         .compare = dhcp6_prefixes_compare_func,
 };
 
-int manager_new(Manager **ret, sd_event *event) {
+int manager_new(Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
@@ -1382,7 +1382,13 @@ int manager_new(Manager **ret, sd_event *event) {
         if (!m->state_file)
                 return -ENOMEM;
 
-        m->event = sd_event_ref(event);
+        r = sd_event_default(&m->event);
+        if (r < 0)
+                return r;
+
+        sd_event_set_watchdog(m->event, true);
+        sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         r = sd_event_add_post(m->event, NULL, manager_dirty_handler, m);
         if (r < 0)
