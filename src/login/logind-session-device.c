@@ -209,18 +209,20 @@ static int session_device_start(SessionDevice *sd) {
         return 0;
 }
 
-static void session_device_stop(SessionDevice *sd) {
+static int session_device_stop(SessionDevice *sd) {
         assert(sd);
 
+        /* Returns true if the session was active and had a valid fd. */
+
         if (!sd->active)
-                return;
+                return false; /* The device was not active */
 
         switch (sd->type) {
 
         case DEVICE_TYPE_DRM:
                 if (sd->fd < 0) {
                         log_error("Failed to de-activate DRM fd, as the fd was lost (maybe logind restart went wrong?)");
-                        return;
+                        return false;
                 }
 
                 /* On DRM devices we simply drop DRM-Master but keep it open.
@@ -245,6 +247,7 @@ static void session_device_stop(SessionDevice *sd) {
         }
 
         sd->active = false;
+        return true;
 }
 
 static DeviceType detect_device_type(struct udev_device *dev) {
@@ -398,6 +401,8 @@ error:
 }
 
 void session_device_free(SessionDevice *sd) {
+        bool close_fd;
+
         assert(sd);
 
         /* Make sure to remove the pushed fd. */
@@ -417,9 +422,10 @@ void session_device_free(SessionDevice *sd) {
                         (void) sd_notify(false, m);
         }
 
-        session_device_stop(sd);
+        close_fd = session_device_stop(sd);
         session_device_notify(sd, SESSION_DEVICE_RELEASE);
-        safe_close(sd->fd);
+        if (close_fd)
+                safe_close(sd->fd);
 
         LIST_REMOVE(sd_by_device, sd->device->session_devices, sd);
 
