@@ -130,7 +130,7 @@ option('dbussessionservicedir', type : 'string',
        description : 'D-Bus session service directory')
 option('dbussystemservicedir', type : 'string',
        description : 'D-Bus system service directory')
-option('pkgconfigdatadir', type : 'string', value : 'share/pkgconfig',
+option('pkgconfigdatadir', type : 'string', value : '',
        description : 'directory for ')
 option('pkgconfiglibdir', type : 'string', value : '',
        description : 'directory for ')
