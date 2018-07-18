@@ -243,6 +243,13 @@ evdev:name:Atmel maXTouch Touch*:dmi:bvn*:bvr*:bd*:svnGOOGLE:pnSamus*
 # HP
 #########################################
 
+# HP Chromebook 14 (Falco)
+evdev:name:Cypress APA Trackpad ?cyapa?:dmi:*:svnHewlett-Packard*:pnFalco*:
+ EVDEV_ABS_00=:::8
+ EVDEV_ABS_01=:::8
+ EVDEV_ABS_35=:::8
+ EVDEV_ABS_36=:::8
+
 # HP Pavilion dm4
 evdev:name:SynPS/2 Synaptics TouchPad*:dmi:*svnHewlett-Packard:pnHPPaviliondm4*
  EVDEV_ABS_00=1360:5563:47
