@@ -6,7 +6,7 @@
   SPDX-License-Identifier: LGPL-2.1+
 -->
 
-<refentry id="nss-resolve" conditional='ENABLE_RESOLVE'>
+<refentry id="nss-resolve" conditional='ENABLE_NSS_RESOLVE'>
 
   <refentryinfo>
     <title>nss-resolve</title>
