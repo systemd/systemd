@@ -24,7 +24,7 @@
 #include <uchar.h>
 #include <unistd.h>
 
-#if !HAVE_STRUCT_STATX_IN_SYS_STAT_H
+#if WANT_LINUX_STAT_H
 #include <linux/stat.h>
 #endif
 
@@ -1183,9 +1183,7 @@ struct input_mask {
 #define KEY_ALS_TOGGLE 0x230
 #endif
 
-#if ! HAVE_KEY_SERIAL_T
 typedef int32_t key_serial_t;
-#endif
 
 #ifndef KEYCTL_JOIN_SESSION_KEYRING
 #define KEYCTL_JOIN_SESSION_KEYRING 1
