@@ -423,11 +423,9 @@ decl_headers = '''
 #include <linux/fib_rules.h>
 #include <sys/stat.h>
 '''
-# FIXME: key_serial_t is only defined in keyutils.h, this is bound to fail
 
 foreach decl : ['char16_t',
                 'char32_t',
-                'key_serial_t',
                 'struct ethtool_link_settings',
                 'struct fib_rule_uid_range',
                 'struct statx',
