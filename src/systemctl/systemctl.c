@@ -7838,7 +7838,8 @@ static int parse_shutdown_time_spec(const char *t, usec_t *_u) {
                 tm.tm_min = (int) minute;
                 tm.tm_sec = 0;
 
-                assert_se(s = mktime(&tm));
+                s = mktime(&tm);
+                assert(s >= 0);
 
                 *_u = (usec_t) s * USEC_PER_SEC;
 
