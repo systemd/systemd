@@ -6,7 +6,7 @@
   SPDX-License-Identifier: LGPL-2.1+
 -->
 
-<refentry id="nss-mymachines" conditional='ENABLE_MACHINED'>
+<refentry id="nss-mymachines" conditional='ENABLE_NSS_MYMACHINES'>
 
   <refentryinfo>
     <title>nss-mymachines</title>

@@ -431,13 +431,13 @@ static int parse_argv(int argc, char **argv,
                 modules = strv_new(argv[1], NULL);
         else
                 modules = strv_new(
-#if ENABLE_MYHOSTNAME
+#if ENABLE_NSS_MYHOSTNAME
                                 "myhostname",
 #endif
-#if ENABLE_RESOLVE
+#if ENABLE_NSS_RESOLVE
                                 "resolve",
 #endif
-#if ENABLE_MACHINED
+#if ENABLE_NSS_MYMACHINES
                                 "mymachines",
 #endif
                                 "dns",
