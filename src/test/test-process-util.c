@@ -206,15 +206,21 @@ static void test_get_process_cmdline_harder(void) {
         assert_se(pid == 0);
         assert_se(unshare(CLONE_NEWNS) >= 0);
 
-        assert_se(mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) >= 0);
+        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0) {
+                log_warning_errno(errno, "mount(..., \"/\", MS_SLAVE|MS_REC, ...) failed: %m");
+                assert_se(IN_SET(errno, EPERM, EACCES));
+                return;
+        }
 
         fd = mkostemp(path, O_CLOEXEC);
         assert_se(fd >= 0);
 
+        /* Note that we don't unmount the following bind-mount at the end of the test because the kernel
+         * will clear up its /proc/PID/ hierarchy automatically as soon as the test stops. */
         if (mount(path, "/proc/self/cmdline", "bind", MS_BIND, NULL) < 0) {
                 /* This happens under selinux… Abort the test in this case. */
                 log_warning_errno(errno, "mount(..., \"/proc/self/cmdline\", \"bind\", ...) failed: %m");
-                assert(errno == EACCES);
+                assert_se(IN_SET(errno, EPERM, EACCES));
                 return;
         }
 
