@@ -56,13 +56,13 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                                 assert(err < 0);
 
                                 log_full_errno(!verbose ? LOG_DEBUG :
-                                               err == ENODEV ? LOG_NOTICE :
-                                               err == ENOENT ? LOG_WARNING :
-                                                               LOG_ERR,
+                                               err == -ENODEV ? LOG_NOTICE :
+                                               err == -ENOENT ? LOG_WARNING :
+                                                                LOG_ERR,
                                                err,
                                                "Failed to insert module '%s': %m",
                                                kmod_module_get_name(mod));
-                                if (!IN_SET(err, ENODEV, ENOENT))
+                                if (!IN_SET(err, -ENODEV, -ENOENT))
                                         r = err;
                         }
                 }
