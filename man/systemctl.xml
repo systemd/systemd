@@ -668,8 +668,8 @@
   boot-efi.mount               loaded active mounted /boot/efi
   systemd-journald.service     loaded active running Journal Service
   systemd-logind.service       loaded active running Login Service
-● user@1000.service            loaded active running User Manager for UID 1000
-…
+● user@1000.service            loaded failed failed  User Manager for UID 1000
+  …
   systemd-tmpfiles-clean.timer loaded active waiting Daily Cleanup of Temporary Directories
 
 LOAD   = Reflects whether the unit definition was properly loaded.
