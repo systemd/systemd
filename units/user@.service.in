@@ -9,6 +9,7 @@
 
 [Unit]
 Description=User Manager for UID %i
+Documentation=man:user@.service(5)
 After=systemd-user-sessions.service
 After=user-runtime-dir@%i.service
 Requires=user-runtime-dir@%i.service
