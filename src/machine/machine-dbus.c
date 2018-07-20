@@ -1058,7 +1058,7 @@ finish:
 }
 
 int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *src, *dest, *host_path, *container_path, *host_basename, *host_dirname, *container_basename, *container_dirname;
+        const char *src, *dest, *host_path, *container_path, *host_basename, *container_basename, *container_dirname;
         _cleanup_close_pair_ int errno_pipe_fd[2] = { -1, -1 };
         CopyFlags copy_flags = COPY_REFLINK|COPY_MERGE;
         _cleanup_close_ int hostfd = -1;
@@ -1119,16 +1119,14 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
         }
 
         host_basename = basename(host_path);
-        t = strdupa(host_path);
-        host_dirname = dirname(t);
 
         container_basename = basename(container_path);
         t = strdupa(container_path);
         container_dirname = dirname(t);
 
-        hostfd = open(host_dirname, O_CLOEXEC|O_RDONLY|O_NOCTTY|O_DIRECTORY);
+        hostfd = open_parent(host_path, O_CLOEXEC, 0);
         if (hostfd < 0)
-                return sd_bus_error_set_errnof(error, errno, "Failed to open host directory %s: %m", host_dirname);
+                return sd_bus_error_set_errnof(error, hostfd, "Failed to open host directory %s: %m", host_path);
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");

@@ -261,7 +261,7 @@ fallback_fstat:
 
 /* flags can be AT_SYMLINK_FOLLOW or 0 */
 int path_is_mount_point(const char *t, const char *root, int flags) {
-        _cleanup_free_ char *canonical = NULL, *parent = NULL;
+        _cleanup_free_ char *canonical = NULL;
         _cleanup_close_ int fd = -1;
         int r;
 
@@ -283,11 +283,7 @@ int path_is_mount_point(const char *t, const char *root, int flags) {
                 t = canonical;
         }
 
-        parent = dirname_malloc(t);
-        if (!parent)
-                return -ENOMEM;
-
-        fd = openat(AT_FDCWD, parent, O_DIRECTORY|O_CLOEXEC|O_PATH);
+        fd = open_parent(t, O_PATH|O_CLOEXEC, 0);
         if (fd < 0)
                 return -errno;
 

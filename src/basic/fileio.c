@@ -1449,21 +1449,13 @@ int open_tmpfile_linkable(const char *target, int flags, char **ret_path) {
          * which case "ret_path" will be returned as NULL. If not possible a the tempoary path name used is returned in
          * "ret_path". Use link_tmpfile() below to rename the result after writing the file in full. */
 
-        {
-                _cleanup_free_ char *dn = NULL;
-
-                dn = dirname_malloc(target);
-                if (!dn)
-                        return -ENOMEM;
-
-                fd = open(dn, O_TMPFILE|flags, 0640);
-                if (fd >= 0) {
-                        *ret_path = NULL;
-                        return fd;
-                }
-
-                log_debug_errno(errno, "Failed to use O_TMPFILE on %s: %m", dn);
+        fd = open_parent(target, O_TMPFILE|flags, 0640);
+        if (fd >= 0) {
+                *ret_path = NULL;
+                return fd;
         }
+
+        log_debug_errno(fd, "Failed to use O_TMPFILE for %s: %m", target);
 
         r = tempfn_random(target, NULL, &tmp);
         if (r < 0)
