@@ -4479,7 +4479,7 @@ static int operation_to_signal(KillContext *c, KillOperation k) {
                 return c->kill_signal;
 
         case KILL_KILL:
-                return SIGKILL;
+                return c->final_kill_signal;
 
         case KILL_ABORT:
                 return SIGABRT;

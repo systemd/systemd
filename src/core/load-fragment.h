@@ -39,6 +39,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_cpu_affinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_secure_bits);
 CONFIG_PARSER_PROTOTYPE(config_parse_capability_set);
 CONFIG_PARSER_PROTOTYPE(config_parse_kill_signal);
+CONFIG_PARSER_PROTOTYPE(config_parse_final_kill_signal);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_mount_flags);
 CONFIG_PARSER_PROTOTYPE(config_parse_timer);
 CONFIG_PARSER_PROTOTYPE(config_parse_trigger_unit);
