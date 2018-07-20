@@ -9,6 +9,7 @@ void kill_context_init(KillContext *c) {
         assert(c);
 
         c->kill_signal = SIGTERM;
+        c->final_kill_signal = SIGKILL;
         c->send_sigkill = true;
         c->send_sighup = false;
 }
@@ -21,10 +22,12 @@ void kill_context_dump(KillContext *c, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sKillMode: %s\n"
                 "%sKillSignal: SIG%s\n"
+                "%sFinalKillSignal: SIG%s\n"
                 "%sSendSIGKILL: %s\n"
                 "%sSendSIGHUP:  %s\n",
                 prefix, kill_mode_to_string(c->kill_mode),
                 prefix, signal_to_string(c->kill_signal),
+                prefix, signal_to_string(c->final_kill_signal),
                 prefix, yes_no(c->send_sigkill),
                 prefix, yes_no(c->send_sighup));
 }

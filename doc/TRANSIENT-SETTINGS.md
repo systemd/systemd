@@ -256,6 +256,7 @@ All process killing settings are available for transient units:
 ✓ SendSIGHUP=
 ✓ KillMode=
 ✓ KillSignal=
+✓ FinalKillSignal=
 ```
 
 ## Service Unit Settings
