@@ -37,6 +37,7 @@ static int parse_argv(
                 int argc, const char **argv,
                 const char **class,
                 const char **type,
+                const char **desktop,
                 bool *debug) {
 
         unsigned i;
@@ -52,6 +53,10 @@ static int parse_argv(
                 } else if (startswith(argv[i], "type=")) {
                         if (type)
                                 *type = argv[i] + 5;
+
+                } else if (startswith(argv[i], "desktop=")) {
+                        if (desktop)
+                                *desktop = argv[i] + 8;
 
                 } else if (streq(argv[i], "debug")) {
                         if (debug)
@@ -274,7 +279,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 *remote_user = NULL, *remote_host = NULL,
                 *seat = NULL,
                 *type = NULL, *class = NULL,
-                *class_pam = NULL, *type_pam = NULL, *cvtnr = NULL, *desktop = NULL,
+                *class_pam = NULL, *type_pam = NULL, *cvtnr = NULL, *desktop = NULL, *desktop_pam = NULL,
                 *memory_max = NULL, *tasks_max = NULL, *cpu_weight = NULL, *io_weight = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int session_fd = -1, existing, r;
@@ -293,6 +298,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        argc, argv,
                        &class_pam,
                        &type_pam,
+                       &desktop_pam,
                        &debug) < 0)
                 return PAM_SESSION_ERR;
 
@@ -338,7 +344,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
         type = getenv_harder(handle, "XDG_SESSION_TYPE", type_pam);
         class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
-        desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", NULL);
+        desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
 
         tty = strempty(tty);
 
