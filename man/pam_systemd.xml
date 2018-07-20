@@ -84,40 +84,43 @@
       <varlistentry>
         <term><option>class=</option></term>
 
-        <listitem><para>Takes a string argument which sets the session
-        class. The XDG_SESSION_CLASS environmental variable takes
-        precedence. One of
-        <literal>user</literal>,
-        <literal>greeter</literal>,
-        <literal>lock-screen</literal> or
-        <literal>background</literal>. See
-        <citerefentry><refentrytitle>sd_session_get_class</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for details about the session class.</para></listitem>
+        <listitem><para>Takes a string argument which sets the session class. The <varname>XDG_SESSION_CLASS</varname>
+        environment variable (see below) takes precedence. One of <literal>user</literal>, <literal>greeter</literal>,
+        <literal>lock-screen</literal> or <literal>background</literal>. See
+        <citerefentry><refentrytitle>sd_session_get_class</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        details about the session class.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>type=</option></term>
 
-        <listitem><para>Takes a string argument which sets the session
-        type. The XDG_SESSION_TYPE environmental variable takes
-        precedence. One of
-        <literal>unspecified</literal>,
-        <literal>tty</literal>,
-        <literal>x11</literal>,
-        <literal>wayland</literal> or
-        <literal>mir</literal>. See
-        <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for details about the session type.</para></listitem>
+        <listitem><para>Takes a string argument which sets the session type. The <varname>XDG_SESSION_TYPE</varname>
+        environment variable (see below) takes precedence. One of <literal>unspecified</literal>,
+        <literal>tty</literal>, <literal>x11</literal>, <literal>wayland</literal> or <literal>mir</literal>. See
+        <citerefentry><refentrytitle>sd_session_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        details about the session type.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>desktop=</option></term>
+
+        <listitem><para>Takes a single, short identifier string for the desktop environment. The
+        <varname>XDG_SESSION_DESKTOP</varname> environment variable (see below) takes precedence. This may be used to
+        indicate the session desktop used, where this applies and if this information is available. For example:
+        <literal>GNOME</literal>, or <literal>KDE</literal>. It is recommended to use the same identifiers and
+        capitalization as for <varname>$XDG_CURRENT_DESKTOP</varname>, as defined by the <ulink
+        url="http://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop Entry
+        Specification</ulink>. (However, note that the option only takes a single item, and not a colon-separated list
+        like <varname>$XDG_CURRENT_DESKTOP</varname>.) See
+        <citerefentry><refentrytitle>sd_session_get_desktop</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+        further details.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><option>debug<optional>=</optional></option></term>
 
-        <listitem><para>Takes an optional
-        boolean argument. If yes or without
-        the argument, the module will log
-        debugging information as it
-        operates.</para></listitem>
+        <listitem><para>Takes an optional boolean argument. If yes or without the argument, the module will log
+        debugging information as it operates.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -131,20 +134,20 @@
   <refsect1>
     <title>Environment</title>
 
-    <para>The following environment variables are set for the
-    processes of the user's session:</para>
+    <para>The following environment variables are initialized by the module and available to the processes of the
+    user's session:</para>
 
     <variablelist class='environment-variables'>
       <varlistentry>
         <term><varname>$XDG_SESSION_ID</varname></term>
 
-        <listitem><para>A session identifier, suitable to be used in
-        filenames. The string itself should be considered opaque,
-        although often it is just the audit session ID as reported by
-        <filename>/proc/self/sessionid</filename>. Each ID will be
-        assigned only once during machine uptime. It may hence be used
-        to uniquely label files or other resources of this
-        session.</para></listitem>
+        <listitem><para>A short session identifier, suitable to be used in filenames. The string itself should be
+        considered opaque, although often it is just the audit session ID as reported by
+        <filename>/proc/self/sessionid</filename>. Each ID will be assigned only once during machine uptime. It may
+        hence be used to uniquely label files or other resources of this session. Combine this ID with the boot
+        identifier, as returned by
+        <citerefentry><refentrytitle>sd_id128_get_boot</refentrytitle><manvolnum>3</manvolnum></citerefentry>, for a
+        globally unique identifier for the current session.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -174,45 +177,31 @@
 
     </variablelist>
 
-    <para>The following environment variables are read by the module
-    and may be used by the PAM service to pass metadata to the
-    module:</para>
+    <para>The following environment variables are read by the module and may be used by the PAM service to pass
+    metadata to the module. If these variables are not set when the PAM module is invoked but can be determined
+    otherwise they are set by the module, so that these variables are initialized for the session and applications if
+    known at all.</para>
 
     <variablelist class='environment-variables'>
       <varlistentry>
         <term><varname>$XDG_SESSION_TYPE</varname></term>
 
-        <listitem><para>The session type. This may be used instead of
-        <option>session=</option> on the module parameter line, and is
-        usually preferred.</para></listitem>
+        <listitem><para>The session type. This may be used instead of <option>session=</option> on the module parameter
+        line, and is usually preferred.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$XDG_SESSION_CLASS</varname></term>
 
-        <listitem><para>The session class. This may be used instead of
-        <option>class=</option> on the module parameter line, and is
-        usually preferred.</para></listitem>
+        <listitem><para>The session class. This may be used instead of <option>class=</option> on the module parameter
+        line, and is usually preferred.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><varname>$XDG_SESSION_DESKTOP</varname></term>
 
-        <listitem><para>A single, short identifier string for the
-        desktop environment. This may be used to indicate the session
-        desktop used, where this applies and if this information is
-        available. For example: <literal>GNOME</literal>, or
-        <literal>KDE</literal>. It is recommended to use the same
-        identifiers and capitalization as for
-        <varname>$XDG_CURRENT_DESKTOP</varname>, as defined by the
-        <ulink
-        url="http://standards.freedesktop.org/desktop-entry-spec/latest/">Desktop
-        Entry Specification</ulink>. (However, note that
-        <varname>$XDG_SESSION_DESKTOP</varname> only takes a single
-        item, and not a colon-separated list like
-        <varname>$XDG_CURRENT_DESKTOP</varname>.) See
-        <citerefentry><refentrytitle>sd_session_get_desktop</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        for more details.</para></listitem>
+        <listitem><para>The desktop identifier. This may be used instead of <option>desktop=</option> on the module
+        parameter line, and is usually preferred.</para></listitem>
       </varlistentry>
 
       <varlistentry>
