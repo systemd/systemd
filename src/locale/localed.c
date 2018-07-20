@@ -21,6 +21,7 @@
 #include "macro.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -738,13 +739,23 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+
         r = sd_event_default(&event);
         if (r < 0) {
                 log_error_errno(r, "Failed to allocate event loop: %m");
                 goto finish;
         }
 
-        sd_event_set_watchdog(event, true);
+        (void) sd_event_set_watchdog(event, true);
+
+        r = sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
+        if (r < 0)
+                return r;
 
         r = connect_bus(&context, event, &bus);
         if (r < 0)
