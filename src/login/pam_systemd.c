@@ -240,6 +240,26 @@ static int append_session_cg_weight(pam_handle_t *handle, sd_bus_message *m, con
         return 0;
 }
 
+static const char* getenv_harder(pam_handle_t *handle, const char *key, const char *fallback) {
+        const char *v;
+
+        assert(handle);
+        assert(key);
+
+        /* Looks for an environment variable, preferrably in the environment block associated with the specified PAM
+         * handle, falling back to the process' block instead. */
+
+        v = pam_getenv(handle, key);
+        if (!isempty(v))
+                return v;
+
+        v = getenv(key);
+        if (!isempty(v))
+                return v;
+
+        return fallback;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int flags,
@@ -314,29 +334,11 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
         pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
 
-        seat = pam_getenv(handle, "XDG_SEAT");
-        if (isempty(seat))
-                seat = getenv("XDG_SEAT");
-
-        cvtnr = pam_getenv(handle, "XDG_VTNR");
-        if (isempty(cvtnr))
-                cvtnr = getenv("XDG_VTNR");
-
-        type = pam_getenv(handle, "XDG_SESSION_TYPE");
-        if (isempty(type))
-                type = getenv("XDG_SESSION_TYPE");
-        if (isempty(type))
-                type = type_pam;
-
-        class = pam_getenv(handle, "XDG_SESSION_CLASS");
-        if (isempty(class))
-                class = getenv("XDG_SESSION_CLASS");
-        if (isempty(class))
-                class = class_pam;
-
-        desktop = pam_getenv(handle, "XDG_SESSION_DESKTOP");
-        if (isempty(desktop))
-                desktop = getenv("XDG_SESSION_DESKTOP");
+        seat = getenv_harder(handle, "XDG_SEAT", NULL);
+        cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
+        type = getenv_harder(handle, "XDG_SESSION_TYPE", type_pam);
+        class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
+        desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", NULL);
 
         tty = strempty(tty);
 
