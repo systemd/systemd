@@ -202,8 +202,7 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
         return 0;
 }
 
-static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, const char *limit)
-{
+static int append_session_tasks_max(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
         uint64_t val;
         int r;
 
