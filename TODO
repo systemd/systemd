@@ -21,6 +21,10 @@ Janitorial Clean-ups:
 
 Features:
 
+* Add a "systemctl list-units --by-slice" mode or so, which rearranges the
+  output of "systemctl list-units" slightly by showing the tree structure of
+  the slices, and the units attached to them.
+
 * the stop-when-unneded feature should be reworked: there should be a queue of
   units, and we should only enqeueu stop jobs from a defer event that processes
   queue instead of right-away when we assume that a unit is now unneeded.
