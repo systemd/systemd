@@ -625,6 +625,14 @@ static void test_exec_standardinput(Manager *m) {
         test(m, "exec-standardinput-file.service", 0, CLD_EXITED);
 }
 
+static void test_exec_standardoutput(Manager *m) {
+        test(m, "exec-standardoutput-file.service", 0, CLD_EXITED);
+}
+
+static void test_exec_standardoutput_append(Manager *m) {
+        test(m, "exec-standardoutput-append.service", 0, CLD_EXITED);
+}
+
 static int run_tests(UnitFileScope scope, const test_function_t *tests) {
         const test_function_t *test = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -672,6 +680,8 @@ int main(int argc, char *argv[]) {
                 test_exec_restrictnamespaces,
                 test_exec_runtimedirectory,
                 test_exec_standardinput,
+                test_exec_standardoutput,
+                test_exec_standardoutput_append,
                 test_exec_supplementarygroups,
                 test_exec_systemcallerrornumber,
                 test_exec_systemcallfilter,

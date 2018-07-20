@@ -115,6 +115,8 @@ test_data_files = '''
         test-execute/exec-specifier@.service
         test-execute/exec-standardinput-data.service
         test-execute/exec-standardinput-file.service
+        test-execute/exec-standardoutput-file.service
+        test-execute/exec-standardoutput-append.service
         test-execute/exec-supplementarygroups-multiple-groups-default-group-user.service
         test-execute/exec-supplementarygroups-multiple-groups-withgid.service
         test-execute/exec-supplementarygroups-multiple-groups-withuid.service

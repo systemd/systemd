@@ -89,6 +89,7 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "terminal-util.h"
+#include "umask-util.h"
 #include "unit.h"
 #include "user-util.h"
 #include "util.h"
@@ -675,9 +676,10 @@ static int setup_output(
                 (void) fd_nonblock(named_iofds[fileno], false);
                 return dup2(named_iofds[fileno], fileno) < 0 ? -errno : fileno;
 
-        case EXEC_OUTPUT_FILE: {
+        case EXEC_OUTPUT_FILE:
+        case EXEC_OUTPUT_FILE_APPEND: {
                 bool rw;
-                int fd;
+                int fd, flags;
 
                 assert(context->stdio_file[fileno]);
 
@@ -687,11 +689,16 @@ static int setup_output(
                 if (rw)
                         return dup2(STDIN_FILENO, fileno) < 0 ? -errno : fileno;
 
-                fd = acquire_path(context->stdio_file[fileno], O_WRONLY, 0666 & ~context->umask);
+                flags = O_WRONLY;
+                if (o == EXEC_OUTPUT_FILE_APPEND)
+                        flags |= O_APPEND;
+
+                fd = acquire_path(context->stdio_file[fileno], flags, 0666 & ~context->umask);
+
                 if (fd < 0)
                         return fd;
 
-                return move_fd(fd, fileno, false);
+                return move_fd(fd, fileno, 0);
         }
 
         default:
@@ -4036,8 +4043,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sStandardInputFile: %s\n", prefix, c->stdio_file[STDIN_FILENO]);
         if (c->std_output == EXEC_OUTPUT_FILE)
                 fprintf(f, "%sStandardOutputFile: %s\n", prefix, c->stdio_file[STDOUT_FILENO]);
+        if (c->std_output == EXEC_OUTPUT_FILE_APPEND)
+                fprintf(f, "%sStandardOutputFileToAppend: %s\n", prefix, c->stdio_file[STDOUT_FILENO]);
         if (c->std_error == EXEC_OUTPUT_FILE)
                 fprintf(f, "%sStandardErrorFile: %s\n", prefix, c->stdio_file[STDERR_FILENO]);
+        if (c->std_error == EXEC_OUTPUT_FILE_APPEND)
+                fprintf(f, "%sStandardErrorFileToAppend: %s\n", prefix, c->stdio_file[STDERR_FILENO]);
 
         if (c->tty_path)
                 fprintf(f,
@@ -4968,6 +4979,7 @@ static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_SOCKET] = "socket",
         [EXEC_OUTPUT_NAMED_FD] = "fd",
         [EXEC_OUTPUT_FILE] = "file",
+        [EXEC_OUTPUT_FILE_APPEND] = "append",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
