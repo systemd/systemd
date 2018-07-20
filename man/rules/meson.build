@@ -842,6 +842,7 @@ manpages = [
   ''],
  ['udev_new', '3', ['udev_ref', 'udev_unref'], ''],
  ['udevadm', '8', [], ''],
+ ['user@.service', '5', ['user-runtime-dir@.service'], ''],
  ['vconsole.conf', '5', [], 'ENABLE_VCONSOLE']
 ]
 # Really, do not edit.
