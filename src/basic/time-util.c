@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -1023,7 +1024,8 @@ int parse_time(const char *t, usec_t *usec, usec_t default_unit) {
                 if (*e == '.') {
                         char *b = e + 1;
 
-                        if (*b == '-') /* Don't allow 0.-0 */
+                        /* Don't allow "0.-0", "3.+1" or "3. 1" */
+                        if (*b == '-' || *b == '+' || isspace(*b))
                                 return -EINVAL;
 
                         errno = 0;
@@ -1161,7 +1163,7 @@ int parse_nsec(const char *t, nsec_t *nsec) {
                 if (*e == '.') {
                         char *b = e + 1;
 
-                        if (*b == '-')
+                        if (*b == '-' || *b == '+' || isspace(*b))
                                 return -EINVAL;
 
                         errno = 0;
