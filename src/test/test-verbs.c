@@ -28,6 +28,12 @@ static void test_verbs(void) {
         /* not found */
         test_dispatch_one(STRV_MAKE("command-not-found"), verbs, -EINVAL);
 
+        /* ambiguous */
+        test_dispatch_one(STRV_MAKE("list"), verbs, -EINVAL);
+
+        /* shortened, found */
+        test_dispatch_one(STRV_MAKE("sh"), verbs, 0);
+
         /* found */
         test_dispatch_one(STRV_MAKE("show"), verbs, 0);
 

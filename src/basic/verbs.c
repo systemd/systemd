@@ -13,6 +13,7 @@
 #include "string-util.h"
 #include "verbs.h"
 #include "virt.h"
+#include "strv.h"
 
 /* Wraps running_in_chroot() which is used in various places, but also adds an environment variable check so external
  * processes can reliably force this on.
@@ -49,6 +50,8 @@ bool running_in_chroot_or_offline(void) {
 int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         const Verb *verb;
         const char *name;
+        size_t namelen;
+        unsigned verbslen;
         unsigned i;
         int left, r;
 
@@ -60,31 +63,48 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
 
         left = argc - optind;
         name = argv[optind];
+        namelen = name ? strlen(name) : 0;
 
+        for (unsigned n = 0;; ++n)
+                if (!verbs[n].dispatch) {
+                        verbslen = n;
+                        break;
+                }
+
+        unsigned nfound = 0;
+        const char *matches[verbslen];
+        unsigned foundi;
         for (i = 0;; i++) {
-                bool found;
 
                 /* At the end of the list? */
                 if (!verbs[i].dispatch) {
-                        if (name)
+                        if (nfound == 1)
+                                break;
+                        else if (nfound > 1) {
+                                const char *opts_list;
+                                matches[nfound] = NULL;
+                                opts_list = strv_join((char **)matches, ", "); // TODO: naughty!
+                                log_error("Ambiguous parameter match: could be %s", opts_list);
+                        } else if (name)
                                 log_error("Unknown operation %s.", name);
                         else
                                 log_error("Requires operation parameter.");
                         return -EINVAL;
                 }
 
-                if (name)
-                        found = streq(name, verbs[i].verb);
-                else
-                        found = verbs[i].flags & VERB_DEFAULT;
-
-                if (found) {
-                        verb = &verbs[i];
-                        break;
+                if (name) {
+                        if (strneq(name, verbs[i].verb, namelen)) {
+                                matches[nfound] = verbs[i].verb;
+                                foundi = i;
+                                ++nfound;
+                        }
+                } else if (verbs[i].flags & VERB_DEFAULT) {
+                        foundi = i;
+                        ++nfound;
                 }
-        }
 
-        assert(verb);
+        }
+        verb = &verbs[foundi];
 
         if (!name)
                 left = 1;
