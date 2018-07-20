@@ -16,7 +16,7 @@
   <refnamediv>
     <refname>user@.service</refname>
     <refname>user-runtime-dir@.service</refname>
-    <refpurpose>System units to manager user processes</refpurpose>
+    <refpurpose>System units to manage user processes</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
