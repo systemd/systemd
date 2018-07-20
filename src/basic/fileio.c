@@ -1225,8 +1225,12 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
         const char *fn;
         char *t;
 
-        assert(p);
         assert(ret);
+
+        if (isempty(p))
+                return -EINVAL;
+        if (path_equal(p, "/"))
+                return -EINVAL;
 
         /*
          * Turns this:
@@ -1258,8 +1262,12 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
         uint64_t u;
         unsigned i;
 
-        assert(p);
         assert(ret);
+
+        if (isempty(p))
+                return -EINVAL;
+        if (path_equal(p, "/"))
+                return -EINVAL;
 
         /*
          * Turns this:
@@ -1311,7 +1319,8 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
                 r = tmp_dir(&p);
                 if (r < 0)
                         return r;
-        }
+        } else if (isempty(p))
+                return -EINVAL;
 
         extra = strempty(extra);
 
@@ -1404,7 +1413,8 @@ int open_tmpfile_unlinkable(const char *directory, int flags) {
                 r = tmp_dir(&directory);
                 if (r < 0)
                         return r;
-        }
+        } else if (isempty(directory))
+                return -EINVAL;
 
         /* Returns an unlinked temporary file that cannot be linked into the file system anymore */
 
