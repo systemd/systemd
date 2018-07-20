@@ -176,8 +176,6 @@
           the startup phase. Using <varname>StartupCPUWeight=</varname> allows prioritizing specific services at
           boot-up differently than during normal runtime.</para>
 
-          <para>Implies <literal>CPUAccounting=true</literal>.</para>
-
           <para>These settings replace <varname>CPUShares=</varname> and <varname>StartupCPUShares=</varname>.</para>
         </listitem>
       </varlistentry>
@@ -197,7 +195,6 @@
           <para>Example: <varname>CPUQuota=20%</varname> ensures that the executed processes will never get more than
           20% CPU time on one CPU.</para>
 
-          <para>Implies <literal>CPUAccounting=true</literal>.</para>
         </listitem>
       </varlistentry>
 
@@ -230,8 +227,6 @@
           control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
-
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
         </listitem>
@@ -251,8 +246,6 @@
           system. This controls the <literal>memory.low</literal> control group attribute. For details about this
           control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
-
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
@@ -275,8 +268,6 @@
           <literal>memory.high</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
-
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
         </listitem>
@@ -298,8 +289,6 @@
           <literal>memory.max</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
 
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
-
           <para>This setting replaces <varname>MemoryLimit=</varname>.</para>
         </listitem>
       </varlistentry>
@@ -315,8 +304,6 @@
           special value <literal>infinity</literal>, no swap limit is applied. This controls the
           <literal>memory.swap.max</literal> control group attribute. For details about this control group attribute,
           see <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
-
-          <para>Implies <literal>MemoryAccounting=true</literal>.</para>
 
           <para>This setting is supported only if the unified control group hierarchy is used and disables
           <varname>MemoryLimit=</varname>.</para>
@@ -353,7 +340,7 @@
           the <literal>pids.max</literal> control group attribute. For details about this control group attribute, see
           <ulink url="https://www.kernel.org/doc/Documentation/cgroup-v1/pids.txt">pids.txt</ulink>.</para>
 
-          <para>Implies <literal>TasksAccounting=true</literal>. The
+          <para>The
           system default for this setting may be controlled with
           <varname>DefaultTasksMax=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
@@ -395,8 +382,6 @@
           phase. This allows prioritizing specific services at boot-up
           differently than during runtime.</para>
 
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
-
           <para>These settings replace <varname>BlockIOWeight=</varname> and <varname>StartupBlockIOWeight=</varname>
           and disable settings prefixed with <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
         </listitem>
@@ -414,8 +399,6 @@
           attribute, which defaults to 100. Use this option multiple times to set weights for multiple devices. For
           details about this control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.</para>
-
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
 
           <para>This setting replaces <varname>BlockIODeviceWeight=</varname> and disables settings prefixed with
           <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
@@ -440,8 +423,6 @@
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.
           </para>
 
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
-
           <para>These settings replace <varname>BlockIOReadBandwidth=</varname> and
           <varname>BlockIOWriteBandwidth=</varname> and disable settings prefixed with <varname>BlockIO</varname> or
           <varname>StartupBlockIO</varname>.</para>
@@ -465,8 +446,6 @@
           this control group attribute, see <ulink
           url="https://www.kernel.org/doc/Documentation/cgroup-v2.txt">cgroup-v2.txt</ulink>.
           </para>
-
-          <para>Implies <literal>IOAccounting=true</literal>.</para>
 
           <para>These settings are supported only if the unified control group hierarchy is used and disable settings
           prefixed with <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
