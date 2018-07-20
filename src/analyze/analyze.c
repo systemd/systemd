@@ -653,12 +653,13 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
                 if (text_width > text_start && text_width + text_start > width)
                         width = text_width + text_start;
 
-                if (u->deactivated > u->activating && u->deactivated <= boot->finish_time
-                                && u->activated == 0 && u->deactivating == 0)
+                if (u->deactivated > u->activating &&
+                    u->deactivated <= boot->finish_time &&
+                    u->activated == 0 && u->deactivating == 0)
                         u->activated = u->deactivating = u->deactivated;
                 if (u->activated < u->activating || u->activated > boot->finish_time)
                         u->activated = boot->finish_time;
-                if (u->deactivating < u->activated || u->activated > boot->finish_time)
+                if (u->deactivating < u->activated || u->deactivating > boot->finish_time)
                         u->deactivating = boot->finish_time;
                 if (u->deactivated < u->deactivating || u->deactivated > boot->finish_time)
                         u->deactivated = boot->finish_time;
