@@ -264,6 +264,24 @@ static const char* getenv_harder(pam_handle_t *handle, const char *key, const ch
         return fallback;
 }
 
+static int update_environment(pam_handle_t *handle, const char *key, const char *value) {
+        int r;
+
+        assert(handle);
+        assert(key);
+
+        /* Updates the environment, but only if there's actually a value set. Also, log about errors */
+
+        if (isempty(value))
+                return PAM_SUCCESS;
+
+        r = pam_misc_setenv(handle, key, value, 0);
+        if (r != PAM_SUCCESS)
+                pam_syslog(handle, LOG_ERR, "Failed to set environment variable %s.", key);
+
+        return r;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int flags,
@@ -519,11 +537,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                            "id=%s object_path=%s runtime_path=%s session_fd=%d seat=%s vtnr=%u original_uid=%u",
                            id, object_path, runtime_path, session_fd, seat, vtnr, original_uid);
 
-        r = pam_misc_setenv(handle, "XDG_SESSION_ID", id, 0);
-        if (r != PAM_SUCCESS) {
-                pam_syslog(handle, LOG_ERR, "Failed to set session id.");
+        r = update_environment(handle, "XDG_SESSION_ID", id);
+        if (r != PAM_SUCCESS)
                 return r;
-        }
 
         if (original_uid == pw->pw_uid) {
                 /* Don't set $XDG_RUNTIME_DIR if the user we now
@@ -532,30 +548,22 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                  * in privileged apps clobbering the runtime directory
                  * unnecessarily. */
 
-                r = pam_misc_setenv(handle, "XDG_RUNTIME_DIR", runtime_path, 0);
-                if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set runtime dir.");
+                r = update_environment(handle, "XDG_RUNTIME_DIR", runtime_path);
+                if (r != PAM_SUCCESS)
                         return r;
-                }
         }
 
-        if (!isempty(seat)) {
-                r = pam_misc_setenv(handle, "XDG_SEAT", seat, 0);
-                if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set seat.");
-                        return r;
-                }
-        }
+        r = update_environment(handle, "XDG_SEAT", seat);
+        if (r != PAM_SUCCESS)
+                return r;
 
         if (vtnr > 0) {
                 char buf[DECIMAL_STR_MAX(vtnr)];
                 sprintf(buf, "%u", vtnr);
 
-                r = pam_misc_setenv(handle, "XDG_VTNR", buf, 0);
-                if (r != PAM_SUCCESS) {
-                        pam_syslog(handle, LOG_ERR, "Failed to set virtual terminal number.");
+                r = update_environment(handle, "XDG_VTNR", buf);
+                if (r != PAM_SUCCESS)
                         return r;
-                }
         }
 
         r = pam_set_data(handle, "systemd.existing", INT_TO_PTR(!!existing), NULL);
