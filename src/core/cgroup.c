@@ -1065,11 +1065,13 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
 
         /* Figure out which controllers we need */
 
-        if (c->cpu_accounting ||
-            cgroup_context_has_cpu_weight(c) ||
+        if (cgroup_context_has_cpu_weight(c) ||
             cgroup_context_has_cpu_shares(c) ||
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
                 mask |= CGROUP_MASK_CPUACCT | CGROUP_MASK_CPU;
+
+        if (c->cpu_accounting)
+                mask |= CGROUP_MASK_CPUACCT;
 
         if (cgroup_context_has_io_config(c) || cgroup_context_has_blockio_config(c))
                 mask |= CGROUP_MASK_IO | CGROUP_MASK_BLKIO;
@@ -2475,9 +2477,6 @@ static int unit_get_cpu_usage_raw(Unit *u, nsec_t *ret) {
         if (r > 0) {
                 _cleanup_free_ char *val = NULL;
                 uint64_t us;
-
-                if ((u->cgroup_realized_mask & CGROUP_MASK_CPU) == 0)
-                        return -ENODATA;
 
                 r = cg_get_keyed_attribute("cpu", u->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
                 if (r < 0)
