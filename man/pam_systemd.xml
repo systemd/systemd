@@ -231,9 +231,9 @@
       </varlistentry>
     </variablelist>
 
-    <para>If not set, <command>pam_systemd</command> will determine the
-    values for <varname>$XDG_SEAT</varname> and <varname>$XDG_VTNR</varname>
-    based on the <varname>$DISPLAY</varname> variable.</para>
+    <para>If not set, <command>pam_systemd</command> will initialize
+    <varname>$XDG_SEAT</varname> and <varname>$XDG_VTNR</varname>
+    based on the <varname>$DISPLAY</varname> variable (if the latter is set).</para>
   </refsect1>
 
   <refsect1>
