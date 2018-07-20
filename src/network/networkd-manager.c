@@ -1386,9 +1386,9 @@ int manager_new(Manager **ret) {
         if (r < 0)
                 return r;
 
-        sd_event_set_watchdog(m->event, true);
-        sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
-        sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
+        (void) sd_event_set_watchdog(m->event, true);
+        (void) sd_event_add_signal(m->event, NULL, SIGTERM, NULL, NULL);
+        (void) sd_event_add_signal(m->event, NULL, SIGINT, NULL, NULL);
 
         r = sd_event_add_post(m->event, NULL, manager_dirty_handler, m);
         if (r < 0)
