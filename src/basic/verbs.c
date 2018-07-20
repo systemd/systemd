@@ -97,6 +97,9 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                                 matches[nfound] = verbs[i].verb;
                                 foundi = i;
                                 ++nfound;
+                                /* if exact match, accept it immediately */
+                                if (streq(name, verbs[i].verb))
+                                        break;
                         }
                 } else if (verbs[i].flags & VERB_DEFAULT) {
                         foundi = i;
