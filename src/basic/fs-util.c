@@ -1195,3 +1195,31 @@ int fsync_directory_of_file(int fd) {
 
         return 0;
 }
+
+int open_parent(const char *path, int flags, mode_t mode) {
+        _cleanup_free_ char *parent = NULL;
+        int fd;
+
+        if (isempty(path))
+                return -EINVAL;
+        if (path_equal(path, "/")) /* requesting the parent of the root dir is fishy, let's prohibit that */
+                return -EINVAL;
+
+        parent = dirname_malloc(path);
+        if (!parent)
+                return -ENOMEM;
+
+        /* Let's insist on O_DIRECTORY since the parent of a file or directory is a directory. Except if we open an
+         * O_TMPFILE file, because in that case we are actually create a regular file below the parent directory. */
+
+        if ((flags & O_PATH) == O_PATH)
+                flags |= O_DIRECTORY;
+        else if ((flags & O_TMPFILE) != O_TMPFILE)
+                flags |= O_DIRECTORY|O_RDONLY;
+
+        fd = open(parent, flags, mode);
+        if (fd < 0)
+                return -errno;
+
+        return fd;
+}

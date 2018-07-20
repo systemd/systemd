@@ -28,6 +28,7 @@
 #include "device-nodes.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "macro.h"
 #include "missing.h"
@@ -57,23 +58,6 @@ static int validate_subvolume_name(const char *name) {
                 return -E2BIG;
 
         return 0;
-}
-
-static int open_parent(const char *path, int flags) {
-        _cleanup_free_ char *parent = NULL;
-        int fd;
-
-        assert(path);
-
-        parent = dirname_malloc(path);
-        if (!parent)
-                return -ENOMEM;
-
-        fd = open(parent, flags);
-        if (fd < 0)
-                return -errno;
-
-        return fd;
 }
 
 static int extract_subvolume_name(const char *path, const char **subvolume) {
@@ -144,7 +128,7 @@ int btrfs_subvol_make(const char *path) {
         if (r < 0)
                 return r;
 
-        fd = open_parent(path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        fd = open_parent(path, O_CLOEXEC, 0);
         if (fd < 0)
                 return fd;
 
@@ -1283,7 +1267,7 @@ int btrfs_subvol_remove(const char *path, BtrfsRemoveFlags flags) {
         if (r < 0)
                 return r;
 
-        fd = open_parent(path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        fd = open_parent(path, O_CLOEXEC, 0);
         if (fd < 0)
                 return fd;
 
@@ -1723,7 +1707,7 @@ int btrfs_subvol_snapshot_fd(int old_fd, const char *new_path, BtrfsSnapshotFlag
         if (r < 0)
                 return r;
 
-        new_fd = open_parent(new_path, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        new_fd = open_parent(new_path, O_CLOEXEC, 0);
         if (new_fd < 0)
                 return new_fd;
 
