@@ -38,7 +38,7 @@ static int fake_filesystems(void) {
         if (unshare(CLONE_NEWNS) < 0)
                 return log_error_errno(errno, "failed to call unshare(): %m");
 
-        if (mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) < 0)
+        if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
                 return log_error_errno(errno, "failed to mount / as private: %m");
 
         for (i = 0; i < ELEMENTSOF(fakefss); i++) {

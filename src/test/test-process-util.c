@@ -206,7 +206,7 @@ static void test_get_process_cmdline_harder(void) {
         assert_se(pid == 0);
         assert_se(unshare(CLONE_NEWNS) >= 0);
 
-        assert_se(mount(NULL, "/", NULL, MS_PRIVATE|MS_REC, NULL) >= 0);
+        assert_se(mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) >= 0);
 
         fd = mkostemp(path, O_CLOEXEC);
         assert_se(fd >= 0);
