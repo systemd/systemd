@@ -3130,7 +3130,7 @@ static int start_unit(int argc, char *argv[], void *userdata) {
                                 check_triggering_units(bus, *name);
         }
 
-        if (r >= 0 && arg_wait) {
+        if (r >= 0 && arg_wait && !set_isempty(wait_context.unit_paths)) {
                 int q;
                 q = sd_event_loop(wait_context.event);
                 if (q < 0)
