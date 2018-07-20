@@ -1474,6 +1474,7 @@ void manager_free(Manager *m) {
         set_free_with_destructor(m->rules_saved, routing_policy_rule_free);
 
         sd_netlink_unref(m->rtnl);
+        sd_netlink_unref(m->genl);
         sd_event_unref(m->event);
 
         sd_resolve_unref(m->resolve);
