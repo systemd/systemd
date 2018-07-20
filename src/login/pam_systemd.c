@@ -553,6 +553,22 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                         return r;
         }
 
+        /* Most likely we got the session/type/class from environment variables, but might have gotten the data
+         * somewhere else (for example PAM module parameters). Let's now update the environment variables, so that this
+         * data is inherited into the session processes, and programs can rely on them to be initialized. */
+
+        r = update_environment(handle, "XDG_SESSION_TYPE", type);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = update_environment(handle, "XDG_SESSION_CLASS", class);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = update_environment(handle, "XDG_SESSION_DESKTOP", desktop);
+        if (r != PAM_SUCCESS)
+                return r;
+
         r = update_environment(handle, "XDG_SEAT", seat);
         if (r != PAM_SUCCESS)
                 return r;
