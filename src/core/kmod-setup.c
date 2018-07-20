@@ -76,13 +76,15 @@ int kmod_setup(void) {
                 bool warn_if_module:1;
                 bool (*condition_fn)(void);
         } kmod_table[] = {
-                /* auto-loading on use doesn't work before udev is up */
+                /* This one we need to load explicitly, since auto-loading on use doesn't work
+                 * before udev created the ghost device nodes, and we need it earlier than that. */
                 { "autofs4",   "/sys/class/misc/autofs",    true,   false,   NULL      },
 
-                /* early configure of ::1 on the loopback device */
+                /* This one we need to load explicitly, since auto-loading of IPv6 is not done when
+                 * we try to configure ::1 on the loopback device. */
                 { "ipv6",      "/sys/module/ipv6",          false,  true,    NULL      },
 
-                /* this should never be a module */
+                /* This should never be a module */
                 { "unix",      "/proc/net/unix",            true,   true,    NULL      },
 
 #if HAVE_LIBIPTC
@@ -94,14 +96,11 @@ int kmod_setup(void) {
         };
         _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
         unsigned int i;
-        int r;
 
         if (have_effective_cap(CAP_SYS_MODULE) == 0)
                 return 0;
 
         for (i = 0; i < ELEMENTSOF(kmod_table); i++) {
-                _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
-
                 if (kmod_table[i].path && access(kmod_table[i].path, F_OK) >= 0)
                         continue;
 
@@ -122,23 +121,7 @@ int kmod_setup(void) {
                         kmod_load_resources(ctx);
                 }
 
-                r = kmod_module_new_from_name(ctx, kmod_table[i].module, &mod);
-                if (r < 0) {
-                        log_error("Failed to lookup module '%s'", kmod_table[i].module);
-                        continue;
-                }
-
-                r = kmod_module_probe_insert_module(mod, KMOD_PROBE_APPLY_BLACKLIST, NULL, NULL, NULL, NULL);
-                if (r == 0)
-                        log_debug("Inserted module '%s'", kmod_module_get_name(mod));
-                else if (r == KMOD_PROBE_APPLY_BLACKLIST)
-                        log_info("Module '%s' is blacklisted", kmod_module_get_name(mod));
-                else {
-                        bool print_warning = kmod_table[i].warn_if_unavailable || (r < 0 && r != -ENOENT);
-
-                        log_full_errno(print_warning ? LOG_WARNING : LOG_DEBUG, r,
-                                       "Failed to insert module '%s': %m", kmod_module_get_name(mod));
-                }
+                (void) module_load_and_warn(ctx, kmod_table[i].module, kmod_table[i].warn_if_unavailable);
         }
 
 #endif

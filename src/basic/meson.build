@@ -121,7 +121,6 @@ basic_sources = files('''
         mkdir-label.c
         mkdir.c
         mkdir.h
-        module-util.h
         mount-util.c
         mount-util.h
         nss-util.h

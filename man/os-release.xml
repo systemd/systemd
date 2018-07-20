@@ -234,7 +234,7 @@
         if there is any. This is primarily intended for operating
         systems that rely on community QA.
         <varname>PRIVACY_POLICY_URL=</varname> should refer to the
-        main privacy policy page for the operation system, if there is
+        main privacy policy page for the operating system, if there is
         any. These settings are optional, and providing only some of
         these settings is common. These URLs are intended to be
         exposed in "About this system" UIs behind links with captions
