@@ -50,7 +50,6 @@ static inline const char* enable_disable(bool b) {
 bool plymouth_running(void);
 
 bool display_is_local(const char *display) _pure_;
-int socket_from_display(const char *display, char **path);
 
 #define NULSTR_FOREACH(i, l)                                    \
         for ((i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
