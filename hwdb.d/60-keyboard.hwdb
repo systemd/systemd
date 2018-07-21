@@ -1892,6 +1892,20 @@ evdev:input:b0003v1038p0310*
  KEYBOARD_KEY_70046=f6
 
 ###########################################################
+# CZC
+###########################################################
+
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnCZC:pnODEON*TPC-10:*
+ KEYBOARD_KEY_01=leftmeta                               # Home button held for 2s
+ KEYBOARD_KEY_db=prog1                                  # Home button
+ KEYBOARD_KEY_dd=rfkill                                 # Second button labeled Wi-Fi
+
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnViewSonic:pnVPAD10:*
+ KEYBOARD_KEY_01=leftmeta                               # Home button held for 2s
+ KEYBOARD_KEY_db=prog1                                  # Home button
+ KEYBOARD_KEY_dd=back                                   # Second button labeled Back
+
+###########################################################
 # Other
 ###########################################################
 
