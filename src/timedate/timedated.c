@@ -44,6 +44,7 @@ typedef struct Context {
         char *zone;
         bool local_rtc;
         Hashmap *polkit_registry;
+        sd_bus_message *cache;
 
         LIST_HEAD(UnitStatusInfo, units);
 } Context;
@@ -71,6 +72,7 @@ static void context_free(Context *c) {
 
         free(c->zone);
         bus_verify_polkit_async_registry_free(c->polkit_registry);
+        sd_bus_message_unref(c->cache);
 
         while ((p = c->units)) {
                 LIST_REMOVE(units, c->units, p);
@@ -302,18 +304,20 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
                 { "UnitFileState", "s", NULL, offsetof(UnitStatusInfo, unit_file_state) },
                 {}
         };
-        static sd_bus_message *_m = NULL;
         UnitStatusInfo *u;
         int r;
 
         assert(c);
         assert(bus);
 
-        /* Suppress multiple call of context_update_ntp_status() within single DBus transaction. */
-        if (m && m == _m)
-                return 0;
+        /* Suppress calling context_update_ntp_status() multiple times within single DBus transaction. */
+        if (m) {
+                if (m == c->cache)
+                        return 0;
 
-        _m = m;
+                sd_bus_message_unref(c->cache);
+                c->cache = sd_bus_message_ref(m);
+        }
 
         LIST_FOREACH(units, u, c->units) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
