@@ -2,7 +2,6 @@
 /*
  * Copyright © IBM Corp. 2003
  * Copyright © SUSE Linux Products GmbH, 2006
- *
  */
 
 #include <ctype.h>

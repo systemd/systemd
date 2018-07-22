@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
-/*
- *
- */
 
 #include "path-util.h"
 #include "string-util.h"

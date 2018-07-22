@@ -661,7 +661,6 @@ int bpf_firewall_supported(void) {
          * c) the BPF implementation in the kernel supports BPF LPM TRIE maps, which we require
          * d) the BPF implementation in the kernel supports BPF_PROG_TYPE_CGROUP_SKB programs, which we require
          * e) the BPF implementation in the kernel supports the BPF_PROG_ATTACH call, which we require
-         *
          */
 
         if (supported >= 0)

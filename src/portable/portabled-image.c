@@ -58,7 +58,6 @@ int manager_image_cache_add(Manager *m, Image *image) {
          *
          * 2. If the image was discovered in the search path (i.e. its discoverable boolean set) we'll also add it
          *    under its short name.
-         *
          */
 
         r = manager_image_cache_initialize(m);

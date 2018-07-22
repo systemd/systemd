@@ -2143,7 +2143,6 @@ static int dnssec_test_positive_wildcard_nsec(
          *      3)   b.c.d.e.f
          *      4)   *.c.d.e.f
          *      5)     c.d.e.f
-         *
          */
 
         for (;;) {

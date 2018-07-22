@@ -4,8 +4,6 @@
  *
  * Copyright (c) 2005 SUSE Linux Products GmbH, Germany
  *   Author: Hannes Reinecke <hare@suse.de>
- *
- *
  */
 
 #include <ctype.h>

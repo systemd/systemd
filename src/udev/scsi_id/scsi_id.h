@@ -3,7 +3,6 @@
 
 /*
  * Copyright © IBM Corp. 2003
- *
  */
 
 #define MAX_PATH_LEN 512

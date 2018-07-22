@@ -1366,7 +1366,6 @@ bool job_may_gc(Job *j) {
          *  we start + other stop  → gc
          *  we stop  + other start → stay
          *  we stop  + other stop  → stay
-         *
          */
 
         return true;
