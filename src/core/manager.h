@@ -67,6 +67,13 @@ typedef enum ManagerTimestamp {
         MANAGER_TIMESTAMP_GENERATORS_FINISH,
         MANAGER_TIMESTAMP_UNITS_LOAD_START,
         MANAGER_TIMESTAMP_UNITS_LOAD_FINISH,
+
+        MANAGER_TIMESTAMP_INITRD_SECURITY_START,
+        MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH,
+        MANAGER_TIMESTAMP_INITRD_GENERATORS_START,
+        MANAGER_TIMESTAMP_INITRD_GENERATORS_FINISH,
+        MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START,
+        MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH,
         _MANAGER_TIMESTAMP_MAX,
         _MANAGER_TIMESTAMP_INVALID = -1,
 } ManagerTimestamp;
@@ -479,3 +486,4 @@ void manager_disable_confirm_spawn(void);
 
 const char *manager_timestamp_to_string(ManagerTimestamp m) _const_;
 ManagerTimestamp manager_timestamp_from_string(const char *s) _pure_;
+ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s);
