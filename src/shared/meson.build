@@ -64,7 +64,6 @@ shared_sources = files('''
         machine-pool.c
         machine-pool.h
         module-util.h
-        module-util.c
         nsflags.c
         nsflags.h
         output-mode.c
@@ -123,6 +122,10 @@ endif
 
 if conf.get('HAVE_LIBIPTC') == 1
         shared_sources += files('firewall-util.c')
+endif
+
+if conf.get('HAVE_KMOD') == 1
+        shared_sources += files('module-util.c')
 endif
 
 libshared_name = 'systemd-shared-@0@'.format(meson.project_version())
