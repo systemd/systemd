@@ -88,6 +88,12 @@ struct boot_times {
         usec_t generators_finish_time;
         usec_t unitsload_start_time;
         usec_t unitsload_finish_time;
+        usec_t initrd_security_start_time;
+        usec_t initrd_security_finish_time;
+        usec_t initrd_generators_start_time;
+        usec_t initrd_generators_finish_time;
+        usec_t initrd_unitsload_start_time;
+        usec_t initrd_unitsload_finish_time;
 
         /*
          * If we're analyzing the user instance, all timestamps will be offset
@@ -288,6 +294,37 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
                                     "UnitsLoadFinishTimestampMonotonic",
                                     &times.unitsload_finish_time) < 0)
                 return -EIO;
+
+        (void) bus_get_uint64_property(bus,
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "InitRDSecurityStartTimestampMonotonic",
+                                       &times.initrd_security_start_time);
+        (void) bus_get_uint64_property(bus,
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "InitRDSecurityFinishTimestampMonotonic",
+                                       &times.initrd_security_finish_time);
+        (void) bus_get_uint64_property(bus,
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "InitRDGeneratorsStartTimestampMonotonic",
+                                       &times.initrd_generators_start_time);
+        (void) bus_get_uint64_property(bus,
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "InitRDGeneratorsFinishTimestampMonotonic",
+                                       &times.initrd_generators_finish_time);
+        (void) bus_get_uint64_property(bus,
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "InitRDUnitsLoadStartTimestampMonotonic",
+                                       &times.initrd_unitsload_start_time);
+        (void) bus_get_uint64_property(bus,
+                                       "/org/freedesktop/systemd1",
+                                       "org.freedesktop.systemd1.Manager",
+                                       "InitRDUnitsLoadFinishTimestampMonotonic",
+                                       &times.initrd_unitsload_finish_time);
 
         if (times.finish_time <= 0) {
                 log_error("Bootup is not yet finished (org.freedesktop.systemd1.Manager.FinishTimestampMonotonic=%"PRIu64").\n"
@@ -762,6 +799,12 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         }
         if (boot->initrd_time > 0) {
                 svg_bar("initrd", boot->initrd_time, boot->userspace_time, y);
+                if (boot->initrd_security_start_time < boot->initrd_security_finish_time)
+                        svg_bar("security", boot->initrd_security_start_time, boot->initrd_security_finish_time, y);
+                if (boot->initrd_generators_start_time < boot->initrd_generators_finish_time)
+                        svg_bar("generators", boot->initrd_generators_start_time, boot->initrd_generators_finish_time, y);
+                if (boot->initrd_unitsload_start_time < boot->initrd_unitsload_finish_time)
+                        svg_bar("unitsload", boot->initrd_unitsload_start_time, boot->initrd_unitsload_finish_time, y);
                 svg_text(true, boot->initrd_time, y, "initrd");
                 y++;
         }
