@@ -490,6 +490,7 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
         };
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
         _cleanup_(free_host_infop) struct host_info *host;
         int r;
 
@@ -497,7 +498,15 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
         if (!host)
                 return log_oom();
 
-        r = bus_map_all_properties(bus,
+        if (arg_scope != UNIT_FILE_SYSTEM) {
+                r = bus_connect_transport(arg_transport, arg_host, false, &system_bus);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to connect to system bus, ignoring: %m");
+                        goto manager;
+                }
+        }
+
+        r = bus_map_all_properties(system_bus ?: bus,
                                    "org.freedesktop.hostname1",
                                    "/org/freedesktop/hostname1",
                                    hostname_map,
@@ -505,9 +514,12 @@ static int acquire_host_info(sd_bus *bus, struct host_info **hi) {
                                    &error,
                                    NULL,
                                    host);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get host information from systemd-hostnamed: %s", bus_error_message(&error, r));
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get host information from systemd-hostnamed, ignoring: %s", bus_error_message(&error, r));
+                sd_bus_error_free(&error);
+        }
 
+manager:
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.systemd1",
                                    "/org/freedesktop/systemd1",
@@ -648,12 +660,12 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         _cleanup_(free_host_infop) struct host_info *host = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_freep) struct unit_times *times = NULL;
-        struct boot_times *boot;
-        int n, m = 1, y = 0, r;
-        bool use_full_bus = true;
-        double width;
         _cleanup_free_ char *pretty_times = NULL;
+        bool use_full_bus = arg_scope == UNIT_FILE_SYSTEM;
+        struct boot_times *boot;
         struct unit_times *u;
+        int n, m = 1, y = 0, r;
+        double width;
 
         r = acquire_bus(&bus, &use_full_bus);
         if (r < 0)
@@ -667,7 +679,7 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         if (n < 0)
                 return n;
 
-        if (use_full_bus) {
+        if (use_full_bus || arg_scope != UNIT_FILE_SYSTEM) {
                 n = acquire_host_info(bus, &host);
                 if (n < 0)
                         return n;
@@ -769,7 +781,7 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
 
         svg("<rect class=\"background\" width=\"100%%\" height=\"100%%\" />\n");
         svg("<text x=\"20\" y=\"50\">%s</text>", pretty_times);
-        if (use_full_bus)
+        if (host)
                 svg("<text x=\"20\" y=\"30\">%s %s (%s %s %s) %s %s</text>",
                     isempty(host->os_pretty_name) ? "Linux" : host->os_pretty_name,
                     strempty(host->hostname),
