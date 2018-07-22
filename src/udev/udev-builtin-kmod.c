@@ -3,7 +3,6 @@
  * load kernel modules
  *
  * Copyright © 2011 ProFUSION embedded systems
- *
  */
 
 #include <errno.h>

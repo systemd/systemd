@@ -3,7 +3,6 @@
  * probe disks for filesystems and partitions
  *
  * Copyright © 2011 Karel Zak <kzak@redhat.com>
- *
  */
 
 #include <blkid.h>

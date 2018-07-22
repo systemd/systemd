@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * manage device node user ACL
- *
- *
  */
 
 #include <errno.h>

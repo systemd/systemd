@@ -3,7 +3,6 @@
  * ata_id - reads product/serial number from ATA drives
  *
  * Copyright © 2009-2010 David Zeuthen <zeuthen@gmail.com>
- *
  */
 
 #include <ctype.h>

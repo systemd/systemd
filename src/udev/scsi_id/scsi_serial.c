@@ -3,7 +3,6 @@
  * Copyright © IBM Corp. 2003
  *
  * Author: Patrick Mansfield<patmans@us.ibm.com>
- *
  */
 
 #include <errno.h>

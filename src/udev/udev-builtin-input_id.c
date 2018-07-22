@@ -4,7 +4,6 @@
  *
  * Portions Copyright © 2004 David Zeuthen, <david@fubar.dk>
  * Copyright © 2014 Carlos Garnacho <carlosg@gnome.org>
- *
  */
 
 #include <errno.h>

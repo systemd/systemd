@@ -2,9 +2,7 @@
 /*
  * compose persistent device path
  *
- *
  * Logic based on Hannes Reinecke's shell script.
- *
  */
 
 #include <ctype.h>

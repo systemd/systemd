@@ -1,6 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/*
- */
 #ifndef __SDBOOT_MEASURE_H
 #define __SDBOOT_MEASURE_H
 

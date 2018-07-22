@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright © 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
- *
  */
 
 #include <errno.h>

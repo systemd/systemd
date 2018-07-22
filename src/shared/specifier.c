@@ -21,7 +21,6 @@
 /*
  * Generic infrastructure for replacing %x style specifiers in
  * strings. Will call a callback for each replacement.
- *
  */
 
 /* Any ASCII character or digit: our pool of potential specifiers,

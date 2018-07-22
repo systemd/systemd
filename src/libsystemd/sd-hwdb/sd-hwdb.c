@@ -148,7 +148,6 @@ static int hwdb_add_property(sd_hwdb *hwdb, const struct trie_value_entry_f *ent
                 if (old) {
                         /* On duplicates, we order by filename priority and line-number.
                          *
-                         *
                          * v2 of the format had 64 bits for the line number.
                          * v3 reuses top 32 bits of line_number to store the priority.
                          * We check the top bits — if they are zero we have v2 format.

@@ -3,7 +3,6 @@
 
 /*
  * Copyright © 2003 Greg Kroah-Hartman <greg@kroah.com>
- *
  */
 
 #include <sys/param.h>

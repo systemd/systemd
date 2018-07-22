@@ -9,8 +9,8 @@
  *		version 2 of the License, or (at your option) any later version.
  *
  * Version:     @(#)initreq.h  1.28  31-Mar-2004 MvS
- *
  */
+
 #ifndef _INITREQ_H
 #define _INITREQ_H
 

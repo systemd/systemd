@@ -3,7 +3,6 @@
  * Copyright © 2004 Chris Friesen <chris_friesen@sympatico.ca>
  * Copyright © 2009 Canonical Ltd.
  * Copyright © 2009 Scott James Remnant <scott@netsplit.com>
- *
  */
 
 #include <errno.h>
