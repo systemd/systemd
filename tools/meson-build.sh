@@ -6,7 +6,7 @@ dst="$2"
 target="$3"
 options="$4"
 
-[ -d "$dst" ] || meson "$src" "$dst" $options
+[ -f "$dst/ninja.build" ] || meson "$src" "$dst" $options
 
 # Locate ninja binary, on CentOS 7 it is called ninja-build, so
 # use that name if available.
