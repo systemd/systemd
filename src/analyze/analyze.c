@@ -585,6 +585,28 @@ static void svg_graph_box(double height, double begin, double end) {
         }
 }
 
+static int plot_unit_times(struct unit_times *u, double width, int y) {
+        char ts[FORMAT_TIMESPAN_MAX];
+        bool b;
+
+        if (!u->name)
+                return 0;
+
+        svg_bar("activating",   u->activating, u->activated, y);
+        svg_bar("active",       u->activated, u->deactivating, y);
+        svg_bar("deactivating", u->deactivating, u->deactivated, y);
+
+        /* place the text on the left if we have passed the half of the svg width */
+        b = u->activating * SCALE_X < width / 2;
+        if (u->time)
+                svg_text(b, u->activating, y, "%s (%s)",
+                         u->name, format_timespan(ts, sizeof(ts), u->time, USEC_PER_MSEC));
+        else
+                svg_text(b, u->activating, y, "%s", u->name);
+
+        return 1;
+}
+
 static int analyze_plot(int argc, char *argv[], void *userdata) {
         _cleanup_(free_host_infop) struct host_info *host = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -639,8 +661,7 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         for (u = times; u->has_data; u++) {
                 double text_start, text_width;
 
-                if (u->activating < boot->userspace_time ||
-                    u->activating > boot->finish_time) {
+                if (u->activating > boot->finish_time) {
                         u->name = mfree(u->name);
                         continue;
                 }
@@ -744,6 +765,14 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
                 svg_text(true, boot->initrd_time, y, "initrd");
                 y++;
         }
+
+        for (u = times; u->has_data; u++) {
+                if (u->activating >= boot->userspace_time)
+                        break;
+
+                y += plot_unit_times(u, width, y);
+        }
+
         svg_bar("active", boot->userspace_time, boot->finish_time, y);
         svg_bar("security", boot->security_start_time, boot->security_finish_time, y);
         svg_bar("generators", boot->generators_start_time, boot->generators_finish_time, y);
@@ -751,26 +780,8 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         svg_text(true, boot->userspace_time, y, "systemd");
         y++;
 
-        for (u = times; u->has_data; u++) {
-                char ts[FORMAT_TIMESPAN_MAX];
-                bool b;
-
-                if (!u->name)
-                        continue;
-
-                svg_bar("activating",   u->activating, u->activated, y);
-                svg_bar("active",       u->activated, u->deactivating, y);
-                svg_bar("deactivating", u->deactivating, u->deactivated, y);
-
-                /* place the text on the left if we have passed the half of the svg width */
-                b = u->activating * SCALE_X < width / 2;
-                if (u->time)
-                        svg_text(b, u->activating, y, "%s (%s)",
-                                 u->name, format_timespan(ts, sizeof(ts), u->time, USEC_PER_MSEC));
-                else
-                        svg_text(b, u->activating, y, "%s", u->name);
-                y++;
-        }
+        for (; u->has_data; u++)
+                y += plot_unit_times(u, width, y);
 
         svg("</g>\n");
 
