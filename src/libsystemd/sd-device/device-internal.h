@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
+#include "sd-device.h"
+
 #include "hashmap.h"
 #include "set.h"
 
