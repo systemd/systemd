@@ -99,11 +99,11 @@
       <varlistentry>
         <term><varname>CPUAffinity=</varname></term>
 
-        <listitem><para>Configures the initial CPU affinity for the
-        init process. Takes a list of CPU indices or ranges separated
-        by either whitespace or commas. CPU ranges are specified by
-        the lower and upper CPU indices separated by a
-        dash.</para></listitem>
+        <listitem><para>Configures the CPU affinity for the service manager as well as the default CPU affinity for all
+        forked off processes. Takes a list of CPU indices or ranges separated by either whitespace or commas. CPU
+        ranges are specified by the lower and upper CPU indices separated by a dash. Individual services may override
+        the CPU affinity for their processes with the <varname>CPUAffinity=</varname> setting in unit files, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
