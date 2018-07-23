@@ -95,7 +95,7 @@ static int arg_crash_chvt = -1;
 static bool arg_crash_shell = false;
 static bool arg_crash_reboot = false;
 static char *arg_confirm_spawn = NULL;
-static ShowStatus arg_show_status = _SHOW_STATUS_UNSET;
+static ShowStatus arg_show_status = _SHOW_STATUS_INVALID;
 static bool arg_switched_root = false;
 static bool arg_no_pager = false;
 static bool arg_service_watchdogs = true;
@@ -470,7 +470,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
         } else if (streq(key, "quiet") && !value) {
 
-                if (arg_show_status == _SHOW_STATUS_UNSET)
+                if (arg_show_status == _SHOW_STATUS_INVALID)
                         arg_show_status = SHOW_STATUS_AUTO;
 
         } else if (streq(key, "debug") && !value) {
@@ -1219,7 +1219,7 @@ static int status_welcome(void) {
         _cleanup_free_ char *pretty_name = NULL, *ansi_color = NULL;
         int r;
 
-        if (arg_show_status <= 0)
+        if (IN_SET(arg_show_status, SHOW_STATUS_NO, SHOW_STATUS_AUTO))
                 return 0;
 
         r = parse_os_release(NULL,
@@ -1985,7 +1985,7 @@ static int load_configuration(int argc, char **argv, const char **ret_error_mess
         }
 
         /* Initialize the show status setting if it hasn't been set explicitly yet */
-        if (arg_show_status == _SHOW_STATUS_UNSET)
+        if (arg_show_status == _SHOW_STATUS_INVALID)
                 arg_show_status = SHOW_STATUS_YES;
 
         return 0;

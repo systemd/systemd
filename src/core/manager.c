@@ -3912,7 +3912,7 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
                           mode == SHOW_STATUS_NO ? "Disabling" : "Enabling");
         m->show_status = mode;
 
-        if (mode > 0)
+        if (IN_SET(mode, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES))
                 (void) touch("/run/systemd/show-status");
         else
                 (void) unlink("/run/systemd/show-status");
@@ -3934,7 +3934,7 @@ static bool manager_get_show_status(Manager *m, StatusType type) {
         if (type != STATUS_TYPE_EMERGENCY && manager_check_ask_password(m) > 0)
                 return false;
 
-        return m->show_status > 0;
+        return IN_SET(m->show_status, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
 }
 
 const char *manager_get_confirm_spawn(Manager *m) {
