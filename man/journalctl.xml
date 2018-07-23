@@ -316,10 +316,23 @@
                 <option>json</option>
               </term>
               <listitem>
-                <para>formats entries as JSON data structures, one per
-                line (see
-                <ulink url="https://www.freedesktop.org/wiki/Software/systemd/json">Journal JSON Format</ulink>
-                for more information).</para>
+                <para>formats entries as JSON objects, separated by newline characters (see <ulink
+                url="https://www.freedesktop.org/wiki/Software/systemd/json">Journal JSON Format</ulink> for more
+                information). Field values are generally encoded as JSON strings, with three exceptions:
+                <orderedlist>
+                  <listitem><para>Fields larger than 4096 bytes are encoded as <constant>null</constant> values. (This
+                  may be turned off by passing <option>--all</option>, but be aware that this may allocate overly long
+                  JSON objects.) </para></listitem>
+
+                  <listitem><para>Journal entries permit non-unique fields within the same log entry. JSON does not allow
+                  non-unique fields within objects. Due to this, if a non-unique field is encountered a JSON array is
+                  used as field value, listing all field values as elements.</para></listitem>
+
+                  <listitem><para>Fields containing non-printable or non-UTF8 bytes are encoded as arrays containing
+                  the raw bytes individually formatted as unsigned numbers.</para></listitem>
+                </orderedlist>
+
+                Note that this encoding is reversible (with the exception of the size limit).</para>
               </listitem>
             </varlistentry>
 
@@ -342,6 +355,19 @@
                 <para>formats entries as JSON data structures, but wraps
                 them in a format suitable for
                 <ulink url="https://developer.mozilla.org/en-US/docs/Server-sent_events/Using_server-sent_events">Server-Sent Events</ulink>.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term>
+                <option>json-seq</option>
+              </term>
+              <listitem>
+                <para>formats entries as JSON data structures, but prefixes them with an ASCII Record Separator
+                character (0x1E) and suffixes them with an ASCII Line Feed character (0x0A), in accordance with <ulink
+                url="https://tools.ietf.org/html/rfc7464">JavaScript Object Notation (JSON) Text Sequences </ulink>
+                (<literal>application/json-seq</literal>).
                 </para>
               </listitem>
             </varlistentry>
@@ -375,14 +401,11 @@
       <varlistentry>
         <term><option>--output-fields=</option></term>
 
-        <listitem><para>A comma separated list of the fields which should
-        be included in the output. This only has an effect for the output modes
-        which would normally show all fields (<option>verbose</option>,
-        <option>export</option>, <option>json</option>,
-        <option>json-pretty</option>, and <option>json-sse</option>). The
-        <literal>__CURSOR</literal>, <literal>__REALTIME_TIMESTAMP</literal>,
-        <literal>__MONOTONIC_TIMESTAMP</literal>, and
-        <literal>_BOOT_ID</literal> fields are always
+        <listitem><para>A comma separated list of the fields which should be included in the output. This only has an
+        effect for the output modes which would normally show all fields (<option>verbose</option>,
+        <option>export</option>, <option>json</option>, <option>json-pretty</option>, <option>json-sse</option> and
+        <option>json-seq</option>). The <literal>__CURSOR</literal>, <literal>__REALTIME_TIMESTAMP</literal>,
+        <literal>__MONOTONIC_TIMESTAMP</literal>, and <literal>_BOOT_ID</literal> fields are always
         printed.</para></listitem>
       </varlistentry>
 

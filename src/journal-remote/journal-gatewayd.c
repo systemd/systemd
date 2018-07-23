@@ -58,6 +58,7 @@ static const char* const mime_types[_OUTPUT_MODE_MAX] = {
         [OUTPUT_SHORT] = "text/plain",
         [OUTPUT_JSON] = "application/json",
         [OUTPUT_JSON_SSE] = "text/event-stream",
+        [OUTPUT_JSON_SEQ] = "application/json-seq",
         [OUTPUT_EXPORT] = "application/vnd.fdo.journal",
 };
 
@@ -267,6 +268,8 @@ static int request_parse_accept(
                 m->mode = OUTPUT_JSON;
         else if (streq(header, mime_types[OUTPUT_JSON_SSE]))
                 m->mode = OUTPUT_JSON_SSE;
+        else if (streq(header, mime_types[OUTPUT_JSON_SEQ]))
+                m->mode = OUTPUT_JSON_SEQ;
         else if (streq(header, mime_types[OUTPUT_EXPORT]))
                 m->mode = OUTPUT_EXPORT;
         else

@@ -330,7 +330,8 @@ static int help(void) {
                "  -o --output=STRING         Change journal output mode (short, short-precise,\n"
                "                               short-iso, short-iso-precise, short-full,\n"
                "                               short-monotonic, short-unix, verbose, export,\n"
-               "                               json, json-pretty, json-sse, cat, with-unit)\n"
+               "                               json, json-pretty, json-sse, json-seq, cat,\n"
+               "                               with-unit)\n"
                "     --output-fields=LIST    Select fields to print in verbose/export/json modes\n"
                "     --utc                   Express time in Coordinated Universal Time (UTC)\n"
                "  -x --catalog               Add message explanations where available\n"
@@ -516,7 +517,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return -EINVAL;
                         }
 
-                        if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_CAT))
+                        if (IN_SET(arg_output, OUTPUT_EXPORT, OUTPUT_JSON, OUTPUT_JSON_PRETTY, OUTPUT_JSON_SSE, OUTPUT_JSON_SEQ, OUTPUT_CAT))
                                 arg_quiet = true;
 
                         break;

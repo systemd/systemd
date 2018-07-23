@@ -21,6 +21,7 @@
 #include "hostname-util.h"
 #include "io-util.h"
 #include "journal-internal.h"
+#include "json.h"
 #include "log.h"
 #include "logs-show.h"
 #include "macro.h"
@@ -41,7 +42,7 @@
 #define PRINT_LINE_THRESHOLD 3
 #define PRINT_CHAR_THRESHOLD 300
 
-#define JSON_THRESHOLD 4096
+#define JSON_THRESHOLD 4096U
 
 static int print_catalog(FILE *f, sd_journal *j) {
         int r;
@@ -747,6 +748,96 @@ void json_escape(
         }
 }
 
+struct json_data {
+        JsonVariant* name;
+        size_t n_values;
+        JsonVariant* values[];
+};
+
+static int update_json_data(
+                Hashmap *h,
+                OutputFlags flags,
+                const char *name,
+                const void *value,
+                size_t size) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        struct json_data *d;
+        int r;
+
+        if (!(flags & OUTPUT_SHOW_ALL) && strlen(name) + 1 + size >= JSON_THRESHOLD)
+                r = json_variant_new_null(&v);
+        else if (utf8_is_printable(value, size))
+                r = json_variant_new_stringn(&v, value, size);
+        else
+                r = json_variant_new_array_bytes(&v, value, size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate JSON data: %m");
+
+        d = hashmap_get(h, name);
+        if (d) {
+                struct json_data *w;
+
+                w = realloc(d, offsetof(struct json_data, values) + sizeof(JsonVariant*) * (d->n_values + 1));
+                if (!w)
+                        return log_oom();
+
+                d = w;
+                assert_se(hashmap_update(h, json_variant_string(d->name), d) >= 0);
+        } else {
+                _cleanup_(json_variant_unrefp) JsonVariant *n = NULL;
+
+                r = json_variant_new_string(&n, name);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate JSON name variant: %m");
+
+                d = malloc0(offsetof(struct json_data, values) + sizeof(JsonVariant*));
+                if (!d)
+                        return log_oom();
+
+                r = hashmap_put(h, json_variant_string(n), d);
+                if (r < 0) {
+                        free(d);
+                        return log_error_errno(r, "Failed to insert JSON name into hashmap: %m");
+                }
+
+                d->name = TAKE_PTR(n);
+        }
+
+        d->values[d->n_values++] = TAKE_PTR(v);
+        return 0;
+}
+
+static int update_json_data_split(
+                Hashmap *h,
+                OutputFlags flags,
+                Set *output_fields,
+                const void *data,
+                size_t size) {
+
+        const char *eq;
+        char *name;
+
+        assert(h);
+        assert(data || size == 0);
+
+        if (memory_startswith(data, size, "_BOOT_ID="))
+                return 0;
+
+        eq = memchr(data, '=', MIN(size, JSON_THRESHOLD));
+        if (!eq)
+                return 0;
+
+        if (eq == data)
+                return 0;
+
+        name = strndupa(data, eq - (const char*) data);
+        if (output_fields && !set_get(output_fields, name))
+                return 0;
+
+        return update_json_data(h, flags, name, eq + 1, size - (eq - (const char*) data) - 1);
+}
+
 static int output_json(
                 FILE *f,
                 sd_journal *j,
@@ -756,19 +847,21 @@ static int output_json(
                 Set *output_fields,
                 const size_t highlight[2]) {
 
-        uint64_t realtime, monotonic;
+        char sid[SD_ID128_STRING_MAX], usecbuf[DECIMAL_STR_MAX(usec_t)];
+        _cleanup_(json_variant_unrefp) JsonVariant *object = NULL;
         _cleanup_free_ char *cursor = NULL;
-        const void *data;
-        size_t length;
+        uint64_t realtime, monotonic;
+        JsonVariant **array = NULL;
+        struct json_data *d;
         sd_id128_t boot_id;
-        char sid[33], *k;
-        int r;
         Hashmap *h = NULL;
-        bool done, separator;
+        size_t n = 0;
+        Iterator i;
+        int r;
 
         assert(j);
 
-        sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
+        (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
         r = sd_journal_get_realtime_usec(j, &realtime);
         if (r < 0)
@@ -782,181 +875,108 @@ static int output_json(
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
-        if (mode == OUTPUT_JSON_PRETTY)
-                fprintf(f,
-                        "{\n"
-                        "\t\"__CURSOR\" : \"%s\",\n"
-                        "\t\"__REALTIME_TIMESTAMP\" : \""USEC_FMT"\",\n"
-                        "\t\"__MONOTONIC_TIMESTAMP\" : \""USEC_FMT"\",\n"
-                        "\t\"_BOOT_ID\" : \"%s\"",
-                        cursor,
-                        realtime,
-                        monotonic,
-                        sd_id128_to_string(boot_id, sid));
-        else {
-                if (mode == OUTPUT_JSON_SSE)
-                        fputs("data: ", f);
-
-                fprintf(f,
-                        "{ \"__CURSOR\" : \"%s\", "
-                        "\"__REALTIME_TIMESTAMP\" : \""USEC_FMT"\", "
-                        "\"__MONOTONIC_TIMESTAMP\" : \""USEC_FMT"\", "
-                        "\"_BOOT_ID\" : \"%s\"",
-                        cursor,
-                        realtime,
-                        monotonic,
-                        sd_id128_to_string(boot_id, sid));
-        }
-
         h = hashmap_new(&string_hash_ops);
         if (!h)
                 return log_oom();
 
-        /* First round, iterate through the entry and count how often each field appears */
-        JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
-                const char *eq;
-                char *n;
-                unsigned u;
+        r = update_json_data(h, flags, "__CURSOR", cursor, strlen(cursor));
+        if (r < 0)
+                goto finish;
 
-                if (memory_startswith(data, length, "_BOOT_ID="))
-                        continue;
+        xsprintf(usecbuf, USEC_FMT, realtime);
+        r = update_json_data(h, flags, "__REALTIME_TIMESTAMP", usecbuf, strlen(usecbuf));
+        if (r < 0)
+                goto finish;
 
-                eq = memchr(data, '=', length);
-                if (!eq)
-                        continue;
+        xsprintf(usecbuf, USEC_FMT, monotonic);
+        r = update_json_data(h, flags, "__MONOTONIC_TIMESTAMP", usecbuf, strlen(usecbuf));
+        if (r < 0)
+                goto finish;
 
-                n = memdup_suffix0(data, eq - (const char*) data);
-                if (!n) {
-                        r = log_oom();
+        sd_id128_to_string(boot_id, sid);
+        r = update_json_data(h, flags, "_BOOT_ID", sid, strlen(sid));
+        if (r < 0)
+                goto finish;
+
+        for (;;) {
+                const void *data;
+                size_t size;
+
+                r = sd_journal_enumerate_data(j, &data, &size);
+                if (r == -EBADMSG) {
+                        log_debug_errno(r, "Skipping message we can't read: %m");
+                        r = 0;
                         goto finish;
                 }
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read journal: %m");
+                        goto finish;
+                }
+                if (r == 0)
+                        break;
 
-                u = PTR_TO_UINT(hashmap_get(h, n));
-                if (u == 0) {
-                        r = hashmap_put(h, n, UINT_TO_PTR(1));
+                r = update_json_data_split(h, flags, output_fields, data, size);
+                if (r < 0)
+                        goto finish;
+        }
+
+        array = new(JsonVariant*, hashmap_size(h)*2);
+        if (!array) {
+                r = log_oom();
+                goto finish;
+        }
+
+        HASHMAP_FOREACH(d, h, i) {
+                assert(d->n_values > 0);
+
+                array[n++] = json_variant_ref(d->name);
+
+                if (d->n_values == 1)
+                        array[n++] = json_variant_ref(d->values[0]);
+                else {
+                        _cleanup_(json_variant_unrefp) JsonVariant *q = NULL;
+
+                        r = json_variant_new_array(&q, d->values, d->n_values);
                         if (r < 0) {
-                                free(n);
-                                log_oom();
+                                log_error_errno(r, "Failed to create JSON array: %m");
                                 goto finish;
                         }
-                } else {
-                        r = hashmap_update(h, n, UINT_TO_PTR(u + 1));
-                        free(n);
-                        if (r < 0) {
-                                log_oom();
-                                goto finish;
-                        }
+
+                        array[n++] = TAKE_PTR(q);
                 }
         }
-        if (r == -EBADMSG) {
-                log_debug_errno(r, "Skipping message we can't read: %m");
-                return 0;
+
+        r = json_variant_new_object(&object, array, n);
+        if (r < 0) {
+                log_error_errno(r, "Failed to allocate JSON object: %m");
+                goto finish;
         }
-        if (r < 0)
-                return r;
 
-        separator = true;
-        do {
-                done = true;
-
-                SD_JOURNAL_FOREACH_DATA(j, data, length) {
-                        const char *eq;
-                        char *kk;
-                        _cleanup_free_ char *n = NULL;
-                        size_t m;
-                        unsigned u;
-
-                        /* We already printed the boot id from the data in
-                         * the header, hence let's suppress it here */
-                        if (memory_startswith(data, length, "_BOOT_ID="))
-                                continue;
-
-                        eq = memchr(data, '=', length);
-                        if (!eq)
-                                continue;
-
-                        m = eq - (const char*) data;
-                        n = memdup_suffix0(data, m);
-                        if (!n) {
-                                r = log_oom();
-                                goto finish;
-                        }
-
-                        if (output_fields && !set_get(output_fields, n))
-                                continue;
-
-                        if (separator)
-                                fputs(mode == OUTPUT_JSON_PRETTY ? ",\n\t" : ", ", f);
-
-                        u = PTR_TO_UINT(hashmap_get2(h, n, (void**) &kk));
-                        if (u == 0)
-                                /* We already printed this, let's jump to the next */
-                                separator = false;
-
-                        else if (u == 1) {
-                                /* Field only appears once, output it directly */
-
-                                json_escape(f, data, m, flags);
-                                fputs(" : ", f);
-
-                                json_escape(f, eq + 1, length - m - 1, flags);
-
-                                hashmap_remove(h, n);
-                                free(kk);
-
-                                separator = true;
-
-                        } else {
-                                /* Field appears multiple times, output it as array */
-                                json_escape(f, data, m, flags);
-                                fputs(" : [ ", f);
-                                json_escape(f, eq + 1, length - m - 1, flags);
-
-                                /* Iterate through the end of the list */
-
-                                while (sd_journal_enumerate_data(j, &data, &length) > 0) {
-                                        if (length < m + 1)
-                                                continue;
-
-                                        if (memcmp(data, n, m) != 0)
-                                                continue;
-
-                                        if (((const char*) data)[m] != '=')
-                                                continue;
-
-                                        fputs(", ", f);
-                                        json_escape(f, (const char*) data + m + 1, length - m - 1, flags);
-                                }
-
-                                fputs(" ]", f);
-
-                                hashmap_remove(h, n);
-                                free(kk);
-
-                                /* Iterate data fields form the beginning */
-                                done = false;
-                                separator = true;
-
-                                break;
-                        }
-                }
-
-        } while (!done);
-
-        if (mode == OUTPUT_JSON_PRETTY)
-                fputs("\n}\n", f);
-        else if (mode == OUTPUT_JSON_SSE)
-                fputs("}\n\n", f);
-        else
-                fputs(" }\n", f);
+        json_variant_dump(object,
+                          (mode == OUTPUT_JSON_SSE    ? JSON_FORMAT_SSE :
+                           mode == OUTPUT_JSON_SEQ    ? JSON_FORMAT_SEQ :
+                           mode == OUTPUT_JSON_PRETTY ? JSON_FORMAT_PRETTY :
+                                                        JSON_FORMAT_NEWLINE) |
+                          (FLAGS_SET(flags, OUTPUT_COLOR) ? JSON_FORMAT_COLOR : 0),
+                          f, NULL);
 
         r = 0;
 
 finish:
-        while ((k = hashmap_steal_first_key(h)))
-                free(k);
+        while ((d = hashmap_steal_first(h))) {
+                size_t k;
+
+                json_variant_unref(d->name);
+                for (k = 0; k < d->n_values; k++)
+                        json_variant_unref(d->values[k]);
+
+                free(d);
+        }
 
         hashmap_free(h);
+
+        json_variant_unref_many(array, n);
+        free(array);
 
         return r;
 }
@@ -1037,6 +1057,7 @@ static int (*output_funcs[_OUTPUT_MODE_MAX])(
         [OUTPUT_JSON] = output_json,
         [OUTPUT_JSON_PRETTY] = output_json,
         [OUTPUT_JSON_SSE] = output_json,
+        [OUTPUT_JSON_SEQ] = output_json,
         [OUTPUT_CAT] = output_cat,
         [OUTPUT_WITH_UNIT] = output_short,
 };
