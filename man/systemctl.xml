@@ -668,7 +668,7 @@
 
       <variablelist>
         <varlistentry>
-          <term><command>list-units <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-units</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List units that <command>systemd</command> currently has in memory. This includes units that are
@@ -684,7 +684,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-sockets <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-sockets</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List socket units currently in memory, ordered by listening address.  If one or more
@@ -707,7 +707,7 @@ kobject-uevent 1 systemd-udevd-kernel.socket systemd-udevd.service
         </varlistentry>
 
         <varlistentry>
-          <term><command>list-timers <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-timers</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List timer units currently in memory, ordered by the time they elapse next. If one or more
@@ -1072,7 +1072,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
       <variablelist>
         <varlistentry>
-          <term><command>list-unit-files <optional><replaceable>PATTERN…</replaceable></optional></command></term>
+          <term><command>list-unit-files</command> <optional><replaceable>PATTERN…</replaceable></optional></term>
 
           <listitem>
             <para>List unit files installed on the system, in combination with their enablement state (as reported by
@@ -1445,7 +1445,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
       <variablelist>
         <varlistentry>
-          <term><command>list-machines <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
+          <term><command>list-machines</command> <optional><replaceable>PATTERN</replaceable>…</optional></term>
 
           <listitem>
             <para>List the host and all running local containers with
@@ -1741,7 +1741,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term><command>reboot <optional><replaceable>arg</replaceable></optional></command></term>
+          <term><command>reboot</command> <optional><replaceable>arg</replaceable></optional></term>
 
           <listitem>
             <para>Shut down and reboot the system. This is mostly equivalent to <command>start reboot.target
@@ -1781,7 +1781,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>exit <optional><replaceable>EXIT_CODE</replaceable></optional></command></term>
+          <term><command>exit</command> <optional><replaceable>EXIT_CODE</replaceable></optional></term>
 
           <listitem>
             <para>Ask the systemd manager to quit. This is only
@@ -1796,7 +1796,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>switch-root <replaceable>ROOT</replaceable> <optional><replaceable>INIT</replaceable></optional></command></term>
+          <term><command>switch-root</command> <replaceable>ROOT</replaceable> <optional><replaceable>INIT</replaceable></optional></term>
 
           <listitem>
             <para>Switches to a different root directory and executes a new system manager process below it. This is
