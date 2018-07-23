@@ -12,6 +12,7 @@ typedef enum ShowStatus {
         SHOW_STATUS_AUTO,
         SHOW_STATUS_TEMPORARY,
         SHOW_STATUS_YES,
+        _SHOW_STATUS_MAX,
         _SHOW_STATUS_INVALID = -1,
 } ShowStatus;
 

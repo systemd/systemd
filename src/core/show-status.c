@@ -10,7 +10,7 @@
 #include "terminal-util.h"
 #include "util.h"
 
-static const char* const show_status_table[] = {
+static const char* const show_status_table[_SHOW_STATUS_MAX] = {
         [SHOW_STATUS_NO] = "no",
         [SHOW_STATUS_AUTO] = "auto",
         [SHOW_STATUS_TEMPORARY] = "temporary",
