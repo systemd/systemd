@@ -5,6 +5,7 @@
 #include "cgroup.h"
 #include "compress.h"
 #include "condition.h"
+#include "device-internal.h"
 #include "device.h"
 #include "execute.h"
 #include "import-util.h"
@@ -47,7 +48,9 @@ int main(int argc, char **argv) {
         test_table(collect_mode, COLLECT_MODE);
         test_table(condition_result, CONDITION_RESULT);
         test_table(condition_type, CONDITION_TYPE);
+        test_table(device_action, DEVICE_ACTION);
         test_table(device_state, DEVICE_STATE);
+        test_table(dns_over_tls_mode, DNS_OVER_TLS_MODE);
         test_table(dnssec_mode, DNSSEC_MODE);
         test_table(emergency_action, EMERGENCY_ACTION);
         test_table(exec_directory_type, EXEC_DIRECTORY_TYPE);
@@ -75,6 +78,7 @@ int main(int argc, char **argv) {
         test_table(name_policy, NAMEPOLICY);
         test_table(namespace_type, NAMESPACE_TYPE);
         test_table(notify_access, NOTIFY_ACCESS);
+        test_table(notify_state, NOTIFY_STATE);
         test_table(output_mode, OUTPUT_MODE);
         test_table(partition_designator, PARTITION_DESIGNATOR);
         test_table(path_result, PATH_RESULT);

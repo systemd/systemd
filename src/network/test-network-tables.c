@@ -22,6 +22,7 @@ int main(int argc, char **argv) {
         test_table(bond_primary_reselect, NETDEV_BOND_PRIMARY_RESELECT);
         test_table(bond_xmit_hash_policy, NETDEV_BOND_XMIT_HASH_POLICY);
         test_table(dhcp6_message_status, DHCP6_STATUS);
+        /* test_table(dhcp6_message_type, DHCP6_MESSAGE);  — enum starts from 1 */
         test_table(dhcp_use_domains, DHCP_USE_DOMAINS);
         test_table(duplex, DUP);
         test_table(ip6tnl_mode, NETDEV_IP6_TNL_MODE);

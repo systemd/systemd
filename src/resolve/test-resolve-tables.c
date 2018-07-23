@@ -1,11 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
 #include "dns-type.h"
+#include "resolved-dns-dnssec.h"
+#include "resolved-dns-packet.h"
 #include "test-tables.h"
 
 int main(int argc, char **argv) {
         uint16_t i;
 
+        test_table(dns_protocol, DNS_PROTOCOL);
+        test_table(dnssec_result, DNSSEC_RESULT);
+        test_table(dnssec_verdict, DNSSEC_VERDICT);
+
+        test_table_sparse(dns_rcode, DNS_RCODE);
         test_table_sparse(dns_type, DNS_TYPE);
 
         log_info("/* DNS_TYPE */");
