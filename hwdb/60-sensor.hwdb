@@ -11,6 +11,17 @@
 # Match string formats:
 # sensor:modalias:<parent device modalias>:dmi:<dmi string>
 #
+# The device modalias can be seen in the `modalias` file 
+# of the sensor parent, for example:
+# cat /sys/`udevadm info -q path -n /dev/iio:device0`/../modalias
+#
+# The full DMI string of the running machine can be read from
+#   /sys/class/dmi/id/modalias
+# That requires a kernel built with CONFIG_DMIID set, which is common.
+# The full DMI string is not needed here and the meaning of individual parts
+# can be seen in the source of the DMIID kernel module
+#   https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/firmware/dmi-id.c
+#
 # To add local entries, create a new file
 #   /etc/udev/hwdb.d/61-sensor-local.hwdb
 # and add your rules there. To load the new rules execute (as root):
