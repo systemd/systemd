@@ -13,8 +13,9 @@ typedef enum DnsServerType {
         DNS_SERVER_SYSTEM,
         DNS_SERVER_FALLBACK,
         DNS_SERVER_LINK,
+        _DNS_SERVER_TYPE_MAX,
+        _DNS_SERVER_TYPE_INVALID = -1
 } DnsServerType;
-#define _DNS_SERVER_TYPE_MAX (DNS_SERVER_LINK + 1)
 
 const char* dns_server_type_to_string(DnsServerType i) _const_;
 DnsServerType dns_server_type_from_string(const char *s) _pure_;
