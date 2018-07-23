@@ -402,7 +402,7 @@ static void test_rename_process_now(const char *p, int ret) {
 
         assert_se(get_process_cmdline(0, 0, false, &cmdline) >= 0);
         /* we cannot expect cmdline to be renamed properly without privileges */
-        if (geteuid() == 0) {
+        if (geteuid() == 0 && !running_in_userns()) {
                 log_info("cmdline = <%s>", cmdline);
                 assert_se(strneq(p, cmdline, STRLEN("test-process-util")));
                 assert_se(startswith(p, cmdline));
