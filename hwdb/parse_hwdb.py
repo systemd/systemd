@@ -128,6 +128,8 @@ def property_grammar():
              ('KEYBOARD_LED_NUMLOCK', Literal('0')),
              ('KEYBOARD_LED_CAPSLOCK', Literal('0')),
              ('ACCEL_MOUNT_MATRIX', mount_matrix),
+             ('ID_INPUT_TABLET', Literal('0')),
+             ('ID_INPUT_TOUCHSCREEN', Literal('1')),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]

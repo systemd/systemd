@@ -29,6 +29,8 @@
 #
 # Allowed properties are:
 #    EVDEV_ABS_<axis>=<min>:<max>:<res>:<fuzz>:<flat>
+#    ID_INPUT_TABLET=0
+#    ID_INPUT_TOUCHSCREEN=1
 #
 # where <axis> is the hexadecimal EV_ABS code as listed in linux/input.h
 # and min, max, res, fuzz, flat are the decimal values to the respective
@@ -136,6 +138,15 @@ evdev:name:Elan Touchpad:dmi:*:svnASUSTeKCOMPUTERINC.:pnUX305UA:*
  EVDEV_ABS_01=0:2119:33
  EVDEV_ABS_35=0:3097:32
  EVDEV_ABS_36=0:2119:33
+
+#########################################
+# Chalkboard Electronics
+#########################################
+evdev:name:Chalkboard Electronics HID Touchscreen*:dmi:*
+ ID_INPUT_TABLET=0
+ ID_INPUT_TOUCHSCREEN=1
+ EVDEV_ABS_00=::6
+ EVDEV_ABS_01=::6
 
 #########################################
 # Dell
