@@ -21,6 +21,20 @@ Janitorial Clean-ups:
 
 Features:
 
+* logind: maybe watch utmp asynchronously using inotify, and populate our own
+  tracked session metadata from the fields available therein. Why bother? Right
+  now, all "ssh" sessions will be tracked without their TTY by logind (which is
+  not just unfriendly to users as this means "loginctl session-status" shows
+  less information than "who" in many cases, but also breaks the IdleAction
+  logic, as we never can detect such sessions as idle, as we have no TTY to
+  watch). ssh sets the PAM_TTY field on its PAM sessions to "ssh" rather than
+  the actual pty, because the PAM session is opened early on for new
+  connections, but the PTY only registered much later (if at all). ssh writes
+  the utmp record only after a TTY is actually registered, hence we could use
+  this data then, and use it if it is available. Using utmp for this is ugly of
+  course, and watching things asynchronously even more so, but it should be
+  good enough for the idle detection logic at least.
+
 * Add a "systemctl list-units --by-slice" mode or so, which rearranges the
   output of "systemctl list-units" slightly by showing the tree structure of
   the slices, and the units attached to them.
