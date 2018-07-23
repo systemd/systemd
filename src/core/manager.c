@@ -3016,6 +3016,10 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
         fprintf(f, "taint-logged=%s\n", yes_no(m->taint_logged));
         fprintf(f, "service-watchdogs=%s\n", yes_no(m->service_watchdogs));
 
+        t = show_status_to_string(m->show_status);
+        if (t)
+                fprintf(f, "show-status=%s\n", t);
+
         if (m->log_level_overridden)
                 fprintf(f, "log-level-override=%i\n", log_get_max_level());
         if (m->log_target_overridden)
@@ -3204,6 +3208,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 log_notice("Failed to parse service-watchdogs flag %s", val);
                         else
                                 m->service_watchdogs = b;
+
+                } else if ((val = startswith(l, "show-status="))) {
+                        ShowStatus s;
+
+                        s = show_status_from_string(val);
+                        if (s < 0)
+                                log_notice("Failed to parse show-status flag %s", val);
+                        else
+                                manager_set_show_status(m, s);
 
                 } else if ((val = startswith(l, "log-level-override="))) {
                         int level;
@@ -3912,7 +3925,7 @@ void manager_set_show_status(Manager *m, ShowStatus mode) {
                           mode == SHOW_STATUS_NO ? "Disabling" : "Enabling");
         m->show_status = mode;
 
-        if (mode > 0)
+        if (IN_SET(mode, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES))
                 (void) touch("/run/systemd/show-status");
         else
                 (void) unlink("/run/systemd/show-status");
@@ -3934,7 +3947,7 @@ static bool manager_get_show_status(Manager *m, StatusType type) {
         if (type != STATUS_TYPE_EMERGENCY && manager_check_ask_password(m) > 0)
                 return false;
 
-        return m->show_status > 0;
+        return IN_SET(m->show_status, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
 }
 
 const char *manager_get_confirm_spawn(Manager *m) {

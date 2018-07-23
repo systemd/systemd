@@ -232,7 +232,7 @@ static int property_get_show_status(
         assert(reply);
         assert(m);
 
-        b = m->show_status > 0;
+        b = IN_SET(m->show_status, SHOW_STATUS_TEMPORARY, SHOW_STATUS_YES);
         return sd_bus_message_append_basic(reply, 'b', &b);
 }
 
