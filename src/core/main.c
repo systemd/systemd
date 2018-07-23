@@ -989,10 +989,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_SHOW_STATUS:
                         if (optarg) {
                                 r = parse_show_status(optarg, &arg_show_status);
-                                if (r < 0) {
-                                        log_error("Failed to parse show status boolean %s.", optarg);
-                                        return r;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse show status boolean: %s", optarg);
                         } else
                                 arg_show_status = SHOW_STATUS_YES;
                         break;
