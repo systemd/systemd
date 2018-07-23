@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2016 Andreas Rammhold <andreas@rammhold.de>
-***/
 
 #include <net/if.h>
 

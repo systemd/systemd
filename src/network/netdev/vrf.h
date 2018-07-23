@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2016 Andreas Rammhold <andreas@rammhold.de>
-***/
-
 typedef struct Vrf Vrf;
 
 #include "netdev/netdev.h"
