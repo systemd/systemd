@@ -169,7 +169,7 @@ _systemctl () {
                         ;;
                         --output|-o)
                                 comps='short short-full short-iso short-iso-precise short-precise short-monotonic short-unix verbose export json
-                                       json-pretty json-sse cat'
+                                       json-pretty json-sse json-seq cat with-unit'
                         ;;
                         --machine|-M)
                                 comps=$( __get_machines )
