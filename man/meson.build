@@ -166,7 +166,8 @@ foreach tuple : xsltproc.found() ? [['systemd.directives', '7', systemd_directiv
         html_pages += p3
 endforeach
 
-# cannot use run_target until https://github.com/mesonbuild/meson/issues/1644 is resolved
+# Cannot use run_target because those targets are used in depends
+# Also see https://github.com/mesonbuild/meson/issues/368.
 man = custom_target(
         'man',
         output : 'man',
