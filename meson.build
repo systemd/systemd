@@ -2778,11 +2778,8 @@ subdir('shell-completion/zsh')
 subdir('docs/sysvinit')
 subdir('docs/var-log')
 
-# FIXME: figure out if the warning is true:
-# https://github.com/mesonbuild/meson/wiki/Reference-manual#install_subdir
 install_subdir('factory/etc',
                install_dir : factorydir)
-
 
 install_data('xorg/50-systemd-user.sh',
              install_dir : xinitrcdir)
