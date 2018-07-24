@@ -225,7 +225,7 @@ static int message_append_field_string(
         /* dbus1 doesn't allow strings over 32bit, let's enforce this
          * globally, to not risk convertability */
         l = strlen(s);
-        if (l > (size_t) (uint32_t) -1)
+        if (l > UINT32_MAX)
                 return -EINVAL;
 
         /* Signature "(yv)" where the variant contains "s" */
