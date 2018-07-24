@@ -1,7 +1,4 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
-/***
-  Copyright © 2012 Michael Olbrich
-***/
 
 #include <sys/reboot.h>
 

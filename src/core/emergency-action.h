@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 #pragma once
 
-/***
-  Copyright © 2012 Michael Olbrich
-***/
-
 typedef enum EmergencyAction {
         EMERGENCY_ACTION_NONE,
         EMERGENCY_ACTION_REBOOT,
