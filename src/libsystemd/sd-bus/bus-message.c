@@ -77,7 +77,7 @@ static void message_reset_parts(sd_bus_message *m) {
         m->cached_rindex_part_begin = 0;
 }
 
-static struct bus_container *message_get_container(sd_bus_message *m) {
+static struct bus_container *message_get_last_container(sd_bus_message *m) {
         assert(m);
 
         if (m->n_containers == 0)
@@ -90,7 +90,7 @@ static struct bus_container *message_get_container(sd_bus_message *m) {
 static void message_free_last_container(sd_bus_message *m) {
         struct bus_container *c;
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
 
         free(c->signature);
         free(c->peeked_signature);
@@ -1220,7 +1220,7 @@ static int message_add_offset(sd_bus_message *m, size_t offset) {
         /* Add offset to current container, unless this is the first
          * item in it, which will have the 0 offset, which we can
          * ignore. */
-        c = message_get_container(m);
+        c = message_get_last_container(m);
 
         if (!c->need_offsets)
                 return 0;
@@ -1392,7 +1392,7 @@ int message_append_basic(sd_bus_message *m, char type, const void *p, const void
         assert_return(bus_type_is_basic(type), -EINVAL);
         assert_return(!m->poisoned, -ESTALE);
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
 
         if (c->signature && c->signature[c->index]) {
                 /* Container signature is already set */
@@ -1585,7 +1585,7 @@ _public_ int sd_bus_message_append_string_space(
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->poisoned, -ESTALE);
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
 
         if (c->signature && c->signature[c->index]) {
                 /* Container signature is already set */
@@ -1974,7 +1974,7 @@ _public_ int sd_bus_message_open_container(
                 return -ENOMEM;
         }
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
 
         signature = strdup(contents);
         if (!signature) {
@@ -2199,7 +2199,7 @@ _public_ int sd_bus_message_close_container(sd_bus_message *m) {
         assert_return(m->n_containers > 0, -EINVAL);
         assert_return(!m->poisoned, -ESTALE);
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
 
         if (c->enclosing != SD_BUS_TYPE_ARRAY)
                 if (c->signature && c->signature[c->index] != 0)
@@ -2703,7 +2703,7 @@ _public_ int sd_bus_message_append_string_memfd(
         if (size > (uint64_t) (uint32_t) -1)
                 return -EINVAL;
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
         if (c->signature && c->signature[c->index]) {
                 /* Container signature is already set */
 
@@ -3036,7 +3036,7 @@ static bool message_end_of_signature(sd_bus_message *m) {
 
         assert(m);
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
         return !c->signature || c->signature[c->index] == 0;
 }
 
@@ -3045,7 +3045,7 @@ static bool message_end_of_array(sd_bus_message *m, size_t index) {
 
         assert(m);
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
         if (c->enclosing != SD_BUS_TYPE_ARRAY)
                 return false;
 
@@ -3306,7 +3306,7 @@ _public_ int sd_bus_message_read_basic(sd_bus_message *m, char type, void *p) {
         if (message_end_of_array(m, m->rindex))
                 return 0;
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
         if (c->signature[c->index] != type)
                 return -ENXIO;
 
@@ -4036,7 +4036,7 @@ _public_ int sd_bus_message_enter_container(sd_bus_message *m,
         if (message_end_of_array(m, m->rindex))
                 return 0;
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
 
         signature = strdup(contents);
         if (!signature)
@@ -4092,7 +4092,7 @@ _public_ int sd_bus_message_exit_container(sd_bus_message *m) {
         assert_return(m->sealed, -EPERM);
         assert_return(m->n_containers > 0, -ENXIO);
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
 
         if (c->enclosing != SD_BUS_TYPE_ARRAY) {
                 if (c->signature && c->signature[c->index] != 0)
@@ -4113,7 +4113,7 @@ _public_ int sd_bus_message_exit_container(sd_bus_message *m) {
 
         message_free_last_container(m);
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
         saved = c->index;
         c->index = c->saved_index;
         r = container_next_item(m, c, &m->rindex);
@@ -4132,7 +4132,7 @@ static void message_quit_container(sd_bus_message *m) {
         assert(m->n_containers > 0);
 
         /* Undo seeks */
-        c = message_get_container(m);
+        c = message_get_last_container(m);
         assert(m->rindex >= c->before);
         m->rindex = c->before;
 
@@ -4140,7 +4140,7 @@ static void message_quit_container(sd_bus_message *m) {
         message_free_last_container(m);
 
         /* Correct index of new top-level container */
-        c = message_get_container(m);
+        c = message_get_last_container(m);
         c->index = c->saved_index;
 }
 
@@ -4157,7 +4157,7 @@ _public_ int sd_bus_message_peek_type(sd_bus_message *m, char *type, const char 
         if (message_end_of_array(m, m->rindex))
                 goto eof;
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
 
         if (bus_type_is_basic(c->signature[c->index])) {
                 if (contents)
@@ -4301,9 +4301,9 @@ _public_ int sd_bus_message_rewind(sd_bus_message *m, int complete) {
                 message_reset_containers(m);
                 m->rindex = 0;
 
-                c = message_get_container(m);
+                c = message_get_last_container(m);
         } else {
-                c = message_get_container(m);
+                c = message_get_last_container(m);
 
                 c->offset_index = 0;
                 c->index = 0;
@@ -4546,7 +4546,7 @@ _public_ int sd_bus_message_skip(sd_bus_message *m, const char *types) {
                 if (message_end_of_array(m, m->rindex))
                         return 0;
 
-                c = message_get_container(m);
+                c = message_get_last_container(m);
 
                 r = signature_element_length(c->signature + c->index, &l);
                 if (r < 0)
@@ -4712,7 +4712,7 @@ _public_ int sd_bus_message_read_array(
         if (r <= 0)
                 return r;
 
-        c = message_get_container(m);
+        c = message_get_last_container(m);
 
         if (BUS_MESSAGE_IS_GVARIANT(m)) {
                 align = bus_gvariant_get_alignment(CHAR_TO_STR(type));
@@ -5609,7 +5609,7 @@ _public_ const char* sd_bus_message_get_signature(sd_bus_message *m, int complet
 
         assert_return(m, NULL);
 
-        c = complete ? &m->root_container : message_get_container(m);
+        c = complete ? &m->root_container : message_get_last_container(m);
         return strempty(c->signature);
 }
 
