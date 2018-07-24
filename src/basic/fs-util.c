@@ -211,31 +211,62 @@ int readlink_and_make_absolute(const char *p, char **r) {
 }
 
 int chmod_and_chown(const char *path, mode_t mode, uid_t uid, gid_t gid) {
+        char fd_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int) + 1];
+        _cleanup_close_ int fd = -1;
         assert(path);
 
-        /* Under the assumption that we are running privileged we
-         * first change the access mode and only then hand out
+        /* Under the assumption that we are running privileged we first change the access mode and only then hand out
          * ownership to avoid a window where access is too open. */
 
-        if (mode != MODE_INVALID)
-                if (chmod(path, mode) < 0)
+        fd = open(path, O_PATH|O_CLOEXEC|O_NOFOLLOW); /* Let's acquire an O_PATH fd, as precaution to change mode/owner
+                                                       * on the same file */
+        if (fd < 0)
+                return -errno;
+
+        xsprintf(fd_path, "/proc/self/fd/%i", fd);
+
+        if (mode != MODE_INVALID) {
+
+                if ((mode & S_IFMT) != 0) {
+                        struct stat st;
+
+                        if (stat(fd_path, &st) < 0)
+                                return -errno;
+
+                        if ((mode & S_IFMT) != (st.st_mode & S_IFMT))
+                                return -EINVAL;
+                }
+
+                if (chmod(fd_path, mode & 07777) < 0)
                         return -errno;
+        }
 
         if (uid != UID_INVALID || gid != GID_INVALID)
-                if (chown(path, uid, gid) < 0)
+                if (chown(fd_path, uid, gid) < 0)
                         return -errno;
 
         return 0;
 }
 
 int fchmod_and_chown(int fd, mode_t mode, uid_t uid, gid_t gid) {
-        /* Under the assumption that we are running privileged we
-         * first change the access mode and only then hand out
+        /* Under the assumption that we are running privileged we first change the access mode and only then hand out
          * ownership to avoid a window where access is too open. */
 
-        if (mode != MODE_INVALID)
-                if (fchmod(fd, mode) < 0)
+        if (mode != MODE_INVALID) {
+
+                if ((mode & S_IFMT) != 0) {
+                        struct stat st;
+
+                        if (fstat(fd, &st) < 0)
+                                return -errno;
+
+                        if ((mode & S_IFMT) != (st.st_mode & S_IFMT))
+                                return -EINVAL;
+                }
+
+                if (fchmod(fd, mode & 0777) < 0)
                         return -errno;
+        }
 
         if (uid != UID_INVALID || gid != GID_INVALID)
                 if (fchown(fd, uid, gid) < 0)
@@ -263,7 +294,6 @@ int fchmod_opath(int fd, mode_t m) {
          * fchownat() does. */
 
         xsprintf(procfs_path, "/proc/self/fd/%i", fd);
-
         if (chmod(procfs_path, m) < 0)
                 return -errno;
 
