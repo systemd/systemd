@@ -41,7 +41,7 @@ OrderWithRequires(postun): systemd \
 %{nil}
 
 %systemd_post() \
-if [ $1 -eq 1 ] ; then \
+if [ "$1" -eq 1 ] ; then \
         # Initial installation \
         systemctl --no-reload preset %{?*} &>/dev/null || : \
 fi \
@@ -50,14 +50,14 @@ fi \
 %systemd_user_post() %{expand:%systemd_post \\--global %%{?*}}
 
 %systemd_preun() \
-if [ $1 -eq 0 ] ; then \
+if [ "$1" -eq 0 ] ; then \
         # Package removal, not upgrade \
         systemctl --no-reload disable --now %{?*} &>/dev/null || : \
 fi \
 %{nil}
 
 %systemd_user_preun() \
-if [ $1 -eq 0 ] ; then \
+if [ "$1" -eq 0 ] ; then \
         # Package removal, not upgrade \
         systemctl --global disable %{?*} &>/dev/null || : \
 fi \
@@ -68,7 +68,7 @@ fi \
 %systemd_user_postun() %{nil}
 
 %systemd_postun_with_restart() \
-if [ $1 -ge 1 ] ; then \
+if [ "$1" -ge 1 ] ; then \
         # Package upgrade, not uninstall \
         systemctl try-restart %{?*} &>/dev/null || : \
 fi \
