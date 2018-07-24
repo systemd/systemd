@@ -20,7 +20,7 @@ int show_journal_entry(
                 unsigned n_columns,
                 OutputFlags flags,
                 char **output_fields,
-                size_t highlight[2],
+                const size_t highlight[2],
                 bool *ellipsized);
 int show_journal(
                 FILE *f,
