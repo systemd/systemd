@@ -2373,8 +2373,8 @@ int main(int argc, char *argv[]) {
         m->timestamps[MANAGER_TIMESTAMP_KERNEL] = kernel_timestamp;
         m->timestamps[MANAGER_TIMESTAMP_INITRD] = initrd_timestamp;
         m->timestamps[MANAGER_TIMESTAMP_USERSPACE] = userspace_timestamp;
-        m->timestamps[MANAGER_TIMESTAMP_SECURITY_START] = security_start_timestamp;
-        m->timestamps[MANAGER_TIMESTAMP_SECURITY_FINISH] = security_finish_timestamp;
+        m->timestamps[manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_SECURITY_START)] = security_start_timestamp;
+        m->timestamps[manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_SECURITY_FINISH)] = security_finish_timestamp;
 
         set_manager_defaults(m);
         set_manager_settings(m);

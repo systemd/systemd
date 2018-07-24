@@ -1555,9 +1555,9 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
         if (r < 0)
                 return r;
 
-        dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_GENERATORS_START);
+        dual_timestamp_get(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_GENERATORS_START));
         r = manager_run_generators(m);
-        dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_GENERATORS_FINISH);
+        dual_timestamp_get(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_GENERATORS_FINISH));
         if (r < 0)
                 return r;
 
@@ -1572,10 +1572,10 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds) {
                 m->n_reloading++;
 
         /* First, enumerate what we can from all config files */
-        dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_UNITS_LOAD_START);
+        dual_timestamp_get(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_UNITS_LOAD_START));
         manager_enumerate_perpetual(m);
         manager_enumerate(m);
-        dual_timestamp_get(m->timestamps + MANAGER_TIMESTAMP_UNITS_LOAD_FINISH);
+        dual_timestamp_get(m->timestamps + manager_timestamp_initrd_mangle(MANAGER_TIMESTAMP_UNITS_LOAD_FINISH));
 
         /* Second, deserialize if there is something to deserialize */
         if (serialization) {
@@ -3026,8 +3026,12 @@ int manager_serialize(Manager *m, FILE *f, FDSet *fds, bool switching_root) {
                 fprintf(f, "log-target-override=%s\n", log_target_to_string(log_get_target()));
 
         for (q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
-                /* The userspace and finish timestamps only apply to the host system, hence only serialize them there */
-                if (in_initrd() && IN_SET(q, MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH))
+                /* The following timestamps only apply to the host system, hence only serialize them there */
+                if (in_initrd() &&
+                    IN_SET(q, MANAGER_TIMESTAMP_USERSPACE, MANAGER_TIMESTAMP_FINISH,
+                           MANAGER_TIMESTAMP_SECURITY_START, MANAGER_TIMESTAMP_SECURITY_FINISH,
+                           MANAGER_TIMESTAMP_GENERATORS_START, MANAGER_TIMESTAMP_GENERATORS_FINISH,
+                           MANAGER_TIMESTAMP_UNITS_LOAD_START, MANAGER_TIMESTAMP_UNITS_LOAD_FINISH))
                         continue;
 
                 t = manager_timestamp_to_string(q);
@@ -4527,6 +4531,14 @@ void manager_restore_original_log_target(Manager *m) {
         m->log_target_overridden = false;
 }
 
+ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s) {
+        if (in_initrd() &&
+            s >= MANAGER_TIMESTAMP_SECURITY_START &&
+            s <= MANAGER_TIMESTAMP_UNITS_LOAD_FINISH)
+                return s - MANAGER_TIMESTAMP_SECURITY_START + MANAGER_TIMESTAMP_INITRD_SECURITY_START;
+        return s;
+}
+
 static const char *const manager_state_table[_MANAGER_STATE_MAX] = {
         [MANAGER_INITIALIZING] = "initializing",
         [MANAGER_STARTING] = "starting",
@@ -4551,6 +4563,12 @@ static const char *const manager_timestamp_table[_MANAGER_TIMESTAMP_MAX] = {
         [MANAGER_TIMESTAMP_GENERATORS_FINISH] = "generators-finish",
         [MANAGER_TIMESTAMP_UNITS_LOAD_START] = "units-load-start",
         [MANAGER_TIMESTAMP_UNITS_LOAD_FINISH] = "units-load-finish",
+        [MANAGER_TIMESTAMP_INITRD_SECURITY_START] = "initrd-security-start",
+        [MANAGER_TIMESTAMP_INITRD_SECURITY_FINISH] = "initrd-security-finish",
+        [MANAGER_TIMESTAMP_INITRD_GENERATORS_START] = "initrd-generators-start",
+        [MANAGER_TIMESTAMP_INITRD_GENERATORS_FINISH] = "initrd-generators-finish",
+        [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_START] = "initrd-units-load-start",
+        [MANAGER_TIMESTAMP_INITRD_UNITS_LOAD_FINISH] = "initrd-units-load-finish",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);
