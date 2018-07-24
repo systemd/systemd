@@ -37,4 +37,6 @@ bool pty_forward_drain(PTYForward *f);
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority);
 
+int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(PTYForward*, pty_forward_free);

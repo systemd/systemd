@@ -392,11 +392,14 @@ int pty_forward_new(
         struct winsize ws;
         int r;
 
-        f = new0(PTYForward, 1);
+        f = new(PTYForward, 1);
         if (!f)
                 return -ENOMEM;
 
-        f->flags = flags;
+        *f = (struct PTYForward) {
+                .flags = flags,
+                .master = -1,
+        };
 
         if (event)
                 f->event = sd_event_ref(event);
@@ -584,6 +587,45 @@ int pty_forward_set_priority(PTYForward *f, int64_t priority) {
         r = sd_event_source_set_priority(f->sigwinch_event_source, priority);
         if (r < 0)
                 return r;
+
+        return 0;
+}
+
+int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height) {
+        struct winsize ws;
+
+        assert(f);
+
+        if (width == (unsigned) -1 && height == (unsigned) -1)
+                return 0; /* noop */
+
+        if (width != (unsigned) -1 &&
+            (width == 0 || width > USHRT_MAX))
+                return -ERANGE;
+
+        if (height != (unsigned) -1 &&
+            (height == 0 || height > USHRT_MAX))
+                return -ERANGE;
+
+        if (width == (unsigned) -1 || height == (unsigned) -1) {
+                if (ioctl(f->master, TIOCGWINSZ, &ws) < 0)
+                        return -errno;
+
+                if (width != (unsigned) -1)
+                        ws.ws_col = width;
+                if (height != (unsigned) -1)
+                        ws.ws_row = height;
+        } else
+                ws = (struct winsize) {
+                        .ws_row = height,
+                        .ws_col = width,
+                };
+
+        if (ioctl(f->master, TIOCSWINSZ, &ws) < 0)
+                return -errno;
+
+        /* Make sure we ignore SIGWINCH window size events from now on */
+        f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
 
         return 0;
 }
