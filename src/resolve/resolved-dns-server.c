@@ -164,6 +164,8 @@ void dns_server_unlink(DnsServer *s) {
                 LIST_REMOVE(servers, s->manager->fallback_dns_servers, s);
                 s->manager->n_dns_servers--;
                 break;
+        default:
+                assert_not_reached("Unknown server type");
         }
 
         s->linked = false;
