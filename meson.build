@@ -1380,7 +1380,6 @@ libjournal_core = static_library(
 libsystemd_sym_path = '@0@/@1@'.format(meson.current_source_dir(), libsystemd_sym)
 libsystemd = shared_library(
         'systemd',
-        'src/systemd/sd-id128.h', # pick a header file at random to work around old meson bug
         version : libsystemd_version,
         include_directories : includes,
         link_args : ['-shared',
