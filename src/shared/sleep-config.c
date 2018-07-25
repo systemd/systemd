@@ -255,14 +255,13 @@ static bool enough_swap_for_hibernation(void) {
 
         r = get_proc_field("/proc/meminfo", "Active(anon)", WHITESPACE, &active);
         if (r < 0) {
-                log_error_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
+                log_debug_errno(r, "Failed to retrieve Active(anon) from /proc/meminfo: %m");
                 return false;
         }
 
         r = safe_atollu(active, &act);
         if (r < 0) {
-                log_error_errno(r, "Failed to parse Active(anon) from /proc/meminfo: %s: %m",
-                                active);
+                log_debug_errno(r, "Failed to parse Active(anon) from /proc/meminfo: %s: %m", active);
                 return false;
         }
 
