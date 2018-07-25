@@ -838,19 +838,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_LOG_LEVEL:
                         r = log_set_max_level_from_string(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse log level %s.", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse log level \"%s\": %m", optarg);
 
                         break;
 
                 case ARG_LOG_TARGET:
                         r = log_set_target_from_string(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse log target %s.", optarg);
-                                return r;
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse log target \"%s\": %m", optarg);
 
                         break;
 
@@ -858,10 +854,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (optarg) {
                                 r = log_show_color_from_string(optarg);
-                                if (r < 0) {
-                                        log_error("Failed to parse log color setting %s.", optarg);
-                                        return r;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse log color setting \"%s\": %m",
+                                                               optarg);
                         } else
                                 log_show_color(true);
 
@@ -870,10 +865,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_LOG_LOCATION:
                         if (optarg) {
                                 r = log_show_location_from_string(optarg);
-                                if (r < 0) {
-                                        log_error("Failed to parse log location setting %s.", optarg);
-                                        return r;
-                                }
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse log location setting \"%s\": %m",
+                                                               optarg);
                         } else
                                 log_show_location(true);
 
@@ -881,26 +875,24 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_DEFAULT_STD_OUTPUT:
                         r = exec_output_from_string(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse default standard output setting %s.", optarg);
-                                return r;
-                        } else
-                                arg_default_std_output = r;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse default standard output setting \"%s\": %m",
+                                                       optarg);
+                        arg_default_std_output = r;
                         break;
 
                 case ARG_DEFAULT_STD_ERROR:
                         r = exec_output_from_string(optarg);
-                        if (r < 0) {
-                                log_error("Failed to parse default standard error output setting %s.", optarg);
-                                return r;
-                        } else
-                                arg_default_std_error = r;
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse default standard error output setting \"%s\": %m",
+                                                       optarg);
+                        arg_default_std_error = r;
                         break;
 
                 case ARG_UNIT:
                         r = free_and_strdup(&arg_default_unit, optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set default unit %s: %m", optarg);
+                                return log_error_errno(r, "Failed to set default unit \"%s\": %m", optarg);
 
                         break;
 
@@ -938,7 +930,8 @@ static int parse_argv(int argc, char *argv[]) {
                         else {
                                 r = parse_boolean(optarg);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse dump core boolean: %s", optarg);
+                                        return log_error_errno(r, "Failed to parse dump core boolean: \"%s\": %m",
+                                                               optarg);
                                 arg_dump_core = r;
                         }
                         break;
@@ -946,7 +939,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CRASH_CHVT:
                         r = parse_crash_chvt(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse crash virtual terminal index: %s", optarg);
+                                return log_error_errno(r, "Failed to parse crash virtual terminal index: \"%s\": %m",
+                                                       optarg);
                         break;
 
                 case ARG_CRASH_SHELL:
@@ -955,7 +949,8 @@ static int parse_argv(int argc, char *argv[]) {
                         else {
                                 r = parse_boolean(optarg);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse crash shell boolean: %s", optarg);
+                                        return log_error_errno(r, "Failed to parse crash shell boolean: \"%s\": %m",
+                                                               optarg);
                                 arg_crash_shell = r;
                         }
                         break;
@@ -966,7 +961,8 @@ static int parse_argv(int argc, char *argv[]) {
                         else {
                                 r = parse_boolean(optarg);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse crash shell boolean: %s", optarg);
+                                        return log_error_errno(r, "Failed to parse crash shell boolean: \"%s\": %m",
+                                                               optarg);
                                 arg_crash_reboot = r;
                         }
                         break;
@@ -976,13 +972,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = parse_confirm_spawn(optarg, &arg_confirm_spawn);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse confirm spawn option: %m");
+                                return log_error_errno(r, "Failed to parse confirm spawn option: \"%s\": %m",
+                                                       optarg);
                         break;
 
                 case ARG_SERVICE_WATCHDOGS:
                         r = parse_boolean(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse service watchdogs boolean: %s", optarg);
+                                return log_error_errno(r, "Failed to parse service watchdogs boolean: \"%s\": %m",
+                                                       optarg);
                         arg_service_watchdogs = r;
                         break;
 
@@ -990,7 +988,8 @@ static int parse_argv(int argc, char *argv[]) {
                         if (optarg) {
                                 r = parse_show_status(optarg, &arg_show_status);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse show status boolean: %s", optarg);
+                                        return log_error_errno(r, "Failed to parse show status boolean: \"%s\": %m",
+                                                               optarg);
                         } else
                                 arg_show_status = SHOW_STATUS_YES;
                         break;
@@ -1000,8 +999,10 @@ static int parse_argv(int argc, char *argv[]) {
                         FILE *f;
 
                         r = safe_atoi(optarg, &fd);
-                        if (r < 0 || fd < 0) {
-                                log_error("Failed to parse deserialize option %s.", optarg);
+                        if (r < 0)
+                                log_error_errno(r, "Failed to parse deserialize option \"%s\": %m", optarg);
+                        if (fd < 0) {
+                                log_error("Invalid deserialize fd: %d", fd);
                                 return -EINVAL;
                         }
 
@@ -1009,7 +1010,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         f = fdopen(fd, "r");
                         if (!f)
-                                return log_error_errno(errno, "Failed to open serialization fd: %m");
+                                return log_error_errno(errno, "Failed to open serialization fd %d: %m", fd);
 
                         safe_fclose(arg_serialization);
                         arg_serialization = f;
@@ -1024,7 +1025,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_MACHINE_ID:
                         r = set_machine_id(optarg);
                         if (r < 0)
-                                return log_error_errno(r, "MachineID '%s' is not valid.", optarg);
+                                return log_error_errno(r, "MachineID '%s' is not valid: %m", optarg);
                         break;
 
                 case 'h':
