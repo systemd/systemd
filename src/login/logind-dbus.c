@@ -1770,11 +1770,11 @@ static int method_do_shutdown_or_sleep(
         if (sleep_verb) {
                 r = can_sleep(sleep_verb);
                 if (r == -ENOSPC)
-                        return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
-                                                "Not enough swap space for hibernation");
+                        return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED, "Not enough swap space for hibernation");
+                if (r == -ENOMEDIUM)
+                        return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED, "Kernel image has been removed, can't hibernate");
                 if (r == 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
-                                                 "Sleep verb \"%s\" not supported", sleep_verb);
+                        return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED, "Sleep verb \"%s\" not supported", sleep_verb);
                 if (r < 0)
                         return r;
         }
@@ -2199,7 +2199,7 @@ static int method_can_shutdown_or_sleep(
 
         if (sleep_verb) {
                 r = can_sleep(sleep_verb);
-                if (IN_SET(r,  0, -ENOSPC))
+                if (IN_SET(r,  0, -ENOSPC, -ENOMEDIUM))
                         return sd_bus_reply_method_return(message, "s", "na");
                 if (r < 0)
                         return r;
