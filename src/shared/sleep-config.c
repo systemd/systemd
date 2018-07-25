@@ -139,12 +139,16 @@ int can_sleep_disk(char **types) {
                 return true;
 
         /* If /sys is read-only we cannot sleep */
-        if (access("/sys/power/disk", W_OK) < 0)
+        if (access("/sys/power/disk", W_OK) < 0) {
+                log_debug_errno(errno, "/sys/power/disk is not writable: %m");
                 return false;
+        }
 
         r = read_one_line_file("/sys/power/disk", &p);
-        if (r < 0)
+        if (r < 0) {
+                log_debug_errno(r, "Couldn't read /sys/power/disk: %m");
                 return false;
+        }
 
         STRV_FOREACH(type, types) {
                 const char *word, *state;
