@@ -21,6 +21,7 @@
 #include "log.h"
 #include "macro.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "sleep-config.h"
 #include "string-util.h"
 #include "strv.h"
@@ -201,9 +202,18 @@ int find_hibernate_location(char **device, char **type, size_t *size, size_t *us
                         continue;
                 }
 
-                if (streq(type_field, "partition") && endswith(dev_field, "\\040(deleted)")) {
-                        log_warning("Ignoring deleted swapfile '%s'.", dev_field);
-                        continue;
+                if (streq(type_field, "partition")) {
+                        if (endswith(dev_field, "\\040(deleted)")) {
+                                log_warning("Ignoring deleted swapfile '%s'.", dev_field);
+                                continue;
+                        }
+
+                        const char *fn;
+                        fn = path_startswith(dev_field, "/dev/");
+                        if (fn && startswith(fn, "zram")) {
+                                log_debug("Ignoring compressed ram swap device '%s'.", dev_field);
+                                continue;
+                        }
                 }
                 if (device)
                         *device = TAKE_PTR(dev_field);
