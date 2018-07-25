@@ -194,27 +194,30 @@ int find_hibernate_location(char **device, char **type, size_t *size, size_t *us
                            "%zu "   /* used */
                            "%*i\n", /* priority */
                            &dev_field, &type_field, &size_field, &used_field);
+                if (k == EOF)
+                        break;
                 if (k != 4) {
-                        if (k == EOF)
-                                break;
-
                         log_warning("Failed to parse /proc/swaps:%u", i);
                         continue;
                 }
 
-                if (streq(type_field, "partition")) {
+                if (streq(type_field, "file")) {
+
                         if (endswith(dev_field, "\\040(deleted)")) {
-                                log_warning("Ignoring deleted swapfile '%s'.", dev_field);
+                                log_warning("Ignoring deleted swap file '%s'.", dev_field);
                                 continue;
                         }
 
+                } else if (streq(type_field, "partition")) {
                         const char *fn;
+
                         fn = path_startswith(dev_field, "/dev/");
                         if (fn && startswith(fn, "zram")) {
-                                log_debug("Ignoring compressed ram swap device '%s'.", dev_field);
+                                log_debug("Ignoring compressed RAM swap device '%s'.", dev_field);
                                 continue;
                         }
                 }
+
                 if (device)
                         *device = TAKE_PTR(dev_field);
                 if (type)
