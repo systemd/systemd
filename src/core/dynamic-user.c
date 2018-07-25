@@ -312,20 +312,8 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
 static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
         uid_t uid = UID_INVALID;
         struct iovec iov = IOVEC_INIT(&uid, sizeof(uid));
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-                .msg_iov = &iov,
-                .msg_iovlen = 1,
-        };
-        struct cmsghdr *cmsg;
-
+        int lock_fd;
         ssize_t k;
-        int lock_fd = -1;
 
         assert(d);
         assert(ret_uid);
@@ -334,15 +322,9 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
         /* Read the UID and lock fd that is stored in the storage AF_UNIX socket. This should be called with the lock
          * on the socket taken. */
 
-        k = recvmsg(d->storage_socket[0], &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+        k = receive_one_fd_iov(d->storage_socket[0], &iov, 1, MSG_DONTWAIT, &lock_fd);
         if (k < 0)
-                return -errno;
-
-        cmsg = cmsg_find(&mh, SOL_SOCKET, SCM_RIGHTS, CMSG_LEN(sizeof(int)));
-        if (cmsg)
-                lock_fd = *(int*) CMSG_DATA(cmsg);
-        else
-                cmsg_close_all(&mh); /* just in case... */
+                return (int) k;
 
         *ret_uid = uid;
         *ret_lock_fd = lock_fd;
@@ -352,42 +334,11 @@ static int dynamic_user_pop(DynamicUser *d, uid_t *ret_uid, int *ret_lock_fd) {
 
 static int dynamic_user_push(DynamicUser *d, uid_t uid, int lock_fd) {
         struct iovec iov = IOVEC_INIT(&uid, sizeof(uid));
-        union {
-                struct cmsghdr cmsghdr;
-                uint8_t buf[CMSG_SPACE(sizeof(int))];
-        } control = {};
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-                .msg_iov = &iov,
-                .msg_iovlen = 1,
-        };
-        ssize_t k;
 
         assert(d);
 
         /* Store the UID and lock_fd in the storage socket. This should be called with the socket pair lock taken. */
-
-        if (lock_fd >= 0) {
-                struct cmsghdr *cmsg;
-
-                cmsg = CMSG_FIRSTHDR(&mh);
-                cmsg->cmsg_level = SOL_SOCKET;
-                cmsg->cmsg_type = SCM_RIGHTS;
-                cmsg->cmsg_len = CMSG_LEN(sizeof(int));
-                memcpy(CMSG_DATA(cmsg), &lock_fd, sizeof(int));
-
-                mh.msg_controllen = CMSG_SPACE(sizeof(int));
-        } else {
-                mh.msg_control = NULL;
-                mh.msg_controllen = 0;
-        }
-
-        k = sendmsg(d->storage_socket[1], &mh, MSG_DONTWAIT|MSG_NOSIGNAL);
-        if (k < 0)
-                return -errno;
-
-        return 0;
+        return send_one_fd_iov(d->storage_socket[1], lock_fd, &iov, 1, MSG_DONTWAIT);
 }
 
 static void unlink_uid_lock(int lock_fd, uid_t uid, const char *name) {
