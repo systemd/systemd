@@ -1156,7 +1156,7 @@ int unlinkat_deallocate(int fd, const char *name, int flags) {
 }
 
 int fsync_directory_of_file(int fd) {
-        _cleanup_free_ char *path = NULL, *dn = NULL;
+        _cleanup_free_ char *path = NULL;
         _cleanup_close_ int dfd = -1;
         int r;
 
@@ -1182,16 +1182,40 @@ int fsync_directory_of_file(int fd) {
         if (!path_is_absolute(path))
                 return -EINVAL;
 
-        dn = dirname_malloc(path);
-        if (!dn)
-                return -ENOMEM;
-
-        dfd = open(dn, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        dfd = open_parent(path, O_CLOEXEC, 0);
         if (dfd < 0)
-                return -errno;
+                return dfd;
 
         if (fsync(dfd) < 0)
                 return -errno;
 
         return 0;
+}
+
+int open_parent(const char *path, int flags, mode_t mode) {
+        _cleanup_free_ char *parent = NULL;
+        int fd;
+
+        if (isempty(path))
+                return -EINVAL;
+        if (path_equal(path, "/")) /* requesting the parent of the root dir is fishy, let's prohibit that */
+                return -EINVAL;
+
+        parent = dirname_malloc(path);
+        if (!parent)
+                return -ENOMEM;
+
+        /* Let's insist on O_DIRECTORY since the parent of a file or directory is a directory. Except if we open an
+         * O_TMPFILE file, because in that case we are actually create a regular file below the parent directory. */
+
+        if ((flags & O_PATH) == O_PATH)
+                flags |= O_DIRECTORY;
+        else if ((flags & O_TMPFILE) != O_TMPFILE)
+                flags |= O_DIRECTORY|O_RDONLY;
+
+        fd = open(parent, flags, mode);
+        if (fd < 0)
+                return -errno;
+
+        return fd;
 }

@@ -16,6 +16,7 @@
 #include "export-raw.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "import-common.h"
 #include "missing.h"
 #include "ratelimit.h"
@@ -244,13 +245,9 @@ static int raw_export_on_defer(sd_event_source *s, void *userdata) {
 }
 
 static int reflink_snapshot(int fd, const char *path) {
-        char *p, *d;
         int new_fd, r;
 
-        p = strdupa(path);
-        d = dirname(p);
-
-        new_fd = open(d, O_TMPFILE|O_CLOEXEC|O_NOCTTY|O_RDWR, 0600);
+        new_fd = open_parent(path, O_TMPFILE|O_CLOEXEC|O_RDWR, 0600);
         if (new_fd < 0) {
                 _cleanup_free_ char *t = NULL;
 
