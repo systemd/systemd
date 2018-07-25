@@ -11,7 +11,7 @@
 # Match string formats:
 # sensor:modalias:<parent device modalias>:dmi:<dmi string>
 #
-# The device modalias can be seen in the `modalias` file 
+# The device modalias can be seen in the `modalias` file
 # of the sensor parent, for example:
 # cat /sys/`udevadm info -q path -n /dev/iio:device0`/../modalias
 #
