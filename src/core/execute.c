@@ -2838,10 +2838,22 @@ static int exec_child(
                 }
         }
 
+        /* We are about to invoke NSS and PAM modules. Let's tell them what we are doing here, maybe they care. This is
+         * used by nss-resolve to disable itself when we are about to start systemd-resolved, to avoid deadlocks. Note
+         * that these env vars do not survive the execve(), which means they really only apply to the PAM and NSS
+         * invocations themselves. Also note that while we'll only invoke NSS modules involved in user management they
+         * might internally call into other NSS modules that are involved in hostname resolution, we never know. */
+        if (setenv("SYSTEMD_ACTIVATION_UNIT", unit->id, true) != 0 ||
+            setenv("SYSTEMD_ACTIVATION_SCOPE", MANAGER_IS_SYSTEM(unit->manager) ? "system" : "user", true) != 0) {
+                *exit_status = EXIT_MEMORY;
+                return log_unit_error_errno(unit, errno, "Failed to update environment: %m");
+        }
+
         if (context->dynamic_user && dcreds) {
                 _cleanup_strv_free_ char **suggested_paths = NULL;
 
-                /* Make sure we bypass our own NSS module for any NSS checks */
+                /* On top of that, make sure we bypass our own NSS module nss-systemd comprehensively for any NSS
+                 * checks, if DynamicUser=1 is used, as we shouldn't create a feedback loop with ourselves here.*/
                 if (putenv((char*) "SYSTEMD_NSS_DYNAMIC_BYPASS=1") != 0) {
                         *exit_status = EXIT_USER;
                         return log_unit_error_errno(unit, errno, "Failed to update environment: %m");

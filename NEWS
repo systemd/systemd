@@ -109,7 +109,28 @@ CHANGES WITH 239:
 
         * systemd-resolved.service and systemd-networkd.service now set
           DynamicUser=yes. The users systemd-resolve and systemd-network are
-          not created by systemd-sysusers.
+          not created by systemd-sysusers anymore.
+
+          NOTE: This has a chance of breaking nss-ldap and similar NSS modules
+          that embedd a network facing module into any process using getpwuid()
+          or related call: the dynamic allocation of the user ID for
+          systemd-resolved.service means the service manager has to check NSS
+          if the user name is already taken when forking off the service. Since
+          the user in the common case won't be defined in /etc/passwd the
+          lookup is likely to trigger nss-ldap which in turn might use NSS to
+          ask systemd-resolved for hostname lookups. This will hence result in
+          a deadlock: a user name lookup in order to start
+          systemd-resolved.service will result in a host name lookup for which
+          systemd-resolved.service needs to be started already. There are
+          multiple ways to work around this problem: pre-allocate the
+          "systemd-resolve" user on such systems, so that nss-ldap won't be
+          triggered; or use a different NSS package that doesn't do networking
+          in-process but provides a local asynchronous name cache; or configure
+          the NSS package to avoid lookups for UIDs in the range `pkg-config
+          systemd --variable=dynamicuidmin` … `pkg-config systemd
+          --variable=dynamicuidmax`, so that it does not consider itself
+          authoritative for the same UID range systemd allocates dynamic users
+          from.
 
         * The systemd-resolve tool has been renamed to resolvectl (it also
           remains available under the old name, for compatibility), and its

@@ -101,3 +101,21 @@ systemd-timedated:
   NTP client services. If set, `timedatectl set-ntp on` enables and starts the
   first existing unit listed in the environment variable, and
   `timedatectl set-ntp off` disables and stops all listed units.
+
+systemd itself:
+
+* `$SYSTEMD_ACTIVATION_UNIT` — set for all NSS and PAM module invocations that
+  are done by the service manager on behalf of a specific unit, in child
+  processes that are later (after execve()) going to become unit
+  processes. Contains the full unit name (e.g. "foobar.service"). NSS and PAM
+  modules can use this information to determine in which context and on whose
+  behalf they are being called, which may be useful to avoid deadlocks, for
+  example to bypass IPC calls to the very service that is about to be
+  started. Note that NSS and PAM modules should be careful to only rely on this
+  data when invoked privileged, or possibly only when getppid() returns 1, as
+  setting environment variables is of course possible in any even unprivileged
+  contexts.
+
+* `$SYSTEMD_ACTIVATION_SCOPE` — closely related to `$SYSTEMD_ACTIVATION_UNIT`,
+  it is either set to `system` or `user` depending on whether the NSS/PAM
+  module is called by systemd in `--system` or `--user` mode.

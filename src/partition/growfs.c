@@ -24,8 +24,8 @@
 #include "path-util.h"
 #include "strv.h"
 
-const char *arg_target = NULL;
-bool arg_dry_run = false;
+static const char *arg_target = NULL;
+static bool arg_dry_run = false;
 
 static int resize_ext4(const char *path, int mountfd, int devfd, uint64_t numblocks, uint64_t blocksize) {
         assert((uint64_t) (int) blocksize == blocksize);

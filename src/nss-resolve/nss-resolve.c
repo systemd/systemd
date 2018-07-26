@@ -91,6 +91,20 @@ static uint32_t ifindex_to_scopeid(int family, const void *a, int ifindex) {
         return IN6_IS_ADDR_LINKLOCAL(&in6) ? ifindex : 0;
 }
 
+static bool avoid_deadlock(void) {
+
+        /* Check whether this lookup might have a chance of deadlocking because we are called from the service manager
+         * code activating systemd-resolved.service. After all, we shouldn't synchronously do lookups to
+         * systemd-resolved if we are required to finish before it can be started. This of course won't detect all
+         * possible dead locks of this kind, but it should work for the most obvious cases. */
+
+        if (geteuid() != 0) /* Ignore the env vars unless we are privileged. */
+                return false;
+
+        return streq_ptr(getenv("SYSTEMD_ACTIVATION_UNIT"), "systemd-resolved.service") &&
+               streq_ptr(getenv("SYSTEMD_ACTIVATION_SCOPE"), "system");
+}
+
 enum nss_status _nss_resolve_gethostbyname4_r(
                 const char *name,
                 struct gaih_addrtuple **pat,
@@ -116,6 +130,11 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         assert(buffer);
         assert(errnop);
         assert(h_errnop);
+
+        if (avoid_deadlock()) {
+                r = -EDEADLK;
+                goto fail;
+        }
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
@@ -289,6 +308,11 @@ enum nss_status _nss_resolve_gethostbyname3_r(
 
         if (!IN_SET(af, AF_INET, AF_INET6)) {
                 r = -EAFNOSUPPORT;
+                goto fail;
+        }
+
+        if (avoid_deadlock()) {
+                r = -EDEADLK;
                 goto fail;
         }
 
@@ -477,6 +501,11 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 *errnop = EINVAL;
                 *h_errnop = NO_RECOVERY;
                 return NSS_STATUS_UNAVAIL;
+        }
+
+        if (avoid_deadlock()) {
+                r = -EDEADLK;
+                goto fail;
         }
 
         r = sd_bus_open_system(&bus);

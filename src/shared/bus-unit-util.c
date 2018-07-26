@@ -505,9 +505,9 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         path = strndupa(eq, e - eq);
                         bandwidth = e+1;
 
-                        if (streq(bandwidth, "infinity")) {
+                        if (streq(bandwidth, "infinity"))
                                 bytes = CGROUP_LIMIT_MAX;
-                        } else {
+                        else {
                                 r = parse_size(bandwidth, 1000, &bytes);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse byte value %s: %m", bandwidth);
