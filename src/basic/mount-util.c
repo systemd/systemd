@@ -840,8 +840,8 @@ int mount_verbose(
                           strna(type), where, strnull(fl), strempty(o));
         if (mount(what, where, type, f, o) < 0)
                 return log_full_errno(error_log_level, errno,
-                                      "Failed to mount %s on %s (%s \"%s\"): %m",
-                                      strna(type), where, strnull(fl), strempty(o));
+                                      "Failed to mount %s (type %s) on %s (%s \"%s\"): %m",
+                                      strna(what), strna(type), where, strnull(fl), strempty(o));
         return 0;
 }
 
