@@ -12,6 +12,7 @@
 #include "random-util.h"
 #include "string-util.h"
 #include "util.h"
+#include "virt.h"
 
 static void test_close_many(void) {
         int fds[3];
@@ -160,6 +161,9 @@ static void test_fd_move_above_stdio(void) {
 static void test_rearrange_stdio(void) {
         pid_t pid;
         int r;
+
+        if (detect_container() > 0)
+                return;
 
         r = safe_fork("rearrange", FORK_WAIT|FORK_LOG, &pid);
         assert_se(r >= 0);
