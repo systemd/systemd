@@ -623,13 +623,19 @@ static void test_exec_privatenetwork(Manager *m) {
 
 static void test_exec_oomscoreadjust(Manager *m) {
         test(m, "exec-oomscoreadjust-positive.service", 0, CLD_EXITED);
-        test(m, "exec-oomscoreadjust-negative.service", 0, CLD_EXITED);
+        if (detect_container() > 0)
+                test(m, "exec-oomscoreadjust-negative.service", 1, CLD_EXITED);
+        else
+                test(m, "exec-oomscoreadjust-negative.service", 0, CLD_EXITED);
 }
 
 static void test_exec_ioschedulingclass(Manager *m) {
         test(m, "exec-ioschedulingclass-none.service", 0, CLD_EXITED);
         test(m, "exec-ioschedulingclass-idle.service", 0, CLD_EXITED);
-        test(m, "exec-ioschedulingclass-realtime.service", 0, CLD_EXITED);
+        if (detect_container() > 0)
+                test(m, "exec-ioschedulingclass-realtime.service", 211, CLD_EXITED);
+        else
+                test(m, "exec-ioschedulingclass-realtime.service", 0, CLD_EXITED);
         test(m, "exec-ioschedulingclass-best-effort.service", 0, CLD_EXITED);
 }
 
