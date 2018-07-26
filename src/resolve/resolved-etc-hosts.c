@@ -79,7 +79,7 @@ static const struct hash_ops etc_hosts_item_ops = {
 };
 
 static int add_item(Manager *m, int family, const union in_addr_union *address, char **names) {
-
+        _cleanup_strv_free_ char **dummy = names;
         EtcHostsItem key = {
                 .family = family,
                 .address = *address,
@@ -112,19 +112,23 @@ static int add_item(Manager *m, int family, const union in_addr_union *address, 
                         if (r < 0)
                                 return log_oom();
 
-                        item = new0(EtcHostsItem, 1);
+                        item = new(EtcHostsItem, 1);
                         if (!item)
                                 return log_oom();
 
-                        item->family = family;
-                        item->address = *address;
-                        item->names = names;
+                        *item = (EtcHostsItem) {
+                                .family = family,
+                                .address = *address,
+                                .names = names,
+                        };
 
                         r = set_put(m->etc_hosts_by_address, item);
                         if (r < 0) {
                                 free(item);
                                 return log_oom();
                         }
+
+                        dummy = NULL;
                 }
         }
 
