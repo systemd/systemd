@@ -86,23 +86,28 @@ int dnstls_stream_on_io(DnsStream *stream) {
 
         if (stream->dnstls_data.shutdown) {
                 r = gnutls_bye(stream->dnstls_data.session, GNUTLS_SHUT_RDWR);
-                if (r == GNUTLS_E_AGAIN)
+                if (r == GNUTLS_E_AGAIN) {
+                        stream->dnstls_events = gnutls_record_get_direction(stream->dnstls_data.session) == 1 ? EPOLLOUT : EPOLLIN;
                         return -EAGAIN;
-                else if (r < 0)
+                } else if (r < 0)
                         log_debug("Failed to invoke gnutls_bye: %s", gnutls_strerror(r));
 
+                stream->dnstls_events = 0;
                 stream->dnstls_data.shutdown = false;
                 dns_stream_unref(stream);
                 return DNSTLS_STREAM_CLOSED;
         } else if (stream->dnstls_data.handshake < 0) {
                 stream->dnstls_data.handshake = gnutls_handshake(stream->dnstls_data.session);
-                if (stream->dnstls_data.handshake == GNUTLS_E_AGAIN)
+                if (stream->dnstls_data.handshake == GNUTLS_E_AGAIN) {
+                        stream->dnstls_events = gnutls_record_get_direction(stream->dnstls_data.session) == 1 ? EPOLLOUT : EPOLLIN;
                         return -EAGAIN;
-                else if (stream->dnstls_data.handshake < 0) {
+                } else if (stream->dnstls_data.handshake < 0) {
                         log_debug("Failed to invoke gnutls_handshake: %s", gnutls_strerror(stream->dnstls_data.handshake));
                         if (gnutls_error_is_fatal(stream->dnstls_data.handshake))
                                 return -ECONNREFUSED;
                 }
+
+                stream->dnstls_events = 0;
         }
 
         return 0;

@@ -36,6 +36,12 @@ static int dns_stream_update_io(DnsStream *s) {
         if (!s->read_packet || s->n_read < sizeof(s->read_size) + s->read_packet->size)
                 f |= EPOLLIN;
 
+#if ENABLE_DNS_OVER_TLS
+        /* For handshake and clean closing purposes, TLS can override requested events */
+        if (s->dnstls_events)
+                f = s->dnstls_events;
+#endif
+
         return sd_event_source_set_io_events(s->io_event_source, f);
 }
 
@@ -274,10 +280,17 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
         if (s->encrypted) {
                 r = dnstls_stream_on_io(s);
 
-                if (r == DNSTLS_STREAM_CLOSED || r == -EAGAIN)
+                if (r == DNSTLS_STREAM_CLOSED)
                         return 0;
-                else if (r < 0)
+                else if (r == -EAGAIN)
+                        return dns_stream_update_io(s);
+                else if (r < 0) {
                         return dns_stream_complete(s, -r);
+                } else {
+                        r = dns_stream_update_io(s);
+                        if (r < 0)
+                                return r;
+                }
         }
 #endif
 

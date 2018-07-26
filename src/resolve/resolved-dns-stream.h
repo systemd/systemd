@@ -42,6 +42,7 @@ struct DnsStream {
 
 #if ENABLE_DNS_OVER_TLS
         DnsTlsStreamData dnstls_data;
+        int dnstls_events;
 #endif
 
         sd_event_source *io_event_source;
