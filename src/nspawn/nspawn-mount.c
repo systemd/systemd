@@ -556,6 +556,8 @@ int mount_all(const char *dest,
                   MOUNT_FATAL },
                 { "tmpfs",           "/run",            "tmpfs", "mode=755",  MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                   MOUNT_FATAL },
+                { "mqueue",          "/dev/mqueue",     "mqueue", NULL,       0,
+                  MOUNT_FATAL },
 
 #if HAVE_SELINUX
                 { "/sys/fs/selinux", "/sys/fs/selinux", NULL,    NULL,        MS_BIND,
