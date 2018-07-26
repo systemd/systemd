@@ -210,6 +210,7 @@ manpages = [
   '3',
   ['sd_bus_message_get_realtime_usec', 'sd_bus_message_get_seqnum'],
   ''],
+ ['sd_bus_message_new_method_call', '3', [], ''],
  ['sd_bus_message_new_method_error',
   '3',
   ['sd_bus_message_new_method_errno',

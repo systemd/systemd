@@ -80,7 +80,7 @@
     always be <constant>NUL</constant>-terminated. The returned string
     will be the concatenation of the bus path prefix plus an escaped
     version of the external identifier string. This operation may be
-    reversed with <function>sd_bus_decode()</function>. It is
+    reversed with <function>sd_bus_path_decode()</function>. It is
     recommended to only use external identifiers that generally
     require little escaping to be turned into valid bus path
     identifiers (for example, by sticking to a 7-bit ASCII character
