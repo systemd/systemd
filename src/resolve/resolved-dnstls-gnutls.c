@@ -77,7 +77,7 @@ void dnstls_stream_free(DnsStream *stream) {
                 gnutls_deinit(stream->dnstls_data.session);
 }
 
-int dnstls_stream_on_io(DnsStream *stream) {
+int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
         int r;
 
         assert(stream);

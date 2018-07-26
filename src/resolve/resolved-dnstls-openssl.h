@@ -11,10 +11,12 @@
 
 struct DnsTlsServerData {
         SSL_CTX *ctx;
+        SSL_SESSION *session;
 };
 
 struct DnsTlsStreamData {
         int handshake;
         bool shutdown;
         SSL *ssl;
+        BUF_MEM *write_buffer;
 };

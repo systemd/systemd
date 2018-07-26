@@ -23,7 +23,7 @@ typedef struct DnsTlsStreamData DnsTlsStreamData;
 
 int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server);
 void dnstls_stream_free(DnsStream *stream);
-int dnstls_stream_on_io(DnsStream *stream);
+int dnstls_stream_on_io(DnsStream *stream, uint32_t revents);
 int dnstls_stream_shutdown(DnsStream *stream, int error);
 ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count);
 ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count);
