@@ -525,6 +525,16 @@ static int dynamic_user_realize(
                         num = new_uid;
                         uid_lock_fd = new_uid_lock_fd;
                 }
+        } else if (is_user && !uid_is_dynamic(num)) {
+                struct passwd *p;
+
+                /* Statically allocated user may have different uid and gid. So, let's obtain the gid. */
+                errno = 0;
+                p = getpwuid(num);
+                if (!p)
+                        return errno > 0 ? -errno : -ESRCH;
+
+                gid = p->pw_gid;
         }
 
         /* If the UID/GID was already allocated dynamically, push the data we popped out back in. If it was already
