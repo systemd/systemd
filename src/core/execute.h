@@ -86,10 +86,10 @@ struct ExecStatus {
 };
 
 typedef enum ExecCommandFlags {
-        EXEC_COMMAND_IGNORE_FAILURE = 1,
-        EXEC_COMMAND_FULLY_PRIVILEGED = 2,
-        EXEC_COMMAND_NO_SETUID = 4,
-        EXEC_COMMAND_AMBIENT_MAGIC = 8,
+        EXEC_COMMAND_IGNORE_FAILURE   = 1 << 0,
+        EXEC_COMMAND_FULLY_PRIVILEGED = 1 << 1,
+        EXEC_COMMAND_NO_SETUID        = 1 << 2,
+        EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
 } ExecCommandFlags;
 
 struct ExecCommand {
@@ -297,8 +297,8 @@ struct ExecParameters {
 
         int *fds;
         char **fd_names;
-        size_t n_storage_fds;
         size_t n_socket_fds;
+        size_t n_storage_fds;
 
         ExecFlags flags;
         bool selinux_context_net:1;
@@ -317,6 +317,9 @@ struct ExecParameters {
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
+
+        /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done */
+        int exec_fd;
 };
 
 #include "unit.h"

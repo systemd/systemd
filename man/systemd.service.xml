@@ -153,77 +153,93 @@
       <varlistentry>
         <term><varname>Type=</varname></term>
 
-        <listitem><para>Configures the process start-up type for this
-        service unit. One of
-        <option>simple</option>,
-        <option>forking</option>,
-        <option>oneshot</option>,
-        <option>dbus</option>,
-        <option>notify</option> or
-        <option>idle</option>.</para>
+        <listitem>
+          <para>Configures the process start-up type for this service unit. One of <option>simple</option>,
+          <option>exec</option>, <option>forking</option>, <option>oneshot</option>, <option>dbus</option>,
+          <option>notify</option> or <option>idle</option>:</para>
 
-        <para>If set to <option>simple</option> (the default if
-        neither <varname>Type=</varname> nor
-        <varname>BusName=</varname>, but <varname>ExecStart=</varname>
-        are specified), it is expected that the process configured
-        with <varname>ExecStart=</varname> is the main process of the
-        service. In this mode, if the process offers functionality to
-        other processes on the system, its communication channels
-        should be installed before the daemon is started up (e.g.
-        sockets set up by systemd, via socket activation), as systemd
-        will immediately proceed starting follow-up units.</para>
+          <itemizedlist>
+            <listitem><para>If set to <option>simple</option> (the default if <varname>ExecStart=</varname> is
+            specified but neither <varname>Type=</varname> nor <varname>BusName=</varname> are), the service manager
+            will consider the unit started immediately after the main service process has been forked off. It is
+            expected that the process configured with <varname>ExecStart=</varname> is the main process of the
+            service. In this mode, if the process offers functionality to other processes on the system, its
+            communication channels should be installed before the service is started up (e.g.  sockets set up by
+            systemd, via socket activation), as the service manager will immediately proceed starting follow-up units,
+            right after creating the main service process, and before executing the service's binary. Note that this
+            means <command>systemctl start</command> command lines for <option>simple</option> services will report
+            success even if the service's binary cannot be invoked successfully (for example because the selected
+            <varname>User=</varname> doesn't exist, or the service binary is missing).</para></listitem>
 
-        <para>If set to <option>forking</option>, it is expected that
-        the process configured with <varname>ExecStart=</varname> will
-        call <function>fork()</function> as part of its start-up. The
-        parent process is expected to exit when start-up is complete
-        and all communication channels are set up. The child continues
-        to run as the main daemon process. This is the behavior of
-        traditional UNIX daemons. If this setting is used, it is
-        recommended to also use the <varname>PIDFile=</varname>
-        option, so that systemd can identify the main process of the
-        daemon. systemd will proceed with starting follow-up units as
-        soon as the parent process exits.</para>
+            <listitem><para>The <option>exec</option> type is similar to <option>simple</option>, but the service
+            manager will consider the unit started immediately after the main service binary has been executed. The service
+            manager will delay starting of follow-up units until that point. (Or in other words:
+            <option>simple</option> proceeds with further jobs right after <function>fork()</function> returns, while
+            <option>exec</option> will not proceed before both <function>fork()</function> and
+            <function>execve()</function> in the service process succeeded.) Note that this means <command>systemctl
+            start</command> command lines for <option>exec</option> services will report failure when the service's
+            binary cannot be invoked successfully (for example because the selected <varname>User=</varname> doesn't
+            exist, or the service binary is missing).</para></listitem>
 
-        <para>Behavior of <option>oneshot</option> is similar to
-        <option>simple</option>; however, it is expected that the
-        process has to exit before systemd starts follow-up units.
-        <varname>RemainAfterExit=</varname> is particularly useful for
-        this type of service. This is the implied default if neither
-        <varname>Type=</varname> nor <varname>ExecStart=</varname> are
-        specified.</para>
+            <listitem><para>If set to <option>forking</option>, it is expected that the process configured with
+            <varname>ExecStart=</varname> will call <function>fork()</function> as part of its start-up. The parent
+            process is expected to exit when start-up is complete and all communication channels are set up. The child
+            continues to run as the main service process, and the service manager will consider the unit started when
+            the parent process exits. This is the behavior of traditional UNIX services. If this setting is used, it is
+            recommended to also use the <varname>PIDFile=</varname> option, so that systemd can reliably identify the
+            main process of the service. systemd will proceed with starting follow-up units as soon as the parent
+            process exits.</para></listitem>
 
-        <para>Behavior of <option>dbus</option> is similar to
-        <option>simple</option>; however, it is expected that the
-        daemon acquires a name on the D-Bus bus, as configured by
-        <varname>BusName=</varname>. systemd will proceed with
-        starting follow-up units after the D-Bus bus name has been
-        acquired. Service units with this option configured implicitly
-        gain dependencies on the <filename>dbus.socket</filename>
-        unit. This type is the default if <varname>BusName=</varname>
-        is specified.</para>
+            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>simple</option>; however, the
+            service manager will consider the unit started after the main process exits. It will then start follow-up
+            units. <varname>RemainAfterExit=</varname> is particularly useful for this type of
+            service. <varname>Type=</varname><option>oneshot</option> is the implied default if neither
+            <varname>Type=</varname> nor <varname>ExecStart=</varname> are specified.</para></listitem>
 
-        <para>Behavior of <option>notify</option> is similar to
-        <option>simple</option>; however, it is expected that the
-        daemon sends a notification message via
-        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-        or an equivalent call when it has finished starting up.
-        systemd will proceed with starting follow-up units after this
-        notification message has been sent. If this option is used,
-        <varname>NotifyAccess=</varname> (see below) should be set to
-        open access to the notification socket provided by systemd. If
-        <varname>NotifyAccess=</varname> is missing or set to
-        <option>none</option>, it will be forcibly set to
-        <option>main</option>. Note that currently
-        <varname>Type=</varname><option>notify</option> will not work
-        if used in combination with
-        <varname>PrivateNetwork=</varname><option>yes</option>.</para>
+            <listitem><para>Behavior of <option>dbus</option> is similar to <option>simple</option>; however, it is
+            expected that the service acquires a name on the D-Bus bus, as configured by
+            <varname>BusName=</varname>. systemd will proceed with starting follow-up units after the D-Bus bus name
+            has been acquired. Service units with this option configured implicitly gain dependencies on the
+            <filename>dbus.socket</filename> unit. This type is the default if <varname>BusName=</varname> is
+            specified.</para></listitem>
 
-        <para>Behavior of <option>idle</option> is very similar to <option>simple</option>; however, actual execution
-        of the service program is delayed until all active jobs are dispatched. This may be used to avoid interleaving
-        of output of shell services with the status output on the console. Note that this type is useful only to
-        improve console output, it is not useful as a general unit ordering tool, and the effect of this service type
-        is subject to a 5s time-out, after which the service program is invoked anyway.</para>
+            <listitem><para>Behavior of <option>notify</option> is similar to <option>exec</option>; however, it is
+            expected that the service sends a notification message via
+            <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry> or an
+            equivalent call when it has finished starting up. systemd will proceed with starting follow-up units after
+            this notification message has been sent. If this option is used, <varname>NotifyAccess=</varname> (see
+            below) should be set to open access to the notification socket provided by systemd. If
+            <varname>NotifyAccess=</varname> is missing or set to <option>none</option>, it will be forcibly set to
+            <option>main</option>. Note that currently <varname>Type=</varname><option>notify</option> will not work if
+            used in combination with <varname>PrivateNetwork=</varname><option>yes</option>.</para></listitem>
+
+            <listitem><para>Behavior of <option>idle</option> is very similar to <option>simple</option>; however,
+            actual execution of the service program is delayed until all active jobs are dispatched. This may be used
+            to avoid interleaving of output of shell services with the status output on the console. Note that this
+            type is useful only to improve console output, it is not useful as a general unit ordering tool, and the
+            effect of this service type is subject to a 5s time-out, after which the service program is invoked
+            anyway.</para></listitem>
+          </itemizedlist>
+
+          <para>It is generally recommended to use <varname>Type=</varname><option>simple</option> for long-running
+          services whenever possible, as it is the simplest and fastest option. However, as this service type won't
+          propagate service start-up failures and doesn't allow ordering of other units against completion of
+          initialization of the service (which for example is useful if clients need to connect to the service through
+          some form of IPC, and the IPC channel is only established by the service itself — in contrast to doing this
+          ahead of time through socket or bus activation or similar), it might not be sufficient for many cases. If so,
+          <option>notify</option> or <option>dbus</option> (the latter only in case the service provides a D-Bus
+          interface) are the preferred options as they allow service program code to precisely schedule when to
+          consider the service started up successfully and when to proceed with follow-up units. The
+          <option>notify</option> service type requires explicit support in the service codebase (as
+          <function>sd_notify()</function> or an equivalent API needs to be invoked by the service at the appropriate
+          time) — if it's not supported, then <option>forking</option> is an alternative: it supports the traditional
+          UNIX service start-up protocol. Finally, <option>exec</option> might be an option for cases where it is
+          enough to ensure the service binary is invoked, and where the service binary itself executes no or little
+          initialization on its own (and its initialization is unlikely to fail). Note that using any type other than
+          <option>simple</option> possibly delays the boot process, as the service manager needs to wait for service
+          initialization to complete. It is hence recommended not to needlessly use any types other than
+          <option>simple</option>. (Also note it is generally not recommended to use <option>idle</option> or
+          <option>oneshot</option> for long-running services.)</para>
         </listitem>
       </varlistentry>
 

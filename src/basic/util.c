@@ -230,6 +230,11 @@ int container_get_leader(const char *machine, pid_t *pid) {
         assert(machine);
         assert(pid);
 
+        if (streq(machine, ".host")) {
+                *pid = 1;
+                return 0;
+        }
+
         if (!machine_name_is_valid(machine))
                 return -EINVAL;
 

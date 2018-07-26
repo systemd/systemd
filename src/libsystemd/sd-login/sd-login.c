@@ -890,20 +890,27 @@ _public_ int sd_machine_get_class(const char *machine, char **class) {
         const char *p;
         int r;
 
-        assert_return(machine_name_is_valid(machine), -EINVAL);
         assert_return(class, -EINVAL);
 
-        p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(NULL, p, NEWLINE, "CLASS", &c, NULL);
-        if (r == -ENOENT)
-                return -ENXIO;
-        if (r < 0)
-                return r;
-        if (!c)
-                return -EIO;
+        if (streq(machine, ".host")) {
+                c = strdup("host");
+                if (!c)
+                        return -ENOMEM;
+        } else {
+                if (!machine_name_is_valid(machine))
+                        return -EINVAL;
+
+                p = strjoina("/run/systemd/machines/", machine);
+                r = parse_env_file(NULL, p, NEWLINE, "CLASS", &c, NULL);
+                if (r == -ENOENT)
+                        return -ENXIO;
+                if (r < 0)
+                        return r;
+                if (!c)
+                        return -EIO;
+        }
 
         *class = TAKE_PTR(c);
-
         return 0;
 }
 

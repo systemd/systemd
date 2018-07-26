@@ -606,6 +606,7 @@ static int swap_spawn(Swap *s, ExecCommand *c, pid_t *_pid) {
                 .stdin_fd  = -1,
                 .stdout_fd = -1,
                 .stderr_fd = -1,
+                .exec_fd   = -1,
         };
         pid_t pid;
         int r;

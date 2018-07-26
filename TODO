@@ -35,6 +35,8 @@ Features:
   course, and watching things asynchronously even more so, but it should be
   good enough for the idle detection logic at least.
 
+* maybe extend .path units to expose fanotify() per-mount change events
+
 * Add a "systemctl list-units --by-slice" mode or so, which rearranges the
   output of "systemctl list-units" slightly by showing the tree structure of
   the slices, and the units attached to them.
@@ -68,10 +70,6 @@ Features:
   it is OK to include them in log strings. This would be particularly useful so
   that our log messages could contain clickable links for example for unit
   files and suchlike we operate on.
-
-* introduce a new SystemCallFilters= group called "@system-service" with a
-  sensible default set for system services, then make use of them in portable
-  profiles
 
 * add support for "portablectl attach http://foobar.com/waaa.raw (i.e. importd integration)
 

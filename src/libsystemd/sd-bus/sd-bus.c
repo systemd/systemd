@@ -949,7 +949,7 @@ static int parse_container_unix_address(sd_bus *b, const char **p, char **guid) 
                 return -EINVAL;
 
         if (machine) {
-                if (!machine_name_is_valid(machine))
+                if (!streq(machine, ".host") && !machine_name_is_valid(machine))
                         return -EINVAL;
 
                 free_and_replace(b->machine, machine);
@@ -1447,7 +1447,7 @@ _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *machine) {
 
         assert_return(machine, -EINVAL);
         assert_return(ret, -EINVAL);
-        assert_return(machine_name_is_valid(machine), -EINVAL);
+        assert_return(streq(machine, ".host") || machine_name_is_valid(machine), -EINVAL);
 
         r = sd_bus_new(&b);
         if (r < 0)

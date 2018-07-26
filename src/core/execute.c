@@ -148,11 +148,11 @@ static int shift_fds(int fds[], size_t n_fds) {
         return 0;
 }
 
-static int flags_fds(const int fds[], size_t n_storage_fds, size_t n_socket_fds, bool nonblock) {
+static int flags_fds(const int fds[], size_t n_socket_fds, size_t n_storage_fds, bool nonblock) {
         size_t i, n_fds;
         int r;
 
-        n_fds = n_storage_fds + n_socket_fds;
+        n_fds = n_socket_fds + n_storage_fds;
         if (n_fds <= 0)
                 return 0;
 
@@ -2573,6 +2573,7 @@ static int close_remaining_fds(
                 const DynamicCreds *dcreds,
                 int user_lookup_fd,
                 int socket_fd,
+                int exec_fd,
                 int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
@@ -2589,6 +2590,8 @@ static int close_remaining_fds(
 
         if (socket_fd >= 0)
                 dont_close[n_dont_close++] = socket_fd;
+        if (exec_fd >= 0)
+                dont_close[n_dont_close++] = exec_fd;
         if (n_fds > 0) {
                 memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
                 n_dont_close += n_fds;
@@ -2725,16 +2728,17 @@ static int exec_child(
                 int socket_fd,
                 int named_iofds[3],
                 int *fds,
-                size_t n_storage_fds,
                 size_t n_socket_fds,
+                size_t n_storage_fds,
                 char **files_env,
                 int user_lookup_fd,
                 int *exit_status) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **accum_env = NULL, **final_argv = NULL;
-        _cleanup_free_ char *home_buffer = NULL;
+        int *fds_with_exec_fd, n_fds_with_exec_fd, r, ngids = 0, exec_fd = -1;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
+        _cleanup_free_ char *home_buffer = NULL;
         const char *home = NULL, *shell = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
@@ -2754,7 +2758,6 @@ static int exec_child(
 #endif
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
-        int r, ngids = 0;
         size_t n_fds;
         ExecDirectoryType dt;
         int secure_bits;
@@ -2798,8 +2801,8 @@ static int exec_child(
         /* In case anything used libc syslog(), close this here, too */
         closelog();
 
-        n_fds = n_storage_fds + n_socket_fds;
-        r = close_remaining_fds(params, runtime, dcreds, user_lookup_fd, socket_fd, fds, n_fds);
+        n_fds = n_socket_fds + n_storage_fds;
+        r = close_remaining_fds(params, runtime, dcreds, user_lookup_fd, socket_fd, params->exec_fd, fds, n_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_unit_error_errno(unit, r, "Failed to close unwanted file descriptors: %m");
@@ -3172,17 +3175,58 @@ static int exec_child(
         }
 
         /* We repeat the fd closing here, to make sure that nothing is leaked from the PAM modules. Note that we are
-         * more aggressive this time since socket_fd and the netns fds we don't need anymore. The custom endpoint fd
-         * was needed to upload the policy and can now be closed as well. */
-        r = close_all_fds(fds, n_fds);
+         * more aggressive this time since socket_fd and the netns fds we don't need anymore. We do keep the exec_fd
+         * however if we have it as we want to keep it open until the final execve(). */
+
+        if (params->exec_fd >= 0) {
+                exec_fd = params->exec_fd;
+
+                if (exec_fd < 3 + (int) n_fds) {
+                        int moved_fd;
+
+                        /* Let's move the exec fd far up, so that it's outside of the fd range we want to pass to the
+                         * process we are about to execute. */
+
+                        moved_fd = fcntl(exec_fd, F_DUPFD_CLOEXEC, 3 + (int) n_fds);
+                        if (moved_fd < 0) {
+                                *exit_status = EXIT_FDS;
+                                return log_unit_error_errno(unit, errno, "Couldn't move exec fd up: %m");
+                        }
+
+                        safe_close(exec_fd);
+                        exec_fd = moved_fd;
+                } else {
+                        /* This fd should be FD_CLOEXEC already, but let's make sure. */
+                        r = fd_cloexec(exec_fd, true);
+                        if (r < 0) {
+                                *exit_status = EXIT_FDS;
+                                return log_unit_error_errno(unit, r, "Failed to make exec fd FD_CLOEXEC: %m");
+                        }
+                }
+
+                fds_with_exec_fd = newa(int, n_fds + 1);
+                memcpy(fds_with_exec_fd, fds, n_fds * sizeof(int));
+                fds_with_exec_fd[n_fds] = exec_fd;
+                n_fds_with_exec_fd = n_fds + 1;
+        } else {
+                fds_with_exec_fd = fds;
+                n_fds_with_exec_fd = n_fds;
+        }
+
+        r = close_all_fds(fds_with_exec_fd, n_fds_with_exec_fd);
         if (r >= 0)
                 r = shift_fds(fds, n_fds);
         if (r >= 0)
-                r = flags_fds(fds, n_storage_fds, n_socket_fds, context->non_blocking);
+                r = flags_fds(fds, n_socket_fds, n_storage_fds, context->non_blocking);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_unit_error_errno(unit, r, "Failed to adjust passed file descriptors: %m");
         }
+
+        /* At this point, the fds we want to pass to the program are all ready and set up, with O_CLOEXEC turned off
+         * and at the right fd numbers. The are no other fds open, with one exception: the exec_fd if it is defined,
+         * and it has O_CLOEXEC set, after all we want it to be closed by the execve(), so that our parent knows we
+         * came this far. */
 
         secure_bits = context->secure_bits;
 
@@ -3414,10 +3458,35 @@ static int exec_child(
                                    LOG_UNIT_INVOCATION_ID(unit));
         }
 
-        execve(command->path, final_argv, accum_env);
+        if (exec_fd >= 0) {
+                uint8_t hot = 1;
 
-        if (errno == ENOENT && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
-                log_struct_errno(LOG_INFO, errno,
+                /* We have finished with all our initializations. Let's now let the manager know that. From this point
+                 * on, if the manager sees POLLHUP on the exec_fd, then execve() was successful. */
+
+                if (write(exec_fd, &hot, sizeof(hot)) < 0) {
+                        *exit_status = EXIT_EXEC;
+                        return log_unit_error_errno(unit, errno, "Failed to enable exec_fd: %m");
+                }
+        }
+
+        execve(command->path, final_argv, accum_env);
+        r = -errno;
+
+        if (exec_fd >= 0) {
+                uint8_t hot = 0;
+
+                /* The execve() failed. This means the exec_fd is still open. Which means we need to tell the manager
+                 * that POLLHUP on it no longer means execve() succeeded. */
+
+                if (write(exec_fd, &hot, sizeof(hot)) < 0) {
+                        *exit_status = EXIT_EXEC;
+                        return log_unit_error_errno(unit, errno, "Failed to disable exec_fd: %m");
+                }
+        }
+
+        if (r == -ENOENT && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
+                log_struct_errno(LOG_INFO, r,
                                  "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
                                  LOG_UNIT_ID(unit),
                                  LOG_UNIT_INVOCATION_ID(unit),
@@ -3428,7 +3497,7 @@ static int exec_child(
         }
 
         *exit_status = EXIT_EXEC;
-        return log_unit_error_errno(unit, errno, "Failed to execute command: %m");
+        return log_unit_error_errno(unit, r, "Failed to execute command: %m");
 }
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
@@ -3456,7 +3525,7 @@ int exec_spawn(Unit *unit,
         assert(context);
         assert(ret);
         assert(params);
-        assert(params->fds || (params->n_storage_fds + params->n_socket_fds <= 0));
+        assert(params->fds || (params->n_socket_fds + params->n_storage_fds <= 0));
 
         if (context->std_input == EXEC_INPUT_SOCKET ||
             context->std_output == EXEC_OUTPUT_SOCKET ||
@@ -3476,8 +3545,8 @@ int exec_spawn(Unit *unit,
         } else {
                 socket_fd = -1;
                 fds = params->fds;
-                n_storage_fds = params->n_storage_fds;
                 n_socket_fds = params->n_socket_fds;
+                n_storage_fds = params->n_storage_fds;
         }
 
         r = exec_context_named_iofds(context, params, named_iofds);
@@ -3516,8 +3585,8 @@ int exec_spawn(Unit *unit,
                                socket_fd,
                                named_iofds,
                                fds,
-                               n_storage_fds,
                                n_socket_fds,
+                               n_storage_fds,
                                files_env,
                                unit->manager->user_lookup_fds[1],
                                &exit_status);

@@ -1,5 +1,32 @@
 systemd System and Service Manager
 
+CHANGES WITH 240 in spe:
+
+        * A new service type has been added: Type=exec. It's very similar to
+          Type=simple and ensures the service manager will wait for both fork()
+          and execve() of the main service binary to complete before proceeding
+          with follow-up units. This is primarily useful so that the manager
+          propagates any errors in the preparation phase of service execution
+          back to the job that requested the unit to be started. For example,
+          consider a service that has ExecStart= set to a file system binary
+          that doesn't exist. With Type=simple starting the unit would
+          typically succeed instantly, as only fork() has to complete
+          successfully and execve() is not waited for, and hence its failure is
+          seen "too late". With the new Type=exec service type starting the
+          unit will fail, as the execve() will be waited for and will fail,
+          which is then propagated back to the start job.
+
+          NOTE: with the next release 241 of systemd we intend to change the
+          systemd-run tool to default to Type=exec for transient services
+          started by it. This should be mostly safe, but in specific corner
+          cases might result in problems, as the systemd-run tool will then
+          block on NSS calls (such as user name lookups due to User=) done
+          between the fork() and execve(), which under specific circumstances
+          might cause problems. It is recommended to specify "-p Type=simple"
+          explicitly in the few cases where this applies. For regular,
+          non-transient services (i.e. those defined with unit files on disk)
+          we will continue to default to Type=simple.
+
 CHANGES WITH 239:
 
         * NETWORK INTERFACE DEVICE NAMING CHANGES: systemd-udevd's "net_id"
