@@ -34,6 +34,22 @@ static void test_pseudorandom_bytes(void) {
         }
 }
 
+static void test_rdrand64(void) {
+        int r, i;
+
+        for (i = 0; i < 10; i++) {
+                uint64_t x = 0;
+
+                r = rdrand64(&x);
+                if (r < 0) {
+                        log_error_errno(r, "RDRAND failed: %m");
+                        return;
+                }
+
+                printf("%" PRIx64 "\n", x);
+        }
+}
+
 int main(int argc, char **argv) {
         log_set_max_level(LOG_DEBUG);
         log_parse_environment();
@@ -43,6 +59,8 @@ int main(int argc, char **argv) {
         test_acquire_random_bytes(true);
 
         test_pseudorandom_bytes();
+
+        test_rdrand64();
 
         return 0;
 }

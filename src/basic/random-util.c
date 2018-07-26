@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1+ */
 
+#ifdef __x86_64__
+#include <cpuid.h>
+#endif
+
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -25,6 +29,41 @@
 #include "missing.h"
 #include "random-util.h"
 #include "time-util.h"
+
+
+int rdrand64(uint64_t *ret) {
+
+#ifdef __x86_64__
+        static int have_rdrand = -1;
+        unsigned char err;
+
+        if (have_rdrand < 0) {
+                uint32_t eax, ebx, ecx, edx;
+
+                /* Check if RDRAND is supported by the CPU */
+                if (__get_cpuid(1, &eax, &ebx, &ecx, &edx) == 0) {
+                        have_rdrand = false;
+                        return -EOPNOTSUPP;
+                }
+
+                have_rdrand = !!(ecx & (1U << 30));
+        }
+
+        if (have_rdrand == 0)
+                return -EOPNOTSUPP;
+
+        asm volatile("rdrand %0;"
+                     "setc %1"
+                     : "=r" (*ret),
+                       "=qm" (err));
+        if (!err)
+                return -EAGAIN;
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
 
 int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
         static int have_syscall = -1;
@@ -68,8 +107,26 @@ int acquire_random_bytes(void *p, size_t n, bool high_quality_required) {
                          * a best-effort basis. */
                         have_syscall = true;
 
-                        if (!high_quality_required)
-                                return -ENODATA;
+                        if (!high_quality_required) {
+                                uint64_t u;
+                                size_t k;
+
+                                /* Try x86-64' RDRAND intrinsic if we have it. We only use it if high quality
+                                 * randomness is not required, as we don't trust it (who does?). Note that we only do a
+                                 * single iteration of RDRAND here, even though the Intel docs suggest calling this in
+                                 * a tight loop of 10 invocatins or so. That's because we don't really care about the
+                                 * quality here. */
+
+                                if (rdrand64(&u) < 0)
+                                        return -ENODATA;
+
+                                k = MIN(n, sizeof(u));
+                                memcpy(p, &u, k);
+
+                                /* We only get 64bit out of RDRAND, the rest let's fill up with pseudo-random crap. */
+                                pseudorandom_bytes((uint8_t*) p + k, n - k);
+                                return 0;
+                        }
                 } else
                         return -errno;
         }

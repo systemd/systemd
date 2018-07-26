@@ -21,3 +21,5 @@ static inline uint32_t random_u32(void) {
         random_bytes(&u, sizeof(u));
         return u;
 }
+
+int rdrand64(uint64_t *ret);
