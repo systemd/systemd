@@ -3,6 +3,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "dnstls.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
 #include "resolved-resolv-conf.h"
@@ -80,10 +81,7 @@ int dns_server_new(
 
         s->linked = true;
 
-#if ENABLE_DNS_OVER_TLS
-        /* Do not verify cerificate */
-        gnutls_certificate_allocate_credentials(&s->tls_cert_cred);
-#endif
+        dnstls_server_init(s);
 
         /* A new DNS server that isn't fallback is added and the one
          * we used so far was a fallback one? Then let's try to pick
@@ -121,13 +119,7 @@ DnsServer* dns_server_unref(DnsServer *s)  {
 
         dns_stream_unref(s->stream);
 
-#if ENABLE_DNS_OVER_TLS
-        if (s->tls_cert_cred)
-                gnutls_certificate_free_credentials(s->tls_cert_cred);
-
-        if (s->tls_session_data.data)
-                gnutls_free(s->tls_session_data.data);
-#endif
+        dnstls_server_free(s);
 
         free(s->server_string);
         return mfree(s);

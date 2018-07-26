@@ -3,6 +3,7 @@
 #include <netinet/tcp.h>
 
 #include "alloc-util.h"
+#include "dnstls.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "missing.h"
@@ -42,25 +43,21 @@ static int dns_stream_update_io(DnsStream *s) {
 }
 
 static int dns_stream_complete(DnsStream *s, int error) {
+        int r;
+
         assert(s);
 
-#if ENABLE_DNS_OVER_TLS
-        if (s->tls_session && IN_SET(error, ETIMEDOUT, 0)) {
-                int r;
+        r = dnstls_stream_shutdown(s, error);
 
-                r = gnutls_bye(s->tls_session, GNUTLS_SHUT_RDWR);
-                if (r == GNUTLS_E_AGAIN && !s->tls_bye) {
-                        dns_stream_ref(s); /* keep reference for closing TLS session */
-                        s->tls_bye = true;
-                } else
-                        dns_stream_stop(s);
-        } else
-#endif
+        if (r != -EAGAIN)
                 dns_stream_stop(s);
 
         if (s->complete)
                 s->complete(s, error);
-        else /* the default action if no completion function is set is to close the stream */
+        else if (r != -EAGAIN)
+                /* the default action if no completion function is set is to close
+                 * the stream, except if the DNSTLS code returns -EAGAIN, in which
+                 * case keep the reference around. */
                 dns_stream_unref(s);
 
         return 0;
@@ -204,19 +201,9 @@ static ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t i
 
                 r = 0;
                 for (i = 0; i < iovcnt; i++) {
-                        ss = gnutls_record_send(s->tls_session, iov[i].iov_base, iov[i].iov_len);
-                        if (ss < 0) {
-                                switch(ss) {
-
-                                case GNUTLS_E_INTERRUPTED:
-                                        return -EINTR;
-                                case GNUTLS_E_AGAIN:
-                                        return -EAGAIN;
-                                default:
-                                        log_debug("Failed to invoke gnutls_record_send: %s", gnutls_strerror(ss));
-                                        return -EIO;
-                                }
-                        }
+                        ss = dnstls_stream_write(s, iov[i].iov_base, iov[i].iov_len);
+                        if (ss < 0)
+                                return ss;
 
                         r += ss;
                         if (ss != (ssize_t) iov[i].iov_len)
@@ -259,19 +246,11 @@ static ssize_t dns_stream_read(DnsStream *s, void *buf, size_t count) {
 
 #if ENABLE_DNS_OVER_TLS
         if (s->tls_session) {
-                ss = gnutls_record_recv(s->tls_session, buf, count);
-                if (ss < 0) {
-                        switch(ss) {
+                ss = dnstls_stream_read(s, buf, count);
+                if (ss < 0)
+                        return ss;
 
-                        case GNUTLS_E_INTERRUPTED:
-                                return -EINTR;
-                        case GNUTLS_E_AGAIN:
-                                return -EAGAIN;
-                        default:
-                                log_debug("Failed to invoke gnutls_record_send: %s", gnutls_strerror(ss));
-                                return -EIO;
-                        }
-                } else if (s->on_connection) {
+                if (s->on_connection) {
                         int r;
 
                         r = s->on_connection(s);
@@ -291,12 +270,12 @@ static ssize_t dns_stream_read(DnsStream *s, void *buf, size_t count) {
 }
 
 #if ENABLE_DNS_OVER_TLS
-static ssize_t dns_stream_tls_writev(gnutls_transport_ptr_t p, const giovec_t * iov, int iovcnt) {
+ssize_t dns_stream_tls_writev(DnsStream *p, const struct iovec *iov, int iovcnt) {
         int r;
 
         assert(p);
 
-        r = dns_stream_writev((DnsStream*) p, (struct iovec*) iov, iovcnt, WRITE_TLS_DATA);
+        r = dns_stream_writev(p, iov, iovcnt, WRITE_TLS_DATA);
         if (r < 0) {
                 errno = -r;
                 return -1;
@@ -321,36 +300,23 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
         assert(s);
 
 #if ENABLE_DNS_OVER_TLS
-        if (s->tls_bye) {
-                assert(s->tls_session);
-
-                r = gnutls_bye(s->tls_session, GNUTLS_SHUT_RDWR);
-                if (r != GNUTLS_E_AGAIN) {
-                        s->tls_bye = false;
+        r = dnstls_stream_shutdown_complete(s);
+        if (r <= 0) {
+                if (r != -EAGAIN)
                         dns_stream_unref(s);
-                }
-
                 return 0;
         }
 
-        if (s->tls_handshake < 0) {
-                assert(s->tls_session);
-
-                s->tls_handshake = gnutls_handshake(s->tls_session);
-                if (s->tls_handshake >= 0) {
-                        if (s->on_connection && !(gnutls_session_get_flags(s->tls_session) & GNUTLS_SFLAGS_FALSE_START)) {
-                                r = s->on_connection(s);
-                                s->on_connection = NULL; /* only call once */
-                                if (r < 0)
-                                        return r;
-                        }
-                } else {
-                        if (gnutls_error_is_fatal(s->tls_handshake))
-                                return dns_stream_complete(s, ECONNREFUSED);
-                        else
-                                return 0;
-                }
-
+        r = dnstls_stream_handshake(s);
+        if (r <= 0) {
+                if (r != -EAGAIN)
+                        return r < 0 ? dns_stream_complete(s, -r) : 0;
+        }
+        if (s->on_connection) {
+                r = s->on_connection(s);
+                s->on_connection = NULL; /* only call once */
+                if (r < 0)
+                        return r;
         }
 #endif
 
@@ -505,10 +471,7 @@ DnsStream *dns_stream_unref(DnsStream *s) {
                 s->manager->n_dns_streams--;
         }
 
-#if ENABLE_DNS_OVER_TLS
-        if (s->tls_session)
-                gnutls_deinit(s->tls_session);
-#endif
+        dnstls_stream_free(s);
 
         ORDERED_SET_FOREACH(p, s->write_queue, i)
                 dns_packet_unref(ordered_set_remove(s->write_queue, p));
@@ -585,21 +548,6 @@ int dns_stream_new(Manager *m, DnsStream **ret, DnsProtocol protocol, int fd, co
 
         return 0;
 }
-
-#if ENABLE_DNS_OVER_TLS
-int dns_stream_connect_tls(DnsStream *s, gnutls_session_t tls_session) {
-        gnutls_transport_set_ptr2(tls_session, (gnutls_transport_ptr_t) (long) s->fd, s);
-        gnutls_transport_set_vec_push_function(tls_session, &dns_stream_tls_writev);
-
-        s->encrypted = true;
-        s->tls_session = tls_session;
-        s->tls_handshake = gnutls_handshake(tls_session);
-        if (s->tls_handshake < 0 && gnutls_error_is_fatal(s->tls_handshake))
-                return -ECONNREFUSED;
-
-        return 0;
-}
-#endif
 
 int dns_stream_write_packet(DnsStream *s, DnsPacket *p) {
         int r;
