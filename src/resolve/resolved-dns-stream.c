@@ -234,6 +234,8 @@ ssize_t dns_stream_writev(DnsStream *s, const struct iovec *iov, size_t iovcnt, 
                                 r = -EAGAIN;
                         } else if (errno == EINPROGRESS)
                                 r = -EAGAIN;
+                        else
+                                r = -errno;
                 } else
                         s->tfo_salen = 0; /* connection is made */
         } else {

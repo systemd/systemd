@@ -8,8 +8,12 @@
 typedef struct DnsTlsServerData DnsTlsServerData;
 typedef struct DnsTlsStreamData DnsTlsStreamData;
 
-#if HAVE_GNUTLS
+#if DNS_OVER_TLS_USE_GNUTLS
 #include "resolved-dnstls-gnutls.h"
+#elif DNS_OVER_TLS_USE_OPENSSL
+#include "resolved-dnstls-openssl.h"
+#else
+#error Unknown dependency for supporting DNS-over-TLS
 #endif
 
 #include "resolved-dns-stream.h"
