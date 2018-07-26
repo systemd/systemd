@@ -2575,6 +2575,17 @@ static int inner_child(
         _cleanup_strv_free_ char **env_use = NULL;
         int r;
 
+        /* This is the "inner" child process, i.e. the one forked off by the "outer" child process, which is the one
+         * the container manager itself forked off. At the time of clone() it gained its own CLONE_NEWNS, CLONE_NEWPID,
+         * CLONE_NEWUTS, CLONE_NEWIPC, CLONE_NEWUSER namespaces. Note that it has its own CLONE_NEWNS namespace,
+         * separate from the CLONE_NEWNS created for the "outer" child, and also separate from the host's CLONE_NEWNS
+         * namespace. The reason for having two levels of CLONE_NEWNS namespaces is that the "inner" one is owned by
+         * the CLONE_NEWUSER namespace of the container, while the "outer" one is owned by the host's CLONE_NEWUSER
+         * namespace.
+         *
+         * Note at this point we have no CLONE_NEWNET namespace yet. We'll acquire that one later through
+         * unshare(). See below. */
+
         assert(barrier);
         assert(directory);
         assert(kmsg_socket >= 0);
@@ -2858,6 +2869,11 @@ static int outer_child(
         int r, which_failed;
         pid_t pid;
         ssize_t l;
+
+        /* This is the "outer" child process, i.e the one forked off by the container manager itself. It already has
+         * its own CLONE_NEWNS namespace (which was created by the clone()). It still lives in the host's CLONE_NEWPID,
+         * CLONE_NEWUTS, CLONE_NEWIPC, CLONE_NEWUSER and CLONE_NEWNET namespaces. After it completed a number of
+         * initializations a second child (the "inner" one) is forked off it, and it exits. */
 
         assert(barrier);
         assert(directory);
