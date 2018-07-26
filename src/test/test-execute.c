@@ -105,6 +105,25 @@ invalid:
         return false;
 }
 
+static bool check_user_has_group_with_same_name(const char *name) {
+        struct passwd *p;
+        struct group *g;
+
+        assert(name);
+
+        p = getpwnam(name);
+        if (!p ||
+            !streq(p->pw_name, name))
+                return false;
+
+        g = getgrgid(p->pw_gid);
+        if (!g ||
+            !streq(g->gr_name, name))
+                return false;
+
+        return true;
+}
+
 static bool is_inaccessible_available(void) {
         char *p;
 
@@ -427,6 +446,10 @@ static void test_exec_supplementarygroups(Manager *m) {
 
 static void test_exec_dynamicuser(Manager *m) {
         test(m, "exec-dynamicuser-fixeduser.service", 0, CLD_EXITED);
+        if (check_user_has_group_with_same_name("adm"))
+                test(m, "exec-dynamicuser-fixeduser-adm.service", 0, CLD_EXITED);
+        if (check_user_has_group_with_same_name("games"))
+                test(m, "exec-dynamicuser-fixeduser-games.service", 0, CLD_EXITED);
         test(m, "exec-dynamicuser-fixeduser-one-supplementarygroup.service", 0, CLD_EXITED);
         test(m, "exec-dynamicuser-supplementarygroups.service", 0, CLD_EXITED);
         test(m, "exec-dynamicuser-statedir.service", 0, CLD_EXITED);
