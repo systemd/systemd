@@ -72,6 +72,10 @@ void context_free(Context *c) {
         context_free_locale(c);
         context_free_x11(c);
         context_free_vconsole(c);
+
+        sd_bus_message_unref(c->locale_cache);
+        sd_bus_message_unref(c->x11_cache);
+        sd_bus_message_unref(c->vc_cache);
 };
 
 void locale_simplify(char *locale[_VARIABLE_LC_MAX]) {
@@ -87,11 +91,13 @@ int locale_read_data(Context *c, sd_bus_message *m) {
         int r;
 
         /* Do not try to re-read the file within single bus operation. */
-        if (m && m == c->locale_cache)
-                return 0;
+        if (m) {
+                if (m == c->locale_cache)
+                        return 0;
 
-        /* To suppress multiple call of stat(), store the message to cache here. */
-        c->locale_cache = m;
+                sd_bus_message_unref(c->locale_cache);
+                c->locale_cache = sd_bus_message_ref(m);
+        }
 
         r = stat("/etc/locale.conf", &st);
         if (r < 0 && errno != ENOENT)
@@ -155,11 +161,13 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
         int r;
 
         /* Do not try to re-read the file within single bus operation. */
-        if (m && m == c->vc_cache)
-                return 0;
+        if (m) {
+                if (m == c->vc_cache)
+                        return 0;
 
-        /* To suppress multiple call of stat(), store the message to cache here. */
-        c->vc_cache = m;
+                sd_bus_message_unref(c->vc_cache);
+                c->vc_cache = sd_bus_message_ref(m);
+        }
 
         if (stat("/etc/vconsole.conf", &st) < 0) {
                 if (errno != ENOENT)
@@ -197,11 +205,13 @@ int x11_read_data(Context *c, sd_bus_message *m) {
         int r;
 
         /* Do not try to re-read the file within single bus operation. */
-        if (m && m == c->x11_cache)
-                return 0;
+        if (m) {
+                if (m == c->x11_cache)
+                        return 0;
 
-        /* To suppress multiple call of stat(), store the message to cache here. */
-        c->x11_cache = m;
+                sd_bus_message_unref(c->x11_cache);
+                c->x11_cache = sd_bus_message_ref(m);
+        }
 
         if (stat("/etc/X11/xorg.conf.d/00-keyboard.conf", &st) < 0) {
                 if (errno != ENOENT)

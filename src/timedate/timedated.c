@@ -44,6 +44,10 @@ typedef struct Context {
         char *zone;
         bool local_rtc;
         Hashmap *polkit_registry;
+        sd_bus_message *cache;
+
+        sd_bus_slot *slot_job_removed;
+        char *path_ntp_unit;
 
         LIST_HEAD(UnitStatusInfo, units);
 } Context;
@@ -71,6 +75,10 @@ static void context_free(Context *c) {
 
         free(c->zone);
         bus_verify_polkit_async_registry_free(c->polkit_registry);
+        sd_bus_message_unref(c->cache);
+
+        sd_bus_slot_unref(c->slot_job_removed);
+        free(c->path_ntp_unit);
 
         while ((p = c->units)) {
                 LIST_REMOVE(units, c->units, p);
@@ -302,18 +310,20 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
                 { "UnitFileState", "s", NULL, offsetof(UnitStatusInfo, unit_file_state) },
                 {}
         };
-        static sd_bus_message *_m = NULL;
         UnitStatusInfo *u;
         int r;
 
         assert(c);
         assert(bus);
 
-        /* Suppress multiple call of context_update_ntp_status() within single DBus transaction. */
-        if (m && m == _m)
-                return 0;
+        /* Suppress calling context_update_ntp_status() multiple times within single DBus transaction. */
+        if (m) {
+                if (m == c->cache)
+                        return 0;
 
-        _m = m;
+                sd_bus_message_unref(c->cache);
+                c->cache = sd_bus_message_ref(m);
+        }
 
         LIST_FOREACH(units, u, c->units) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -341,17 +351,55 @@ static int context_update_ntp_status(Context *c, sd_bus *bus, sd_bus_message *m)
         return 0;
 }
 
-static int unit_start_or_stop(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *error, bool start) {
+static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        const char *path;
+        Context *c = userdata;
         int r;
 
+        assert(c);
+        assert(m);
+
+        r = sd_bus_message_read(m, "uoss", NULL, &path, NULL, NULL);
+        if (r < 0) {
+                bus_log_parse_error(r);
+                return 0;
+        }
+
+        if (!streq_ptr(path, c->path_ntp_unit))
+                return 0;
+
+        (void) sd_bus_emit_properties_changed(sd_bus_message_get_bus(m), "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP", NULL);
+
+        c->slot_job_removed = sd_bus_slot_unref(c->slot_job_removed);
+        c->path_ntp_unit = mfree(c->path_ntp_unit);
+
+        return 0;
+}
+
+static int unit_start_or_stop(Context *c, UnitStatusInfo *u, sd_bus *bus, sd_bus_error *error, bool start) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
+        const char *path;
+        int r;
+
+        assert(c);
         assert(u);
         assert(bus);
         assert(error);
 
-        /* Call context_update_ntp_status() to update UnitStatusInfo before calling this. */
+        /* This method may be called frequently. Forget the previous job if it has not completed yet. */
+        c->slot_job_removed = sd_bus_slot_unref(c->slot_job_removed);
 
-        if (streq(u->active_state, "active") == start)
-                return 0;
+        r = sd_bus_match_signal_async(
+                        bus,
+                        &slot,
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "JobRemoved",
+                        match_job_removed, NULL, c);
+        if (r < 0)
+                return r;
 
         r = sd_bus_call_method(
                 bus,
@@ -360,13 +408,22 @@ static int unit_start_or_stop(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *erro
                 "org.freedesktop.systemd1.Manager",
                 start ? "StartUnit" : "StopUnit",
                 error,
-                NULL,
+                &reply,
                 "ss",
                 u->name,
                 "replace");
         if (r < 0)
                 return r;
 
+        r = sd_bus_message_read(reply, "o", &path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        r = free_and_strdup(&c->path_ntp_unit, path);
+        if (r < 0)
+                return log_oom();
+
+        c->slot_job_removed = TAKE_PTR(slot);
         return 0;
 }
 
@@ -418,8 +475,9 @@ static int unit_enable_or_disable(UnitStatusInfo *u, sd_bus *bus, sd_bus_error *
                         error,
                         NULL,
                         NULL);
-         if (r < 0)
-                 return r;
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -809,7 +867,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                         if (q < 0)
                                 r = q;
 
-                        q = unit_start_or_stop(u, bus, error, enable);
+                        q = unit_start_or_stop(c, u, bus, error, enable);
                         if (q < 0)
                                 r = q;
                 }
@@ -823,17 +881,17 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                         if (r < 0)
                                 continue;
 
-                        r = unit_start_or_stop(u, bus, error, enable);
+                        r = unit_start_or_stop(c, u, bus, error, enable);
                         break;
                 }
 
-        else if (context_ntp_service_is_active(c) <= 0)
+        else
                 LIST_FOREACH(units, u, c->units) {
                         if (!streq(u->load_state, "loaded") ||
                             !streq(u->unit_file_state, "enabled"))
                                 continue;
 
-                        r = unit_start_or_stop(u, bus, error, enable);
+                        r = unit_start_or_stop(c, u, bus, error, enable);
                         break;
                 }
 
@@ -841,8 +899,6 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
                 return r;
 
         log_info("Set NTP to %sd", enable_disable(enable));
-
-        (void) sd_bus_emit_properties_changed(bus, "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP", NULL);
 
         return sd_bus_reply_method_return(m, NULL);
 }
