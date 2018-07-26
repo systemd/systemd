@@ -422,16 +422,16 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                         return 1;
                 }
 
-                r = parse_percent(eq);
+                r = parse_permille(eq);
                 if (r >= 0) {
                         char *n;
 
-                        /* When this is a percentage we'll convert this into a relative value in the range
-                         * 0…UINT32_MAX and pass it in the MemoryLowScale property (and related
-                         * ones). This way the physical memory size can be determined server-side */
+                        /* When this is a percentage we'll convert this into a relative value in the range 0…UINT32_MAX
+                         * and pass it in the MemoryLowScale property (and related ones). This way the physical memory
+                         * size can be determined server-side. */
 
                         n = strjoina(field, "Scale");
-                        r = sd_bus_message_append(m, "(sv)", n, "u", (uint32_t) (((uint64_t) UINT32_MAX * r) / 100U));
+                        r = sd_bus_message_append(m, "(sv)", n, "u", (uint32_t) (((uint64_t) r * UINT32_MAX) / 1000U));
                         if (r < 0)
                                 return bus_log_create_error(r);
 
@@ -449,13 +449,15 @@ static int bus_append_cgroup_property(sd_bus_message *m, const char *field, cons
                 if (isempty(eq))
                         r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", USEC_INFINITY);
                 else {
-                        r = parse_percent_unbounded(eq);
-                        if (r <= 0) {
-                                log_error_errno(r, "CPU quota '%s' invalid.", eq);
-                                return -EINVAL;
+                        r = parse_permille_unbounded(eq);
+                        if (r == 0) {
+                                log_error("CPU quota too small.");
+                                return -ERANGE;
                         }
+                        if (r < 0)
+                                return log_error_errno(r, "CPU quota '%s' invalid.", eq);
 
-                        r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", (usec_t) r * USEC_PER_SEC / 100U);
+                        r = sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", (((uint64_t) r * USEC_PER_SEC) / 1000U));
                 }
 
                 if (r < 0)
