@@ -19,6 +19,8 @@ Janitorial Clean-ups:
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 
+* udev: drop "collect", it's nonsense
+
 Features:
 
 * logind: maybe watch utmp asynchronously using inotify, and populate our own
@@ -44,6 +46,10 @@ Features:
 * the stop-when-unneded feature should be reworked: there should be a queue of
   units, and we should only enqeueu stop jobs from a defer event that processes
   queue instead of right-away when we assume that a unit is now unneeded.
+
+* nspawn: make nspawn suitable for shell pipelines: instead of triggering a
+  hangup when input is finished, send ^D, which synthesizes an EOF. Then wait
+  for hangup or ^D before passing on the EOF.
 
 * When reloading configuration PID 1 should reset all its properties to the
   original defaults before calling parse_config()
