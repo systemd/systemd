@@ -45,6 +45,8 @@ test_data_files = '''
         test-execute/exec-cpuaffinity1.service
         test-execute/exec-cpuaffinity2.service
         test-execute/exec-cpuaffinity3.service
+        test-execute/exec-dynamicuser-fixeduser-adm.service
+        test-execute/exec-dynamicuser-fixeduser-games.service
         test-execute/exec-dynamicuser-fixeduser-one-supplementarygroup.service
         test-execute/exec-dynamicuser-fixeduser.service
         test-execute/exec-dynamicuser-statedir-migrate-step1.service

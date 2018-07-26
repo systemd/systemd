@@ -1,0 +1,11 @@
+[Unit]
+Description=Test DynamicUser with static User= whose uid and gid are different
+# On Fedora, user adm has uid==3 and gid==4.
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -x -c 'test "$$(id -nG)" = "adm" && test "$$(id -ng)" = "adm" && test "$$(id -nu)" = "adm"'
+# Multiple ExecStart= lines causes the issue #9702.
+ExecStart=/bin/sh -x -c 'test "$$(id -nG)" = "adm" && test "$$(id -ng)" = "adm" && test "$$(id -nu)" = "adm"'
+DynamicUser=yes
+User=adm
