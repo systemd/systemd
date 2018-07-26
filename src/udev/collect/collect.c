@@ -59,7 +59,7 @@ static inline struct _mate *node_to_mate(struct udev_list_node *node)
 
 _noreturn_ static void sig_alrm(int signo)
 {
-        exit(4);
+        _exit(4);
 }
 
 static void usage(void)
