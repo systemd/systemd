@@ -225,6 +225,7 @@ manpages = [
    'SD_BUS_MESSAGE_METHOD_ERROR',
    'SD_BUS_MESSAGE_METHOD_RETURN',
    'SD_BUS_MESSAGE_SIGNAL',
+   'sd_bus_message_get_bus',
    'sd_bus_message_ref',
    'sd_bus_message_unref',
    'sd_bus_message_unrefp'],

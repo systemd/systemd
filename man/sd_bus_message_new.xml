@@ -23,6 +23,7 @@
     <refname>SD_BUS_MESSAGE_METHOD_RETURN</refname>
     <refname>SD_BUS_MESSAGE_METHOD_ERROR</refname>
     <refname>SD_BUS_MESSAGE_SIGNAL</refname>
+    <refname>sd_bus_message_get_bus</refname>
 
     <refpurpose>Create a new bus message object and create or destroy references to it</refpurpose>
   </refnamediv>
@@ -58,6 +59,11 @@
       <funcprototype>
         <funcdef>void <function>sd_bus_message_unrefp</function></funcdef>
         <paramdef>sd_bus_message **<parameter>mp</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus *<function>sd_bus_message_get_bus</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>m</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -117,6 +123,9 @@
     its argument, which must not be <constant>NULL</constant>, and will execute no operation if
     <emphasis>that</emphasis> is <constant>NULL</constant>.
     </para>
+
+    <para><function>sd_bus_message_get_bus()</function> returns the bus object that message
+    <parameter>m</parameter> is attached to.</para>
   </refsect1>
 
   <refsect1>
@@ -130,6 +139,8 @@
 
     <para><function>sd_bus_message_unref()</function> always returns
     <constant>NULL</constant>.</para>
+
+    <para><function>sd_bus_message_get_bus()</function> always returns the bus object.</para>
   </refsect1>
 
   <refsect1>
