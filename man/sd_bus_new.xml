@@ -48,7 +48,7 @@
 
       <funcprototype>
         <funcdef>void <function>sd_bus_unrefp</function></funcdef>
-        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>sd_bus **<parameter>busp</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -105,10 +105,12 @@
         …
 }</programlisting>
 
-    <para><function>sd_bus_ref()</function>,
-    <function>sd_bus_unref()</function> and
-    <function>sd_bus_unrefp()</function> execute no operation if the
-    passed in bus object is <constant>NULL</constant>.</para>
+    <para><function>sd_bus_ref()</function> and <function>sd_bus_unref()</function>
+    execute no operation if the passed in bus object address is
+    <constant>NULL</constant>. <function>sd_bus_unrefp()</function> will first
+    dereference its argument, which must not be <constant>NULL</constant>, and will
+    execute no operation if <emphasis>that</emphasis> is <constant>NULL</constant>.
+    </para>
   </refsect1>
 
   <refsect1>
