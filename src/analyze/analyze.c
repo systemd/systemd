@@ -585,7 +585,7 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
                 size = strpcpyf(&ptr, size, "%s (firmware) + ", format_timespan(ts, sizeof(ts), t->firmware_time - t->loader_time, USEC_PER_MSEC));
         if (t->loader_time > 0)
                 size = strpcpyf(&ptr, size, "%s (loader) + ", format_timespan(ts, sizeof(ts), t->loader_time, USEC_PER_MSEC));
-        if (t->kernel_time > 0)
+        if (t->kernel_done_time > 0)
                 size = strpcpyf(&ptr, size, "%s (kernel) + ", format_timespan(ts, sizeof(ts), t->kernel_done_time, USEC_PER_MSEC));
         if (t->initrd_time > 0)
                 size = strpcpyf(&ptr, size, "%s (initrd) + ", format_timespan(ts, sizeof(ts), t->userspace_time - t->initrd_time, USEC_PER_MSEC));
@@ -804,7 +804,7 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
                 svg_text(true, -(double) boot->loader_time, y, "loader");
                 y++;
         }
-        if (boot->kernel_time > 0) {
+        if (boot->kernel_done_time > 0) {
                 svg_bar("kernel", 0, boot->kernel_done_time, y);
                 svg_text(true, 0, y, "kernel");
                 y++;
