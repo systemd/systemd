@@ -113,6 +113,10 @@ void sigbus_install(void) {
                 .sa_flags = SA_SIGINFO,
         };
 
+        /* make sure that sysconf() is not called from a signal handler because
+        * it is not guaranteed to be async-signal-safe since POSIX.1-2008 */
+        (void) page_size();
+
         n_installed++;
 
         if (n_installed == 1)
