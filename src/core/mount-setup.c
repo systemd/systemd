@@ -460,20 +460,9 @@ int mount_setup(bool loaded_policy) {
         (void) mkdir_label("/run/systemd", 0755);
         (void) mkdir_label("/run/systemd/system", 0755);
 
-        /* Set up inaccessible (and empty) file nodes of all types */
-        (void) mkdir_label("/run/systemd/inaccessible", 0000);
-        (void) mknod("/run/systemd/inaccessible/reg", S_IFREG | 0000, 0);
-        (void) mkdir_label("/run/systemd/inaccessible/dir", 0000);
-        (void) mkfifo("/run/systemd/inaccessible/fifo", 0000);
-        (void) mknod("/run/systemd/inaccessible/sock", S_IFSOCK | 0000, 0);
-
-        /* The following two are likely to fail if we lack the privs for it (for example in an userns environment, if
-         * CAP_SYS_MKNOD is missing, or if a device node policy prohibit major/minor of 0 device nodes to be
-         * created). But that's entirely fine. Consumers of these files should carry fallback to use a different node
-         * then, for example /run/systemd/inaccessible/sock, which is close enough in behaviour and semantics for most
-         * uses. */
-        (void) mknod("/run/systemd/inaccessible/chr", S_IFCHR | 0000, makedev(0, 0));
-        (void) mknod("/run/systemd/inaccessible/blk", S_IFBLK | 0000, makedev(0, 0));
+        /* Also create /run/systemd/inaccessible nodes, so that we always have something to mount inaccessible nodes
+         * from. */
+        (void) make_inaccessible_nodes(NULL, UID_INVALID, GID_INVALID);
 
         return 0;
 }

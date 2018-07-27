@@ -156,6 +156,10 @@ tests += [
          [],
          []],
 
+        [['src/test/test-dev-setup.c'],
+         [],
+         []],
+
         [['src/test/test-capability.c'],
          [],
          [libcap]],
