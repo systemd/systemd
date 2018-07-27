@@ -87,12 +87,36 @@ KeyTwo=value 2 \
        value 2 continued
 </programlisting></example>
 
+    <para>Boolean arguments used in configuration files can be written in
+    various formats. For positive settings the strings
+    <option>1</option>, <option>yes</option>, <option>true</option>
+    and <option>on</option> are equivalent. For negative settings, the
+    strings <option>0</option>, <option>no</option>,
+    <option>false</option> and <option>off</option> are
+    equivalent.</para>
+
+    <para>Time span values encoded in configuration files can be written in various formats. A stand-alone
+    number specifies a time in seconds.  If suffixed with a time unit, the unit is honored. A
+    concatenation of multiple values with units is supported, in which case the values are added
+    up. Example: <literal>50</literal> refers to 50 seconds; <literal>2min 200ms</literal> refers to
+    2 minutes and 200 milliseconds, i.e. 120200 ms.  The following time units are understood:
+    <literal>s</literal>, <literal>min</literal>, <literal>h</literal>, <literal>d</literal>,
+    <literal>w</literal>, <literal>ms</literal>, <literal>us</literal>.  For details see
+    <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
     <para>Various settings are allowed to be specified more than once, in which case the
     interpretation depends on the setting. Often, multiple settings form a list, and setting to an
     empty value "resets", which means that previous assignments are ignored. When this is allowed,
     it is mentioned in the description of the setting. Note that using multiple assignments to the
     same value makes the file incompatible with parsers for the XDG <filename>.desktop</filename>
     file format.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
   </refsect1>
 
 </refentry>

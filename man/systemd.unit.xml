@@ -118,23 +118,6 @@
     do not need the prefix. Applications may use this to include
     additional information in the unit files.</para>
 
-    <para>Boolean arguments used in unit files can be written in
-    various formats. For positive settings the strings
-    <option>1</option>, <option>yes</option>, <option>true</option>
-    and <option>on</option> are equivalent. For negative settings, the
-    strings <option>0</option>, <option>no</option>,
-    <option>false</option> and <option>off</option> are
-    equivalent.</para>
-
-    <para>Time span values encoded in unit files can be written in various formats. A stand-alone
-    number specifies a time in seconds.  If suffixed with a time unit, the unit is honored. A
-    concatenation of multiple values with units is supported, in which case the values are added
-    up. Example: <literal>50</literal> refers to 50 seconds; <literal>2min 200ms</literal> refers to
-    2 minutes and 200 milliseconds, i.e. 120200 ms.  The following time units are understood:
-    <literal>s</literal>, <literal>min</literal>, <literal>h</literal>, <literal>d</literal>,
-    <literal>w</literal>, <literal>ms</literal>, <literal>us</literal>.  For details see
-    <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
-
     <para>Units can be aliased (have an alternative name), by creating a symlink from the new name
     to the existing name in one of the unit search paths. For example,
     <filename>systemd-networkd.service</filename> has the alias
