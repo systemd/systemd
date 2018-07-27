@@ -96,13 +96,13 @@
     block is left:</para>
 
     <programlisting>{
-        __attribute__((cleanup(sd_bus_unrefp)) sd_bus *bus = NULL;
-        int r;
-        …
-        r = sd_bus_default(&amp;bus);
-        if (r &lt; 0)
-                fprintf(stderr, "Failed to allocate bus: %s\n", strerror(-r));
-        …
+  __attribute__((cleanup(sd_bus_unrefp)) sd_bus *bus = NULL;
+  int r;
+  …
+  r = sd_bus_default(&amp;bus);
+  if (r &lt; 0)
+    fprintf(stderr, "Failed to allocate bus: %s\n", strerror(-r));
+  …
 }</programlisting>
 
     <para><function>sd_bus_ref()</function> and <function>sd_bus_unref()</function>

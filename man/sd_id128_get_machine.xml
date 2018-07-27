@@ -120,17 +120,7 @@
 
       <para>Here's a simple example for an application specific machine ID:</para>
 
-      <programlisting>#include &lt;systemd/sd-id128.h&gt;
-#include &lt;stdio.h&gt;
-
-#define OUR_APPLICATION_ID SD_ID128_MAKE(c2,73,27,73,23,db,45,4e,a6,3b,b9,6e,79,b5,3e,97)
-
-int main(int argc, char *argv[]) {
-        sd_id128_t id;
-        sd_id128_get_machine_app_specific(OUR_APPLICATION_ID, &amp;id);
-        printf("Our application ID: " SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(id));
-        return 0;
-}</programlisting>
+      <programlisting><xi:include href="id128-app-specific.c" parse="text" /></programlisting>
     </example>
   </refsect1>
 
