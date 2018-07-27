@@ -18,6 +18,7 @@
 
   <refnamediv>
     <refname>sd_bus_message_new_method_call</refname>
+    <refname>sd_bus_message_new_method_return</refname>
 
     <refpurpose>Create a method call message</refpurpose>
   </refnamediv>
@@ -34,6 +35,12 @@
         <paramdef>const char *<parameter>path</parameter></paramdef>
         <paramdef>const char *<parameter>interface</parameter></paramdef>
         <paramdef>const char *<parameter>member</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int sd_bus_message_new_method_return</funcdef>
+        <paramdef>sd_bus_message *<parameter>call</parameter></paramdef>
+        <paramdef>sd_bus_message **<parameter>m</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -62,6 +69,12 @@
     <parameter>interface</parameter> parameter may be <constant>NULL</constant>, if the destination
     has only a single member with the given name and there is no ambiguity if the interface name is
     omitted.</para>
+
+    <para>The <function>sd_bus_message_new_method_call()</function> function creates a new bus
+    message object that is a reply to the method call <parameter>call</parameter> and returns it in
+    the <parameter>m</parameter> output parameter. The <parameter>call</parameter> parameter must be
+    a method call message. The sender of <parameter>call</parameter> is used as the destination.
+    </para>
   </refsect1>
 
   <refsect1>
@@ -88,7 +101,10 @@
         parameter is not a valid D-Bus path (<literal>/an/object/path</literal>), the
         <parameter>interface</parameter> parameter is non-null and is not a valid D-Bus interface
         name (<literal>an.interface.name</literal>), or the <parameter>member</parameter> parameter
-        is not a valid D-Bus member (<literal>Name</literal>).</para></listitem>
+        is not a valid D-Bus member (<literal>Name</literal>).</para>
+
+        <para>The <parameter>call</parameter> parameter is not a method call object.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -102,6 +118,22 @@
         <term><constant>-ENOMEM</constant></term>
 
         <listitem><para>Memory allocation failed.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-EPERM</constant></term>
+
+        <listitem>
+        <para>The <parameter>call</parameter> parameter is not sealed.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>-EOPNOTSUPP</constant></term>
+
+        <listitem>
+        <para>The <parameter>call</parameter> message does not have a cookie.</para>
+        </listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
