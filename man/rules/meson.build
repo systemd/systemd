@@ -251,6 +251,7 @@ manpages = [
    'sd_bus_message_get_sender',
    'sd_bus_message_set_sender'],
   ''],
+ ['sd_bus_message_verify_type', '3', [], ''],
  ['sd_bus_negotiate_fds',
   '3',
   ['sd_bus_negotiate_creds', 'sd_bus_negotiate_timestamp'],
