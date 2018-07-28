@@ -1276,7 +1276,7 @@ int setup_namespace(
                 if (r < 0)
                         goto finish;
 
-                normalize_mounts(root_directory, mounts, &n_mounts);
+                normalize_mounts(root, mounts, &n_mounts);
         }
 
         if (unshare(CLONE_NEWNS) < 0) {
@@ -1375,7 +1375,7 @@ int setup_namespace(
                         if (!again)
                                 break;
 
-                        normalize_mounts(root_directory, mounts, &n_mounts);
+                        normalize_mounts(root, mounts, &n_mounts);
                 }
 
                 /* Create a blacklist we can pass to bind_mount_recursive() */
