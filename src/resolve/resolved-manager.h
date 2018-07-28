@@ -117,6 +117,7 @@ struct Manager {
         Set* etc_hosts_by_address;
         Hashmap* etc_hosts_by_name;
         usec_t etc_hosts_last, etc_hosts_mtime;
+        bool read_etc_hosts;
 
         /* Local DNS stub on 127.0.0.53:53 */
         int dns_stub_udp_fd;

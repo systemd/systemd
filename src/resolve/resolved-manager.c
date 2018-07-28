@@ -581,6 +581,7 @@ int manager_new(Manager **ret) {
         m->read_resolv_conf = true;
         m->need_builtin_fallbacks = true;
         m->etc_hosts_last = m->etc_hosts_mtime = USEC_INFINITY;
+        m->read_etc_hosts = true;
 
         r = dns_trust_anchor_load(&m->trust_anchor);
         if (r < 0)

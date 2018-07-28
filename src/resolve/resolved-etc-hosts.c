@@ -324,6 +324,9 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
         assert(q);
         assert(answer);
 
+        if (!m->read_etc_hosts)
+                return 0;
+
         r = manager_etc_hosts_read(m);
         if (r < 0)
                 return r;

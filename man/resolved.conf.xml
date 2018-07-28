@@ -248,6 +248,13 @@
         in use.</para></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>ReadEtcHosts=</varname></term>
+        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default), the DNS stub resolver will read
+        <filename>/etc/hosts</filename>, and try to resolve hosts or address by using the entries in the file before
+        sending query to DNS servers.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
