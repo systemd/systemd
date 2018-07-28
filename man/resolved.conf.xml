@@ -227,10 +227,10 @@
 
       <varlistentry>
         <term><varname>Cache=</varname></term>
-        <listitem><para>Takes a boolean argument. If "yes" (the default), resolving a domain name which already got
-        queried earlier will return the previous result as long as it is still valid, and thus does not result in a new
-        network request. Be aware that turning off caching comes at a performance penalty, which is particularly
-        high when DNSSEC is used.</para>
+        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default), resolving a domain name
+        which already got queried earlier will return the previous result as long as it is still valid, and thus does
+        not result in a new network request. Be aware that turning off caching comes at a performance penalty, which
+        is particularly high when DNSSEC is used.</para>
 
         <para>Note that caching is turned off implicitly if the configured DNS server is on a host-local IP address
         (such as 127.0.0.1 or ::1), in order to avoid duplicate local caching.</para></listitem>
