@@ -236,7 +236,7 @@ static int parse_line(Manager *m, unsigned nr, const char *line) {
         return r;
 }
 
-int manager_etc_hosts_read(Manager *m) {
+static int manager_etc_hosts_read(Manager *m) {
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
         struct stat st;

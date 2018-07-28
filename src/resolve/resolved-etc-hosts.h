@@ -6,5 +6,4 @@
 #include "resolved-dns-answer.h"
 
 void manager_etc_hosts_flush(Manager *m);
-int manager_etc_hosts_read(Manager *m);
 int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer);
