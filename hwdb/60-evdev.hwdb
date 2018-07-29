@@ -424,7 +424,7 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pn*02173BG*:*pvrThinkPadEd
 #########################################
 
 # Razer Blade Stealth
-evdev:name:1A586753:00 06CB:8323 Touchpad:dmi:*svnRazer:pnBladeStealth:*
+evdev:name:1A58675*:00 06CB:8323 Touchpad:dmi:*svnRazer:pnBladeStealth:*
  EVDEV_ABS_00=::12:8
  EVDEV_ABS_01=::11:8
  EVDEV_ABS_35=::12:8
