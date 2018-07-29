@@ -200,12 +200,14 @@ static void *serialize_addrinfo(void *p, const struct addrinfo *ai, size_t *leng
         if (*length + l > maxlength)
                 return NULL;
 
-        s.ai_flags = ai->ai_flags;
-        s.ai_family = ai->ai_family;
-        s.ai_socktype = ai->ai_socktype;
-        s.ai_protocol = ai->ai_protocol;
-        s.ai_addrlen = ai->ai_addrlen;
-        s.canonname_len = cnl;
+        s = (AddrInfoSerialization) {
+                .ai_flags = ai->ai_flags,
+                .ai_family = ai->ai_family,
+                .ai_socktype = ai->ai_socktype,
+                .ai_protocol = ai->ai_protocol,
+                .ai_addrlen = ai->ai_addrlen,
+                .canonname_len = cnl,
+        };
 
         memcpy((uint8_t*) p, &s, sizeof(AddrInfoSerialization));
         memcpy((uint8_t*) p + sizeof(AddrInfoSerialization), ai->ai_addr, ai->ai_addrlen);
@@ -278,14 +280,7 @@ static int send_nameinfo_reply(
                 int _errno,
                 int _h_errno) {
 
-        NameInfoResponse resp = {
-                .header.type = RESPONSE_NAMEINFO,
-                .header.id = id,
-                .ret = ret,
-                ._errno = _errno,
-                ._h_errno = _h_errno,
-        };
-
+        NameInfoResponse resp;
         struct iovec iov[3];
         struct msghdr mh;
         size_t hl, sl;
@@ -295,9 +290,16 @@ static int send_nameinfo_reply(
         sl = serv ? strlen(serv)+1 : 0;
         hl = host ? strlen(host)+1 : 0;
 
-        resp.header.length = sizeof(NameInfoResponse) + hl + sl;
-        resp.hostlen = hl;
-        resp.servlen = sl;
+        resp = (NameInfoResponse) {
+                .header.type = RESPONSE_NAMEINFO,
+                .header.id = id,
+                .header.length = sizeof(NameInfoResponse) + hl + sl,
+                .hostlen = hl,
+                .servlen = sl,
+                .ret = ret,
+                ._errno = _errno,
+                ._h_errno = _h_errno,
+        };
 
         iov[0] = (struct iovec) { .iov_base = &resp, .iov_len = sizeof(NameInfoResponse) };
         iov[1] = (struct iovec) { .iov_base = (void*) host, .iov_len = hl };
@@ -500,7 +502,6 @@ _public_ int sd_resolve_new(sd_resolve **ret) {
 }
 
 _public_ int sd_resolve_default(sd_resolve **ret) {
-
         static thread_local sd_resolve *default_resolve = NULL;
         sd_resolve *e = NULL;
         int r;
@@ -681,8 +682,8 @@ static int complete_query(sd_resolve *resolve, sd_resolve_query *q) {
 
 static int unserialize_addrinfo(const void **p, size_t *length, struct addrinfo **ret_ai) {
         AddrInfoSerialization s;
-        size_t l;
         struct addrinfo *ai;
+        size_t l;
 
         assert(p);
         assert(*p);
@@ -698,15 +699,17 @@ static int unserialize_addrinfo(const void **p, size_t *length, struct addrinfo 
         if (*length < l)
                 return -EBADMSG;
 
-        ai = new0(struct addrinfo, 1);
+        ai = new(struct addrinfo, 1);
         if (!ai)
                 return -ENOMEM;
 
-        ai->ai_flags = s.ai_flags;
-        ai->ai_family = s.ai_family;
-        ai->ai_socktype = s.ai_socktype;
-        ai->ai_protocol = s.ai_protocol;
-        ai->ai_addrlen = s.ai_addrlen;
+        *ai = (struct addrinfo) {
+                .ai_flags = s.ai_flags,
+                .ai_family = s.ai_family,
+                .ai_socktype = s.ai_socktype,
+                .ai_protocol = s.ai_protocol,
+                .ai_addrlen = s.ai_addrlen,
+        };
 
         if (s.ai_addrlen > 0) {
                 ai->ai_addr = memdup((const uint8_t*) *p + sizeof(AddrInfoSerialization), s.ai_addrlen);
