@@ -88,8 +88,8 @@ static void pty_forward_disconnect(PTYForward *f) {
         }
 
         /* STDIN/STDOUT should not be nonblocking normally, so let's unconditionally reset it */
-        fd_nonblock(STDIN_FILENO, false);
-        fd_nonblock(STDOUT_FILENO, false);
+        (void) fd_nonblock(STDIN_FILENO, false);
+        (void) fd_nonblock(STDOUT_FILENO, false);
 }
 
 static int pty_forward_done(PTYForward *f, int rcode) {
