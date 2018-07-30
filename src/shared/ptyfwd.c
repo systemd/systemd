@@ -20,6 +20,7 @@
 #include "log.h"
 #include "macro.h"
 #include "ptyfwd.h"
+#include "terminal-util.h"
 #include "time-util.h"
 
 struct PTYForward {
@@ -421,8 +422,17 @@ int pty_forward_new(
 
         f->master = master;
 
-        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) >= 0)
-                (void) ioctl(master, TIOCSWINSZ, &ws);
+        if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) < 0) {
+                /* If we can't get the resolution from the output fd, then use our internal, regular width/height,
+                 * i.e. something derived from $COLUMNS and $LINES if set. */
+
+                ws = (struct winsize) {
+                        .ws_row = lines(),
+                        .ws_col = columns(),
+                };
+        }
+
+        (void) ioctl(master, TIOCSWINSZ, &ws);
 
         if (!(flags & PTY_FORWARD_READ_ONLY)) {
                 if (tcgetattr(STDIN_FILENO, &f->saved_stdin_attr) >= 0) {
