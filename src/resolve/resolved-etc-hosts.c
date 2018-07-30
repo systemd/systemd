@@ -236,7 +236,7 @@ static int parse_line(Manager *m, unsigned nr, const char *line) {
         return r;
 }
 
-int manager_etc_hosts_read(Manager *m) {
+static int manager_etc_hosts_read(Manager *m) {
         _cleanup_fclose_ FILE *f = NULL;
         char line[LINE_MAX];
         struct stat st;
@@ -323,6 +323,9 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
         assert(m);
         assert(q);
         assert(answer);
+
+        if (!m->read_etc_hosts)
+                return 0;
 
         r = manager_etc_hosts_read(m);
         if (r < 0)
