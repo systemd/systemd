@@ -7,7 +7,7 @@
 
 # See tmpfiles.d(5) for details
 
-q /var 0755 - - -
+v /var 0755 - - -
 
 L /var/run - - - - ../run
 
