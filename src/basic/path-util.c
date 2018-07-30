@@ -481,20 +481,6 @@ bool path_equal_or_files_same(const char *a, const char *b, int flags) {
         return path_equal(a, b) || files_same(a, b, flags) > 0;
 }
 
-char* path_join(const char *root, const char *path, const char *rest) {
-        assert(path);
-
-        if (!isempty(root))
-                return strjoin(root, endswith(root, "/") ? "" : "/",
-                               path[0] == '/' ? path+1 : path,
-                               rest ? (endswith(path, "/") ? "" : "/") : NULL,
-                               rest && rest[0] == '/' ? rest+1 : rest);
-        else
-                return strjoin(path,
-                               rest ? (endswith(path, "/") ? "" : "/") : NULL,
-                               rest && rest[0] == '/' ? rest+1 : rest);
-}
-
 char* path_join_many_internal(const char *first, ...) {
         char *joined, *q;
         const char *p;
