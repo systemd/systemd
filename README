@@ -154,7 +154,8 @@ REQUIREMENTS:
         libmicrohttpd (optional)
         libpython (optional)
         libidn2 or libidn (optional)
-        gnutls >= 3.1.4 (optional, >= 3.5.3 is necessary to support DNS-over-TLS)
+        gnutls >= 3.1.4 (optional, >= 3.5.3 is required to support DNS-over-TLS with gnutls)
+        openssl >= 1.1.0 (optional, required to support DNS-over-TLS with openssl)
         elfutils >= 158 (optional)
         polkit (optional)
         pkg-config
