@@ -147,10 +147,10 @@ if have_gnu_efi
                                                  + compile_args,
                                        depend_files : efi_headers)
                 if (common_sources + systemd_boot_sources).contains(file)
-                        systemd_boot_objects += [o_file]
+                        systemd_boot_objects += o_file
                 endif
                 if (common_sources + stub_sources).contains(file)
-                        stub_objects += [o_file]
+                        stub_objects += o_file
                 endif
         endforeach
 

@@ -106,7 +106,7 @@ shared_sources = files('''
 '''.split())
 
 test_tables_h = files('test-tables.h')
-shared_sources += [test_tables_h]
+shared_sources += test_tables_h
 
 if conf.get('HAVE_ACL') == 1
         shared_sources += files('acl-util.c')
