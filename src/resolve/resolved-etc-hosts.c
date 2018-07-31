@@ -13,8 +13,7 @@
 #define ETC_HOSTS_RECHECK_USEC (2*USEC_PER_SEC)
 
 typedef struct EtcHostsItem {
-        int family;
-        union in_addr_union address;
+        struct in_addr_data address;
 
         char **names;
 } EtcHostsItem;
@@ -22,76 +21,54 @@ typedef struct EtcHostsItem {
 typedef struct EtcHostsItemByName {
         char *name;
 
-        EtcHostsItem **items;
-        size_t n_items, n_allocated;
+        struct in_addr_data **addresses;
+        size_t n_addresses, n_allocated;
 } EtcHostsItemByName;
 
 void manager_etc_hosts_flush(Manager *m) {
         EtcHostsItem *item;
         EtcHostsItemByName *bn;
 
-        while ((item = set_steal_first(m->etc_hosts_by_address))) {
+        while ((item = hashmap_steal_first(m->etc_hosts_by_address))) {
                 strv_free(item->names);
                 free(item);
         }
 
         while ((bn = hashmap_steal_first(m->etc_hosts_by_name))) {
                 free(bn->name);
-                free(bn->items);
+                free(bn->addresses);
                 free(bn);
         }
 
-        m->etc_hosts_by_address = set_free(m->etc_hosts_by_address);
+        m->etc_hosts_by_address = hashmap_free(m->etc_hosts_by_address);
         m->etc_hosts_by_name = hashmap_free(m->etc_hosts_by_name);
 
         m->etc_hosts_mtime = USEC_INFINITY;
 }
 
-static void etc_hosts_item_hash_func(const void *p, struct siphash *state) {
-        const EtcHostsItem *item = p;
-
-        siphash24_compress(&item->family, sizeof(item->family), state);
-
-        if (item->family == AF_INET)
-                siphash24_compress(&item->address.in, sizeof(item->address.in), state);
-        else if (item->family == AF_INET6)
-                siphash24_compress(&item->address.in6, sizeof(item->address.in6), state);
-}
-
-static int etc_hosts_item_compare_func(const void *a, const void *b) {
-        const EtcHostsItem *x = a, *y = b;
-
-        if (x->family != y->family)
-                return x->family - y->family;
-
-        if (x->family == AF_INET)
-                return memcmp(&x->address.in.s_addr, &y->address.in.s_addr, sizeof(struct in_addr));
-
-        if (x->family == AF_INET6)
-                return memcmp(&x->address.in6.s6_addr, &y->address.in6.s6_addr, sizeof(struct in6_addr));
-
-        return trivial_compare_func(a, b);
-}
-
-static const struct hash_ops etc_hosts_item_ops = {
-        .hash = etc_hosts_item_hash_func,
-        .compare = etc_hosts_item_compare_func,
-};
-
-static int add_item(Manager *m, int family, const union in_addr_union *address, char **names) {
-        _cleanup_strv_free_ char **dummy = names;
-        EtcHostsItem key = {
-                .family = family,
-                .address = *address,
-        };
+static int parse_line(Manager *m, unsigned nr, const char *line) {
+        _cleanup_free_ char *address_str = NULL;
+        struct in_addr_data address = {};
+        bool suppressed = false;
         EtcHostsItem *item;
-        char **n;
         int r;
 
         assert(m);
-        assert(address);
+        assert(line);
 
-        r = in_addr_is_null(family, address);
+        r = extract_first_word(&line, &address_str, NULL, EXTRACT_RELAX);
+        if (r < 0)
+                return log_error_errno(r, "Couldn't extract address, in line /etc/hosts:%u.", nr);
+        if (r == 0) {
+                log_error("Premature end of line, in line /etc/hosts:%u.", nr);
+                return -EINVAL;
+        }
+
+        r = in_addr_from_string_auto(address_str, &address.family, &address.address);
+        if (r < 0)
+                return log_error_errno(r, "Address '%s' is invalid, in line /etc/hosts:%u.", address_str, nr);
+
+        r = in_addr_is_null(address.family, &address.address);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -101,99 +78,29 @@ static int add_item(Manager *m, int family, const union in_addr_union *address, 
         else {
                 /* If this is a normal address, then, simply add entry mapping it to the specified names */
 
-                item = set_get(m->etc_hosts_by_address, &key);
-                if (item) {
-                        r = strv_extend_strv(&item->names, names, true);
-                        if (r < 0)
-                                return log_oom();
-                } else {
-
-                        r = set_ensure_allocated(&m->etc_hosts_by_address, &etc_hosts_item_ops);
+                item = hashmap_get(m->etc_hosts_by_address, &address);
+                if (!item) {
+                        r = hashmap_ensure_allocated(&m->etc_hosts_by_address, &in_addr_data_hash_ops);
                         if (r < 0)
                                 return log_oom();
 
-                        item = new(EtcHostsItem, 1);
+                        item = new0(EtcHostsItem, 1);
                         if (!item)
                                 return log_oom();
 
-                        *item = (EtcHostsItem) {
-                                .family = family,
-                                .address = *address,
-                                .names = names,
-                        };
+                        item->address = address;
 
-                        r = set_put(m->etc_hosts_by_address, item);
+                        r = hashmap_put(m->etc_hosts_by_address, &item->address, item);
                         if (r < 0) {
                                 free(item);
                                 return log_oom();
                         }
-
-                        dummy = NULL;
                 }
         }
-
-        STRV_FOREACH(n, names) {
-                EtcHostsItemByName *bn;
-
-                bn = hashmap_get(m->etc_hosts_by_name, *n);
-                if (!bn) {
-                        r = hashmap_ensure_allocated(&m->etc_hosts_by_name, &dns_name_hash_ops);
-                        if (r < 0)
-                                return log_oom();
-
-                        bn = new0(EtcHostsItemByName, 1);
-                        if (!bn)
-                                return log_oom();
-
-                        bn->name = strdup(*n);
-                        if (!bn->name) {
-                                free(bn);
-                                return log_oom();
-                        }
-
-                        r = hashmap_put(m->etc_hosts_by_name, bn->name, bn);
-                        if (r < 0) {
-                                free(bn->name);
-                                free(bn);
-                                return log_oom();
-                        }
-                }
-
-                if (item) {
-                        if (!GREEDY_REALLOC(bn->items, bn->n_allocated, bn->n_items+1))
-                                return log_oom();
-
-                        bn->items[bn->n_items++] = item;
-                }
-        }
-
-        return 0;
-}
-
-static int parse_line(Manager *m, unsigned nr, const char *line) {
-        _cleanup_free_ char *address = NULL;
-        _cleanup_strv_free_ char **names = NULL;
-        union in_addr_union in;
-        bool suppressed = false;
-        int family, r;
-
-        assert(m);
-        assert(line);
-
-        r = extract_first_word(&line, &address, NULL, EXTRACT_RELAX);
-        if (r < 0)
-                return log_error_errno(r, "Couldn't extract address, in line /etc/hosts:%u.", nr);
-        if (r == 0) {
-                log_error("Premature end of line, in line /etc/hosts:%u.", nr);
-                return -EINVAL;
-        }
-
-        r = in_addr_from_string_auto(address, &family, &in);
-        if (r < 0)
-                return log_error_errno(r, "Address '%s' is invalid, in line /etc/hosts:%u.", address, nr);
 
         for (;;) {
                 _cleanup_free_ char *name = NULL;
+                EtcHostsItemByName *bn;
 
                 r = extract_first_word(&line, &name, NULL, EXTRACT_RELAX);
                 if (r < 0)
@@ -211,29 +118,47 @@ static int parse_line(Manager *m, unsigned nr, const char *line) {
                         continue;
                 }
 
-                r = strv_push(&names, name);
-                if (r < 0)
-                        return log_oom();
+                if (item) {
+                        r = strv_extend(&item->names, name);
+                        if (r < 0)
+                                return log_oom();
+                }
 
-                name = NULL;
+                bn = hashmap_get(m->etc_hosts_by_name, name);
+                if (!bn) {
+                        r = hashmap_ensure_allocated(&m->etc_hosts_by_name, &dns_name_hash_ops);
+                        if (r < 0)
+                                return log_oom();
+
+                        bn = new0(EtcHostsItemByName, 1);
+                        if (!bn)
+                                return log_oom();
+
+                        r = hashmap_put(m->etc_hosts_by_name, name, bn);
+                        if (r < 0) {
+                                free(bn);
+                                return log_oom();
+                        }
+
+                        bn->name = TAKE_PTR(name);
+                }
+
+                if (item) {
+                        if (!GREEDY_REALLOC(bn->addresses, bn->n_allocated, bn->n_addresses + 1))
+                                return log_oom();
+
+                        bn->addresses[bn->n_addresses++] = &item->address;
+                }
+
+                suppressed = true;
         }
 
-        if (strv_isempty(names)) {
-
-                if (suppressed)
-                        return 0;
-
+        if (!suppressed) {
                 log_error("Line is missing any host names, in line /etc/hosts:%u.", nr);
                 return -EINVAL;
         }
 
-        /* Takes possession of the names strv */
-        r = add_item(m, family, &in, names);
-        if (r < 0)
-                return r;
-
-        names = NULL;
-        return r;
+        return 0;
 }
 
 static int manager_etc_hosts_read(Manager *m) {
@@ -313,8 +238,8 @@ clear:
 
 int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
         bool found_a = false, found_aaaa = false;
+        struct in_addr_data k = {};
         EtcHostsItemByName *bn;
-        EtcHostsItem k = {};
         DnsResourceKey *t;
         const char *name;
         unsigned i;
@@ -340,7 +265,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
                 EtcHostsItem *item;
                 DnsResourceKey *found_ptr = NULL;
 
-                item = set_get(m->etc_hosts_by_address, &k);
+                item = hashmap_get(m->etc_hosts_by_address, &k);
                 if (!item)
                         return 0;
 
@@ -393,7 +318,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
         if (!bn)
                 return 0;
 
-        r = dns_answer_reserve(answer, bn->n_items);
+        r = dns_answer_reserve(answer, bn->n_addresses);
         if (r < 0)
                 return r;
 
@@ -418,14 +343,14 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
                         break;
         }
 
-        for (i = 0; i < bn->n_items; i++) {
+        for (i = 0; i < bn->n_addresses; i++) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
-                if ((!found_a && bn->items[i]->family == AF_INET) ||
-                    (!found_aaaa && bn->items[i]->family == AF_INET6))
+                if ((!found_a && bn->addresses[i]->family == AF_INET) ||
+                    (!found_aaaa && bn->addresses[i]->family == AF_INET6))
                         continue;
 
-                r = dns_resource_record_new_address(&rr, bn->items[i]->family, &bn->items[i]->address, bn->name);
+                r = dns_resource_record_new_address(&rr, bn->addresses[i]->family, &bn->addresses[i]->address, bn->name);
                 if (r < 0)
                         return r;
 
