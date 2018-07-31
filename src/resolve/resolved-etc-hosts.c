@@ -64,7 +64,7 @@ static int parse_line(Manager *m, unsigned nr, const char *line) {
                 return -EINVAL;
         }
 
-        r = in_addr_from_string_auto(address_str, &address.family, &address.address);
+        r = in_addr_ifindex_from_string_auto(address_str, &address.family, &address.address, NULL);
         if (r < 0)
                 return log_error_errno(r, "Address '%s' is invalid, in line /etc/hosts:%u.", address_str, nr);
 
