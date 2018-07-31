@@ -1534,7 +1534,7 @@ exe = executable('systemd-analyze',
                                  libblkid],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 executable('systemd-journald',
            systemd_journald_sources,
@@ -1557,7 +1557,7 @@ exe = executable('systemd-cat',
                  dependencies : [threads],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 exe = executable('journalctl',
                  journalctl_sources,
@@ -1571,7 +1571,7 @@ exe = executable('journalctl',
                  install_rpath : rootlibexecdir,
                  install : true,
                  install_dir : rootbindir)
-public_programs += [exe]
+public_programs += exe
 
 executable('systemd-getty-generator',
            'src/getty-generator/getty-generator.c',
@@ -1648,7 +1648,7 @@ if conf.get('HAVE_BLKID') == 1
                          install_rpath : rootlibexecdir,
                          install : true,
                          install_dir : rootlibexecdir)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 if conf.get('ENABLE_RESOLVE') == 1
@@ -1675,7 +1675,7 @@ if conf.get('ENABLE_RESOLVE') == 1
                                          libidn],
                          install_rpath : rootlibexecdir,
                          install : true)
-        public_programs += [exe]
+        public_programs += exe
 
         meson.add_install_script(meson_make_symlink,
                          join_paths(bindir, 'resolvectl'),
@@ -1708,7 +1708,7 @@ if conf.get('ENABLE_LOGIND') == 1
                          install_rpath : rootlibexecdir,
                          install : true,
                          install_dir : rootbindir)
-        public_programs += [exe]
+        public_programs += exe
 
         exe = executable('systemd-inhibit',
                          'src/login/inhibit.c',
@@ -1717,7 +1717,7 @@ if conf.get('ENABLE_LOGIND') == 1
                          install_rpath : rootlibexecdir,
                          install : true,
                          install_dir : rootbindir)
-        public_programs += [exe]
+        public_programs += exe
 
         if conf.get('HAVE_PAM') == 1
                 version_script_arg = join_paths(meson.current_source_dir(), pam_systemd_sym)
@@ -1769,7 +1769,7 @@ if conf.get('ENABLE_EFI') == 1 and conf.get('HAVE_BLKID') == 1
                          dependencies : [libblkid],
                          install_rpath : rootlibexecdir,
                          install : true)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 exe = executable('systemd-socket-activate', 'src/activate/activate.c',
@@ -1778,7 +1778,7 @@ exe = executable('systemd-socket-activate', 'src/activate/activate.c',
                  dependencies : [threads],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 
 if get_option('link-systemctl-shared')
@@ -1801,7 +1801,7 @@ exe = executable('systemctl', 'src/systemctl/systemctl.c',
                  install_rpath : rootlibexecdir,
                  install : true,
                  install_dir : rootbindir)
-public_programs += [exe]
+public_programs += exe
 
 if conf.get('ENABLE_PORTABLED') == 1
         executable('systemd-portabled',
@@ -1820,7 +1820,7 @@ if conf.get('ENABLE_PORTABLED') == 1
                          install_rpath : rootlibexecdir,
                          install : true,
                          install_dir : rootlibexecdir)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 foreach alias : ['halt', 'poweroff', 'reboot', 'runlevel', 'shutdown', 'telinit']
@@ -1928,7 +1928,7 @@ if conf.get('ENABLE_HOSTNAMED') == 1
                          link_with : [libshared],
                          install_rpath : rootlibexecdir,
                          install : true)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 if conf.get('ENABLE_LOCALED') == 1
@@ -1954,7 +1954,7 @@ if conf.get('ENABLE_LOCALED') == 1
                          link_with : [libshared],
                          install_rpath : rootlibexecdir,
                          install : true)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 if conf.get('ENABLE_TIMEDATED') == 1
@@ -1975,7 +1975,7 @@ if conf.get('ENABLE_TIMEDATECTL') == 1
                          link_with : [libshared],
                          dependencies : [libm],
                          install : true)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 if conf.get('ENABLE_TIMESYNCD') == 1
@@ -2018,7 +2018,7 @@ if conf.get('ENABLE_MACHINED') == 1
                          install_rpath : rootlibexecdir,
                          install : true,
                          install_dir : rootbindir)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 if conf.get('ENABLE_IMPORTD') == 1
@@ -2083,7 +2083,7 @@ if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_LIBCURL') == 1
                          install_rpath : rootlibexecdir,
                          install : true,
                          install_dir : rootlibexecdir)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1
@@ -2139,7 +2139,7 @@ if conf.get('ENABLE_COREDUMP') == 1
                                          liblz4],
                          install_rpath : rootlibexecdir,
                          install : true)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 if conf.get('ENABLE_BINFMT') == 1
@@ -2150,7 +2150,7 @@ if conf.get('ENABLE_BINFMT') == 1
                          install_rpath : rootlibexecdir,
                          install : true,
                          install_dir : rootlibexecdir)
-        public_programs += [exe]
+        public_programs += exe
 
         meson.add_install_script('sh', '-c',
                                  mkdir_p.format(binfmtdir))
@@ -2249,7 +2249,7 @@ exe = executable('systemd-sysctl',
                  install_rpath : rootlibexecdir,
                  install : true,
                  install_dir : rootlibexecdir)
-public_programs += [exe]
+public_programs += exe
 
 executable('systemd-ac-power',
            'src/ac-power/ac-power.c',
@@ -2265,7 +2265,7 @@ exe = executable('systemd-detect-virt',
                  link_with : [libshared],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 exe = executable('systemd-delta',
                  'src/delta/delta.c',
@@ -2273,7 +2273,7 @@ exe = executable('systemd-delta',
                  link_with : [libshared],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 exe = executable('systemd-escape',
                  'src/escape/escape.c',
@@ -2282,7 +2282,7 @@ exe = executable('systemd-escape',
                  install_rpath : rootlibexecdir,
                  install : true,
                  install_dir : rootbindir)
-public_programs += [exe]
+public_programs += exe
 
 exe = executable('systemd-notify',
                  'src/notify/notify.c',
@@ -2291,7 +2291,7 @@ exe = executable('systemd-notify',
                  install_rpath : rootlibexecdir,
                  install : true,
                  install_dir : rootbindir)
-public_programs += [exe]
+public_programs += exe
 
 executable('systemd-volatile-root',
            'src/volatile-root/volatile-root.c',
@@ -2315,7 +2315,7 @@ exe = executable('systemd-path',
                  link_with : [libshared],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 exe = executable('systemd-ask-password',
                  'src/ask-password/ask-password.c',
@@ -2324,7 +2324,7 @@ exe = executable('systemd-ask-password',
                  install_rpath : rootlibexecdir,
                  install : true,
                  install_dir : rootbindir)
-public_programs += [exe]
+public_programs += exe
 
 executable('systemd-reply-password',
            'src/reply-password/reply-password.c',
@@ -2341,7 +2341,7 @@ exe = executable('systemd-tty-ask-password-agent',
                  install_rpath : rootlibexecdir,
                  install : true,
                  install_dir : rootbindir)
-public_programs += [exe]
+public_programs += exe
 
 exe = executable('systemd-cgls',
                  'src/cgls/cgls.c',
@@ -2349,7 +2349,7 @@ exe = executable('systemd-cgls',
                  link_with : [libshared],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 exe = executable('systemd-cgtop',
                  'src/cgtop/cgtop.c',
@@ -2357,7 +2357,7 @@ exe = executable('systemd-cgtop',
                  link_with : [libshared],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 executable('systemd-initctl',
            'src/initctl/initctl.c',
@@ -2373,7 +2373,7 @@ exe = executable('systemd-mount',
                  link_with : [libshared],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 meson.add_install_script(meson_make_symlink,
                          'systemd-mount', join_paths(bindir, 'systemd-umount'))
@@ -2384,7 +2384,7 @@ exe = executable('systemd-run',
                  link_with : [libshared],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 exe = executable('systemd-stdio-bridge',
                  'src/stdio-bridge/stdio-bridge.c',
@@ -2392,7 +2392,7 @@ exe = executable('systemd-stdio-bridge',
                  link_with : [libshared],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 exe = executable('busctl',
                  'src/busctl/busctl.c',
@@ -2402,7 +2402,7 @@ exe = executable('busctl',
                  link_with : [libshared],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 if conf.get('ENABLE_SYSUSERS') == 1
         exe = executable('systemd-sysusers',
@@ -2412,7 +2412,7 @@ if conf.get('ENABLE_SYSUSERS') == 1
                          install_rpath : rootlibexecdir,
                          install : true,
                          install_dir : rootbindir)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 if conf.get('ENABLE_TMPFILES') == 1
@@ -2424,7 +2424,7 @@ if conf.get('ENABLE_TMPFILES') == 1
                          install_rpath : rootlibexecdir,
                          install : true,
                          install_dir : rootbindir)
-        public_programs += [exe]
+        public_programs += exe
 
         test('test-systemd-tmpfiles',
              test_systemd_tmpfiles_py,
@@ -2441,7 +2441,7 @@ if conf.get('ENABLE_HWDB') == 1
                          install_rpath : udev_rpath,
                          install : true,
                          install_dir : rootbindir)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 if conf.get('ENABLE_QUOTACHECK') == 1
@@ -2462,7 +2462,7 @@ exe = executable('systemd-socket-proxyd',
                  install_rpath : rootlibexecdir,
                  install : true,
                  install_dir : rootlibexecdir)
-public_programs += [exe]
+public_programs += exe
 
 exe = executable('systemd-udevd',
                  systemd_udevd_sources,
@@ -2479,7 +2479,7 @@ exe = executable('systemd-udevd',
                  install_rpath : udev_rpath,
                  install : true,
                  install_dir : rootlibexecdir)
-public_programs += [exe]
+public_programs += exe
 
 exe = executable('udevadm',
                  udevadm_sources,
@@ -2496,7 +2496,7 @@ exe = executable('udevadm',
                  install_rpath : udev_rpath,
                  install : true,
                  install_dir : rootbindir)
-public_programs += [exe]
+public_programs += exe
 
 executable('systemd-shutdown',
            systemd_shutdown_sources,
@@ -2552,7 +2552,7 @@ exe = executable('systemd-nspawn',
                  dependencies : [libblkid],
                  install_rpath : rootlibexecdir,
                  install : true)
-public_programs += [exe]
+public_programs += exe
 
 if conf.get('ENABLE_NETWORKD') == 1
         executable('systemd-networkd',
@@ -2584,7 +2584,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                    install_rpath : rootlibexecdir,
                    install : true,
                    install_dir : rootbindir)
-        public_programs += [exe]
+        public_programs += exe
 endif
 
 executable('systemd-sulogin-shell',
@@ -2943,8 +2943,7 @@ status += [
 # LDFLAGS:  ${OUR_LDFLAGS} ${LDFLAGS}
 
 if conf.get('ENABLE_EFI') == 1
-        status += [
-                'efi arch:                          @0@'.format(efi_arch)]
+        status += 'efi arch:                          @0@'.format(efi_arch)
 
         if have_gnu_efi
                 status += [
@@ -3046,9 +3045,9 @@ foreach tuple : [
                 cond = conf.get(ident1, 0) == 1 or conf.get(ident2, 0) == 1
         endif
         if cond
-                found += [tuple[0]]
+                found += tuple[0]
         else
-                missing += [tuple[0]]
+                missing += tuple[0]
         endif
 endforeach
 
