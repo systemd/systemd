@@ -114,7 +114,7 @@ struct Manager {
         unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
 
         /* Data from /etc/hosts */
-        Set* etc_hosts_by_address;
+        Hashmap* etc_hosts_by_address;
         Hashmap* etc_hosts_by_name;
         usec_t etc_hosts_last, etc_hosts_mtime;
         bool read_etc_hosts;
