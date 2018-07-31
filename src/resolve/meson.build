@@ -192,6 +192,16 @@ tests += [
           libm],
          'ENABLE_RESOLVE'],
 
+        [['src/resolve/test-resolved-etc-hosts.c',
+          'src/resolve/resolved-etc-hosts.c',
+          'src/resolve/resolved-etc-hosts.h'],
+         [libsystemd_resolve_core,
+          libshared],
+         [libgcrypt,
+          libgpg_error,
+          libm],
+         'ENABLE_RESOLVE'],
+
         [['src/resolve/test-resolved-packet.c',
           dns_type_headers],
          [libsystemd_resolve_core,

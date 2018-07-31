@@ -12,19 +12,6 @@
 /* Recheck /etc/hosts at most once every 2s */
 #define ETC_HOSTS_RECHECK_USEC (2*USEC_PER_SEC)
 
-typedef struct EtcHostsItem {
-        struct in_addr_data address;
-
-        char **names;
-} EtcHostsItem;
-
-typedef struct EtcHostsItemByName {
-        char *name;
-
-        struct in_addr_data **addresses;
-        size_t n_addresses, n_allocated;
-} EtcHostsItemByName;
-
 static inline void etc_hosts_item_free(EtcHostsItem *item) {
         strv_free(item->names);
         free(item);
@@ -36,7 +23,7 @@ static inline void etc_hosts_item_by_name_free(EtcHostsItemByName *item) {
         free(item);
 }
 
-static void etc_hosts_free(EtcHosts *hosts) {
+void etc_hosts_free(EtcHosts *hosts) {
         hosts->by_address = hashmap_free_with_destructor(hosts->by_address, etc_hosts_item_free);
         hosts->by_name = hashmap_free_with_destructor(hosts->by_name, etc_hosts_item_by_name_free);
 }
@@ -76,7 +63,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                  * nothing. */
                 item = NULL;
         else {
-                /* If this is a normal address, then, simply add entry mapping it to the specified names */
+                /* If this is a normal address, then simply add entry mapping it to the specified names */
 
                 item = hashmap_get(hosts->by_address, &address);
                 if (!item) {
@@ -161,7 +148,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
         return 0;
 }
 
-static int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
+int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
         _cleanup_(etc_hosts_free) EtcHosts t = {};
         char line[LINE_MAX];
         unsigned nr = 0;
