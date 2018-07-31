@@ -71,6 +71,11 @@ static void test_parse_etc_hosts(const char *fname) {
         assert_se(bn->addresses[0]->family == AF_INET6);
         assert_se(memcmp(&bn->addresses[0]->address.in6,
                          &(struct in6_addr) { .s6_addr = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5} }, 16 ) == 0);
+
+        assert_se( set_contains(hosts.no_address, "some.where"));
+        assert_se( set_contains(hosts.no_address, "some.other"));
+        assert_se( set_contains(hosts.no_address, "black.listed"));
+        assert_se(!set_contains(hosts.no_address, "foobar.foo.foo"));
 }
 
 int main(int argc, char **argv) {

@@ -26,6 +26,7 @@ static inline void etc_hosts_item_by_name_free(EtcHostsItemByName *item) {
 void etc_hosts_free(EtcHosts *hosts) {
         hosts->by_address = hashmap_free_with_destructor(hosts->by_address, etc_hosts_item_free);
         hosts->by_name = hashmap_free_with_destructor(hosts->by_name, etc_hosts_item_by_name_free);
+        hosts->no_address = set_free_free(hosts->no_address);
 }
 
 void manager_etc_hosts_flush(Manager *m) {
@@ -36,7 +37,7 @@ void manager_etc_hosts_flush(Manager *m) {
 static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
         _cleanup_free_ char *address_str = NULL;
         struct in_addr_data address = {};
-        bool suppressed = false;
+        bool found = false;
         EtcHostsItem *item;
         int r;
 
@@ -99,17 +100,31 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                 if (r <= 0)
                         return log_error_errno(r, "Hostname %s is not valid, ignoring, in line /etc/hosts:%u.", name, nr);
 
-                if (is_localhost(name)) {
+                found = true;
+
+                if (is_localhost(name))
                         /* Suppress the "localhost" line that is often seen */
-                        suppressed = true;
+                        continue;
+
+                if (!item) {
+                        /* Optimize the case where we don't need to store any addresses, by storing
+                         * only the name in a dedicated Set instead of the hashmap */
+
+                        r = set_ensure_allocated(&hosts->no_address, &dns_name_hash_ops);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = set_put(hosts->no_address, name);
+                        if (r < 0)
+                                return r;
+
+                        TAKE_PTR(name);
                         continue;
                 }
 
-                if (item) {
-                        r = strv_extend(&item->names, name);
-                        if (r < 0)
-                                return log_oom();
-                }
+                r = strv_extend(&item->names, name);
+                if (r < 0)
+                        return log_oom();
 
                 bn = hashmap_get(hosts->by_name, name);
                 if (!bn) {
@@ -130,17 +145,13 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
                         bn->name = TAKE_PTR(name);
                 }
 
-                if (item) {
-                        if (!GREEDY_REALLOC(bn->addresses, bn->n_allocated, bn->n_addresses + 1))
-                                return log_oom();
+                if (!GREEDY_REALLOC(bn->addresses, bn->n_allocated, bn->n_addresses + 1))
+                        return log_oom();
 
-                        bn->addresses[bn->n_addresses++] = &item->address;
-                }
-
-                suppressed = true;
+                bn->addresses[bn->n_addresses++] = &item->address;
         }
 
-        if (!suppressed) {
+        if (!found) {
                 log_error("Line is missing any host names, in line /etc/hosts:%u.", nr);
                 return -EINVAL;
         }
@@ -310,12 +321,15 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
         }
 
         bn = hashmap_get(m->etc_hosts.by_name, name);
-        if (!bn)
-                return 0;
-
-        r = dns_answer_reserve(answer, bn->n_addresses);
-        if (r < 0)
-                return r;
+        if (bn) {
+                r = dns_answer_reserve(answer, bn->n_addresses);
+                if (r < 0)
+                        return r;
+        } else {
+                /* Check if name was listed with no address. If yes, continue to return an answer. */
+                if (!set_contains(m->etc_hosts.no_address, name))
+                        return 0;
+        }
 
         DNS_QUESTION_FOREACH(t, q) {
                 if (!IN_SET(t->type, DNS_TYPE_A, DNS_TYPE_AAAA, DNS_TYPE_ANY))
@@ -338,7 +352,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
                         break;
         }
 
-        for (i = 0; i < bn->n_addresses; i++) {
+        for (i = 0; bn && i < bn->n_addresses; i++) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
                 if ((!found_a && bn->addresses[i]->family == AF_INET) ||

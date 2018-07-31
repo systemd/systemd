@@ -26,6 +26,7 @@ typedef struct Manager Manager;
 typedef struct EtcHosts {
         Hashmap *by_address;
         Hashmap *by_name;
+        Set *no_address;
 } EtcHosts;
 
 struct Manager {
