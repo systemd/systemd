@@ -239,6 +239,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--oci-bundle=</option></term>
+
+        <listitem><para>Takes the path to an OCI runtime bundle to invoke, as specified in the <ulink
+        url="https://github.com/opencontainers/runtime-spec/blob/master/spec.md">OCI Runtime Specification</ulink>. In
+        this case no <filename>.nspawn</filename> file is loaded, and the root directory and various settings are read
+        from the OCI runtime JSON data (but data passed on the command line takes precedence).</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--root-hash=</option></term>
 
         <listitem><para>Takes a data integrity (dm-verity) root hash specified in hexadecimal. This option enables data
@@ -953,6 +962,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--inaccessible=</option></term>
+
+        <listitem><para>Make the specified path inaccessible in the container. This over-mounts the specified path
+        (which must exist in the container) with a file node of the same type that is empty and has the most
+        restrictive access mode supported. This is an effective way to mask files, directories and other file system
+        objects from the container payload. This option may be used more than once in case all specified paths are
+        masked.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tmpfs=</option></term>
 
         <listitem><para>Mount a tmpfs file system into the container.  Takes a single absolute path argument that
@@ -1082,6 +1101,42 @@
         running a 32-bit container on a 64-bit host. If this setting
         is not used, the personality reported in the container is the
         same as the one reported on the host.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--console=</option><replaceable>MODE</replaceable></term>
+
+        <listitem><para>Configures how to set up standard input, output and error output for the container payload, as
+        well as the <filename>/dev/console</filename> device for the container. Takes one of
+        <option>interactive</option>, <option>read-only</option>, <option>passive</option> or <option>pipe</option>. If
+        <option>interactive</option> a pseudo-TTY is allocated and made available as <filename>/dev/console</filename>
+        in the container. It is then bi-directionally connected to the standard input and output passed to
+        <command>systemd-nspawn</command>.  <option>read-only</option> is similar but only the output of the container
+        is propagated and no input from the caller is read. In <option>passive</option> mode a pseudo TTY is allocated,
+        but it is not connected anywhere. Finally, in <option>pipe</option> mode no pseudo TTY is allocated, but the
+        passed standard input, output and error output file descriptors are passed on — as they are — to the container
+        payload. In this mode <filename>/dev/console</filename> will not exist in the container. Note that in this mode
+        the container payload generally cannot be a full init system as init systems tend to require
+        <filename>/dev/console</filename> to be available. On the other hand, in this mode container invocations can be
+        used within shell pipelines. This is because intermediary pseudo TTYs do not permit independent bidirectional
+        propagation of the end-of-file (EOF) condition, which is necessary for shell pipelines to work
+        correctly.</para>
+
+        <para>Note that the <option>pipe</option> mode should be used carefully, as passing arbitrary file descriptors
+        to less trusted container payloads might open up unwanted interfaces for access by the container payload. For
+        example, if a passed file descriptor refers to a TTY of some form, APIs such as <constant>TIOCSTI</constant>
+        may be used to synthesize input that might be used for escaping the container. Hence <option>pipe</option> mode
+        should only be used if the payload is sufficiently trusted or when the standard input/output/error output file
+        descriptors are known safe, for example pipes. Defaults to <option>interactive</option> if
+        <command>systemd-nspawn</command> is invoked from a terminal, and <option>read-only</option>
+        otherwise.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pipe</option></term>
+        <term><option>-P</option></term>
+
+        <listitem><para>Equivalent to <option>--console=pipe</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
