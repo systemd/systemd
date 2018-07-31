@@ -51,14 +51,12 @@ static const char* af_to_string(int family, char *buf, size_t buf_len) {
 }
 
 static void* open_handle(const char* dir, const char* module, int flags) {
-        const char *path;
+        const char *path = NULL;
         void *handle;
 
-        if (dir) {
+        if (dir)
                 path = strjoina(dir, "/libnss_", module, ".so.2");
-                if (access(path, F_OK) < 0)
-                        path = strjoina(dir, "/.libs/libnss_", module, ".so.2");
-        } else
+        if (!path || access(path, F_OK) < 0)
                 path = strjoina("libnss_", module, ".so.2");
 
         handle = dlopen(path, flags);
@@ -397,9 +395,7 @@ static int test_one_module(const char* dir,
 
         log_info("======== %s ========", module);
 
-        handle = open_handle(streq(module, "dns") ? NULL : dir,
-                             module,
-                             RTLD_LAZY|RTLD_NODELETE);
+        handle = open_handle(dir, module, RTLD_LAZY|RTLD_NODELETE);
         if (!handle)
                 return -EINVAL;
 
