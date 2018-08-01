@@ -57,8 +57,14 @@ int bus_message_dump(sd_bus_message *m, FILE *f, unsigned flags) {
                         "%s%s%s Type=%s%s%s  Endian=%c  Flags=%u  Version=%u  Priority=%"PRIi64,
                         m->header->type == SD_BUS_MESSAGE_METHOD_ERROR ? ansi_highlight_red() :
                         m->header->type == SD_BUS_MESSAGE_METHOD_RETURN ? ansi_highlight_green() :
-                        m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "", special_glyph(TRIANGULAR_BULLET), ansi_normal(),
-                        ansi_highlight(), bus_message_type_to_string(m->header->type), ansi_normal(),
+                        m->header->type != SD_BUS_MESSAGE_SIGNAL ? ansi_highlight() : "",
+                        special_glyph(TRIANGULAR_BULLET),
+                        ansi_normal(),
+
+                        ansi_highlight(),
+                        bus_message_type_to_string(m->header->type) ?: "(unknown)",
+                        ansi_normal(),
+
                         m->header->endian,
                         m->header->flags,
                         m->header->version,
