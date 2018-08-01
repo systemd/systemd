@@ -319,7 +319,7 @@
         user fully logs out. Takes a boolean argument. If enabled, the user may not consume IPC resources after the
         last of the user's sessions terminated. This covers System V semaphores, shared memory and message queues, as
         well as POSIX shared memory and message queues. Note that IPC objects of the root user and other system users
-        are excluded from the effect of this setting. Defaults to <literal>yes</literal>.</para></listitem>
+        are excluded from the effect of this setting. Defaults to <literal>no</literal>.</para></listitem>
       </varlistentry>
 
     </variablelist>
