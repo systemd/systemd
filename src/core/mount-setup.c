@@ -229,6 +229,19 @@ int mount_setup_early(void) {
         return mount_points_setup(N_EARLY_MOUNT, false);
 }
 
+int mount_resctrl(char *resctrl_options) {
+        MountPoint p = {
+                .what = "resctrl",
+                .where = "/sys/fs/resctrl",
+                .type = "resctrl",
+                .options = resctrl_options,
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_CHECK_WRITABLE,
+        };
+
+        return mount_one(&p, true);
+}
+
 int mount_cgroup_controllers(char ***join_controllers) {
         _cleanup_set_free_free_ Set *controllers = NULL;
         bool has_argument = !!join_controllers;

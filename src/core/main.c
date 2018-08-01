@@ -127,6 +127,7 @@ static bool arg_default_tasks_accounting = true;
 static uint64_t arg_default_tasks_max = UINT64_MAX;
 static sd_id128_t arg_machine_id = {};
 static EmergencyAction arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
+static char *arg_resctrl_options = NULL;
 
 _noreturn_ static void freeze_or_reboot(void) {
 
@@ -698,6 +699,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultTasksAccounting",    config_parse_bool,             0, &arg_default_tasks_accounting          },
                 { "Manager", "DefaultTasksMax",           config_parse_tasks_max,        0, &arg_default_tasks_max                 },
                 { "Manager", "CtrlAltDelBurstAction",     config_parse_emergency_action, 0, &arg_cad_burst_action                  },
+                { "Manager", "ResctrlOptions",            config_parse_string,           0, &arg_resctrl_options                   },
                 {}
         };
 
@@ -1821,6 +1823,7 @@ static int initialize_runtime(
                                 return r;
                         }
 
+                        mount_resctrl(arg_resctrl_options);
                         status_welcome();
                         hostname_setup();
                         machine_id_setup(NULL, arg_machine_id, NULL);
@@ -1944,6 +1947,7 @@ static void free_arguments(void) {
         arg_join_controllers = strv_free_free(arg_join_controllers);
         arg_default_environment = strv_free(arg_default_environment);
         arg_syscall_archs = set_free(arg_syscall_archs);
+        arg_resctrl_options = mfree(arg_resctrl_options);
 }
 
 static int load_configuration(int argc, char **argv, const char **ret_error_message) {
