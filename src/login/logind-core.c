@@ -34,7 +34,7 @@ void manager_reset_config(Manager *m) {
 
         m->n_autovts = 6;
         m->reserve_vt = 6;
-        m->remove_ipc = true;
+        m->remove_ipc = false;
         m->inhibit_delay_max = 5 * USEC_PER_SEC;
         m->user_stop_delay = 10 * USEC_PER_SEC;
 
