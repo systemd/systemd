@@ -431,7 +431,7 @@ int safe_atoi(const char *s, int *ret_i) {
         return 0;
 }
 
-int safe_atollu(const char *s, long long unsigned *ret_llu) {
+static int safe_atollu_base(const char *s, long long unsigned *ret_llu, unsigned int base) {
         char *x = NULL;
         unsigned long long l;
 
@@ -441,7 +441,7 @@ int safe_atollu(const char *s, long long unsigned *ret_llu) {
         s += strspn(s, WHITESPACE);
 
         errno = 0;
-        l = strtoull(s, &x, 0);
+        l = strtoull(s, &x, base);
         if (errno > 0)
                 return -errno;
         if (!x || x == s || *x != 0)
@@ -451,6 +451,14 @@ int safe_atollu(const char *s, long long unsigned *ret_llu) {
 
         *ret_llu = l;
         return 0;
+}
+
+int safe_atollu(const char *s, long long unsigned *ret_llu) {
+        return safe_atollu_base(s, ret_llu, 0);
+}
+
+int safe_atollx(const char *s, long long unsigned *ret_llu) {
+        return safe_atollu_base(s, ret_llu, 16);
 }
 
 int safe_atolli(const char *s, long long int *ret_lli) {

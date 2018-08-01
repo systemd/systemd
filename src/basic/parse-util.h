@@ -34,6 +34,7 @@ static inline int safe_atou(const char *s, unsigned *ret_u) {
 
 int safe_atoi(const char *s, int *ret_i);
 int safe_atollu(const char *s, unsigned long long *ret_u);
+int safe_atollx(const char *s, unsigned long long *ret_x);
 int safe_atolli(const char *s, long long int *ret_i);
 
 int safe_atou8(const char *s, uint8_t *ret);
@@ -63,6 +64,11 @@ static inline int safe_atoi32(const char *s, int32_t *ret_i) {
 static inline int safe_atou64(const char *s, uint64_t *ret_u) {
         assert_cc(sizeof(uint64_t) == sizeof(unsigned long long));
         return safe_atollu(s, (unsigned long long*) ret_u);
+}
+
+static inline int safe_atox64(const char *s, uint64_t *ret_x) {
+        assert_cc(sizeof(uint64_t) == sizeof(unsigned long long));
+        return safe_atollx(s, (unsigned long long*) ret_x);
 }
 
 static inline int safe_atoi64(const char *s, int64_t *ret_i) {
