@@ -1,0 +1,70 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+-->
+
+<refentry id="rdtd.conf"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>rdtd.conf</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>rdtd.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>rdtd.conf</refname>
+    <refpurpose>Configuration for RDT group managing daemon</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+          <para><filename>/etc/systemd/rdtd.conf</filename></para>
+          <para><filename>/etc/systemd/rdtd.d/</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd-rdtd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      expects its main configuration file at
+      <filename>/etc/systemd/rdtd.conf</filename>. It consists of a set
+      of variables allowing the user to override default udev
+      values. All empty lines or lines beginning with '#' are
+      ignored. The following variables can be set:
+    </para>
+
+    <variablelist>
+      <varlistentry>
+        <term><varname>rdtd_log</varname></term>
+
+        <listitem>
+          <para>The log level. Valid values are the numerical
+          syslog priorities or their textual representations:
+          <option>err</option>, <option>info</option> and
+          <option>debug</option>.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>
+      In addition, <filename>systemd-rdtd</filename> can be configured
+      by command line options (see
+      <citerefentry><refentrytitle>systemd-rdtd</refentrytitle><manvolnum>8</manvolnum></citerefentry>).
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd-rdtd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+</refentry>

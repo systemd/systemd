@@ -1,0 +1,73 @@
+<?xml version='1.0'?> <!--*- Mode: nxml; nxml-child-indent: 2; indent-tabs-mode: nil -*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1+
+-->
+
+<refentry id="systemd-rdtd.service"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-rdtd.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-rdtd.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-rdtd.service</refname>
+    <refname>systemd-rdtd</refname>
+    <refpurpose>Rdt group managing daemon</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-rdtd.service</filename></para>
+
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-rdtd</command>
+      <arg><option>--debug</option></arg>
+      <arg><option>--version</option></arg>
+      <arg><option>--help</option></arg>
+    </cmdsynopsis>
+
+  </refsynopsisdiv>
+
+  <refsect1><title>Description</title>
+    <para><command>systemd-rdtd</command> create RDT groups for
+    every configurations in /etc/systemd/rdtd.d/ at boot time and
+    also listen to RDT group creation request at runtime.
+    </para>
+
+    <para>The behavior of the daemon can be configured using
+    <citerefentry><refentrytitle>rdtd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    and its command line options.
+    </para>
+  </refsect1>
+
+  <refsect1><title>Options</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>-D</option></term>
+        <term><option>--debug</option></term>
+        <listitem>
+          <para>Print debug messages to standard error.</para>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>udev.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+    </para>
+  </refsect1>
+</refentry>
