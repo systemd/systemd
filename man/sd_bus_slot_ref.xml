@@ -18,6 +18,7 @@
     <refname>sd_bus_slot_ref</refname>
     <refname>sd_bus_slot_unref</refname>
     <refname>sd_bus_slot_unrefp</refname>
+    <refname>sd_bus_slot_get_bus</refname>
 
     <refpurpose>Create and destroy references to a bus slot object</refpurpose>
   </refnamediv>
@@ -39,6 +40,11 @@
       <funcprototype>
         <funcdef>void <function>sd_bus_slot_unrefp</function></funcdef>
         <paramdef>sd_bus_slot **<parameter>slotp</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus *<function>sd_bus_slot_get_bus</function></funcdef>
+        <paramdef>sd_bus_slot *<parameter>m</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -68,6 +74,9 @@
     its argument, which must not be <constant>NULL</constant>, and will execute no operation if
     <emphasis>that</emphasis> is <constant>NULL</constant>.
     </para>
+
+    <para><function>sd_bus_slot_get_bus()</function> returns the bus object that message
+    <parameter>slot</parameter> is attached to.</para>
   </refsect1>
 
   <refsect1>
@@ -76,6 +85,8 @@
     <para><function>sd_bus_slot_ref()</function> always returns the argument.</para>
 
     <para><function>sd_bus_slot_unref()</function> always returns <constant>NULL</constant>.</para>
+
+    <para><function>sd_bus_slot_get_bus()</function> always returns the bus object.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
