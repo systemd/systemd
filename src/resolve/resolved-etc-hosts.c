@@ -181,6 +181,7 @@ int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
                         return r;
         }
 
+        etc_hosts_free(hosts);
         *hosts = t;
         t = (EtcHosts) {}; /* prevent cleanup */
         return 0;
@@ -229,11 +230,8 @@ static int manager_etc_hosts_read(Manager *m) {
         if (r < 0)
                 return log_error_errno(errno, "Failed to fstat() /etc/hosts: %m");
 
-        manager_etc_hosts_flush(m);
-
         r = etc_hosts_parse(&m->etc_hosts, f);
-        if (r == -ENOMEM)
-                /* On OOM we bail. All other errors we ignore and proceed. */
+        if (r < 0)
                 return r;
 
         m->etc_hosts_mtime = timespec_load(&st.st_mtim);
@@ -258,9 +256,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
         if (!m->read_etc_hosts)
                 return 0;
 
-        r = manager_etc_hosts_read(m);
-        if (r < 0)
-                return r;
+        (void) manager_etc_hosts_read(m);
 
         name = dns_question_first_name(q);
         if (!name)
