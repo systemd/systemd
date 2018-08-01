@@ -112,6 +112,7 @@ units = [
         ['user.slice',                          ''],
         ['var-lib-machines.mount',              'ENABLE_MACHINED',
          'remote-fs.target.wants/ machines.target.wants/'],
+        ['rdt.target',                          ''],
 ]
 
 in_units = [

@@ -259,6 +259,9 @@ typedef struct Unit {
         CGroupMask cgroup_members_mask;
         int cgroup_inotify_wd;
 
+        /* rdt group this unit belongs to */
+        char *rdt_alloc_group;
+
         /* IP BPF Firewalling/accounting */
         int ip_accounting_ingress_map_fd;
         int ip_accounting_egress_map_fd;
@@ -823,3 +826,6 @@ int unit_pid_attachable(Unit *unit, pid_t pid, sd_bus_error *error);
 
 const char* collect_mode_to_string(CollectMode m) _const_;
 CollectMode collect_mode_from_string(const char *s) _pure_;
+
+const char *unit_get_rdt_group(Unit *u);
+int unit_add_rdt_dependencies(Unit *u);

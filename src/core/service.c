@@ -721,6 +721,10 @@ static int service_add_extras(Service *s) {
         if (r < 0)
                 return r;
 
+        r = unit_add_rdt_dependencies(UNIT(s));
+        if (r < 0)
+                return r;
+
         r = service_setup_bus_name(s);
         if (r < 0)
                 return r;

@@ -57,6 +57,7 @@
     <filename>paths.target</filename>,
     <filename>poweroff.target</filename>,
     <filename>printer.target</filename>,
+    <filename>rdt.target</filename>,
     <filename>reboot.target</filename>,
     <filename>remote-cryptsetup.target</filename>,
     <filename>remote-fs-pre.target</filename>,
@@ -486,6 +487,17 @@
 
             <para><filename>runlevel0.target</filename> is an alias for
             this target unit, for compatibility with SysV.</para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>rdt.target</filename></term>
+          <listitem>
+            <para>A special target unit for starting rdtd service.</para>
+
+            <para>Applications congfigured to be a member of some RDT group should
+            gain an <varname>After=</varname> and <varname>Wants=</varname> dependencies
+            on this target. The target will ensure the <filename>systemd-rdtd.service</filename>
+            starting first to create configured RDT groups.</para>
           </listitem>
         </varlistentry>
         <varlistentry>

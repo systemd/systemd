@@ -2717,6 +2717,28 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
 
 static char *exec_command_line(char **argv);
 
+static int resctrl_alloc_task_write(Unit *u, const char *group, const pid_t task) {
+        _cleanup_free_ char *path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+
+        assert(u);
+
+        path = strjoin("/sys/fs/resctrl/", group, "/tasks");
+        if (!path)
+                return -ENOMEM;
+
+        f = fopen(path, "w");
+        if (!f)
+                return -ENXIO;
+
+        /* Write task ID to file */
+        if (fprintf(f, "%d\n", task) < 0)
+                return log_unit_warning_errno(u, errno, "resctrl group %s: failed to "
+                                         "write task %m", group);
+
+        return 0;
+}
+
 static int exec_child(
                 Unit *unit,
                 const ExecCommand *command,
@@ -2761,6 +2783,7 @@ static int exec_child(
         size_t n_fds;
         ExecDirectoryType dt;
         int secure_bits;
+        const char *rdt_group;
 
         assert(unit);
         assert(command);
@@ -2956,6 +2979,10 @@ static int exec_child(
                         return log_unit_error_errno(unit, r, "Failed to attach to cgroup %s: %m", params->cgroup_path);
                 }
         }
+
+        rdt_group = unit_get_rdt_group(unit);
+        if (rdt_group)
+                resctrl_alloc_task_write(unit, rdt_group, getpid_cached());
 
         if (context->oom_score_adjust_set) {
                 /* When we can't make this change due to EPERM, then let's silently skip over it. User namespaces

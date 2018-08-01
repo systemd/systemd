@@ -595,6 +595,7 @@ void unit_free(Unit *u) {
                 manager_unref_console(u->manager);
 
         unit_release_cgroup(u);
+        u->rdt_alloc_group = mfree(u->rdt_alloc_group);
 
         if (!MANAGER_IS_RELOADING(u->manager))
                 unit_unlink_state_files(u);
@@ -5439,3 +5440,36 @@ static const char* const collect_mode_table[_COLLECT_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(collect_mode, CollectMode);
+
+const char *unit_get_rdt_group(Unit *u) {
+        Unit *slice_unit;
+
+        assert(u);
+
+        if (u->rdt_alloc_group)
+                return u->rdt_alloc_group;
+
+        slice_unit = u;
+        while (UNIT_ISSET(slice_unit->slice)) {
+                slice_unit = UNIT_DEREF(slice_unit->slice);
+                if (slice_unit->rdt_alloc_group)
+                        return slice_unit->rdt_alloc_group;
+                if (unit_has_name(slice_unit, SPECIAL_ROOT_SLICE))
+                        break;
+        }
+        return NULL;
+}
+
+int unit_add_rdt_dependencies(Unit *u) {
+        assert(u);
+
+        if (unit_get_rdt_group(u)) {
+                /* If RdtAllocGroup option is used in an unit or its slice,
+                 * the unit would automatically gain an After= and Wants=
+                 * dependency on the rdt target*/
+                log_unit_error(u, "%s add after and wants for rdt service.", u->id);
+                return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, SPECIAL_RDT_TARGET, NULL, true, UNIT_DEPENDENCY_DEFAULT);
+        } else
+                log_unit_error(u, "%s no rdt group.", u->id);
+        return 0;
+}

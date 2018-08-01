@@ -42,6 +42,7 @@
 #define SPECIAL_NETWORK_ONLINE_TARGET "network-online.target"
 #define SPECIAL_TIME_SYNC_TARGET "time-sync.target"       /* LSB's $time */
 #define SPECIAL_BASIC_TARGET "basic.target"
+#define SPECIAL_RDT_TARGET "rdt.target"
 
 /* LSB compatibility */
 #define SPECIAL_NETWORK_TARGET "network.target"           /* LSB's $network */

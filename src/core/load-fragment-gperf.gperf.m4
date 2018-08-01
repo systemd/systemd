@@ -283,6 +283,7 @@ Unit.AssertGroup,                config_parse_unit_condition_string, CONDITION_G
 Unit.AssertControlGroupController,     config_parse_unit_condition_string, CONDITION_CONTROL_GROUP_CONTROLLER,   offsetof(Unit, asserts)
 Unit.AssertNull,                 config_parse_unit_condition_null,   0,                             offsetof(Unit, asserts)
 Unit.CollectMode,                config_parse_collect_mode,          0,                             offsetof(Unit, collect_mode)
+Unit.RdtAllocGroup,              config_parse_string,                0,                             offsetof(Unit, rdt_alloc_group)
 m4_dnl
 Service.PIDFile,                 config_parse_unit_path_printf,      0,                             offsetof(Service, pid_file)
 Service.ExecStartPre,            config_parse_exec,                  SERVICE_EXEC_START_PRE,        offsetof(Service, exec_command)
