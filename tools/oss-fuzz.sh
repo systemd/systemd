@@ -48,5 +48,8 @@ zip -jqr $OUT/fuzz-dns-packet_seed_corpus.zip $df/packet
 
 install -Dt $OUT/src/shared/ $build/src/shared/libsystemd-shared-*.so
 
+wget -O $OUT/fuzz-json_seed_corpus.zip https://storage.googleapis.com/skia-fuzzer/oss-fuzz/skjson_seed_corpus.zip
+wget -O $OUT/fuzz-json.dict https://raw.githubusercontent.com/rc0r/afl-fuzz/master/dictionaries/json.dict
+
 find $build -maxdepth 1 -type f -executable -name "fuzz-*" -exec mv {} $OUT \;
 cp src/fuzz/*.options $OUT
