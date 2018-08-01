@@ -664,44 +664,46 @@ int dhcp4_configure(Link *link) {
 
         if (!link->dhcp_client) {
                 r = sd_dhcp_client_new(&link->dhcp_client, link->network->dhcp_anonymize);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to create DHCP4 client: %m");
         }
 
         r = sd_dhcp_client_attach_event(link->dhcp_client, NULL, 0);
         if (r < 0)
-                return r;
+                return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to attach event: %m");
 
         r = sd_dhcp_client_set_mac(link->dhcp_client,
                                    (const uint8_t *) &link->mac,
                                    sizeof (link->mac), ARPHRD_ETHER);
         if (r < 0)
-                return r;
+                return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set MAC address: %m");
 
         r = sd_dhcp_client_set_ifindex(link->dhcp_client, link->ifindex);
         if (r < 0)
-                return r;
+                return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set ifindex: %m");
 
         r = sd_dhcp_client_set_callback(link->dhcp_client, dhcp4_handler, link);
         if (r < 0)
-                return r;
+                return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set callback: %m");
 
         r = sd_dhcp_client_set_request_broadcast(link->dhcp_client,
                                                  link->network->dhcp_broadcast);
         if (r < 0)
-                return r;
+                return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for broadcast: %m");
 
         if (link->mtu) {
                 r = sd_dhcp_client_set_mtu(link->dhcp_client, link->mtu);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set MTU: %m");
         }
 
         if (link->network->dhcp_use_mtu) {
                 r = sd_dhcp_client_set_request_option(link->dhcp_client,
                                                       SD_DHCP_OPTION_INTERFACE_MTU);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for MTU: %m");
         }
 
         /* NOTE: even if this variable is called "use", it also "sends" PRL
@@ -713,46 +715,47 @@ int dhcp4_configure(Link *link) {
                 r = sd_dhcp_client_set_request_option(link->dhcp_client,
                                                       SD_DHCP_OPTION_STATIC_ROUTE);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for static route: %m");
+
                 r = sd_dhcp_client_set_request_option(link->dhcp_client,
                                                       SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for classless static route: %m");
         }
 
         if (link->network->dhcp_use_ntp) {
                 r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NTP_SERVER);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for NTP server: %m");
         }
 
         if (link->network->dhcp_use_timezone) {
                 r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_NEW_TZDB_TIMEZONE);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set request flag for timezone: %m");
         }
 
         r = dhcp4_set_hostname(link);
         if (r < 0)
-                return r;
+                return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set hostname: %m");
 
         if (link->network->dhcp_vendor_class_identifier) {
                 r = sd_dhcp_client_set_vendor_class_identifier(link->dhcp_client,
                                                                link->network->dhcp_vendor_class_identifier);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set vendor class identifier: %m");
         }
 
         if (link->network->dhcp_user_class) {
                 r = sd_dhcp_client_set_user_class(link->dhcp_client, (const char **) link->network->dhcp_user_class);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set user class: %m");
         }
 
         if (link->network->dhcp_client_port) {
                 r = sd_dhcp_client_set_client_port(link->dhcp_client, link->network->dhcp_client_port);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set listen port: %m");
         }
 
         switch (link->network->dhcp_client_identifier) {
@@ -766,7 +769,7 @@ int dhcp4_configure(Link *link) {
                                                  duid->raw_data_len > 0 ? duid->raw_data : NULL,
                                                  duid->raw_data_len);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set DUID: %m");
                 break;
         }
         case DHCP_CLIENT_ID_DUID_ONLY: {
@@ -778,7 +781,7 @@ int dhcp4_configure(Link *link) {
                                             duid->raw_data_len > 0 ? duid->raw_data : NULL,
                                             duid->raw_data_len);
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set DUID: %m");
                 break;
         }
         case DHCP_CLIENT_ID_MAC:
@@ -787,7 +790,7 @@ int dhcp4_configure(Link *link) {
                                                  (const uint8_t *) &link->mac,
                                                  sizeof(link->mac));
                 if (r < 0)
-                        return r;
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set client ID: %m");
                 break;
         default:
                 assert_not_reached("Unknown client identifier type.");
