@@ -293,6 +293,7 @@ manpages = [
  ['sd_bus_set_sender', '3', ['sd_bus_get_sender'], ''],
  ['sd_bus_set_watch_bind', '3', ['sd_bus_get_watch_bind'], ''],
  ['sd_bus_slot_ref', '3', ['sd_bus_slot_unref', 'sd_bus_slot_unrefp'], ''],
+ ['sd_bus_slot_set_description', '3', ['sd_bus_slot_get_description'], ''],
  ['sd_bus_slot_set_destroy_callback',
   '3',
   ['sd_bus_destroy_t',
