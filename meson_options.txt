@@ -315,3 +315,5 @@ option('oss-fuzz', type : 'boolean', value : 'false',
        description : 'build against oss-fuzz')
 option('llvm-fuzz', type : 'boolean', value : 'false',
        description : 'build against LLVM libFuzzer')
+option('rdtd', type : 'boolean',
+       description : 'install the systemd-rdtd stack')

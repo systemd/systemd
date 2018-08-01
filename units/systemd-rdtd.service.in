@@ -1,0 +1,36 @@
+#  SPDX-License-Identifier: LGPL-2.1+
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Rdt Service
+Documentation=man:systemd-rdtd.service(8) man:rdtd.conf(5)
+DefaultDependencies=no
+Before=rdt.target
+
+[Service]
+Type=notify
+OOMScoreAdjust=-1000
+Restart=always
+RestartSec=0
+ExecStart=@rootlibexecdir@/systemd-rdtd
+KillMode=mixed
+WatchdogSec=3min
+TasksMax=infinity
+PrivateMounts=yes
+MemoryDenyWriteExecute=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+SystemCallFilter=@system-service @module @raw-io
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native
+LockPersonality=yes
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target

@@ -222,6 +222,7 @@ in_units = [
         ['systemd-volatile-root.service',        ''],
         ['user-runtime-dir@.service',            ''],
         ['user@.service',                        ''],
+        ['systemd-rdtd.service',                 'ENABLE_RDTD'],
 ]
 
 m4_units = [

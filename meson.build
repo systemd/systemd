@@ -1248,7 +1248,8 @@ foreach term : ['utmp',
                 'gshadow',
                 'idn',
                 'nss-myhostname',
-                'nss-systemd']
+                'nss-systemd',
+                'rdt']
         have = get_option(term)
         name = 'ENABLE_' + term.underscorify().to_upper()
         conf.set10(name, have)
@@ -1361,6 +1362,7 @@ subdir('src/libsystemd')
 subdir('src/libsystemd-network')
 subdir('src/journal')
 subdir('src/login')
+subdir('src/rdt')
 
 libjournal_core = static_library(
         'journal-core',
@@ -1741,6 +1743,17 @@ if conf.get('ENABLE_LOGIND') == 1
                      test_dlopen,
                      args : [pam_systemd.full_path()]) # path to dlopen must include a slash
         endif
+endif
+
+if conf.get('ENABLE_RDTD') == 1
+        executable('systemd-rdtd',
+                   systemd_rdtd_sources,
+                   include_directories : includes,
+                   link_with : [librdtd_core,
+                                libshared],
+                   install_rpath : rootlibexecdir,
+                   install : true,
+                   install_dir : rootlibexecdir)
 endif
 
 executable('systemd-user-runtime-dir',
@@ -3035,6 +3048,7 @@ foreach tuple : [
         ['debug hashmap'],
         ['debug mmap cache'],
         ['valgrind',         conf.get('VALGRIND') == 1],
+        ['rdtd'],
 ]
 
         if tuple.length() >= 2

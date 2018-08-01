@@ -1,0 +1,23 @@
+%{
+#if __GNUC__ >= 7
+_Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"")
+#endif
+#include <stddef.h>
+#include "conf-parser.h"
+#include "rdtd.h"
+%}
+struct ConfigPerfItem;
+%null_strings
+%language=ANSI-C
+%define slot-name section_and_lvalue
+%define hash-function-name rdtd_gperf_hash
+%define lookup-function-name rdtd_gperf_lookup
+%readonly-tables
+%omit-struct-type
+%struct-type
+%includes
+%%
+Rdt.L3CacheAllocationSize,      config_parse_iec_size,              0, offsetof(RdtGroup, l3_size)
+Rdt.L3CacheAllocationId,        config_parse_string,                0, offsetof(RdtGroup, l3_id)
+Rdt.ConfigMtime,                config_parse_uint64,                0, offsetof(RdtGroup, mtime)
+Rdt.ConfigSource,               config_parse_string,                0, offsetof(RdtGroup, source)

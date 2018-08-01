@@ -56,7 +56,7 @@ _systemd_analyze() {
                        systemd/journal-remote.conf systemd/journal-upload.conf systemd/logind.conf
                        systemd/resolved.conf systemd/networkd.conf systemd/resolved.conf
                        systemd/sleep.conf systemd/system.conf systemd/timedated.conf
-                       systemd/timesyncd.conf systemd/user.conf udev/udev.conf'
+                       systemd/timesyncd.conf systemd/user.conf udev/udev.conf systemd/rdtd.conf'
 
         _init_completion || return
 
