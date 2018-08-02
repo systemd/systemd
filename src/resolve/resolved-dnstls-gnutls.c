@@ -4,10 +4,10 @@
 #error This source file requires DNS-over-TLS to be enabled and GnuTLS to be available.
 #endif
 
-#include "resolved-dnstls.h"
-#include "resolved-dns-stream.h"
-
 #include <gnutls/socket.h>
+
+#include "resolved-dns-stream.h"
+#include "resolved-dnstls.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(gnutls_session_t, gnutls_deinit);
 

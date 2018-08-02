@@ -4,11 +4,11 @@
 #error This source file requires DNS-over-TLS to be enabled and OpenSSL to be available.
 #endif
 
-#include "resolved-dnstls.h"
-#include "resolved-dns-stream.h"
-
 #include <openssl/bio.h>
 #include <openssl/err.h>
+
+#include "resolved-dns-stream.h"
+#include "resolved-dnstls.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(SSL*, SSL_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(BIO*, BIO_free);
