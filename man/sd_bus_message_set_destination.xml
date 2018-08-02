@@ -6,7 +6,6 @@
 -->
 
 <refentry id="sd_bus_message_set_destination" xmlns:xi="http://www.w3.org/2001/XInclude">
-
   <refentryinfo>
     <title>sd_bus_message_set_destination</title>
     <productname>systemd</productname>
@@ -19,8 +18,14 @@
 
   <refnamediv>
     <refname>sd_bus_message_set_destination</refname>
+    <refname>sd_bus_message_get_destination</refname>
+    <refname>sd_bus_message_get_path</refname>
+    <refname>sd_bus_message_get_interface</refname>
+    <refname>sd_bus_message_get_member</refname>
     <refname>sd_bus_message_set_sender</refname>
-    <refpurpose>Set the destination or sender service name of a bus message</refpurpose>
+    <refname>sd_bus_message_get_sender</refname>
+
+    <refpurpose>Set and query bus message addressing information</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -34,9 +39,34 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>const char* <function>sd_bus_message_get_destination</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>const char* <function>sd_bus_message_get_path</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>const char* <function>sd_bus_message_get_interface</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>const char* <function>sd_bus_message_get_member</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_message_set_sender</function></funcdef>
         <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
         <paramdef>const char *<parameter>sender</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>const char* <function>sd_bus_message_get_sender</function></funcdef>
+        <paramdef>sd_bus_message *<parameter>message</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -44,20 +74,41 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_message_set_destination()</function> sets the destination service name for the specified bus
-    message object. The specified name must be a valid unique or well-known service name.</para>
+    <para><function>sd_bus_message_set_destination()</function> sets the destination service name
+    for the specified bus message object. The specified name must be a valid unique or well-known
+    service name.</para>
+
+    <para><function>sd_bus_message_get_destination()</function>,
+    <function>sd_bus_message_get_path()</function>,
+    <function>sd_bus_message_get_interface()</function>, and
+    <function>sd_bus_message_get_member()</function> return the destination, path, interface, and
+    member fields from <parameter>message</parameter> header. The return value will be
+    <constant>NULL</constant> is <parameter>message</parameter> is <constant>NULL</constant> or the
+    message is of a type that doesn't use those fields or the message doesn't have them set. See
+    <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for more discussion of those values.</para>
+
 
     <para><function>sd_bus_message_set_sender()</function> sets the sender service name for the specified bus message
     object. The specified name must be a valid unique or well-known service name. This function is useful only for
     messages to send on direct connections as for connections to bus brokers the broker will fill in the destination
     field anyway, and the sender field set by original sender is ignored.</para>
+
+    <para><function>sd_bus_message_get_sender()</function> returns the sender field from
+    <parameter>message</parameter>.</para>
+
+    <para>When a string is returned, it is a pointer to internal storage, and may not be modified or
+    freed. It is only valid as long as the <parameter>message</parameter> remains referenced and
+    this field hasn't been changed by a different call.</para>
   </refsect1>
 
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, these calls return 0 or a positive integer. On failure, these calls return a negative errno-style
-    error code.</para>
+    <para>On success, these calls return 0 or a positive integer. On failure, these calls return a
+    negative errno-style error code.</para>
   </refsect1>
 
   <refsect1>
@@ -69,13 +120,16 @@
       <varlistentry>
         <term><constant>-EINVAL</constant></term>
 
-        <listitem><para>A specified parameter is invalid.</para></listitem>
+        <listitem><para>The <parameter>message</parameter> parameter or the output parameter are
+        <constant>NULL</constant>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><constant>-EPERM</constant></term>
 
-        <listitem><para>The message is already sealed.</para></listitem>
+        <listitem><para>For <function>sd_bus_message_set_destination</function> or
+        <function>sd_bus_message_set_sender</function>, the message is already
+        sealed.</para></listitem>
       </varlistentry>
 
       <varlistentry>

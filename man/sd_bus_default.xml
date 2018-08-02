@@ -24,8 +24,11 @@
     <refname>sd_bus_default_system</refname>
 
     <refname>sd_bus_open</refname>
+    <refname>sd_bus_open_with_description</refname>
     <refname>sd_bus_open_user</refname>
+    <refname>sd_bus_open_user_with_description</refname>
     <refname>sd_bus_open_system</refname>
+    <refname>sd_bus_open_system_with_description</refname>
     <refname>sd_bus_open_system_remote</refname>
     <refname>sd_bus_open_system_machine</refname>
 
@@ -57,13 +60,31 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_open_with_description</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>description</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_open_user</function></funcdef>
         <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_bus_open_user_with_description</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>description</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_open_system</function></funcdef>
         <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_open_system_with_description</function></funcdef>
+        <paramdef>sd_bus **<parameter>bus</parameter></paramdef>
+        <paramdef>const char *<parameter>description</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -125,6 +146,20 @@
     <function>sd_bus_default_user()</function> and
     <function>sd_bus_default_system()</function> to connect to the
     user or system buses.</para>
+
+    <para><function>sd_bus_open_with_description()</function>,
+    <function>sd_bus_open_user_with_description()</function>, and
+    <function>sd_bus_open_system_with_description()</function> are similar to
+    <function>sd_bus_open()</function>, <function>sd_bus_open_user()</function>, and
+    <function>sd_bus_open_system()</function>, but allow a description string to be set, see
+    <citerefentry><refentrytitle>sd_bus_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    <parameter>description</parameter> may be <constant>NULL</constant>, in which case this function
+    is equivalent to <function>sd_bus_open()</function>. This description string is used in log
+    messages about the bus object, and including a "name" for the bus makes them easier to
+    understand. Some messages are emitted during bus initialization, hence using this function is
+    prefereable to setting the description later with
+    <function>sd_bus_open_with_description()</function>. The argument is copied internally and will
+    not be referenced after the function returns.</para>
 
     <para>If the <varname>$DBUS_SESSION_BUS_ADDRESS</varname> environment
     variable is set

@@ -1,0 +1,107 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1+ -->
+
+<refentry id="sd_bus_slot_ref" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <refentryinfo>
+    <title>sd_bus_slot_ref</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_bus_slot_ref</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_bus_slot_ref</refname>
+    <refname>sd_bus_slot_unref</refname>
+    <refname>sd_bus_slot_unrefp</refname>
+    <refname>sd_bus_slot_get_bus</refname>
+
+    <refpurpose>Create and destroy references to a bus slot object</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>sd_bus_slot *<function>sd_bus_slot_ref</function></funcdef>
+        <paramdef>sd_bus_slot *<parameter>slot</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus_slot *<function>sd_bus_slot_unref</function></funcdef>
+        <paramdef>sd_bus_slot *<parameter>slot</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>void <function>sd_bus_slot_unrefp</function></funcdef>
+        <paramdef>sd_bus_slot **<parameter>slotp</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_bus *<function>sd_bus_slot_get_bus</function></funcdef>
+        <paramdef>sd_bus_slot *<parameter>m</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_bus_slot_ref()</function> increases the reference counter of
+    <parameter>slot</parameter> by one.</para>
+
+    <para><function>sd_bus_slot_unref()</function> decreases the reference counter of
+    <parameter>slot</parameter> by one. Once the reference count has dropped to zero, slot object is
+    destroyed and cannot be used anymore, so further calls to <function>sd_bus_slot_ref()</function>
+    or <function>sd_bus_slot_unref()</function> are illegal.</para>
+
+    <para><function>sd_bus_slot_unrefp()</function> is similar to
+    <function>sd_bus_slot_unref()</function> but takes a pointer to a pointer to an
+    <type>sd_bus_slot</type> object. This call is useful in conjunction with GCC's and LLVM's <ulink
+    url="https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html">Clean-up Variable
+    Attribute</ulink>. See
+    <citerefentry><refentrytitle>sd_bus_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for an example how to use the cleanup attribute.</para>
+
+    <para><function>sd_bus_slot_ref()</function> and <function>sd_bus_slot_unref()</function>
+    execute no operation if the passed in bus object address is
+    <constant>NULL</constant>. <function>sd_bus_slot_unrefp()</function> will first dereference
+    its argument, which must not be <constant>NULL</constant>, and will execute no operation if
+    <emphasis>that</emphasis> is <constant>NULL</constant>.
+    </para>
+
+    <para><function>sd_bus_slot_get_bus()</function> returns the bus object that message
+    <parameter>slot</parameter> is attached to.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para><function>sd_bus_slot_ref()</function> always returns the argument.</para>
+
+    <para><function>sd_bus_slot_unref()</function> always returns <constant>NULL</constant>.</para>
+
+    <para><function>sd_bus_slot_get_bus()</function> always returns the bus object.</para>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_message_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_slot_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sd_bus_call_method_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

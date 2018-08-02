@@ -5433,6 +5433,7 @@ int bus_message_parse_fields(sd_bus_message *m) {
 _public_ int sd_bus_message_set_destination(sd_bus_message *m, const char *destination) {
         assert_return(m, -EINVAL);
         assert_return(destination, -EINVAL);
+        assert_return(service_name_is_valid(destination), -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->destination, -EEXIST);
 
@@ -5442,6 +5443,7 @@ _public_ int sd_bus_message_set_destination(sd_bus_message *m, const char *desti
 _public_ int sd_bus_message_set_sender(sd_bus_message *m, const char *sender) {
         assert_return(m, -EINVAL);
         assert_return(sender, -EINVAL);
+        assert_return(service_name_is_valid(sender), -EINVAL);
         assert_return(!m->sealed, -EPERM);
         assert_return(!m->sender, -EEXIST);
 
