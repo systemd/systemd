@@ -267,24 +267,24 @@ ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
         ERR_clear_error();
         ss = r = SSL_write(stream->dnstls_data.ssl, buf, count);
         if (r <= 0) {
-                error = SSL_get_error(stream->dnstls_data.ssl, ss);
+                error = SSL_get_error(stream->dnstls_data.ssl, r);
                 if (IN_SET(error, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE)) {
                         stream->dnstls_events = error == SSL_ERROR_WANT_READ ? EPOLLIN : EPOLLOUT;
-                        r = dnstls_flush_write_buffer(stream);
-                        if (r < 0)
-                                return r;
-
                         ss = -EAGAIN;
+                } else if (error == SSL_ERROR_ZERO_RETURN) {
+                        stream->dnstls_events = 0;
+                        ss = 0;
                 } else {
                         char errbuf[256];
 
                         ERR_error_string_n(error, errbuf, sizeof(errbuf));
                         log_debug("Failed to invoke SSL_write: %s", errbuf);
+                        stream->dnstls_events = 0;
                         ss = -EPIPE;
                 }
-        }
+        } else
+                stream->dnstls_events = 0;
 
-        stream->dnstls_events = 0;
         r = dnstls_flush_write_buffer(stream);
         if (r < 0)
                 return r;
@@ -304,26 +304,23 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         ERR_clear_error();
         ss = r = SSL_read(stream->dnstls_data.ssl, buf, count);
         if (r <= 0) {
-                error = SSL_get_error(stream->dnstls_data.ssl, ss);
+                error = SSL_get_error(stream->dnstls_data.ssl, r);
                 if (IN_SET(error, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE)) {
                         stream->dnstls_events = error == SSL_ERROR_WANT_READ ? EPOLLIN : EPOLLOUT;
-
-                        /* flush write buffer in cache of renegotiation */
-                        r = dnstls_flush_write_buffer(stream);
-                        if (r < 0)
-                                return r;
-
                         ss = -EAGAIN;
+                } else if (error == SSL_ERROR_ZERO_RETURN) {
+                        stream->dnstls_events = 0;
+                        ss = 0;
                 } else {
                         char errbuf[256];
 
                         ERR_error_string_n(error, errbuf, sizeof(errbuf));
                         log_debug("Failed to invoke SSL_read: %s", errbuf);
+                        stream->dnstls_events = 0;
                         ss = -EPIPE;
                 }
-        }
-
-        stream->dnstls_events = 0;
+        } else
+                stream->dnstls_events = 0;
 
         /* flush write buffer in cache of renegotiation */
         r = dnstls_flush_write_buffer(stream);
