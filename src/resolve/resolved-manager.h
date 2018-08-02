@@ -23,6 +23,12 @@ typedef struct Manager Manager;
 #define MANAGER_SEARCH_DOMAINS_MAX 32
 #define MANAGER_DNS_SERVERS_MAX 32
 
+typedef struct EtcHosts {
+        Hashmap *by_address;
+        Hashmap *by_name;
+        Set *no_address;
+} EtcHosts;
+
 struct Manager {
         sd_event *event;
 
@@ -114,8 +120,7 @@ struct Manager {
         unsigned n_dnssec_verdict[_DNSSEC_VERDICT_MAX];
 
         /* Data from /etc/hosts */
-        Hashmap* etc_hosts_by_address;
-        Hashmap* etc_hosts_by_name;
+        EtcHosts etc_hosts;
         usec_t etc_hosts_last, etc_hosts_mtime;
         bool read_etc_hosts;
 

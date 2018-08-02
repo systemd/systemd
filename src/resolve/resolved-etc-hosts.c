@@ -12,48 +12,36 @@
 /* Recheck /etc/hosts at most once every 2s */
 #define ETC_HOSTS_RECHECK_USEC (2*USEC_PER_SEC)
 
-typedef struct EtcHostsItem {
-        struct in_addr_data address;
+static inline void etc_hosts_item_free(EtcHostsItem *item) {
+        strv_free(item->names);
+        free(item);
+}
 
-        char **names;
-} EtcHostsItem;
+static inline void etc_hosts_item_by_name_free(EtcHostsItemByName *item) {
+        free(item->name);
+        free(item->addresses);
+        free(item);
+}
 
-typedef struct EtcHostsItemByName {
-        char *name;
-
-        struct in_addr_data **addresses;
-        size_t n_addresses, n_allocated;
-} EtcHostsItemByName;
+void etc_hosts_free(EtcHosts *hosts) {
+        hosts->by_address = hashmap_free_with_destructor(hosts->by_address, etc_hosts_item_free);
+        hosts->by_name = hashmap_free_with_destructor(hosts->by_name, etc_hosts_item_by_name_free);
+        hosts->no_address = set_free_free(hosts->no_address);
+}
 
 void manager_etc_hosts_flush(Manager *m) {
-        EtcHostsItem *item;
-        EtcHostsItemByName *bn;
-
-        while ((item = hashmap_steal_first(m->etc_hosts_by_address))) {
-                strv_free(item->names);
-                free(item);
-        }
-
-        while ((bn = hashmap_steal_first(m->etc_hosts_by_name))) {
-                free(bn->name);
-                free(bn->addresses);
-                free(bn);
-        }
-
-        m->etc_hosts_by_address = hashmap_free(m->etc_hosts_by_address);
-        m->etc_hosts_by_name = hashmap_free(m->etc_hosts_by_name);
-
+        etc_hosts_free(&m->etc_hosts);
         m->etc_hosts_mtime = USEC_INFINITY;
 }
 
-static int parse_line(Manager *m, unsigned nr, const char *line) {
+static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
         _cleanup_free_ char *address_str = NULL;
         struct in_addr_data address = {};
-        bool suppressed = false;
+        bool found = false;
         EtcHostsItem *item;
         int r;
 
-        assert(m);
+        assert(hosts);
         assert(line);
 
         r = extract_first_word(&line, &address_str, NULL, EXTRACT_RELAX);
@@ -76,11 +64,11 @@ static int parse_line(Manager *m, unsigned nr, const char *line) {
                  * nothing. */
                 item = NULL;
         else {
-                /* If this is a normal address, then, simply add entry mapping it to the specified names */
+                /* If this is a normal address, then simply add entry mapping it to the specified names */
 
-                item = hashmap_get(m->etc_hosts_by_address, &address);
+                item = hashmap_get(hosts->by_address, &address);
                 if (!item) {
-                        r = hashmap_ensure_allocated(&m->etc_hosts_by_address, &in_addr_data_hash_ops);
+                        r = hashmap_ensure_allocated(&hosts->by_address, &in_addr_data_hash_ops);
                         if (r < 0)
                                 return log_oom();
 
@@ -90,7 +78,7 @@ static int parse_line(Manager *m, unsigned nr, const char *line) {
 
                         item->address = address;
 
-                        r = hashmap_put(m->etc_hosts_by_address, &item->address, item);
+                        r = hashmap_put(hosts->by_address, &item->address, item);
                         if (r < 0) {
                                 free(item);
                                 return log_oom();
@@ -112,21 +100,35 @@ static int parse_line(Manager *m, unsigned nr, const char *line) {
                 if (r <= 0)
                         return log_error_errno(r, "Hostname %s is not valid, ignoring, in line /etc/hosts:%u.", name, nr);
 
-                if (is_localhost(name)) {
+                found = true;
+
+                if (is_localhost(name))
                         /* Suppress the "localhost" line that is often seen */
-                        suppressed = true;
+                        continue;
+
+                if (!item) {
+                        /* Optimize the case where we don't need to store any addresses, by storing
+                         * only the name in a dedicated Set instead of the hashmap */
+
+                        r = set_ensure_allocated(&hosts->no_address, &dns_name_hash_ops);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = set_put(hosts->no_address, name);
+                        if (r < 0)
+                                return r;
+
+                        TAKE_PTR(name);
                         continue;
                 }
 
-                if (item) {
-                        r = strv_extend(&item->names, name);
-                        if (r < 0)
-                                return log_oom();
-                }
+                r = strv_extend(&item->names, name);
+                if (r < 0)
+                        return log_oom();
 
-                bn = hashmap_get(m->etc_hosts_by_name, name);
+                bn = hashmap_get(hosts->by_name, name);
                 if (!bn) {
-                        r = hashmap_ensure_allocated(&m->etc_hosts_by_name, &dns_name_hash_ops);
+                        r = hashmap_ensure_allocated(&hosts->by_name, &dns_name_hash_ops);
                         if (r < 0)
                                 return log_oom();
 
@@ -134,7 +136,7 @@ static int parse_line(Manager *m, unsigned nr, const char *line) {
                         if (!bn)
                                 return log_oom();
 
-                        r = hashmap_put(m->etc_hosts_by_name, name, bn);
+                        r = hashmap_put(hosts->by_name, name, bn);
                         if (r < 0) {
                                 free(bn);
                                 return log_oom();
@@ -143,17 +145,13 @@ static int parse_line(Manager *m, unsigned nr, const char *line) {
                         bn->name = TAKE_PTR(name);
                 }
 
-                if (item) {
-                        if (!GREEDY_REALLOC(bn->addresses, bn->n_allocated, bn->n_addresses + 1))
-                                return log_oom();
+                if (!GREEDY_REALLOC(bn->addresses, bn->n_allocated, bn->n_addresses + 1))
+                        return log_oom();
 
-                        bn->addresses[bn->n_addresses++] = &item->address;
-                }
-
-                suppressed = true;
+                bn->addresses[bn->n_addresses++] = &item->address;
         }
 
-        if (!suppressed) {
+        if (!found) {
                 log_error("Line is missing any host names, in line /etc/hosts:%u.", nr);
                 return -EINVAL;
         }
@@ -161,54 +159,11 @@ static int parse_line(Manager *m, unsigned nr, const char *line) {
         return 0;
 }
 
-static int manager_etc_hosts_read(Manager *m) {
-        _cleanup_fclose_ FILE *f = NULL;
+int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
+        _cleanup_(etc_hosts_free) EtcHosts t = {};
         char line[LINE_MAX];
-        struct stat st;
-        usec_t ts;
         unsigned nr = 0;
         int r;
-
-        assert_se(sd_event_now(m->event, clock_boottime_or_monotonic(), &ts) >= 0);
-
-        /* See if we checked /etc/hosts recently already */
-        if (m->etc_hosts_last != USEC_INFINITY && m->etc_hosts_last + ETC_HOSTS_RECHECK_USEC > ts)
-                return 0;
-
-        m->etc_hosts_last = ts;
-
-        if (m->etc_hosts_mtime != USEC_INFINITY) {
-                if (stat("/etc/hosts", &st) < 0) {
-                        if (errno == ENOENT) {
-                                r = 0;
-                                goto clear;
-                        }
-
-                        return log_error_errno(errno, "Failed to stat /etc/hosts: %m");
-                }
-
-                /* Did the mtime change? If not, there's no point in re-reading the file. */
-                if (timespec_load(&st.st_mtim) == m->etc_hosts_mtime)
-                        return 0;
-        }
-
-        f = fopen("/etc/hosts", "re");
-        if (!f) {
-                if (errno == ENOENT) {
-                        r = 0;
-                        goto clear;
-                }
-
-                return log_error_errno(errno, "Failed to open /etc/hosts: %m");
-        }
-
-        /* Take the timestamp at the beginning of processing, so that any changes made later are read on the next
-         * invocation */
-        r = fstat(fileno(f), &st);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to fstat() /etc/hosts: %m");
-
-        manager_etc_hosts_flush(m);
 
         FOREACH_LINE(line, f, return log_error_errno(errno, "Failed to read /etc/hosts: %m")) {
                 char *l;
@@ -221,19 +176,68 @@ static int manager_etc_hosts_read(Manager *m) {
                 if (l[0] == '#')
                         continue;
 
-                r = parse_line(m, nr, l);
-                if (r == -ENOMEM) /* On OOM we abandon the half-built-up structure. All other errors we ignore and proceed */
-                        goto clear;
+                r = parse_line(&t, nr, l);
+                if (r < 0)
+                        return r;
         }
+
+        etc_hosts_free(hosts);
+        *hosts = t;
+        t = (EtcHosts) {}; /* prevent cleanup */
+        return 0;
+}
+
+static int manager_etc_hosts_read(Manager *m) {
+        _cleanup_fclose_ FILE *f = NULL;
+        struct stat st;
+        usec_t ts;
+        int r;
+
+        assert_se(sd_event_now(m->event, clock_boottime_or_monotonic(), &ts) >= 0);
+
+        /* See if we checked /etc/hosts recently already */
+        if (m->etc_hosts_last != USEC_INFINITY && m->etc_hosts_last + ETC_HOSTS_RECHECK_USEC > ts)
+                return 0;
+
+        m->etc_hosts_last = ts;
+
+        if (m->etc_hosts_mtime != USEC_INFINITY) {
+                if (stat("/etc/hosts", &st) < 0) {
+                        if (errno != ENOENT)
+                                return log_error_errno(errno, "Failed to stat /etc/hosts: %m");
+
+                        manager_etc_hosts_flush(m);
+                        return 0;
+                }
+
+                /* Did the mtime change? If not, there's no point in re-reading the file. */
+                if (timespec_load(&st.st_mtim) == m->etc_hosts_mtime)
+                        return 0;
+        }
+
+        f = fopen("/etc/hosts", "re");
+        if (!f) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open /etc/hosts: %m");
+
+                manager_etc_hosts_flush(m);
+                return 0;
+        }
+
+        /* Take the timestamp at the beginning of processing, so that any changes made later are read on the next
+         * invocation */
+        r = fstat(fileno(f), &st);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to fstat() /etc/hosts: %m");
+
+        r = etc_hosts_parse(&m->etc_hosts, f);
+        if (r < 0)
+                return r;
 
         m->etc_hosts_mtime = timespec_load(&st.st_mtim);
         m->etc_hosts_last = ts;
 
         return 1;
-
-clear:
-        manager_etc_hosts_flush(m);
-        return r;
 }
 
 int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
@@ -252,9 +256,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
         if (!m->read_etc_hosts)
                 return 0;
 
-        r = manager_etc_hosts_read(m);
-        if (r < 0)
-                return r;
+        (void) manager_etc_hosts_read(m);
 
         name = dns_question_first_name(q);
         if (!name)
@@ -265,7 +267,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
                 EtcHostsItem *item;
                 DnsResourceKey *found_ptr = NULL;
 
-                item = hashmap_get(m->etc_hosts_by_address, &k);
+                item = hashmap_get(m->etc_hosts.by_address, &k);
                 if (!item)
                         return 0;
 
@@ -314,13 +316,16 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
                 return 1;
         }
 
-        bn = hashmap_get(m->etc_hosts_by_name, name);
-        if (!bn)
-                return 0;
-
-        r = dns_answer_reserve(answer, bn->n_addresses);
-        if (r < 0)
-                return r;
+        bn = hashmap_get(m->etc_hosts.by_name, name);
+        if (bn) {
+                r = dns_answer_reserve(answer, bn->n_addresses);
+                if (r < 0)
+                        return r;
+        } else {
+                /* Check if name was listed with no address. If yes, continue to return an answer. */
+                if (!set_contains(m->etc_hosts.no_address, name))
+                        return 0;
+        }
 
         DNS_QUESTION_FOREACH(t, q) {
                 if (!IN_SET(t->type, DNS_TYPE_A, DNS_TYPE_AAAA, DNS_TYPE_ANY))
@@ -343,7 +348,7 @@ int manager_etc_hosts_lookup(Manager *m, DnsQuestion* q, DnsAnswer **answer) {
                         break;
         }
 
-        for (i = 0; i < bn->n_addresses; i++) {
+        for (i = 0; bn && i < bn->n_addresses; i++) {
                 _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
 
                 if ((!found_a && bn->addresses[i]->family == AF_INET) ||
