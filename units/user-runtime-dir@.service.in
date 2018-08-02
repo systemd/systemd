@@ -15,4 +15,5 @@ StopWhenUnneeded=yes
 [Service]
 ExecStart=@rootlibexecdir@/systemd-user-runtime-dir start %i
 ExecStop=@rootlibexecdir@/systemd-user-runtime-dir stop %i
+Type=oneshot
 RemainAfterExit=true
