@@ -50,7 +50,7 @@ static void test_parse_etc_hosts(const char *fname) {
 
         if (fname)
                 return;
-                
+
         EtcHostsItemByName *bn;
         assert_se(bn = hashmap_get(hosts.by_name, "some.where"));
         assert_se(bn->n_addresses == 3);
