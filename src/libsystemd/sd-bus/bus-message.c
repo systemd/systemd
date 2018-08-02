@@ -4280,7 +4280,6 @@ _public_ int sd_bus_message_rewind(sd_bus_message *m, int complete) {
         } else {
                 c = message_get_last_container(m);
 
-                c->offset_index = 0;
                 c->index = 0;
                 m->rindex = c->begin;
         }
