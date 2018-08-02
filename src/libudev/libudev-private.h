@@ -115,7 +115,7 @@ int udev_queue_export_device_finished(struct udev_queue_export *udev_queue_expor
 /* libudev-util.c */
 #define UTIL_PATH_SIZE                      1024
 #define UTIL_NAME_SIZE                       512
-#define UTIL_LINE_SIZE                     16384
+#define UTIL_LINE_SIZE                     32768
 #define UDEV_ALLOWED_CHARS_INPUT        "/ $%?,"
 int util_log_priority(const char *priority);
 size_t util_path_encode(const char *src, char *dest, size_t size);
