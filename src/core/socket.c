@@ -1890,8 +1890,6 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
 
         unit_set_exec_params(UNIT(s), &exec_params);
 
-        exec_params.argv = c->argv;
-
         r = exec_spawn(UNIT(s),
                        c,
                        &s->exec_context,
@@ -2460,6 +2458,7 @@ static int socket_start(Unit *u) {
                 return r;
 
         s->result = SOCKET_SUCCESS;
+        exec_command_reset_status_list_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
 
         u->reset_accounting = true;
 

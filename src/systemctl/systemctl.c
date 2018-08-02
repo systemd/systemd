@@ -4548,6 +4548,7 @@ static int map_asserts(sd_bus *bus, const char *member, sd_bus_message *m, sd_bu
 
 static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
         _cleanup_free_ ExecStatusInfo *info = NULL;
+        ExecStatusInfo *last;
         UnitStatusInfo *i = userdata;
         int r;
 
@@ -4559,13 +4560,16 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
         if (!info)
                 return -ENOMEM;
 
+        LIST_FIND_TAIL(exec, i->exec, last);
+
         while ((r = exec_status_info_deserialize(m, info)) > 0) {
 
                 info->name = strdup(member);
                 if (!info->name)
                         return -ENOMEM;
 
-                LIST_PREPEND(exec, i->exec, info);
+                LIST_INSERT_AFTER(exec, i->exec, last, info);
+                last = info;
 
                 info = new0(ExecStatusInfo, 1);
                 if (!info)

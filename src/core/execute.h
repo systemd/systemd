@@ -77,10 +77,11 @@ typedef enum ExecKeyringMode {
         _EXEC_KEYRING_MODE_INVALID = -1,
 } ExecKeyringMode;
 
+/* Contains start and exit information about an executed command.  */
 struct ExecStatus {
+        pid_t pid;
         dual_timestamp start_timestamp;
         dual_timestamp exit_timestamp;
-        pid_t pid;
         int code;     /* as in siginfo_t::si_code */
         int status;   /* as in sigingo_t::si_status */
 };
@@ -92,6 +93,7 @@ typedef enum ExecCommandFlags {
         EXEC_COMMAND_AMBIENT_MAGIC    = 1 << 3,
 } ExecCommandFlags;
 
+/* Stores information about commands we execute. Covers both configuration settings as well as runtime data. */
 struct ExecCommand {
         char *path;
         char **argv;
@@ -100,13 +102,16 @@ struct ExecCommand {
         LIST_FIELDS(ExecCommand, command); /* useful for chaining commands */
 };
 
+/* Encapsulates certain aspects of the runtime environment that is to be shared between multiple otherwise separate
+ * invocations of commands. Specifically, this allows sharing of /tmp and /var/tmp data as well as network namespaces
+ * between invocations of commands. This is a reference counted object, with one reference taken by each currently
+ * active command invocation that wants to share this runtime. */
 struct ExecRuntime {
         int n_ref;
 
         Manager *manager;
 
-        /* unit id of the owner */
-        char *id;
+        char *id; /* Unit id of the owner */
 
         char *tmp_dir;
         char *var_tmp_dir;
@@ -131,6 +136,9 @@ typedef struct ExecDirectory {
         mode_t mode;
 } ExecDirectory;
 
+/* Encodes configuration parameters applied to invoked commands. Does not carry runtime data, but only configuration
+ * changes sourced from unit files and suchlike. ExecContext objects are usually embedded into Unit objects, and do not
+ * change after being loaded. */
 struct ExecContext {
         char **environment;
         char **environment_files;
@@ -291,8 +299,9 @@ typedef enum ExecFlags {
         EXEC_SET_WATCHDOG      = 1 << 11,
 } ExecFlags;
 
+/* Parameters for a specific invocation of a command. This structure is put together right before a command is
+ * executed. */
 struct ExecParameters {
-        char **argv;
         char **environment;
 
         int *fds;
@@ -334,10 +343,10 @@ int exec_spawn(Unit *unit,
                pid_t *ret);
 
 void exec_command_done_array(ExecCommand *c, size_t n);
-
 ExecCommand* exec_command_free_list(ExecCommand *c);
 void exec_command_free_array(ExecCommand **c, size_t n);
-
+void exec_command_reset_status_array(ExecCommand *c, size_t n);
+void exec_command_reset_status_list_array(ExecCommand **c, size_t n);
 void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_append_list(ExecCommand **l, ExecCommand *e);
 int exec_command_set(ExecCommand *c, const char *path, ...);
@@ -361,6 +370,7 @@ void exec_context_free_log_extra_fields(ExecContext *c);
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
+void exec_status_reset(ExecStatus *s);
 
 int exec_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecRuntime **ret);
 ExecRuntime *exec_runtime_unref(ExecRuntime *r, bool destroy);
