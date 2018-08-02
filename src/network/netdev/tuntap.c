@@ -60,7 +60,7 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
         assert(netdev);
         assert(ifr);
 
-        fd = open(TUN_DEV, O_RDWR);
+        fd = open(TUN_DEV, O_RDWR|O_CLOEXEC);
         if (fd < 0)
                 return log_netdev_error_errno(netdev, -errno,  "Failed to open tun dev: %m");
 
