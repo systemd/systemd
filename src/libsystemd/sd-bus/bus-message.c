@@ -3115,6 +3115,7 @@ static int container_next_item(sd_bus_message *m, struct bus_container *c, size_
                         assert(alignment > 0);
 
                         *rindex = ALIGN_TO(c->offsets[c->offset_index], alignment);
+                        assert(c->offsets[c->offset_index+1] >= *rindex);
                         c->item_size = c->offsets[c->offset_index+1] - *rindex;
                 } else {
 
@@ -3154,6 +3155,7 @@ static int container_next_item(sd_bus_message *m, struct bus_container *c, size_
                 assert(alignment > 0);
 
                 *rindex = ALIGN_TO(c->offsets[c->offset_index], alignment);
+                assert(c->offsets[c->offset_index+1] >= *rindex);
                 c->item_size = c->offsets[c->offset_index+1] - *rindex;
 
                 c->offset_index++;
@@ -3700,7 +3702,7 @@ static int build_struct_offsets(
                 size_t *n_offsets) {
 
         unsigned n_variable = 0, n_total = 0, v;
-        size_t previous = 0, where;
+        size_t previous, where;
         const char *p;
         size_t sz;
         void *q;
@@ -3779,6 +3781,7 @@ static int build_struct_offsets(
 
         /* Second, loop again and build an offset table */
         p = signature;
+        previous = m->rindex;
         while (*p != 0) {
                 size_t n, offset;
                 int k;
@@ -3792,37 +3795,34 @@ static int build_struct_offsets(
                         memcpy(t, p, n);
                         t[n] = 0;
 
+                        size_t align = bus_gvariant_get_alignment(t);
+                        assert(align > 0);
+
+                        /* The possible start of this member after including alignment */
+                        size_t start = ALIGN_TO(previous, align);
+
                         k = bus_gvariant_get_size(t);
                         if (k < 0) {
                                 size_t x;
 
-                                /* variable size */
+                                /* Variable size */
                                 if (v > 0) {
                                         v--;
 
                                         x = bus_gvariant_read_word_le((uint8_t*) q + v*sz, sz);
                                         if (x >= size)
                                                 return -EBADMSG;
-                                        if (m->rindex + x < previous)
-                                                return -EBADMSG;
                                 } else
-                                        /* The last item's end
-                                         * is determined from
-                                         * the start of the
-                                         * offset array */
+                                        /* The last item's end is determined
+                                         * from the start of the offset array */
                                         x = size - (n_variable * sz);
 
                                 offset = m->rindex + x;
-
-                        } else {
-                                size_t align;
-
-                                /* fixed size */
-                                align = bus_gvariant_get_alignment(t);
-                                assert(align > 0);
-
-                                offset = (*n_offsets == 0 ? m->rindex  : ALIGN_TO((*offsets)[*n_offsets-1], align)) + k;
-                        }
+                                if (offset < start)
+                                        return -EBADMSG;
+                        } else
+                                /* Fixed size */
+                                offset = start + k;
                 }
 
                 previous = (*offsets)[(*n_offsets)++] = offset;
