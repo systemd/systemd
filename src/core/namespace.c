@@ -566,36 +566,44 @@ static void drop_outside_root(const char *root_directory, MountEntry *m, size_t 
         *n = t - m;
 }
 
-static int clone_device_node(const char *d, const char *temporary_mount, bool *make_devnode) {
-        const char *dn;
+static int clone_device_node(
+                const char *d,
+                const char *temporary_mount,
+                bool *make_devnode) {
+
+        _cleanup_free_ char *sl = NULL;
+        const char *dn, *bn, *t;
         struct stat st;
         int r;
 
         if (stat(d, &st) < 0) {
-                if (errno == ENOENT)
+                if (errno == ENOENT) {
+                        log_debug_errno(errno, "Device node '%s' to clone does not exist, ignoring.", d);
                         return -ENXIO;
-                return -errno;
+                }
+
+                return log_debug_errno(errno, "Failed to stat() device node '%s' to clone, ignoring: %m", d);
         }
 
         if (!S_ISBLK(st.st_mode) &&
-            !S_ISCHR(st.st_mode))
+            !S_ISCHR(st.st_mode)) {
+                log_debug("Device node '%s' to clone is not a device node, ignoring.", d);
                 return -EINVAL;
-
-        if (st.st_rdev == 0)
-                return -ENXIO;
+        }
 
         dn = strjoina(temporary_mount, d);
 
+        /* First, try to create device node properly */
         if (*make_devnode) {
                 mac_selinux_create_file_prepare(d, st.st_mode);
                 r = mknod(dn, st.st_mode, st.st_rdev);
                 mac_selinux_create_file_clear();
-
-                if (r == 0)
-                        return 0;
+                if (r >= 0)
+                        goto add_symlink;
                 if (errno != EPERM)
                         return log_debug_errno(errno, "mknod failed for %s: %m", d);
 
+                /* This didn't work, let's not try this again for the next iterations. */
                 *make_devnode = false;
         }
 
@@ -604,9 +612,8 @@ static int clone_device_node(const char *d, const char *temporary_mount, bool *m
         mac_selinux_create_file_prepare(d, 0);
         r = mknod(dn, S_IFREG, 0);
         mac_selinux_create_file_clear();
-
         if (r < 0 && errno != EEXIST)
-                return log_debug_errno(errno, "mknod fallback failed for %s: %m", d);
+                return log_debug_errno(errno, "mknod() fallback failed for '%s': %m", d);
 
         /* Fallback to bind-mounting:
          * The assumption here is that all used device nodes carry standard
@@ -614,7 +621,23 @@ static int clone_device_node(const char *d, const char *temporary_mount, bool *m
          * either be owned by root:root or root:tty (e.g. /dev/tty, /dev/ptmx)
          * and should not carry ACLs. */
         if (mount(d, dn, NULL, MS_BIND, NULL) < 0)
-                return log_debug_errno(errno, "mount failed for %s: %m", d);
+                return log_debug_errno(errno, "Bind mounting failed for '%s': %m", d);
+
+add_symlink:
+        bn = path_startswith(d, "/dev/");
+        if (!bn)
+                return 0;
+
+        /* Create symlinks like /dev/char/1:9 → ../urandom */
+        if (asprintf(&sl, "%s/dev/%s/%u:%u", temporary_mount, S_ISCHR(st.st_mode) ? "char" : "block", major(st.st_rdev), minor(st.st_rdev)) < 0)
+                return log_oom();
+
+        (void) mkdir_parents(sl, 0755);
+
+        t = strjoina("../", bn);
+
+        if (symlink(t, sl) < 0)
+                log_debug_errno(errno, "Failed to symlink '%s' to '%s': %m", t, sl);
 
         return 0;
 }
