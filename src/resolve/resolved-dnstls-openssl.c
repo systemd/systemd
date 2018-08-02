@@ -73,6 +73,7 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
         SSL_set_session(s, server->dnstls_data.session);
         SSL_set_bio(s, TAKE_PTR(rb), TAKE_PTR(wb));
 
+        ERR_clear_error();
         stream->dnstls_data.handshake = SSL_do_handshake(s);
         if (stream->dnstls_data.handshake <= 0) {
                 error = SSL_get_error(s, stream->dnstls_data.handshake);
@@ -120,6 +121,7 @@ int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
         }
 
         if (stream->dnstls_data.shutdown) {
+                ERR_clear_error();
                 r = SSL_shutdown(stream->dnstls_data.ssl);
                 if (r <= 0) {
                         error = SSL_get_error(stream->dnstls_data.ssl, r);
@@ -149,6 +151,7 @@ int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
                 dns_stream_unref(stream);
                 return DNSTLS_STREAM_CLOSED;
         } else if (stream->dnstls_data.handshake <= 0) {
+                ERR_clear_error();
                 stream->dnstls_data.handshake = SSL_do_handshake(stream->dnstls_data.ssl);
                 if (stream->dnstls_data.handshake <= 0) {
                         error = SSL_get_error(stream->dnstls_data.ssl, stream->dnstls_data.handshake);
@@ -197,6 +200,7 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
         }
 
         if (error == ETIMEDOUT) {
+                ERR_clear_error();
                 r = SSL_shutdown(stream->dnstls_data.ssl);
                 if (r == 0) {
                         if (!stream->dnstls_data.shutdown) {
@@ -249,6 +253,7 @@ ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
         assert(stream->dnstls_data.ssl);
         assert(buf);
 
+        ERR_clear_error();
         ss = r = SSL_write(stream->dnstls_data.ssl, buf, count);
         if (r <= 0) {
                 error = SSL_get_error(stream->dnstls_data.ssl, ss);
@@ -286,6 +291,7 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         assert(stream->dnstls_data.ssl);
         assert(buf);
 
+        ERR_clear_error();
         ss = r = SSL_read(stream->dnstls_data.ssl, buf, count);
         if (r <= 0) {
                 error = SSL_get_error(stream->dnstls_data.ssl, ss);
