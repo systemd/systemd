@@ -5,9 +5,8 @@
 #error This source file requires DNS-over-TLS to be enabled and GnuTLS to be available.
 #endif
 
-#include <stdbool.h>
-
 #include <gnutls/gnutls.h>
+#include <stdbool.h>
 
 struct DnsTlsServerData {
         gnutls_certificate_credentials_t cert_cred;

@@ -5,9 +5,8 @@
 #error This source file requires DNS-over-TLS to be enabled and OpenSSL to be available.
 #endif
 
-#include <stdbool.h>
-
 #include <openssl/ssl.h>
+#include <stdbool.h>
 
 struct DnsTlsServerData {
         SSL_CTX *ctx;
