@@ -46,11 +46,9 @@ static int dnstls_flush_write_buffer(DnsStream *stream) {
 }
 
 int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
+        _cleanup_(BIO_freep) BIO *rb = NULL, *wb = NULL;
         _cleanup_(SSL_freep) SSL *s = NULL;
-        _cleanup_(BIO_freep) BIO *rb = NULL;
-        _cleanup_(BIO_freep) BIO *wb = NULL;
-        int r;
-        int error;
+        int error, r;
 
         assert(stream);
         assert(server);
@@ -106,14 +104,13 @@ void dnstls_stream_free(DnsStream *stream) {
 }
 
 int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
-        int r;
-        int error;
+        int error, r;
 
         assert(stream);
         assert(stream->encrypted);
         assert(stream->dnstls_data.ssl);
 
-        /* Flush write buffer when requested by OpenSSL ss*/
+        /* Flush write buffer when requested by OpenSSL */
         if ((revents & EPOLLOUT) && (stream->dnstls_events & EPOLLOUT)) {
                 r = dnstls_flush_write_buffer(stream);
                 if (r < 0)
@@ -181,8 +178,7 @@ int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
 }
 
 int dnstls_stream_shutdown(DnsStream *stream, int error) {
-        int r;
-        int ssl_error;
+        int ssl_error, r;
         SSL_SESSION *s;
 
         assert(stream);
@@ -244,8 +240,7 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
 }
 
 ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
-        int r;
-        int error;
+        int error, r;
         ssize_t ss;
 
         assert(stream);
@@ -268,7 +263,7 @@ ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
                         char errbuf[256];
 
                         ERR_error_string_n(error, errbuf, sizeof(errbuf));
-                        log_debug("Failed to invoke SSL_read: %s", errbuf);
+                        log_debug("Failed to invoke SSL_write: %s", errbuf);
                         ss = -EPIPE;
                 }
         }
@@ -282,8 +277,7 @@ ssize_t dnstls_stream_write(DnsStream *stream, const char *buf, size_t count) {
 }
 
 ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
-        int r;
-        int error;
+        int error, r;
         ssize_t ss;
 
         assert(stream);
