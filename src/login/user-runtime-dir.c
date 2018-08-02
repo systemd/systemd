@@ -95,20 +95,19 @@ static int user_remove_runtime_path(const char *runtime_path) {
 
         r = rm_rf(runtime_path, 0);
         if (r < 0)
-                log_error_errno(r, "Failed to remove runtime directory %s (before unmounting): %m", runtime_path);
+                log_debug_errno(r, "Failed to remove runtime directory %s (before unmounting), ignoring: %m", runtime_path);
 
-        /* Ignore cases where the directory isn't mounted, as that's
-         * quite possible, if we lacked the permissions to mount
-         * something */
+        /* Ignore cases where the directory isn't mounted, as that's quite possible, if we lacked the permissions to
+         * mount something */
         r = umount2(runtime_path, MNT_DETACH);
         if (r < 0 && !IN_SET(errno, EINVAL, ENOENT))
-                log_error_errno(errno, "Failed to unmount user runtime directory %s: %m", runtime_path);
+                log_debug_errno(errno, "Failed to unmount user runtime directory %s, ignoring: %m", runtime_path);
 
         r = rm_rf(runtime_path, REMOVE_ROOT);
-        if (r < 0)
-                log_error_errno(r, "Failed to remove runtime directory %s (after unmounting): %m", runtime_path);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Failed to remove runtime directory %s (after unmounting): %m", runtime_path);
 
-        return r;
+        return 0;
 }
 
 static int do_mount(const char *user) {
