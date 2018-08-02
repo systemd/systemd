@@ -649,6 +649,43 @@ static int property_get_log_extra_fields(
         return sd_bus_message_close_container(reply);
 }
 
+static int property_get_exec_directories(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        ExecDirectories *ed = userdata;
+        size_t i;
+        int r;
+
+        assert(bus);
+        assert(ed);
+        assert(property);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "s");
+        if (r < 0)
+                return r;
+
+        for (i = 0; i < ed->n_directories; i++) {
+                _cleanup_free_ char *p = NULL;
+
+                p = strjoin(ed->directories[i].ignore ? "-" : "", ed->directories[i].path);
+                if (!p)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(reply, "s", p);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Environment", "as", NULL, offsetof(ExecContext, environment), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -758,15 +795,15 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RestrictAddressFamilies", "(bas)", property_get_address_families, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryPreserve", "s", property_get_exec_preserve_mode, offsetof(ExecContext, runtime_directory_preserve_mode), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RuntimeDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME].mode), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RuntimeDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME].paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RuntimeDirectory", "as", property_get_exec_directories, offsetof(ExecContext, directories[EXEC_DIRECTORY_RUNTIME]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("StateDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].mode), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("StateDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE].paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("StateDirectory", "as", property_get_exec_directories, offsetof(ExecContext, directories[EXEC_DIRECTORY_STATE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CacheDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].mode), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("CacheDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE].paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("CacheDirectory", "as", property_get_exec_directories, offsetof(ExecContext, directories[EXEC_DIRECTORY_CACHE]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("LogsDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].mode), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("LogsDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS].paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LogsDirectory", "as", property_get_exec_directories, offsetof(ExecContext, directories[EXEC_DIRECTORY_LOGS]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfigurationDirectoryMode", "u", bus_property_get_mode, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].mode), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("ConfigurationDirectory", "as", NULL, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION].paths), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("ConfigurationDirectory", "as", property_get_exec_directories, offsetof(ExecContext, directories[EXEC_DIRECTORY_CONFIGURATION]), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MemoryDenyWriteExecute", "b", bus_property_get_bool, offsetof(ExecContext, memory_deny_write_execute), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictRealtime", "b", bus_property_get_bool, offsetof(ExecContext, restrict_realtime), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RestrictNamespaces", "t", bus_property_get_ulong, offsetof(ExecContext, restrict_namespaces), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2096,52 +2133,53 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "RuntimeDirectory", "StateDirectory", "CacheDirectory", "LogsDirectory", "ConfigurationDirectory")) {
+                ExecDirectoryType i = exec_directory_type_from_string(name);
                 _cleanup_strv_free_ char **l = NULL;
                 char **p;
+
+                assert(i >= 0 && i < _EXEC_DIRECTORY_TYPE_MAX);
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
                         return r;
 
                 STRV_FOREACH(p, l) {
-                        if (!path_is_normalized(*p))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is not normalized: %s", name, *p);
+                        const char *q = *p + (**p == '-');
 
-                        if (path_is_absolute(*p))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is absolute: %s", name, *p);
+                        if (!path_is_normalized(q))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is not normalized: %s", name, q);
 
-                        if (path_startswith(*p, "private"))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path can't be 'private': %s", name, *p);
+                        if (path_is_absolute(q))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is absolute: %s", name, q);
+
+                        if (path_startswith(q, "private"))
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path can't be 'private': %s", name, q);
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        char ***dirs = NULL;
-                        ExecDirectoryType i;
-
-                        for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
-                                if (streq(name, exec_directory_type_to_string(i))) {
-                                        dirs = &c->directories[i].paths;
-                                        break;
-                                }
-
-                        assert(dirs);
+                        ExecDirectories *ed = &c->directories[i];
 
                         if (strv_isempty(l)) {
-                                *dirs = strv_free(*dirs);
+                                exec_directories_clear(ed);
                                 unit_write_settingf(u, flags, name, "%s=", name);
-                        } else {
-                                _cleanup_free_ char *joined = NULL;
+                        } else
+                                STRV_FOREACH(p, l) {
+                                        bool ignore = false;
+                                        char *q = *p;
 
-                                r = strv_extend_strv(dirs, l, true);
-                                if (r < 0)
-                                        return -ENOMEM;
+                                        if (*q == '-') {
+                                                ignore = true;
+                                                q++;
+                                        }
 
-                                joined = unit_concat_strv(l, UNIT_ESCAPE_SPECIFIERS);
-                                if (!joined)
-                                        return -ENOMEM;
+                                        r = exec_directory_add(ed, &(ExecDirectory) { .path = q, .ignore = ignore });
+                                        if (r < 0)
+                                                return r;
 
-                                unit_write_settingf(u, flags, name, "%s=%s", name, joined);
-                        }
+                                        unit_write_settingf(
+                                                        u, flags|UNIT_ESCAPE_SPECIFIERS, name,
+                                                        "%s=%s", name, *p);
+                                }
                 }
 
                 return 1;

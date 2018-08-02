@@ -796,7 +796,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <listitem><para>These options take a whitespace-separated list of directory names. The specified directory
         names must be relative, and may not include <literal>..</literal>. If set, one or more
         directories by the specified names will be created (including their parents) below the locations
-        defined in the following table, when the unit is started.</para>
+        defined in the following table, when the unit is started. Each path may be prefixed with <literal>-</literal>,
+        in which case any errors in preparing the directory will be ignored.</para>
+
         <table>
           <title>Automatic directory creation</title>
           <tgroup cols='3'>

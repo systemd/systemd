@@ -1800,15 +1800,15 @@ static bool exec_needs_mount_namespace(
                         if (!params->prefix[t])
                                 continue;
 
-                        if (!strv_isempty(context->directories[t].paths))
+                        if (context->directories[t].n_directories > 0)
                                 return true;
                 }
         }
 
         if (context->dynamic_user &&
-            (!strv_isempty(context->directories[EXEC_DIRECTORY_STATE].paths) ||
-             !strv_isempty(context->directories[EXEC_DIRECTORY_CACHE].paths) ||
-             !strv_isempty(context->directories[EXEC_DIRECTORY_LOGS].paths)))
+            (context->directories[EXEC_DIRECTORY_STATE].n_directories > 0 ||
+             context->directories[EXEC_DIRECTORY_CACHE].n_directories > 0 ||
+             context->directories[EXEC_DIRECTORY_LOGS].n_directories > 0))
                 return true;
 
         return false;
@@ -1969,6 +1969,44 @@ static int setup_private_users(uid_t uid, gid_t gid) {
         return 0;
 }
 
+void exec_directories_clear(ExecDirectories *p) {
+        size_t i;
+
+        assert(p);
+
+        for (i = 0; i < p->n_directories; i++)
+                free(p->directories[i].path);
+
+        p->directories = mfree(p->directories);
+        p->n_directories = 0;
+}
+
+int exec_directory_add(ExecDirectories *p, const ExecDirectory *d) {
+        _cleanup_free_ char *path = NULL;
+        ExecDirectory *c;
+
+        assert(p);
+        assert(d);
+        assert(d->path);
+
+        path = strdup(d->path);
+        if (!path)
+                return -ENOMEM;
+
+        c = reallocarray(p->directories, p->n_directories + 1, sizeof(ExecDirectory));
+        if (!c)
+                return -ENOMEM;
+
+        p->directories = c;
+
+        c[p->n_directories++] = (ExecDirectory) {
+                .path = TAKE_PTR(path),
+                .ignore = d->ignore,
+        };
+
+        return 0;
+}
+
 static int setup_exec_directory(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -1984,7 +2022,8 @@ static int setup_exec_directory(
                 [EXEC_DIRECTORY_LOGS] = EXIT_LOGS_DIRECTORY,
                 [EXEC_DIRECTORY_CONFIGURATION] = EXIT_CONFIGURATION_DIRECTORY,
         };
-        char **rt;
+        const ExecDirectories *ed;
+        size_t i;
         int r;
 
         assert(context);
@@ -2002,18 +2041,24 @@ static int setup_exec_directory(
                         gid = 0;
         }
 
-        STRV_FOREACH(rt, context->directories[type].paths) {
+        ed = &context->directories[type];
+        for (i = 0; i < ed->n_directories; i++) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
+                const ExecDirectory *d = &ed->directories[i];
 
-                p = strjoin(params->prefix[type], "/", *rt);
+                p = strjoin(params->prefix[type], "/", d->path);
                 if (!p) {
                         r = -ENOMEM;
                         goto fail;
                 }
 
                 r = mkdir_parents_label(p, 0755);
-                if (r < 0)
+                if (r < 0) {
+                        if (d->ignore)
+                                continue;
+
                         goto fail;
+                }
 
                 if (context->dynamic_user &&
                     !IN_SET(type, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION)) {
@@ -2049,10 +2094,14 @@ static int setup_exec_directory(
 
                         /* First set up private root if it doesn't exist yet, with access mode 0700 and owned by root:root */
                         r = mkdir_safe_label(private_root, 0700, 0, 0, MKDIR_WARN_MODE);
-                        if (r < 0)
-                                goto fail;
+                        if (r < 0) {
+                                if (d->ignore)
+                                        continue;
 
-                        pp = strjoin(private_root, "/", *rt);
+                                goto fail;
+                        }
+
+                        pp = strjoin(private_root, "/", d->path);
                         if (!pp) {
                                 r = -ENOMEM;
                                 goto fail;
@@ -2060,8 +2109,12 @@ static int setup_exec_directory(
 
                         /* Create all directories between the configured directory and this private root, and mark them 0755 */
                         r = mkdir_parents_label(pp, 0755);
-                        if (r < 0)
+                        if (r < 0) {
+                                if (d->ignore)
+                                        continue;
+
                                 goto fail;
+                        }
 
                         if (is_dir(p, false) > 0 &&
                             (laccess(pp, F_OK) < 0 && errno == ENOENT)) {
@@ -2071,15 +2124,22 @@ static int setup_exec_directory(
                                  * DynamicUser=1, to one that does. */
 
                                 if (rename(p, pp) < 0) {
+                                        if (d->ignore)
+                                                continue;
+
                                         r = -errno;
                                         goto fail;
                                 }
                         } else {
                                 /* Otherwise, create the actual directory for the service */
 
-                                r = mkdir_label(pp, context->directories[type].mode);
-                                if (r < 0 && r != -EEXIST)
+                                r = mkdir_label(pp, ed->mode);
+                                if (r < 0 && r != -EEXIST) {
+                                        if (d->ignore)
+                                                continue;
+
                                         goto fail;
+                                }
                         }
 
                         parent = dirname_malloc(p);
@@ -2094,18 +2154,29 @@ static int setup_exec_directory(
 
                         /* And link it up from the original place */
                         r = symlink_idempotent(relative, p);
-                        if (r < 0)
+                        if (r < 0) {
+                                if (d->ignore)
+                                        continue;
+
                                 goto fail;
+                        }
 
                         /* Lock down the access mode */
-                        if (chmod(pp, context->directories[type].mode) < 0) {
+                        if (chmod(pp, ed->mode) < 0) {
+                                if (d->ignore)
+                                        continue;
+
                                 r = -errno;
                                 goto fail;
                         }
                 } else {
-                        r = mkdir_label(p, context->directories[type].mode);
-                        if (r < 0 && r != -EEXIST)
+                        r = mkdir_label(p, ed->mode);
+                        if (r < 0 && r != -EEXIST) {
+                                if (d->ignore)
+                                        continue;
+
                                 goto fail;
+                        }
                         if (r == -EEXIST && !context->dynamic_user)
                                 continue;
                 }
@@ -2117,8 +2188,12 @@ static int setup_exec_directory(
 
                 /* Then, change the ownership of the whole tree, if necessary */
                 r = path_chown_recursive(pp ?: p, uid, gid);
-                if (r < 0)
+                if (r < 0) {
+                        if (d->ignore)
+                                continue;
+
                         goto fail;
+                }
         }
 
         return 0;
@@ -2170,7 +2245,7 @@ static int compile_bind_mounts(
 
         _cleanup_strv_free_ char **empty_directories = NULL;
         BindMount *bind_mounts;
-        size_t n, h = 0, i;
+        size_t n, h = 0, i, j;
         ExecDirectoryType t;
         int r;
 
@@ -2185,7 +2260,7 @@ static int compile_bind_mounts(
                 if (!params->prefix[t])
                         continue;
 
-                n += strv_length(context->directories[t].paths);
+                n += context->directories[t].n_directories;
         }
 
         if (n <= 0) {
@@ -2226,12 +2301,12 @@ static int compile_bind_mounts(
         }
 
         for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
-                char **suffix;
+                const ExecDirectories *ed = &context->directories[t];
 
                 if (!params->prefix[t])
                         continue;
 
-                if (strv_isempty(context->directories[t].paths))
+                if (ed->n_directories == 0)
                         continue;
 
                 if (context->dynamic_user &&
@@ -2254,14 +2329,15 @@ static int compile_bind_mounts(
                                 goto finish;
                 }
 
-                STRV_FOREACH(suffix, context->directories[t].paths) {
-                        char *s, *d;
+                for (j = 0; j < ed->n_directories; j++) {
+                        const char *suffix = ed->directories[j].path;
+                        _cleanup_free_ char *s = NULL, *d = NULL;
 
                         if (context->dynamic_user &&
                             !IN_SET(t, EXEC_DIRECTORY_RUNTIME, EXEC_DIRECTORY_CONFIGURATION))
-                                s = strjoin(params->prefix[t], "/private/", *suffix);
+                                s = strjoin(params->prefix[t], "/private/", suffix);
                         else
-                                s = strjoin(params->prefix[t], "/", *suffix);
+                                s = strjoin(params->prefix[t], "/", suffix);
                         if (!s) {
                                 r = -ENOMEM;
                                 goto finish;
@@ -2273,21 +2349,20 @@ static int compile_bind_mounts(
                                 /* When RootDirectory= or RootImage= are set, then the symbolic link to the private
                                  * directory is not created on the root directory. So, let's bind-mount the directory
                                  * on the 'non-private' place. */
-                                d = strjoin(params->prefix[t], "/", *suffix);
+                                d = strjoin(params->prefix[t], "/", suffix);
                         else
                                 d = strdup(s);
                         if (!d) {
-                                free(s);
                                 r = -ENOMEM;
                                 goto finish;
                         }
 
                         bind_mounts[h++] = (BindMount) {
-                                .source = s,
-                                .destination = d,
+                                .source = TAKE_PTR(s),
+                                .destination = TAKE_PTR(d),
                                 .read_only = false,
                                 .recursive = true,
-                                .ignore_enoent = false,
+                                .ignore_enoent = ed->directories[j].ignore,
                         };
                 }
         }
@@ -2686,7 +2761,7 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
          * directories. */
 
         for (t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
-                char **i;
+                size_t i;
 
                 if (t == EXEC_DIRECTORY_CONFIGURATION)
                         continue;
@@ -2694,13 +2769,13 @@ static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p
                 if (!p->prefix[t])
                         continue;
 
-                STRV_FOREACH(i, c->directories[t].paths) {
+                for (i = 0; i < c->directories[t].n_directories; i++) {
                         char *e;
 
                         if (t == EXEC_DIRECTORY_RUNTIME)
-                                e = strjoin(p->prefix[t], "/", *i);
+                                e = strjoin(p->prefix[t], "/", c->directories[t].directories[i].path);
                         else
-                                e = strjoin(p->prefix[t], "/private/", *i);
+                                e = strjoin(p->prefix[t], "/private/", c->directories[t].directories[i].path);
                         if (!e)
                                 return -ENOMEM;
 
@@ -3706,7 +3781,7 @@ void exec_context_done(ExecContext *c) {
         c->address_families = set_free(c->address_families);
 
         for (i = 0; i < _EXEC_DIRECTORY_TYPE_MAX; i++)
-                c->directories[i].paths = strv_free(c->directories[i].paths);
+                exec_directories_clear(&c->directories[i]);
 
         c->log_level_max = -1;
 
@@ -3717,17 +3792,17 @@ void exec_context_done(ExecContext *c) {
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
-        char **i;
+        size_t i;
 
         assert(c);
 
         if (!runtime_prefix)
                 return 0;
 
-        STRV_FOREACH(i, c->directories[EXEC_DIRECTORY_RUNTIME].paths) {
+        for (i = 0; i < c->directories[EXEC_DIRECTORY_RUNTIME].n_directories; i++) {
                 _cleanup_free_ char *p;
 
-                p = strjoin(runtime_prefix, "/", *i);
+                p = strjoin(runtime_prefix, "/", c->directories[EXEC_DIRECTORY_RUNTIME].directories[i].path);
                 if (!p)
                         return -ENOMEM;
 
@@ -3981,7 +4056,7 @@ static void strv_fprintf(FILE *f, char **l) {
 
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         ExecDirectoryType dt;
-        char **e, **d;
+        char **e;
         unsigned i;
         int r;
 
@@ -4046,10 +4121,15 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         fprintf(f, "%sRuntimeDirectoryPreserve: %s\n", prefix, exec_preserve_mode_to_string(c->runtime_directory_preserve_mode));
 
         for (dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
+                size_t j;
+
                 fprintf(f, "%s%sMode: %04o\n", prefix, exec_directory_type_to_string(dt), c->directories[dt].mode);
 
-                STRV_FOREACH(d, c->directories[dt].paths)
-                        fprintf(f, "%s%s: %s\n", prefix, exec_directory_type_to_string(dt), *d);
+                for (j = 0; j < c->directories[dt].n_directories; j++)
+                        fprintf(f, "%s%s: %s%s\n", prefix,
+                                exec_directory_type_to_string(dt),
+                                c->directories[dt].directories[j].ignore ? "-" : "",
+                                c->directories[dt].directories[j].path);
         }
 
         if (c->nice_set)

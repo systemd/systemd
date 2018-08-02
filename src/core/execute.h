@@ -127,9 +127,15 @@ typedef enum ExecDirectoryType {
 } ExecDirectoryType;
 
 typedef struct ExecDirectory {
-        char **paths;
-        mode_t mode;
+        char *path;
+        bool ignore;
 } ExecDirectory;
+
+typedef struct ExecDirectories {
+        ExecDirectory *directories;
+        size_t n_directories;
+        mode_t mode;
+} ExecDirectories;
 
 struct ExecContext {
         char **environment;
@@ -257,7 +263,7 @@ struct ExecContext {
         bool address_families_whitelist:1;
 
         ExecPreserveMode runtime_directory_preserve_mode;
-        ExecDirectory directories[_EXEC_DIRECTORY_TYPE_MAX];
+        ExecDirectories directories[_EXEC_DIRECTORY_TYPE_MAX];
 
         bool memory_deny_write_execute;
         bool restrict_realtime;
@@ -357,6 +363,9 @@ bool exec_context_maintains_privileges(const ExecContext *c);
 int exec_context_get_effective_ioprio(const ExecContext *c);
 
 void exec_context_free_log_extra_fields(ExecContext *c);
+
+void exec_directories_clear(ExecDirectories *p);
+int exec_directory_add(ExecDirectories *p, const ExecDirectory *d);
 
 void exec_status_start(ExecStatus *s, pid_t pid);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);

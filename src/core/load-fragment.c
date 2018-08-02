@@ -3651,7 +3651,7 @@ int config_parse_exec_directories(
                 void *data,
                 void *userdata) {
 
-        char***rt = data;
+        ExecDirectories *ed = data;
         Unit *u = userdata;
         const char *p;
         int r;
@@ -3663,12 +3663,14 @@ int config_parse_exec_directories(
 
         if (isempty(rvalue)) {
                 /* Empty assignment resets the list */
-                *rt = strv_free(*rt);
+                exec_directories_clear(ed);
                 return 0;
         }
 
         for (p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
+                bool ignore = false;
+                char *path;
 
                 r = extract_first_word(&p, &word, NULL, EXTRACT_QUOTES);
                 if (r == -ENOMEM)
@@ -3688,20 +3690,25 @@ int config_parse_exec_directories(
                         continue;
                 }
 
-                r = path_simplify_and_warn(k, PATH_CHECK_RELATIVE, unit, filename, line, lvalue);
+                path = k;
+                if (*path == '-') {
+                        ignore = true;
+                        path++;
+                }
+
+                r = path_simplify_and_warn(path, PATH_CHECK_RELATIVE, unit, filename, line, lvalue);
                 if (r < 0)
                         continue;
 
-                if (path_startswith(k, "private")) {
+                if (path_startswith(path, "private")) {
                         log_syntax(unit, LOG_ERR, filename, line, 0,
                                    "%s= path can't be 'private', ingoring assignment: %s", lvalue, word);
                         continue;
                 }
 
-                r = strv_push(rt, k);
+                r = exec_directory_add(ed, &(ExecDirectory) { .path = path, .ignore = ignore });
                 if (r < 0)
                         return log_oom();
-                k = NULL;
         }
 }
 
