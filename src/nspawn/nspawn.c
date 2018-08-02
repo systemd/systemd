@@ -1779,7 +1779,12 @@ static int copy_devnodes(const char *dest) {
                 struct stat st;
 
                 from = strappend("/dev/", d);
+                if (!from)
+                        return log_oom();
+
                 to = prefix_root(dest, from);
+                if (!to)
+                        return log_oom();
 
                 if (stat(from, &st) < 0) {
 
