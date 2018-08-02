@@ -222,6 +222,15 @@ static inline unsigned long ALIGN_POWER2(unsigned long u) {
                 UNIQ_T(A, aq) > UNIQ_T(B, bq) ? UNIQ_T(A, aq) - UNIQ_T(B, bq) : 0; \
         })
 
+#define CMP(a, b) __CMP(UNIQ, (a), UNIQ, (b))
+#define __CMP(aq, a, bq, b)                             \
+        ({                                              \
+                const typeof(a) UNIQ_T(A, aq) = (a);    \
+                const typeof(b) UNIQ_T(B, bq) = (b);    \
+                UNIQ_T(A, aq) < UNIQ_T(B, bq) ? -1 :    \
+                UNIQ_T(A, aq) > UNIQ_T(B, bq) ? 1 : 0;  \
+        })
+
 #undef CLAMP
 #define CLAMP(x, low, high) __CLAMP(UNIQ, (x), UNIQ, (low), UNIQ, (high))
 #define __CLAMP(xq, x, lowq, low, highq, high)                          \
