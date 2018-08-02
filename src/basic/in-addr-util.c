@@ -576,11 +576,7 @@ void in_addr_data_hash_func(const void *p, struct siphash *state) {
         const struct in_addr_data *a = p;
 
         siphash24_compress(&a->family, sizeof(a->family), state);
-
-        if (a->family == AF_INET)
-                siphash24_compress(&a->address.in, sizeof(a->address.in), state);
-        else if (a->family == AF_INET6)
-                siphash24_compress(&a->address.in6, sizeof(a->address.in6), state);
+        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
 }
 
 int in_addr_data_compare_func(const void *a, const void *b) {
@@ -589,13 +585,7 @@ int in_addr_data_compare_func(const void *a, const void *b) {
         if (x->family != y->family)
                 return x->family - y->family;
 
-        if (x->family == AF_INET)
-                return memcmp(&x->address.in.s_addr, &y->address.in.s_addr, sizeof(struct in_addr));
-
-        if (x->family == AF_INET6)
-                return memcmp(&x->address.in6.s6_addr, &y->address.in6.s6_addr, sizeof(struct in6_addr));
-
-        return trivial_compare_func(a, b);
+        return memcmp(&x->address, &y->address, FAMILY_ADDRESS_SIZE(x->family));
 }
 
 const struct hash_ops in_addr_data_hash_ops = {
