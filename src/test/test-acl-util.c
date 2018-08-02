@@ -32,7 +32,7 @@ static void test_add_acls_for_user(void) {
 
         if (getuid() == 0) {
                 const char *nobody = NOBODY_USER_NAME;
-                r = get_user_creds(&nobody, &uid, NULL, NULL, NULL);
+                r = get_user_creds(&nobody, &uid, NULL, NULL, NULL, 0);
                 if (r < 0)
                         uid = 0;
         } else

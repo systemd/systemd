@@ -1934,7 +1934,7 @@ static int socket_chown(Socket *s, pid_t *_pid) {
                 if (!isempty(s->user)) {
                         const char *user = s->user;
 
-                        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+                        r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
                         if (r < 0) {
                                 log_unit_error_errno(UNIT(s), r, "Failed to resolve user %s: %m", user);
                                 _exit(EXIT_USER);
@@ -1944,7 +1944,7 @@ static int socket_chown(Socket *s, pid_t *_pid) {
                 if (!isempty(s->group)) {
                         const char *group = s->group;
 
-                        r = get_group_creds(&group, &gid);
+                        r = get_group_creds(&group, &gid, 0);
                         if (r < 0) {
                                 log_unit_error_errno(UNIT(s), r, "Failed to resolve group %s: %m", group);
                                 _exit(EXIT_GROUP);

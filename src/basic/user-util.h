@@ -25,9 +25,14 @@ static inline int parse_gid(const char *s, gid_t *ret_gid) {
 char* getlogname_malloc(void);
 char* getusername_malloc(void);
 
-int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell);
-int get_user_creds_clean(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell);
-int get_group_creds(const char **groupname, gid_t *gid);
+typedef enum UserCredsFlags {
+        USER_CREDS_SYNTHESIZE_FALLBACK = 1 << 0,  /* if set, only synthesize user records if database lacks them. Normally we bypass the userdb entirely for the records we can synthesize */
+        USER_CREDS_ALLOW_MISSING       = 1 << 1,  /* if a numeric UID string is resolved, be OK if there's no record for it */
+        USER_CREDS_CLEAN               = 1 << 2,  /* try to clean up shell and home fields with invalid data */
+} UserCredsFlags;
+
+int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell, UserCredsFlags flags);
+int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags);
 
 char* uid_to_name(uid_t uid);
 char* gid_to_name(gid_t gid);

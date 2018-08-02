@@ -1232,7 +1232,7 @@ static int start_transient_scope(
         if (arg_exec_group) {
                 gid_t gid;
 
-                r = get_group_creds(&arg_exec_group, &gid);
+                r = get_group_creds(&arg_exec_group, &gid, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group %s: %m", arg_exec_group);
 
@@ -1245,7 +1245,7 @@ static int start_transient_scope(
                 uid_t uid;
                 gid_t gid;
 
-                r = get_user_creds_clean(&arg_exec_user, &uid, &gid, &home, &shell);
+                r = get_user_creds(&arg_exec_user, &uid, &gid, &home, &shell, USER_CREDS_CLEAN|USER_CREDS_SYNTHESIZE_FALLBACK);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user %s: %m", arg_exec_user);
 

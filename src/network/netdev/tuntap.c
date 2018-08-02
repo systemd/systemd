@@ -75,10 +75,9 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
         assert(t);
 
         if (t->user_name) {
-
                 user = t->user_name;
 
-                r = get_user_creds(&user, &uid, NULL, NULL, NULL);
+                r = get_user_creds(&user, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Cannot resolve user name %s: %m", t->user_name);
 
@@ -87,10 +86,9 @@ static int netdev_tuntap_add(NetDev *netdev, struct ifreq *ifr) {
         }
 
         if (t->group_name) {
-
                 group = t->group_name;
 
-                r = get_group_creds(&group, &gid);
+                r = get_group_creds(&group, &gid, USER_CREDS_ALLOW_MISSING);
                 if (r < 0)
                         return log_netdev_error_errno(netdev, r, "Cannot resolve group name %s: %m", t->group_name);
 

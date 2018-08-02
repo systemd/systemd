@@ -117,7 +117,7 @@ static int do_mount(const char *user) {
         gid_t gid;
         int r;
 
-        r = get_user_creds(&user, &uid, &gid, NULL, NULL);
+        r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
         if (r < 0)
                 return log_error_errno(r,
                                        r == -ESRCH ? "No such user \"%s\"" :
@@ -141,7 +141,7 @@ static int do_umount(const char *user) {
         /* The user may be already removed. So, first try to parse the string by parse_uid(),
          * and if it fails, fallback to get_user_creds().*/
         if (parse_uid(user, &uid) < 0) {
-                r = get_user_creds(&user, &uid, NULL, NULL, NULL);
+                r = get_user_creds(&user, &uid, NULL, NULL, NULL, 0);
                 if (r < 0)
                         return log_error_errno(r,
                                                r == -ESRCH ? "No such user \"%s\"" :

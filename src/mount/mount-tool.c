@@ -212,7 +212,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_OWNER: {
                         const char *user = optarg;
 
-                        r = get_user_creds(&user, &arg_uid, &arg_gid, NULL, NULL);
+                        r = get_user_creds(&user, &arg_uid, &arg_gid, NULL, NULL, 0);
                         if (r < 0)
                                 return log_error_errno(r,
                                                        r == -EBADMSG ? "UID or GID of user %s are invalid."

@@ -2704,7 +2704,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         if (!isempty(user) && !streq(user, "-")) {
                 const char *u = user;
 
-                r = get_user_creds(&u, &i.uid, NULL, NULL, NULL);
+                r = get_user_creds(&u, &i.uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
                 if (r < 0) {
                         *invalid_config = true;
                         return log_error_errno(r, "[%s:%u] Unknown user '%s'.", fname, line, user);
@@ -2716,7 +2716,7 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         if (!isempty(group) && !streq(group, "-")) {
                 const char *g = group;
 
-                r = get_group_creds(&g, &i.gid);
+                r = get_group_creds(&g, &i.gid, USER_CREDS_ALLOW_MISSING);
                 if (r < 0) {
                         *invalid_config = true;
                         log_error("[%s:%u] Unknown group '%s'.", fname, line, group);

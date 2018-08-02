@@ -921,7 +921,7 @@ static int get_fixed_user(const ExecContext *c, const char **user,
          * (i.e. are "/" or "/bin/nologin"). */
 
         name = c->user;
-        r = get_user_creds_clean(&name, uid, gid, home, shell);
+        r = get_user_creds(&name, uid, gid, home, shell, USER_CREDS_CLEAN);
         if (r < 0)
                 return r;
 
@@ -939,7 +939,7 @@ static int get_fixed_group(const ExecContext *c, const char **group, gid_t *gid)
                 return 0;
 
         name = c->group;
-        r = get_group_creds(&name, gid);
+        r = get_group_creds(&name, gid, 0);
         if (r < 0)
                 return r;
 
@@ -1011,7 +1011,7 @@ static int get_supplementary_groups(const ExecContext *c, const char *user,
                         return -E2BIG;
 
                 g = *i;
-                r = get_group_creds(&g, l_gids+k);
+                r = get_group_creds(&g, l_gids+k, 0);
                 if (r < 0)
                         return r;
 

@@ -9,7 +9,7 @@ int main(int argc, char *argv[]) {
         int r;
         const char* name = argv[1] ?: NOBODY_USER_NAME;
 
-        r = get_user_creds(&name, &uid, NULL, NULL, NULL);
+        r = get_user_creds(&name, &uid, NULL, NULL, NULL, 0);
         if (r < 0) {
                 log_full_errno(r == -ESRCH ? LOG_NOTICE : LOG_ERR,
                                r, "Failed to resolve \"%s\": %m", name);

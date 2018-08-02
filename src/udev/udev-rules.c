@@ -481,7 +481,7 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner) {
                         return uid;
                 }
         }
-        r = get_user_creds(&owner, &uid, NULL, NULL, NULL);
+        r = get_user_creds(&owner, &uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
         if (r < 0)
                 log_unknown_owner(r, "user", owner);
 
@@ -524,7 +524,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group) {
                         return gid;
                 }
         }
-        r = get_group_creds(&group, &gid);
+        r = get_group_creds(&group, &gid, USER_CREDS_ALLOW_MISSING);
         if (r < 0)
                 log_unknown_owner(r, "group", group);
 
@@ -2110,7 +2110,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                                 event->owner_final = true;
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), owner, sizeof(owner), false);
                         event->owner_set = true;
-                        r = get_user_creds(&ow, &event->uid, NULL, NULL, NULL);
+                        r = get_user_creds(&ow, &event->uid, NULL, NULL, NULL, USER_CREDS_ALLOW_MISSING);
                         if (r < 0) {
                                 log_unknown_owner(r, "user", owner);
                                 event->uid = 0;
@@ -2131,7 +2131,7 @@ void udev_rules_apply_to_event(struct udev_rules *rules,
                                 event->group_final = true;
                         udev_event_apply_format(event, rules_str(rules, cur->key.value_off), group, sizeof(group), false);
                         event->group_set = true;
-                        r = get_group_creds(&gr, &event->gid);
+                        r = get_group_creds(&gr, &event->gid, USER_CREDS_ALLOW_MISSING);
                         if (r < 0) {
                                 log_unknown_owner(r, "group", group);
                                 event->gid = 0;
