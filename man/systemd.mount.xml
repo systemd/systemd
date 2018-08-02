@@ -370,12 +370,10 @@
       <varlistentry>
         <term><option>nofail</option></term>
 
-        <listitem><para>With <option>nofail</option>, this mount will
-        be only wanted, not required, by
-        <filename>local-fs.target</filename> or
-        <filename>remote-fs.target</filename>. This means that the
-        boot will continue even if this mount point is not mounted
-        successfully.</para>
+        <listitem><para>With <option>nofail</option>, this mount will be only wanted, not required, by
+        <filename>local-fs.target</filename> or <filename>remote-fs.target</filename>. Moreover the mount unit is not
+        ordered before these target units. This means that the boot will continue without waiting for the mount unit
+        and regardless whether the mount point can be mounted successfully.</para>
         </listitem>
       </varlistentry>
 
