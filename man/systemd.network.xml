@@ -1194,25 +1194,28 @@
         <varlistentry>
           <term><varname>SendHostname=</varname></term>
           <listitem>
-            <para>When true (the default), the machine's hostname will
-            be sent to the DHCP server.</para>
+            <para>When true (the default), the machine's hostname will be sent to the DHCP server.
+            Note that the machine's hostname must consist only of 7-bit ASCII lower-case characters and
+            no spaces or dots, and be formatted as a valid DNS domain name. Otherwise, the hostname is not
+            send even if this is set to true.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
           <term><varname>UseHostname=</varname></term>
           <listitem>
             <para>When true (the default), the hostname received from
-            the DHCP server will be set as the transient hostname of the system
+            the DHCP server will be set as the transient hostname of the system.
             </para>
           </listitem>
         </varlistentry>
         <varlistentry>
-        <term><varname>Hostname=</varname></term>
-        <listitem>
-          <para>Use this value for the hostname which is sent to the
-          DHCP server, instead of machine's hostname.</para>
-        </listitem>
-      </varlistentry>
+          <term><varname>Hostname=</varname></term>
+          <listitem>
+            <para>Use this value for the hostname which is sent to the DHCP server, instead of machine's hostname.
+            Note that the specified hostname must consist only of 7-bit ASCII lower-case characters and
+            no spaces or dots, and be formatted as a valid DNS domain name.</para>
+          </listitem>
+        </varlistentry>
         <varlistentry>
           <term><varname>UseDomains=</varname></term>
           <listitem>
