@@ -36,12 +36,7 @@ static int network_config_compare_func(const void *a, const void *b) {
         if (r != 0)
                 return r;
 
-        if (x->line < y->line)
-                return -1;
-        if (x->line > y->line)
-                return 1;
-
-        return 0;
+        return CMP(x->line, y->line);
 }
 
 const struct hash_ops network_config_hash_ops = {
