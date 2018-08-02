@@ -391,8 +391,8 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                           (uint8_t*) DNS_PACKET_DATA(s->read_packet) + s->n_read - sizeof(s->read_size),
                                           sizeof(s->read_size) + be16toh(s->read_size) - s->n_read);
                                 if (ss < 0) {
-                                        if (!IN_SET(errno, EINTR, EAGAIN))
-                                                return dns_stream_complete(s, errno);
+                                        if (!IN_SET(-ss, EINTR, EAGAIN))
+                                                return dns_stream_complete(s, -ss);
                                 } else if (ss == 0)
                                         return dns_stream_complete(s, ECONNRESET);
                                 else
