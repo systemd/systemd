@@ -1108,12 +1108,7 @@ int pid_compare_func(const void *a, const void *b) {
         const pid_t *p = a, *q = b;
 
         /* Suitable for usage in qsort() */
-
-        if (*p < *q)
-                return -1;
-        if (*p > *q)
-                return 1;
-        return 0;
+        return CMP(*p, *q);
 }
 
 int ioprio_parse_priority(const char *s, int *ret) {

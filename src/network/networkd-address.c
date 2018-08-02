@@ -144,19 +144,18 @@ static void address_hash_func(const void *b, struct siphash *state) {
 
 static int address_compare_func(const void *c1, const void *c2) {
         const Address *a1 = c1, *a2 = c2;
+        int r;
 
-        if (a1->family < a2->family)
-                return -1;
-        if (a1->family > a2->family)
-                return 1;
+        r = CMP(a1->family, a2->family);
+        if (r != 0)
+                return r;
 
         switch (a1->family) {
         /* use the same notion of equality as the kernel does */
         case AF_INET:
-                if (a1->prefixlen < a2->prefixlen)
-                        return -1;
-                if (a1->prefixlen > a2->prefixlen)
-                        return 1;
+                r = CMP(a1->prefixlen, a2->prefixlen);
+                if (r != 0)
+                        return r;
 
                 /* compare the peer prefixes */
                 if (a1->prefixlen != 0) {
@@ -174,10 +173,9 @@ static int address_compare_func(const void *c1, const void *c2) {
                         else
                                 b2 = be32toh(a2->in_addr.in.s_addr) >> (32 - a1->prefixlen);
 
-                        if (b1 < b2)
-                                return -1;
-                        if (b1 > b2)
-                                return 1;
+                        r = CMP(b1, b2);
+                        if (r != 0)
+                                return r;
                 }
 
                 _fallthrough_;

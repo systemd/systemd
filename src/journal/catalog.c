@@ -59,12 +59,12 @@ static void catalog_hash_func(const void *p, struct siphash *state) {
 static int catalog_compare_func(const void *a, const void *b) {
         const CatalogItem *i = a, *j = b;
         unsigned k;
+        int r;
 
         for (k = 0; k < ELEMENTSOF(j->id.bytes); k++) {
-                 if (i->id.bytes[k] < j->id.bytes[k])
-                        return -1;
-                 if (i->id.bytes[k] > j->id.bytes[k])
-                        return 1;
+                r = CMP(i->id.bytes[k], j->id.bytes[k]);
+                if (r != 0)
+                        return r;
         }
 
         return strcmp(i->language, j->language);

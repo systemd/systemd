@@ -484,11 +484,11 @@ static void peer_address_hash_func(const void *p, struct siphash *state) {
 
 static int peer_address_compare_func(const void *a, const void *b) {
         const SocketPeer *x = a, *y = b;
+        int r;
 
-        if (x->peer.sa.sa_family < y->peer.sa.sa_family)
-                return -1;
-        if (x->peer.sa.sa_family > y->peer.sa.sa_family)
-                return 1;
+        r = CMP(x->peer.sa.sa_family, y->peer.sa.sa_family);
+        if (r != 0)
+                return r;
 
         switch(x->peer.sa.sa_family) {
         case AF_INET:

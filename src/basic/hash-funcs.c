@@ -71,7 +71,7 @@ void trivial_hash_func(const void *p, struct siphash *state) {
 }
 
 int trivial_compare_func(const void *a, const void *b) {
-        return a < b ? -1 : (a > b ? 1 : 0);
+        return CMP(a, b);
 }
 
 const struct hash_ops trivial_hash_ops = {
@@ -87,7 +87,7 @@ int uint64_compare_func(const void *_a, const void *_b) {
         uint64_t a, b;
         a = *(const uint64_t*) _a;
         b = *(const uint64_t*) _b;
-        return a < b ? -1 : (a > b ? 1 : 0);
+        return CMP(a, b);
 }
 
 const struct hash_ops uint64_hash_ops = {
@@ -104,7 +104,7 @@ int devt_compare_func(const void *_a, const void *_b) {
         dev_t a, b;
         a = *(const dev_t*) _a;
         b = *(const dev_t*) _b;
-        return a < b ? -1 : (a > b ? 1 : 0);
+        return CMP(a, b);
 }
 
 const struct hash_ops devt_hash_ops = {

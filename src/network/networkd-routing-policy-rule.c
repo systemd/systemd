@@ -92,38 +92,32 @@ static int routing_policy_rule_compare_func(const void *_a, const void *_b) {
         const RoutingPolicyRule *a = _a, *b = _b;
         int r;
 
-        if (a->family < b->family)
-                return -1;
-        if (a->family > b->family)
-                return 1;
+        r = CMP(a->family, b->family);
+        if (r != 0)
+                return r;
 
         switch (a->family) {
         case AF_INET:
         case AF_INET6:
-                if (a->from_prefixlen < b->from_prefixlen)
-                        return -1;
-                if (a->from_prefixlen > b->from_prefixlen)
-                        return 1;
+                r = CMP(a->from_prefixlen, b->from_prefixlen);
+                if (r != 0)
+                        return r;
 
-                if (a->to_prefixlen < b->to_prefixlen)
-                        return -1;
-                if (a->to_prefixlen > b->to_prefixlen)
-                        return 1;
+                r = CMP(a->to_prefixlen, b->to_prefixlen);
+                if (r != 0)
+                        return r;
 
-                if (a->tos < b->tos)
-                        return -1;
-                if (a->tos > b->tos)
-                        return 1;
+                r = CMP(a->tos, b->tos);
+                if (r != 0)
+                        return r;
 
-                if (a->fwmask < b->fwmark)
-                        return -1;
-                if (a->fwmask > b->fwmark)
-                        return 1;
+                r = CMP(a->fwmask, b->fwmask);
+                if (r != 0)
+                        return r;
 
-                if (a->table < b->table)
-                        return -1;
-                if (a->table > b->table)
-                        return 1;
+                r = CMP(a->table, b->table);
+                if (r != 0)
+                        return r;
 
                 r = strcmp_ptr(a->iif, b->iif);
                 if (!r)
