@@ -322,12 +322,11 @@
         <term><varname>DefaultBlockIOAccounting=</varname></term>
         <term><varname>DefaultMemoryAccounting=</varname></term>
         <term><varname>DefaultTasksAccounting=</varname></term>
-        <term><varname>DefaultIOAccounting=</varname></term>
         <term><varname>DefaultIPAccounting=</varname></term>
 
         <listitem><para>Configure the default resource accounting settings, as configured per-unit by
         <varname>CPUAccounting=</varname>, <varname>BlockIOAccounting=</varname>, <varname>MemoryAccounting=</varname>,
-        <varname>TasksAccounting=</varname>, <varname>IOAccounting=</varname> and <varname>IPAccounting=</varname>. See
+        <varname>TasksAccounting=</varname> and <varname>IPAccounting=</varname>. See
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details on the per-unit settings. <varname>DefaultTasksAccounting=</varname> defaults to on,
         <varname>DefaultMemoryAccounting=</varname> to &MEMORY_ACCOUNTING_DEFAULT;,

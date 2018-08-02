@@ -348,22 +348,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><varname>IOAccounting=</varname></term>
-
-        <listitem>
-          <para>Turn on Block I/O accounting for this unit, if the unified control group hierarchy is used on the
-          system. Takes a boolean argument. Note that turning on block I/O accounting for one unit will also implicitly
-          turn it on for all units contained in the same slice and all for its parent slices and the units contained
-          therein. The system default for this setting may be controlled with <varname>DefaultIOAccounting=</varname>
-          in
-          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-
-          <para>This setting replaces <varname>BlockIOAccounting=</varname> and disables settings prefixed with
-          <varname>BlockIO</varname> or <varname>StartupBlockIO</varname>.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><varname>IOWeight=<replaceable>weight</replaceable></varname></term>
         <term><varname>StartupIOWeight=<replaceable>weight</replaceable></varname></term>
 
@@ -778,8 +762,6 @@
           therein. The system default for this setting may be controlled with
           <varname>DefaultBlockIOAccounting=</varname> in
           <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-
-          <para>This setting is deprecated. Use <varname>IOAccounting=</varname> instead.</para>
         </listitem>
       </varlistentry>
 
