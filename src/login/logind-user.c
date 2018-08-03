@@ -277,8 +277,7 @@ int user_save(User *u) {
 }
 
 int user_load(User *u) {
-        _cleanup_free_ char *display = NULL, *realtime = NULL, *monotonic = NULL;
-        Session *s = NULL;
+        _cleanup_free_ char *realtime = NULL, *monotonic = NULL;
         int r;
 
         assert(u);
@@ -286,22 +285,13 @@ int user_load(User *u) {
         r = parse_env_file(NULL, u->state_file, NEWLINE,
                            "SERVICE_JOB", &u->service_job,
                            "SLICE_JOB",   &u->slice_job,
-                           "DISPLAY",     &display,
                            "REALTIME",    &realtime,
                            "MONOTONIC",   &monotonic,
                            NULL);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return 0;
-
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", u->state_file);
-        }
-
-        if (display)
-                s = hashmap_get(u->manager->sessions, display);
-
-        if (s && s->display && display_is_local(s->display))
-                u->display = s;
 
         if (realtime)
                 timestamp_deserialize(realtime, &u->timestamp.realtime);
