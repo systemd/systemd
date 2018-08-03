@@ -3820,8 +3820,11 @@ static int build_struct_offsets(
                                         x = size - (n_variable * sz);
 
                                 offset = m->rindex + x;
-                                if (offset < start)
+                                if (offset < start) {
+                                        log_debug("For type %s with alignment %zu, message specifies offset %zu which is smaller than previous end %zu + alignment = %zu",
+                                                  t, align, offset, previous, start);
                                         return -EBADMSG;
+                                }
                         } else
                                 /* Fixed size */
                                 offset = start + k;
