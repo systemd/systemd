@@ -12,6 +12,7 @@
 
 int is_symlink(const char *path);
 int is_dir(const char *path, bool follow);
+int is_dir_fd(int fd);
 int is_device_node(const char *path);
 
 int dir_is_empty(const char *path);

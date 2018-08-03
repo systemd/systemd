@@ -45,6 +45,17 @@ int is_dir(const char* path, bool follow) {
         return !!S_ISDIR(st.st_mode);
 }
 
+int is_dir_fd(int fd) {
+        struct stat st;
+        int r;
+
+        r = fstat(fd, &st);
+        if (r < 0)
+                return -errno;
+
+        return !!S_ISDIR(st.st_mode);
+}
+
 int is_device_node(const char *path) {
         struct stat info;
 

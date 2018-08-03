@@ -772,6 +772,7 @@ static bool hardlink_vulnerable(const struct stat *st) {
 
 static int fd_set_perms(Item *i, int fd, const struct stat *st) {
         _cleanup_free_ char *path = NULL;
+        struct stat stbuf;
         int r;
 
         assert(i);
@@ -783,6 +784,12 @@ static int fd_set_perms(Item *i, int fd, const struct stat *st) {
 
         if (!i->mode_set && !i->uid_set && !i->gid_set)
                 goto shortcut;
+
+        if (!st) {
+                if (fstat(fd, &stbuf) < 0)
+                        return log_error_errno(errno, "fstat(%s) failed: %m", path);
+                st = &stbuf;
+        }
 
         if (hardlink_vulnerable(st)) {
                 log_error("Refusing to set permissions on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
@@ -835,35 +842,62 @@ shortcut:
         return label_fix(path, 0);
 }
 
+static int path_open_parent_safe(const char *path) {
+        _cleanup_free_ char *dn = NULL;
+        int fd;
+
+        if (path_equal(path, "/") || !path_is_normalized(path)) {
+                log_error("Failed to open parent of '%s': invalid path.", path);
+                return -EINVAL;
+        }
+
+        dn = dirname_malloc(path);
+        if (!dn)
+                return log_oom();
+
+        fd = chase_symlinks(dn, NULL, CHASE_OPEN|CHASE_SAFE, NULL);
+        if (fd == -EPERM)
+                return log_error_errno(fd, "Unsafe symlinks encountered in %s, refusing.", path);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to validate path %s: %m", path);
+
+        return fd;
+}
+
+static int path_open_safe(const char *path) {
+        int fd;
+
+        /* path_open_safe() returns a file descriptor opened with O_PATH after
+         * verifying that the path doesn't contain unsafe transitions, except
+         * for its final component as the function does not follow symlink. */
+
+        assert(path);
+
+        if (!path_is_normalized(path)) {
+                log_error("Failed to open invalid path '%s'.", path);
+                return -EINVAL;
+        }
+
+        fd = chase_symlinks(path, NULL, CHASE_OPEN|CHASE_SAFE|CHASE_NOFOLLOW, NULL);
+        if (fd == -EPERM)
+                return log_error_errno(fd, "Unsafe symlinks encountered in %s, refusing.", path);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to validate path %s: %m", path);
+
+        return fd;
+}
+
 static int path_set_perms(Item *i, const char *path) {
         _cleanup_close_ int fd = -1;
-        struct stat st;
 
         assert(i);
         assert(path);
 
-        fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-        if (fd < 0) {
-                int level = LOG_ERR, r = -errno;
+        fd = path_open_safe(path);
+        if (fd < 0)
+                return fd;
 
-                /* Option "e" operates only on existing objects. Do not
-                 * print errors about non-existent files or directories */
-                if (i->type == EMPTY_DIRECTORY && errno == ENOENT) {
-                        level = LOG_DEBUG;
-                        r = 0;
-                }
-
-                log_full_errno(level, errno, "Adjusting owner and mode for %s failed: %m", path);
-                return r;
-        }
-
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
-
-        if (i->type == EMPTY_DIRECTORY && !S_ISDIR(st.st_mode))
-                return log_error_errno(EEXIST, "'%s' already exists and is not a directory. ", path);
-
-        return fd_set_perms(i, fd, &st);
+        return fd_set_perms(i, fd, NULL);
 }
 
 static int parse_xattrs_from_arg(Item *i) {
@@ -934,9 +968,9 @@ static int path_set_xattrs(Item *i, const char *path) {
         assert(i);
         assert(path);
 
-        fd = open(path, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        fd = path_open_safe(path);
         if (fd < 0)
-                return log_error_errno(errno, "Cannot open '%s': %m", path);
+                return fd;
 
         return fd_set_xattrs(i, fd, NULL);
 }
@@ -1011,14 +1045,20 @@ static int fd_set_acls(Item *item, int fd, const struct stat *st) {
 #if HAVE_ACL
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
         _cleanup_free_ char *path = NULL;
+        struct stat stbuf;
 
         assert(item);
         assert(fd);
-        assert(st);
 
         r = fd_get_path(fd, &path);
         if (r < 0)
                 return r;
+
+        if (!st) {
+                if (fstat(fd, &stbuf) < 0)
+                        return log_error_errno(errno, "fstat(%s) failed: %m", path);
+                st = &stbuf;
+        }
 
         if (hardlink_vulnerable(st)) {
                 log_error("Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.", path);
@@ -1055,19 +1095,15 @@ static int path_set_acls(Item *item, const char *path) {
         int r = 0;
 #if HAVE_ACL
         _cleanup_close_ int fd = -1;
-        struct stat st;
 
         assert(item);
         assert(path);
 
-        fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        fd = path_open_safe(path);
         if (fd < 0)
-                return log_error_errno(errno, "Adjusting ACL of %s failed: %m", path);
+                return fd;
 
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Failed to fstat() file %s: %m", path);
-
-        r = fd_set_acls(item, fd, &st);
+        r = fd_set_acls(item, fd, NULL);
 #endif
         return r;
 }
@@ -1174,6 +1210,7 @@ static int parse_attribute_from_arg(Item *item) {
 static int fd_set_attribute(Item *item, int fd, const struct stat *st) {
         _cleanup_close_ int procfs_fd = -1;
         _cleanup_free_ char *path = NULL;
+        struct stat stbuf;
         unsigned f;
         int r;
 
@@ -1183,6 +1220,12 @@ static int fd_set_attribute(Item *item, int fd, const struct stat *st) {
         r = fd_get_path(fd, &path);
         if (r < 0)
                 return r;
+
+        if (!st) {
+                if (fstat(fd, &stbuf) < 0)
+                        return log_error_errno(errno, "fstat(%s) failed: %m", path);
+                st = &stbuf;
+        }
 
         /* Issuing the file attribute ioctls on device nodes is not
          * safe, as that will be delivered to the drivers, not the
@@ -1214,99 +1257,562 @@ static int fd_set_attribute(Item *item, int fd, const struct stat *st) {
 
 static int path_set_attribute(Item *item, const char *path) {
         _cleanup_close_ int fd = -1;
-        struct stat st;
 
         if (!item->attribute_set || item->attribute_mask == 0)
                 return 0;
 
-        fd = open(path, O_CLOEXEC|O_NOFOLLOW|O_PATH);
+        fd = path_open_safe(path);
         if (fd < 0)
-                return log_error_errno(errno, "Cannot open '%s': %m", path);
+                return fd;
 
-        if (fstat(fd, &st) < 0)
-                return log_error_errno(errno, "Cannot stat '%s': %m", path);
-
-        return fd_set_attribute(item, fd, &st);
+        return fd_set_attribute(item, fd, NULL);
 }
 
 static int write_one_file(Item *i, const char *path) {
-        _cleanup_close_ int fd = -1;
-        int flags, r = 0;
-        struct stat st;
+        _cleanup_close_ int fd = -1, dir_fd = -1;
+        char *bn;
+        int r;
 
         assert(i);
         assert(path);
+        assert(i->argument);
+        assert(i->type == WRITE_FILE);
 
-        flags = i->type == CREATE_FILE ? O_CREAT|O_EXCL|O_NOFOLLOW :
-                i->type == TRUNCATE_FILE ? O_CREAT|O_TRUNC|O_NOFOLLOW : 0;
+        /* Validate the path and keep the fd on the directory for opening the
+         * file so we're sure that it can't be changed behind our back. */
+        dir_fd = path_open_parent_safe(path);
+        if (dir_fd < 0)
+                return dir_fd;
+
+        bn = basename(path);
+
+        /* Follows symlinks */
+        fd = openat(dir_fd, bn, O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+        if (fd < 0) {
+                if (errno == ENOENT) {
+                        log_debug_errno(errno, "Not writing missing file \"%s\": %m", path);
+                        return 0;
+                }
+                return log_error_errno(errno, "Failed to open file \"%s\": %m", path);
+        }
+
+        /* 'w' is allowed to write into any kind of files. */
+        log_debug("Writing to \"%s\".", path);
+
+        r = loop_write(fd, i->argument, strlen(i->argument), false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write file \"%s\": %m", path);
+
+        return fd_set_perms(i, fd, NULL);
+}
+
+static int create_file(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1, dir_fd = -1;
+        struct stat stbuf, *st = NULL;
+        int r = 0;
+        char *bn;
+
+        assert(i);
+        assert(path);
+        assert(i->type == CREATE_FILE);
+
+        /* 'f' operates on regular files exclusively. */
+
+        /* Validate the path and keep the fd on the directory for opening the
+         * file so we're sure that it can't be changed behind our back. */
+        dir_fd = path_open_parent_safe(path);
+        if (dir_fd < 0)
+                return dir_fd;
+
+        bn = basename(path);
 
         RUN_WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
-                fd = open(path, flags|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+                fd = openat(dir_fd, bn, O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
                 mac_selinux_create_file_clear();
         }
 
         if (fd < 0) {
-                if (i->type == WRITE_FILE && errno == ENOENT) {
-                        log_debug_errno(errno, "Not writing missing file \"%s\": %m", path);
-                        return 0;
+                /* Even on a read-only filesystem, open(2) returns EEXIST if the
+                 * file already exists. It returns EROFS only if it needs to
+                 * create the file. */
+                if (errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create file %s: %m", path);
+
+                /* Re-open the file. At that point it must exist since open(2)
+                 * failed with EEXIST. We still need to check if the perms/mode
+                 * need to be changed. For read-only filesystems, we let
+                 * fd_set_perms() report the error if the perms need to be
+                 * modified. */
+                fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to re-open file %s: %m", path);
+
+                if (fstat(fd, &stbuf) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", path);
+
+                if (!S_ISREG(stbuf.st_mode)) {
+                        log_error("%s exists and is not a regular file.", path);
+                        return -EEXIST;
                 }
-                if (i->type == CREATE_FILE && errno == EEXIST) {
-                        log_debug_errno(errno, "Not writing to pre-existing file \"%s\": %m", path);
-                        goto done;
-                }
 
-                r = -errno;
-                if (!i->argument && errno == EROFS && stat(path, &st) == 0 &&
-                    (i->type == CREATE_FILE || st.st_size == 0))
-                        goto check_mode;
+                st = &stbuf;
+        } else {
 
-                return log_error_errno(r, "Failed to create file %s: %m", path);
-        }
-
-        if (i->argument) {
-                log_debug("%s to \"%s\".", i->type == CREATE_FILE ? "Appending" : "Writing", path);
-
-                r = loop_write(fd, i->argument, strlen(i->argument), false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write file \"%s\": %m", path);
-        } else
                 log_debug("\"%s\" has been created.", path);
 
-        fd = safe_close(fd);
+                if (i->argument) {
+                        log_debug("Writing to \"%s\".", path);
 
- done:
-        if (stat(path, &st) < 0)
+                        r = loop_write(fd, i->argument, strlen(i->argument), false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write file \"%s\": %m", path);
+                }
+        }
+
+        return fd_set_perms(i, fd, st);
+}
+
+static int truncate_file(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1, dir_fd = -1;
+        struct stat stbuf, *st = NULL;
+        bool erofs = false;
+        int r = 0;
+        char *bn;
+
+        assert(i);
+        assert(path);
+        assert(i->type == TRUNCATE_FILE);
+
+        /* We want to operate on regular file exclusively especially since
+         * O_TRUNC is unspecified if the file is neither a regular file nor a
+         * fifo nor a terminal device. Therefore we first open the file and make
+         * sure it's a regular one before truncating it. */
+
+        /* Validate the path and keep the fd on the directory for opening the
+         * file so we're sure that it can't be changed behind our back. */
+        dir_fd = path_open_parent_safe(path);
+        if (dir_fd < 0)
+                return dir_fd;
+
+        bn = basename(path);
+
+        RUN_WITH_UMASK(0000) {
+                mac_selinux_create_file_prepare(path, S_IFREG);
+                fd = openat(dir_fd, bn, O_CREAT|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode);
+                mac_selinux_create_file_clear();
+        }
+
+        if (fd < 0) {
+                if (errno != EROFS)
+                        return log_error_errno(errno, "Failed to open/create file %s: %m", path);
+
+                /* On a read-only filesystem, we don't want to fail if the
+                 * target is already empty and the perms are set. So we still
+                 * proceed with the sanity checks and let the remaining
+                 * operations fail with EROFS if they try to modify the target
+                 * file. */
+
+                fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
+                if (fd < 0) {
+                        if (errno == ENOENT) {
+                                log_error("Cannot create file %s on a read-only file system.", path);
+                                return -EROFS;
+                        }
+
+                        return log_error_errno(errno, "Failed to re-open file %s: %m", path);
+                }
+
+                erofs = true;
+        }
+
+        if (fstat(fd, &stbuf) < 0)
                 return log_error_errno(errno, "stat(%s) failed: %m", path);
 
- check_mode:
-        if (!S_ISREG(st.st_mode)) {
-                log_error("%s is not a file.", path);
+        if (!S_ISREG(stbuf.st_mode)) {
+                log_error("%s exists and is not a regular file.", path);
                 return -EEXIST;
         }
 
-        r = path_set_perms(i, path);
-        if (r < 0)
-                return r;
+        if (stbuf.st_size > 0) {
+                if (ftruncate(fd, 0) < 0) {
+                        r = erofs ? -EROFS : -errno;
+                        return log_error_errno(r, "Failed to truncate file %s: %m", path);
+                }
+        } else
+                st = &stbuf;
 
-        return 0;
+        log_debug("\"%s\" has been created.", path);
+
+        if (i->argument) {
+                log_debug("Writing to \"%s\".", path);
+
+                r = loop_write(fd, i->argument, strlen(i->argument), false);
+                if (r < 0) {
+                        r = erofs ? -EROFS : r;
+                        return log_error_errno(r, "Failed to write file %s: %m", path);
+                }
+        }
+
+        return fd_set_perms(i, fd, st);
+}
+
+static int copy_files(Item *i) {
+        _cleanup_close_ int dfd = -1, fd = -1;
+        char *bn;
+        int r;
+
+        log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
+
+        bn = basename(i->path);
+
+        /* Validate the path and use the returned directory fd for copying the
+         * target so we're sure that the path can't be changed behind our
+         * back. */
+        dfd = path_open_parent_safe(i->path);
+        if (dfd < 0)
+                return dfd;
+
+        r = copy_tree_at(AT_FDCWD, i->argument,
+                         dfd, bn,
+                         i->uid_set ? i->uid : UID_INVALID,
+                         i->gid_set ? i->gid : GID_INVALID,
+                         COPY_REFLINK);
+        if (r < 0) {
+                struct stat a, b;
+
+                /* If the target already exists on read-only filesystems, trying
+                 * to create the target will not fail with EEXIST but with
+                 * EROFS. */
+                if (r == -EROFS && faccessat(dfd, bn, F_OK, AT_SYMLINK_NOFOLLOW) == 0)
+                        r = -EEXIST;
+
+                if (r != -EEXIST)
+                        return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
+
+                if (stat(i->argument, &a) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
+
+                if (fstatat(dfd, bn, &b, AT_SYMLINK_NOFOLLOW) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", i->path);
+
+                if ((a.st_mode ^ b.st_mode) & S_IFMT) {
+                        log_debug("Can't copy to %s, file exists already and is of different type", i->path);
+                        return 0;
+                }
+        }
+
+        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
+
+        return fd_set_perms(i, fd, NULL);
+}
+
+typedef enum {
+        CREATION_NORMAL,
+        CREATION_EXISTING,
+        CREATION_FORCE,
+        _CREATION_MODE_MAX,
+        _CREATION_MODE_INVALID = -1
+} CreationMode;
+
+static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
+        [CREATION_NORMAL] = "Created",
+        [CREATION_EXISTING] = "Found existing",
+        [CREATION_FORCE] = "Created replacement",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
+
+static int create_directory_or_subvolume(const char *path, mode_t mode, bool subvol) {
+        _cleanup_close_ int pfd = -1;
+        CreationMode creation;
+        int r;
+
+        assert(path);
+
+        pfd = path_open_parent_safe(path);
+        if (pfd < 0)
+                return pfd;
+
+        if (subvol) {
+                if (btrfs_is_subvol(empty_to_root(arg_root)) <= 0)
+
+                        /* Don't create a subvolume unless the root directory is
+                         * one, too. We do this under the assumption that if the
+                         * root directory is just a plain directory (i.e. very
+                         * light-weight), we shouldn't try to split it up into
+                         * subvolumes (i.e. more heavy-weight). Thus, chroot()
+                         * environments and suchlike will get a full brtfs
+                         * subvolume set up below their tree only if they
+                         * specifically set up a btrfs subvolume for the root
+                         * dir too. */
+
+                        subvol = false;
+                else {
+                        RUN_WITH_UMASK((~mode) & 0777)
+                                r = btrfs_subvol_make_fd(pfd, basename(path));
+                }
+        } else
+                r = 0;
+
+        if (!subvol || r == -ENOTTY)
+                RUN_WITH_UMASK(0000)
+                        r = mkdirat_label(pfd, basename(path), mode);
+
+        if (r < 0) {
+                int k;
+
+                if (!IN_SET(r, -EEXIST, -EROFS))
+                        return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", path);
+
+                k = is_dir_fd(pfd);
+                if (k == -ENOENT && r == -EROFS)
+                        return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", path);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to check if %s exists: %m", path);
+                if (!k) {
+                        log_warning("\"%s\" already exists and is not a directory.", path);
+                        return -EEXIST;
+                }
+
+                creation = CREATION_EXISTING;
+        } else
+                creation = CREATION_NORMAL;
+
+        log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), path);
+
+        r = openat(pfd, basename(path), O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+        if (r < 0)
+                return -errno;
+        return r;
+}
+
+static int create_directory(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
+
+        assert(i);
+        assert(IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY));
+
+        fd = create_directory_or_subvolume(path, i->mode, false);
+        if (fd == -EEXIST)
+                return 0;
+        if (fd < 0)
+                return fd;
+
+        return fd_set_perms(i, fd, NULL);
+}
+
+static int create_subvolume(Item *i, const char *path) {
+        _cleanup_close_ int fd = -1;
+        int r, q = 0;
+
+        assert(i);
+        assert(IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA));
+
+        fd = create_directory_or_subvolume(path, i->mode, true);
+        if (fd == -EEXIST)
+                return 0;
+        if (fd < 0)
+                return fd;
+
+        if (IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
+                r = btrfs_subvol_auto_qgroup_fd(fd, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
+                if (r == -ENOTTY)
+                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
+                else if (r == -EROFS)
+                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (fs is read-only).", i->path);
+                else if (r == -ENOPROTOOPT)
+                        log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (quota support is disabled).", i->path);
+                else if (r < 0)
+                        q = log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
+                else if (r > 0)
+                        log_debug("Adjusted quota for subvolume \"%s\".", i->path);
+                else if (r == 0)
+                        log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
+        }
+
+        r = fd_set_perms(i, fd, NULL);
+        if (q < 0)
+                return q;
+
+        return r;
+}
+
+static int empty_directory(Item *i, const char *path) {
+        int r;
+
+        assert(i);
+        assert(i->type == EMPTY_DIRECTORY);
+
+        r = is_dir(path, false);
+        if (r == -ENOENT) {
+                /* Option "e" operates only on existing objects. Do not
+                 * print errors about non-existent files or directories */
+                log_debug("Skipping missing directory: %s", path);
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "is_dir() failed on path %s: %m", path);
+        if (r == 0) {
+                log_error("'%s' already exists and is not a directory.", path);
+                return -EEXIST;
+        }
+
+        return path_set_perms(i, path);
+}
+
+static int create_device(Item *i, mode_t file_type) {
+        _cleanup_close_ int dfd = -1, fd = -1;
+        CreationMode creation;
+        char *bn;
+        int r;
+
+        assert(i);
+        assert(IN_SET(file_type, S_IFBLK, S_IFCHR));
+
+        bn = basename(i->path);
+
+        /* Validate the path and use the returned directory fd for copying the
+         * target so we're sure that the path can't be changed behind our
+         * back. */
+        dfd = path_open_parent_safe(i->path);
+        if (dfd < 0)
+                return dfd;
+
+        RUN_WITH_UMASK(0000) {
+                mac_selinux_create_file_prepare(i->path, file_type);
+                r = mknodat(dfd, bn, i->mode | file_type, i->major_minor);
+                mac_selinux_create_file_clear();
+        }
+
+        if (r < 0) {
+                struct stat st;
+
+                if (errno == EPERM) {
+                        log_debug("We lack permissions, possibly because of cgroup configuration; "
+                                  "skipping creation of device node %s.", i->path);
+                        return 0;
+                }
+
+                if (errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
+
+                if (fstatat(dfd, bn, &st, 0) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", i->path);
+
+                if ((st.st_mode & S_IFMT) != file_type) {
+
+                        if (i->force) {
+
+                                RUN_WITH_UMASK(0000) {
+                                        mac_selinux_create_file_prepare(i->path, file_type);
+                                        /* FIXME: need to introduce mknodat_atomic() */
+                                        r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
+                                        mac_selinux_create_file_clear();
+                                }
+
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create device node \"%s\": %m", i->path);
+                                creation = CREATION_FORCE;
+                        } else {
+                                log_debug("%s is not a device node.", i->path);
+                                return 0;
+                        }
+                } else
+                        creation = CREATION_EXISTING;
+        } else
+                creation = CREATION_NORMAL;
+
+        log_debug("%s %s device node \"%s\" %u:%u.",
+                  creation_mode_verb_to_string(creation),
+                  i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
+                  i->path, major(i->mode), minor(i->mode));
+
+        fd = openat(dfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to openat(%s): %m", i->path);
+
+        return fd_set_perms(i, fd, NULL);
+}
+
+static int create_fifo(Item *i, const char *path) {
+        _cleanup_close_ int pfd = -1, fd = -1;
+        CreationMode creation;
+        struct stat st;
+        char *bn;
+        int r;
+
+        pfd = path_open_parent_safe(path);
+        if (pfd < 0)
+                return pfd;
+
+        bn = basename(path);
+
+        RUN_WITH_UMASK(0000) {
+                mac_selinux_create_file_prepare(path, S_IFIFO);
+                r = mkfifoat(pfd, bn, i->mode);
+                mac_selinux_create_file_clear();
+        }
+
+        if (r < 0) {
+                if (errno != EEXIST)
+                        return log_error_errno(errno, "Failed to create fifo %s: %m", path);
+
+                if (fstatat(pfd, bn, &st, AT_SYMLINK_NOFOLLOW) < 0)
+                        return log_error_errno(errno, "stat(%s) failed: %m", path);
+
+                if (!S_ISFIFO(st.st_mode)) {
+
+                        if (i->force) {
+                                RUN_WITH_UMASK(0000) {
+                                        mac_selinux_create_file_prepare(path, S_IFIFO);
+                                        r = mkfifoat_atomic(pfd, bn, i->mode);
+                                        mac_selinux_create_file_clear();
+                                }
+
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create fifo %s: %m", path);
+                                creation = CREATION_FORCE;
+                        } else {
+                                log_warning("\"%s\" already exists and is not a fifo.", path);
+                                return 0;
+                        }
+                } else
+                        creation = CREATION_EXISTING;
+        } else
+                creation = CREATION_NORMAL;
+
+        log_debug("%s fifo \"%s\".", creation_mode_verb_to_string(creation), path);
+
+        fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to openat(%s): %m", path);
+
+        return fd_set_perms(i, fd, NULL);
 }
 
 typedef int (*action_t)(Item *, const char *);
 typedef int (*fdaction_t)(Item *, int fd, const struct stat *st);
 
-static int item_do(Item *i, int fd, const struct stat *st, fdaction_t action) {
+static int item_do(Item *i, int fd, fdaction_t action) {
+        struct stat st;
         int r = 0, q;
 
         assert(i);
         assert(fd >= 0);
-        assert(st);
+
+        if (fstat(fd, &st) < 0) {
+                r = -errno;
+                goto finish;
+        }
 
         /* This returns the first error we run into, but nevertheless
          * tries to go on */
-        r = action(i, fd, st);
+        r = action(i, fd, &st);
 
-        if (S_ISDIR(st->st_mode)) {
+        if (S_ISDIR(st.st_mode)) {
                 char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
                 _cleanup_closedir_ DIR *d = NULL;
                 struct dirent *de;
@@ -1322,16 +1828,15 @@ static int item_do(Item *i, int fd, const struct stat *st, fdaction_t action) {
                 }
 
                 FOREACH_DIRENT_ALL(de, d, q = -errno; goto finish) {
-                        struct stat de_st;
                         int de_fd;
 
                         if (dot_or_dot_dot(de->d_name))
                                 continue;
 
                         de_fd = openat(fd, de->d_name, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-                        if (de_fd >= 0 && fstat(de_fd, &de_st) >= 0)
+                        if (de_fd >= 0)
                                 /* pass ownership of dirent fd over  */
-                                q = item_do(i, de_fd, &de_st, action);
+                                q = item_do(i, de_fd, action);
                         else
                                 q = -errno;
 
@@ -1377,7 +1882,6 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
 
         STRV_FOREACH(fn, g.gl_pathv) {
                 _cleanup_close_ int fd = -1;
-                struct stat st;
 
                 /* Make sure we won't trigger/follow file object (such as
                  * device nodes, automounts, ...) pointed out by 'fn' with
@@ -1390,12 +1894,7 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
                         continue;
                 }
 
-                if (fstat(fd, &st) < 0) {
-                        r = r ?: -errno;
-                        continue;
-                }
-
-                k = item_do(i, fd, &st, action);
+                k = item_do(i, fd, action);
                 if (k < 0 && r == 0)
                         r = k;
 
@@ -1406,27 +1905,9 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
         return r;
 }
 
-typedef enum {
-        CREATION_NORMAL,
-        CREATION_EXISTING,
-        CREATION_FORCE,
-        _CREATION_MODE_MAX,
-        _CREATION_MODE_INVALID = -1
-} CreationMode;
-
-static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
-        [CREATION_NORMAL] = "Created",
-        [CREATION_EXISTING] = "Found existing",
-        [CREATION_FORCE] = "Created replacement",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
-
 static int create_item(Item *i) {
-        struct stat st;
-        int r = 0;
-        int q = 0;
         CreationMode creation;
+        int r = 0;
 
         assert(i);
 
@@ -1441,11 +1922,19 @@ static int create_item(Item *i) {
                 return 0;
 
         case CREATE_FILE:
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
+                r = create_file(i, i->path);
+                if (r < 0)
+                        return r;
+                break;
+
         case TRUNCATE_FILE:
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                r = write_one_file(i, i->path);
+                r = truncate_file(i, i->path);
                 if (r < 0)
                         return r;
                 break;
@@ -1454,37 +1943,9 @@ static int create_item(Item *i) {
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
-                r = copy_tree(i->argument, i->path,
-                              i->uid_set ? i->uid : UID_INVALID,
-                              i->gid_set ? i->gid : GID_INVALID,
-                              COPY_REFLINK);
-
-                if (r == -EROFS && stat(i->path, &st) == 0)
-                        r = -EEXIST;
-
-                if (r < 0) {
-                        struct stat a, b;
-
-                        if (r != -EEXIST)
-                                return log_error_errno(r, "Failed to copy files to %s: %m", i->path);
-
-                        if (stat(i->argument, &a) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->argument);
-
-                        if (stat(i->path, &b) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                        if ((a.st_mode ^ b.st_mode) & S_IFMT) {
-                                log_debug("Can't copy to %s, file exists already and is of different type", i->path);
-                                return 0;
-                        }
-                }
-
-                r = path_set_perms(i, i->path);
+                r = copy_files(i);
                 if (r < 0)
                         return r;
-
                 break;
 
         case WRITE_FILE:
@@ -1496,132 +1957,38 @@ static int create_item(Item *i) {
 
         case CREATE_DIRECTORY:
         case TRUNCATE_DIRECTORY:
+                RUN_WITH_UMASK(0000)
+                        (void) mkdir_parents_label(i->path, 0755);
+
+                r = create_directory(i, i->path);
+                if (r < 0)
+                        return r;
+                break;
+
         case CREATE_SUBVOLUME:
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                if (IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_INHERIT_QUOTA, CREATE_SUBVOLUME_NEW_QUOTA)) {
-
-                        if (btrfs_is_subvol(empty_to_root(arg_root)) <= 0)
-
-                                /* Don't create a subvolume unless the
-                                 * root directory is one, too. We do
-                                 * this under the assumption that if
-                                 * the root directory is just a plain
-                                 * directory (i.e. very light-weight),
-                                 * we shouldn't try to split it up
-                                 * into subvolumes (i.e. more
-                                 * heavy-weight). Thus, chroot()
-                                 * environments and suchlike will get
-                                 * a full brtfs subvolume set up below
-                                 * their tree only if they
-                                 * specifically set up a btrfs
-                                 * subvolume for the root dir too. */
-
-                                r = -ENOTTY;
-                        else {
-                                RUN_WITH_UMASK((~i->mode) & 0777)
-                                        r = btrfs_subvol_make(i->path);
-                        }
-                } else
-                        r = 0;
-
-                if (IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY) || r == -ENOTTY)
-                        RUN_WITH_UMASK(0000)
-                                r = mkdir_label(i->path, i->mode);
-
-                if (r < 0) {
-                        int k;
-
-                        if (!IN_SET(r, -EEXIST, -EROFS))
-                                return log_error_errno(r, "Failed to create directory or subvolume \"%s\": %m", i->path);
-
-                        k = is_dir(i->path, false);
-                        if (k == -ENOENT && r == -EROFS)
-                                return log_error_errno(r, "%s does not exist and cannot be created as the file system is read-only.", i->path);
-                        if (k < 0)
-                                return log_error_errno(k, "Failed to check if %s exists: %m", i->path);
-                        if (!k) {
-                                log_warning("\"%s\" already exists and is not a directory.", i->path);
-                                return 0;
-                        }
-
-                        creation = CREATION_EXISTING;
-                } else
-                        creation = CREATION_NORMAL;
-
-                log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), i->path);
-
-                if (IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
-                        r = btrfs_subvol_auto_qgroup(i->path, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
-                        if (r == -ENOTTY)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
-                        else if (r == -EROFS)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (fs is read-only).", i->path);
-                        else if (r == -ENOPROTOOPT)
-                                log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (quota support is disabled).", i->path);
-                        else if (r < 0)
-                                q = log_error_errno(r, "Failed to adjust quota for subvolume \"%s\": %m", i->path);
-                        else if (r > 0)
-                                log_debug("Adjusted quota for subvolume \"%s\".", i->path);
-                        else if (r == 0)
-                                log_debug("Quota for subvolume \"%s\" already in place, no change made.", i->path);
-                }
-
-                _fallthrough_;
-        case EMPTY_DIRECTORY:
-                r = glob_item(i, path_set_perms);
-                if (q < 0)
-                        return q;
+                r = create_subvolume(i, i->path);
                 if (r < 0)
                         return r;
+                break;
 
+        case EMPTY_DIRECTORY:
+                r = glob_item(i, empty_directory);
+                if (r < 0)
+                        return r;
                 break;
 
         case CREATE_FIFO:
-                RUN_WITH_UMASK(0000) {
+                RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                        mac_selinux_create_file_prepare(i->path, S_IFIFO);
-                        r = mkfifo(i->path, i->mode);
-                        mac_selinux_create_file_clear();
-                }
-
-                if (r < 0) {
-                        if (errno != EEXIST)
-                                return log_error_errno(errno, "Failed to create fifo %s: %m", i->path);
-
-                        if (lstat(i->path, &st) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                        if (!S_ISFIFO(st.st_mode)) {
-
-                                if (i->force) {
-                                        RUN_WITH_UMASK(0000) {
-                                                mac_selinux_create_file_prepare(i->path, S_IFIFO);
-                                                r = mkfifo_atomic(i->path, i->mode);
-                                                mac_selinux_create_file_clear();
-                                        }
-
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to create fifo %s: %m", i->path);
-                                        creation = CREATION_FORCE;
-                                } else {
-                                        log_warning("\"%s\" already exists and is not a fifo.", i->path);
-                                        return 0;
-                                }
-                        } else
-                                creation = CREATION_EXISTING;
-                } else
-                        creation = CREATION_NORMAL;
-                log_debug("%s fifo \"%s\".", creation_mode_verb_to_string(creation), i->path);
-
-                r = path_set_perms(i, i->path);
+                r = create_fifo(i, i->path);
                 if (r < 0)
                         return r;
-
                 break;
 
         case CREATE_SYMLINK: {
@@ -1673,9 +2040,7 @@ static int create_item(Item *i) {
         }
 
         case CREATE_BLOCK_DEVICE:
-        case CREATE_CHAR_DEVICE: {
-                mode_t file_type;
-
+        case CREATE_CHAR_DEVICE:
                 if (have_effective_cap(CAP_MKNOD) == 0) {
                         /* In a container we lack CAP_MKNOD. We
                         shouldn't attempt to create the device node in
@@ -1689,60 +2054,11 @@ static int create_item(Item *i) {
                 RUN_WITH_UMASK(0000)
                         (void) mkdir_parents_label(i->path, 0755);
 
-                file_type = i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR;
-
-                RUN_WITH_UMASK(0000) {
-                        mac_selinux_create_file_prepare(i->path, file_type);
-                        r = mknod(i->path, i->mode | file_type, i->major_minor);
-                        mac_selinux_create_file_clear();
-                }
-
-                if (r < 0) {
-                        if (errno == EPERM) {
-                                log_debug("We lack permissions, possibly because of cgroup configuration; "
-                                          "skipping creation of device node %s.", i->path);
-                                return 0;
-                        }
-
-                        if (errno != EEXIST)
-                                return log_error_errno(errno, "Failed to create device node %s: %m", i->path);
-
-                        if (lstat(i->path, &st) < 0)
-                                return log_error_errno(errno, "stat(%s) failed: %m", i->path);
-
-                        if ((st.st_mode & S_IFMT) != file_type) {
-
-                                if (i->force) {
-
-                                        RUN_WITH_UMASK(0000) {
-                                                mac_selinux_create_file_prepare(i->path, file_type);
-                                                r = mknod_atomic(i->path, i->mode | file_type, i->major_minor);
-                                                mac_selinux_create_file_clear();
-                                        }
-
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to create device node \"%s\": %m", i->path);
-                                        creation = CREATION_FORCE;
-                                } else {
-                                        log_debug("%s is not a device node.", i->path);
-                                        return 0;
-                                }
-                        } else
-                                creation = CREATION_EXISTING;
-                } else
-                        creation = CREATION_NORMAL;
-
-                log_debug("%s %s device node \"%s\" %u:%u.",
-                          creation_mode_verb_to_string(creation),
-                          i->type == CREATE_BLOCK_DEVICE ? "block" : "char",
-                          i->path, major(i->mode), minor(i->mode));
-
-                r = path_set_perms(i, i->path);
+                r = create_device(i, i->type == CREATE_BLOCK_DEVICE ? S_IFBLK : S_IFCHR);
                 if (r < 0)
                         return r;
 
                 break;
-        }
 
         case ADJUST_MODE:
         case RELABEL_PATH:

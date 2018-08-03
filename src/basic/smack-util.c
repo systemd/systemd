@@ -122,42 +122,19 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
         return r;
 }
 
-int mac_smack_fix(const char *path, LabelFixFlags flags) {
+static int smack_fix_fd(int fd , const char *abspath, LabelFixFlags flags) {
         char procfs_path[STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int)];
-        _cleanup_close_ int fd = -1;
         const char *label;
         struct stat st;
         int r;
 
-        assert(path);
+        /* The caller should have done the sanity checks. */
+        assert(abspath);
+        assert(path_is_absolute(abspath));
 
-        if (!mac_smack_use())
+        /* Path must be in /dev. */
+        if (!path_startswith(abspath, "/dev"))
                 return 0;
-
-        /* Path must be in /dev. Note that this check is pretty sloppy, as we might be called with non-normalized paths
-         * and hence not detect all cases of /dev. */
-
-        if (path_is_absolute(path)) {
-                if (!path_startswith(path, "/dev"))
-                        return 0;
-        } else {
-                _cleanup_free_ char *cwd = NULL;
-
-                r = safe_getcwd(&cwd);
-                if (r < 0)
-                        return r;
-
-                if (!path_startswith(cwd, "/dev"))
-                        return 0;
-        }
-
-        fd = open(path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
-        if (fd < 0) {
-                if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
-                        return 0;
-
-                return -errno;
-        }
 
         if (fstat(fd, &st) < 0)
                 return -errno;
@@ -196,10 +173,60 @@ int mac_smack_fix(const char *path, LabelFixFlags flags) {
                     streq(old_label, label))
                         return 0;
 
-                return log_debug_errno(r, "Unable to fix SMACK label of %s: %m", path);
+                return log_debug_errno(r, "Unable to fix SMACK label of %s: %m", abspath);
         }
 
         return 0;
+}
+
+int mac_smack_fix_at(int dirfd, const char *path, LabelFixFlags flags) {
+        _cleanup_free_ char *p = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        assert(path);
+
+        if (!mac_smack_use())
+                return 0;
+
+        fd = openat(dirfd, path, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0) {
+                if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
+                        return 0;
+
+                return -errno;
+        }
+
+        r = fd_get_path(fd, &p);
+        if (r < 0)
+                return r;
+
+        return smack_fix_fd(fd, p, flags);
+}
+
+int mac_smack_fix(const char *path, LabelFixFlags flags) {
+        _cleanup_free_ char *abspath = NULL;
+        _cleanup_close_ int fd = -1;
+        int r;
+
+        assert(path);
+
+        if (!mac_smack_use())
+                return 0;
+
+        r = path_make_absolute_cwd(path, &abspath);
+        if (r < 0)
+                return r;
+
+        fd = open(abspath, O_NOFOLLOW|O_CLOEXEC|O_PATH);
+        if (fd < 0) {
+                if ((flags & LABEL_IGNORE_ENOENT) && errno == ENOENT)
+                        return 0;
+
+                return -errno;
+        }
+
+        return smack_fix_fd(fd, abspath, flags);
 }
 
 int mac_smack_copy(const char *dest, const char *src) {
@@ -246,6 +273,10 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
 }
 
 int mac_smack_fix(const char *path, LabelFixFlags flags) {
+        return 0;
+}
+
+int mac_smack_fix_at(int dirfd, const char *path, LabelFixFlags flags) {
         return 0;
 }
 

@@ -110,10 +110,7 @@ int path_make_absolute_cwd(const char *p, char **ret) {
                 if (r < 0)
                         return r;
 
-                if (endswith(cwd, "/"))
-                        c = strjoin(cwd, p);
-                else
-                        c = strjoin(cwd, "/", p);
+                c = path_join(NULL, cwd, p);
         }
         if (!c)
                 return -ENOMEM;

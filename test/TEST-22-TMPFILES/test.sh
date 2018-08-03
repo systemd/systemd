@@ -14,6 +14,8 @@ test_setup() {
     inst_binary stat
     inst_binary seq
     inst_binary xargs
+    inst_binary mkfifo
+    inst_binary readlink
 
     # mask some services that we do not want to run in these tests
     ln -fs /dev/null $initdir/etc/systemd/system/systemd-hwdb-update.service
