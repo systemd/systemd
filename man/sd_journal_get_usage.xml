@@ -56,8 +56,7 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>All functions listed here are thread-agnostic and only a single thread may operate
-    on a given <structname>sd_journal</structname> object.</para>
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
 
     <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>

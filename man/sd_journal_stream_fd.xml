@@ -92,8 +92,7 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>Function <function>sd_journal_stream_fd()</function> is thread-safe and may be called
-    from multiple threads.</para>
+    <xi:include href="threads-aware.xml" xpointer="safe"/>
 
     <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>

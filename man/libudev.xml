@@ -48,11 +48,9 @@
     <citerefentry><refentrytitle>udev_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     It is used to track library state and link objects together. No
     global state is used by libudev, everything is always linked to
-    a udev context. Furthermore, multiple different udev contexts can
-    be used in parallel by multiple threads. However, a single context
-    must not be accessed by multiple threads in parallel. The caller
-    is responsible for providing suitable locking if they intend to use
-    it from multiple threads.</para>
+    a udev context.</para>
+
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
 
     <para>To introspect a local device on a system, a udev device
     object can be created via

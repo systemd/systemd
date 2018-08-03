@@ -177,7 +177,8 @@ sd_journal_send("MESSAGE=Hello World, this is PID %lu!", (unsigned long) getpid(
 
   <refsect1>
     <title>Thread safety</title>
-    <para>All functions listed here are thread-safe and may be called in parallel from multiple threads.</para>
+
+    <xi:include href="threads-aware.xml" xpointer="safe"/>
 
     <para><function>sd_journal_sendv()</function> is "async signal safe" in the meaning of <citerefentry
     project='man-pages'><refentrytitle>signal-safety</refentrytitle><manvolnum>7</manvolnum></citerefentry>.

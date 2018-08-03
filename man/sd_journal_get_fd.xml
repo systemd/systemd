@@ -226,14 +226,9 @@ else {
   <refsect1>
     <title>Notes</title>
 
-    <para>The <function>sd_journal_get_fd()</function>,
-    <function>sd_journal_get_events()</function>,
-    <function>sd_journal_reliable_fd()</function>,
-    <function>sd_journal_process()</function> and
-    <function>sd_journal_wait()</function> interfaces are available as
-    a shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>

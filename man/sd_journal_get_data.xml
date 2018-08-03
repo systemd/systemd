@@ -156,7 +156,13 @@
     success or a negative errno-style error code.</para>
   </refsect1>
 
-  <xi:include href="libsystemd-pkgconfig.xml" />
+  <refsect1>
+    <title>Notes</title>
+
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
+
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
+  </refsect1>
 
   <refsect1>
     <title>Examples</title>
