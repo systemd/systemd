@@ -8,7 +8,7 @@
   Copyright © 2016 Julian Orth
 -->
 
-<refentry id="sd_bus_add_match">
+<refentry id="sd_bus_add_match" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_add_match</title>
@@ -154,9 +154,7 @@
   <refsect1>
     <title>Notes</title>
 
-    <para><function>sd_bus_add_match()</function> and the other functions described here are available as a shared
-    library, which can be compiled and linked to with the <constant>libsystemd</constant> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>

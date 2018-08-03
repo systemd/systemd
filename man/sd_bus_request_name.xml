@@ -6,7 +6,8 @@
   SPDX-License-Identifier: LGPL-2.1+
 -->
 
-<refentry id="sd_bus_request_name">
+<refentry id="sd_bus_request_name"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_request_name</title>
@@ -193,13 +194,7 @@
     </variablelist>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para>The <function>sd_bus_acquire_name()</function> and the other interfaces described here are available as a
-    shared library, which can be compiled and linked to with the <constant>libsystemd</constant> <citerefentry
-    project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry> file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>
