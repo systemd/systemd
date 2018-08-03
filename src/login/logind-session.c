@@ -5,6 +5,7 @@
 #include <linux/kd.h>
 #include <linux/vt.h>
 #include <signal.h>
+#include <stdio_ext.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -175,9 +176,8 @@ int session_save(Session *s) {
         if (r < 0)
                 goto fail;
 
-        assert(s->user);
-
-        fchmod(fileno(f), 0644);
+        (void) __fsetlocking(f, FSETLOCKING_BYCALLER);
+        (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
