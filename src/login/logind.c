@@ -789,28 +789,28 @@ static int manager_connect_console(Manager *m) {
         assert(m);
         assert(m->console_active_fd < 0);
 
-        /* On certain architectures (S390 and Xen, and containers),
-           /dev/tty0 does not exist, so don't fail if we can't open
-           it. */
+        /* On certain systems (such as S390, Xen, and containers) /dev/tty0 does not exist (as there is no VC), so
+         * don't fail if we can't open it. */
+
         if (access("/dev/tty0", F_OK) < 0)
                 return 0;
 
         m->console_active_fd = open("/sys/class/tty/tty0/active", O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (m->console_active_fd < 0) {
 
-                /* On some systems the device node /dev/tty0 may exist
-                 * even though /sys/class/tty/tty0 does not. */
-                if (errno == ENOENT)
+                /* On some systems /dev/tty0 may exist even though /sys/class/tty/tty0 does not. These are broken, but
+                 * common. Let's complain but continue anyway. */
+                if (errno == ENOENT) {
+                        log_warning_errno(errno, "System has /dev/tty0 but not /sys/class/tty/tty0/active which is broken, ignoring: %m");
                         return 0;
+                }
 
                 return log_error_errno(errno, "Failed to open /sys/class/tty/tty0/active: %m");
         }
 
         r = sd_event_add_io(m->event, &m->console_active_event_source, m->console_active_fd, 0, manager_dispatch_console, m);
-        if (r < 0) {
-                log_error("Failed to watch foreground console");
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch foreground console: %m");
 
         /*
          * SIGRTMIN is used as global VT-release signal, SIGRTMIN + 1 is used
@@ -829,7 +829,7 @@ static int manager_connect_console(Manager *m) {
 
         r = sd_event_add_signal(m->event, NULL, SIGRTMIN, manager_vt_switch, m);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to subscribe to signal: %m");
 
         return 0;
 }
