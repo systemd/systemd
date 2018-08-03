@@ -10,6 +10,7 @@
 [Unit]
 Description=/run/user/%i mount wrapper
 Documentation=man:user@.service(5)
+After=systemd-user-sessions.service
 StopWhenUnneeded=yes
 
 [Service]
