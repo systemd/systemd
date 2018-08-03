@@ -1768,12 +1768,19 @@ static void log_execution_mode(bool *ret_first_boot) {
                         log_info("Running in initial RAM disk.");
                 } else {
                         /* Let's check whether we are in first boot, i.e. whether /etc is still unpopulated. We use
-                         * /etc/machine-id as flag file, for this: if it exists we assume /etc is populated, if it
-                         * doesn't it's unpopulated. This allows container managers and installers to provision a
-                         * couple of files already. If the container manager wants to provision the machine ID itself
-                         * it should pass $container_uuid to PID 1. */
+                         * /etc/machine-id as flag file, for this: if it exists and is not empty we assume /etc is
+                         * populated, if it doesn't (or it's empty) it's unpopulated. This allows container managers
+                         * and installers to provision a couple of files already. If the container manager wants to
+                         * provision the machine ID itself it should pass $container_uuid to PID 1. */
 
-                        *ret_first_boot = access("/etc/machine-id", F_OK) < 0;
+                        struct stat st;
+                        int r = lstat("/etc/machine-id", &st);
+                        if ((r < 0 && errno == ENOENT) || (r == 0 && st.st_size == 0))
+                                *ret_first_boot = true;
+                        else if (r < 0) {
+                                log_info("Couldn't stat /etc/machine-id: %m");
+                        }
+
                         if (*ret_first_boot)
                                 log_info("Running with unpopulated /etc.");
                 }
