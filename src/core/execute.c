@@ -1158,6 +1158,16 @@ static int setup_pam(
                 goto fail;
         }
 
+        if (!tty) {
+                _cleanup_free_ char *q = NULL;
+
+                /* Hmm, so no TTY was explicitly passed, but an fd passed to us directly might be a TTY. Let's figure
+                 * out if that's the case, and read the TTY off it. */
+
+                if (getttyname_malloc(STDIN_FILENO, &q) >= 0)
+                        tty = strjoina("/dev/", q);
+        }
+
         if (tty) {
                 pam_code = pam_set_item(handle, PAM_TTY, tty);
                 if (pam_code != PAM_SUCCESS)
