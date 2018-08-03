@@ -869,9 +869,11 @@ static void hashmap_free_no_clear(HashmapBase *h) {
         assert_se(pthread_mutex_unlock(&hashmap_debug_list_mutex) == 0);
 #endif
 
-        if (h->from_pool)
+        if (h->from_pool) {
+                /* Ensure that the object didn't get migrated between threads. */
+                assert_se(is_main_thread());
                 mempool_free_tile(hashmap_type_info[h->type].mempool, h);
-        else
+        } else
                 free(h);
 }
 
