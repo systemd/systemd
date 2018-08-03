@@ -3507,7 +3507,7 @@ static int bus_message_enter_array(
 
         size_t rindex;
         void *q;
-        int r, alignment;
+        int r;
 
         assert(m);
         assert(c);
@@ -3533,6 +3533,7 @@ static int bus_message_enter_array(
 
         if (!BUS_MESSAGE_IS_GVARIANT(m)) {
                 /* dbus1 */
+                int alignment;
 
                 r = message_peek_body(m, &rindex, 4, 4, &q);
                 if (r < 0)
@@ -3566,7 +3567,8 @@ static int bus_message_enter_array(
                 *n_offsets = 0;
 
         } else {
-                size_t where, p = 0, framing, sz;
+                size_t where, previous = 0, framing, sz;
+                int alignment;
                 unsigned i;
 
                 /* gvariant: variable length array */
@@ -3594,17 +3596,22 @@ static int bus_message_enter_array(
                 if (!*offsets)
                         return -ENOMEM;
 
+                alignment = bus_gvariant_get_alignment(c->signature);
+                assert(alignment > 0);
+
                 for (i = 0; i < *n_offsets; i++) {
-                        size_t x;
+                        size_t x, start;
+
+                        start = ALIGN_TO(previous, alignment);
 
                         x = bus_gvariant_read_word_le((uint8_t*) q + i * sz, sz);
                         if (x > c->item_size - sz)
                                 return -EBADMSG;
-                        if (x < p)
+                        if (x < start)
                                 return -EBADMSG;
 
                         (*offsets)[i] = rindex + x;
-                        p = x;
+                        previous = x;
                 }
 
                 *item_size = (*offsets)[0] - rindex;
