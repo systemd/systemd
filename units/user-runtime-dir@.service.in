@@ -10,9 +10,12 @@
 [Unit]
 Description=/run/user/%i mount wrapper
 Documentation=man:user@.service(5)
+After=systemd-user-sessions.service
 StopWhenUnneeded=yes
 
 [Service]
 ExecStart=@rootlibexecdir@/systemd-user-runtime-dir start %i
 ExecStop=@rootlibexecdir@/systemd-user-runtime-dir stop %i
+Type=oneshot
 RemainAfterExit=true
+Slice=user-%i.slice
