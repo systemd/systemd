@@ -30,23 +30,24 @@
 #include "user-util.h"
 #include "util.h"
 
-int user_new(User **out, Manager *m, uid_t uid, gid_t gid, const char *name) {
+int user_new(User **ret, Manager *m, uid_t uid, gid_t gid, const char *name) {
         _cleanup_(user_freep) User *u = NULL;
         char lu[DECIMAL_STR_MAX(uid_t) + 1];
         int r;
 
-        assert(out);
+        assert(ret);
         assert(m);
         assert(name);
 
-        u = new0(User, 1);
+        u = new(User, 1);
         if (!u)
                 return -ENOMEM;
 
-        u->manager = m;
-        u->uid = uid;
-        u->gid = gid;
-        xsprintf(lu, UID_FMT, uid);
+        *u = (User) {
+                .manager = m,
+                .uid = uid,
+                .gid = gid,
+        };
 
         u->name = strdup(name);
         if (!u->name)
@@ -58,6 +59,7 @@ int user_new(User **out, Manager *m, uid_t uid, gid_t gid, const char *name) {
         if (asprintf(&u->runtime_path, "/run/user/"UID_FMT, uid) < 0)
                 return -ENOMEM;
 
+        xsprintf(lu, UID_FMT, uid);
         r = slice_build_subslice(SPECIAL_USER_SLICE, lu, &u->slice);
         if (r < 0)
                 return r;
@@ -78,8 +80,7 @@ int user_new(User **out, Manager *m, uid_t uid, gid_t gid, const char *name) {
         if (r < 0)
                 return r;
 
-        *out = TAKE_PTR(u);
-
+        *ret = TAKE_PTR(u);
         return 0;
 }
 
@@ -272,7 +273,7 @@ int user_save(User *u) {
         if (!u->started)
                 return 0;
 
-        return user_save_internal (u);
+        return user_save_internal(u);
 }
 
 int user_load(User *u) {

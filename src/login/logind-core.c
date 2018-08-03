@@ -90,15 +90,16 @@ int manager_add_device(Manager *m, const char *sysfs, bool master, Device **_dev
 
 int manager_add_seat(Manager *m, const char *id, Seat **_seat) {
         Seat *s;
+        int r;
 
         assert(m);
         assert(id);
 
         s = hashmap_get(m->seats, id);
         if (!s) {
-                s = seat_new(m, id);
-                if (!s)
-                        return -ENOMEM;
+                r = seat_new(&s, m, id);
+                if (r < 0)
+                        return r;
         }
 
         if (_seat)
@@ -109,15 +110,16 @@ int manager_add_seat(Manager *m, const char *id, Seat **_seat) {
 
 int manager_add_session(Manager *m, const char *id, Session **_session) {
         Session *s;
+        int r;
 
         assert(m);
         assert(id);
 
         s = hashmap_get(m->sessions, id);
         if (!s) {
-                s = session_new(m, id);
-                if (!s)
-                        return -ENOMEM;
+                r = session_new(&s, m, id);
+                if (r < 0)
+                        return r;
         }
 
         if (_session)
