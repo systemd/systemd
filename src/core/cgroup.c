@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <fnmatch.h>
+#include <sys/utsname.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
@@ -1062,6 +1063,16 @@ static void cgroup_context_apply(
 
 CGroupMask cgroup_context_get_mask(CGroupContext *c) {
         CGroupMask mask = 0;
+        bool need_cpumask_for_cpu_accounting;
+        struct utsname u;
+
+        /* In the unified cgroup hierarachy CPU accounting information is
+         * read from cpu.stat file. On Linux 4.15 and newer cpu.stat exists
+         * without CPU controller enabled. On the other hand, on older kernels
+         * CPU controller has to be enabled for cpu.stat to appear. Let's check it.
+         * Related discussion found at PR #9665. */
+        assert_se(uname(&u) >= 0);
+        need_cpumask_for_cpu_accounting = str_verscmp(u.release, "4.15") < 0;
 
         /* Figure out which controllers we need */
 
@@ -1070,8 +1081,11 @@ CGroupMask cgroup_context_get_mask(CGroupContext *c) {
             c->cpu_quota_per_sec_usec != USEC_INFINITY)
                 mask |= CGROUP_MASK_CPUACCT | CGROUP_MASK_CPU;
 
-        if (c->cpu_accounting)
+        if (c->cpu_accounting) {
                 mask |= CGROUP_MASK_CPUACCT;
+                if(need_cpumask_for_cpu_accounting)
+                        mask |= CGROUP_MASK_CPU;
+        }
 
         if (cgroup_context_has_io_config(c) || cgroup_context_has_blockio_config(c))
                 mask |= CGROUP_MASK_IO | CGROUP_MASK_BLKIO;
