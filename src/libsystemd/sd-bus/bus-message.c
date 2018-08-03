@@ -2469,11 +2469,6 @@ _public_ int sd_bus_message_append(sd_bus_message *m, const char *types, ...) {
         va_list ap;
         int r;
 
-        assert_return(m, -EINVAL);
-        assert_return(types, -EINVAL);
-        assert_return(!m->sealed, -EPERM);
-        assert_return(!m->poisoned, -ESTALE);
-
         va_start(ap, types);
         r = sd_bus_message_appendv(m, types, ap);
         va_end(ap);
@@ -4523,10 +4518,6 @@ static int message_read_ap(
 _public_ int sd_bus_message_read(sd_bus_message *m, const char *types, ...) {
         va_list ap;
         int r;
-
-        assert_return(m, -EINVAL);
-        assert_return(m->sealed, -EPERM);
-        assert_return(types, -EINVAL);
 
         va_start(ap, types);
         r = message_read_ap(m, types, ap);
