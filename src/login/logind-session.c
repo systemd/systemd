@@ -184,11 +184,13 @@ int session_save(Session *s) {
                 "UID="UID_FMT"\n"
                 "USER=%s\n"
                 "ACTIVE=%i\n"
+                "IS_DISPLAY=%i\n"
                 "STATE=%s\n"
                 "REMOTE=%i\n",
                 s->user->uid,
                 s->user->name,
                 session_is_active(s),
+                s->user->display == s,
                 session_state_to_string(session_get_state(s)),
                 s->remote);
 
@@ -359,7 +361,8 @@ int session_load(Session *s) {
                 *monotonic = NULL,
                 *controller = NULL,
                 *active = NULL,
-                *devices = NULL;
+                *devices = NULL,
+                *is_display = NULL;
 
         int k, r;
 
@@ -389,6 +392,7 @@ int session_load(Session *s) {
                            "CONTROLLER",     &controller,
                            "ACTIVE",         &active,
                            "DEVICES",        &devices,
+                           "IS_DISPLAY",     &is_display,
                            NULL);
 
         if (r < 0)
@@ -494,6 +498,18 @@ int session_load(Session *s) {
                 k = parse_boolean(active);
                 if (k >= 0)
                         s->was_active = k;
+        }
+
+        if (is_display) {
+                /* Note that when enumerating users are loaded before sessions, hence the display session to use is
+                 * something we have to store along with the session and not the user, as in that case we couldn't
+                 * apply it at the time we load the user. */
+
+                k = parse_boolean(is_display);
+                if (k < 0)
+                        log_warning_errno(k, "Failed to parse IS_DISPLAY session property: %m");
+                else if (k > 0)
+                        s->user->display = s;
         }
 
         if (controller) {
