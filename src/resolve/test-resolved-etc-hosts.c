@@ -9,7 +9,7 @@
 static void test_parse_etc_hosts_system(void) {
         _cleanup_fclose_ FILE *f = NULL;
 
-        f = fopen("/etc/hosts", "r");
+        f = fopen("/etc/hosts", "re");
         if (!f) {
                 assert_se(errno == -ENOENT);
                 return;
@@ -27,7 +27,7 @@ static void test_parse_etc_hosts(const char *fname) {
         _cleanup_fclose_ FILE *f;
 
         if (fname) {
-                f = fopen(fname, "r");
+                f = fopen(fname, "re");
                 assert_se(f);
         } else {
                 fd = mkostemp_safe(t);
