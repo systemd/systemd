@@ -6,8 +6,9 @@
 #include <string.h>
 
 #include "alloc-util.h"
-#include "hashmap.h"
+#include "env-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "macro.h"
 #include "mempool.h"
 #include "process-util.h"
@@ -766,20 +767,31 @@ static void reset_direct_storage(HashmapBase *h) {
         memset(p, DIB_RAW_INIT, sizeof(dib_raw_t) * hi->n_direct_buckets);
 }
 
+static bool use_pool(void) {
+        static int b = -1;
+
+        if (!is_main_thread())
+                return false;
+
+        if (b < 0)
+                b = getenv_bool("SYSTEMD_MEMPOOL") != 0;
+
+        return b;
+}
+
 static struct HashmapBase *hashmap_base_new(const struct hash_ops *hash_ops, enum HashmapType type HASHMAP_DEBUG_PARAMS) {
         HashmapBase *h;
         const struct hashmap_type_info *hi = &hashmap_type_info[type];
-        bool use_pool;
+        bool up;
 
-        use_pool = is_main_thread();
+        up = use_pool();
 
-        h = use_pool ? mempool_alloc0_tile(hi->mempool) : malloc0(hi->head_size);
-
+        h = up ? mempool_alloc0_tile(hi->mempool) : malloc0(hi->head_size);
         if (!h)
                 return NULL;
 
         h->type = type;
-        h->from_pool = use_pool;
+        h->from_pool = up;
         h->hash_ops = hash_ops ? hash_ops : &trivial_hash_ops;
 
         if (type == HASHMAP_TYPE_ORDERED) {
