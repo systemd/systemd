@@ -35,12 +35,14 @@ static int manager_new(Manager **ret) {
 
         assert(ret);
 
-        m = new0(Manager, 1);
+        m = new(Manager, 1);
         if (!m)
                 return -ENOMEM;
 
-        m->console_active_fd = -1;
-        m->reserve_vt_fd = -1;
+        *m = (Manager) {
+                .console_active_fd = -1,
+                .reserve_vt_fd = -1,
+        };
 
         m->idle_action_not_before_usec = now(CLOCK_MONOTONIC);
 
