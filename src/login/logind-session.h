@@ -109,8 +109,11 @@ struct Session {
         LIST_FIELDS(Session, gc_queue);
 };
 
-Session *session_new(Manager *m, const char *id);
-void session_free(Session *s);
+int session_new(Session **ret, Manager *m, const char *id);
+Session* session_free(Session *s);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Session *, session_free);
+
 void session_set_user(Session *s, User *u);
 bool session_may_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);

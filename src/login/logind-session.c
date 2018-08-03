@@ -24,57 +24,61 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "string-table.h"
 #include "terminal-util.h"
 #include "user-util.h"
 #include "util.h"
-#include "process-util.h"
 
 #define RELEASE_USEC (20*USEC_PER_SEC)
 
 static void session_remove_fifo(Session *s);
 
-Session* session_new(Manager *m, const char *id) {
-        Session *s;
+int session_new(Session **ret, Manager *m, const char *id) {
+        _cleanup_(session_freep) Session *s = NULL;
+        int r;
 
+        assert(ret);
         assert(m);
         assert(id);
-        assert(session_id_valid(id));
 
-        s = new0(Session, 1);
+        if (!session_id_valid(id))
+                return -EINVAL;
+
+        s = new(Session, 1);
         if (!s)
-                return NULL;
+                return -ENOMEM;
+
+        *s = (Session) {
+                .manager = m,
+                .fifo_fd = -1,
+                .vtfd = -1,
+                .audit_id = AUDIT_SESSION_INVALID,
+        };
 
         s->state_file = strappend("/run/systemd/sessions/", id);
         if (!s->state_file)
-                return mfree(s);
-
-        s->devices = hashmap_new(&devt_hash_ops);
-        if (!s->devices) {
-                free(s->state_file);
-                return mfree(s);
-        }
+                return -ENOMEM;
 
         s->id = basename(s->state_file);
 
-        if (hashmap_put(m->sessions, s->id, s) < 0) {
-                hashmap_free(s->devices);
-                free(s->state_file);
-                return mfree(s);
-        }
+        s->devices = hashmap_new(&devt_hash_ops);
+        if (!s->devices)
+                return -ENOMEM;
 
-        s->manager = m;
-        s->fifo_fd = -1;
-        s->vtfd = -1;
-        s->audit_id = AUDIT_SESSION_INVALID;
+        r = hashmap_put(m->sessions, s->id, s);
+        if (r < 0)
+                return r;
 
-        return s;
+        *ret = TAKE_PTR(s);
+        return 0;
 }
 
-void session_free(Session *s) {
+Session* session_free(Session *s) {
         SessionDevice *sd;
 
-        assert(s);
+        if (!s)
+                return NULL;
 
         if (s->in_gc_queue)
                 LIST_REMOVE(gc_queue, s->manager->session_gc_queue, s);
@@ -126,7 +130,8 @@ void session_free(Session *s) {
         hashmap_remove(s->manager->sessions, s->id);
 
         free(s->state_file);
-        free(s);
+
+        return mfree(s);
 }
 
 void session_set_user(Session *s, User *u) {
