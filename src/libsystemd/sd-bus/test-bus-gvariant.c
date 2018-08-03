@@ -17,6 +17,8 @@
 #include "util.h"
 
 static void test_bus_gvariant_is_fixed_size(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(bus_gvariant_is_fixed_size("") > 0);
         assert_se(bus_gvariant_is_fixed_size("()") == -EINVAL);
         assert_se(bus_gvariant_is_fixed_size("y") > 0);
@@ -42,6 +44,8 @@ static void test_bus_gvariant_is_fixed_size(void) {
 }
 
 static void test_bus_gvariant_get_size(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(bus_gvariant_get_size("") == 0);
         assert_se(bus_gvariant_get_size("()") == -EINVAL);
         assert_se(bus_gvariant_get_size("y") == 1);
@@ -74,6 +78,8 @@ static void test_bus_gvariant_get_size(void) {
 }
 
 static void test_bus_gvariant_get_alignment(void) {
+        log_info("/* %s */", __func__);
+
         assert_se(bus_gvariant_get_alignment("") == 1);
         assert_se(bus_gvariant_get_alignment("()") == -EINVAL);
         assert_se(bus_gvariant_get_alignment("y") == 1);
@@ -129,7 +135,10 @@ static int test_marshal(void) {
 
         bus->message_version = 2; /* dirty hack to enable gvariant */
 
-        assert_se(sd_bus_message_new_method_call(bus, &m, "a.service.name", "/an/object/path/which/is/really/really/long/so/that/we/hit/the/eight/bit/boundary/by/quite/some/margin/to/test/this/stuff/that/it/really/works", "an.interface.name", "AMethodName") >= 0);
+        r = sd_bus_message_new_method_call(bus, &m, "a.service.name",
+                                           "/an/object/path/which/is/really/really/long/so/that/we/hit/the/eight/bit/boundary/by/quite/some/margin/to/test/this/stuff/that/it/really/works",
+                                           "an.interface.name", "AMethodName");
+        assert_se(r >= 0);
 
         assert_cc(sizeof(struct bus_header) == 16);
 
@@ -202,7 +211,7 @@ static int test_marshal(void) {
 }
 
 int main(int argc, char *argv[]) {
-        test_setup_logging(LOG_INFO);
+        test_setup_logging(LOG_DEBUG);
 
         test_bus_gvariant_is_fixed_size();
         test_bus_gvariant_get_size();
