@@ -419,13 +419,18 @@ static void test_addr_acq_acquired(sd_dhcp_client *client, int event,
 static int test_addr_acq_recv_request(size_t size, DHCPMessage *request) {
         uint16_t udp_check = 0;
         uint8_t *msg_bytes = (uint8_t *)request;
-        int res;
+        int res, idx;
 
         res = dhcp_option_parse(request, size, check_options, NULL, NULL);
         assert_se(res == DHCP_REQUEST);
         assert_se(xid == request->xid);
 
-        assert_se(msg_bytes[size - 1] == SD_DHCP_OPTION_END);
+        for (ixd = size - 1; idx > 0; idx--) {
+                if(msg_bytes[idx] == SD_DHCP_OPTION_PAD)
+                        continue;
+                assert_se(msg_bytes[idx] == SD_DHCP_OPTION_END);
+        }
+        assert_se(idx > 0);
 
         if (verbose)
                 printf("  recv DHCP Request  0x%08x\n", be32toh(xid));
@@ -449,12 +454,17 @@ static int test_addr_acq_recv_request(size_t size, DHCPMessage *request) {
 static int test_addr_acq_recv_discover(size_t size, DHCPMessage *discover) {
         uint16_t udp_check = 0;
         uint8_t *msg_bytes = (uint8_t *)discover;
-        int res;
+        int res, idx;
 
         res = dhcp_option_parse(discover, size, check_options, NULL, NULL);
         assert_se(res == DHCP_DISCOVER);
 
-        assert_se(msg_bytes[size - 1] == SD_DHCP_OPTION_END);
+        for (ixd = size - 1; idx > 0; idx--) {
+                if(msg_bytes[idx] == SD_DHCP_OPTION_PAD)
+                        continue;
+                assert_se(msg_bytes[idx] == SD_DHCP_OPTION_END);
+        }
+        assert_se(idx > 0);
 
         xid = discover->xid;
 
