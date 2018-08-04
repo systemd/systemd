@@ -18,6 +18,7 @@
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
+#include "sd-event.h"
 #include "sd-login.h"
 
 #include "alloc-util.h"
@@ -6629,8 +6630,29 @@ static int unit_is_enabled(int argc, char *argv[], void *userdata) {
         return enabled ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
+static int match_startup_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        char **state = userdata;
+        int r;
+
+        assert(state);
+
+        r = sd_bus_get_property_string(
+                        sd_bus_message_get_bus(m),
+                        "org.freedesktop.systemd1",
+                        "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager",
+                        "SystemState",
+                        NULL,
+                        state);
+
+        sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), r);
+        return 0;
+}
+
 static int is_system_running(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot_startup_finished = NULL;
+        _cleanup_(sd_event_unrefp) sd_event* event = NULL;
         _cleanup_free_ char *state = NULL;
         sd_bus *bus;
         int r;
@@ -6645,6 +6667,25 @@ static int is_system_running(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        if (arg_wait) {
+                r = sd_event_default(&event);
+                if (r >= 0)
+                        r = sd_bus_attach_event(bus, event, 0);
+                if (r >= 0)
+                        r = sd_bus_match_signal_async(
+                                        bus,
+                                        &slot_startup_finished,
+                                        "org.freedesktop.systemd1",
+                                        "/org/freedesktop/systemd1",
+                                        "org.freedesktop.systemd1.Manager",
+                                        "StartupFinished",
+                                        match_startup_finished, NULL, &state);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to request match for StartupFinished: %m");
+                        arg_wait = false;
+                }
+        }
+
         r = sd_bus_get_property_string(
                         bus,
                         "org.freedesktop.systemd1",
@@ -6654,11 +6695,21 @@ static int is_system_running(int argc, char *argv[], void *userdata) {
                         &error,
                         &state);
         if (r < 0) {
-                log_debug_errno(r, "Failed to query system state: %s", bus_error_message(&error, r));
+                log_warning_errno(r, "Failed to query system state: %s", bus_error_message(&error, r));
 
                 if (!arg_quiet)
                         puts("unknown");
                 return EXIT_FAILURE;
+        }
+
+        if (arg_wait && STR_IN_SET(state, "initializing", "starting")) {
+                r = sd_event_loop(event);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to get property from event loop: %m");
+                        if (!arg_quiet)
+                                puts("unknown");
+                        return EXIT_FAILURE;
+                }
         }
 
         if (!arg_quiet)
@@ -7082,6 +7133,7 @@ static void systemctl_help(void) {
                "     --dry-run        Only print what would be done\n"
                "  -q --quiet          Suppress output\n"
                "     --wait           For (re)start, wait until service stopped again\n"
+               "                      For is-system-running, wait until startup is completed\n"
                "     --no-block       Do not wait until operation finished\n"
                "     --no-wall        Don't send wall message before halt/power-off/reboot\n"
                "     --no-reload      Don't reload daemon after en-/dis-abling unit files\n"
