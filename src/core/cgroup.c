@@ -2584,6 +2584,73 @@ int unit_get_ip_accounting(
         return r;
 }
 
+/* The below is borrowed from cgtop/cgtop.c */
+int unit_get_io_accounting(
+                Unit *u,
+                CGroupIOAccountingMetric metric,
+                uint64_t *ret) {
+
+        int r;
+        _cleanup_free_ char *p = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        uint64_t wr = 0, rd = 0;
+
+        assert(u);
+        assert(metric >= 0);
+        assert(metric < _CGROUP_IO_ACCOUNTING_METRIC_MAX);
+        assert(ret);
+
+        if (!UNIT_CGROUP_BOOL(u, io_accounting))
+                return -ENODATA;
+
+        if (!u->cgroup_path)
+                return -ENODATA;
+
+        /* The root cgroup doesn't expose this information */
+        if (unit_has_root_cgroup(u))
+                return -ENODATA;
+
+        r = cg_get_path("io", u->cgroup_path, "io.stat", &p);
+        if (r < 0)
+                return -ENODATA;
+
+        f = fopen(p, "re");
+        if (!f)
+                return -ENODATA;
+
+        for (;;) {
+                char line[LINE_MAX], *l;
+                uint64_t k;
+                
+                if (!fgets(line, sizeof(line), f))
+                        break;
+                
+                /* Trim and skip the device */
+                l = strstrip(line);
+                l += strcspn(l, WHITESPACE);
+                l += strspn(l, WHITESPACE);
+                
+                while (!isempty(l)) {
+                        if (sscanf(l, "rbytes=%" SCNu64, &k))
+                                rd += k;
+                        else if (sscanf(l, "wbytes=%" SCNu64, &k))
+                                wr += k;
+                        
+                        l += strcspn(l, WHITESPACE);
+                        l += strspn(l, WHITESPACE);
+                }
+        }
+
+        if (metric == CGROUP_IO_INGRESS_BYTES)
+                *ret = rd;
+        else if (metric == CGROUP_IO_EGRESS_BYTES)
+                *ret = wr;
+        else
+                assert(metric == CGROUP_IO_INGRESS_BYTES || metric == CGROUP_IO_EGRESS_BYTES);
+
+        return 0;
+}
+
 int unit_reset_cpu_accounting(Unit *u) {
         nsec_t ns;
         int r;
