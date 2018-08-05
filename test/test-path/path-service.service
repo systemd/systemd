@@ -1,6 +1,0 @@
-[Unit]
-Description=Service Test for Path units
-
-[Service]
-ExecStart=/bin/true
-Type=oneshot
