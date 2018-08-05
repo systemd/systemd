@@ -122,6 +122,14 @@ typedef enum CGroupIPAccountingMetric {
         _CGROUP_IP_ACCOUNTING_METRIC_INVALID = -1,
 } CGroupIPAccountingMetric;
 
+/* Used when querying IO accounting data */
+typedef enum CGroupIOAccountingMetric {
+        CGROUP_IO_INGRESS_BYTES,
+        CGROUP_IO_EGRESS_BYTES,
+        _CGROUP_IO_ACCOUNTING_METRIC_MAX,
+        _CGROUP_IO_ACCOUNTING_METRIC_INVALID = -1,
+} CGroupIOAccountingMetric;
+
 typedef struct Unit Unit;
 typedef struct Manager Manager;
 
@@ -182,6 +190,7 @@ int unit_get_memory_current(Unit *u, uint64_t *ret);
 int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
 int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *ret);
+int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, uint64_t *ret);
 
 int unit_reset_cpu_accounting(Unit *u);
 int unit_reset_ip_accounting(Unit *u);
