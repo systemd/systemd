@@ -473,7 +473,7 @@ int user_finalize(User *u) {
                         r = k;
         }
 
-        unlink(u->state_file);
+        (void) unlink(u->state_file);
         user_add_to_gc_queue(u);
 
         if (u->started) {

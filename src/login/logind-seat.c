@@ -239,7 +239,7 @@ int seat_set_active(Seat *s, Session *session) {
                 session_send_changed(old_active, "Active", NULL);
         }
 
-        seat_apply_acls(s, old_active);
+        (void) seat_apply_acls(s, old_active);
 
         if (session && session->started) {
                 session_send_changed(session, "Active", NULL);
@@ -431,7 +431,7 @@ int seat_stop(Seat *s, bool force) {
 
         seat_stop_sessions(s, force);
 
-        unlink(s->state_file);
+        (void) unlink(s->state_file);
         seat_add_to_gc_queue(s);
 
         if (s->started)

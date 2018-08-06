@@ -953,13 +953,13 @@ static void manager_gc(Manager *m, bool drop_not_started) {
                 /* First, if we are not closing yet, initiate stopping */
                 if (session_may_gc(session, drop_not_started) &&
                     session_get_state(session) != SESSION_CLOSING)
-                        session_stop(session, false);
+                        (void) session_stop(session, false);
 
                 /* Normally, this should make the session referenced
                  * again, if it doesn't then let's get rid of it
                  * immediately */
                 if (session_may_gc(session, drop_not_started)) {
-                        session_finalize(session);
+                        (void) session_finalize(session);
                         session_free(session);
                 }
         }
@@ -970,11 +970,11 @@ static void manager_gc(Manager *m, bool drop_not_started) {
 
                 /* First step: queue stop jobs */
                 if (user_may_gc(user, drop_not_started))
-                        user_stop(user, false);
+                        (void) user_stop(user, false);
 
                 /* Second step: finalize user */
                 if (user_may_gc(user, drop_not_started)) {
-                        user_finalize(user);
+                        (void) user_finalize(user);
                         user_free(user);
                 }
         }
@@ -1126,10 +1126,10 @@ static int manager_startup(Manager *m) {
 
         /* And start everything */
         HASHMAP_FOREACH(seat, m->seats, i)
-                seat_start(seat);
+                (void) seat_start(seat);
 
         HASHMAP_FOREACH(user, m->users, i)
-                user_start(user);
+                (void) user_start(user);
 
         HASHMAP_FOREACH(session, m->sessions, i)
                 session_start(session, NULL);
