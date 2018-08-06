@@ -971,7 +971,8 @@ int config_parse_hostname(
                 void *data,
                 void *userdata) {
 
-        char **hostname = data, *hn = NULL;
+        _cleanup_free_ char *hn = NULL;
+        char **hostname = data;
         int r;
 
         assert(filename);
@@ -984,13 +985,20 @@ int config_parse_hostname(
 
         if (!hostname_is_valid(hn, false)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Hostname is not valid, ignoring assignment: %s", rvalue);
-                free(hn);
                 return 0;
         }
 
-        free(*hostname);
-        *hostname = hostname_cleanup(hn);
-        return 0;
+        r = dns_name_is_valid(hn);
+        if (r < 0) {
+                log_syntax(unit, LOG_ERR, filename, line, r, "Failed to check validity of hostname '%s', ignoring assignment: %m", rvalue);
+                return 0;
+        }
+        if (r == 0) {
+                log_syntax(unit, LOG_ERR, filename, line, 0, "Hostname is not a valid DNS domain name, ignoring assignment: %s", rvalue);
+                return 0;
+        }
+
+        return free_and_replace(*hostname, hn);
 }
 
 int config_parse_timezone(
@@ -1005,7 +1013,8 @@ int config_parse_timezone(
                 void *data,
                 void *userdata) {
 
-        char **datap = data, *tz = NULL;
+        _cleanup_free_ char *tz = NULL;
+        char **datap = data;
         int r;
 
         assert(filename);
@@ -1018,14 +1027,10 @@ int config_parse_timezone(
 
         if (!timezone_is_valid(tz, LOG_ERR)) {
                 log_syntax(unit, LOG_ERR, filename, line, 0, "Timezone is not valid, ignoring assignment: %s", rvalue);
-                free(tz);
                 return 0;
         }
 
-        free(*datap);
-        *datap = tz;
-
-        return 0;
+        return free_and_replace(*datap, tz);
 }
 
 int config_parse_dhcp_server_dns(
