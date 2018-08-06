@@ -1259,7 +1259,7 @@ static int fd_set_attribute(Item *item, int fd, const char *path, const struct s
 
         procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
         if (procfs_fd < 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to re-open '%s': %m", path);
 
         r = chattr_fd(procfs_fd, f, item->attribute_mask);
         if (r < 0)
@@ -1601,7 +1601,8 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
 
         r = openat(pfd, basename(path), O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
         if (r < 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to open directory '%s': %m", basename(path));
+
         return r;
 }
 
@@ -1820,7 +1821,7 @@ static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
         assert(fd >= 0);
 
         if (fstat(fd, &st) < 0) {
-                r = -errno;
+                r = log_error_errno(errno, "fstat() on file failed: %m");
                 goto finish;
         }
 
@@ -1839,7 +1840,9 @@ static int item_do(Item *i, int fd, const char *path, fdaction_t action) {
 
                 d = opendir(procfs_path);
                 if (!d) {
-                        r = r ?: -errno;
+                        log_error_errno(errno, "Failed to opendir() '%s': %m", procfs_path);
+                        if (r == 0)
+                                r = -errno;
                         goto finish;
                 }
 
@@ -1906,7 +1909,9 @@ static int glob_item_recursively(Item *i, fdaction_t action) {
 
                 fd = open(*fn, O_CLOEXEC|O_NOFOLLOW|O_PATH);
                 if (fd < 0) {
-                        r = r ?: -errno;
+                        log_error_errno(errno, "Opening '%s' failed: %m", *fn);
+                        if (r == 0)
+                                r = -errno;
                         continue;
                 }
 
