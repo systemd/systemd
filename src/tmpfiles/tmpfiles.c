@@ -1525,12 +1525,15 @@ static const char *creation_mode_verb_table[_CREATION_MODE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(creation_mode_verb, CreationMode);
 
-static int create_directory_or_subvolume(const char *path, mode_t mode, bool subvol) {
+static int create_directory_or_subvolume(const char *path, mode_t mode, bool subvol, CreationMode *creation) {
         _cleanup_close_ int pfd = -1;
-        CreationMode creation;
+        CreationMode c;
         int r;
 
         assert(path);
+
+        if (!creation)
+                creation = &c;
 
         pfd = path_open_parent_safe(path);
         if (pfd < 0)
@@ -1577,11 +1580,11 @@ static int create_directory_or_subvolume(const char *path, mode_t mode, bool sub
                         return -EEXIST;
                 }
 
-                creation = CREATION_EXISTING;
+                *creation = CREATION_EXISTING;
         } else
-                creation = CREATION_NORMAL;
+                *creation = CREATION_NORMAL;
 
-        log_debug("%s directory \"%s\".", creation_mode_verb_to_string(creation), path);
+        log_debug("%s directory \"%s\".", creation_mode_verb_to_string(*creation), path);
 
         r = openat(pfd, basename(path), O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
         if (r < 0)
@@ -1595,7 +1598,7 @@ static int create_directory(Item *i, const char *path) {
         assert(i);
         assert(IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY));
 
-        fd = create_directory_or_subvolume(path, i->mode, false);
+        fd = create_directory_or_subvolume(path, i->mode, false, NULL);
         if (fd == -EEXIST)
                 return 0;
         if (fd < 0)
@@ -1606,18 +1609,20 @@ static int create_directory(Item *i, const char *path) {
 
 static int create_subvolume(Item *i, const char *path) {
         _cleanup_close_ int fd = -1;
+        CreationMode creation;
         int r, q = 0;
 
         assert(i);
         assert(IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA));
 
-        fd = create_directory_or_subvolume(path, i->mode, true);
+        fd = create_directory_or_subvolume(path, i->mode, true, &creation);
         if (fd == -EEXIST)
                 return 0;
         if (fd < 0)
                 return fd;
 
-        if (IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
+        if (creation == CREATION_NORMAL &&
+            IN_SET(i->type, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA)) {
                 r = btrfs_subvol_auto_qgroup_fd(fd, 0, i->type == CREATE_SUBVOLUME_NEW_QUOTA);
                 if (r == -ENOTTY)
                         log_debug_errno(r, "Couldn't adjust quota for subvolume \"%s\" (unsupported fs or dir not a subvolume): %m", i->path);
