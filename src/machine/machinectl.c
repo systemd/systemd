@@ -1550,10 +1550,8 @@ static int shell_machine(int argc, char *argv[], void *userdata) {
                 return bus_log_create_error(r);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_error("Failed to get shell PTY: %s", bus_error_message(&error, -r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get shell PTY: %s", bus_error_message(&error, -r));
 
         r = sd_bus_message_read(reply, "hs", &master, NULL);
         if (r < 0)
