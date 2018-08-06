@@ -155,7 +155,7 @@
     should have both fields initialized to NULL. Set an error
     structure to <constant>SD_BUS_ERROR_NULL</constant> in order to
     reset both fields to NULL. When no longer necessary, resources
-    held by the <structname>sd_bus_error</structname>structure should
+    held by the <structname>sd_bus_error</structname> structure should
     be destroyed with <function>sd_bus_error_free()</function>.</para>
 
     <para><function>sd_bus_error_set()</function> sets an error
