@@ -3435,41 +3435,9 @@ int link_update(Link *link, sd_netlink_message *m) {
                                 if (r < 0)
                                         return log_link_warning_errno(link, r, "Could not update MAC address in DHCP client: %m");
 
-                                switch (link->network->dhcp_client_identifier) {
-                                case DHCP_CLIENT_ID_DUID: {
-                                        const DUID *duid = link_get_duid(link);
-
-                                        r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
-                                                                         link->network->iaid,
-                                                                         duid->type,
-                                                                         duid->raw_data_len > 0 ? duid->raw_data : NULL,
-                                                                         duid->raw_data_len);
-                                        if (r < 0)
-                                                return log_link_warning_errno(link, r, "Could not update DUID/IAID in DHCP client: %m");
-                                        break;
-                                }
-                                case DHCP_CLIENT_ID_DUID_ONLY: {
-                                        const DUID *duid = link_get_duid(link);
-
-                                        r = sd_dhcp_client_set_duid(link->dhcp_client,
-                                                                    duid->type,
-                                                                    duid->raw_data_len > 0 ? duid->raw_data : NULL,
-                                                                    duid->raw_data_len);
-                                        if (r < 0)
-                                                return log_link_warning_errno(link, r, "Could not update DUID in DHCP client: %m");
-                                        break;
-                                }
-                                case DHCP_CLIENT_ID_MAC:
-                                        r = sd_dhcp_client_set_client_id(link->dhcp_client,
-                                                                         ARPHRD_ETHER,
-                                                                         (const uint8_t *)&link->mac,
-                                                                         sizeof(link->mac));
-                                        if (r < 0)
-                                                return log_link_warning_errno(link, r, "Could not update MAC client id in DHCP client: %m");
-                                        break;
-                                default:
-                                        assert_not_reached("Unknown client identifier type.");
-                                }
+                                r = dhcp4_set_client_identifier(link);
+                                if (r < 0)
+                                        return r;
                         }
 
                         if (link->dhcp6_client) {

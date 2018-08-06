@@ -159,6 +159,7 @@ int link_set_mtu(Link *link, uint32_t mtu);
 
 int ipv4ll_configure(Link *link);
 int dhcp4_configure(Link *link);
+int dhcp4_set_client_identifier(Link *link);
 int dhcp4_set_promote_secondaries(Link *link);
 int dhcp6_configure(Link *link);
 int dhcp6_request_address(Link *link, int ir);
