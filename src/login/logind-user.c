@@ -68,6 +68,10 @@ int user_new(User **ret, Manager *m, uid_t uid, gid_t gid, const char *name) {
         if (r < 0)
                 return r;
 
+        r = unit_name_build("user-runtime-dir", lu, ".service", &u->runtime_dir_service);
+        if (r < 0)
+                return r;
+
         r = hashmap_put(m->users, UID_TO_PTR(uid), u);
         if (r < 0)
                 return r;
@@ -77,6 +81,10 @@ int user_new(User **ret, Manager *m, uid_t uid, gid_t gid, const char *name) {
                 return r;
 
         r = hashmap_put(m->user_units, u->service, u);
+        if (r < 0)
+                return r;
+
+        r = hashmap_put(m->user_units, u->runtime_dir_service, u);
         if (r < 0)
                 return r;
 
@@ -97,15 +105,18 @@ User *user_free(User *u) {
         if (u->service)
                 hashmap_remove_value(u->manager->user_units, u->service, u);
 
+        if (u->runtime_dir_service)
+                hashmap_remove_value(u->manager->user_units, u->runtime_dir_service, u);
+
         if (u->slice)
                 hashmap_remove_value(u->manager->user_units, u->slice, u);
 
         hashmap_remove_value(u->manager->users, UID_TO_PTR(u->uid), u);
 
-        u->slice_job = mfree(u->slice_job);
         u->service_job = mfree(u->service_job);
 
         u->service = mfree(u->service);
+        u->runtime_dir_service = mfree(u->runtime_dir_service);
         u->slice = mfree(u->slice);
         u->runtime_path = mfree(u->runtime_path);
         u->state_file = mfree(u->state_file);
@@ -148,9 +159,6 @@ static int user_save_internal(User *u) {
 
         if (u->service_job)
                 fprintf(f, "SERVICE_JOB=%s\n", u->service_job);
-
-        if (u->slice_job)
-                fprintf(f, "SLICE_JOB=%s\n", u->slice_job);
 
         if (u->display)
                 fprintf(f, "DISPLAY=%s\n", u->display->id);
@@ -311,65 +319,44 @@ int user_load(User *u) {
         return 0;
 }
 
-static int user_start_service(User *u) {
+static void user_start_service(User *u) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *job;
         int r;
 
         assert(u);
 
+        /* Start the service containing the "systemd --user" instance (user@.service). Note that we don't explicitly
+         * start the per-user slice or the systemd-runtime-dir@.service instance, as those are pulled in both by
+         * user@.service and the session scopes as dependencies. */
+
         u->service_job = mfree(u->service_job);
 
-        r = manager_start_unit(
-                        u->manager,
-                        u->service,
-                        &error,
-                        &job);
+        r = manager_start_unit(u->manager, u->service, &error, &u->service_job);
         if (r < 0)
-                /* we don't fail due to this, let's try to continue */
-                log_error_errno(r, "Failed to start user service, ignoring: %s", bus_error_message(&error, r));
-        else
-                u->service_job = job;
-
-        return 0;
+                log_warning_errno(r, "Failed to start user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
 }
 
 int user_start(User *u) {
-        int r;
-
         assert(u);
 
         if (u->started && !u->stopping)
                 return 0;
 
-        /*
-         * If u->stopping is set, the user is marked for removal and the slice
-         * and service stop-jobs are queued. We have to clear that flag before
-         * queing the start-jobs again. If they succeed, the user object can be
-         * re-used just fine (pid1 takes care of job-ordering and proper
-         * restart), but if they fail, we want to force another user_stop() so
-         * possibly pending units are stopped.
-         * Note that we don't clear u->started, as we have no clue what state
-         * the user is in on failure here. Hence, we pretend the user is
-         * running so it will be properly taken down by GC. However, we clearly
-         * return an error from user_start() in that case, so no further
-         * reference to the user is taken.
-         */
+        /* If u->stopping is set, the user is marked for removal and service stop-jobs are queued. We have to clear
+         * that flag before queing the start-jobs again. If they succeed, the user object can be re-used just fine
+         * (pid1 takes care of job-ordering and proper restart), but if they fail, we want to force another user_stop()
+         * so possibly pending units are stopped. */
         u->stopping = false;
 
         if (!u->started)
                 log_debug("Starting services for new user %s.", u->name);
 
-        /* Save the user data so far, because pam_systemd will read the
-         * XDG_RUNTIME_DIR out of it while starting up systemd --user.
-         * We need to do user_save_internal() because we have not
-         * "officially" started yet. */
+        /* Save the user data so far, because pam_systemd will read the XDG_RUNTIME_DIR out of it while starting up
+         * systemd --user.  We need to do user_save_internal() because we have not "officially" started yet. */
         user_save_internal(u);
 
-        /* Spawn user systemd */
-        r = user_start_service(u);
-        if (r < 0)
-                return r;
+        /* Start user@UID.service */
+        user_start_service(u);
 
         if (!u->started) {
                 if (!dual_timestamp_is_set(&u->timestamp))
@@ -384,60 +371,50 @@ int user_start(User *u) {
         return 0;
 }
 
-static int user_stop_slice(User *u) {
+static void user_stop_service(User *u) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *job;
         int r;
 
         assert(u);
+        assert(u->service);
 
-        r = manager_stop_unit(u->manager, u->slice, &error, &job);
+        /* The reverse of user_start_service(). Note that we only stop user@UID.service here, and let StopWhenUnneeded=
+         * deal with the slice and the user-runtime-dir@.service instance. */
+
+        u->service_job = mfree(u->service_job);
+
+        r = manager_stop_unit(u->manager, u->service, &error, &u->service_job);
         if (r < 0)
-                return log_error_errno(r, "Failed to stop user slice: %s", bus_error_message(&error, r));
-
-        return free_and_replace(u->slice_job, job);
-}
-
-static int user_stop_service(User *u) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *job;
-        int r;
-
-        assert(u);
-
-        r = manager_stop_unit(u->manager, u->service, &error, &job);
-        if (r < 0)
-                return log_error_errno(r, "Failed to stop user service: %s", bus_error_message(&error, r));
-
-        return free_and_replace(u->service_job, job);
+                log_warning_errno(r, "Failed to stop user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
 }
 
 int user_stop(User *u, bool force) {
         Session *s;
-        int r = 0, k;
+        int r = 0;
         assert(u);
 
-        /* Stop jobs have already been queued */
-        if (u->stopping) {
+        /* This is called whenever we begin with tearing down a user record. It's called in two cases: explicit API
+         * request to do so via the bus (in which case 'force' is true) and automatically due to GC, if there's no
+         * session left pinning it (in which case 'force' is false). Note that this just initiates tearing down of the
+         * user, the User object will remain in memory until user_finalize() is called, see below. */
+
+        if (!u->started)
+                return 0;
+
+        if (u->stopping) { /* Stop jobs have already been queued */
                 user_save(u);
-                return r;
+                return 0;
         }
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
+                int k;
+
                 k = session_stop(s, force);
                 if (k < 0)
                         r = k;
         }
 
-        /* Kill systemd */
-        k = user_stop_service(u);
-        if (k < 0)
-                r = k;
-
-        /* Kill cgroup */
-        k = user_stop_slice(u);
-        if (k < 0)
-                r = k;
+        user_stop_service(u);
 
         u->stopping = true;
 
@@ -451,6 +428,9 @@ int user_finalize(User *u) {
         int r = 0, k;
 
         assert(u);
+
+        /* Called when the user is really ready to be freed, i.e. when all unit stop jobs and suchlike for it are
+         * done. This is called as a result of an earlier user_done() when all jobs are completed. */
 
         if (u->started)
                 log_debug("User %s logged out.", u->name);
@@ -582,7 +562,7 @@ UserState user_get_state(User *u) {
         if (u->stopping)
                 return USER_CLOSING;
 
-        if (!u->started || u->slice_job || u->service_job)
+        if (!u->started || u->service_job)
                 return USER_OPENING;
 
         if (u->sessions) {

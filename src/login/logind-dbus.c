@@ -848,7 +848,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
         if (r < 0)
                 goto fail;
 
-        r = session_start(session, message);
+        r = session_start(session, message, error);
         if (r < 0)
                 goto fail;
 
@@ -2728,24 +2728,20 @@ const sd_bus_vtable manager_vtable[] = {
 };
 
 static int session_jobs_reply(Session *s, const char *unit, const char *result) {
-        int r = 0;
-
         assert(s);
         assert(unit);
 
         if (!s->started)
-                return r;
+                return 0;
 
-        if (streq(result, "done"))
-                r = session_send_create_reply(s, NULL);
-        else {
+        if (result && !streq(result, "done")) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
-                sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
-                r = session_send_create_reply(s, &e);
+                sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit '%s' failed with '%s'", unit, result);
+                return session_send_create_reply(s, &e);
         }
 
-        return r;
+        return session_send_create_reply(s, NULL);
 }
 
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2778,30 +2774,29 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         }
 
         session = hashmap_get(m->session_units, unit);
-        if (session && streq_ptr(path, session->scope_job)) {
-                session->scope_job = mfree(session->scope_job);
-                session_jobs_reply(session, unit, result);
+        if (session) {
+                if (streq_ptr(path, session->scope_job)) {
+                        session->scope_job = mfree(session->scope_job);
+                        (void) session_jobs_reply(session, unit, result);
 
-                session_save(session);
-                user_save(session->user);
+                        session_save(session);
+                        user_save(session->user);
+                }
+
                 session_add_to_gc_queue(session);
         }
 
         user = hashmap_get(m->user_units, unit);
-        if (user &&
-            (streq_ptr(path, user->service_job) ||
-             streq_ptr(path, user->slice_job))) {
-
-                if (streq_ptr(path, user->service_job))
+        if (user) {
+                if (streq_ptr(path, user->service_job)) {
                         user->service_job = mfree(user->service_job);
 
-                if (streq_ptr(path, user->slice_job))
-                        user->slice_job = mfree(user->slice_job);
+                        LIST_FOREACH(sessions_by_user, session, user->sessions)
+                                (void) session_jobs_reply(session, unit, NULL /* don't propagate user service failures to the client */);
 
-                LIST_FOREACH(sessions_by_user, session, user->sessions)
-                        session_jobs_reply(session, unit, result);
+                        user_save(user);
+                }
 
-                user_save(user);
                 user_add_to_gc_queue(user);
         }
 
@@ -2933,13 +2928,14 @@ int manager_start_scope(
                 pid_t pid,
                 const char *slice,
                 const char *description,
-                const char *after,
-                const char *after2,
+                char **wants,
+                char **after,
                 sd_bus_message *more_properties,
                 sd_bus_error *error,
                 char **job) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        char **i;
         int r;
 
         assert(manager);
@@ -2977,14 +2973,14 @@ int manager_start_scope(
                         return r;
         }
 
-        if (!isempty(after)) {
-                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, after);
+        STRV_FOREACH(i, wants) {
+                r = sd_bus_message_append(m, "(sv)", "Wants", "as", 1, *i);
                 if (r < 0)
                         return r;
         }
 
-        if (!isempty(after2)) {
-                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, after2);
+        STRV_FOREACH(i, after) {
+                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, *i);
                 if (r < 0)
                         return r;
         }

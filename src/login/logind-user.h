@@ -25,11 +25,12 @@ struct User {
         char *name;
         char *state_file;
         char *runtime_path;
-        char *slice;
-        char *service;
+
+        char *slice;                     /* user-UID.slice */
+        char *service;                   /* user@UID.service */
+        char *runtime_dir_service;       /* user-runtime-dir@UID.service */
 
         char *service_job;
-        char *slice_job;
 
         Session *display;
 

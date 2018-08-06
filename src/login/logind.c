@@ -1132,7 +1132,7 @@ static int manager_startup(Manager *m) {
                 (void) user_start(user);
 
         HASHMAP_FOREACH(session, m->sessions, i)
-                session_start(session, NULL);
+                (void) session_start(session, NULL, NULL);
 
         HASHMAP_FOREACH(inhibitor, m->inhibitors, i)
                 inhibitor_start(inhibitor);
