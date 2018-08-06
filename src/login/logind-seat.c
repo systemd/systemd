@@ -199,10 +199,8 @@ int seat_preallocate_vts(Seat *s) {
                 int q;
 
                 q = vt_allocate(i);
-                if (q < 0) {
-                        log_error_errno(q, "Failed to preallocate VT %u: %m", i);
-                        r = q;
-                }
+                if (q < 0)
+                        r = log_error_errno(q, "Failed to preallocate VT %u: %m", i);
         }
 
         return r;
@@ -219,9 +217,9 @@ int seat_apply_acls(Seat *s, Session *old_active) {
                             !!s->active, s->active ? s->active->user->uid : 0);
 
         if (r < 0)
-                log_error_errno(r, "Failed to apply ACLs: %m");
+                return log_error_errno(r, "Failed to apply ACLs: %m");
 
-        return r;
+        return 0;
 }
 
 int seat_set_active(Seat *s, Session *session) {
