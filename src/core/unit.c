@@ -4143,12 +4143,28 @@ int unit_patch_contexts(Unit *u) {
         }
 
         cc = unit_get_cgroup_context(u);
-        if (cc) {
+        if (cc && ec) {
 
-                if (ec &&
-                    ec->private_devices &&
+                if (ec->private_devices &&
                     cc->device_policy == CGROUP_AUTO)
                         cc->device_policy = CGROUP_CLOSED;
+
+                if (ec->root_image &&
+                    (cc->device_policy != CGROUP_AUTO || cc->device_allow)) {
+
+                        /* When RootImage= is specified, the following devices are touched. */
+                        r = cgroup_add_device_allow(cc, "/dev/loop-control", "rw");
+                        if (r < 0)
+                                return r;
+
+                        r = cgroup_add_device_allow(cc, "block-loop", "rwm");
+                        if (r < 0)
+                                return r;
+
+                        r = cgroup_add_device_allow(cc, "block-blkext", "rwm");
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
