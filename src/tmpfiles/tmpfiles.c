@@ -1265,7 +1265,7 @@ static int fd_set_attribute(Item *item, int fd, const char *path, const struct s
         if (r < 0)
                 log_full_errno(IN_SET(r, -ENOTTY, -EOPNOTSUPP) ? LOG_DEBUG : LOG_WARNING,
                                r,
-                               "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x: %m",
+                               "Cannot set file attribute for '%s', value=0x%08x, mask=0x%08x, ignoring: %m",
                                path, item->attribute_value, item->attribute_mask);
 
         return 0;
