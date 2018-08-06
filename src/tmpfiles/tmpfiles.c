@@ -1805,7 +1805,7 @@ static int create_fifo(Item *i, const char *path) {
 
         fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to openat(%s): %m", path);
+                return log_error_errno(errno, "Failed to openat(%s): %m", path);
 
         return fd_set_perms(i, fd, i->path, NULL);
 }
