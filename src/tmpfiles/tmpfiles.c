@@ -1259,7 +1259,7 @@ static int fd_set_attribute(Item *item, int fd, const char *path, const struct s
 
         procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
         if (procfs_fd < 0)
-                return log_error_errno(errno, "Failed to re-open '%s': %m", path);
+                return log_error_errno(procfs_fd, "Failed to re-open '%s': %m", path);
 
         r = chattr_fd(procfs_fd, f, item->attribute_mask);
         if (r < 0)
