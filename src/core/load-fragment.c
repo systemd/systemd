@@ -3212,7 +3212,6 @@ int config_parse_device_allow(
 
         _cleanup_free_ char *path = NULL, *resolved = NULL;
         CGroupContext *c = data;
-        CGroupDeviceAllow *a;
         const char *p = rvalue;
         int r;
 
@@ -3261,17 +3260,7 @@ int config_parse_device_allow(
                 return 0;
         }
 
-        a = new0(CGroupDeviceAllow, 1);
-        if (!a)
-                return log_oom();
-
-        a->path = TAKE_PTR(resolved);
-        a->r = isempty(p) || !!strchr(p, 'r');
-        a->w = isempty(p) || !!strchr(p, 'w');
-        a->m = isempty(p) || !!strchr(p, 'm');
-
-        LIST_PREPEND(device_allow, c->device_allow, a);
-        return 0;
+        return cgroup_add_device_allow(c, resolved, p);
 }
 
 int config_parse_io_device_weight(
