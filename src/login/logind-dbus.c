@@ -846,7 +846,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
 
         r = sd_bus_message_enter_container(message, 'a', "(sv)");
         if (r < 0)
-                return r;
+                goto fail;
 
         r = session_start(session, message);
         if (r < 0)
