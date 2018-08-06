@@ -689,6 +689,15 @@ int session_send_lock_all(Manager *m, bool lock) {
         return r;
 }
 
+static bool session_ready(Session *s) {
+        assert(s);
+
+        /* Returns true when the session is ready, i.e. all jobs we enqueued for it are done (regardless if successful or not) */
+
+        return !s->scope_job &&
+                !s->user->service_job;
+}
+
 int session_send_create_reply(Session *s, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
         _cleanup_close_ int fifo_fd = -1;
@@ -696,14 +705,13 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
 
         assert(s);
 
-        /* This is called after the session scope and the user service
-         * were successfully created, and finishes where
+        /* This is called after the session scope and the user service were successfully created, and finishes where
          * bus_manager_create_session() left off. */
 
         if (!s->create_message)
                 return 0;
 
-        if (!sd_bus_error_is_set(error) && (s->scope_job || s->user->service_job))
+        if (!sd_bus_error_is_set(error) && !session_ready(s))
                 return 0;
 
         c = TAKE_PTR(s->create_message);
@@ -714,8 +722,7 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         if (fifo_fd < 0)
                 return fifo_fd;
 
-        /* Update the session state file before we notify the client
-         * about the result. */
+        /* Update the session state file before we notify the client about the result. */
         session_save(s);
 
         p = session_bus_path(s);
