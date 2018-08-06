@@ -197,11 +197,14 @@ int mac_smack_fix_at(int dirfd, const char *path, LabelFixFlags flags) {
                 return -errno;
         }
 
-        r = fd_get_path(fd, &p);
-        if (r < 0)
-                return r;
+        if (!path_is_absolute(path)) {
+                r = fd_get_path(fd, &p);
+                if (r < 0)
+                        return r;
+                path = p;
+        }
 
-        return smack_fix_fd(fd, p, flags);
+        return smack_fix_fd(fd, path, flags);
 }
 
 int mac_smack_fix(const char *path, LabelFixFlags flags) {
