@@ -6,7 +6,8 @@
   SPDX-License-Identifier: LGPL-2.1+
 -->
 
-<refentry id="sd_journal_open">
+<refentry id="sd_journal_open"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_journal_open</title>
@@ -184,15 +185,9 @@
   <refsect1>
     <title>Notes</title>
 
-    <para>All functions listed here are thread-agnostic and only a single thread may operate
-    on a given <structname>sd_journal</structname> object.</para>
+    <xi:include href="threads-aware.xml" xpointer="strict"/>
 
-    <para>The <function>sd_journal_open()</function>,
-    <function>sd_journal_open_directory()</function> and
-    <function>sd_journal_close()</function> interfaces are available
-    as a shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
+    <xi:include href="libsystemd-pkgconfig.xml" xpointer="pkgconfig-text"/>
   </refsect1>
 
   <refsect1>

@@ -42,6 +42,9 @@ All tools:
   are understood, too (us, ms, s, min, h, d, w, month, y). If it is not set or set
   to 0, then the built-in default is used.
 
+* `$SYSTEMD_MEMPOOL=0` — if set the internal memory caching logic employed by
+  hash tables is turned off, and libc malloc() is used for all allocations.
+
 systemctl:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID1's private D-Bus

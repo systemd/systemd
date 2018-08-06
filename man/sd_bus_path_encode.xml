@@ -6,7 +6,7 @@
   SPDX-License-Identifier: LGPL-2.1+
 -->
 
-<refentry id="sd_bus_path_encode">
+<refentry id="sd_bus_path_encode" xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>sd_bus_path_encode</title>
@@ -141,15 +141,7 @@
     by the caller.</para>
   </refsect1>
 
-  <refsect1>
-    <title>Notes</title>
-
-    <para><function>sd_bus_path_encode()</function> and
-    <function>sd_bus_path_decode()</function> are available as a
-    shared library, which can be compiled and linked to with the
-    <constant>libsystemd</constant> <citerefentry project='die-net'><refentrytitle>pkg-config</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    file.</para>
-  </refsect1>
+  <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
     <title>See Also</title>

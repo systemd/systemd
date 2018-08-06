@@ -23,6 +23,13 @@ Janitorial Clean-ups:
 
 Features:
 
+* optionally, if a per-partition GPT flag is set for the root/home/… partitions
+  format the partition on next boot and unset the flag, in order to implement
+  factory reset. also, add a second flag that simply indicates whether such a
+  scheme is supported. then, add a tool (or maybe beef up systemd-dissect) to
+  show state of these flags, and optionally trigger such a factory reset on
+  next boot by setting the flag.
+
 * logind: maybe watch utmp asynchronously using inotify, and populate our own
   tracked session metadata from the fields available therein. Why bother? Right
   now, all "ssh" sessions will be tracked without their TTY by logind (which is

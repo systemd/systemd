@@ -77,16 +77,15 @@
   <refsect1>
     <title>Thread safety</title>
 
-    <para>Functions that operate on the <structname>sd_journal</structname> object are thread
-    agnostic — given <structname>sd_journal</structname> pointer may only be used from one thread at
-    a time, but multiple threads may use multiple such objects safely. Other functions —
-    those that are used to send entries to the journal, like
-    <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and similar, or those that are used to retrieve global information like
-    <citerefentry><refentrytitle>sd_journal_stream_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    and
+    <para>Functions that operate on <structname>sd_journal</structname> objects are thread agnostic — given
+    <structname>sd_journal</structname> pointer may only be used from one specific thread at all times (and it has to
+    be the very same one during the entire lifetime of the object), but multiple, independent threads may use multiple,
+    independent objects safely. Other functions — those that are used to send entries to the journal, like
+    <citerefentry><refentrytitle>sd_journal_print</refentrytitle><manvolnum>3</manvolnum></citerefentry> and similar,
+    or those that are used to retrieve global information like
+    <citerefentry><refentrytitle>sd_journal_stream_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_journal_get_catalog_for_message_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    — are thread-safe and may be called from multiple threads in parallel.</para>
+    — are fully thread-safe and may be called from multiple threads in parallel.</para>
   </refsect1>
 
   <xi:include href="libsystemd-pkgconfig.xml" />
