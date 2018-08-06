@@ -289,11 +289,10 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
                  */
                 times.reverse_offset = times.userspace_time;
 
-                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time = times.userspace_time = 0;
-                subtract_timestamp(&times.finish_time, times.reverse_offset);
+                times.firmware_time = times.loader_time = times.kernel_time = times.initrd_time = times.userspace_time =
+                        times.security_start_time = times.security_finish_time = 0;
 
-                subtract_timestamp(&times.security_start_time, times.reverse_offset);
-                subtract_timestamp(&times.security_finish_time, times.reverse_offset);
+                subtract_timestamp(&times.finish_time, times.reverse_offset);
 
                 subtract_timestamp(&times.generators_start_time, times.reverse_offset);
                 subtract_timestamp(&times.generators_finish_time, times.reverse_offset);
@@ -772,7 +771,8 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         }
 
         svg_bar("active", boot->userspace_time, boot->finish_time, y);
-        svg_bar("security", boot->security_start_time, boot->security_finish_time, y);
+        if (boot->security_start_time > 0)
+                svg_bar("security", boot->security_start_time, boot->security_finish_time, y);
         svg_bar("generators", boot->generators_start_time, boot->generators_finish_time, y);
         svg_bar("unitsload", boot->unitsload_start_time, boot->unitsload_finish_time, y);
         svg_text(true, boot->userspace_time, y, "systemd");
@@ -795,9 +795,11 @@ static int analyze_plot(int argc, char *argv[], void *userdata) {
         svg_bar("deactivating", 0, 300000, y);
         svg_text(true, 400000, y, "Deactivating");
         y++;
-        svg_bar("security", 0, 300000, y);
-        svg_text(true, 400000, y, "Setting up security module");
-        y++;
+        if (boot->security_start_time > 0) {
+                svg_bar("security", 0, 300000, y);
+                svg_text(true, 400000, y, "Setting up security module");
+                y++;
+        }
         svg_bar("generators", 0, 300000, y);
         svg_text(true, 400000, y, "Generators");
         y++;
