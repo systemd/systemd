@@ -706,9 +706,7 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         if (!sd_bus_error_is_set(error) && (s->scope_job || s->user->service_job))
                 return 0;
 
-        c = s->create_message;
-        s->create_message = NULL;
-
+        c = TAKE_PTR(s->create_message);
         if (error)
                 return sd_bus_reply_method_error(c, error);
 
