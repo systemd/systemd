@@ -537,7 +537,7 @@ int session_activate(Session *s) {
 
         /* on seats with VTs, we let VTs manage session-switching */
         if (seat_has_vts(s->seat)) {
-                if (!s->vtnr)
+                if (s->vtnr == 0)
                         return -EOPNOTSUPP;
 
                 return chvt(s->vtnr);
