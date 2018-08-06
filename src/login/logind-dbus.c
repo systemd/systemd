@@ -3130,7 +3130,7 @@ int manager_kill_unit(Manager *manager, const char *unit, KillWho who, int signo
                         "ssi", unit, who == KILL_LEADER ? "main" : "all", signo);
 }
 
-int manager_unit_is_active(Manager *manager, const char *unit) {
+int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *ret_error) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
@@ -3166,17 +3166,18 @@ int manager_unit_is_active(Manager *manager, const char *unit) {
                     sd_bus_error_has_name(&error, BUS_ERROR_LOAD_FAILED))
                         return false;
 
+                sd_bus_error_move(ret_error, &error);
                 return r;
         }
 
         r = sd_bus_message_read(reply, "s", &state);
         if (r < 0)
-                return -EINVAL;
+                return r;
 
-        return !streq(state, "inactive") && !streq(state, "failed");
+        return !STR_IN_SET(state, "inactive", "failed");
 }
 
-int manager_job_is_active(Manager *manager, const char *path) {
+int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *ret_error) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
@@ -3201,6 +3202,7 @@ int manager_job_is_active(Manager *manager, const char *path) {
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_OBJECT))
                         return false;
 
+                sd_bus_error_move(ret_error, &error);
                 return r;
         }
 

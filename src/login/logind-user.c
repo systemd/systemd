@@ -534,6 +534,8 @@ int user_check_linger_file(User *u) {
 }
 
 bool user_may_gc(User *u, bool drop_not_started) {
+        int r;
+
         assert(u);
 
         if (drop_not_started && !u->started)
@@ -545,11 +547,19 @@ bool user_may_gc(User *u, bool drop_not_started) {
         if (user_check_linger_file(u) > 0)
                 return false;
 
-        if (u->slice_job && manager_job_is_active(u->manager, u->slice_job))
-                return false;
+        /* Check if our job is still pending */
+        if (u->service_job) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-        if (u->service_job && manager_job_is_active(u->manager, u->service_job))
-                return false;
+                r = manager_job_is_active(u->manager, u->service_job, &error);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether job '%s' is pending, ignoring: %s", u->service_job, bus_error_message(&error, r));
+                if (r != 0)
+                        return false;
+        }
+
+        /* Note that we don't care if the three units we manage for each user object are up or not, as we are managing
+         * their state rather than tracking it. */
 
         return true;
 }
