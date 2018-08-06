@@ -614,11 +614,10 @@ int user_kill(User *u, int signo) {
 }
 
 static bool elect_display_filter(Session *s) {
-        /* Return true if the session is a candidate for the user’s ‘primary
-         * session’ or ‘display’. */
+        /* Return true if the session is a candidate for the user’s ‘primary session’ or ‘display’. */
         assert(s);
 
-        return (s->class == SESSION_USER && !s->stopping);
+        return s->class == SESSION_USER && s->started && !s->stopping;
 }
 
 static int elect_display_compare(Session *s1, Session *s2) {
@@ -664,9 +663,8 @@ void user_elect_display(User *u) {
 
         assert(u);
 
-        /* This elects a primary session for each user, which we call
-         * the "display". We try to keep the assignment stable, but we
-         * "upgrade" to better choices. */
+        /* This elects a primary session for each user, which we call the "display". We try to keep the assignment
+         * stable, but we "upgrade" to better choices. */
         log_debug("Electing new display for user %s", u->name);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions) {
