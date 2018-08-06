@@ -31,6 +31,7 @@
     <refname>sd_bus_error_set_errnofv</refname>
     <refname>sd_bus_error_get_errno</refname>
     <refname>sd_bus_error_copy</refname>
+    <refname>sd_bus_error_move</refname>
     <refname>sd_bus_error_is_set</refname>
     <refname>sd_bus_error_has_name</refname>
 
@@ -112,6 +113,12 @@
         <funcdef>int <function>sd_bus_error_copy</function></funcdef>
         <paramdef>sd_bus_error *<parameter>dst</parameter></paramdef>
         <paramdef>const sd_bus_error *<parameter>e</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_error_move</function></funcdef>
+        <paramdef>sd_bus_error *<parameter>dst</parameter></paramdef>
+        <paramdef>sd_bus_error *<parameter>e</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -245,6 +252,14 @@
     Otherwise, they will be copied. Returns a converted
     <varname>errno</varname>-like, negative error code.</para>
 
+    <para><function>sd_bus_error_move()</function> is similar to <function>sd_bus_error_copy()</function>, but will
+    move any error information from <parameter>e</parameter> into <parameter>dst</parameter>, resetting the
+    former. This function cannot fail, as no new memory is allocated. Note that if <parameter>e</parameter> is not set
+    (or <constant>NULL</constant>) <parameter>dst</parameter> is initializated to
+    <constant>SD_BUS_ERROR_NULL</constant>. Moreover, if <parameter>dst</parameter> is <constant>NULL</constant> no
+    operation is executed on it and and resources held by <parameter>e</parameter> are freed and reset. Returns a
+    converted <varname>errno</varname>-like, negative error code.</para>
+
     <para><function>sd_bus_error_is_set()</function> will return a
     non-zero value if <parameter>e</parameter> is
     non-<constant>NULL</constant> and an error has been set,
@@ -287,9 +302,8 @@
     <constant>NULL</constant>, and a positive errno value mapped from
     <parameter>e-&gt;name</parameter> otherwise.</para>
 
-    <para><function>sd_bus_error_copy()</function> returns 0 or a
-    positive integer on success, and a negative error value converted
-    from the error name otherwise.</para>
+    <para><function>sd_bus_error_copy()</function> and <function>sd_bus_error_move()</function> return 0 or a positive
+    integer on success, and a negative error value converted from the error name otherwise.</para>
 
     <para><function>sd_bus_error_is_set()</function> returns a
     non-zero value when <parameter>e</parameter> and the

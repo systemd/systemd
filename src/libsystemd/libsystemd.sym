@@ -577,6 +577,8 @@ global:
         sd_bus_set_method_call_timeout;
         sd_bus_get_method_call_timeout;
 
+        sd_bus_error_move;
+
         sd_device_ref;
         sd_device_unref;
 
