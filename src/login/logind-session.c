@@ -960,7 +960,8 @@ int session_create_fifo(Session *s) {
                 if (r < 0)
                         return r;
 
-                if (asprintf(&s->fifo_path, "/run/systemd/sessions/%s.ref", s->id) < 0)
+                s->fifo_path = strjoin("/run/systemd/sessions/", s->id, ".ref");
+                if (!s->fifo_path)
                         return -ENOMEM;
 
                 if (mkfifo(s->fifo_path, 0600) < 0 && errno != EEXIST)
@@ -972,7 +973,6 @@ int session_create_fifo(Session *s) {
                 s->fifo_fd = open(s->fifo_path, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
                 if (s->fifo_fd < 0)
                         return -errno;
-
         }
 
         if (!s->fifo_event_source) {
