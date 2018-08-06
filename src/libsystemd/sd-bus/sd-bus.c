@@ -1373,7 +1373,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                 e = bus_address_escape(t);
                 if (!e)
                         return -ENOMEM;
-        } else if ((a = strchr(host, '@')))
+        } else if ((a = strchr(host, '@'))) {
                 if (*(a + 1) == '[') {
                         _cleanup_free_ char *t = NULL;
 
@@ -1388,7 +1388,9 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                         e = bus_address_escape(t);
                         if (!e)
                                 return -ENOMEM;
-                }
+                } else if (*(a + 1) == '\0' || strchr(a + 1, '@'))
+                        return -EINVAL;
+        }
 
         /* Let's see if a port was given */
         m = strchr(rbracket ? rbracket + 1 : host, ':');
@@ -1404,7 +1406,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                         got_forward_slash = true;
                 }
 
-                if (!in_charset(p, "0123456789")) {
+                if (!in_charset(p, "0123456789") || *p == '\0') {
                         if (!machine_name_is_valid(p) || got_forward_slash)
                                 return -EINVAL;
                         else {

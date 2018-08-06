@@ -36,26 +36,26 @@ static void test_bus_set_address_system_remote(char **args) {
                          0, "unixexec:path=ssh,argv1=-xT,argv2=-p,argv3=123,argv4=--,argv5=host,argv6=systemd-stdio-bridge");
         test_one_address(b, "host:123:123",
                          -EINVAL, NULL);
-        //        test_one_address(b, "host:",
-        //                         -EINVAL, NULL);
+                test_one_address(b, "host:",
+                                 -EINVAL, NULL);
         test_one_address(b, "user@host",
                          0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=user%40host,argv4=systemd-stdio-bridge");
-        // test_one_address(b, "user@host@host",
-        //                         -EINVAL, NULL);
+         test_one_address(b, "user@host@host",
+                                 -EINVAL, NULL);
         test_one_address(b, "[::1]",
                          0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=%3a%3a1,argv4=systemd-stdio-bridge");
         test_one_address(b, "user@[::1]",
                          0, "unixexec:path=ssh,argv1=-xT,argv2=--,argv3=user%40%3a%3a1,argv4=systemd-stdio-bridge");
         test_one_address(b, "user@[::1]:99",
                          0, "unixexec:path=ssh,argv1=-xT,argv2=-p,argv3=99,argv4=--,argv5=user%40%3a%3a1,argv6=systemd-stdio-bridge");
-        //test_one_address(b, "user@[::1]:",
-        //                 -EINVAL, NULL);
+        test_one_address(b, "user@[::1]:",
+                         -EINVAL, NULL);
         test_one_address(b, "user@[::1:",
                          -EINVAL, NULL);
-        //test_one_address(b, "user@",
-        //                 -EINVAL, NULL);
-        //test_one_address(b, "user@@",
-        //                 -EINVAL, NULL);
+        test_one_address(b, "user@",
+                         -EINVAL, NULL);
+        test_one_address(b, "user@@",
+                         -EINVAL, NULL);
 }
 
 int main(int argc, char *argv[]) {
