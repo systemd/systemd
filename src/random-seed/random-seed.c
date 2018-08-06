@@ -6,6 +6,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-id128.h"
+
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "io-util.h"
@@ -136,6 +138,8 @@ int main(int argc, char *argv[]) {
         }
 
         if (read_seed_file) {
+                sd_id128_t mid;
+                int z;
 
                 k = loop_read(seed_fd, buf, buf_size, false);
                 if (k < 0)
@@ -149,6 +153,21 @@ int main(int argc, char *argv[]) {
                         r = loop_write(random_fd, buf, (size_t) k, false);
                         if (r < 0)
                                 log_error_errno(r, "Failed to write seed to /dev/urandom: %m");
+                }
+
+                /* Let's also write the machine ID into the random seed. Why? As an extra protection against "golden
+                 * images" that are put together sloppily, i.e. images which are duplicated on multiple systems but
+                 * where the random seed file is not properly reset. Frequently the machine ID is properly reset on
+                 * those systems however (simply because it's easier to notice, if it isn't due to address clashes and
+                 * so on, while random seed equivalence is generally not noticed easily), hence let's simply write the
+                 * machined ID into the random pool too. */
+                z = sd_id128_get_machine(&mid);
+                if (z < 0)
+                        log_debug_errno(z, "Failed to get machine ID, ignoring: %m");
+                else {
+                        z = loop_write(random_fd, &mid, sizeof(mid), false);
+                        if (z < 0)
+                                log_debug_errno(z, "Failed to write machine ID to /dev/urandom, ignoring: %m");
                 }
         }
 
