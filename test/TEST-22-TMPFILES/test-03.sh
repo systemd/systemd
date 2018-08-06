@@ -27,12 +27,12 @@ test "$(< /tmp/f/2)" = "This string should be written"
 
 ### The perms are supposed to be updated even if the file already exists.
 systemd-tmpfiles --create - <<EOF
-f     /tmp/f/1    0666 nobody nogroup - This string should not be written
+f     /tmp/f/1    0666 daemon daemon - This string should not be written
 EOF
 
 # file should be empty
 ! test -s /tmp/f/1
-test $(stat -c %U:%G:%a /tmp/f/1) = "nobody:nogroup:666"
+test $(stat -c %U:%G:%a /tmp/f/1) = "daemon:daemon:666"
 
 ### But we shouldn't try to set perms on an existing file which is not a
 ### regular one.
@@ -40,7 +40,7 @@ mkfifo /tmp/f/fifo
 chmod 644 /tmp/f/fifo
 
 ! systemd-tmpfiles --create - <<EOF
-f     /tmp/f/fifo    0666 nobody nogroup - This string should not be written
+f     /tmp/f/fifo    0666 daemon daemon - This string should not be written
 EOF
 
 test -p /tmp/f/fifo
@@ -51,8 +51,8 @@ ln -s missing /tmp/f/dangling
 ln -s /tmp/file-owned-by-root /tmp/f/symlink
 
 ! systemd-tmpfiles --create - <<EOF
-f     /tmp/f/dangling    0644 nobody nogroup - -
-f     /tmp/f/symlink     0644 nobody nogroup - -
+f     /tmp/f/dangling    0644 daemon daemon - -
+f     /tmp/f/symlink     0644 daemon daemon - -
 EOF
 ! test -e /tmp/f/missing
 test $(stat -c %U:%G:%a /tmp/file-owned-by-root) = "root:root:644"
@@ -83,14 +83,14 @@ EOF
 ! test -e /tmp/f/ro-fs/bar
 
 ### 'f' shouldn't follow unsafe paths.
-mkdir /tmp/f/nobody
-ln -s /root /tmp/f/nobody/unsafe-symlink
-chown -R --no-dereference nobody:nogroup /tmp/f/nobody
+mkdir /tmp/f/daemon
+ln -s /root /tmp/f/daemon/unsafe-symlink
+chown -R --no-dereference daemon:daemon /tmp/f/daemon
 
 ! systemd-tmpfiles --create - <<EOF
-f     /tmp/f/nobody/unsafe-symlink/exploit    0644 nobody nogroup - -
+f     /tmp/f/daemon/unsafe-symlink/exploit    0644 daemon daemon - -
 EOF
-! test -e /tmp/f/nobody/unsafe-symlink/exploit
+! test -e /tmp/f/daemon/unsafe-symlink/exploit
 
 #
 # 'F'
@@ -101,17 +101,17 @@ echo "This should be truncated" >/tmp/F/truncated-with-content
 systemd-tmpfiles --create - <<EOF
 F     /tmp/F/created                0644 - - - -
 F     /tmp/F/created-with-content   0644 - - - new content
-F     /tmp/F/truncated              0666 nobody nogroup - -
-F     /tmp/F/truncated-with-content 0666 nobody nogroup - new content
+F     /tmp/F/truncated              0666 daemon daemon - -
+F     /tmp/F/truncated-with-content 0666 daemon daemon - new content
 EOF
 
 test -f /tmp/F/created; ! test -s /tmp/F/created
 test -f /tmp/F/created-with-content
 test "$(< /tmp/F/created-with-content)" = "new content"
 test -f /tmp/F/truncated; ! test -s /tmp/F/truncated
-test $(stat -c %U:%G:%a /tmp/F/truncated) = "nobody:nogroup:666"
+test $(stat -c %U:%G:%a /tmp/F/truncated) = "daemon:daemon:666"
 test -s /tmp/F/truncated-with-content
-test $(stat -c %U:%G:%a /tmp/F/truncated-with-content) = "nobody:nogroup:666"
+test $(stat -c %U:%G:%a /tmp/F/truncated-with-content) = "daemon:daemon:666"
 
 ### We shouldn't try to truncate anything but regular files since the behavior is
 ### unspecified in the other cases.
@@ -128,8 +128,8 @@ ln -s missing /tmp/F/dangling
 ln -s /tmp/file-owned-by-root /tmp/F/symlink
 
 ! systemd-tmpfiles --create - <<EOF
-f     /tmp/F/dangling    0644 nobody nogroup - -
-f     /tmp/F/symlink     0644 nobody nogroup - -
+f     /tmp/F/dangling    0644 daemon daemon - -
+f     /tmp/F/symlink     0644 daemon daemon - -
 EOF
 ! test -e /tmp/F/missing
 test $(stat -c %U:%G:%a /tmp/file-owned-by-root) = "root:root:644"
@@ -173,14 +173,14 @@ EOF
 ! test -e /tmp/F/ro-fs/bar
 
 ### 'F' shouldn't follow unsafe paths.
-mkdir /tmp/F/nobody
-ln -s /root /tmp/F/nobody/unsafe-symlink
-chown -R --no-dereference nobody:nogroup /tmp/F/nobody
+mkdir /tmp/F/daemon
+ln -s /root /tmp/F/daemon/unsafe-symlink
+chown -R --no-dereference daemon:daemon /tmp/F/daemon
 
 ! systemd-tmpfiles --create - <<EOF
-F     /tmp/F/nobody/unsafe-symlink/exploit    0644 nobody nogroup - -
+F     /tmp/F/daemon/unsafe-symlink/exploit    0644 daemon daemon - -
 EOF
-! test -e /tmp/F/nobody/unsafe-symlink/exploit
+! test -e /tmp/F/daemon/unsafe-symlink/exploit
 
 #
 # 'w'
@@ -226,11 +226,11 @@ readlink -e /tmp/w/symlink
 test "$(< /tmp/w/overwritten)" = "/tmp/w/overwritten"
 
 ### 'w' shouldn't follow unsafe paths.
-mkdir /tmp/w/nobody
-ln -s /root /tmp/w/nobody/unsafe-symlink
-chown -R --no-dereference nobody:nogroup /tmp/w/nobody
+mkdir /tmp/w/daemon
+ln -s /root /tmp/w/daemon/unsafe-symlink
+chown -R --no-dereference daemon:daemon /tmp/w/daemon
 
 ! systemd-tmpfiles --create - <<EOF
-f     /tmp/w/nobody/unsafe-symlink/exploit    0644 nobody nogroup - -
+f     /tmp/w/daemon/unsafe-symlink/exploit    0644 daemon daemon - -
 EOF
-! test -e /tmp/w/nobody/unsafe-symlink/exploit
+! test -e /tmp/w/daemon/unsafe-symlink/exploit

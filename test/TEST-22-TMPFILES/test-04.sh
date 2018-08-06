@@ -35,10 +35,10 @@ test $(stat -c %U:%G:%a /tmp/p/f1) = "root:root:666"
 #
 # Must be fixed
 #
-# mkdir /tmp/p/nobody
-# #ln -s /root /tmp/F/nobody/unsafe-symlink
-# chown -R --no-dereference nobody:nogroup /tmp/p/nobody
+# mkdir /tmp/p/daemon
+# #ln -s /root /tmp/F/daemon/unsafe-symlink
+# chown -R --no-dereference daemon:daemon /tmp/p/daemon
 #
 # systemd-tmpfiles --create - <<EOF
-# p      /tmp/p/nobody/fifo2    0666 nobody nogroup - -
+# p      /tmp/p/daemon/fifo2    0666 daemon daemon - -
 # EOF
