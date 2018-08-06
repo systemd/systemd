@@ -2063,10 +2063,8 @@ static int create_item(Item *i) {
         case CREATE_BLOCK_DEVICE:
         case CREATE_CHAR_DEVICE:
                 if (have_effective_cap(CAP_MKNOD) == 0) {
-                        /* In a container we lack CAP_MKNOD. We
-                        shouldn't attempt to create the device node in
-                        that case to avoid noise, and we don't support
-                        virtualized devices in containers anyway. */
+                        /* In a container we lack CAP_MKNOD. We shouldn't attempt to create the device node in that
+                         * case to avoid noise, and we don't support virtualized devices in containers anyway. */
 
                         log_debug("We lack CAP_MKNOD, skipping creation of device node %s.", i->path);
                         return 0;
