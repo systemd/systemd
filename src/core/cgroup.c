@@ -341,6 +341,35 @@ void cgroup_context_dump(CGroupContext *c, FILE* f, const char *prefix) {
         }
 }
 
+int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode) {
+        _cleanup_free_ CGroupDeviceAllow *a = NULL;
+        _cleanup_free_ char *d = NULL;
+
+        assert(c);
+        assert(dev);
+        assert(isempty(mode) || in_charset(mode, "rwm"));
+
+        a = new(CGroupDeviceAllow, 1);
+        if (!a)
+                return -ENOMEM;
+
+        d = strdup(dev);
+        if (!d)
+                return -ENOMEM;
+
+        *a = (CGroupDeviceAllow) {
+                .path = TAKE_PTR(d),
+                .r = isempty(mode) || !!strchr(mode, 'r'),
+                .w = isempty(mode) || !!strchr(mode, 'w'),
+                .m = isempty(mode) || !!strchr(mode, 'm'),
+        };
+
+        LIST_PREPEND(device_allow, c->device_allow, a);
+        TAKE_PTR(a);
+
+        return 0;
+}
+
 static int lookup_block_device(const char *p, dev_t *ret) {
         struct stat st;
         int r;

@@ -153,6 +153,8 @@ void cgroup_context_free_io_device_latency(CGroupContext *c, CGroupIODeviceLaten
 void cgroup_context_free_blockio_device_weight(CGroupContext *c, CGroupBlockIODeviceWeight *w);
 void cgroup_context_free_blockio_device_bandwidth(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
 
+int cgroup_add_device_allow(CGroupContext *c, const char *dev, const char *mode);
+
 CGroupMask unit_get_own_mask(Unit *u);
 CGroupMask unit_get_delegate_mask(Unit *u);
 CGroupMask unit_get_members_mask(Unit *u);
