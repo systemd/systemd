@@ -277,14 +277,15 @@ static int acquire_boot_times(sd_bus *bus, struct boot_times **bt) {
                 return -EINPROGRESS;
         }
 
-        if (arg_scope == UNIT_FILE_SYSTEM) {
+        if (arg_scope == UNIT_FILE_SYSTEM && times.security_start_time > 0) {
+                /* security_start_time is set when systemd is not running under container environment. */
                 if (times.initrd_time > 0)
                         times.kernel_done_time = times.initrd_time;
                 else
                         times.kernel_done_time = times.userspace_time;
         } else {
                 /*
-                 * User-instance-specific timestamps processing
+                 * User-instance-specific or container-system-specific timestamps processing
                  * (see comment to reverse_offset in struct boot_times).
                  */
                 times.reverse_offset = times.userspace_time;
@@ -536,9 +537,12 @@ static int pretty_boot_time(sd_bus *bus, char **_buf) {
         if (t->kernel_time > 0)
                 strpcpyf(&ptr, size, "= %s ", format_timespan(ts, sizeof(ts), t->firmware_time + t->finish_time, USEC_PER_MSEC));
 
-        if (unit_id && activated_time > 0 && activated_time != USEC_INFINITY)
-                size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id, format_timespan(ts, sizeof(ts), activated_time - t->userspace_time, USEC_PER_MSEC));
-        else if (unit_id && activated_time == 0)
+        if (unit_id && activated_time > 0 && activated_time != USEC_INFINITY) {
+                if (t->userspace_time > 0)
+                        size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id, format_timespan(ts, sizeof(ts), activated_time - t->userspace_time, USEC_PER_MSEC));
+                else
+                        size = strpcpyf(&ptr, size, "\n%s reached after %s in userspace", unit_id, format_timespan(ts, sizeof(ts), activated_time - t->reverse_offset, USEC_PER_MSEC));
+        } else if (unit_id && activated_time == 0)
                 size = strpcpyf(&ptr, size, "\n%s was never reached", unit_id);
         else if (unit_id && activated_time == USEC_INFINITY)
                 size = strpcpyf(&ptr, size, "\nCould not get time to reach %s.", unit_id);
