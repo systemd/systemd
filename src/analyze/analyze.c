@@ -387,11 +387,11 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct host_info*, free_host_info);
 static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r, c = 0;
-        struct boot_times *boot_times = NULL;
         _cleanup_(unit_times_freep) struct unit_times *unit_times = NULL;
-        size_t size = 0;
+        struct boot_times *boot_times = NULL;
+        size_t allocated = 0, c = 0;
         UnitInfo u;
+        int r;
 
         r = acquire_boot_times(bus, &boot_times);
         if (r < 0)
@@ -417,7 +417,7 @@ static int acquire_time_data(sd_bus *bus, struct unit_times **out) {
         while ((r = bus_parse_unit_info(reply, &u)) > 0) {
                 struct unit_times *t;
 
-                if (!GREEDY_REALLOC(unit_times, size, c+2))
+                if (!GREEDY_REALLOC(unit_times, allocated, c+2))
                         return log_oom();
 
                 unit_times[c+1].has_data = false;
