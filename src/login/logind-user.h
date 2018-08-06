@@ -36,8 +36,9 @@ struct User {
         dual_timestamp timestamp;
 
         bool in_gc_queue:1;
-        bool started:1;
-        bool stopping:1;
+
+        bool started:1;       /* Whenever the user being started, has been started or is being stopped again. */
+        bool stopping:1;      /* Whenever the user is being stopped or has been stopped. */
 
         LIST_HEAD(Session, sessions);
         LIST_FIELDS(User, gc_queue);
