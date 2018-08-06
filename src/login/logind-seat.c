@@ -175,7 +175,7 @@ static int vt_allocate(unsigned int vtnr) {
         xsprintf(p, "/dev/tty%u", vtnr);
         fd = open_terminal(p, O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         return 0;
 }
