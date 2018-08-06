@@ -3081,7 +3081,8 @@ int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, c
         return strdup_job(reply, job);
 }
 
-int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *error) {
+int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *ret_error) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -3098,17 +3099,16 @@ int manager_abandon_scope(Manager *manager, const char *scope, sd_bus_error *err
                         path,
                         "org.freedesktop.systemd1.Scope",
                         "Abandon",
-                        error,
+                        &error,
                         NULL,
                         NULL);
         if (r < 0) {
-                if (sd_bus_error_has_name(error, BUS_ERROR_NO_SUCH_UNIT) ||
-                    sd_bus_error_has_name(error, BUS_ERROR_LOAD_FAILED) ||
-                    sd_bus_error_has_name(error, BUS_ERROR_SCOPE_NOT_RUNNING)) {
-                        sd_bus_error_free(error);
+                if (sd_bus_error_has_name(&error, BUS_ERROR_NO_SUCH_UNIT) ||
+                    sd_bus_error_has_name(&error, BUS_ERROR_LOAD_FAILED) ||
+                    sd_bus_error_has_name(&error, BUS_ERROR_SCOPE_NOT_RUNNING))
                         return 0;
-                }
 
+                sd_bus_error_move(ret_error, &error);
                 return r;
         }
 
