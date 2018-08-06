@@ -43,6 +43,7 @@ typedef enum LinkOperationalState {
 typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Address Address;
+typedef struct DUID DUID;
 
 typedef struct Link {
         Manager *manager;
@@ -122,6 +123,8 @@ typedef struct Link {
         Hashmap *bound_by_links;
         Hashmap *bound_to_links;
 } Link;
+
+DUID *link_get_duid(Link *link);
 
 Link *link_unref(Link *link);
 Link *link_ref(Link *link);

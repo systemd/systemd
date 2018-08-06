@@ -56,13 +56,6 @@ struct Manager {
         Set *rules_saved;
 };
 
-static inline const DUID* link_duid(const Link *link) {
-        if (link->network->duid.type != _DUID_TYPE_INVALID)
-                return &link->network->duid;
-        else
-                return &link->manager->duid;
-}
-
 extern const sd_bus_vtable manager_vtable[];
 
 int manager_new(Manager **ret);

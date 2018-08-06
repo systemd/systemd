@@ -766,7 +766,7 @@ int dhcp4_configure(Link *link) {
         switch (link->network->dhcp_client_identifier) {
         case DHCP_CLIENT_ID_DUID: {
                 /* If configured, apply user specified DUID and/or IAID */
-                const DUID *duid = link_duid(link);
+                const DUID *duid = link_get_duid(link);
 
                 r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
                                                  link->network->iaid,
@@ -779,7 +779,7 @@ int dhcp4_configure(Link *link) {
         }
         case DHCP_CLIENT_ID_DUID_ONLY: {
                 /* If configured, apply user specified DUID */
-                const DUID *duid = link_duid(link);
+                const DUID *duid = link_get_duid(link);
 
                 r = sd_dhcp_client_set_duid(link->dhcp_client,
                                             duid->type,

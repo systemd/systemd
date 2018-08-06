@@ -27,6 +27,13 @@
 #include "util.h"
 #include "virt.h"
 
+DUID* link_get_duid(Link *link) {
+        if (link->network->duid.type != _DUID_TYPE_INVALID)
+                return &link->network->duid;
+        else
+                return &link->manager->duid;
+}
+
 static bool link_dhcp6_enabled(Link *link) {
         assert(link);
 
@@ -3430,7 +3437,7 @@ int link_update(Link *link, sd_netlink_message *m) {
 
                                 switch (link->network->dhcp_client_identifier) {
                                 case DHCP_CLIENT_ID_DUID: {
-                                        const DUID *duid = link_duid(link);
+                                        const DUID *duid = link_get_duid(link);
 
                                         r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
                                                                          link->network->iaid,
@@ -3442,7 +3449,7 @@ int link_update(Link *link, sd_netlink_message *m) {
                                         break;
                                 }
                                 case DHCP_CLIENT_ID_DUID_ONLY: {
-                                        const DUID *duid = link_duid(link);
+                                        const DUID *duid = link_get_duid(link);
 
                                         r = sd_dhcp_client_set_duid(link->dhcp_client,
                                                                     duid->type,
@@ -3466,7 +3473,7 @@ int link_update(Link *link, sd_netlink_message *m) {
                         }
 
                         if (link->dhcp6_client) {
-                                const DUID* duid = link_duid(link);
+                                const DUID* duid = link_get_duid(link);
 
                                 r = sd_dhcp6_client_set_mac(link->dhcp6_client,
                                                             (const uint8_t *) &link->mac,
