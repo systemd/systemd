@@ -781,6 +781,7 @@ conf.set10('ENABLE_DEBUG_HASHMAP', enable_debug_hashmap)
 conf.set10('ENABLE_DEBUG_MMAP_CACHE', enable_debug_mmap_cache)
 
 conf.set10('VALGRIND', get_option('valgrind'))
+conf.set10('LOG_TRACE', get_option('log-trace'))
 
 #####################################################################
 
@@ -3066,6 +3067,7 @@ foreach tuple : [
         ['debug hashmap'],
         ['debug mmap cache'],
         ['valgrind',         conf.get('VALGRIND') == 1],
+        ['trace logging',    conf.get('LOG_TRACE') == 1],
 ]
 
         if tuple.length() >= 2

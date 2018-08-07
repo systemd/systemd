@@ -51,6 +51,8 @@ option('memory-accounting-default', type : 'boolean',
        description : 'enable MemoryAccounting= by default')
 option('valgrind', type : 'boolean', value : false,
        description : 'do extra operations to avoid valgrind warnings')
+option('log-trace', type : 'boolean', value : false,
+       description : 'enable low level debug logging')
 
 option('utmp', type : 'boolean',
        description : 'support for utmp/wtmp log handling')
