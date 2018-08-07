@@ -383,8 +383,24 @@ static int dhcp_client_set_iaid_duid(
                 len = sizeof(client->client_id.ns.duid.type) + duid_len;
         } else
                 switch (duid_type) {
+                case DUID_TYPE_LLT:
+                        if (!client->mac_addr || client->mac_addr_len == 0)
+                                return -EOPNOTSUPP;
+
+                        r = dhcp_identifier_set_duid_llt(&client->client_id.ns.duid, 0, client->mac_addr, client->mac_addr_len, client->arp_type, &len);
+                        if (r < 0)
+                                return r;
+                        break;
                 case DUID_TYPE_EN:
                         r = dhcp_identifier_set_duid_en(&client->client_id.ns.duid, &len);
+                        if (r < 0)
+                                return r;
+                        break;
+                case DUID_TYPE_LL:
+                        if (!client->mac_addr || client->mac_addr_len == 0)
+                                return -EOPNOTSUPP;
+
+                        r = dhcp_identifier_set_duid_ll(&client->client_id.ns.duid, client->mac_addr, client->mac_addr_len, client->arp_type, &len);
                         if (r < 0)
                                 return r;
                         break;
@@ -394,7 +410,7 @@ static int dhcp_client_set_iaid_duid(
                                 return r;
                         break;
                 default:
-                        return -EOPNOTSUPP;
+                        return -EINVAL;
                 }
 
         client->client_id_len = sizeof(client->client_id.type) + len +
