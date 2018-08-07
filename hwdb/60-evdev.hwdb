@@ -318,6 +318,13 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPad??40?:*
  EVDEV_ABS_35=::41
  EVDEV_ABS_36=::37
 
+# Lenovo ThinkPad X140e
+evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadX140e*
+ EVDEV_ABS_00=1176:5767:62
+ EVDEV_ABS_01=416:5534:160
+ EVDEV_ABS_35=1176:5767:62
+ EVDEV_ABS_36=416:5534:160
+
 # Lenovo ThinkPad T430
 evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnLENOVO*:pvrThinkPadT430*
  EVDEV_ABS_00=1250:5631:58
