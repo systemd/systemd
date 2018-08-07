@@ -328,14 +328,13 @@ int machine_load(Machine *m) {
 }
 
 static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
-        int r = 0;
-
         assert(m);
         assert(m->class != MACHINE_HOST);
 
         if (!m->unit) {
-                _cleanup_free_ char *escaped = NULL;
-                char *scope, *description, *job = NULL;
+                _cleanup_free_ char *escaped = NULL, *scope = NULL;
+                char *description, *job = NULL;
+                int r;
 
                 escaped = unit_name_escape(m->name);
                 if (!escaped)
@@ -348,22 +347,17 @@ static int machine_start_scope(Machine *m, sd_bus_message *properties, sd_bus_er
                 description = strjoina(m->class == MACHINE_VM ? "Virtual Machine " : "Container ", m->name);
 
                 r = manager_start_scope(m->manager, scope, m->leader, SPECIAL_MACHINE_SLICE, description, properties, error, &job);
-                if (r < 0) {
-                        log_error("Failed to start machine scope: %s", bus_error_message(error, r));
-                        free(scope);
-                        return r;
-                } else {
-                        m->unit = scope;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to start machine scope: %s", bus_error_message(error, r));
 
-                        free(m->scope_job);
-                        m->scope_job = job;
-                }
+                m->unit = TAKE_PTR(scope);
+                free_and_replace(m->scope_job, job);
         }
 
         if (m->unit)
                 hashmap_put(m->manager->machine_units, m->unit, m);
 
-        return r;
+        return 0;
 }
 
 int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
@@ -417,15 +411,10 @@ static int machine_stop_scope(Machine *m) {
                 return 0;
 
         r = manager_stop_unit(m->manager, m->unit, &error, &job);
-        if (r < 0) {
-                log_error("Failed to stop machine scope: %s", bus_error_message(&error, r));
-                return r;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
 
-        free(m->scope_job);
-        m->scope_job = job;
-
-        return 0;
+        return free_and_replace(m->scope_job, job);
 }
 
 int machine_stop(Machine *m) {
