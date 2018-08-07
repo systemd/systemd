@@ -87,10 +87,12 @@
           </varlistentry>
 
           <varlistentry>
-            <term><option>link-layer-time</option></term>
+            <term><option>link-layer-time[:<replaceable>TIME</replaceable>]</option></term>
             <term><option>link-layer</option></term>
-            <listitem><para>Those values are parsed and can be used to set the DUID type
-            field, but DUID contents must be provided using <varname>DUIDRawData=</varname>.
+            <listitem><para>If <literal>link-layer-time</literal> or <literal>link-layer</literal> is specified,
+            then the MAC address of the interface is used as a DUID value. The value <literal>link-layer-time</literal>
+            can take additional time value after a colon, e.g. <literal>link-layer-time:2018-01-23 12:34:56 UTC</literal>.
+            The default time value is <literal>2000-01-01 00:00:00 UTC</literal>.
             </para></listitem>
           </varlistentry>
         </variablelist>
