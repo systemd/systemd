@@ -101,6 +101,8 @@ Session* session_free(Session *s) {
 
                 if (s->user->display == s)
                         s->user->display = NULL;
+
+                user_update_last_session_timer(s->user);
         }
 
         if (s->seat) {
@@ -142,6 +144,8 @@ void session_set_user(Session *s, User *u) {
 
         s->user = u;
         LIST_PREPEND(sessions_by_user, u->sessions, s);
+
+        user_update_last_session_timer(u);
 }
 
 static void session_save_devices(Session *s, FILE *f) {
