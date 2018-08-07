@@ -6,6 +6,7 @@
 
 case "$1" in
     add)
+        [[ -d /lib/modules/"$2"/kernel ]] || exit 0
         exec depmod -a "$2"
         ;;
     remove)
