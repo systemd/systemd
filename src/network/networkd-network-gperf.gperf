@@ -130,7 +130,7 @@ DHCP.RequestBroadcast,                  config_parse_bool,                      
 DHCP.CriticalConnection,                config_parse_bool,                              0,                             offsetof(Network, dhcp_critical)
 DHCP.VendorClassIdentifier,             config_parse_string,                            0,                             offsetof(Network, dhcp_vendor_class_identifier)
 DHCP.UserClass,                         config_parse_dhcp_user_class,                   0,                             offsetof(Network, dhcp_user_class)
-DHCP.DUIDType,                          config_parse_duid_type,                         0,                             offsetof(Network, duid.type)
+DHCP.DUIDType,                          config_parse_duid_type,                         0,                             offsetof(Network, duid)
 DHCP.DUIDRawData,                       config_parse_duid_rawdata,                      0,                             offsetof(Network, duid)
 DHCP.RouteMetric,                       config_parse_unsigned,                          0,                             offsetof(Network, dhcp_route_metric)
 DHCP.RouteTable,                        config_parse_dhcp_route_table,                  0,                             0

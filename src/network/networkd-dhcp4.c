@@ -669,26 +669,35 @@ int dhcp4_set_client_identifier(Link *link) {
 
         switch (link->network->dhcp_client_identifier) {
         case DHCP_CLIENT_ID_DUID: {
-                /* If configured, apply user specified DUID and/or IAID */
+                /* If configured, apply user specified DUID and IAID */
                 const DUID *duid = link_get_duid(link);
 
-                r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
-                                                 link->network->iaid,
-                                                 duid->type,
-                                                 duid->raw_data_len > 0 ? duid->raw_data : NULL,
-                                                 duid->raw_data_len);
+                if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
+                        r = sd_dhcp_client_set_iaid_duid_llt(link->dhcp_client,
+                                                             link->network->iaid,
+                                                             duid->llt_time);
+                else
+                        r = sd_dhcp_client_set_iaid_duid(link->dhcp_client,
+                                                         link->network->iaid,
+                                                         duid->type,
+                                                         duid->raw_data_len > 0 ? duid->raw_data : NULL,
+                                                         duid->raw_data_len);
                 if (r < 0)
-                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set DUID: %m");
+                        return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set IAID+DUID: %m");
                 break;
         }
         case DHCP_CLIENT_ID_DUID_ONLY: {
                 /* If configured, apply user specified DUID */
                 const DUID *duid = link_get_duid(link);
 
-                r = sd_dhcp_client_set_duid(link->dhcp_client,
-                                            duid->type,
-                                            duid->raw_data_len > 0 ? duid->raw_data : NULL,
-                                            duid->raw_data_len);
+                if (duid->type == DUID_TYPE_LLT && duid->raw_data_len == 0)
+                        r = sd_dhcp_client_set_duid_llt(link->dhcp_client,
+                                                             duid->llt_time);
+                else
+                        r = sd_dhcp_client_set_duid(link->dhcp_client,
+                                                    duid->type,
+                                                    duid->raw_data_len > 0 ? duid->raw_data : NULL,
+                                                    duid->raw_data_len);
                 if (r < 0)
                         return log_link_error_errno(link, r, "DHCP4 CLIENT: Failed to set DUID: %m");
                 break;
